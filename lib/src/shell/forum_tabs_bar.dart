@@ -655,8 +655,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                           children: [
                             Flexible(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10.5,
+                                // A scrolling viewport includes the shadow's
+                                // vertical space instead of clipping at the
+                                // pill's bounds. The tab positions stay fixed.
+                                padding: EdgeInsets.symmetric(
+                                  vertical: scrollTabs ? 0 : 10.5,
                                 ),
                                 child: scrollTabs
                                     ? controlsBesideTabs
@@ -688,6 +691,10 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                                         _tabsScrollController,
                                                     scrollDirection:
                                                         Axis.horizontal,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 10.5,
+                                                        ),
                                                     child: tabs,
                                                   ),
                                                 ),
@@ -720,6 +727,10 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                                       _tabsScrollController,
                                                   scrollDirection:
                                                       Axis.horizontal,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 10.5,
+                                                      ),
                                                   child: Row(
                                                     mainAxisSize:
                                                         MainAxisSize.min,

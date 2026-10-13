@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui'
     show
         ImageByteFormat,
@@ -30,7 +31,91 @@ import 'support/button_surface.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
+void forumTabShadowTests() {
+  for (final width in [220.0, 500.0]) {
+    testWidgets('scrolling tab shadows fade below the pill at width $width', (
+      tester,
+    ) async {
+      final previous = debugDisableShadows;
+      debugDisableShadows = false;
+      try {
+        final items = [
+          for (var index = 0; index < 12; index++)
+            ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+        ];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items.first.id,
+          width: width,
+          backgroundColor: const Color(0xff3c404c),
+          theme: DMaterialTheme.apply(
+            AppTheme.dark,
+            DAppearanceMaterial.liquidGlass,
+          ),
+        );
+        final tab = tester.getRect(
+          find.byKey(ValueKey('forum-tab-item-${items.first.id}')),
+        );
+        final scroll = tester.getRect(
+          find.byKey(const ValueKey('forum-tabs-scroll')),
+        );
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('forum-tabs-paint-boundary')),
+        );
+        final origin = boundary.localToGlobal(Offset.zero);
+        await tester.runAsync(() async {
+          final image = await boundary.toImage(pixelRatio: 2);
+          try {
+            final bytes = (await image.toByteData(
+              format: ImageByteFormat.rawRgba,
+            ))!;
+            int red(Offset point) {
+              final local = point - origin;
+              return bytes.getUint8(
+                ((local.dy * 2).floor() * image.width +
+                        (local.dx * 2).floor()) *
+                    4,
+              );
+            }
+
+            const path = String.fromEnvironment('TAB_SHADOW_CAPTURE_DIR');
+            if (path.isNotEmpty) {
+              final destination = path == 'native-temp'
+                  ? '${Directory.systemTemp.path}/tab-shadow-captures'
+                  : path;
+              await Directory(destination).create(recursive: true);
+              final png = (await image.toByteData(
+                format: ImageByteFormat.png,
+              ))!;
+              await File(
+                '$destination/strip-$width.png',
+              ).writeAsBytes(png.buffer.asUint8List());
+              debugPrint('Tab shadow capture: $destination/strip-$width.png');
+            }
+            // Both samples are outside the pill but inside the strip. Its
+            // blurred shadow should fade here, not stop at the tab's bottom.
+            final x = tab.center.dx
+                .clamp(scroll.left + 3, scroll.right - 3)
+                .toDouble();
+            expect(
+              red(Offset(x, tab.bottom + 2)),
+              lessThan(red(Offset(x, tab.bottom + 9)) - 1),
+            );
+          } finally {
+            image.dispose();
+          }
+        });
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDisableShadows = previous;
+      }
+    });
+  }
+}
+
 void main() {
+  forumTabShadowTests();
   const first = ForumTabItem(
     id: 'topic-1',
     title: 'A long-running topic',
