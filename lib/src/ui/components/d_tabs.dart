@@ -1033,7 +1033,12 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
             child: content,
           ),
           builder: (_, color, child) => IconTheme.merge(
-            data: IconThemeData(color: color, size: expanding ? 12.5 : 16),
+            data: IconThemeData(
+              color: color,
+              size: expanding
+                  ? MediaQuery.textScalerOf(context).scale(12.5)
+                  : 16,
+            ),
             child: child!,
           ),
         ),

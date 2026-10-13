@@ -174,6 +174,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('sidebar icons scale with selected and inactive labels', (
+    tester,
+  ) async {
+    for (final scale in [1.0, 1.25, 2.0]) {
+      await mount(tester, width: 400, scale: scale);
+      for (final icon in find.byType(DIcon).evaluate()) {
+        expect(tester.getSize(find.byWidget(icon.widget)).height, 12.5 * scale);
+      }
+      await tester.tap(tab('chat'));
+      await tester.pumpAndSettle();
+      for (final icon in find.byType(DIcon).evaluate()) {
+        expect(tester.getSize(find.byWidget(icon.widget)).height, 12.5 * scale);
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('large text scrolls and hover and press retain visible targets', (
     tester,
   ) async {
