@@ -1418,12 +1418,15 @@ class _SectionState extends State<_Section> {
           runs.length == 1 &&
           rows.length == section.destinations.length &&
           canEdit;
+      final navigation =
+          section.id == 'community' || section.id == 'chat-directories';
       int? findIndex(Key key) =>
           key is ValueKey<String> ? indexes[key.value] : null;
       Widget rowBuilder(BuildContext context, int index) {
         final destination = run[index];
         if (destination.id == _moreDestinationId) {
           return _MoreDestinationsTile(
+            navigation: navigation,
             destinations: more,
             onSelect: _selectDestination,
           );
@@ -1432,6 +1435,7 @@ class _SectionState extends State<_Section> {
           key: submenu ? ValueKey(destination.id) : null,
           destination: destination,
           selected: destination.id == widget.selectedId,
+          navigation: navigation,
           loading: destination.id == widget.loadingDestinationId,
           badge: widget.badgeFor(destination.id),
           submenu: submenu,
@@ -1569,9 +1573,11 @@ class _MoreDestinationsTile extends StatelessWidget {
   const _MoreDestinationsTile({
     required this.destinations,
     required this.onSelect,
+    required this.navigation,
   });
   final List<SidebarDestination> destinations;
   final ValueChanged<SidebarDestination> onSelect;
+  final bool navigation;
 
   @override
   Widget build(BuildContext context) => DDropdownMenu(
@@ -1592,6 +1598,9 @@ class _MoreDestinationsTile extends StatelessWidget {
     ),
     child: DDropdownMenuTrigger(
       builder: (context, menu) => DSidebarMenuButton(
+        variant: navigation
+            ? DSidebarMenuButtonVariant.navigation
+            : DSidebarMenuButtonVariant.menu,
         size: DSidebarMenuButtonSize.regular,
         icon: const DIcon(DIcons.ellipsisVertical, size: 16),
         focusNode: menu.focusNode,
@@ -1742,6 +1751,7 @@ class SidebarDestinationTile extends StatelessWidget {
     this.loading = false,
     required this.badge,
     this.submenu = false,
+    this.navigation = false,
     this.iconSize = 16,
     this.reorderable = false,
     required this.onTap,
@@ -1751,6 +1761,7 @@ class SidebarDestinationTile extends StatelessWidget {
   final bool loading;
   final SidebarBadge badge;
   final bool submenu;
+  final bool navigation;
   final double iconSize;
 
   /// Whether a touch long press on this row starts a reordering drag, which
@@ -1758,7 +1769,7 @@ class SidebarDestinationTile extends StatelessWidget {
   final bool reorderable;
   final VoidCallback onTap;
 
-  Widget _prefixArt(BuildContext context, Color foreground) {
+  Widget _prefixArt(BuildContext context) {
     final theme = Theme.of(context);
     final artSize = context.isTouch ? 22.0 : 18.0;
 
@@ -1829,12 +1840,12 @@ class SidebarDestinationTile extends StatelessWidget {
     return DIcon(
       destination.icon,
       size: iconSize,
-      color: destination.iconColor ?? foreground,
+      color: destination.iconColor,
     );
   }
 
-  Widget _prefix(BuildContext context, Color foreground) {
-    final art = _prefixArt(context, foreground);
+  Widget _prefix(BuildContext context) {
+    final art = _prefixArt(context);
     final badge = destination.prefixBadgeIcon;
     if (badge == null) return art;
 
@@ -1842,11 +1853,7 @@ class SidebarDestinationTile extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         art,
-        Positioned(
-          top: -3,
-          right: -3,
-          child: DIcon(badge, size: 9, color: foreground),
-        ),
+        Positioned(top: -3, right: -3, child: DIcon(badge, size: 9)),
       ],
     );
   }
@@ -1854,7 +1861,6 @@ class SidebarDestinationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final foreground = DTokens.of(context).foreground;
     final badge = destination.badge ?? this.badge;
     final trailingLabel = destination.trailingLabel;
     final action = destination.onSecondaryTap;
@@ -1925,9 +1931,12 @@ class SidebarDestinationTile extends StatelessWidget {
       child: DSidebarMenuButton(
         size: DSidebarMenuButtonSize.regular,
         isActive: selected,
+        variant: navigation
+            ? DSidebarMenuButtonVariant.navigation
+            : DSidebarMenuButtonVariant.menu,
         onPressed: destination.enabled ? onTap : null,
         iconSize: context.isTouch ? 22 : 18,
-        icon: Center(child: _prefix(context, foreground)),
+        icon: Center(child: _prefix(context)),
         // A label replaces the row's own text semantics, dot included.
         semanticLabel: semanticDetails.isEmpty
             ? null

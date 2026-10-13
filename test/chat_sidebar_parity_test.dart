@@ -111,6 +111,18 @@ void main() {
         shell.moveTabToPanel(shell.activeTabId!, panel);
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, 'chat-c-9');
+        final general = tester.widget<DItem>(
+          find.byKey(const ValueKey('chat-inbox-channel-9')),
+        );
+        expect(general.selectionStyle, DItemSelectionStyle.sidebar);
+        expect(general.shape, DItemShape.menu);
+        expect(
+          tester
+              .widget<DItem>(find.byKey(const ValueKey('chat-inbox-channel-9')))
+              .selected,
+          isTrue,
+          reason: 'General follows the conversation in the focused panel',
+        );
         await capture(tester, 'chat-sidebar-conversation-${panel.name}');
         final conversation = shell.activeTabId!;
         for (final label in ['Chats', 'Channels', 'Threads']) {
@@ -118,11 +130,24 @@ void main() {
         }
         await tester.tap(sidebarDestination('Threads'));
         await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DItem>(find.byKey(const ValueKey('chat-inbox-channel-9')))
+              .selected,
+          isFalse,
+          reason: 'a retained conversation is not the focused directory',
+        );
         for (final label in ['Chats', 'Channels', 'Threads']) {
           expect(sidebarDestination(label), findsNothing);
         }
         shell.selectTab(conversation);
         await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DItem>(find.byKey(const ValueKey('chat-inbox-channel-9')))
+              .selected,
+          isTrue,
+        );
         for (final label in ['Chats', 'Channels', 'Threads']) {
           expect(sidebarDestination(label), findsOneWidget);
         }

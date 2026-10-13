@@ -113,6 +113,14 @@ void main() {
                   .widget<DSidebarMenuButton>(
                     find.widgetWithText(DSidebarMenuButton, destination),
                   )
+                  .variant,
+              DSidebarMenuButtonVariant.navigation,
+            );
+            expect(
+              tester
+                  .widget<DSidebarMenuButton>(
+                    find.widgetWithText(DSidebarMenuButton, destination),
+                  )
                   .isActive,
               destination == label,
               reason: '$destination selection when $label is shown',

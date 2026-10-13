@@ -361,14 +361,14 @@ class ChatInboxRow extends StatelessWidget {
       channelId: channel.id,
       child: DItem(
         key: ValueKey('chat-inbox-channel-${channel.id}'),
-        shape: compact ? DItemShape.standard : DItemShape.fullWidth,
+        shape: compact ? DItemShape.menu : DItemShape.fullWidth,
         padding: !compact && constraints.maxWidth < 600
             ? const EdgeInsets.symmetric(vertical: DSpacing.md)
             : null,
         size: compact ? DItemSize.sm : DItemSize.standard,
         selected: selected,
         selectionStyle: compact
-            ? DItemSelectionStyle.strongNeutral
+            ? DItemSelectionStyle.sidebar
             : DItemSelectionStyle.leadingAccent,
         showSelectionIndicator: false,
         onPressed: onPressed,

@@ -7,6 +7,7 @@ import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
+import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_separator.dart';
 
@@ -25,6 +26,9 @@ enum DItemSelectionStyle {
   outline,
 
   strongNeutral,
+
+  /// Flat sidebar hover and a raised selection in liquid glass appearance.
+  sidebar,
   leadingAccent,
 }
 
@@ -182,7 +186,10 @@ class _DItemState extends State<DItem> {
     final outlineSelection =
         widget.selectionStyle == DItemSelectionStyle.outline;
     final neutralSelection =
-        (widget.selectionStyle == DItemSelectionStyle.strongNeutral);
+        widget.selectionStyle == DItemSelectionStyle.strongNeutral ||
+        widget.selectionStyle == DItemSelectionStyle.sidebar;
+    final sidebarSelection =
+        widget.selectionStyle == DItemSelectionStyle.sidebar;
     final strongNeutralSelection =
         widget.selectionStyle == DItemSelectionStyle.strongNeutral;
     final leadingSelection =
@@ -229,6 +236,17 @@ class _DItemState extends State<DItem> {
           color: tokens.foreground,
         ),
         child: CustomPaint(
+          painter: sidebarSelection
+              ? DSidebarRowSurface.painterFor(
+                  context,
+                  selected: widget.selected,
+                  hovered:
+                      widget.highlightOnInteraction &&
+                      _active &&
+                      (_hover || _pressed),
+                  radius: borderRadius,
+                )
+              : null,
           foregroundPainter: _ItemRing(
             focus ? tokens.focusRing : Colors.transparent,
             radius,
@@ -247,7 +265,7 @@ class _DItemState extends State<DItem> {
                   )
                 : null,
             decoration: BoxDecoration(
-              color: background,
+              color: sidebarSelection ? Colors.transparent : background,
               borderRadius: borderRadius,
               border: Border.all(
                 width: DControlDecoration.borderWidth,

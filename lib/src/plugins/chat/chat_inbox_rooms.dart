@@ -91,7 +91,10 @@ class ChatInboxRoomRow extends StatelessWidget {
     return DItem(
       key: ValueKey('chat-inbox-room-${room.id}'),
       size: compact ? DItemSize.sm : DItemSize.standard,
-      shape: compact ? DItemShape.standard : DItemShape.fullWidth,
+      shape: compact ? DItemShape.menu : DItemShape.fullWidth,
+      selectionStyle: compact
+          ? DItemSelectionStyle.sidebar
+          : DItemSelectionStyle.tinted,
       padding: !compact && constraints.maxWidth < 600
           ? const EdgeInsets.symmetric(vertical: DSpacing.md)
           : null,

@@ -8,8 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/control_style.dart';
-import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
+import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
@@ -68,6 +68,8 @@ enum DSidebarSide { left, right }
 enum DSidebarCollapsible { offcanvas, icon, none }
 
 typedef DSidebarMenuButtonSize = DControlSize;
+
+enum DSidebarMenuButtonVariant { menu, navigation }
 
 /// State and shortcuts for a bounded sidebar composition. Persistence belongs
 /// to the caller through [open] and [onOpenChange], not to a browser cookie.
@@ -1047,6 +1049,7 @@ class DSidebarMenuButton extends StatefulWidget {
     this.icon,
     this.iconSize = 16,
     this.isActive = false,
+    this.variant = DSidebarMenuButtonVariant.menu,
     this.size = DSidebarMenuButtonSize.regular,
 
     this.semanticLabel,
@@ -1065,6 +1068,7 @@ class DSidebarMenuButton extends StatefulWidget {
        icon = null,
        iconSize = 16,
        isActive = false,
+       variant = DSidebarMenuButtonVariant.menu,
        size = DSidebarMenuButtonSize.regular,
 
        focusNode = null,
@@ -1077,6 +1081,7 @@ class DSidebarMenuButton extends StatefulWidget {
   final double iconSize;
   final VoidCallback? onPressed;
   final bool isActive;
+  final DSidebarMenuButtonVariant variant;
   final bool? expanded;
   final DSidebarMenuButtonSize size;
 
@@ -1159,7 +1164,7 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
             MediaQuery.textScalerOf(context),
             context: context,
           );
-    final active = widget.isActive || (enabled && (hover || pressed));
+    final navigation = widget.variant == DSidebarMenuButtonVariant.navigation;
     final collapsedLarge =
         iconOnly && widget.size == DSidebarMenuButtonSize.large;
     final verticalPadding = widget._groupLabel
@@ -1206,9 +1211,11 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
             onTapUp: (_) => setState(() => pressed = false),
             child: Opacity(
               opacity: enabled ? 1 : .5,
-              child: DMaterialSurface(
-                radius: BorderRadius.circular(t.radius * .8),
-                color: active ? t.hover : Colors.transparent,
+              child: DSidebarRowSurface(
+                radius: BorderRadius.circular(8),
+                selected: widget.isActive,
+                hovered: enabled && (hover || pressed),
+                navigation: navigation,
                 child: Container(
                   constraints: BoxConstraints(minHeight: minHeight),
                   padding: EdgeInsetsDirectional.only(
@@ -1227,15 +1234,8 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                     top: verticalPadding,
                     bottom: verticalPadding,
                   ),
-                  decoration: BoxDecoration(
-                    color: DMaterialSurface.fill(
-                      context,
-                      active ? t.hover : Colors.transparent,
-                    ),
-                    borderRadius: BorderRadius.circular(t.radius * .8),
-                  ),
                   foregroundDecoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(t.radius * .8),
+                    borderRadius: BorderRadius.circular(8),
                     border: focus
                         ? Border.all(color: t.focusRing, width: 2)
                         : null,
@@ -1244,7 +1244,12 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                     metrics: _ItemScope.of(context)?.metrics,
                     direction: Directionality.of(context),
                     child: IconTheme(
-                      data: IconThemeData(size: 16, color: t.foreground),
+                      data: IconThemeData(
+                        size: 16,
+                        color: widget.isActive
+                            ? t.foreground
+                            : Color.lerp(t.background, t.foreground, .62),
+                      ),
                       child: DefaultTextStyle(
                         maxLines:
                             iconOnly ||
@@ -1264,9 +1269,15 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
                                       context: context,
                                     ) /
                                     fontSize,
-                                color: t.foreground,
+                                color: widget.isActive
+                                    ? t.foreground
+                                    : Color.lerp(
+                                        t.background,
+                                        t.foreground,
+                                        .9,
+                                      ),
                                 fontWeight: widget.isActive
-                                    ? FontWeight.w500
+                                    ? FontWeight.w600
                                     : FontWeight.w400,
                               ),
                         child: Row(

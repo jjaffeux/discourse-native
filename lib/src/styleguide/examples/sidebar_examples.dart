@@ -10,7 +10,7 @@ final sidebarExamples = ComponentExamples(
       'Composable navigation with collapsible panels, groups, and menus.',
   status: ComponentStatus.implemented,
   notes:
-      'Sidebar ports base-nova geometry and native focus/navigation. Content scrolls with hidden scrollbar artwork and drag targets. Group labels can navigate up with onPressed while retaining the same heading typography and bounds. Its mobile panel, search, group disclosure, workspace/account menus and account identity compose the accepted Sheet, Input, Collapsible, Dropdown Menu and Avatar owners. Persistence and routing remain with the app.',
+      'Sidebar ports base-nova geometry and native focus/navigation. Menu links use flat hover and distinct active fills; the navigation variant keeps top-level destinations flat under the pointer. Active rows use the reference rim and sheen in liquid glass. Rich inbox rows share this treatment with DItemSelectionStyle.sidebar and DItemShape.menu. Content scrolls with hidden scrollbar artwork and drag targets. Group labels can navigate up with onPressed while retaining the same heading typography and bounds. Its mobile panel, search, group disclosure, workspace/account menus and account identity compose the accepted Sheet, Input, Collapsible, Dropdown Menu and Avatar owners. Persistence and routing remain with the app.',
   examples: [
     StyleguideExample(
       title: 'Application sidebar',
