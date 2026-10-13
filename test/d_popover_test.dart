@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -7,6 +8,50 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('timeline panel uses reference palette in both materials', (
+    tester,
+  ) async {
+    for (final dark in [false, true]) {
+      for (final material in DAppearanceMaterial.values) {
+        for (final variant in DPopoverVariant.values) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: DMaterialTheme.apply(
+                dark ? AppTheme.dark : AppTheme.light,
+                material,
+              ),
+              home: const Scaffold(body: Center(child: SizedBox.shrink())),
+              builder: (context, _) => Center(
+                child: DPopoverContent(
+                  variant: variant,
+                  width: 228,
+                  cornerRadius: 12,
+                  padding: const EdgeInsets.fromLTRB(6, 11, 6, 9),
+                  child: const Text('Post 2 of 3'),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final panel = find.byType(DPopoverContent);
+          final tokens = DTokens.of(tester.element(panel));
+          final surface = tester.widget<DMaterialSurface>(
+            find.descendant(of: panel, matching: find.byType(DMaterialSurface)),
+          );
+          expect(
+            surface.color,
+            variant == DPopoverVariant.timeline
+                ? Color.lerp(tokens.background, tokens.foreground, .03)
+                : tokens.surface,
+          );
+          expect(surface.radius, BorderRadius.circular(12));
+          expect(tester.getSize(panel).width, 228);
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
+  });
+
   for (final closing in [false, true]) {
     testWidgets(
       'ticker suspension removes ${closing ? 'a closing' : 'an open'} popover',

@@ -93,6 +93,34 @@ final buttonExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Topic timeline actions',
+      description:
+          'A blurred floating pill, clear footer progress, and compact endpoints. Hit bounds follow each surface on desktop and touch.',
+      code:
+          "DButton(density: DButtonDensity.floatingCall, variant: DButtonVariant.ghost, label: Text('25 / 120'), onPressed: openTimeline)",
+      builder: (_) => Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final density in [
+            DButtonDensity.floatingCall,
+            DButtonDensity.topicProgress,
+            DButtonDensity.timelineEnd,
+          ])
+            DButton(
+              density: density,
+              variant: DButtonVariant.ghost,
+              label: Text(
+                density == DButtonDensity.timelineEnd
+                    ? 'First post'
+                    : '25 / 120',
+              ),
+              onPressed: () {},
+            ),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Mobile dock destinations',
       description:
           'One tap target per icon and label. Selection fills only the icon capsule and unread counts sit beside the label.',

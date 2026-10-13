@@ -16,10 +16,48 @@ void main() {
       try {
         var presses = 0;
         for (final scenario in [
-          (position: 5150, total: 5188, width: 260.0, scale: 1.0),
-          (position: 5150, total: 5188, width: 110.0, scale: 1.0),
-          (position: 99999, total: 125000, width: 400.0, scale: 1.5),
-          (position: 99999, total: 125000, width: 96.0, scale: 1.5),
+          (
+            position: 5150,
+            total: 5188,
+            width: 260.0,
+            scale: 1.0,
+            floating: false,
+          ),
+          (
+            position: 5150,
+            total: 5188,
+            width: 110.0,
+            scale: 1.0,
+            floating: false,
+          ),
+          (
+            position: 99999,
+            total: 125000,
+            width: 400.0,
+            scale: 1.5,
+            floating: false,
+          ),
+          (
+            position: 99999,
+            total: 125000,
+            width: 96.0,
+            scale: 1.5,
+            floating: false,
+          ),
+          (
+            position: 5150,
+            total: 5188,
+            width: 110.0,
+            scale: 1.0,
+            floating: true,
+          ),
+          (
+            position: 99999,
+            total: 125000,
+            width: 96.0,
+            scale: 1.5,
+            floating: true,
+          ),
         ]) {
           await tester.pumpWidget(
             MaterialApp(
@@ -35,6 +73,7 @@ void main() {
                       child: TopicProgressButton(
                         position: scenario.position,
                         total: scenario.total,
+                        floating: scenario.floating,
                         onPressed: () => presses++,
                       ),
                     ),
@@ -84,7 +123,15 @@ void main() {
             ),
           );
           expect(bounds, tester.getRect(surface));
-          expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
+          final control = tester.widget<DButton>(button);
+          expect(control.variant, DButtonVariant.ghost);
+          expect(
+            control.density,
+            scenario.floating
+                ? DButtonDensity.floatingCall
+                : DButtonDensity.topicProgress,
+          );
+          expect(control.icon, isNull);
           expect(
             find.bySemanticsLabel(
               RegExp(

@@ -13,6 +13,106 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('timeline presets retain artwork, focus and exact targets', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    var presses = 0;
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      for (final material in DAppearanceMaterial.values) {
+        for (final dark in [false, true]) {
+          for (final scale in [1.0, 2.0]) {
+            for (final density in [
+              DButtonDensity.floatingCall,
+              DButtonDensity.topicProgress,
+              DButtonDensity.timelineEnd,
+            ]) {
+              final floating = density == DButtonDensity.floatingCall;
+              final footer = density == DButtonDensity.topicProgress;
+              await tester.pumpWidget(
+                MaterialApp(
+                  theme: DMaterialTheme.apply(
+                    (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                      platform: platform,
+                    ),
+                    material,
+                  ),
+                  home: MediaQuery(
+                    data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                    child: Scaffold(
+                      body: Center(
+                        child: DButton(
+                          density: density,
+                          variant: DButtonVariant.ghost,
+                          focusNode: focus,
+                          label: const Text('25 / 120'),
+                          onPressed: () => presses++,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+              await tester.pumpAndSettle();
+              final button = find.byType(DButton);
+              final rect = tester.getRect(button);
+              final fontSize = floating ? 11.5 : 12.5;
+              expect(
+                rect.height,
+                closeTo(
+                  (floating
+                          ? 26
+                          : footer
+                          ? 30
+                          : 28.75) +
+                      fontSize * (scale - 1) * 1.5,
+                  .01,
+                ),
+              );
+              final surface = buttonSurface(tester);
+              expect(surface.color.a, floating ? closeTo(.4, .001) : 0);
+              expect(surface.borderColor.a, floating ? greaterThan(0) : 0);
+              expect(
+                surface.borderRadius.topLeft.x,
+                floating || footer ? 999 : 7,
+              );
+              expect(
+                find.descendant(
+                  of: button,
+                  matching: find.byType(BackdropFilter),
+                ),
+                floating ? findsOneWidget : findsNothing,
+              );
+              final artwork = find.descendant(
+                of: button,
+                matching: find.byWidgetPredicate(
+                  (w) =>
+                      w is AnimatedContainer &&
+                      w.decoration is DButtonDecoration,
+                ),
+              );
+              expect(rect, tester.getRect(artwork));
+              final before = presses;
+              await tester.tapAt(Offset(rect.left - 1, rect.center.dy));
+              await tester.pump();
+              expect(presses, before);
+              await tester.tap(button);
+              await tester.pump();
+              expect(presses, before + 1);
+              focus.requestFocus();
+              await tester.pump();
+              await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+              await tester.pump();
+              expect(presses, before + 2);
+              expect(tester.takeException(), isNull);
+            }
+          }
+        }
+      }
+    }
+  });
+
   for (final material in DAppearanceMaterial.values) {
     for (final brightness in Brightness.values) {
       testWidgets('launcher hover stays flat in $material $brightness', (

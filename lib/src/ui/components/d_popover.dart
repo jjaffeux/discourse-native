@@ -26,6 +26,10 @@ enum DPopoverInteraction { mouse, touch, pen, keyboard, imperative }
 /// Tailwind shadow recipes used by shadcn floating surfaces.
 enum DPopoverShadow { none, large }
 
+/// Standard uses the host menu tokens; timeline uses the reference panel
+/// and border mixes. Both retain Native placement, focus and material effects.
+enum DPopoverVariant { standard, timeline }
+
 enum DPopoverChangeReason {
   triggerPress,
   outsidePress,
@@ -408,7 +412,8 @@ class _DPopoverState extends State<DPopover>
   }
 
   void _hidePortal() {
-    if (WidgetsBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+    if (WidgetsBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_open && _portal.isShowing) _portal.hide();
       });
@@ -964,6 +969,7 @@ class DPopoverContent extends StatelessWidget {
     this.padding = const EdgeInsets.all(10),
     this.scrollable = true,
     this.shadow = DPopoverShadow.none,
+    this.variant = DPopoverVariant.standard,
     this.cornerRadius,
     this.placementResolver,
     this.sizeAnimationDuration,
@@ -990,6 +996,7 @@ class DPopoverContent extends StatelessWidget {
   final BoxConstraints constraints;
   final EdgeInsetsGeometry padding;
   final DPopoverShadow shadow;
+  final DPopoverVariant variant;
 
   /// Uniform popup corner radius. Null keeps the Native popover default.
   final double? cornerRadius;
@@ -1026,6 +1033,15 @@ class DPopoverContent extends StatelessWidget {
       decoration: TextDecoration.none,
     );
     final radius = cornerRadius ?? DRadius.popover;
+    final fill = variant == DPopoverVariant.timeline
+        ? Color.lerp(tokens.background, tokens.foreground, .03)!
+        : tokens.surface;
+    final edge = variant == DPopoverVariant.timeline
+        ? Color.lerp(tokens.background, tokens.foreground, .22)!
+        : DControlStyle.outlineBorder(
+            tokens,
+            dark: Theme.of(context).brightness == Brightness.dark,
+          );
     final shadowColor = Colors.black.withValues(alpha: .125);
     final shadows = [
       BoxShadow(color: shadowColor, offset: const Offset(0, 3), blurRadius: 8),
@@ -1045,18 +1061,12 @@ class DPopoverContent extends StatelessWidget {
     Widget decorate(Widget content) => DMaterialSurface(
       depth: DSurfaceDepth.menu,
       radius: BorderRadius.circular(radius),
-      color: tokens.surface,
+      color: fill,
       child: CustomPaint(
-        foregroundPainter: _PopoverRingPainter(
-          color: DControlStyle.outlineBorder(
-            tokens,
-            dark: Theme.of(context).brightness == Brightness.dark,
-          ),
-          radius: radius,
-        ),
+        foregroundPainter: _PopoverRingPainter(color: edge, radius: radius),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: DMaterialSurface.fill(context, tokens.surface),
+            color: DMaterialSurface.fill(context, fill),
             borderRadius: BorderRadius.circular(radius),
             boxShadow:
                 DMaterialSurface.active(context) ||

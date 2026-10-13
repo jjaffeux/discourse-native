@@ -14,6 +14,7 @@ final sliderExamples = ComponentExamples(
       'with its own semantic label. Arrows step; Shift+arrows and Page keys step '
       'by 10 units by default (largeStep overrides this); Home/End select bounds. Horizontal direction follows RTL, '
       'vertical increases upward. step:null enables continuous pointer input. '
+      'The timeline preset uses a 14px accent thumb, 2px panel border and a 4px track. '
       'A null callback disables input. DSliderField and DMultiSliderField support '
       'Form validation, save, reset and external updates. The base-nova 12px '
       'white thumb, 4px track and 3px ring use the visible control bounds. No value tooltip is invented. During a drag controlled values remain authoritative; '
@@ -38,6 +39,7 @@ final sliderExamples = ComponentExamples(
     ),
     for (final example in [
       ('Default', <double>[75], Axis.horizontal, false, false),
+      ('Timeline', <double>[25], Axis.horizontal, false, false),
       ('Range', <double>[25, 50], Axis.horizontal, false, false),
       ('Multiple Thumbs', <double>[10, 20, 70], Axis.horizontal, false, false),
       ('Vertical', <double>[25, 75], Axis.vertical, false, false),
@@ -68,6 +70,7 @@ DMultiSlider(
                         : example.$1 == 'Multiple Thumbs'
                         ? 10
                         : 1},'}
+  ${example.$1 == 'Timeline' ? 'variant: DSliderVariant.timeline,' : ''}
   orientation: Axis.${example.$3.name},
   semanticLabels: ${[for (var i = 0; i < example.$2.length; i++) "'Value ${i + 1}'"]},
   onChanged: ${example.$4 ? 'null' : '(next) => setState(() => values = next)'},
@@ -82,6 +85,9 @@ DMultiSlider(
                     ? 10
                     : 1,
                 axis: example.$3,
+                variant: example.$1 == 'Timeline'
+                    ? DSliderVariant.timeline
+                    : DSliderVariant.standard,
                 disabled: example.$4,
                 rtl: example.$5,
                 temperature: example.$1 == 'Controlled',
@@ -132,6 +138,7 @@ class _SliderDemo extends StatefulWidget {
     required this.initial,
     required this.step,
     required this.axis,
+    this.variant = DSliderVariant.standard,
     required this.disabled,
     required this.rtl,
     required this.temperature,
@@ -139,6 +146,7 @@ class _SliderDemo extends StatefulWidget {
   final List<double> initial;
   final double step;
   final Axis axis;
+  final DSliderVariant variant;
   final bool disabled, rtl, temperature;
   @override
   State<_SliderDemo> createState() => _SliderDemoState();
@@ -174,6 +182,7 @@ class _SliderDemoState extends State<_SliderDemo> {
           SizedBox(
             height: widget.axis == Axis.vertical ? 160 : 48,
             child: DMultiSlider(
+              variant: widget.variant,
               values: _values,
               orientation: widget.axis,
               max: widget.temperature ? 1 : 100,

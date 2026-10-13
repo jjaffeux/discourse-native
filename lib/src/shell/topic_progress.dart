@@ -4,7 +4,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 
 class TopicProgressButton extends StatelessWidget {
@@ -40,13 +39,11 @@ class TopicProgressButton extends StatelessWidget {
         (boundedPosition).toString(),
         (boundedTotal).toString(),
       ),
-      variant: floating ? DButtonVariant.outline : DButtonVariant.ghost,
-      backgroundColor: floating ? null : Colors.transparent,
-      interactiveBackgroundColor: floating ? null : Colors.transparent,
-      shape: floating ? DButtonShape.pill : DButtonShape.rounded,
-      size: DButtonSize.regular,
-      icon: const DIcon(DIcons.chevronDown),
-      iconPosition: DButtonIconPosition.end,
+      variant: DButtonVariant.ghost,
+      density: floating
+          ? DButtonDensity.floatingCall
+          : DButtonDensity.topicProgress,
+      shape: DButtonShape.pill,
       label: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text(
@@ -96,18 +93,20 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
       if (open) setState(() => _session++);
     },
     content: DPopoverContent(
+      variant: DPopoverVariant.timeline,
       side: DPopoverSide.top,
       align: DPopoverAlign.end,
-      width: 360,
-      padding: const EdgeInsets.all(16),
+      width: 228,
+      sideOffset: 8,
+      cornerRadius: 12,
+      padding: const EdgeInsets.fromLTRB(6, 11, 6, 9),
       semanticLabel: context.l10n.postNavigation,
       child: _TopicProgressEditor(
         key: ValueKey(_session),
         controller: widget.controller,
         position: widget.position,
-        total: widget.total,
+        total: widget.total < 1 ? 1 : widget.total,
         isOpen: () => _popover.isOpen,
-        close: _popover.close,
       ),
     ),
     child: DPopoverTrigger(
@@ -130,14 +129,12 @@ class _TopicProgressEditor extends StatefulWidget {
     required this.total,
     super.key,
     required this.isOpen,
-    required this.close,
   });
 
   final ShellController controller;
   final int position;
   final int total;
   final bool Function() isOpen;
-  final VoidCallback close;
 
   @override
   State<_TopicProgressEditor> createState() => _TopicProgressEditorState();
@@ -145,7 +142,7 @@ class _TopicProgressEditor extends StatefulWidget {
 
 class _TopicProgressEditorState extends State<_TopicProgressEditor> {
   late int _selected = widget.position.clamp(1, widget.total);
-  bool _jumping = false;
+  int _request = 0;
   String? _error;
 
   late final bool Function() _ownsSource;
@@ -199,33 +196,58 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
   bool _checkSource() {
     if (_ownsSource()) return true;
     setState(() {
-      _jumping = false;
       _error = appL10n.closeAndReopenTopicProgressToJumpInTheCurrentTopic;
     });
     return false;
   }
 
-  Future<void> _jump([int? position]) async {
-    if (!mounted || _jumping || !widget.isOpen() || !_checkSource()) {
+  Future<void> _jump(int position) async {
+    if (!mounted || !widget.isOpen() || !_checkSource()) {
       return;
     }
-    final target = (position ?? _selected).clamp(1, widget.total);
+    final target = position.clamp(1, widget.total);
+    final request = ++_request;
     setState(() {
       _selected = target;
-      _jumping = true;
       _error = null;
     });
     final opened = await widget.controller.jumpToCurrentTopicIndex(target);
-    if (!mounted || !widget.isOpen() || !_checkSource()) return;
-    if (opened) {
-      widget.close();
+    if (!mounted ||
+        request != _request ||
+        !widget.isOpen() ||
+        !_checkSource()) {
       return;
     }
+    if (opened) return;
     setState(() {
-      _jumping = false;
       _error = appL10n.couldNotOpenThatPostTryAgain;
     });
   }
+
+  @override
+  Widget build(BuildContext context) => TopicProgressPanel(
+    position: _selected,
+    total: widget.total,
+    error: _error,
+    onJump: (value) => unawaited(_jump(value)),
+  );
+}
+
+/// The production timeline layout, also used by the offline visual fixture.
+/// Its owner handles navigation and error state; Native controls own artwork.
+class TopicProgressPanel extends StatelessWidget {
+  const TopicProgressPanel({
+    super.key,
+    required this.position,
+    required this.total,
+    required this.onJump,
+    this.error,
+  });
+
+  final int position;
+  final int total;
+  final ValueChanged<int> onJump;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
@@ -234,38 +256,50 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text.rich(
-          TextSpan(
-            text: context.l10n.postTopicprogress((_selected).toString()),
-            children: [
-              TextSpan(
-                text: context.l10n.messageOf(widget.total.toString()),
-                style: TextStyle(
-                  color: DTokens.of(context).mutedForeground,
-                  fontWeight: FontWeight.w400,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 7),
+          child: Text.rich(
+            TextSpan(
+              text: context.l10n.postTopicprogress(position.toString()),
+              children: [
+                TextSpan(
+                  text: context.l10n.messageOf(total.toString()),
+                  style: TextStyle(
+                    color: Color.lerp(
+                      DTokens.of(context).background,
+                      DTokens.of(context).foreground,
+                      .50,
+                    ),
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          key: const ValueKey('topic-progress-selection'),
-          textAlign: TextAlign.start,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w500,
-            fontFeatures: const [FontFeature.tabularFigures()],
+              ],
+            ),
+            key: const ValueKey('topic-progress-selection'),
+            style: TextStyle(
+              color: DTokens.of(context).foreground,
+              fontSize: 12.5,
+              height: 1.5,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ),
-        TopicPositionSlider(
-          position: _selected,
-          total: widget.total,
-          onChanged: _jumping
-              ? null
-              : (value) => setState(() => _selected = value),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+          child: TopicPositionSlider(
+            position: position,
+            total: total,
+            onChanged: onJump,
+          ),
         ),
-        if (_error case final error?) ...[
+        const SizedBox(height: 4),
+        if (error case final message?) ...[
           Semantics(
             liveRegion: true,
             child: Text(
-              error,
+              message,
               textAlign: TextAlign.center,
               style: TextStyle(color: theme.colorScheme.error),
             ),
@@ -280,19 +314,14 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
             DButton(
               label: Text(context.l10n.firstPost),
               variant: DButtonVariant.ghost,
-              onPressed: _jumping ? null : () => unawaited(_jump(1)),
+              density: DButtonDensity.timelineEnd,
+              onPressed: () => onJump(1),
             ),
             DButton(
               label: Text(context.l10n.latestPost),
               variant: DButtonVariant.ghost,
-              onPressed: _jumping ? null : () => unawaited(_jump(widget.total)),
-            ),
-            DButton(
-              key: const ValueKey('topic-progress-jump'),
-              label: Text(context.l10n.jump),
-              onPressed: () => unawaited(_jump()),
-              variant: DButtonVariant.primary,
-              loading: _jumping,
+              density: DButtonDensity.timelineEnd,
+              onPressed: () => onJump(total),
             ),
           ],
         ),
@@ -315,6 +344,7 @@ class TopicPositionSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DSlider(
     key: const ValueKey('topic-progress-slider'),
+    variant: DSliderVariant.timeline,
     value: position.toDouble(),
     min: 1,
     max: total.toDouble(),

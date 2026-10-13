@@ -10,7 +10,14 @@ import 'package:flutter/services.dart';
 import '../foundation/tokens.dart';
 
 /// Filled uses a capsule track and a bar thumb with the same interactions.
-enum DSliderVariant { standard, ramp }
+enum DSliderVariant {
+  standard,
+  ramp,
+
+  /// Timeline scrubber: 4px track and 14px accent thumb with a 2px panel
+  /// border. Pointer bounds follow the visible thumb and track extent.
+  timeline,
+}
 
 enum DSliderRampPattern { none, checkerboard, wave }
 
@@ -286,7 +293,9 @@ class _DMultiSliderState extends State<DMultiSlider> {
       final inset = math.min(13.0, extent / 2);
       return ((_reverse ? 1 - f : f) * extent).clamp(inset, extent - inset);
     }
-    return 6 + (_reverse ? 1 - f : f) * math.max(0, extent - 12);
+    final diameter = widget.variant == DSliderVariant.timeline ? 14.0 : 12.0;
+    return diameter / 2 +
+        (_reverse ? 1 - f : f) * math.max(0, extent - diameter);
   }
 
   double _valueAt(Offset point, double extent) {
@@ -297,8 +306,10 @@ class _DMultiSliderState extends State<DMultiSlider> {
       );
       return widget.min + (_reverse ? 1 - f : f) * (widget.max - widget.min);
     }
+    final diameter = widget.variant == DSliderVariant.timeline ? 14.0 : 12.0;
     final f =
-        (((_vertical ? point.dy : point.dx) - 6) / math.max(1, extent - 12))
+        (((_vertical ? point.dy : point.dx) - diameter / 2) /
+                math.max(1, extent - diameter))
             .clamp(0.0, 1.0);
     return widget.min + (_reverse ? 1 - f : f) * (widget.max - widget.min);
   }
@@ -512,6 +523,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
     final tokens = DTokens.of(context);
     final crossExtent = switch (widget.variant) {
       DSliderVariant.standard => 12.0,
+      DSliderVariant.timeline => 14.0,
 
       DSliderVariant.ramp => 26.0,
     };
@@ -605,7 +617,15 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                               extent,
                                             ),
                                       origin: _reverse ? extent : 0,
-                                      muted: tokens.muted,
+                                      muted:
+                                          widget.variant ==
+                                              DSliderVariant.timeline
+                                          ? Color.lerp(
+                                              tokens.background,
+                                              tokens.foreground,
+                                              .10,
+                                            )!
+                                          : tokens.muted,
                                       primary: tokens.primary,
                                     ),
                             ),
@@ -679,6 +699,9 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                       enabled: _enabled,
                                       vertical: _vertical,
 
+                                      timeline:
+                                          widget.variant ==
+                                          DSliderVariant.timeline,
                                       ramp:
                                           widget.variant == DSliderVariant.ramp,
                                       offset:
@@ -721,6 +744,7 @@ class _SliderThumb extends StatefulWidget {
     required this.offset,
 
     required this.ramp,
+    required this.timeline,
   });
   final FocusNode node;
   final double crossExtent;
@@ -730,6 +754,7 @@ class _SliderThumb extends StatefulWidget {
   final double offset;
 
   final bool ramp;
+  final bool timeline;
   @override
   State<_SliderThumb> createState() => _SliderThumbState();
 }
@@ -752,8 +777,12 @@ class _SliderThumbState extends State<_SliderThumb> {
                   (widget.node.hasFocus &&
                       FocusManager.instance.highlightMode ==
                           FocusHighlightMode.traditional));
-          final width = widget.ramp ? 18.0 : (12.0);
-          final height = widget.ramp ? 18.0 : (12.0);
+          final width = widget.ramp
+              ? 18.0
+              : widget.timeline
+              ? 14.0
+              : 12.0;
+          final height = width;
           final offset = widget.offset;
           return Stack(
             clipBehavior: Clip.none,
@@ -775,12 +804,22 @@ class _SliderThumbState extends State<_SliderThumb> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
                     // base-nova explicitly uses bg-white in both color modes.
-                    color: widget.ramp ? Colors.transparent : Colors.white,
+                    color: widget.ramp
+                        ? Colors.transparent
+                        : widget.timeline
+                        ? DTokens.of(context).primary
+                        : Colors.white,
                     border: Border.all(
-                      color: widget.ramp
+                      color: widget.timeline
+                          ? Color.lerp(
+                              DTokens.of(context).background,
+                              DTokens.of(context).foreground,
+                              .03,
+                            )!
+                          : widget.ramp
                           ? DTokens.of(context).foreground
                           : ring,
-                      width: widget.ramp ? 2 : 1,
+                      width: widget.ramp || widget.timeline ? 2 : 1,
                     ),
                     boxShadow: highlighted
                         ? [

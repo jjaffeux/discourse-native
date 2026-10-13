@@ -7,6 +7,97 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final direction in TextDirection.values) {
+      testWidgets(
+        'timeline thumb, bounds and live input on $platform $direction',
+        (tester) async {
+          var value = 2.0;
+          var enabled = true;
+          late StateSetter update;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(platform: platform),
+              home: Scaffold(
+                body: Directionality(
+                  textDirection: direction,
+                  child: Center(
+                    child: SizedBox(
+                      width: 202,
+                      child: StatefulBuilder(
+                        builder: (context, setState) {
+                          update = setState;
+                          return DSlider(
+                            value: value,
+                            min: 1,
+                            max: 3,
+                            variant: DSliderVariant.timeline,
+                            semanticLabel: 'Post',
+                            onChanged: enabled
+                                ? (next) => setState(() => value = next)
+                                : null,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          final slider = find.byType(DSlider);
+          final rect = tester.getRect(slider);
+          expect(rect.height, 14);
+          final thumb = tester.widget<AnimatedContainer>(
+            find.descendant(
+              of: slider,
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          expect(thumb.constraints!.maxWidth, 14);
+          final decoration = thumb.decoration! as BoxDecoration;
+          final context = tester.element(slider);
+          expect(decoration.color, DTokens.of(context).primary);
+          expect(decoration.border!.top.width, 2);
+          expect(
+            decoration.border!.top.color,
+            Color.lerp(
+              DTokens.of(context).background,
+              DTokens.of(context).foreground,
+              .03,
+            ),
+          );
+          // Input beyond the visible extent cannot change the post.
+          await tester.tapAt(Offset(rect.right - 1, rect.bottom + 1));
+          expect(value, 2);
+          final maxX = direction == TextDirection.ltr
+              ? rect.right - 7
+              : rect.left + 7;
+          await tester.tapAt(Offset(maxX, rect.center.dy));
+          await tester.pump();
+          expect(value, 3);
+          await tester.sendKeyEvent(LogicalKeyboardKey.home);
+          await tester.pump();
+          expect(value, 1);
+          await tester.sendKeyEvent(
+            direction == TextDirection.ltr
+                ? LogicalKeyboardKey.arrowRight
+                : LogicalKeyboardKey.arrowLeft,
+          );
+          await tester.pump();
+          expect(value, 2);
+          update(() => enabled = false);
+          await tester.pump();
+          await tester.tapAt(Offset(maxX, rect.center.dy));
+          await tester.sendKeyEvent(LogicalKeyboardKey.end);
+          await tester.pump();
+          expect(value, 2);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final direction in TextDirection.values) {
       testWidgets('ramp endpoints and keyboard in $direction on $platform', (
         tester,
       ) async {

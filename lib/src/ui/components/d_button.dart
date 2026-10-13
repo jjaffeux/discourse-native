@@ -1,4 +1,5 @@
-import 'dart:ui' show SemanticsValidationResult, lerpDouble;
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter, SemanticsValidationResult, lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -62,6 +63,17 @@ enum DButtonShape { rounded, pill }
 /// Named artwork presets with shared styling and accessible touch targets.
 enum DButtonDensity {
   standard,
+
+  /// A translucent 26px pill with 11.5px text, 11px insets and a 3px
+  /// backdrop blur. Retains its artwork in both appearance materials.
+  floatingCall,
+
+  /// A clear 30px footer progress pill, with 12.5px text and 8px insets.
+  topicProgress,
+
+  /// Compact timeline endpoints: 12.5px text, 5px vertical / 7px horizontal
+  /// insets and 7px corners. Surface and hit bounds grow with text.
+  timelineEnd,
 
   /// Flat 30px post-reaction pills and circular picker actions.
   postReaction,
@@ -500,6 +512,49 @@ class DButton extends StatelessWidget {
   static Color _alpha(Color color, double factor) =>
       color.withValues(alpha: color.a * factor);
 
+  // The reference lowers OKLab lightness by .08, preserving hue and chroma,
+  // then paints the well at 40% opacity. Avoid a palette-dependent black mix.
+  static Color _floatingCallFill(DTokens tokens) {
+    double linear(double c) =>
+        c <= .04045 ? c / 12.92 : math.pow((c + .055) / 1.055, 2.4).toDouble();
+    double srgb(double c) =>
+        (c <= .0031308 ? 12.92 * c : 1.055 * math.pow(c, 1 / 2.4) - .055)
+            .clamp(0, 1)
+            .toDouble();
+    final color = tokens.background;
+    final r = linear(color.r), g = linear(color.g), b = linear(color.b);
+    final l = math
+        .pow(.4122214708 * r + .5363325363 * g + .0514459929 * b, 1 / 3)
+        .toDouble();
+    final m = math
+        .pow(.2119034982 * r + .6806995451 * g + .1073969566 * b, 1 / 3)
+        .toDouble();
+    final s = math
+        .pow(.0883024619 * r + .2817188376 * g + .6299787005 * b, 1 / 3)
+        .toDouble();
+    final lightness = math.max(
+      0.0,
+      .2104542553 * l + .793617785 * m - .0040720468 * s - .08,
+    );
+    final a = 1.9779984951 * l - 2.428592205 * m + .4505937099 * s;
+    final labB = .0259040371 * l + .7827717662 * m - .808675766 * s;
+    final ll = math
+        .pow(lightness + .3963377774 * a + .2158037573 * labB, 3)
+        .toDouble();
+    final mm = math
+        .pow(lightness - .1055613458 * a - .0638541728 * labB, 3)
+        .toDouble();
+    final ss = math
+        .pow(lightness - .0894841775 * a - 1.291485548 * labB, 3)
+        .toDouble();
+    return Color.from(
+      alpha: color.a * .4,
+      red: srgb(4.0767416621 * ll - 3.3077115913 * mm + .2309699292 * ss),
+      green: srgb(-1.2684380046 * ll + 2.6097574011 * mm - .3413193965 * ss),
+      blue: srgb(-.0041960863 * ll - .7034186147 * mm + 1.707614701 * ss),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final effectiveSemanticLabel =
@@ -510,6 +565,10 @@ class DButton extends StatelessWidget {
     final dark = theme.brightness == Brightness.dark;
     final postAction = density == DButtonDensity.postAction;
     final glass = DMaterialTheme.glassOf(context);
+    final floatingCall = density == DButtonDensity.floatingCall;
+    final topicProgress = density == DButtonDensity.topicProgress;
+    final timelineEnd = density == DButtonDensity.timelineEnd;
+    final timeline = floatingCall || topicProgress || timelineEnd;
     final postReaction = density == DButtonDensity.postReaction;
     final chrome =
         density == DButtonDensity.chrome ||
@@ -543,7 +602,11 @@ class DButton extends StatelessWidget {
         : ((avatar) || mobileDock || mobileDockAction || composerBlock
               ? DButtonSize.regular
               : size);
-    final fontSize = postReaction
+    final fontSize = floatingCall
+        ? 11.5
+        : topicProgress || timelineEnd
+        ? 12.5
+        : postReaction
         ? DPostReactionStyle.fontSize
         : header
         ? 12.5
@@ -592,7 +655,15 @@ class DButton extends StatelessWidget {
               : 0.0,
           double.infinity,
         );
-    final visualDimension = postReaction
+    final visualDimension = timeline
+        ? (floatingCall
+                  ? 26
+                  : topicProgress
+                  ? 30
+                  : 28.75) +
+              (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
+                  1.5
+        : postReaction
         ? DPostReactionStyle.height(MediaQuery.textScalerOf(context))
         : header
         ? 28 +
@@ -637,12 +708,16 @@ class DButton extends StatelessWidget {
               ? 16
               : postAction
               ? 8
-              : postReaction ||
+              : floatingCall ||
+                    topicProgress ||
+                    postReaction ||
                     chrome ||
                     avatar ||
                     shape == DButtonShape.pill ||
                     variant == DButtonVariant.primary
               ? DRadius.pill
+              : timelineEnd
+              ? 7
               : chatMessageAction
               ? 6
               : effectiveSize == DControlSize.tabAction
@@ -725,6 +800,31 @@ class DButton extends StatelessWidget {
                     : tokens.foreground.withValues(alpha: .08)
               : Colors.transparent,
           border: BorderSide.none,
+        );
+      }
+      if (timeline) {
+        final interactive =
+            !states.contains(WidgetState.disabled) &&
+            (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.pressed));
+        final foreground =
+            foregroundColor ??
+            (timelineEnd
+                ? tokens.buttonTheme.accent.foreground
+                : Color.lerp(tokens.background, tokens.foreground, .50)!);
+        return DButtonStateStyle(
+          foregroundColor: foreground,
+          iconColor: foreground,
+          backgroundColor: floatingCall
+              ? _floatingCallFill(tokens)
+              : timelineEnd && interactive
+              ? tokens.buttonTheme.accent.hover
+              : Colors.transparent,
+          border: floatingCall
+              ? BorderSide(
+                  color: Color.lerp(tokens.background, tokens.foreground, .22)!,
+                )
+              : BorderSide.none,
         );
       }
       if (postReaction) {
@@ -816,7 +916,15 @@ class DButton extends StatelessWidget {
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        (header
+        (timeline
+            ? EdgeInsets.symmetric(
+                horizontal: floatingCall
+                    ? 11
+                    : topicProgress
+                    ? 8
+                    : 7,
+              )
+            : header
             ? (_iconOnly
                   ? EdgeInsets.zero
                   : const EdgeInsets.symmetric(horizontal: 10, vertical: 1))
@@ -865,7 +973,7 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: mobileDock ? 11 : fontSize,
-          height: postReaction || header || inlineMetadata
+          height: timeline || postReaction || header || inlineMetadata
               ? 1.5
               : mobileDock
               ? 13 / 11
@@ -874,7 +982,11 @@ class DButton extends StatelessWidget {
                     fontSize
               : DControlStyle.lineHeight(effectiveSize, context: context) /
                     fontSize,
-          fontWeight: postReaction
+          fontWeight: floatingCall
+              ? FontWeight.w600
+              : topicProgress || timelineEnd
+              ? FontWeight.w400
+              : postReaction
               ? FontWeight.w500
               : header
               ? FontWeight.w600
@@ -945,7 +1057,7 @@ class DButton extends StatelessWidget {
             // Launcher cells use a flat interaction tint in both materials.
             color: expandedChrome || (postAction && glass)
                 ? Colors.transparent
-                : postAction || postReaction || chrome || launcher
+                : postAction || timeline || postReaction || chrome || launcher
                 ? state.backgroundColor
                 : DMaterialSurface.fill(context, state.backgroundColor),
             borderColor: resolvedBorderColor,
@@ -972,6 +1084,23 @@ class DButton extends StatelessWidget {
                           states.contains(WidgetState.pressed)),
                   child: surface,
                 )
+              : floatingCall
+              ? Stack(
+                  fit: StackFit.passthrough,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: radius,
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ),
+                    surface,
+                  ],
+                )
               : expandedChrome
               ? DMaterialSurface(
                   radius: radius,
@@ -979,7 +1108,7 @@ class DButton extends StatelessWidget {
                   depth: DSurfaceDepth.chromeSelection,
                   child: surface,
                 )
-              : postReaction || chrome || launcher
+              : timeline || postReaction || chrome || launcher
               ? surface
               : DMaterialSurface(
                   radius: radius,

@@ -8,7 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('registers every documented section in reference order', () {
     expect(buttonExamples.examples.map((example) => example.title), [
+      'Bare post actions',
       'Application control sizes',
+      'Topic timeline actions',
       'Mobile dock destinations',
       'Redesign button families',
       'Dashed creation tile',
