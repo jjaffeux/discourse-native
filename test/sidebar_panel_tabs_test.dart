@@ -242,7 +242,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        tester.widget<DBadge>(badge).semanticLabel,
+        tester.widget<Semantics>(badge).properties.label,
         'Chat, 17 urgent messages',
       );
       final route = shell.currentContent;

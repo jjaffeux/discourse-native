@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icons.dart';
+import '../../theme/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final tabsExamples = ComponentExamples(
@@ -15,6 +16,62 @@ final tabsExamples = ComponentExamples(
       'Pointer activation retains focus without an outline. Keyboard entry, arrow navigation, and Enter/Space activation show the focus ring by default. '
       'DTabPanel unmounts hidden content by default; maintainState retains it offstage without ticking or semantics. Focus in a disappearing panel returns to its trigger. Horizontal lists scroll at narrow widths and reveal keyboard-focused tabs. Hit areas match the compact artwork on every platform. All colors, font family, radius and reduced motion update live from the preview.',
   examples: [
+    StyleguideExample(
+      title: 'Sidebar modes',
+      description:
+          'A recessed capsule track with 38px inactive glyphs. The selected label fades in and takes the spare width over 300ms; counts remain beside their glyph. Hover and press use the shared appearance material. Reduced motion changes immediately.',
+      states: const [
+        'Expanding label',
+        'Unread count',
+        'Hover',
+        'Press',
+        'Keyboard',
+        'Reduced motion',
+      ],
+      code:
+          "DTabList<String>(expandSelected: true, children: [/* icon triggers with selectedLabelOnly: true */])",
+      builder: (context) => SizedBox(
+        width: 226,
+        child: DTabs<String>(
+          children: [
+            DTabList<String>(
+              expandSelected: true,
+              children: [
+                const DTabTrigger(
+                  value: 'forum',
+                  semanticLabel: 'Forum',
+                  selectedLabelOnly: true,
+                  icon: DIcon(DIcons.layerGroup),
+                  child: Text('Forum'),
+                ),
+                DTabTrigger(
+                  value: 'chat',
+                  semanticLabel: 'Chat',
+                  selectedLabelOnly: true,
+                  icon: const DIcon(DIcons.comment),
+                  trailing: Text(
+                    '43',
+                    style: TextStyle(
+                      color: DTokens.of(context).success,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  child: const Text('Chat'),
+                ),
+                const DTabTrigger(
+                  value: 'shortcuts',
+                  semanticLabel: 'Shortcuts',
+                  selectedLabelOnly: true,
+                  icon: DIcon(DNativeIcons.bolt),
+                  child: Text('Shortcuts'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Mobile navigation',
       description:

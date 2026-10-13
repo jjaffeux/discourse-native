@@ -3,12 +3,14 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
+import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -410,55 +412,62 @@ class DTabList<T> extends StatelessWidget {
     if (expandSelected) {
       assert(root.orientation == Axis.horizontal);
       final tabs = children.cast<DTabTrigger<T>>();
-      final minimum = DControlStyle.scaledHeight(
-        size,
-        MediaQuery.textScalerOf(context),
-        context: context,
-      );
-      final widths = [
-        for (final tab in tabs)
-          minimum + (tab.trailing == null ? 0 : minimum * 1.5),
-      ];
       return LayoutBuilder(
         builder: (context, constraints) {
-          final total = widths.fold<double>(0, (a, b) => a + b);
-          final extra = constraints.hasBoundedWidth
-              ? math.max(minimum * 2, constraints.maxWidth - total - 6)
-              : minimum * 2;
-          return SingleChildScrollView(
-            controller: null,
-            scrollDirection: Axis.horizontal,
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: tokens.muted,
-                borderRadius: BorderRadius.circular(DRadius.panel),
-              ),
-              child: _DTabListScope<T>(
-                variant: variant,
-                size: size,
-                activateOnFocus: activateOnFocus,
-
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (var i = 0; i < tabs.length; i++)
-                      TweenAnimationBuilder<double>(
-                        key: ValueKey(('expanding-tab', tabs[i].value)),
-                        tween: Tween(
-                          end:
-                              widths[i] +
-                              (root.value == tabs[i].value ? extra : 0),
-                        ),
-                        duration: DMotion.duration(context, DMotion.change),
-                        curve: Curves.easeOutCubic,
-                        child: tabs[i],
-                        builder: (_, width, child) => ConstrainedBox(
-                          constraints: BoxConstraints(minWidth: width),
-                          child: IntrinsicWidth(child: child),
+          final dark = Theme.of(context).brightness == Brightness.dark;
+          final well = Colors.black.withValues(alpha: dark ? .16 : .045);
+          return Semantics(
+            container: true,
+            explicitChildNodes: true,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DMaterialBatch(
+                child: DMaterialSurface(
+                  depth: DSurfaceDepth.recessed,
+                  preserveColor: true,
+                  color: well,
+                  radius: BorderRadius.circular(DRadius.pill),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: DMaterialSurface.fill(context, well),
+                      borderRadius: BorderRadius.circular(DRadius.pill),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(3),
+                      child: _DTabListScope<T>(
+                        variant: variant,
+                        size: size,
+                        activateOnFocus: activateOnFocus,
+                        expandSelected: true,
+                        child: _ExpandingTabStrip(
+                          availableWidth: constraints.hasBoundedWidth
+                              ? math.max(0, constraints.maxWidth - 6)
+                              : 0,
+                          textDirection: Directionality.of(context),
+                          children: [
+                            for (final tab in tabs)
+                              TweenAnimationBuilder<double>(
+                                key: ValueKey(('expanding-tab', tab.value)),
+                                tween: Tween(
+                                  end: root.value == tab.value ? 1 : 0,
+                                ),
+                                duration: DMotion.duration(
+                                  context,
+                                  const Duration(milliseconds: 300),
+                                ),
+                                curve: Curves.ease,
+                                child: tab,
+                                builder: (_, weight, child) =>
+                                    _ExpandingTabWeight(
+                                      weight: weight,
+                                      child: child!,
+                                    ),
+                              ),
+                          ],
                         ),
                       ),
-                  ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -549,12 +558,142 @@ class DTabList<T> extends StatelessWidget {
   }
 }
 
+// The reference distributes spare width by animated flex-grow, after measuring
+// each glyph/label/badge. Layout and hit testing use the same painted bounds.
+class _ExpandingTabData extends ContainerBoxParentData<RenderBox> {
+  double weight = 0;
+}
+
+class _ExpandingTabWeight extends ParentDataWidget<_ExpandingTabData> {
+  const _ExpandingTabWeight({required this.weight, required super.child});
+  final double weight;
+
+  @override
+  void applyParentData(RenderObject renderObject) {
+    final data = renderObject.parentData! as _ExpandingTabData;
+    if (data.weight == weight) return;
+    data.weight = weight;
+    renderObject.parent?.markNeedsLayout();
+  }
+
+  @override
+  Type get debugTypicalAncestorWidgetClass => _ExpandingTabStrip;
+}
+
+class _ExpandingTabStrip extends MultiChildRenderObjectWidget {
+  const _ExpandingTabStrip({
+    required this.availableWidth,
+    required this.textDirection,
+    required super.children,
+  });
+  final double availableWidth;
+  final TextDirection textDirection;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderExpandingTabs(
+    availableWidth: availableWidth,
+    textDirection: textDirection,
+  );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderExpandingTabs renderObject,
+  ) {
+    renderObject
+      ..availableWidth = availableWidth
+      ..textDirection = textDirection
+      ..markNeedsLayout();
+  }
+}
+
+class _RenderExpandingTabs extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _ExpandingTabData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _ExpandingTabData> {
+  _RenderExpandingTabs({
+    required this.availableWidth,
+    required this.textDirection,
+  });
+  double availableWidth;
+  TextDirection textDirection;
+  static const gap = 3.0;
+  static const minimumWidth = 38.0;
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _ExpandingTabData) {
+      child.parentData = _ExpandingTabData();
+    }
+  }
+
+  List<RenderBox> get _children => getChildrenAsList();
+
+  @override
+  void performLayout() {
+    final children = _children;
+    final widths = <double>[];
+    var naturalWidth = math.max(0, children.length - 1) * gap;
+    var height = 0.0;
+    var totalWeight = 0.0;
+    for (final child in children) {
+      child.layout(const BoxConstraints(), parentUsesSize: true);
+      final width = math.max(minimumWidth, child.size.width);
+      widths.add(width);
+      naturalWidth += width;
+      height = math.max(height, child.size.height);
+      totalWeight += (child.parentData! as _ExpandingTabData).weight;
+    }
+    final spare = totalWeight > 0
+        ? math.max(0, availableWidth - naturalWidth)
+        : 0.0;
+    size = constraints.constrain(Size(naturalWidth + spare, height));
+    var x = 0.0;
+    for (var i = 0; i < children.length; i++) {
+      final child = children[i];
+      final data = child.parentData! as _ExpandingTabData;
+      final width =
+          widths[i] + (totalWeight > 0 ? spare * data.weight / totalWeight : 0);
+      child.layout(
+        BoxConstraints.tight(Size(width, height)),
+        parentUsesSize: true,
+      );
+      data.offset = Offset(
+        textDirection == TextDirection.ltr ? x : size.width - x - width,
+        0,
+      );
+      x += width + gap;
+    }
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    var width = 0.0;
+    var height = 0.0;
+    for (final child in _children) {
+      final childSize = child.getDryLayout(const BoxConstraints());
+      width += math.max(minimumWidth, childSize.width);
+      height = math.max(height, childSize.height);
+    }
+    width += math.max(0, childCount - 1) * gap;
+    return constraints.constrain(Size(math.max(width, availableWidth), height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
 class _DTabListScope<T> extends InheritedWidget {
   const _DTabListScope({
     required this.variant,
     required this.size,
     required this.activateOnFocus,
-
+    this.expandSelected = false,
     required super.child,
   });
 
@@ -562,6 +701,7 @@ class _DTabListScope<T> extends InheritedWidget {
   final DControlSize size;
 
   final bool activateOnFocus;
+  final bool expandSelected;
 
   static _DTabListScope<T> require<T>(BuildContext context) {
     final scope = context
@@ -573,7 +713,8 @@ class _DTabListScope<T> extends InheritedWidget {
   @override
   bool updateShouldNotify(_DTabListScope<T> oldWidget) =>
       ((variant != oldWidget.variant || size != oldWidget.size) ||
-      activateOnFocus != oldWidget.activateOnFocus);
+      activateOnFocus != oldWidget.activateOnFocus ||
+      expandSelected != oldWidget.expandSelected);
 }
 
 /// An individual tab button.
@@ -611,6 +752,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   _DTabsState<T>? _root;
 
   bool _hovered = false;
+  bool _pressed = false;
   bool _focused = false;
   bool _focusFromPointer = false;
 
@@ -692,12 +834,17 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final pill = list.variant == DTabListVariant.pill;
     final outlinePill = list.variant == DTabListVariant.outlinePill;
     final plain = list.variant == DTabListVariant.plain;
+    final expanding = list.expandSelected;
     const navigation = false;
     final flat = (pill || outlinePill || plain);
-    final radius = selected && !outlinePill ? DRadius.panel : DRadius.pill;
+    final radius = expanding || outlinePill || !selected
+        ? DRadius.pill
+        : DRadius.panel;
     final accent = tokens.buttonTheme.primary;
     final outline = tokens.buttonTheme.outline;
-    final selectedBackground = outlinePill
+    final selectedBackground = expanding
+        ? Color.lerp(tokens.background, tokens.foreground, .03)!
+        : outlinePill
         ? (_hovered ? accent.hover : accent.background)
         : pill
         ? tokens.foreground.withValues(alpha: .08)
@@ -710,20 +857,41 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         ? accent.foreground
         : selected || _hovered
         ? tokens.foreground
-        : flat || horizontalLine
+        : expanding || flat || horizontalLine
         ? tokens.mutedForeground
         : tokens.foreground.withValues(alpha: .6);
 
     final label = widget.selectedLabelOnly
-        ? ClipRect(
-            child: AnimatedSize(
-              duration: DMotion.duration(context, DMotion.change),
-              child: selected
-                  ? ExcludeSemantics(
-                      excluding: widget.semanticLabel != null,
-                      child: widget.child,
-                    )
-                  : const SizedBox.shrink(),
+        ? TweenAnimationBuilder<double>(
+            tween: Tween(end: selected ? 1 : 0),
+            duration: DMotion.duration(
+              context,
+              const Duration(milliseconds: 300),
+            ),
+            curve: Curves.ease,
+            child: ExcludeSemantics(
+              excluding: widget.semanticLabel != null || !selected,
+              child: widget.child,
+            ),
+            builder: (_, progress, child) => ClipRect(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                widthFactor: progress,
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(
+                    start: DControlStyle.gap,
+                  ),
+                  child: AnimatedOpacity(
+                    opacity: selected ? 1 : 0,
+                    duration: DMotion.duration(
+                      context,
+                      const Duration(milliseconds: 200),
+                    ),
+                    curve: Curves.ease,
+                    child: child,
+                  ),
+                ),
+              ),
             ),
           )
         : widget.child;
@@ -734,22 +902,30 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               widget.icon!,
-              if (!widget.selectedLabelOnly || selected)
-                const SizedBox(width: DSpacing.xs),
+              if (!widget.selectedLabelOnly) const SizedBox(width: DSpacing.xs),
               Flexible(child: label),
               if (widget.trailing case final trailing?) ...[
-                const SizedBox(width: DSpacing.xs),
+                const SizedBox(width: DControlStyle.gap),
                 trailing,
               ],
             ],
           );
+    final expandingFill = selected
+        ? selectedBackground
+        : _hovered
+        ? tokens.foreground.withValues(alpha: dark ? .05 : .07)
+        : Colors.transparent;
     final surface = AnimatedContainer(
-      duration: flat || horizontalLine
+      duration: expanding
+          ? DMotion.duration(context, const Duration(milliseconds: 200))
+          : flat || horizontalLine
           ? Duration.zero
           : DMotion.duration(context, DMotion.change),
       curve: Curves.easeOut,
       constraints: BoxConstraints(
-        minHeight: (horizontalLine
+        minHeight: (expanding
+            ? MediaQuery.textScalerOf(context).scale(12.5) * 1.5 + 10
+            : horizontalLine
             ? 0
             : DControlStyle.scaledHeight(
                     size,
@@ -758,19 +934,23 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                   ) -
                   (flat ? 0 : 7)),
       ),
-      padding: (horizontalLine
+      padding: (expanding
+          ? const EdgeInsets.symmetric(horizontal: 8)
+          : horizontalLine
           ? const EdgeInsets.symmetric(vertical: 11)
           : flat
           ? const EdgeInsets.symmetric(horizontal: 10, vertical: 2)
           : const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5)),
       decoration: BoxDecoration(
-        color: (selected && !line && !plain)
+        color: expanding
+            ? DMaterialSurface.fill(context, expandingFill)
+            : (selected && !line && !plain)
             ? selectedBackground
             : outlinePill && _hovered
             ? outline.hover
             : Colors.transparent,
         borderRadius: BorderRadius.circular(radius),
-        border: horizontalLine
+        border: horizontalLine || expanding
             ? null
             : Border.all(
                 color: outlinePill
@@ -783,7 +963,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                     ? tokens.colors.outlineVariant
                     : Colors.transparent,
               ),
-        boxShadow: selected && !line && !flat
+        boxShadow: selected && !line && !flat && !expanding
             ? const [
                 BoxShadow(
                   color: Color(0x1A000000),
@@ -793,24 +973,39 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
               ]
             : null,
       ),
-      child: DefaultTextStyle.merge(
+      child: AnimatedDefaultTextStyle(
+        duration: expanding
+            ? DMotion.duration(context, const Duration(milliseconds: 200))
+            : Duration.zero,
+        curve: Curves.ease,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: foreground,
-          fontSize: DControlStyle.fontSize(size, context: context),
-          height:
-              DControlStyle.lineHeight(size, context: context) /
-              DControlStyle.fontSize(size, context: context),
-          fontWeight: horizontalLine
-              ? (selected ? FontWeight.w600 : FontWeight.w400)
-              : pill
-              ? FontWeight.w600
-              : FontWeight.w500,
-          letterSpacing: 0,
+        style: DefaultTextStyle.of(context).style.merge(
+          TextStyle(
+            color: foreground,
+            fontSize: expanding
+                ? 12.5
+                : DControlStyle.fontSize(size, context: context),
+            height: expanding
+                ? 1.5
+                : DControlStyle.lineHeight(size, context: context) /
+                      DControlStyle.fontSize(size, context: context),
+            fontWeight: expanding
+                ? (selected ? FontWeight.w600 : FontWeight.w400)
+                : horizontalLine
+                ? (selected ? FontWeight.w600 : FontWeight.w400)
+                : pill
+                ? FontWeight.w600
+                : FontWeight.w500,
+            letterSpacing: 0,
+          ),
         ),
-        child: IconTheme.merge(
-          data: IconThemeData(color: foreground, size: 16),
+        child: TweenAnimationBuilder<Color?>(
+          tween: ColorTween(end: foreground),
+          duration: expanding
+              ? DMotion.duration(context, const Duration(milliseconds: 200))
+              : Duration.zero,
+          curve: Curves.ease,
           child: Align(
             alignment: root.orientation == Axis.horizontal
                 ? Alignment.center
@@ -818,6 +1013,10 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
             widthFactor: 1,
             heightFactor: 1,
             child: content,
+          ),
+          builder: (_, color, child) => IconTheme.merge(
+            data: IconThemeData(color: color, size: expanding ? 12.5 : 16),
+            child: child!,
           ),
         ),
       ),
@@ -831,7 +1030,22 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         topMarker: navigation,
         direction: Directionality.of(context),
       ),
-      child: surface,
+      child: expanding
+          ? TweenAnimationBuilder<Color?>(
+              tween: ColorTween(end: expandingFill),
+              duration: DMotion.duration(
+                context,
+                const Duration(milliseconds: 200),
+              ),
+              curve: Curves.ease,
+              child: surface,
+              builder: (_, color, child) => DMaterialSurface(
+                color: color!,
+                radius: BorderRadius.circular(radius),
+                child: child!,
+              ),
+            )
+          : surface,
     );
     if (_focused && !_focusFromPointer) {
       artwork = CustomPaint(
@@ -850,7 +1064,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         child: artwork,
       );
     }
-    return Semantics(
+    final trigger = Semantics(
       button: true,
       selected: selected,
       enabled: enabled,
@@ -862,9 +1076,13 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         autofocus: false,
         descendantsAreFocusable: false,
         mouseCursor: enabled
-            ? SystemMouseCursors.click
+            ? expanding && selected
+                  ? SystemMouseCursors.basic
+                  : SystemMouseCursors.click
             : SystemMouseCursors.forbidden,
-        onShowHoverHighlight: (value) => setState(() => _hovered = value),
+        onShowHoverHighlight: expanding
+            ? null
+            : (value) => setState(() => _hovered = value),
         onShowFocusHighlight: (value) => setState(() => _focused = value),
         onFocusChange: (focused) {
           if (!focused) _setFocusFromPointer(false);
@@ -916,6 +1134,15 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           excludeFromSemantics: true,
+          onTapDown: expanding && enabled
+              ? (_) => setState(() => _pressed = true)
+              : null,
+          onTapUp: expanding && enabled
+              ? (_) => setState(() => _pressed = false)
+              : null,
+          onTapCancel: expanding && enabled
+              ? () => setState(() => _pressed = false)
+              : null,
           onTap: enabled
               ? () {
                   // Desktop highlight mode includes mouse focus. Keep the
@@ -929,6 +1156,21 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         ),
       ),
     );
+    return expanding
+        ? AnimatedScale(
+            scale: _pressed ? (selected ? .95 : .92) : 1,
+            duration: DMotion.duration(
+              context,
+              Duration(milliseconds: _pressed ? 80 : 400),
+            ),
+            curve: _pressed ? Curves.ease : const Cubic(.34, 1.56, .64, 1),
+            child: MouseRegion(
+              onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
+              onExit: enabled ? (_) => setState(() => _hovered = false) : null,
+              child: trigger,
+            ),
+          )
+        : trigger;
   }
 }
 

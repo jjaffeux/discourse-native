@@ -423,12 +423,19 @@ class ChatPlugin
               semanticLabel: appL10n.chatUrgent(count),
               child: Text(indicator.label!),
             )
-          : DBadge(
+          : Semantics(
               key: key,
-              backgroundColor: colors.success,
-              foregroundColor: colors.notificationForeground,
-              semanticLabel: appL10n.chatUrgent(count),
-              child: Text(indicator.label!),
+              label: appL10n.chatUrgent(count),
+              excludeSemantics: true,
+              child: Text(
+                indicator.label!,
+                style: TextStyle(
+                  color: colors.success,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             );
     }
 
