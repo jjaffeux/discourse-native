@@ -35,7 +35,7 @@ control contracts remain in use.
 
 ## Rendering paths
 
-`liquid_glass_easy` 4.3.4 supplies **rendering only** (`LiquidGlassLens`,
+`liquid_glass_easy` 5.0.0 supplies **rendering only** (`LiquidGlassLens`,
 `LiquidGlassLite`, `LiquidGlassBatch`). Package buttons, switches, scaffolds,
 menus and dialogs are not used. SDK validation used Flutter 3.47.6 / Dart 3.13.5.
 See the [package documentation](https://pub.dev/packages/liquid_glass_easy).

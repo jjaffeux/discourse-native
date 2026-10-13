@@ -5,7 +5,7 @@ private-message, chat, and nested-editor uploads share this boundary, including
 files selected through a picker, pasted, or dropped. `ComposerUploadPreparer`
 keeps the codec replaceable without changing upload transport or UI.
 
-`ComposerImageOptimizer` uses `image` 4.10.1 in a disposable isolate. One job runs
+`ComposerImageOptimizer` uses `image` 4.12.0 in a disposable isolate. One job runs
 at a time across composers; files outside the byte limits return before joining
 that queue, and network uploads remain concurrent. Inputs and outputs
 use app temporary storage rather than passing pixel buffers between isolates.

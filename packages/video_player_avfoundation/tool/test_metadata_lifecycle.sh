@@ -49,4 +49,4 @@ SWIFTPM_MODULECACHE_OVERRIDE="$native_dir/module-cache" \
 swift test --package-path "$native_dir" --disable-sandbox \
   --cache-path "$native_dir/cache" --config-path "$native_dir/config" \
   --security-path "$native_dir/security" \
-  --filter 'VideoPlayerMetadataTests|VideoPlayerTests/(loadTracksWithMediaTypeIsCalledOnNewerOS|videoOutputIsConfiguredWithBT709ColorProperties)'
+  --filter 'VideoPlayerMetadataTests|VideoPlayerTests/(loadTracksWithMediaTypeIsCalledOnNewerOS|videoOutputIsConfiguredWithBT709ColorProperties|validFrameDurationWith)'

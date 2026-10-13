@@ -1,10 +1,10 @@
 # Local patches
 
-Discourse Native vendors the published `video_player_avfoundation` 2.12.0
+Discourse Native vendors the published `video_player_avfoundation` 2.12.1
 package under `packages/video_player_avfoundation`, from
-<https://pub.dev/packages/video_player_avfoundation/versions/2.12.0>.
+<https://pub.dev/packages/video_player_avfoundation/versions/2.12.1>.
 
-- Archive SHA-256: `2fc56e537324a19eb649fca991aa308ac961b5406292876fa657b062de461fd8`
+- Archive SHA-256: `4f8a845173377ab250a50f9b9dfe4a43500cc76a7c49dd8410d02d8fc29dfd8b`
 - Upstream source: <https://github.com/flutter/packages/tree/main/packages/video_player/video_player_avfoundation>
 
 The published archive is the review baseline. The sections below enumerate

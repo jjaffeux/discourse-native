@@ -126,6 +126,10 @@ void postEvent(FlutterEventSink _Nullable sink, id _Nullable event) {
   RTC_OBJC_TYPE(RTCCallbackLogger) * loggerCallback;
 }
 
+// Each Flutter engine registers its own plugin instance. The first one keeps
+// this slot, and the instance that creates the peer connection factory takes
+// it over, so native callers never end up on an instance without a factory.
+// Guarded by @synchronized on the class.
 static FlutterWebRTCPlugin *sharedSingleton;
 
 // Process-global so it can be set from native code (e.g. another plugin) before
@@ -252,7 +256,12 @@ static void FlutterWebRTCApplyFieldTrials(void) {
                    withTextures:(NSObject<FlutterTextureRegistry>*)textures {
 
   self = [super init];
-  sharedSingleton = self;
+  @synchronized([FlutterWebRTCPlugin class]) {
+    // First wins. See the sharedSingleton declaration.
+    if (sharedSingleton == nil) {
+      sharedSingleton = self;
+    }
+  }
 
   FlutterEventChannel* eventChannel =
       [FlutterEventChannel eventChannelWithName:@"FlutterWebRTC.Event" binaryMessenger:messenger];
@@ -421,6 +430,14 @@ static void FlutterWebRTCApplyFieldTrials(void) {
                                                              encoderFactory:simulcastFactory
                                                              decoderFactory:decoderFactory
                                                       audioProcessingModule:_audioManager.audioProcessingModule];
+
+        // Take the sharedSingleton slot over from an instance that never
+        // created a factory.
+        @synchronized([FlutterWebRTCPlugin class]) {
+          if (sharedSingleton.peerConnectionFactory == nil) {
+            sharedSingleton = self;
+          }
+        }
 
         // Allow an embedding plugin (e.g. livekit_client) to own the audio
         // device module's engine-lifecycle delegate. Only override the observer
@@ -2172,11 +2189,10 @@ static void FlutterWebRTCApplyFieldTrials(void) {
 - (nonnull RTCConfiguration*)RTCConfiguration:(id)json {
   RTCConfiguration* config = [[RTCConfiguration alloc] init];
 
-  // WARP also marks the packets with DSCP; the field trial that carries the DTLS
-  // handshake in the STUN exchange was applied in -initialize:. An explicit
-  // `enableDscp` in the configuration below still wins.
+  // Enable SNAP (SCTP INIT in SDP), part of WARP.
+  // see https://www.ietf.org/archive/id/draft-hancke-tsvwg-snap-00.html
   if (gWarpEnabled) {
-    config.enableDscp = YES;
+    config.enableSctpSnap = YES;
   }
 
   if (!json) {

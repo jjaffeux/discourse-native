@@ -244,30 +244,37 @@ class _GlassPaintState extends State<_GlassPaint> {
   Widget build(BuildContext context) {
     final shape = LiquidGlassShape.roundedRectangle(
       cornerRadius: widget.radius.topLeft.x,
-      borderWidth: .5,
-      lightIntensity: .25,
     );
+    // Version 5 expresses rim thickness in logical pixels and separates it
+    // from the outline. Keep the subdued rim using the migration's scale.
+    const specular = LiquidGlassLight.specular(
+      thickness: 2.7,
+      sharpness: 0,
+      intensity: .25,
+      angle: 0,
+      spread: .5,
+    );
+    const glow = LiquidGlassLight.glow(thickness: 14.7, angle: 90);
     final Widget glass = !ready || !ui.ImageFilter.isShaderFilterSupported
         ? LiquidGlassLite(
             shape: shape,
-            pickup: LiquidGlassLitePickup.surface,
-            blur: LiquidGlassBlur(sigmaX: widget.blur, sigmaY: widget.blur),
+            specular: specular,
+            glow: glow,
+            blur: widget.blur,
             color: widget.color,
             child: const SizedBox.expand(),
           )
         : LiquidGlassLens(
             style: LiquidGlassStyle(
               shape: shape,
-              appearance: LiquidGlassAppearance(
-                color: widget.color,
-                blur: LiquidGlassBlur(sigmaX: widget.blur, sigmaY: widget.blur),
-                saturation: 1.85,
-              ),
-              refraction: const LiquidGlassRefraction(
-                distortion: .08,
-                distortionWidth: 10,
-                chromaticAberration: 0,
-              ),
+              specular: specular,
+              glow: glow,
+              color: widget.color,
+              blur: widget.blur,
+              saturation: 1.85,
+              refractionIndex: 1.02,
+              refractionWidth: 10,
+              dispersion: 0,
             ),
             child: const SizedBox.expand(),
           );
