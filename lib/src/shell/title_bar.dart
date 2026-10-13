@@ -134,9 +134,9 @@ class ShellTitleBar extends StatelessWidget {
                 : rowHeight,
             child: ColoredBox(
               color:
-                  Theme.of(
-                        context,
-                      ).extension<ForumThemeEffects>()?.windowGradient !=
+                  Theme.of(context)
+                          .extension<ForumThemeEffects>()
+                          ?.windowGradient !=
                       null
                   ? Colors.transparent
                   : ForumWindowBackground.surfaceColor(context, surface),
@@ -264,11 +264,8 @@ class _DesktopPrimaryAction extends StatelessWidget {
         if (!DControlStyle.isTouch(context)) {
           action = IntrinsicWidth(
             child: DCard(
-              variant: DCardVariant.capsule,
+              variant: DCardVariant.primaryCapsule,
               size: DCardSize.small,
-              backgroundColor: DTokens.of(
-                context,
-              ).buttonTheme.primary.background,
               border: false,
               child: action,
             ),
@@ -298,7 +295,7 @@ class _DesktopPrimaryAction extends StatelessWidget {
         alwaysShowDrafts: true,
         primaryAction: DButton(
           key: TopicCreateButton.buttonKey,
-          label: const DIcon(DIcons.farPenToSquare, size: 14),
+          label: const DIcon(DIcons.penToSquare, size: 14),
           tooltip: context.l10n.newTopic,
           semanticLabel: context.l10n.newTopic,
           shape: DButtonShape.pill,

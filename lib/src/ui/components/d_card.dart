@@ -7,7 +7,16 @@ import '../foundation/tokens.dart';
 enum DCardSize { normal, small }
 
 /// Capsule surfaces group compact actions while children retain their controls.
-enum DCardVariant { standard, capsule, well }
+enum DCardVariant {
+  standard,
+  capsule,
+  well,
+
+  /// Title-bar writing actions: accent glass raised above the window ground.
+  /// Standard and reduced-transparency appearances retain the inset well.
+  /// Compose with chrome-density primary buttons and no outer border.
+  primaryCapsule,
+}
 
 /// A passive surface. Actions, selection, loading and errors belong to children.
 ///
@@ -111,11 +120,14 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
     final footer = widget.footer;
 
     final tokens = DTokens.of(context);
-    final capsule = variant == DCardVariant.capsule;
+    final primaryCapsule = variant == DCardVariant.primaryCapsule;
+    final capsule = variant == DCardVariant.capsule || primaryCapsule;
     final compactCapsule = capsule && size == DCardSize.small;
     final surfaceColor =
         backgroundColor ??
-        (compactCapsule
+        (primaryCapsule
+            ? tokens.buttonTheme.primary.background
+            : compactCapsule
             ? Colors.black.withValues(
                 alpha: Theme.of(context).brightness == Brightness.dark
                     ? .16
@@ -151,7 +163,9 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
       child: Semantics(
         container: true,
         child: DMaterialSurface(
-          depth: capsule || variant == DCardVariant.well
+          depth: primaryCapsule
+              ? DSurfaceDepth.primaryCapsule
+              : capsule || variant == DCardVariant.well
               ? DSurfaceDepth.recessed
               : child is Expanded
               ? DSurfaceDepth.panel
@@ -177,7 +191,9 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
                 ),
                 child: Material(
                   animationDuration: Duration.zero,
-                  color: DMaterialSurface.fill(context, surfaceColor),
+                  color: primaryCapsule
+                      ? Colors.transparent
+                      : DMaterialSurface.fill(context, surfaceColor),
                   borderRadius: radius,
                   clipBehavior: Clip.antiAlias,
                   textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(

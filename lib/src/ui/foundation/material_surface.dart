@@ -8,7 +8,16 @@ import 'joined_control.dart';
 import 'material_theme.dart';
 
 /// Internal painting roles. This adds no targets, padding or gesture listeners.
-enum DSurfaceDepth { raised, recessed, panel, menu, card, swatch }
+enum DSurfaceDepth {
+  raised,
+  recessed,
+  panel,
+  menu,
+  card,
+  swatch,
+  primaryCapsule,
+  chromeSelection,
+}
 
 /// The kit owns depth for both materials. Text and focus rings paint above it.
 /// Large reading panels use thin fills, not an expensive full-panel lens.
@@ -43,6 +52,50 @@ class DMaterialSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (depth == DSurfaceDepth.primaryCapsule ||
+        depth == DSurfaceDepth.chromeSelection) {
+      final dark = Theme.of(context).brightness == Brightness.dark;
+      final selected = depth == DSurfaceDepth.chromeSelection;
+      final glass = DMaterialTheme.glassOf(context);
+      final fill = selected
+          ? color
+          : glass
+          ? color.withValues(alpha: color.a * .76)
+          : Colors.black.withValues(alpha: dark ? .16 : .045);
+      final raised = selected || glass;
+      return CustomPaint(
+        painter: raised
+            ? _ChromeOuterShadow(
+                radius,
+                BoxShadow(
+                  color: Colors.black.withValues(
+                    alpha: selected ? .2 : (dark ? .2 : .08),
+                  ),
+                  offset: Offset(0, selected ? 1 : 4),
+                  blurRadius: selected ? 2 : 14,
+                ),
+              )
+            : null,
+        child: Stack(
+          fit: StackFit.passthrough,
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: CustomPaint(
+                    painter: _ChromeFill(radius, fill, dark, glass, selected),
+                    foregroundPainter: raised
+                        ? _ChromeRaisedEdges(radius, dark, selected)
+                        : _InsetEdges(radius, dark),
+                  ),
+                ),
+              ),
+            ),
+            child,
+          ],
+        ),
+      );
+    }
     if (!active(context)) return child;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final glass = DMaterialTheme.glassOf(context);
@@ -129,6 +182,136 @@ class DMaterialSurface extends StatelessWidget {
     // painted stack instead of a card's earlier shared backdrop.
     return menu ? LiquidGlassBatch.exclude(child: surface) : surface;
   }
+}
+
+/// CSS outer shadows exclude the border box. Flutter's ordinary BoxShadow
+/// also paints behind a translucent fill, which would darken its accent tint.
+class _ChromeOuterShadow extends CustomPainter {
+  const _ChromeOuterShadow(this.radius, this.shadow);
+
+  final BorderRadius radius;
+  final BoxShadow shadow;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shape = radius.toRRect(rect).scaleRadii();
+    canvas.save();
+    canvas.clipPath(
+      Path()
+        ..fillType = PathFillType.evenOdd
+        ..addRect(rect.inflate(shadow.blurSigma * 3 + shadow.offset.distance))
+        ..addRRect(shape),
+    );
+    canvas.drawRRect(shape.shift(shadow.offset), shadow.toPaint());
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ChromeOuterShadow old) =>
+      old.radius != radius || old.shadow != shadow;
+}
+
+/// The mockup's writing capsule has no backdrop filter: it sits on the window
+/// ground. Paint its tint and elliptical catch of light as one shared surface.
+class _ChromeFill extends CustomPainter {
+  const _ChromeFill(
+    this.radius,
+    this.color,
+    this.dark,
+    this.glass,
+    this.selected,
+  );
+
+  final BorderRadius radius;
+  final Color color;
+  final bool dark;
+  final bool glass;
+  final bool selected;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    canvas.save();
+    canvas.clipRRect(radius.toRRect(rect));
+    canvas.drawRect(rect, Paint()..color = color);
+    if (glass && !selected && !size.isEmpty) {
+      canvas.translate(size.width * .35, size.height * -.25);
+      canvas.scale(size.width * 1.2, size.height * 1.1);
+      canvas.drawPaint(
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset.zero,
+            1,
+            [
+              Colors.white.withValues(alpha: dark ? .12 : .55),
+              Colors.white.withValues(alpha: 0),
+            ],
+            const [0, .62],
+          ),
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ChromeFill old) =>
+      old.radius != radius ||
+      old.color != color ||
+      old.dark != dark ||
+      old.glass != glass ||
+      old.selected != selected;
+}
+
+class _ChromeRaisedEdges extends CustomPainter {
+  const _ChromeRaisedEdges(this.radius, this.dark, this.selected);
+
+  final BorderRadius radius;
+  final bool dark;
+  final bool selected;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final shape = radius.toRRect(rect).scaleRadii();
+    Path outside(Offset offset) => Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(rect.inflate(8))
+      ..addRRect(shape.shift(offset));
+
+    canvas.save();
+    canvas.clipRRect(shape);
+    if (!selected) {
+      canvas.drawRRect(
+        shape.deflate(.5),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = Colors.white.withValues(alpha: dark ? .14 : .75),
+      );
+    }
+    canvas.drawPath(
+      outside(const Offset(0, 1)),
+      Paint()
+        ..color = Colors.white.withValues(
+          alpha: selected ? .22 : (dark ? .216 : .99),
+        )
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .5),
+    );
+    if (!selected) {
+      canvas.drawPath(
+        outside(const Offset(0, -1)),
+        Paint()
+          ..color = Colors.black.withValues(alpha: .1)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1),
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ChromeRaisedEdges old) =>
+      old.radius != radius || old.dark != dark || old.selected != selected;
 }
 
 /// Continue the shadow through joined edges without painting over a neighbor.

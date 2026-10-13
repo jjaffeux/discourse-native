@@ -37,12 +37,15 @@ class DIconSetScope extends InheritedWidget {
 
 /// Matches the semantic Font Awesome names used by the mockups.
 /// Unmapped icons keep their original Font Awesome or branded artwork.
-String? alternateIconSvg(DIconSet set, String name) => switch (set) {
-  DIconSet.defaultSet => null,
-  DIconSet.lucide => _lucide[name],
-  DIconSet.phosphor => _phosphor[name],
-  DIconSet.tabler => _tabler[name],
-};
+String? alternateIconSvg(DIconSet set, String name) {
+  final semanticName = name == 'pen-to-square' ? 'far-pen-to-square' : name;
+  return switch (set) {
+    DIconSet.defaultSet => null,
+    DIconSet.lucide => _lucide[semanticName],
+    DIconSet.phosphor => _phosphor[semanticName],
+    DIconSet.tabler => _tabler[semanticName],
+  };
+}
 
 // SVGs rendered from the icon packages used by discourse-native-mockups:
 // Lucide (ISC), Phosphor (MIT), and Tabler (MIT).

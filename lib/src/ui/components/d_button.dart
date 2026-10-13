@@ -95,6 +95,10 @@ enum DButtonDensity {
   /// Pair with a small capsule DCard. The visible bounds are the hit bounds.
   chrome,
 
+  /// A chrome dropdown glyph drawn 1.5px towards its preceding divider.
+  /// The 32 by 28px surface grows with text, retaining matching hit bounds.
+  chromeDropdown,
+
   /// Narrow desktop block actions, retaining regular icons and height.
   composerBlock,
 
@@ -500,7 +504,12 @@ class DButton extends StatelessWidget {
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
     final postReaction = density == DButtonDensity.postReaction;
-    final chrome = density == DButtonDensity.chrome;
+    final chrome =
+        density == DButtonDensity.chrome ||
+        density == DButtonDensity.chromeDropdown;
+    final primaryChrome = chrome && variant == DButtonVariant.primary;
+    final expandedChrome =
+        primaryChrome && expanded && onPressed != null && !loading;
     final header = density == DButtonDensity.header;
     final variantStyle = _referenceStyle(tokens, dark);
 
@@ -706,14 +715,19 @@ class DButton extends StatelessWidget {
             !states.contains(WidgetState.disabled) &&
             (states.contains(WidgetState.hovered) ||
                 states.contains(WidgetState.pressed));
-        final foreground = foregroundColor ?? tokens.mutedForeground;
+        final foreground =
+            foregroundColor ??
+            (primaryChrome
+                ? tokens.buttonTheme.primary.foreground
+                : tokens.mutedForeground);
         return DButtonStateStyle(
           foregroundColor: foreground,
           iconColor: foreground,
-          backgroundColor: interactive
-              ? (dark ? Colors.white : Colors.black).withValues(
-                  alpha: dark ? .09 : .06,
-                )
+          backgroundColor: expandedChrome
+              ? tokens.buttonTheme.primary.background
+              : interactive
+              ? (primaryChrome || dark ? Colors.white : Colors.black)
+                    .withValues(alpha: primaryChrome ? .16 : (dark ? .09 : .06))
               : Colors.transparent,
           border: BorderSide.none,
         );
@@ -780,6 +794,8 @@ class DButton extends StatelessWidget {
             ? const EdgeInsets.all(8)
             : avatar
             ? const EdgeInsets.all(2)
+            : density == DButtonDensity.chromeDropdown
+            ? const EdgeInsetsDirectional.only(end: 3)
             : _iconOnly && !intrinsicIcon
             ? EdgeInsets.zero
             : chrome
@@ -893,7 +909,9 @@ class DButton extends StatelessWidget {
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
             // Launcher cells use a flat interaction tint in both materials.
-            color: postReaction || chrome || launcher
+            color: expandedChrome
+                ? Colors.transparent
+                : postReaction || chrome || launcher
                 ? state.backgroundColor
                 : DMaterialSurface.fill(context, state.backgroundColor),
             borderColor: resolvedBorderColor,
@@ -910,7 +928,14 @@ class DButton extends StatelessWidget {
           child: child,
         );
         final artwork = DControlArtwork(
-          child: postReaction || chrome || launcher
+          child: expandedChrome
+              ? DMaterialSurface(
+                  radius: radius,
+                  color: state.backgroundColor,
+                  depth: DSurfaceDepth.chromeSelection,
+                  child: surface,
+                )
+              : postReaction || chrome || launcher
               ? surface
               : DMaterialSurface(
                   radius: radius,

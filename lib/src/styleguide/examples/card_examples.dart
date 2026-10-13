@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 final cardExamples = ComponentExamples(
@@ -16,6 +17,70 @@ final cardExamples = ComponentExamples(
       'and Toggle Group owners. No example makes requests. At narrow/large text '
       'the header action moves below its text to keep both readable.',
   examples: [
+    StyleguideExample(
+      title: 'Writing capsule',
+      description:
+          'Accent-colored writing actions share a raised glass capsule. '
+          'Standard appearance keeps the recessed window well. Each action '
+          'retains its own hit bounds, hover, popup state and keyboard focus.',
+      code: '''DCard(
+  variant: DCardVariant.primaryCapsule,
+  size: DCardSize.small,
+  border: false,
+  child: DButton(
+    density: DButtonDensity.chrome,
+    label: DIcon(DIcons.reply, size: 14),
+    tooltip: 'Reply',
+    onPressed: reply,
+  ),
+)''',
+      builder: (context) => IntrinsicWidth(
+        child: DCard(
+          variant: DCardVariant.primaryCapsule,
+          size: DCardSize.small,
+          border: false,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: DSpacing.xxs,
+            children: [
+              DButton(
+                density: DButtonDensity.chrome,
+                label: const DIcon(DIcons.penToSquare, size: 14),
+                tooltip: 'New topic',
+                semanticLabel: 'New topic',
+                onPressed: () {},
+              ),
+              DSeparator(
+                orientation: Axis.vertical,
+                length: 16,
+                color: DTokens.of(context).background.withValues(alpha: .3),
+              ),
+              DDropdownMenu(
+                content: DDropdownMenuContent(
+                  children: [
+                    DDropdownMenuItem(
+                      onPressed: () {},
+                      child: const Text('All drafts'),
+                    ),
+                  ],
+                ),
+                child: DDropdownMenuTrigger(
+                  builder: (context, state) => DButton.iconOnly(
+                    density: DButtonDensity.chromeDropdown,
+                    icon: const DIcon(DIcons.chevronDown, size: 11),
+                    tooltip: 'Drafts',
+                    expanded: state.open,
+                    hasPopup: true,
+                    focusNode: state.focusNode,
+                    onPressed: state.toggle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Whisper outline',
       description:

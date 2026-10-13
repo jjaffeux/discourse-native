@@ -79,9 +79,8 @@ class _TopicCreateControl extends StatelessWidget {
     final tokens = DTokens.of(context);
     Widget capsule(Widget child) => IntrinsicWidth(
       child: DCard(
-        variant: DCardVariant.capsule,
+        variant: DCardVariant.primaryCapsule,
         size: DCardSize.small,
-        backgroundColor: tokens.buttonTheme.primary.background,
         border: false,
         child: child,
       ),
@@ -120,7 +119,9 @@ class _TopicCreateControl extends StatelessWidget {
               ? DButtonShape.rounded
               : DButtonShape.pill,
           size: header ? DButtonSize.chrome : DButtonSize.action,
-          density: header ? DButtonDensity.chrome : DButtonDensity.standard,
+          density: header
+              ? DButtonDensity.chromeDropdown
+              : DButtonDensity.standard,
         ),
       ),
     );
@@ -134,7 +135,7 @@ class _TopicCreateControl extends StatelessWidget {
             DSeparator(
               orientation: Axis.vertical,
               length: 16,
-              color: tokens.primaryForeground.withValues(alpha: .2),
+              color: tokens.background.withValues(alpha: .3),
             ),
             drafts,
           ],
