@@ -13,7 +13,8 @@ enum DCardVariant {
   well,
 
   /// Title-bar writing actions: accent glass raised above the window ground.
-  /// Standard and reduced-transparency appearances retain the inset well.
+  /// This artwork applies in both material modes. Reduced transparency keeps
+  /// the raised accent surface with an opaque fill.
   /// Compose with chrome-density primary buttons and no outer border.
   primaryCapsule,
 }

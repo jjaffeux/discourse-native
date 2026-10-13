@@ -21,7 +21,7 @@ final cardExamples = ComponentExamples(
       title: 'Writing capsule',
       description:
           'Accent-colored writing actions share a raised glass capsule. '
-          'Standard appearance keeps the recessed window well. Each action '
+          'Both material modes use the native mockup artwork. Each action '
           'retains its own hit bounds, hover, popup state and keyboard focus.',
       code: '''DCard(
   variant: DCardVariant.primaryCapsule,

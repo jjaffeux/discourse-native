@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
@@ -25,71 +26,7 @@ const _capture = ValueKey('writing-chrome-capture');
 const _topic = Topic(id: 7, title: 'A conversation', slug: 'conversation');
 
 void main() {
-  testWidgets(
-    'glass writing capsule paints the reference tint, sheen and rim',
-    (tester) async {
-      const ground = Color(0xff282a36);
-      const accent = Color(0xffbd93f9);
-      final base = AppTheme.dark;
-      final tokens = base.extension<DTokens>()!.copyWith(
-        colors: base.colorScheme.copyWith(primary: accent),
-        background: ground,
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: DMaterialTheme.apply(
-            base.copyWith(
-              extensions: [
-                ...base.extensions.values.where((e) => e is! DTokens),
-                tokens,
-              ],
-            ),
-            DAppearanceMaterial.liquidGlass,
-          ),
-          home: const Center(
-            child: RepaintBoundary(
-              key: _capture,
-              child: ColoredBox(
-                color: ground,
-                child: DCard(
-                  variant: DCardVariant.primaryCapsule,
-                  size: DCardSize.small,
-                  border: false,
-                  child: SizedBox(width: 73, height: 28),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.runAsync(() async {
-        final image = await tester
-            .renderObject<RenderRepaintBoundary>(find.byKey(_capture))
-            .toImage();
-        final bytes = (await image.toByteData(
-          format: ui.ImageByteFormat.rawRgba,
-        ))!;
-        List<int> rgb(int x, int y) => List.generate(
-          3,
-          (channel) => bytes.getUint8((y * image.width + x) * 4 + channel),
-        );
-        final reference = Color.alphaBlend(
-          Color.lerp(ground, accent, .25)!.withValues(alpha: .76),
-          ground,
-        );
-        final center = rgb(40, 24);
-        final expected = [reference.r, reference.g, reference.b];
-        for (var channel = 0; channel < 3; channel++) {
-          expect(center[channel], closeTo(expected[channel] * 255, 2));
-          expect(rgb(28, 5)[channel], greaterThan(center[channel]));
-          expect(rgb(40, 0)[channel], greaterThan(center[channel]));
-        }
-        image.dispose();
-      });
-      expect(tester.takeException(), isNull);
-    },
-  );
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   for (final brightness in Brightness.values) {
     for (final material in DAppearanceMaterial.values) {
@@ -276,32 +213,116 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
 
-  testWidgets('reduced transparency replaces glass with the inset well', (
+  testWidgets('reduced transparency keeps an opaque raised accent capsule', (
     tester,
   ) async {
     await _pump(
       tester,
       Brightness.dark,
-      DAppearanceMaterial.liquidGlass,
+      DAppearanceMaterial.standard,
       1,
       highContrast: true,
     );
     final capsule = find.byWidgetPredicate(
       (w) => w is DCard && w.variant == DCardVariant.primaryCapsule,
     );
-    final shadows = find.descendant(
-      of: capsule,
-      matching: find.byWidgetPredicate(
-        (w) =>
-            w is DecoratedBox &&
-            w.decoration is BoxDecoration &&
-            (w.decoration as BoxDecoration).boxShadow?.isNotEmpty == true,
-      ),
+    expect(tester.getSize(capsule), const Size(81, 36));
+    // At the capsule's lower interior there is no sheen, glyph, divider or rim.
+    // Reduced transparency must paint the full accent tint over the ground.
+    final tokens = DTokens.of(tester.element(capsule));
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(_capture),
     );
-    expect(shadows, findsNothing);
+    final position =
+        tester.getRect(capsule).topLeft -
+        tester.getRect(find.byKey(_capture)).topLeft;
+    await tester.runAsync(() async {
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      final x = ((position.dx + 30) * 2).round();
+      final y = ((position.dy + 25) * 2).round();
+      final color = tokens.buttonTheme.primary.background;
+      final reference = [color.r, color.g, color.b];
+      for (var channel = 0; channel < 3; channel++) {
+        expect(
+          bytes.getUint8((y * image.width + x) * 4 + channel),
+          closeTo(reference[channel] * 255, 2),
+        );
+      }
+      image.dispose();
+    });
     await _captureChrome(tester, 'reduced-transparency');
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  for (final material in DAppearanceMaterial.values) {
+    testWidgets(
+      'writing capsule paints the reference tint, sheen and rim in $material',
+      (tester) async {
+        const ground = Color(0xff282a36);
+        const accent = Color(0xffbd93f9);
+        final base = AppTheme.dark;
+        final tokens = base.extension<DTokens>()!.copyWith(
+          colors: base.colorScheme.copyWith(primary: accent),
+          background: ground,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: DMaterialTheme.apply(
+              base.copyWith(
+                extensions: [
+                  ...base.extensions.values.where((e) => e is! DTokens),
+                  tokens,
+                ],
+              ),
+              material,
+            ),
+            home: const Center(
+              child: RepaintBoundary(
+                key: _capture,
+                child: ColoredBox(
+                  color: ground,
+                  child: DCard(
+                    variant: DCardVariant.primaryCapsule,
+                    size: DCardSize.small,
+                    border: false,
+                    child: SizedBox(width: 73, height: 28),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.runAsync(() async {
+          final image = await tester
+              .renderObject<RenderRepaintBoundary>(find.byKey(_capture))
+              .toImage();
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          List<int> rgb(int x, int y) => List.generate(
+            3,
+            (channel) => bytes.getUint8((y * image.width + x) * 4 + channel),
+          );
+          final reference = Color.alphaBlend(
+            Color.lerp(ground, accent, .25)!.withValues(alpha: .76),
+            ground,
+          );
+          final center = rgb(40, 24);
+          final expected = [reference.r, reference.g, reference.b];
+          for (var channel = 0; channel < 3; channel++) {
+            expect(center[channel], closeTo(expected[channel] * 255, 2));
+            expect(rgb(28, 5)[channel], greaterThan(center[channel]));
+            expect(rgb(40, 0)[channel], greaterThan(center[channel]));
+          }
+          image.dispose();
+        });
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Future<ShellController> _pump(
@@ -410,7 +431,26 @@ Future<ShellController> _pump(
     ),
   );
   await tester.pumpAndSettle();
+  if (tester.binding is LiveTestWidgetsFlutterBinding) {
+    // Register after the controls so native window deactivation cannot race
+    // the synthetic popup and focus actions in this renderer fixture.
+    final lifecycle = _ResumedNativeFixture();
+    tester.binding.addObserver(lifecycle);
+    addTearDown(() => tester.binding.removeObserver(lifecycle));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  }
   return shell;
+}
+
+class _ResumedNativeFixture with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      WidgetsBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      );
+    }
+  }
 }
 
 Future<void> _captureChrome(WidgetTester tester, String name) async {
@@ -420,18 +460,31 @@ Future<void> _captureChrome(WidgetTester tester, String name) async {
     final destination = path == 'native-temp'
         ? '${Directory.systemTemp.path}/primary-action-captures'
         : path;
-    final image = await tester
-        .renderObject<RenderRepaintBoundary>(find.byKey(_capture))
-        .toImage(pixelRatio: 2);
-    final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(_capture),
+    );
     await Directory(destination).create(recursive: true);
+    final capsule = find.byWidgetPredicate(
+      (w) => w is DCard && w.variant == DCardVariant.primaryCapsule,
+    );
+    final bounds = tester
+        .getRect(capsule)
+        .shift(-tester.getRect(find.byKey(_capture)).topLeft);
+    // Capture the actual painted native layer, including the capsule's rim.
+    final detail = await (boundary.debugLayer! as OffsetLayer).toImage(
+      bounds.inflate(4),
+      pixelRatio: 2,
+    );
+    final detailBytes = (await detail.toByteData(
+      format: ui.ImageByteFormat.png,
+    ))!;
     await File(
-      '$destination/$name.png',
-    ).writeAsBytes(bytes.buffer.asUint8List());
-    image.dispose();
+      '$destination/$name-capsule.png',
+    ).writeAsBytes(detailBytes.buffer.asUint8List());
+    detail.dispose();
     // Native macOS runs export within the app sandbox.
     if (path == 'native-temp') {
-      debugPrint('Native writing capture: $destination/$name.png');
+      debugPrint('Native writing capture: $destination/$name-capsule.png');
     }
   });
 }

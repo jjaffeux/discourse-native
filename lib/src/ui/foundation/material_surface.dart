@@ -56,26 +56,23 @@ class DMaterialSurface extends StatelessWidget {
         depth == DSurfaceDepth.chromeSelection) {
       final dark = Theme.of(context).brightness == Brightness.dark;
       final selected = depth == DSurfaceDepth.chromeSelection;
-      final glass = DMaterialTheme.glassOf(context);
-      final fill = selected
+      // The native mockup always sets data-glass on its writing capsule.
+      // This artwork does not depend on the optional refractive material.
+      final reduced = DMaterialTheme.reducedOf(context);
+      final fill = selected || reduced
           ? color
-          : glass
-          ? color.withValues(alpha: color.a * .76)
-          : Colors.black.withValues(alpha: dark ? .16 : .045);
-      final raised = selected || glass;
+          : color.withValues(alpha: color.a * .76);
       return CustomPaint(
-        painter: raised
-            ? _ChromeOuterShadow(
-                radius,
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: selected ? .2 : (dark ? .2 : .08),
-                  ),
-                  offset: Offset(0, selected ? 1 : 4),
-                  blurRadius: selected ? 2 : 14,
-                ),
-              )
-            : null,
+        painter: _ChromeOuterShadow(
+          radius,
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: selected ? .2 : (dark ? .2 : .08),
+            ),
+            offset: Offset(0, selected ? 1 : 4),
+            blurRadius: selected ? 2 : 14,
+          ),
+        ),
         child: Stack(
           fit: StackFit.passthrough,
           children: [
@@ -83,10 +80,18 @@ class DMaterialSurface extends StatelessWidget {
               child: IgnorePointer(
                 child: ExcludeSemantics(
                   child: CustomPaint(
-                    painter: _ChromeFill(radius, fill, dark, glass, selected),
-                    foregroundPainter: raised
-                        ? _ChromeRaisedEdges(radius, dark, selected)
-                        : _InsetEdges(radius, dark),
+                    painter: _ChromeFill(
+                      radius,
+                      fill,
+                      dark,
+                      !reduced,
+                      selected,
+                    ),
+                    foregroundPainter: _ChromeRaisedEdges(
+                      radius,
+                      dark,
+                      selected,
+                    ),
                   ),
                 ),
               ),
