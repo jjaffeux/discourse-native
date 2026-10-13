@@ -209,6 +209,11 @@ class InstanceSidebar extends StatelessWidget {
             selectedDestinationId = 'groups';
           } else if (currentContent?.isBadges == true) {
             selectedDestinationId = 'badges';
+          } else if (currentContent?.isAppearance == true ||
+              currentContent?.isPreferences == true ||
+              currentContent?.id == 'all-categories' ||
+              currentContent?.id == 'user-bookmarks') {
+            selectedDestinationId = currentContent?.id;
           } else if (currentContent?.isTopic == true &&
               selectedDestinationId == 'drafts') {
             // Reply drafts keep Drafts in their back stack, but the topic itself
@@ -434,17 +439,42 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
         ? <SidebarSection>[]
         : [
             for (final section in sidebar.sections)
-              if (section.id == 'community' &&
-                  section.moreDestinations.any(
-                    (destination) => destination.url != null,
-                  ))
+              if (section.id == 'community')
                 SidebarSection(
                   id: section.id,
                   title: section.title,
                   destinations: section.destinations,
-                  moreDestinations: section.moreDestinations
-                      .where((destination) => destination.url == null)
-                      .toList(),
+                  moreDestinations: [
+                    SidebarDestination(
+                      id: 'all-categories',
+                      label: context.l10n.categories,
+                      icon: DIcons.tag,
+                    ),
+                    ...section.moreDestinations.where(
+                      (destination) => destination.url == null,
+                    ),
+                    if (controller.currentInstance?.isConnected == true)
+                      SidebarDestination(
+                        id: 'user-bookmarks',
+                        label: context.l10n.bookmarks,
+                        icon: DIcons.bookmark,
+                      ),
+                    SidebarDestination(
+                      id: 'appearance',
+                      label: context.l10n.settings,
+                      icon: DIcons.gear,
+                      onTap: () =>
+                          controller.openForumSettings(sidebar.siteUrl!),
+                    ),
+                    if (controller.currentInstance?.isConnected == true)
+                      SidebarDestination(
+                        id: 'preferences',
+                        label: context.l10n.preferences,
+                        icon: DNativeIcons.sliders,
+                        onTap: () =>
+                            controller.openPreferences(sidebar.siteUrl!),
+                      ),
+                  ],
                   showHeader: section.showHeader,
                   collapsible: section.collapsible,
                 )
@@ -1185,6 +1215,7 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
 
 class _SectionState extends State<_Section> {
   bool _collapsed = false;
+  bool _moreOpen = false;
   bool _reordering = false;
   List<SidebarDestination>? _pendingDestinations;
 
@@ -1331,6 +1362,7 @@ class _SectionState extends State<_Section> {
   @override
   void initState() {
     super.initState();
+    _moreOpen = _selectedMore;
     _collapsed =
         widget.store.collapsedFor(
           siteUrl: widget.siteUrl,
@@ -1342,6 +1374,12 @@ class _SectionState extends State<_Section> {
   @override
   void didUpdateWidget(_Section oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.section.id != widget.section.id) {
+      _moreOpen = _selectedMore;
+    } else if (oldWidget.selectedId != widget.selectedId && _selectedMore) {
+      _moreOpen = true;
+    }
     if (oldWidget.siteUrl != widget.siteUrl ||
         !identical(oldWidget.section, widget.section)) {
       _pendingDestinations = null;
@@ -1371,6 +1409,10 @@ class _SectionState extends State<_Section> {
     );
   }
 
+  bool get _selectedMore => widget.section.moreDestinations.any(
+    (destination) => destination.id == widget.selectedId,
+  );
+
   Widget _destinationMenus(
     BuildContext context,
     SidebarSection section,
@@ -1385,8 +1427,6 @@ class _SectionState extends State<_Section> {
           ? pending ?? _pendingDestinations ?? section.destinations
           : section.destinations,
       ...widget.appendedDestinations,
-      for (final destination in section.moreDestinations)
-        if (destination.id == widget.selectedId) destination,
       if (section.moreDestinations.isNotEmpty) _moreDestination,
     ];
     final rows = <SidebarDestination>[
@@ -1396,10 +1436,6 @@ class _SectionState extends State<_Section> {
             widget.insertedDestination != null)
           widget.insertedDestination!,
       ],
-    ];
-    final more = [
-      for (final destination in section.moreDestinations)
-        if (destination.id != widget.selectedId) destination,
     ];
     final runs = <List<SidebarDestination>>[];
     for (final destination in rows) {
@@ -1427,8 +1463,9 @@ class _SectionState extends State<_Section> {
         if (destination.id == _moreDestinationId) {
           return _MoreDestinationsTile(
             navigation: navigation,
-            destinations: more,
-            onSelect: _selectDestination,
+            open: _moreOpen,
+            selected: _selectedMore,
+            onToggle: () => setState(() => _moreOpen = !_moreOpen),
           );
         }
         return SidebarDestinationTile(
@@ -1490,7 +1527,41 @@ class _SectionState extends State<_Section> {
             : menu,
       );
     }
-    return SliverMainAxisGroup(slivers: menus);
+    if (section.moreDestinations.isEmpty) {
+      return SliverMainAxisGroup(slivers: menus);
+    }
+    menus.add(
+      DCollapsibleContent.sliver(
+        key: const ValueKey('sidebar-more-content'),
+        sliver: SliverPadding(
+          padding: const EdgeInsetsDirectional.only(start: 20),
+          sliver: DSidebarMenu.sliverBuilder(
+            itemCount: section.moreDestinations.length,
+            itemBuilder: (context, index) {
+              final destination = section.moreDestinations[index];
+              return Padding(
+                key: ValueKey(destination.id),
+                padding: const EdgeInsets.only(bottom: _sidebarRowGap),
+                child: SidebarDestinationTile(
+                  destination: destination,
+                  selected: destination.id == widget.selectedId,
+                  loading: destination.id == widget.loadingDestinationId,
+                  badge: widget.badgeFor(destination.id),
+                  onTap: () => _selectDestination(destination),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    return DCollapsible(
+      open: _moreOpen,
+      child: FocusTraversalGroup(
+        policy: WidgetOrderTraversalPolicy(),
+        child: SliverMainAxisGroup(slivers: menus),
+      ),
+    );
   }
 
   @override
@@ -1555,12 +1626,7 @@ class _SectionState extends State<_Section> {
         else
           content,
         if (section.moreDestinations.isNotEmpty)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: DSeparator(),
-            ),
-          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
       ],
     );
     return section.collapsible
@@ -1571,43 +1637,40 @@ class _SectionState extends State<_Section> {
 
 class _MoreDestinationsTile extends StatelessWidget {
   const _MoreDestinationsTile({
-    required this.destinations,
-    required this.onSelect,
+    required this.open,
+    required this.selected,
+    required this.onToggle,
     required this.navigation,
   });
-  final List<SidebarDestination> destinations;
-  final ValueChanged<SidebarDestination> onSelect;
+  final bool open;
+  final bool selected;
+  final VoidCallback onToggle;
   final bool navigation;
 
   @override
-  Widget build(BuildContext context) => DDropdownMenu(
-    content: DDropdownMenuContent(
-      width: 240,
+  Widget build(BuildContext context) => DSidebarMenuButton(
+    key: const ValueKey('sidebar-more-toggle'),
+    variant: navigation
+        ? DSidebarMenuButtonVariant.navigation
+        : DSidebarMenuButtonVariant.menu,
+    size: DSidebarMenuButtonSize.regular,
+    iconSize: context.isTouch ? 22 : 18,
+    icon: const Center(child: DIcon(DIcons.ellipsisVertical, size: 16)),
+    isActive: selected,
+    expanded: open,
+    onPressed: onToggle,
+    child: Row(
       children: [
-        for (final destination in destinations)
-          DDropdownMenuItem(
-            leading: DIcon(
-              destination.icon,
-              size: 16,
-              color: destination.iconColor,
-            ),
-            onPressed: destination.enabled ? () => onSelect(destination) : null,
-            child: Text(destination.label),
+        Expanded(child: Text(context.l10n.more)),
+        RotatedBox(
+          quarterTurns: open ? 2 : 0,
+          child: DIcon(
+            DIcons.chevronDown,
+            size: 10,
+            color: Theme.of(context).discourse.whisper,
           ),
+        ),
       ],
-    ),
-    child: DDropdownMenuTrigger(
-      builder: (context, menu) => DSidebarMenuButton(
-        variant: navigation
-            ? DSidebarMenuButtonVariant.navigation
-            : DSidebarMenuButtonVariant.menu,
-        size: DSidebarMenuButtonSize.regular,
-        icon: const DIcon(DIcons.ellipsisVertical, size: 16),
-        focusNode: menu.focusNode,
-        expanded: menu.open,
-        onPressed: menu.toggle,
-        child: Text(context.l10n.more),
-      ),
     ),
   );
 }

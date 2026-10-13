@@ -546,7 +546,7 @@ void _registerShellNavigationTests() {
     expect(find.text('Discourse Meta'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-  testWidgets('keeps Groups in More until the group route is active', (
+  testWidgets('keeps Groups inline under More after selecting its route', (
     tester,
   ) async {
     await pumpShell(tester, desktop);
@@ -559,10 +559,10 @@ void _registerShellNavigationTests() {
     await tester.tap(sidebarDestination('More'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(DDropdownMenuItem, 'Groups'), findsOneWidget);
-    expect(find.widgetWithText(DDropdownMenuItem, 'Filter'), findsNothing);
+    expect(sidebarDestination('Groups'), findsOneWidget);
+    expect(sidebarDestination('Filter'), findsNothing);
 
-    await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Groups'));
+    await tester.tap(sidebarDestination('Groups'));
     await tester.pumpAndSettle();
 
     final surface = find
@@ -585,8 +585,8 @@ void _registerShellNavigationTests() {
     await tester.tap(sidebarDestination('More'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(DDropdownMenuItem, 'Groups'), findsNothing);
-    expect(find.widgetWithText(DDropdownMenuItem, 'Filter'), findsNothing);
+    expect(sidebarDestination('Groups'), findsNothing);
+    expect(sidebarDestination('Filter'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   for (final connected in [true, false]) {
@@ -646,9 +646,21 @@ void _registerShellNavigationTests() {
 
         expect(
           tester
-              .widgetList<DDropdownMenuItem>(find.byType(DDropdownMenuItem))
-              .map((button) => (button.child as Text).data),
-          ['Teams', 'Badges'],
+              .widgetList<SidebarDestinationTile>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('sidebar-more-content')),
+                  matching: find.byType(SidebarDestinationTile),
+                ),
+              )
+              .map((row) => row.destination.label),
+          [
+            'Categories',
+            'Teams',
+            'Badges',
+            if (connected) 'Bookmarks',
+            'Settings',
+            if (connected) 'Preferences',
+          ],
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
@@ -731,35 +743,42 @@ void _registerShellNavigationTests() {
         await tester.pumpAndSettle();
         expect(
           tester
-              .widgetList<DDropdownMenuItem>(find.byType(DDropdownMenuItem))
-              .map((button) => (button.child as Text).data),
-          ['Groups', 'Badges'],
+              .widgetList<SidebarDestinationTile>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('sidebar-more-content')),
+                  matching: find.byType(SidebarDestinationTile),
+                ),
+              )
+              .map((row) => row.destination.label),
+          ['Categories', 'Groups', 'Badges', 'Settings'],
         );
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
 
-  testWidgets('promotes Groups for a group detail opened over another route', (
-    tester,
-  ) async {
-    await pumpShell(tester, desktop);
+  testWidgets(
+    'reveals inline Groups for a group detail opened over another route',
+    (tester) async {
+      await pumpShell(tester, desktop);
 
-    final controller = ShellScope.read(tester.element(primaryMainContent));
-    controller.pushContent(
-      ContentRoute.group(
-        GroupRoute.detail(
-          'staff',
-          section: GroupRoute.activity,
-          subsection: GroupRoute.posts,
+      final controller = ShellScope.read(tester.element(primaryMainContent));
+      controller.pushContent(
+        ContentRoute.group(
+          GroupRoute.detail(
+            'staff',
+            section: GroupRoute.activity,
+            subsection: GroupRoute.posts,
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    expect(controller.destinationId, 'latest');
-    expect(sidebarDestination('Groups'), findsOneWidget);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+      expect(controller.destinationId, 'latest');
+      expect(sidebarDestination('Groups'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
 
   testWidgets('places the UI Kit add control after forums', (tester) async {
     final semantics = tester.ensureSemantics();

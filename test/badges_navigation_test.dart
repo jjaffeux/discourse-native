@@ -178,7 +178,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.descendant(
-        of: find.byType(DDropdownMenuContent),
+        of: find.byKey(const ValueKey('sidebar-more-content')),
         matching: find.text('Badges'),
       ),
       findsNothing,
