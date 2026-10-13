@@ -185,7 +185,8 @@ void main() {
         expect(textRect.top, greaterThanOrEqualTo(rowRect.top));
         expect(textRect.bottom, lessThanOrEqualTo(rowRect.bottom));
 
-        expect(find.byType(ForumIdentityHeader), findsNothing);
+        expect(find.byType(ForumIdentityHeader), findsOneWidget);
+        expect(find.text(address), findsNothing);
         expect(
           find.byKey(const ValueKey('sidebar-panel-tabs')),
           findsOneWidget,

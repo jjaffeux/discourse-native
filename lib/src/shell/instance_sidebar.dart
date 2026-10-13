@@ -931,18 +931,25 @@ class _SidebarCommunityHeader extends StatelessWidget {
                 builder: (context, trigger) => DButton(
                   key: const ValueKey('sidebar-community-switcher'),
                   label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: DSpacing.sm,
                     children: [
-                      Expanded(
+                      Flexible(
                         child: Text(
                           instance.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: DTokens.of(context).foreground,
+                          ),
                         ),
                       ),
                       const DIcon(DIcons.chevronDown, size: 12),
                     ],
                   ),
-                  variant: DButtonVariant.ghost,
+                  variant: DButtonVariant.inline,
+                  alignment: AlignmentDirectional.centerStart,
                   focusNode: trigger.focusNode,
                   expanded: trigger.open,
                   hasPopup: true,
