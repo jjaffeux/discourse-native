@@ -114,11 +114,6 @@ class _UserMenuButtonState extends State<UserMenuButton> {
           final connecting = account.connecting;
           final totals = controller.accountActivity.totalsFor(siteUrl);
           final unreadCount = totals?.coreBadge ?? 0;
-          final notificationColor = (totals?.unreadPersonalMessages ?? 0) > 0
-              ? theme.discourse.success
-              : (totals?.unseenReviewables ?? 0) > 0
-              ? theme.colorScheme.error
-              : theme.discourse.notificationIndicator;
           return Row(
             mainAxisSize: MainAxisSize.min,
             spacing: DSpacing.controlGap,
@@ -133,7 +128,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                     ? context.l10n.notificationsUnread(unreadCount)
                     : context.l10n.notifications,
                 notificationCount: unreadCount,
-                notificationColor: notificationColor,
+                notificationColor: theme.discourse.notificationIndicator,
                 notificationSurface: widget.ringColor ?? theme.shell.content,
                 icon: const DIcon(DIcons.bell, size: 20),
                 compact: widget.compact,
@@ -235,6 +230,8 @@ class _AccountMenuPopover extends StatelessWidget {
           focusNode: trigger.focusNode,
           hasPopup: true,
           expanded: trigger.open,
+          overlayCount: true,
+          size: compact ? DButtonSize.regular : DButtonSize.large,
           onPressed: () => activate(context, trigger),
         );
       }
@@ -243,12 +240,14 @@ class _AccountMenuPopover extends StatelessWidget {
         icon: ExcludeSemantics(child: icon),
         tooltip: connecting ? context.l10n.connecting : tooltip,
         semanticLabel: semanticLabel,
-        variant: DButtonVariant.ghost,
+        variant: !isProfile && trigger.open
+            ? DButtonVariant.primary
+            : DButtonVariant.ghost,
         density: isProfile ? DButtonDensity.avatar : DButtonDensity.standard,
         size: compact || isProfile ? DButtonSize.regular : DButtonSize.large,
-        shape: isProfile ? DButtonShape.pill : DButtonShape.rounded,
-        backgroundColor: Colors.transparent,
-        interactiveBackgroundColor: Colors.transparent,
+        shape: DButtonShape.pill,
+        backgroundColor: isProfile ? Colors.transparent : null,
+        interactiveBackgroundColor: isProfile ? Colors.transparent : null,
         hasPopup: true,
         expanded: trigger.open,
         focusNode: trigger.focusNode,

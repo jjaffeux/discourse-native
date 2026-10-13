@@ -78,10 +78,23 @@ class _ChatHeaderButtonState extends State<ChatHeaderButton> {
             ? ChatHeaderIndicator.none
             : chat.headerIndicator(siteUrl, preference);
         final urgentCount = indicator.urgentCount;
+        final unreadCount = indicator.unread
+            ? [
+                ...chat.publicChannels(siteUrl),
+                ...chat.directChannels(siteUrl),
+              ].fold(
+                0,
+                (count, channel) =>
+                    count +
+                    channel.tracking.unreadCount +
+                    channel.unreadThreadCount,
+              )
+            : 0;
+        final count = urgentCount ?? unreadCount;
         final tooltip = urgentCount != null
             ? context.l10n.chatUrgent(urgentCount)
             : indicator.unread
-            ? context.l10n.chatUnreadMessages
+            ? '${context.l10n.chat}, ${context.l10n.unreadChatplugin(count)}'
             : context.l10n.chat;
 
         final theme = Theme.of(context);
@@ -90,13 +103,15 @@ class _ChatHeaderButtonState extends State<ChatHeaderButton> {
           FocusNode? focusNode,
           bool expanded = false,
         }) {
-          if (urgentCount != null) {
+          if (count > 0) {
             return headerNotificationButton(
               context,
               key: ChatHeaderButton.buttonKey,
-              countKey: ChatHeaderButton.urgentBadgeKey,
+              countKey: urgentCount != null
+                  ? ChatHeaderButton.urgentBadgeKey
+                  : ChatHeaderButton.unreadDotKey,
               icon: const DIcon(DIcons.comment, size: 20),
-              count: urgentCount,
+              count: count,
               color: theme.discourse.success,
               surface: widget.ringColor ?? theme.shell.content,
               tooltip: tooltip,
@@ -114,25 +129,9 @@ class _ChatHeaderButtonState extends State<ChatHeaderButton> {
             focusNode: focusNode,
             hasPopup: !mobile,
             expanded: expanded,
-            variant: DButtonVariant.ghost,
-            icon: ExcludeSemantics(
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const DIcon(DIcons.comment, size: 22),
-                  if (indicator.unread)
-                    PositionedDirectional(
-                      top: -2,
-                      end: -3,
-                      child: DNotificationDot.overlay(
-                        key: ChatHeaderButton.unreadDotKey,
-                        color: theme.discourse.notificationIndicator,
-                        ringColor: widget.ringColor,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            variant: expanded ? DButtonVariant.primary : DButtonVariant.ghost,
+            shape: DButtonShape.pill,
+            icon: const DIcon(DIcons.comment, size: 20),
           );
         }
 

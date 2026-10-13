@@ -14,7 +14,6 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -162,22 +161,19 @@ void main() {
     try {
       final button = find.byKey(ChatHeaderButton.buttonKey);
       expect(button, findsOneWidget);
-      final dot = find.byKey(ChatHeaderButton.unreadDotKey);
-      expect(tester.widget(dot), isA<DNotificationDot>());
-      expect(tester.getSize(dot), const Size.square(12));
-      expect(find.byTooltip('Chat, unread messages'), findsOneWidget);
-      expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
-      expect(tester.getSize(button), const Size.square(34));
-      expect(
-        tester.getSize(
-          find.descendant(of: button, matching: find.byType(Material)),
-        ),
-        const Size.square(34),
-      );
+      final count = find.byKey(ChatHeaderButton.unreadDotKey);
+      expect(tester.widget<Text>(count).data, '4');
+      expect(find.byTooltip('Chat, 4 unread messages'), findsOneWidget);
+      final control = tester.widget<DButton>(button);
+      expect(control.variant, DButtonVariant.ghost);
+      expect(control.backgroundColor, isNull);
+      expect(control.foregroundColor, isNotNull);
+      expect(tester.getSize(button).height, 34);
+      expect(tester.getSize(button).width, greaterThan(34));
       expect(
         tester.getSemantics(button),
         isSemantics(
-          label: 'Chat, unread messages',
+          label: 'Chat, 4 unread messages',
           isButton: true,
           hasEnabledState: true,
           isEnabled: true,
@@ -200,6 +196,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(find.byType(ChatHeaderMenu), findsOneWidget);
+      expect(tester.widget<DButton>(button).variant, DButtonVariant.primary);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(ChatHeaderMenu), findsNothing);
@@ -207,6 +204,33 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('bell overlays its count and fills only while its menu is open', (
+    tester,
+  ) async {
+    await _pump(tester, bellCount: 3);
+    final button = find.byKey(UserMenuButton.bellKey);
+    final badge = find.byKey(UserMenuButton.unreadDotKey);
+    expect(tester.widget(badge), isA<DBadge>());
+    expect(
+      find.descendant(of: badge, matching: find.text('3')),
+      findsOneWidget,
+    );
+    expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
+    expect(
+      find.descendant(of: button, matching: find.byType(DSeparator)),
+      findsNothing,
+    );
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(find.byType(UserMenuPanel), findsOneWidget);
+    expect(badge, findsNothing);
+    expect(tester.widget<DButton>(button).variant, DButtonVariant.primary);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
+    expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('urgent chat announces the uncapped count only once', (
@@ -223,12 +247,9 @@ void main() {
       );
       expect(find.byTooltip('Chat, 103 urgent messages'), findsOneWidget);
 
-      final theme = Theme.of(tester.element(badge));
       final capsule = tester.widget<DButton>(button);
-      expect(
-        capsule.backgroundColor,
-        theme.discourse.success.withValues(alpha: .14),
-      );
+      expect(capsule.variant, DButtonVariant.ghost);
+      expect(capsule.backgroundColor, isNull);
       expect(tester.getRect(button).contains(tester.getTopLeft(badge)), isTrue);
       expect(
         tester.getRect(button).contains(tester.getBottomRight(badge)),
