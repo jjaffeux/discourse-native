@@ -38,7 +38,7 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets(
-    'rail actions match mockup muted colors at rest, hover, and press',
+    'rail actions match mockup colors at rest, hover, and press',
     (tester) async {
       final shell = settings.controller();
       final diagnostics = await DiagnosticsController.create(
@@ -62,9 +62,9 @@ void main() {
                 ),
         ];
         for (final theme in themes) {
-          // app.css: --text-muted is a 50/50 primary/secondary sRGB mix,
-          // independent of the metadata or header foreground colors.
-          final expected = Color.lerp(
+          // Footer actions use --text-muted, a 50/50 sRGB mix. The add-site
+          // plus always uses --text-strong, including while idle.
+          final muted = Color.lerp(
             theme.colorScheme.surface,
             theme.colorScheme.onSurface,
             .5,
@@ -90,6 +90,9 @@ void main() {
           );
           await tester.pumpAndSettle();
           for (final key in _actionKeys) {
+            final expected = key == 'add-instance-rail-button'
+                ? theme.colorScheme.onSurface
+                : muted;
             final button = find.byKey(ValueKey(key));
             _expectIconColor(tester, button, expected);
             final surface = buttonSurface(tester, of: button);

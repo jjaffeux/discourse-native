@@ -938,7 +938,7 @@ class _RailFooter extends StatelessWidget {
   }
 }
 
-// The mockup rail uses --text-muted (a 50% primary/secondary mix). Legacy
+// The mockup rail footer uses --text-muted (a 50% primary/secondary mix). Legacy
 // palettes can map the general muted foreground to a stronger metadata color.
 Color _railActionForeground(BuildContext context) {
   final tokens = DTokens.of(context);
@@ -1579,7 +1579,7 @@ class _AddInstanceButton extends StatelessWidget {
       shape: DButtonShape.pill,
       backgroundColor: Colors.transparent,
       interactiveBackgroundColor: Colors.transparent,
-      foregroundColor: _railActionForeground(context),
+      foregroundColor: DTokens.of(context).foreground,
       onPressed: () => showAddInstanceSheet(context),
       icon: const DIcon(DIcons.plus, size: 17),
     );
