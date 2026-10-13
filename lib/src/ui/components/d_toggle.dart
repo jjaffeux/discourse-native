@@ -18,7 +18,7 @@ enum DToggleVariant { standard, outline, segmented, inline }
 /// [chatReaction] matches the chat mockup's 24px pill and 999px radius.
 /// [chrome] provides 18px icons in a 32px window control.
 /// [splitView] provides neutral 20px artwork in a 36px circular control,
-/// with glass appearing only under the pointer and a press animation.
+/// with a circular hover surface and a press animation.
 enum DToggleDensity {
   standard,
   chatReaction,
@@ -329,8 +329,10 @@ class _DToggleState extends State<DToggle> {
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
         : splitView
-        ? glass && interacting
-              ? Colors.white.withValues(alpha: dark ? .14 : .75)
+        ? interacting
+              ? (glass || dark ? Colors.white : Colors.black).withValues(
+                  alpha: glass ? (dark ? .14 : .75) : .14,
+                )
               : Colors.transparent
         : chatReaction && outlined
         ? Color.lerp(
@@ -447,12 +449,16 @@ class _DToggleState extends State<DToggle> {
     }
 
     final surfaceColor = splitView
-        ? glass && interacting
-              ? Color.lerp(
-                  tokens.colors.surface,
-                  tokens.foreground,
-                  .10,
-                )!.withValues(alpha: .28)
+        ? interacting
+              ? glass
+                    ? Color.lerp(
+                        tokens.colors.surface,
+                        tokens.foreground,
+                        .10,
+                      )!.withValues(alpha: .28)
+                    : (dark ? Colors.white : Colors.black).withValues(
+                        alpha: dark ? .09 : .06,
+                      )
               : Colors.transparent
         : inline
         ? Colors.transparent
