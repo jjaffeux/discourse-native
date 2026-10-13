@@ -441,8 +441,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
                       semanticLabel: minimized == null
                           ? context.l10n.hideSplitView
                           : context.l10n.showSplitView,
-                      density: DToggleDensity.chrome,
-                      variant: DToggleVariant.inline,
+                      density: DToggleDensity.splitView,
                       pressed: minimized == null,
                       enabled: minimizable || minimized != null,
                       onPressedChanged: (_) => _toggleSplit(target),
