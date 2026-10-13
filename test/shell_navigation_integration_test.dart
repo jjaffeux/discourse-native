@@ -22,6 +22,7 @@ import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/empty_state.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
+import 'package:discourse_native/src/shell/groups_page.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -564,6 +565,20 @@ void _registerShellNavigationTests() {
     await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Groups'));
     await tester.pumpAndSettle();
 
+    final surface = find
+        .ancestor(
+          of: find.byType(GroupsPage),
+          matching: find.byType(DPageSurface),
+        )
+        .first;
+    expect(tester.widget<DPageSurface>(surface).header, isNull);
+    expect(
+      find.descendant(
+        of: find.byType(GroupsPage),
+        matching: find.text('Groups'),
+      ),
+      findsOneWidget,
+    );
     expect(sidebarDestination('Groups'), findsOneWidget);
     expect(sidebarDestination('More'), findsOneWidget);
 

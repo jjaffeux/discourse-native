@@ -27,10 +27,33 @@ class UserActivityView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AccountActivityLoader.userActivity(
     siteUrl: siteUrl,
-    builder: (context, controller) => ListenableBuilder(
-      listenable: controller.accountActivity.userActivityListenable,
-      builder: (context, _) =>
-          _UserActivityBody(controller: controller, siteUrl: siteUrl),
+    builder: (context, controller) => Column(
+      children: [
+        ContentReadingLaneBox(
+          child: Padding(
+            padding: const EdgeInsets.all(DSpacing.lg),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Semantics(
+                header: true,
+                child: Text(
+                  context.l10n.activity,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListenableBuilder(
+            listenable: controller.accountActivity.userActivityListenable,
+            builder: (context, _) =>
+                _UserActivityBody(controller: controller, siteUrl: siteUrl),
+          ),
+        ),
+      ],
     ),
   );
 }

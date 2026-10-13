@@ -684,6 +684,20 @@ void main() {
 
         expect(find.byType(UserMenuPanel), findsNothing);
         expect(find.byType(UserActivityView), findsOneWidget);
+        final surface = find
+            .ancestor(
+              of: find.byType(UserActivityView),
+              matching: find.byType(DPageSurface),
+            )
+            .first;
+        expect(tester.widget<DPageSurface>(surface).header, isNull);
+        expect(
+          find.descendant(
+            of: find.byType(UserActivityView),
+            matching: find.text('Activity'),
+          ),
+          findsOneWidget,
+        );
         expect(shell.currentInstance?.url, _metaUrl);
         expect(shell.currentContent?.id, 'activity');
         expect(api.userActivitySites, [_metaUrl]);

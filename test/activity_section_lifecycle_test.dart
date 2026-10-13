@@ -45,6 +45,7 @@ void main() {
         _section(controller, const UserActivityView(siteUrl: _siteUrl)),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Activity'), findsOneWidget);
       expect(find.byType(DPullToRefresh), findsNothing);
       await tester.drag(find.byType(Scrollable).last, const Offset(0, 500));
       await tester.pumpAndSettle();

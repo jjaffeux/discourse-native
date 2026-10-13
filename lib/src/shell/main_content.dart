@@ -428,6 +428,9 @@ class _MainContentBody extends StatelessWidget {
                   !route.isTopic &&
                   !route.isPreferences &&
                   !route.isBadges &&
+                  !route.isGroups &&
+                  route.id != 'activity' &&
+                  !(route.id == 'user-bookmarks' && state.isConnected) &&
                   !hideDirectoryHeader &&
                   !(usesTopicToolbar && ShellTitleBar.isSupported)
               ? Stack(
