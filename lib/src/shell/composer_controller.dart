@@ -516,7 +516,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void _activateMainEditor() {
-    if (focus.hasPrimaryFocus) activateEmbeddedEditor(null);
+    // Initial focus already belongs to the main editor. Only switching back
+    // from an embedded field needs to rebuild the shared toolbar and panel.
+    if (focus.hasPrimaryFocus && _activeEmbeddedEditor != null) {
+      activateEmbeddedEditor(null);
+    }
   }
 
   int? _categoryId;

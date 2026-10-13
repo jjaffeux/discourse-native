@@ -452,50 +452,22 @@ class _DesktopPanelsState extends State<DesktopPanels>
           return widget;
         }
 
-        if (!horizontal) {
-          final remaining = autoCollapsed == ForumPanel.main
-              ? ForumPanel.secondary
-              : ForumPanel.main;
-          final active =
-              autoCollapsed != null && shell.selectedTabIn(remaining) != null
-              ? remaining
-              : shell.activeTab?.panel ?? ForumPanel.main;
-          if (autoCollapsed != null && shell.activeTab?.panel != active) {
-            final tabId = shell.selectedTabIn(active)?.id;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && tabId != null) {
-                ShellScope.read(context).selectTab(tabId);
-              }
-            });
-          }
-          return Column(
-            children: [
-              ForumTabScope(
-                tabId: shell.selectedTabIn(active)?.id,
-                panel: active,
-                child: TopicPanelTabs(panel: active),
-              ),
-              Expanded(
-                child: Stack(
-                  children: [
-                    for (final target in ForumPanel.values)
-                      Positioned.fill(
-                        child: Offstage(
-                          offstage: active != target,
-                          child: TickerMode(
-                            enabled: active == target,
-                            child: ExcludeFocus(
-                              excluding: active != target,
-                              child: panel(target),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          );
+        final remaining = autoCollapsed == ForumPanel.main
+            ? ForumPanel.secondary
+            : ForumPanel.main;
+        final active =
+            autoCollapsed != null && shell.selectedTabIn(remaining) != null
+            ? remaining
+            : shell.activeTab?.panel ?? ForumPanel.main;
+        if (!horizontal &&
+            autoCollapsed != null &&
+            shell.activeTab?.panel != active) {
+          final tabId = shell.selectedTabIn(active)?.id;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && tabId != null) {
+              ShellScope.read(context).selectTab(tabId);
+            }
+          });
         }
 
         final direction = Directionality.of(context);
@@ -505,141 +477,177 @@ class _DesktopPanelsState extends State<DesktopPanels>
           for (final target in ForumPanel.values)
             target: panel(
               target,
-              minimizable: shell.selectedTabIn(_other(target)) != null,
+              minimizable: horizontal
+                  ? shell.selectedTabIn(_other(target)) != null
+                  : null,
             ),
         };
-        return ListenableBuilder(
-          listenable: Listenable.merge([_mainWidth, _moving]),
-          builder: (context, _) {
-            final moving = _moving.value;
-            final seam = ResizablePane(
-              controller: _mainWidth,
-              edge: ResizablePaneEdge.trailing,
-              resizeKey: 'main-panel',
-              semanticsLabel: context.l10n.resizeMainPanel,
-              maximumWidth: maximumMainWidth,
-              widthOverride: mainWidth,
-              gap: workspacePanelGap,
-              child: const SizedBox.shrink(),
-            );
-            // Either panel leaves the workspace entirely, including the gap.
-            final mainTravel = mainWidth;
-            final secondaryTravel = total + workspacePanelGap - mainWidth;
-            final ltr = direction == TextDirection.ltr ? 1.0 : -1.0;
-            // Both panels keep one place in the tree in every layout, at rest
-            // and in motion. Moving a document under another parent would
-            // rebuild each of its widgets that reads an inherited value,
-            // thousands in an open topic, which is what made minimizing stall.
-            // A panel being restored comes back over the other one, which
-            // keeps its wide layout, clipped to the returning panel's edge,
-            // until the motion settles. Laid out narrow at once, it would
-            // leave a hole for the returning panel to cross.
-            final placed = moving != null && !moving.away
-                ? moving.panel
-                : minimized;
-            Widget slot(ForumPanel target) {
-              // A minimized panel keeps the place it returns to, so it is laid
-              // out again only when the window changes.
-              final (start, width) = switch ((target, placed)) {
-                (ForumPanel.main, ForumPanel.secondary) => (0.0, total),
-                (ForumPanel.secondary, ForumPanel.main) => (0.0, total),
-                (ForumPanel.main, _) => (0.0, mainWidth - workspacePanelGap),
-                (ForumPanel.secondary, _) => (
-                  mainWidth,
-                  math.max(320.0, total - mainWidth),
-                ),
-              };
-              final folding = moving?.panel == target;
-              final revealing = moving != null && !folding;
-              final stowed = minimized == target && !folding;
-              // A panel's tickers and focus change once it has settled, off
-              // the frame that lays the other panel out anew.
-              final quiet = stowed || (folding && !moving!.away);
-              return Positioned.directional(
-                key: ValueKey(target),
-                textDirection: direction,
-                start: start,
-                width: width,
-                top: 0,
-                bottom: 0,
-                child: IgnorePointer(
-                  ignoring: folding,
-                  child: FadeTransition(
-                    opacity: folding
-                        ? ReverseAnimation(_folded)
-                        : kAlwaysCompleteAnimation,
-                    child: SlideTransition(
-                      position: folding
-                          ? _folded.drive(
-                              Tween(
-                                begin: Offset.zero,
-                                end: Offset(
-                                  target == ForumPanel.main
-                                      ? -ltr * mainTravel / width
-                                      : ltr * secondaryTravel / width,
-                                  0,
-                                ),
-                              ),
-                            )
-                          : const AlwaysStoppedAnimation(Offset.zero),
-                      child: ClipRRect(
-                        clipBehavior: revealing ? Clip.antiAlias : Clip.none,
-                        // The revealed edge keeps one gap from the folding
-                        // panel's edge, as the seam did.
-                        clipper: revealing
-                            ? _Reveal(
-                                folded: _folded,
-                                direction: direction,
-                                hidden: target == ForumPanel.main
-                                    ? (folded) => (
-                                        0,
-                                        width -
-                                            (mainWidth +
-                                                secondaryTravel * folded -
-                                                workspacePanelGap),
-                                      )
-                                    : (folded) => (
-                                        mainWidth - mainTravel * folded - start,
+        // Keep the same panel ancestry when the composer narrows the reader
+        // past the split breakpoint. Reparenting the documents would invalidate
+        // every inherited dependency before the editor can paint.
+        return Column(
+          children: [
+            if (!horizontal)
+              ForumTabScope(
+                tabId: shell.selectedTabIn(active)?.id,
+                panel: active,
+                child: TopicPanelTabs(panel: active),
+              ),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: Listenable.merge([_mainWidth, _moving]),
+                builder: (context, _) {
+                  final moving = horizontal ? _moving.value : null;
+                  final seam = ResizablePane(
+                    controller: _mainWidth,
+                    edge: ResizablePaneEdge.trailing,
+                    resizeKey: 'main-panel',
+                    semanticsLabel: context.l10n.resizeMainPanel,
+                    maximumWidth: maximumMainWidth,
+                    widthOverride: mainWidth,
+                    gap: workspacePanelGap,
+                    child: const SizedBox.shrink(),
+                  );
+                  // Either panel leaves the workspace entirely, including the gap.
+                  final mainTravel = mainWidth;
+                  final secondaryTravel = total + workspacePanelGap - mainWidth;
+                  final ltr = direction == TextDirection.ltr ? 1.0 : -1.0;
+                  // Both panels keep one place in the tree in every layout, at rest
+                  // and in motion. Moving a document under another parent would
+                  // rebuild each of its widgets that reads an inherited value,
+                  // thousands in an open topic, which is what made minimizing stall.
+                  // A panel being restored comes back over the other one, which
+                  // keeps its wide layout, clipped to the returning panel's edge,
+                  // until the motion settles. Laid out narrow at once, it would
+                  // leave a hole for the returning panel to cross.
+                  final placed = moving != null && !moving.away
+                      ? moving.panel
+                      : minimized;
+                  Widget slot(ForumPanel target) {
+                    // A minimized panel keeps the place it returns to, so it is laid
+                    // out again only when the window changes.
+                    final (start, width) = !horizontal
+                        ? (0.0, total)
+                        : switch ((target, placed)) {
+                            (ForumPanel.main, ForumPanel.secondary) => (
+                              0.0,
+                              total,
+                            ),
+                            (ForumPanel.secondary, ForumPanel.main) => (
+                              0.0,
+                              total,
+                            ),
+                            (ForumPanel.main, _) => (
+                              0.0,
+                              mainWidth - workspacePanelGap,
+                            ),
+                            (ForumPanel.secondary, _) => (
+                              mainWidth,
+                              math.max(320.0, total - mainWidth),
+                            ),
+                          };
+                    final folding = moving?.panel == target;
+                    final revealing = moving != null && !folding;
+                    final stowed = horizontal
+                        ? minimized == target && !folding
+                        : active != target;
+                    // A panel's tickers and focus change once it has settled, off
+                    // the frame that lays the other panel out anew.
+                    final quiet = stowed || (folding && !moving!.away);
+                    return Positioned.directional(
+                      key: ValueKey(target),
+                      textDirection: direction,
+                      start: start,
+                      width: width,
+                      top: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        ignoring: folding,
+                        child: FadeTransition(
+                          opacity: folding
+                              ? ReverseAnimation(_folded)
+                              : kAlwaysCompleteAnimation,
+                          child: SlideTransition(
+                            position: folding
+                                ? _folded.drive(
+                                    Tween(
+                                      begin: Offset.zero,
+                                      end: Offset(
+                                        target == ForumPanel.main
+                                            ? -ltr * mainTravel / width
+                                            : ltr * secondaryTravel / width,
                                         0,
                                       ),
-                              )
-                            : null,
-                        child: Offstage(
-                          offstage: stowed,
-                          child: TickerMode(
-                            enabled: !quiet,
-                            child: ExcludeFocus(
-                              excluding: quiet,
-                              // The slide, fade and reveal clip change above
-                              // this layer. Retain the panel's paint instead
-                              // of repainting its surface and document on
-                              // every animation frame.
-                              child: RepaintBoundary(child: documents[target]!),
+                                    ),
+                                  )
+                                : const AlwaysStoppedAnimation(Offset.zero),
+                            child: ClipRRect(
+                              clipBehavior: revealing
+                                  ? Clip.antiAlias
+                                  : Clip.none,
+                              // The revealed edge keeps one gap from the folding
+                              // panel's edge, as the seam did.
+                              clipper: revealing
+                                  ? _Reveal(
+                                      folded: _folded,
+                                      direction: direction,
+                                      hidden: target == ForumPanel.main
+                                          ? (folded) => (
+                                              0,
+                                              width -
+                                                  (mainWidth +
+                                                      secondaryTravel * folded -
+                                                      workspacePanelGap),
+                                            )
+                                          : (folded) => (
+                                              mainWidth -
+                                                  mainTravel * folded -
+                                                  start,
+                                              0,
+                                            ),
+                                    )
+                                  : null,
+                              child: Offstage(
+                                offstage: stowed,
+                                child: TickerMode(
+                                  enabled: !quiet,
+                                  child: ExcludeFocus(
+                                    excluding: quiet,
+                                    // The slide, fade and reveal clip change above
+                                    // this layer. Retain the panel's paint instead
+                                    // of repainting its surface and document on
+                                    // every animation frame.
+                                    child: RepaintBoundary(
+                                      child: documents[target]!,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              );
-            }
+                    );
+                  }
 
-            return Stack(
-              children: [
-                for (final target in ForumPanel.values) slot(target),
-                if (minimized == null && moving == null)
-                  // The pane carries only the seam's handle; the panels sit
-                  // beside it in their own places.
-                  PositionedDirectional(
-                    start: 0,
-                    top: 0,
-                    bottom: 0,
-                    child: seam,
-                  ),
-              ],
-            );
-          },
+                  return Stack(
+                    children: [
+                      for (final target in ForumPanel.values) slot(target),
+                      if (horizontal && minimized == null && moving == null)
+                        // The pane carries only the seam's handle; the panels sit
+                        // beside it in their own places.
+                        PositionedDirectional(
+                          start: 0,
+                          top: 0,
+                          bottom: 0,
+                          child: seam,
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );

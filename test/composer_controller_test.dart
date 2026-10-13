@@ -14,6 +14,55 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'main editor focus only notifies when leaving an embedded editor',
+    (tester) async {
+      final composer = ComposerController(_target);
+      final embedded = ComposerController(_target);
+      addTearDown(composer.dispose);
+      addTearDown(embedded.dispose);
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Column(
+            children: [
+              Focus(focusNode: composer.focus, child: const SizedBox()),
+              Focus(focusNode: embedded.focus, child: const SizedBox()),
+            ],
+          ),
+        ),
+      );
+      var notifications = 0;
+      composer.addListener(() => notifications++);
+      composer.focus.requestFocus();
+      await tester.pump();
+      expect(composer.focus.hasPrimaryFocus, isTrue);
+      expect(composer.activeEditor, same(composer));
+      expect(notifications, 0);
+
+      composer.activateEmbeddedEditor(embedded);
+      embedded.focus.requestFocus();
+      await tester.pump();
+      expect(composer.activeEditor, same(embedded));
+      notifications = 0;
+      // An already active embedded region can change its own nested editor.
+      composer.activateEmbeddedEditor(embedded);
+      expect(notifications, 1);
+      notifications = 0;
+      composer.focus.requestFocus();
+      await tester.pump();
+      expect(composer.activeEditor, same(composer));
+      expect(notifications, 1);
+
+      embedded.focus.requestFocus();
+      await tester.pump();
+      composer.focus.requestFocus();
+      await tester.pump();
+      expect(notifications, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   test('inserts a mention at the caret without absorbing adjacent words', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);
