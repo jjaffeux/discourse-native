@@ -77,7 +77,10 @@ void main() {
           expect(bounds.size, const Size.square(36));
           expect(tester.getSize(find.byType(DLayoutGlyph)), const Size(20, 15));
           expect(ink(), neutral);
-          expect(decoration().color, Colors.transparent);
+          expect(
+            decoration().gradient!.colors.every((color) => color.a == 0),
+            isTrue,
+          );
           expect(decoration().borderRadius, BorderRadius.circular(999));
           Future<List<int>> pixels() async => (await tester.runAsync(() async {
             final boundary = tester.renderObject<RenderRepaintBoundary>(
@@ -106,11 +109,31 @@ void main() {
           final hoverPixels = await pixels();
           expect(hoverPixels[sideAlpha], greaterThan(0));
           expect(hoverPixels[cornerAlpha], 0);
+          // The top catches light, while the lower fill remains a thin tint.
+          // A uniform white overlay or shader opacity multiplication fails
+          // these checks even when the circular button is still visible.
+          const topAlpha = (4 * 36 + 18) * 4 + 3;
+          const bottomAlpha = (31 * 36 + 18) * 4 + 3;
+          expect(hoverPixels[topAlpha], greaterThan(hoverPixels[bottomAlpha]));
+          expect(hoverPixels[bottomAlpha], closeTo(.28 * 255, 1));
           expect(ink(), neutral);
-          expect(decoration().color!.a, glass ? .28 : (dark ? .09 : .06));
+          final tint = Color.lerp(
+            tokens.colors.surface,
+            tokens.foreground,
+            .10,
+          )!.withValues(alpha: .28);
+          expect(decoration().color, isNull);
+          expect(decoration().gradient!.colors.last, tint);
+          expect(
+            decoration().gradient!.colors.first,
+            Color.alphaBlend(
+              Colors.white.withValues(alpha: dark ? .12 : .55),
+              tint,
+            ),
+          );
           expect(
             (decoration().border! as Border).top.color.a,
-            glass ? (dark ? .14 : .75) : .14,
+            dark ? .14 : .75,
           );
           expect(tester.getRect(toggle), bounds);
           expect(
@@ -129,7 +152,10 @@ void main() {
           await mouse.moveTo(Offset.zero);
           await tester.pumpAndSettle();
           expect(activations, 1);
-          expect(decoration().color, Colors.transparent);
+          expect(
+            decoration().gradient!.colors.every((color) => color.a == 0),
+            isTrue,
+          );
           expect(ink(), neutral);
           expect(
             tester.widget<DLayoutGlyph>(find.byType(DLayoutGlyph)).mainVisible,
