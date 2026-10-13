@@ -10,6 +10,82 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('quiet paths share one flat well and leave separators passive', (
+    tester,
+  ) async {
+    var presses = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: DMaterialTheme.apply(
+          AppTheme.dark,
+          DAppearanceMaterial.liquidGlass,
+        ),
+        home: Center(
+          child: DButtonGroup.quiet(
+            selected: true,
+            children: [
+              DButton(
+                key: const Key('quiet-category'),
+                variant: DButtonVariant.quiet,
+                size: DButtonSize.filter,
+                label: const Text('Design'),
+                onPressed: () => presses++,
+              ),
+              const DButtonGroupText(
+                key: Key('quiet-separator'),
+                padding: EdgeInsets.symmetric(horizontal: 5),
+                child: Text('›'),
+              ),
+              DButton(
+                key: const Key('quiet-child'),
+                variant: DButtonVariant.quiet,
+                size: DButtonSize.filter,
+                label: const Text('Subcategory'),
+                onPressed: () => presses++,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final group = find.byType(DButtonGroup);
+    final well =
+        tester
+                .widget<DecoratedBox>(
+                  find.descendant(
+                    of: group,
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is DecoratedBox &&
+                          widget.decoration is BoxDecoration,
+                    ),
+                  ),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(well.color, Colors.white.withValues(alpha: .12));
+    expect(well.border, isNull);
+    for (final key in ['quiet-category', 'quiet-child']) {
+      final button = find.byKey(Key(key));
+      expect(buttonSurface(tester, of: button).color.a, 0);
+      expect(buttonSurface(tester, of: button).borderColor.a, 0);
+      expect(tester.getSize(button).height, 30);
+      await tester.tap(button);
+    }
+    expect(presses, 2);
+    await tester.tap(
+      find.byKey(const Key('quiet-separator')),
+      warnIfMissed: false,
+    );
+    expect(presses, 2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(presses, 3);
+  });
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final direction in TextDirection.values) {
       testWidgets(

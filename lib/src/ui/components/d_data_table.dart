@@ -989,14 +989,18 @@ class DDataTableColumnToggle<T> extends StatelessWidget {
     child: DDropdownMenuTrigger(
       builder: (context, trigger) => DButton(
         label: Text(label),
-        icon: DIcon(
-          DControlStyle.isApplicationSize(size)
-              ? DNativeIcons.filterChevron
-              : DIcons.chevronDown,
-          size: DControlStyle.chevronDimension(size),
-        ),
+        icon: size == DControlSize.filter
+            ? null
+            : DIcon(
+                DControlStyle.isApplicationSize(size)
+                    ? DNativeIcons.filterChevron
+                    : DIcons.chevronDown,
+                size: DControlStyle.chevronDimension(size),
+              ),
         iconPosition: DButtonIconPosition.end,
-        variant: DButtonVariant.outline,
+        variant: size == DControlSize.filter
+            ? DButtonVariant.quiet
+            : DButtonVariant.outline,
         size: size,
         hasPopup: true,
         expanded: trigger.open,

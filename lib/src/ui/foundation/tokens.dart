@@ -66,6 +66,28 @@ class DTokens extends ThemeExtension<DTokens> {
 
   Color get foreground => colors.onSurface;
 
+  /// Flat page pickers, including selected paths, in both appearance materials.
+  DControlSurface quietControlSurface({bool selected = false}) {
+    final dark = colors.brightness == Brightness.dark;
+    final ink = dark ? Colors.white : Colors.black;
+    final fill = ink.withValues(
+      alpha: selected ? (dark ? .12 : .10) : (dark ? .055 : .045),
+    );
+    return DControlSurface(
+      background: fill,
+      hover: selected ? fill : ink.withValues(alpha: dark ? .09 : .075),
+      foreground: selected ? foreground : buttonTheme.outline.foreground,
+    );
+  }
+
+  /// Category identity follows the same reference tint in every control.
+  DControlSurface categoryControlSurface(Color category) => DControlSurface(
+    background: Color.lerp(background, category, .25)!,
+    hover: Color.lerp(background, category, .32)!,
+    foreground: Color.lerp(foreground, category, .50)!,
+    border: Color.lerp(buttonTheme.outline.border, category, .40)!,
+  );
+
   /// Desktop footer surface and hairline from the HTML reference palette.
   Color get footerBackground => Color.lerp(background, foreground, .05)!;
   Color get footerBorder => Color.lerp(background, foreground, .12)!;

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -27,9 +29,11 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 const _legacyTotals = NotificationTotals(
@@ -68,6 +72,133 @@ const _unseenTopic = Topic(
 );
 
 void main() {
+  setUpAll(() async {
+    if (Platform.environment['TOPIC_LIST_CAPTURE_DIR'] == null) return;
+    await (FontLoader('TopicListReview')
+          ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
+        .load();
+  });
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets('topics list uses the mockup quiet picker row in '
+        '${theme.brightness.name}', (tester) async {
+      const baking = TopicCategory(
+        id: 21,
+        name: 'baking',
+        slug: 'baking',
+        color: 'F5AB00',
+      );
+      const breads = TopicCategory(
+        id: 22,
+        name: 'Breads',
+        slug: 'breads',
+        parentCategoryId: 21,
+        color: '9464B8',
+      );
+      final setup = await _controller(
+        config: const SiteConfig(taggingEnabled: true),
+        categoryList: const [baking, breads],
+        extraFeeds: const {
+          '/c/baking/21.json': [_latestTopic],
+        },
+      );
+      addTearDown(setup.controller.dispose);
+      setup.controller.selectDestination(
+        buildCategoryDestination(
+          baking,
+          categoriesById: const {21: baking, 22: breads},
+        ),
+      );
+      tester.view.physicalSize = const Size(1100, 500);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: setup.controller,
+          child: MaterialApp(
+            theme: DMaterialTheme.apply(
+              theme.copyWith(
+                platform: TargetPlatform.macOS,
+                textTheme:
+                    Platform.environment['TOPIC_LIST_CAPTURE_DIR'] == null
+                    ? theme.textTheme
+                    : theme.textTheme.apply(fontFamily: 'TopicListReview'),
+              ),
+              DAppearanceMaterial.liquidGlass,
+            ),
+            home: const Scaffold(
+              body: RepaintBoundary(
+                key: ValueKey('topic-list-capture'),
+                child: MainContent(layout: ShellLayout.expanded),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final feed = find.byKey(const ValueKey('topic-list-feed-menu'));
+      expect(
+        tester.widget<DButton>(feed).variant,
+        DButtonVariant.quietSelected,
+      );
+      final dark = theme.brightness == Brightness.dark;
+      final ink = dark ? Colors.white : Colors.black;
+      expect(
+        buttonSurface(tester, of: feed).color,
+        ink.withValues(alpha: dark ? .12 : .10),
+      );
+      expect(buttonSurface(tester, of: feed).borderColor.a, 0);
+      expect(tester.getSize(feed).height, 30);
+      final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
+      expect(tester.widget<DButton>(tag).variant, DButtonVariant.quiet);
+      expect(
+        buttonSurface(tester, of: tag).color,
+        ink.withValues(alpha: dark ? .055 : .045),
+      );
+      final group = find.byWidgetPredicate(
+        (widget) => widget is DButtonGroup && widget.quiet,
+      );
+      expect(group, findsOneWidget);
+      expect(tester.widget<DButtonGroup>(group).quietSelected, isTrue);
+      final category = find
+          .descendant(of: group, matching: find.byType(DButton))
+          .first;
+      expect(buttonSurface(tester, of: category).color.a, 0);
+      expect(buttonSurface(tester, of: category).borderColor.a, 0);
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: category, matching: find.text('baking')),
+      );
+      expect(paragraph.text.style!.fontWeight, FontWeight.w500);
+      expect(paragraph.text.style!.fontSize, 12.5);
+      final directory = Platform.environment['TOPIC_LIST_CAPTURE_DIR'];
+      if (directory != null) {
+        await tester.runAsync(() async {
+          final image = await tester
+              .renderObject<RenderRepaintBoundary>(
+                find.byKey(const ValueKey('topic-list-capture')),
+              )
+              .toImage(pixelRatio: 2);
+          try {
+            final data = await image.toByteData(format: ui.ImageByteFormat.png);
+            final file = File(
+              '$directory/topics-list-${theme.brightness.name}.png',
+            );
+            await file.parent.create(recursive: true);
+            await file.writeAsBytes(data!.buffer.asUint8List());
+          } finally {
+            image.dispose();
+          }
+        });
+      }
+      await tester.tap(feed);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-list-popular')), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final (mode, display) in [
     for (final mode in [
       TopicListMode.latest,
@@ -374,7 +505,10 @@ void main() {
           await tester.tap(_filterOption(tester, 'category:44'));
           await tester.pumpAndSettle();
           expect(shell.topicListContent?.categoryId, grandchild.id);
-          expect(find.byKey(const ValueKey('topic-filter-input')), findsNothing);
+          expect(
+            find.byKey(const ValueKey('topic-filter-input')),
+            findsNothing,
+          );
         } else {
           await _finishFilter(tester);
           expect(shell.topicListContent?.categoryId, child.id);
@@ -2786,7 +2920,8 @@ Finder _filterOption(WidgetTester tester, String value) {
   expect(
     items.map((item) => item.value),
     contains(value),
-    reason: 'Filter draft: ${tester.widget<TextField>(_filterField()).controller!.text}',
+    reason:
+        'Filter draft: ${tester.widget<TextField>(_filterField()).controller!.text}',
   );
   final item = items.singleWhere((item) => item.value == value);
   return find.byKey(item.key!);

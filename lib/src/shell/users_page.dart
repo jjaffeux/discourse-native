@@ -721,8 +721,10 @@ class _UsersPageState extends State<UsersPage> {
                                   runSpacing: DSpacing.sm,
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
-                                    SizedBox(
-                                      width: periodWidth,
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: periodWidth,
+                                      ),
                                       child: DSelect<UserDirectoryPeriod>(
                                         size: DControlSize.filter,
                                         key: const ValueKey(

@@ -486,7 +486,7 @@ void main() {
         switch (size) {
           DBadgeSize.compact => 16,
           DBadgeSize.regular => 22,
-          DBadgeSize.control => 30.75,
+          DBadgeSize.control => 30,
           DBadgeSize.unread => 19,
         },
       );

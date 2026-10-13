@@ -24,7 +24,7 @@ class _MockupControlSizesExampleState extends State<MockupControlSizesExample> {
     mainAxisSize: MainAxisSize.min,
     spacing: DSpacing.lg,
     children: [
-      const Text('Filters · 30.75px'),
+      const Text('Filters · 30px'),
       Wrap(
         spacing: DSpacing.controlGap,
         runSpacing: DSpacing.sm,

@@ -81,9 +81,7 @@ class CategoryNotificationLevelButton extends StatelessWidget {
               semanticLabel: context.l10n.categoryNotifications,
               buttonKey: const ValueKey('category-notification-level-button'),
               size: size,
-              variant: quiet
-                  ? DButtonVariant.secondary
-                  : DButtonVariant.outline,
+              variant: quiet ? DButtonVariant.quiet : DButtonVariant.outline,
               showLabel: showLabel,
               showChevron: showChevron,
               value: level,

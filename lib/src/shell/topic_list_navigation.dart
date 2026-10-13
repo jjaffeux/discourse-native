@@ -10,7 +10,6 @@ import '../models/sidebar_tag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'category_notifications.dart';
 import 'content_reading_lane.dart';
 import 'platform.dart';
@@ -279,7 +278,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Wrap(
-                      spacing: DSpacing.controlGap,
+                      spacing: DSpacing.sm,
                       runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
@@ -294,7 +293,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                   // so the dismissal action lives with their feed controls.
                   if (controller.mobileNavigationEnabled ||
                       !context.isTouch) ...[
-                    const SizedBox(width: DSpacing.controlGap),
+                    const SizedBox(width: DSpacing.sm),
                     const DismissNewTopicsButton(compact: true),
                   ],
                   if (state.connected &&
@@ -304,7 +303,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                       (!context.isTouch ||
                           controller.mobileNavigationEnabled)) ...[
                     if (!controller.mobileNavigationEnabled)
-                      const SizedBox(width: DSpacing.controlGap),
+                      const SizedBox(width: DSpacing.sm),
                     CategoryNotificationLevelButton(
                       siteUrl: state.siteUrl!,
                       categoryId: state.route!.categoryId!,
@@ -314,7 +313,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                     ),
                   ],
                   if (trailing != null) ...[
-                    const SizedBox(width: DSpacing.controlGap),
+                    const SizedBox(width: DSpacing.sm),
                     trailing!,
                   ],
                 ],
@@ -460,21 +459,15 @@ class TopicFeedMenu extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
-                child: Text(
-                  label(mode),
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
+                child: Text(label(mode), overflow: TextOverflow.ellipsis),
               ),
               if (count > 0) ...[
                 const SizedBox(width: 6),
                 DBadge(variant: DBadgeVariant.secondary, child: Text('$count')),
               ],
-              const SizedBox(width: 6),
-              const DIcon(DNativeIcons.filterChevron, size: 10),
             ],
           ),
-          variant: DButtonVariant.outline,
+          variant: DButtonVariant.quietSelected,
           focusNode: trigger.focusNode,
           hasPopup: true,
           expanded: trigger.open,

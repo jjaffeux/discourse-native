@@ -1128,7 +1128,7 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
     final root = _DComboboxScope.of<T>(context);
     final tokens = DTokens.of(context);
     final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      color: tokens.foreground,
+      color: Color.lerp(tokens.background, tokens.foreground, .9),
       fontSize: DControlStyle.fontSize(size, context: context),
       height:
           DControlStyle.lineHeight(size, context: context) /

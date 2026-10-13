@@ -516,7 +516,7 @@ void main() {
       final surface = find.byType(AnimatedContainer);
       expect(
         tester.getTopLeft(find.byType(TextField)),
-        tester.getTopLeft(surface) + const Offset(11, 7),
+        tester.getTopLeft(surface) + const Offset(10, 5.5),
       );
       final padding = tester.getTopLeft(surface) + const Offset(4, 4);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -640,12 +640,12 @@ void main() {
   );
 
   testWidgets(
-    '34px desktop bounds grow for 200% text without changing inset or overflowing RTL',
+    '30px shared bounds grow for 200% text without changing inset or overflowing RTL',
     (tester) async {
       await tester.pumpWidget(host(DInput(hintText: 'Email')));
-      expect(tester.getSize(find.byType(DInput)).height, 34);
+      expect(tester.getSize(find.byType(DInput)).height, 30);
       final field = tester.widget<TextField>(find.byType(TextField));
-      expect(field.style!.fontSize, 13);
+      expect(field.style!.fontSize, 12.5);
       await tester.pumpWidget(
         host(
           Directionality(
@@ -664,14 +664,14 @@ void main() {
   );
 
   testWidgets(
-    'file input retains 34px desktop geometry and grows for large text',
+    'file input retains 30px shared geometry and grows for large text',
     (tester) async {
       await tester.pumpWidget(host(DFileInput(onPick: () async => null)));
-      expect(tester.getSize(find.byType(DFileInput)).height, 34);
+      expect(tester.getSize(find.byType(DFileInput)).height, 30);
       await tester.pumpWidget(
         host(DFileInput(onPick: () async => null), scale: 2),
       );
-      expect(tester.getSize(find.byType(DFileInput)).height, 41);
+      expect(tester.getSize(find.byType(DFileInput)).height, 48.75);
       expect(tester.takeException(), isNull);
     },
   );
@@ -692,8 +692,8 @@ void main() {
         ),
       ),
     );
-    expect(tester.getSize(find.byType(DButton)).height, 44);
-    expect(tester.getSize(find.byType(DFileInput)).height, 44);
+    expect(tester.getSize(find.byType(DButton)).height, 30);
+    expect(tester.getSize(find.byType(DFileInput)).height, 30);
     expect(tester.takeException(), isNull);
   });
 

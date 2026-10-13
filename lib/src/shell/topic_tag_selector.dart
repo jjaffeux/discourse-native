@@ -31,7 +31,7 @@ class TopicTagSelector extends StatefulWidget {
     this.size = DButtonSize.regular,
     this.valueKey,
     this.sheetOnMobile = false,
-    this.quiet = false,
+    this.quiet = true,
   });
 
   final List<TopicTag> selectedTags;

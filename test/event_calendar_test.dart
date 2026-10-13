@@ -176,12 +176,16 @@ void main() {
         expect(periodStyle.fontSize, 13.5);
         expect(periodStyle.fontWeight, FontWeight.w600);
         expect(
-          tester.widget<Text>(find.text('All events')).style!.fontWeight,
-          FontWeight.w600,
+          DefaultTextStyle.of(
+            tester.element(find.text('All events')),
+          ).style.fontWeight,
+          FontWeight.w500,
         );
         expect(
-          tester.widget<Text>(find.text('Month')).style!.fontWeight,
-          FontWeight.w400,
+          DefaultTextStyle.of(
+            tester.element(find.text('Month')),
+          ).style.fontWeight,
+          FontWeight.w500,
         );
         expect(find.byType(DToggleGroup<bool>), findsNothing);
         expect(find.byTooltip('Calendar actions'), findsNothing);

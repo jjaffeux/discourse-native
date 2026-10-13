@@ -115,8 +115,8 @@ class DControlTheme {
         foreground: Color.lerp(colors.onSurface, colors.primary, .5)!,
       ),
       outline: DControlSurface(
-        background: mix(colors.onSurface, .03),
-        hover: mix(colors.onSurface, .10),
+        background: mix(colors.onSurface, .10),
+        hover: mix(colors.onSurface, .14),
         foreground: foreground,
         border: mix(colors.onSurface, .22),
         hoverBorder: mix(colors.onSurface, .32),

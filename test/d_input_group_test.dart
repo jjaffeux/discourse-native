@@ -240,7 +240,7 @@ void main() {
         ),
       ),
     );
-    expect(tester.getSize(find.byType(DInputGroup)).height, 44);
+    expect(tester.getSize(find.byType(DInputGroup)).height, 30);
     final decorated = tester.widgetList<AnimatedContainer>(
       find.descendant(
         of: find.byType(DInputGroup),
@@ -248,7 +248,7 @@ void main() {
       ),
     );
     expect(decorated, isNotEmpty);
-    expect(decorated.first.constraints, const BoxConstraints(minHeight: 44));
+    expect(decorated.first.constraints, const BoxConstraints(minHeight: 30));
 
     final bounds = tester.getRect(find.byType(DInputGroup));
     await tester.tapAt(bounds.topCenter + const Offset(0, 2));
@@ -274,7 +274,7 @@ void main() {
       tester.getSize(find.byType(DInputGroup)).height,
       DControlStyle.regularHeight,
     );
-    expect(tester.getSize(find.byType(EditableText)).height, 20);
+    expect(tester.getSize(find.byType(EditableText)).height, 19);
   });
 
   testWidgets('inline addons hug their edges and leave width to the editor', (

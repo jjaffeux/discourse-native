@@ -4,12 +4,85 @@ import 'package:discourse_native/src/styleguide/examples/select_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_example.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/control_style.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'page filters use compact flat pills and follow the selected label',
+    (tester) async {
+      var value = 'all';
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: DMaterialTheme.apply(
+            AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
+            DAppearanceMaterial.liquidGlass,
+          ),
+          home: Scaffold(
+            body: Center(
+              child: StatefulBuilder(
+                builder: (context, setState) => DSelect<String>.controlled(
+                  key: const Key('header-select'),
+                  size: DControlSize.filter,
+                  width: 180,
+                  value: value,
+                  entries: const [
+                    DSelectOption(
+                      value: 'all',
+                      label: 'All badges',
+                      child: Text('All badges'),
+                    ),
+                    DSelectOption(
+                      value: 'mine',
+                      label: 'Mine',
+                      child: Text('Mine'),
+                    ),
+                  ],
+                  onChanged: (next) => setState(() => value = next!),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final control = find.byKey(const Key('header-select'));
+      final visual = find.byKey(const Key('d-select-trigger-visual'));
+      final surface =
+          tester.widget<AnimatedContainer>(visual).decoration!
+              as DControlDecoration;
+      expect(surface.color, Colors.white.withValues(alpha: .055));
+      expect(surface.borderColor.a, 0);
+      expect(surface.borderRadius, BorderRadius.circular(DRadius.pill));
+      expect(tester.getRect(control), tester.getRect(visual));
+      expect(tester.getSize(control).height, 30);
+      expect(
+        tester.getSize(control).width,
+        tester.getSize(find.text('All badges')).width.ceilToDouble() + 22,
+      );
+      expect(
+        DefaultTextStyle.of(
+          tester.element(find.text('All badges')),
+        ).style.fontWeight,
+        FontWeight.w500,
+      );
+      final allWidth = tester.getSize(control).width;
+      await tester.tapAt(
+        tester.getRect(visual).centerRight - const Offset(1, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mine'));
+      await tester.pumpAndSettle();
+      expect(value, 'mine');
+      expect(tester.getSize(control).width, lessThan(allWidth));
+      expect(tester.getRect(control), tester.getRect(visual));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('Select registers implemented styleguide examples', () {
     expect(componentExamples['select'], same(selectExamples));
     expect(selectExamples.status, ComponentStatus.implemented);

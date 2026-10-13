@@ -47,17 +47,12 @@ void main() {
       {
         // Mobile navigation uses the requested independent circular buttons
         // and pill contextual actions, through Native's existing shape API.
-        'lib/src/shell/mobile_shell.dart': {'shape': 5},
-        'lib/src/shell/message_create_button.dart': {'shape': 2},
+        'lib/src/shell/mobile_shell.dart': {'shape': 3},
+        'lib/src/shell/message_create_button.dart': {'shape': 3},
         // Composer gutter actions retain the documented transparent surface.
         'lib/src/shell/composer_block_surface.dart': {'backgroundColor': 1},
-        // The mobile topic reader has a floating pill progress trigger; the
-        // inline trigger sits on the header without a resting or hover fill.
-        'lib/src/shell/topic_progress.dart': {
-          'shape': 1,
-          'backgroundColor': 1,
-          'interactiveBackgroundColor': 1,
-        },
+        // Topic progress uses Native timeline artwork and the existing pill shape.
+        'lib/src/shell/topic_progress.dart': {'shape': 1},
         // X embeds retain provider identity and the reference's pill reply link,
         // using Native buttons for sizing, focus, hover and activation.
         'lib/src/shell/oneboxes/twitter.dart': {
@@ -68,37 +63,30 @@ void main() {
         },
         // Category identity uses the same tint on both halves of the control.
         'lib/src/shell/topic_inbox_header.dart': {
+          'foregroundColor': 2,
           'backgroundColor': 2,
           'borderColor': 2,
           'interactiveBackgroundColor': 2,
         },
         // Category dropdowns reuse the topic header's category identity tint.
         'lib/src/shell/topic_taxonomy_button.dart': {
-          'backgroundColor': 1,
-          'borderColor': 1,
-          'interactiveBackgroundColor': 1,
-        },
-        // Start page links are borderless chips on the footer surface, with
-        // the neutral accent hover; no kit variant fills without a border.
-        'lib/src/shell/new_tab_page.dart': {
-          'backgroundColor': 1,
-          'interactiveBackgroundColor': 1,
-          'borderColor': 1,
           'foregroundColor': 1,
+          'backgroundColor': 1,
+          'borderColor': 1,
+          'interactiveBackgroundColor': 1,
         },
-        // A saved bookmark combines the kit's selected fill with its outline
-        // variant so the joined group keeps a continuous perimeter and divider.
+        // Start page metadata links use their surrounding muted foreground.
+        'lib/src/shell/new_tab_page.dart': {'foregroundColor': 1},
+        // A saved bookmark keeps the neutral outline and accents its artwork.
         'lib/src/shell/topic_actions.dart': {
           'backgroundColor': 2,
           'foregroundColor': 2,
           'interactiveBackgroundColor': 2,
         },
-        // User-approved header capsules use each core notification color.
+        // Header notification capsules use a circular/pill shape and core color.
         'lib/src/shell/header_notification_button.dart': {
-          'backgroundColor': 1,
+          'shape': 2,
           'foregroundColor': 1,
-          'interactiveBackgroundColor': 1,
-          'borderRadius': 1,
         },
         // The avatar trigger is an outlined circle around the avatar, with no
         // fill of its own at rest or on hover.
@@ -106,19 +94,18 @@ void main() {
           'shape': 1,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
-          'borderColor': 1,
         },
         // Composer tools use the mockup's muted tool foreground; discarding a
         // draft uses a destructive tint rather than the solid kit fill. Image
         // and gallery actions use the same pill shape as the discard control.
         'lib/src/shell/composer_panel.dart': {
-          'foregroundColor': 12,
+          'foregroundColor': 13,
           'shape': 3,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
         },
         // Tab strip scroll affordances are the mockup's circular buttons.
-        'lib/src/shell/forum_tabs_bar.dart': {'shape': 1},
+        'lib/src/shell/forum_tabs_bar.dart': {'shape': 2},
         // A day separator is a pill on the stream's own surface and border.
         'lib/src/shell/stream_day_separator.dart': {
           'shape': 1,
@@ -132,7 +119,10 @@ void main() {
         // The chat jump-to-latest control uses the same floating capsule as
         // the topic progress control; filter tokens are editable pill chips.
         'lib/src/plugins/chat/chat_channel_view.dart': {'shape': 1},
-        'lib/src/shell/topic_filter_input.dart': {'shape': 1},
+        'lib/src/shell/topic_filter_input.dart': {
+          'shape': 1,
+          'backgroundColor': 1,
+        },
         // Composer and sheet close actions share the existing pill shape.
         'lib/src/shell/composer_header.dart': {'shape': 1},
         'lib/src/plugin_api/composer_sheet_header.dart': {'shape': 1},
@@ -144,10 +134,26 @@ void main() {
         // Rail actions use the rail foreground on the rail's own surface;
         // collapsed sidebar is muted.
         'lib/src/shell/instance_rail.dart': {
-          'borderRadius': 1,
-          'foregroundColor': 2,
-          'backgroundColor': 2,
-          'interactiveBackgroundColor': 2,
+          'shape': 1,
+          'foregroundColor': 3,
+          'backgroundColor': 3,
+          'interactiveBackgroundColor': 3,
+        },
+        // Window/sidebar destinations and their search/close actions are pills.
+        'lib/src/shell/title_bar.dart': {'shape': 2},
+        'lib/src/shell/global_search_panel.dart': {'shape': 1},
+        'lib/src/shell/main_content.dart': {'shape': 1},
+        'lib/src/shell/user_menu.dart': {'shape': 2, 'foregroundColor': 1},
+        // Creation and drafting actions use the established pill artwork.
+        'lib/src/shell/topic_create_button.dart': {'shape': 1},
+        'lib/src/shell/composer_draft_tabs.dart': {'shape': 1},
+        // Shared category paths and list filters supply their quiet selection fill.
+        // Topic metadata actions retain the metadata row's text foreground.
+        'lib/src/shell/topic_card_metadata.dart': {'foregroundColor': 2},
+        // Chat search/navigation and the local-date sheet use pill controls.
+        'lib/src/plugins/chat/chat_header_button.dart': {'shape': 1},
+        'lib/src/plugins/local_dates/local_date_preview_sheet.dart': {
+          'shape': 1,
         },
         // A minimized panel's rail stands in for its tab strip: the selected
         // tab keeps the selected document tab's raised fill and outline, on

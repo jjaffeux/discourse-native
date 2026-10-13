@@ -5,7 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/topic_filter.dart';
-import '../theme/d_native_icons.dart';
+import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
@@ -22,6 +22,8 @@ class TopicListFilterMenu extends StatefulWidget {
     this.label,
     this.filterKey,
     this.triggerKey,
+    this.icon = const DIcon(DIcons.filter, size: 11),
+    this.dimLabel = false,
   });
   final String siteUrl;
   final String query;
@@ -29,6 +31,8 @@ class TopicListFilterMenu extends StatefulWidget {
   final String? label;
   final String? filterKey;
   final Key? triggerKey;
+  final Widget? icon;
+  final bool dimLabel;
 
   @override
   State<TopicListFilterMenu> createState() => _TopicListFilterMenuState();
@@ -187,18 +191,23 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
       builder: (context, trigger) => DButton(
         key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
         label: Text(
-          '${widget.label ?? context.l10n.startPageFilters}${widget.filterKey != null || widget.query.isEmpty ? '' : ' ${splitTopicFilterQuery(widget.query).length}'}',
+          '${widget.label ?? context.l10n.startPageFilters}${widget.filterKey != null || widget.query.isEmpty ? '' : ' · ${splitTopicFilterQuery(widget.query).length}'}',
+          style: widget.dimLabel
+              ? TextStyle(
+                  color: Color.lerp(
+                    DTokens.of(context).background,
+                    DTokens.of(context).foreground,
+                    .40,
+                  ),
+                )
+              : null,
         ),
         tooltip: widget.query.isEmpty
             ? context.l10n.filterTopics
             : context.l10n.editActiveFilter,
-        icon: const DIcon(DNativeIcons.filterLines, size: 12),
+        icon: widget.icon,
         size: DButtonSize.filter,
-        shape: DButtonShape.pill,
-        variant: DButtonVariant.secondary,
-        backgroundColor: widget.query.isEmpty
-            ? DTokens.of(context).buttonTheme.outline.hover
-            : null,
+        variant: DButtonVariant.quiet,
         focusNode: trigger.focusNode,
         expanded: trigger.open,
         hasPopup: true,

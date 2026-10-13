@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
@@ -26,7 +27,9 @@ class DButtonGroup extends StatefulWidget {
     this.semanticLabel,
     this.mainAxisSize = MainAxisSize.min,
     this.sharedOutline = false,
-  }) : spacedSize = null,
+  }) : quiet = false,
+       quietSelected = false,
+       spacedSize = null,
        assert(semanticLabel == null || semanticLabel != '');
 
   /// Places equal-sized icon buttons with [DSpacing.controlGap] between their
@@ -40,8 +43,23 @@ class DButtonGroup extends StatefulWidget {
   }) : orientation = DButtonGroupOrientation.horizontal,
        mainAxisSize = MainAxisSize.min,
        sharedOutline = false,
+       quiet = false,
+       quietSelected = false,
        spacedSize = size,
        assert(semanticLabel == null || semanticLabel != '');
+
+  /// One flat pill behind independent page-picker segments and passive labels.
+  const DButtonGroup.quiet({
+    super.key,
+    required this.children,
+    this.semanticLabel,
+    bool selected = false,
+  }) : quiet = true,
+       quietSelected = selected,
+       orientation = DButtonGroupOrientation.horizontal,
+       mainAxisSize = MainAxisSize.min,
+       sharedOutline = false,
+       spacedSize = null;
 
   final List<Widget> children;
   final DButtonGroupOrientation orientation;
@@ -56,6 +74,8 @@ class DButtonGroup extends StatefulWidget {
   /// Compose with outlined [DButton] controls. Each child keeps its own hover,
   /// focus, and hit area; passive separators never activate adjacent buttons.
   final bool sharedOutline;
+  final bool quiet;
+  final bool quietSelected;
 
   @override
   State<DButtonGroup> createState() => _DButtonGroupState();
@@ -115,6 +135,8 @@ class _DButtonGroupState extends State<DButtonGroup> {
       first: index == 0,
       last: index == children.length - 1,
       sharedOutline: widget.sharedOutline,
+      quiet: widget.quiet,
+      quietSelected: widget.quietSelected,
       child: Focus(
         canRequestFocus: false,
         skipTraversal: true,
@@ -164,6 +186,17 @@ class _DButtonGroupState extends State<DButtonGroup> {
           ),
           child: content,
         ),
+      );
+    }
+    if (widget.quiet) {
+      content = DecoratedBox(
+        decoration: BoxDecoration(
+          color: DTokens.of(
+            context,
+          ).quietControlSurface(selected: widget.quietSelected).background,
+          borderRadius: BorderRadius.circular(DRadius.pill),
+        ),
+        child: content,
       );
     }
     return Semantics(
@@ -239,6 +272,31 @@ class DButtonGroupText extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
+    if (joined?.quiet == true) {
+      return _GroupTextExtent(
+        child: Padding(
+          padding: padding,
+          child: Align(
+            alignment: AlignmentDirectional.center,
+            widthFactor: 1,
+            heightFactor: 1,
+            child: DIconGlyphTheme(
+              scale: 1,
+              naturalWidth: true,
+              child: DefaultTextStyle.merge(
+                style: TextStyle(
+                  color: Color.lerp(tokens.background, tokens.foreground, .32),
+                  fontSize: 12.5,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final direction = Directionality.of(context);
     final radius = BorderRadius.circular(tokens.buttonTheme.radius);
     final resolvedRadius = joined?.resolveRadius(radius, direction) ?? radius;

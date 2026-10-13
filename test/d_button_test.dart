@@ -671,9 +671,9 @@ void main() {
         final desktop = platform == TargetPlatform.macOS;
         expect(
           tester.getSize(button),
-          desktop ? const Size(20, 34) : const Size(44, 44),
+          desktop ? const Size(20, 30) : const Size(30, 30),
         );
-        expect(tester.getSize(find.byIcon(Icons.add)), const Size(14, 14));
+        expect(tester.getSize(find.byIcon(Icons.add)), const Size(12, 12));
         final rect = tester.getRect(button);
         await tester.tapAt(rect.centerLeft + const Offset(1, 0));
         await tester.pump();
@@ -733,27 +733,27 @@ void main() {
                 .borderRadius
                 .topLeft
                 .x;
-        expect(radius(), 22);
+        expect(radius(), 15);
         update(() => selected = true);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 60));
         if (reducedMotion) {
           expect(radius(), 14);
         } else {
-          expect(radius(), inExclusiveRange(14, 22));
+          expect(radius(), inExclusiveRange(14, 15));
         }
         final interruptedRadius = radius();
         update(() => selected = false);
         await tester.pump();
         if (reducedMotion) {
-          expect(radius(), 22);
+          expect(radius(), 15);
         } else {
           expect(radius(), closeTo(interruptedRadius, .001));
           await tester.pump(const Duration(milliseconds: 60));
-          expect(radius(), inExclusiveRange(interruptedRadius, 22));
+          expect(radius(), inExclusiveRange(interruptedRadius, 15));
         }
         await tester.pumpAndSettle();
-        expect(radius(), 22);
+        expect(radius(), 15);
       },
     );
   }
@@ -978,7 +978,7 @@ void main() {
   testWidgets('Native text sizes retain compact surfaces', (tester) async {
     for (final (size, height, font, icon) in [
       (DButtonSize.small, 24.0, 12.5, 12.0),
-      (DButtonSize.regular, 34.0, 13.0, 14.0),
+      (DButtonSize.regular, 30.0, 12.5, 12.0),
       (DButtonSize.large, 40.0, 14.0, 16.0),
     ]) {
       await tester.pumpWidget(
@@ -1453,8 +1453,8 @@ void main() {
 
           if (loading) {
             final rendered = find.byType(FilledButton);
-            expect(tester.getSize(rendered).width, moreOrLessEquals(40));
-            expect(tester.getSize(rendered).height, moreOrLessEquals(44));
+            expect(tester.getSize(rendered).width, moreOrLessEquals(36));
+            expect(tester.getSize(rendered).height, moreOrLessEquals(30));
             expect(rendered, paintsExactlyCountTimes(#drawParagraph, 0));
             expect(find.byType(DSpinner), findsOneWidget);
           }
@@ -1599,7 +1599,7 @@ void main() {
           );
           expect(
             tester.getSize(find.byType(FilledButton)),
-            const Size.square(44),
+            const Size.square(30),
           );
         }
       }

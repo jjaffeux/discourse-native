@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/composer_layout_store.dart';
@@ -36,9 +38,9 @@ import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -65,6 +67,118 @@ const _child = TopicCategory(
 const _tag = TopicTag(id: 1, name: 'community');
 
 void main() {
+  setUpAll(() async {
+    if (Platform.environment['TOPIC_HEADER_CAPTURE_DIR'] == null) return;
+    await (FontLoader('TopicHeaderReview')
+          ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
+        .load();
+  });
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      testWidgets('header controls match native artwork on $platform '
+          '${theme.brightness.name}', (tester) async {
+        final setup = await _setup(
+          tester,
+          theme: theme.copyWith(
+            platform: platform,
+            textTheme: Platform.environment['TOPIC_HEADER_CAPTURE_DIR'] == null
+                ? theme.textTheme
+                : theme.textTheme.apply(fontFamily: 'TopicHeaderReview'),
+          ),
+          capture: true,
+          firstTopicTitle: 'Making the topic header feel native',
+          registry: const PluginRegistry([AssignPlugin()]),
+          topicPluginPayload: const {'can_assign': true},
+        );
+        tester.view.physicalSize = Size(
+          platform == TargetPlatform.macOS ? 1100 : 390,
+          800,
+        );
+        setup.controller.openTopicFromList(setup.rows.first);
+        await tester.pumpAndSettle();
+        await _scrollReaderToTop(tester);
+        final parent = find.descendant(
+          of: find.byKey(const ValueKey('topic-header-parent-category')),
+          matching: find.byType(DButton),
+        );
+        final category = find.descendant(
+          of: find.byKey(const ValueKey('topic-header-category')),
+          matching: find.byType(DButton),
+        );
+        final tokens = DTokens.of(tester.element(category));
+        expect(buttonSurface(tester, of: parent).color, Colors.transparent);
+        expect(
+          buttonSurface(tester, of: category).color,
+          Color.lerp(tokens.background, Color(_child.colorValue), .25),
+        );
+        expect(
+          buttonSurface(tester, of: category).borderColor,
+          Color.lerp(
+            tokens.buttonTheme.outline.border,
+            Color(_child.colorValue),
+            .40,
+          ),
+        );
+        for (final action in [
+          parent,
+          category,
+          find.byKey(const ValueKey('topic-header-bookmark-button')),
+          find.byKey(const ValueKey('topic-header-notification-button')),
+          find.byKey(const Key('assign-topic-header')),
+          find.byKey(const ValueKey('topic-status-button')),
+        ]) {
+          expect(tester.getSize(action).height, 30);
+        }
+        final badge = find.byKey(
+          const ValueKey(('topic-header-tag', 'community')),
+        );
+        final tagSurface =
+            tester
+                    .widget<AnimatedContainer>(
+                      find.descendant(
+                        of: badge,
+                        matching: find.byType(AnimatedContainer),
+                      ),
+                    )
+                    .decoration!
+                as BoxDecoration;
+        expect(tester.getSize(badge).height, 30);
+        expect(tagSurface.color, tokens.buttonTheme.outline.background);
+        expect(tagSurface.border!.top.color, tokens.buttonTheme.outline.border);
+        expect(
+          DefaultTextStyle.of(
+            tester.element(find.text('# community')),
+          ).style.color,
+          tokens.buttonTheme.outline.foreground,
+        );
+        expect(tester.takeException(), isNull);
+        final directory = Platform.environment['TOPIC_HEADER_CAPTURE_DIR'];
+        if (directory != null) {
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(const ValueKey('topic-header-capture')),
+            );
+            final image = await boundary.toImage(pixelRatio: 2);
+            try {
+              final data = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              final file = File(
+                '$directory/header-${platform.name}-'
+                '${theme.brightness.name}.png',
+              );
+              await file.parent.create(recursive: true);
+              await file.writeAsBytes(data!.buffer.asUint8List());
+            } finally {
+              image.dispose();
+            }
+          });
+        }
+      });
+    }
+  }
+
   testWidgets('topic header follows the mockup hierarchy', (tester) async {
     final setup = await _setup(
       tester,
@@ -2546,7 +2660,10 @@ void main() {
                 ),
                 reason: key,
               );
-              expect(tester.getSize(control).height, controlHeight);
+              expect(
+                tester.getSize(control).height,
+                key == 'topic-reply-button' ? controlHeight : 30,
+              );
               expect(
                 tester.getRect(control).center.dy,
                 closeTo(tester.getRect(reply).center.dy, .01),
@@ -2698,10 +2815,7 @@ void main() {
             final controls = tokens.buttonTheme;
             final surface = buttonSurface(tester, of: bookmark);
             expect(surface.borderColor, controls.outline.border);
-            expect(
-              surface.color,
-              saved ? controls.primary.background : controls.outline.background,
-            );
+            expect(surface.color, controls.outline.background);
             expect(
               surface.borderRadius,
               BorderRadius.horizontal(
@@ -2727,7 +2841,7 @@ void main() {
                     find.descendant(of: bookmark, matching: find.byType(DIcon)),
                   )
                   .icon,
-              saved ? DNativeIcons.bookmarkCheck : DIcons.bookmark,
+              saved ? DIcons.bookmark : DIcons.farBookmark,
             );
             expect(tester.widget<DButton>(bookmark).hasPopup, isTrue);
             if (saved) {
@@ -2735,7 +2849,7 @@ void main() {
               await tester.pumpAndSettle();
               expect(
                 buttonSurface(tester, of: bookmark).color,
-                controls.primary.hover,
+                controls.outline.hover,
               );
               expect(
                 buttonSurface(tester, of: notifications).color,
@@ -3255,10 +3369,10 @@ void main() {
       matching: find.byType(AnimatedContainer),
     );
     expect(
-      tester.getRect(moreSurface).left,
-      tester.getRect(replySurface).right + DSpacing.controlGap,
+      tester.getRect(replySurface).left,
+      tester.getRect(moreSurface).right + 4,
     );
-    expect(tester.getRect(more).right, closeTo(tester.getRect(body).right, 1));
+    expect(tester.getRect(reply).right, closeTo(tester.getRect(body).right, 1));
     expect(
       find.descendant(of: reply, matching: find.text('Reply')),
       findsNothing,
@@ -3392,7 +3506,8 @@ void _expectFloatingProgressFits(WidgetTester tester, String reason) {
   expect(rect.left, greaterThanOrEqualTo(reader.left), reason: reason);
   expect(rect.right, lessThanOrEqualTo(reader.right), reason: reason);
   expect(rect.bottom, lessThanOrEqualTo(reader.bottom), reason: reason);
-  expect(tester.widget<DButton>(progress).variant, DButtonVariant.outline);
+  expect(tester.widget<DButton>(progress).variant, DButtonVariant.ghost);
+  expect(tester.widget<DButton>(progress).density, DButtonDensity.floatingCall);
   expect(
     rect,
     tester.getRect(
@@ -3422,6 +3537,7 @@ _setup(
   ThemeData? theme,
   bool windowCorners = false,
   bool composerDock = false,
+  bool capture = false,
   int postCount = 4,
   Completer<void>? topicGate,
   PluginRegistry registry = PluginRegistry.empty,
@@ -3606,6 +3722,12 @@ _setup(
         controller: shell,
         child: MaterialApp(
           theme: theme ?? AppTheme.light,
+          builder: capture
+              ? (context, child) => RepaintBoundary(
+                  key: const ValueKey('topic-header-capture'),
+                  child: child,
+                )
+              : null,
           home: Scaffold(
             body: windowCorners
                 ? TopicPresentationPreferences(

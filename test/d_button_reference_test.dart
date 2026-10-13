@@ -400,15 +400,14 @@ void main() {
           onPressed: () {},
         ),
       );
-      final padding =
-          tester
-                  .widget<FilledButton>(find.byType(FilledButton))
-                  .style!
-                  .padding!
-                  .resolve({})!
-              as EdgeInsetsDirectional;
-      expect(padding.start, position == DButtonIconPosition.start ? 8 : 12);
-      expect(padding.end, position == DButtonIconPosition.end ? 8 : 12);
+      final padding = tester
+          .widget<FilledButton>(find.byType(FilledButton))
+          .style!
+          .padding!
+          .resolve({})!
+          .resolve(TextDirection.ltr);
+      expect(padding.left, 10);
+      expect(padding.right, 10);
     }
   });
 
@@ -555,8 +554,8 @@ void main() {
           await tester.pumpAndSettle();
           final tokens = tokensOf(tester);
           final expected = switch (variant) {
-            DButtonVariant.outline ||
-            DButtonVariant.secondary => tokens.buttonTheme.outline.hover,
+            DButtonVariant.outline => tokens.buttonTheme.outline.hover,
+            DButtonVariant.secondary => tokens.quietControlSurface().hover,
             DButtonVariant.ghost => tokens.buttonTheme.accent.hover,
             _ => tokens.buttonTheme.primary.hover,
           };
@@ -581,7 +580,7 @@ void main() {
       await hover(tester, find.byType(FilledButton));
       expect(
         buttonSurface(tester).color,
-        tokensOf(tester).buttonTheme.outline.hover,
+        tokensOf(tester).quietControlSurface().hover,
       );
     },
   );

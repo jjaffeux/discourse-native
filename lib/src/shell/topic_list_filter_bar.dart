@@ -7,6 +7,8 @@ import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../theme/app_theme.dart';
+import '../theme/d_icons.dart';
+import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'forum_theme_surfaces.dart';
 import 'topic_filter_controller.dart';
@@ -78,17 +80,36 @@ class TopicListFilterBar extends StatelessWidget {
         ).categoryId;
     final controlChildren = <Widget>[
       if (filterQuery != null) ...[
-        TopicListFilterMenu(
+        TopicCategoryPathSelector(
+          keyPrefix: 'topic-list',
           siteUrl: siteUrl,
-          query: filterQuery!,
-          filterKey: 'category',
-          triggerKey: const ValueKey('topic-list-category-filter'),
-          label:
-              categories
-                  .where((category) => category.id == displayedCategoryId)
-                  .firstOrNull
-                  ?.name ??
-              context.l10n.categories,
+          categories: categories,
+          selectedCategoryId: displayedCategoryId,
+          onSelected: onCategorySelected,
+          maxCategoryNesting: maxCategoryNesting,
+          segmentBuilder: (context, level, category, label) =>
+              TopicListFilterMenu(
+                siteUrl: siteUrl,
+                query: filterQuery!,
+                filterKey: 'category',
+                triggerKey: ValueKey(
+                  level == 0
+                      ? 'topic-list-category-filter'
+                      : 'topic-list-subcategory-filter-$level',
+                ),
+                label: label,
+                dimLabel: category == null && level > 0,
+                icon: category != null
+                    ? CategoryIcon(
+                        category: category,
+                        siteUrl: siteUrl,
+                        size: 12,
+                        squareSize: 10,
+                      )
+                    : level == 0
+                    ? const CategorySquare(color: null, size: 10)
+                    : null,
+              ),
         ),
         if (taggingEnabled)
           TopicListFilterMenu(
@@ -99,6 +120,7 @@ class TopicListFilterBar extends StatelessWidget {
             label: selectedTags.isEmpty
                 ? context.l10n.tags
                 : selectedTags.map((tag) => tag.name).join(', '),
+            icon: const DIcon(DIcons.tag, size: 12),
           ),
       ],
       if (filterQuery == null)
@@ -167,7 +189,7 @@ class TopicListFilterBar extends StatelessWidget {
                 children: [
                   Expanded(child: controlChildren.first),
                   if (controlChildren.length > 1) ...[
-                    const SizedBox(width: DSpacing.controlGap),
+                    const SizedBox(width: DSpacing.sm),
                     Expanded(child: controlChildren[1]),
                   ],
                 ],
@@ -180,7 +202,7 @@ class TopicListFilterBar extends StatelessWidget {
           )
         : wrap
         ? Wrap(
-            spacing: DSpacing.controlGap,
+            spacing: DSpacing.sm,
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [?leading, ...controlChildren],
@@ -190,10 +212,10 @@ class TopicListFilterBar extends StatelessWidget {
             children: [
               if (leading != null) ...[
                 leading!,
-                const SizedBox(width: DSpacing.controlGap),
+                const SizedBox(width: DSpacing.sm),
               ],
               for (var index = 0; index < controlChildren.length; index++) ...[
-                if (index > 0) const SizedBox(width: DSpacing.controlGap),
+                if (index > 0) const SizedBox(width: DSpacing.sm),
                 if (inline)
                   Flexible(child: controlChildren[index])
                 else

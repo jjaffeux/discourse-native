@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/site_config.dart';
 import '../models/topic.dart';
+import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'topic_category_path.dart';
 
@@ -18,6 +19,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
     this.keyPrefix = 'category-path',
     this.sheetOnMobile = false,
     this.maxCategoryNesting = SiteConfig.defaultMaxCategoryNesting,
+    this.segmentBuilder,
   }) : assert(maxCategoryNesting > 0);
 
   final String siteUrl;
@@ -30,6 +32,10 @@ class TopicCategoryPathSelector extends StatelessWidget {
   /// The site's maximum depth, counting the root as level one.
   /// An existing deeper selection remains visible if cached settings change.
   final int maxCategoryNesting;
+
+  /// Page filters can keep their existing editor behind the shared path artwork.
+  final Widget Function(BuildContext, int, TopicCategory?, String)?
+  segmentBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +74,12 @@ class TopicCategoryPathSelector extends StatelessWidget {
           (level == 0
               ? context.l10n.categories
               : context.l10n.subcategoryTopiccategoryselector);
+      if (segmentBuilder case final builder?) {
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 180),
+          child: builder(context, level, category, label),
+        );
+      }
       return KeyedSubtree(
         key: ValueKey((siteUrl, maxCategoryNesting, level, parent?.id)),
         child: TopicCategorySelector(
@@ -101,23 +113,24 @@ class TopicCategoryPathSelector extends StatelessWidget {
               });
             },
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 130),
+              constraints: const BoxConstraints(maxWidth: 180),
               child: DButton(
                 size: DButtonSize.filter,
-                variant: DButtonVariant.secondary,
-                shape: DButtonShape.pill,
-                backgroundColor: category == null
-                    ? DTokens.of(context).muted
-                    : Color.lerp(
-                        DTokens.of(context).muted,
-                        DTokens.of(context).foreground,
-                        .08,
-                      ),
+                variant: DButtonVariant.quiet,
                 alignment: AlignmentDirectional.centerStart,
                 label: Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: category == null && level > 0
+                      ? TextStyle(
+                          color: Color.lerp(
+                            DTokens.of(context).background,
+                            DTokens.of(context).foreground,
+                            .40,
+                          ),
+                        )
+                      : null,
                 ),
                 icon: category != null
                     ? CategoryIcon(
@@ -160,15 +173,20 @@ class TopicCategoryPathSelector extends StatelessWidget {
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: DButtonGroup(
-          sharedOutline: false,
+        child: DButtonGroup.quiet(
+          selected: path.isNotEmpty,
           semanticLabel: context.l10n.filterByCategory,
           children: [
             for (var level = 0; level < levels; level++) ...[
               if (level > 0)
-                const DButtonGroupText(
-                  padding: EdgeInsets.symmetric(horizontal: 3),
-                  child: DBreadcrumbSeparator(),
+                DButtonGroupText(
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  child: DIcon(
+                    Directionality.of(context) == TextDirection.rtl
+                        ? DIcons.chevronLeft
+                        : DIcons.chevronRight,
+                    size: 10,
+                  ),
                 ),
               segment(level),
             ],

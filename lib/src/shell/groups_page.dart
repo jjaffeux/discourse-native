@@ -322,7 +322,7 @@ class _DirectoryControls extends StatelessWidget {
                     key: const ValueKey('groups-show-search'),
                     icon: const DIcon(DIcons.magnifyingGlass),
                     tooltip: context.l10n.searchGroups,
-                    variant: DButtonVariant.ghost,
+                    variant: DButtonVariant.quiet,
                     onPressed: onShowSearch,
                   ),
                   if (data.canCreateGroup)
@@ -330,7 +330,7 @@ class _DirectoryControls extends StatelessWidget {
                       key: const ValueKey('create-group'),
                       icon: const DIcon(DIcons.plus),
                       tooltip: context.l10n.newGroup,
-                      variant: DButtonVariant.outline,
+                      variant: DButtonVariant.quiet,
                       onPressed: onCreateGroup,
                     ),
                 ],
@@ -374,8 +374,8 @@ class _DirectoryControls extends StatelessWidget {
             spacing: DSpacing.md,
             runSpacing: DSpacing.sm,
             children: [
-              SizedBox(
-                width: 180,
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
                 child: DSelect<String>.controlled(
                   key: const ValueKey('groups-type-filter'),
                   size: DControlSize.filter,

@@ -13,7 +13,7 @@ enum DControlSize {
   regular,
   large,
 
-  /// Outlined filter triggers: 12.5px text, 5px vertical padding and 1px border.
+  /// Secondary controls: 30px artwork, 12.5px text and a 1px border.
   filter,
 
   /// Search fields: 13px text, 7px vertical padding and 1px border.
@@ -53,7 +53,7 @@ enum DControlSize {
 /// Shared geometry and outlined surfaces for action and selection controls.
 abstract final class DControlStyle {
   static const smallHeight = 24.0;
-  static const regularHeight = 34.0;
+  static const regularHeight = 30.0;
   static const largeHeight = 40.0;
 
   static const duration = Duration(milliseconds: 150);
@@ -86,16 +86,16 @@ abstract final class DControlStyle {
       };
 
   static bool isApplicationSize(DControlSize size) => switch (size) {
-    DControlSize.small || DControlSize.regular || DControlSize.large => false,
+    DControlSize.small || DControlSize.large => false,
     _ => true,
   };
 
   static double height(DControlSize size, {BuildContext? context}) =>
       switch (size) {
         DControlSize.small => isTouch(context) ? 40 : smallHeight,
-        DControlSize.regular => isTouch(context) ? 44 : regularHeight,
+        DControlSize.regular => regularHeight,
         DControlSize.large => isTouch(context) ? 48 : largeHeight,
-        DControlSize.filter => 30.75,
+        DControlSize.filter => regularHeight,
         DControlSize.field => 35.5,
         DControlSize.preference => 40.25,
         DControlSize.chip => 24,
@@ -112,8 +112,8 @@ abstract final class DControlStyle {
       switch (size) {
         DControlSize.small ||
         DControlSize.filter ||
-        DControlSize.chip => DiscourseTypography.preview,
         DControlSize.regular ||
+        DControlSize.chip => DiscourseTypography.preview,
         DControlSize.field ||
         DControlSize.toolbar ||
         DControlSize.segment ||
@@ -132,11 +132,10 @@ abstract final class DControlStyle {
       switch (size) {
         DControlSize.small ||
         DControlSize.filter ||
+        DControlSize.regular ||
         DControlSize.chip ||
         DControlSize.action => 12,
-        DControlSize.regular ||
-        DControlSize.field ||
-        DControlSize.toolbar => 14,
+        DControlSize.field || DControlSize.toolbar => 14,
         DControlSize.large => iconSize,
         DControlSize.preference || DControlSize.segment => 13,
         DControlSize.chrome => 15,
@@ -153,7 +152,7 @@ abstract final class DControlStyle {
 
   /// Insets include the CSS border, which Native paints inside the surface.
   static double horizontalInset(DControlSize size) => switch (size) {
-    DControlSize.filter || DControlSize.chip => 10,
+    DControlSize.filter || DControlSize.regular || DControlSize.chip => 10,
     DControlSize.field => 11,
     DControlSize.preference => 12,
     DControlSize.chrome => 7,
@@ -167,7 +166,7 @@ abstract final class DControlStyle {
   };
 
   static double chevronDimension(DControlSize size) => switch (size) {
-    DControlSize.filter || DControlSize.chip => 10,
+    DControlSize.filter || DControlSize.regular || DControlSize.chip => 10,
     DControlSize.preference => 11,
     _ => iconDimension(size),
   };

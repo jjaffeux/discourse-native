@@ -367,9 +367,9 @@ class _DInputState extends FormFieldState<String> {
           height: DControlStyle.lineHeight(size, context: context) / fontSize,
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
-          color: input.filled
-              ? Color.lerp(t.background, t.foreground, .9)
-              : t.foreground,
+          color: input.borderless
+              ? t.foreground
+              : Color.lerp(t.background, t.foreground, .9),
         );
     final group = _group;
     final hintColor = group?.search == true

@@ -200,6 +200,7 @@ class _ActivityListState extends State<_ActivityList> {
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: DSelect<_ActivityKind>.controlled(
+                size: DControlSize.filter,
                 key: const ValueKey('activity-kind-filter'),
                 value: _kind,
                 semanticLabel: context.l10n.activity,

@@ -306,22 +306,16 @@ final class _EventCalendarState extends State<EventCalendar> {
     },
     triggerBuilder: (context, state, _) => DButton(
       size: DControlSize.filter,
-      variant: DButtonVariant.outline,
+      variant: lead ? DButtonVariant.quietSelected : DButtonVariant.quiet,
       focusNode: state.focusNode,
       hasPopup: true,
       expanded: state.open,
       semanticLabel: label,
-      icon: DIcon(
-        DIcons.chevronDown,
-        size: DControlStyle.chevronDimension(DControlSize.filter),
-      ),
-      iconPosition: DButtonIconPosition.end,
       onPressed: state.enabled ? state.toggle : null,
       label: Text(
         describe(selected),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontWeight: lead ? FontWeight.w600 : FontWeight.w400),
       ),
     ),
   );
@@ -329,8 +323,8 @@ final class _EventCalendarState extends State<EventCalendar> {
   Widget _toolbar(BuildContext context) {
     final tokens = DTokens.of(context);
     Widget navigation(int direction) => DButton.iconOnly(
-      variant: DButtonVariant.outline,
-      size: DControlSize.chip,
+      variant: DButtonVariant.quiet,
+      size: DControlSize.filter,
       icon: DIcon(
         direction < 0 ? DIcons.chevronLeft : DIcons.chevronRight,
         size: 11,

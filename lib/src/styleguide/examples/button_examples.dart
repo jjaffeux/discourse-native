@@ -10,7 +10,7 @@ import 'linear_controls_example.dart';
 import 'mockup_control_sizes_example.dart';
 
 final buttonExamples = ComponentExamples(
-  topLevelExampleIndex: 1,
+  topLevelExampleIndex: 2,
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
@@ -18,7 +18,7 @@ final buttonExamples = ComponentExamples(
       'The redesign has three button families: colored, outlined and transparent. '
       'Colored actions use a 25% accent fill and accent-tinted foreground; '
       'outlined actions use a 1px palette border; transparent actions have no resting fill or border. '
-      'Buttons use the theme’s control radius and no shadows. General desktop controls use 24/34/40px surfaces; mobile uses 40/44/48px '
+      'Buttons use the theme’s control radius and no shadows. Regular controls use 30px surfaces and 12.5px labels on every platform; small/large desktop controls use 24/40px and mobile uses 40/48px '
       'with hit areas matching their surfaces. Application presets retain the exact mockup artwork on every platform. Hover and popup state remain visible, '
       'with a separate keyboard focus ring. All colors follow the forum palette. '
       'The header density uses 28px controls, 32px icon-only targets, 12.5px labels, '
@@ -26,6 +26,60 @@ final buttonExamples = ComponentExamples(
       'The avatar density gives icon-only profile triggers a 36px circle with a '
       '2px border flush against a borderless DAvatar. Both grow with text scaling.',
   examples: [
+    StyleguideExample(
+      title: 'Quiet page pickers',
+      description:
+          '30px pills with 12.5px medium text and flat translucent fills in both materials. A category path shares one well; each segment keeps its own hover, focus and hit bounds.',
+      code:
+          "DButton(variant: DButtonVariant.quiet, size: DButtonSize.filter, label: Text('Tags'), onPressed: openTags)",
+      builder: (_) => Wrap(
+        spacing: DSpacing.sm,
+        runSpacing: DSpacing.sm,
+        children: [
+          DButton(
+            variant: DButtonVariant.quietSelected,
+            size: DButtonSize.filter,
+            label: const Text('Latest'),
+            onPressed: () {},
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: DScrollArea(
+              axes: DScrollAxes.horizontal,
+              showScrollbar: false,
+              child: DButtonGroup.quiet(
+                selected: true,
+                children: [
+                  DButton(
+                    variant: DButtonVariant.quiet,
+                    size: DButtonSize.filter,
+                    label: const Text('Design'),
+                    onPressed: () {},
+                  ),
+                  const DButtonGroupText(
+                    padding: EdgeInsets.symmetric(horizontal: 5),
+                    child: DIcon(DIcons.chevronRight, size: 10),
+                  ),
+                  DButton(
+                    variant: DButtonVariant.quiet,
+                    size: DButtonSize.filter,
+                    label: const Text('Subcategory'),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+          DButton(
+            variant: DButtonVariant.quiet,
+            size: DButtonSize.filter,
+            icon: const DIcon(DIcons.tag),
+            label: const Text('Tags'),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    ),
     StyleguideExample(
       title: 'Bare post actions',
       description:
@@ -54,7 +108,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Application control sizes',
       description:
-          'Mockup geometry on every platform: 30.75px filters, 35.5px search fields, 40.25px preferences, 24px chips and 30px post controls. Inline metadata uses 12px text and its exact visible bounds, including on touch. Hit areas follow visible controls.',
+          'Mockup geometry on every platform: 30px filters, 35.5px search fields, 40.25px preferences, 24px chips and 30px post controls. Inline metadata uses 12px text and its exact visible bounds, including on touch. Hit areas follow visible controls.',
       code:
           "DSelect(size: DControlSize.filter, entries: entries, onChanged: select)",
       builder: (_) => Column(

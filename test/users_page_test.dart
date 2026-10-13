@@ -1159,7 +1159,7 @@ void main() {
             of: period,
             matching: find.byKey(const Key('d-select-trigger-visual')),
           ),
-          30.75,
+          30,
           () => periodMenu.evaluate().isNotEmpty,
         ),
         (
@@ -1172,7 +1172,7 @@ void main() {
                   widget.decoration is DButtonDecoration,
             ),
           ),
-          30.75,
+          30,
           () => columnsMenu.evaluate().isNotEmpty,
         ),
       ]) {
@@ -1282,11 +1282,7 @@ void main() {
       );
       expect(search.bottom, lessThan(period.top));
       expect(period.center.dy, closeTo(group.center.dy, 1));
-      if (width == 320) {
-        expect(columns.top, greaterThan(group.bottom));
-      } else {
-        expect(columns.center.dy, closeTo(group.center.dy, 1));
-      }
+      expect(columns.center.dy, closeTo(group.center.dy, 1));
       expect(columns.right, closeTo(search.right, 1));
       expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('users-columns')));

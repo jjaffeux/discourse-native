@@ -304,9 +304,8 @@ class _TopicHeaderTitle extends StatelessWidget {
     final siteUrl = header.siteUrl;
     final style = Theme.of(context).textTheme.headlineSmall;
     final lineHeight =
-        MediaQuery.textScalerOf(
-          context,
-        ).scale(style?.fontSize ?? DiscourseTypography.lg) *
+        MediaQuery.textScalerOf(context)
+            .scale(style?.fontSize ?? DiscourseTypography.lg) *
         (style?.height ?? DiscourseTypography.lineHeightLarge);
     final known = header.title;
     final Widget title;
@@ -336,8 +335,8 @@ class _TopicHeaderTitle extends StatelessWidget {
         siteUrl: siteUrl,
         style: style,
         maxLines: 3,
-        onSave: (value, {required originalTitle}) =>
-            ShellScope.read(context).saveTopicTitle(
+        onSave: (value, {required originalTitle}) => ShellScope.read(context)
+            .saveTopicTitle(
               siteUrl: siteUrl,
               topicId: topic.id,
               title: value,
@@ -463,9 +462,9 @@ class TopicActivitySummary extends StatelessWidget {
       final previewAvatars = participants.isEmpty
           ? row?.posterAvatars.take(4).toList() ?? const <String>[]
           : const <String>[];
-      final wordsPerMinute = ShellScope.read(
-        context,
-      ).siteConfigFor(siteUrl).readTimeWordCount;
+      final wordsPerMinute = ShellScope.read(context)
+          .siteConfigFor(siteUrl)
+          .readTimeWordCount;
       final readMinutes = math
           .max(topic.wordCount / wordsPerMinute, topic.postsCount * 4 / 60)
           .ceil();
@@ -868,6 +867,7 @@ class _TopicCategoryControl extends StatelessWidget {
                   : context.l10n.categoryTopicinboxheader),
           edit: browseOnly ? browse : edit,
           primaryIsLink: browseOnly,
+          contextOnly: value != null && value.id != topic.categoryId,
           saving: saving,
           focusNode: trigger.focusNode,
           expanded: trigger.open,
@@ -903,6 +903,7 @@ class _CategoryChip extends StatelessWidget {
     required this.focusNode,
     required this.expanded,
     this.primaryIsLink = false,
+    this.contextOnly = false,
   });
   final TopicCategory? category;
   final String siteUrl;
@@ -914,6 +915,7 @@ class _CategoryChip extends StatelessWidget {
   final FocusNode focusNode;
   final bool expanded;
   final bool primaryIsLink;
+  final bool contextOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -922,15 +924,15 @@ class _CategoryChip extends StatelessWidget {
         ? theme.colorScheme.onSurfaceVariant
         : Color(category!.colorValue);
     final tokens = DTokens.of(context);
-    final fill = category == null
-        ? tokens.controls?.outline.background
-        : Color.lerp(tokens.background, color, .18);
-    final border = category == null
-        ? tokens.controls?.outline.border
-        : Color.lerp(tokens.background, color, .38);
-    final hover = category == null
-        ? tokens.controls?.outline.hover
-        : Color.lerp(tokens.background, color, .30);
+    final surface = category == null
+        ? tokens.buttonTheme.outline
+        : tokens.categoryControlSurface(color);
+    final fill = contextOnly ? Colors.transparent : surface.background;
+    final border = surface.border;
+    final hover = surface.hover;
+    final foreground = contextOnly
+        ? Color.lerp(tokens.background, tokens.foreground, .50)
+        : surface.foreground;
     return IntrinsicWidth(
       child: DButtonGroup(
         semanticLabel: label,
@@ -948,6 +950,7 @@ class _CategoryChip extends StatelessWidget {
               variant: DButtonVariant.outline,
               size: DButtonSize.filter,
               backgroundColor: fill,
+              foregroundColor: foreground,
               borderColor: border,
               interactiveBackgroundColor: hover,
               loading: saving,
@@ -959,6 +962,7 @@ class _CategoryChip extends StatelessWidget {
                     CategoryIcon(
                       category: category!,
                       siteUrl: siteUrl,
+                      squareSize: 10,
                       size: DControlStyle.iconDimension(
                         DControlSize.filter,
                         context: context,
@@ -993,6 +997,7 @@ class _CategoryChip extends StatelessWidget {
                 variant: DButtonVariant.outline,
                 size: DButtonSize.filter,
                 backgroundColor: fill,
+                foregroundColor: foreground,
                 borderColor: border,
                 interactiveBackgroundColor: hover,
               ),
@@ -1200,9 +1205,8 @@ class _TopicPropertyDetails extends StatelessWidget {
         });
       }
       return ValueListenableBuilder<TopicDetail?>(
-        valueListenable: ShellScope.read(
-          context,
-        ).store.ref<TopicDetail>(siteUrl, topicId),
+        valueListenable: ShellScope.read(context).store
+            .ref<TopicDetail>(siteUrl, topicId),
         builder: (context, topic, _) {
           if (topic == null) return const SizedBox.shrink();
           Widget details() {

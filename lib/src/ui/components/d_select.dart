@@ -1354,6 +1354,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     final tokens = DTokens.of(context);
     final invalid = widget.invalid || widget.errorText != null;
     final controlSize = widget.size;
+    final quiet = controlSize == DControlSize.filter;
     final fontSize = DControlStyle.fontSize(controlSize, context: context);
     final lineHeight = DControlStyle.lineHeight(controlSize, context: context);
     final visualHeight = DControlStyle.scaledHeight(
@@ -1361,7 +1362,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       MediaQuery.textScalerOf(context),
       context: context,
     );
-    final baseRadius = tokens.buttonTheme.radius;
+    final baseRadius = quiet ? DRadius.pill : tokens.buttonTheme.radius;
     final joined = DJoinedControlScope.maybeOf(context);
     final radius =
         joined?.resolveRadius(
@@ -1369,19 +1370,28 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           Directionality.of(context),
         ) ??
         BorderRadius.circular(baseRadius);
-    final foreground =
-        widget.values.any(
-          (value) => _items.any((item) => widget.equals(item.value, value)),
-        )
+    final foreground = quiet
+        ? tokens.quietControlSurface().foreground
+        : widget.values.any(
+            (value) => _items.any((item) => widget.equals(item.value, value)),
+          )
         ? widget.filled
               ? Color.lerp(tokens.background, tokens.foreground, .9)!
-              : tokens.foreground
+              : tokens.buttonTheme.outline.foreground
         : tokens.mutedForeground;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final interactive = widget.enabled && (_triggerHovered || trigger.open);
     final outline = tokens.buttonTheme.outline;
-    final input = interactive ? outline.hoverBorder : outline.border;
-    final background = interactive || widget.filled
+    final input = quiet
+        ? Colors.transparent
+        : interactive
+        ? outline.hoverBorder
+        : outline.border;
+    final background = quiet
+        ? (interactive
+              ? tokens.quietControlSurface().hover
+              : tokens.quietControlSurface().background)
+        : interactive || widget.filled
         ? outline.hover
         : outline.background;
     final border = invalid
@@ -1396,8 +1406,10 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       height: visualHeight,
       width: popupWidth,
       padding: EdgeInsetsDirectional.only(
-        start: DControlStyle.horizontalInset(controlSize),
-        end: DControlStyle.isApplicationSize(controlSize)
+        start: quiet ? 11 : DControlStyle.horizontalInset(controlSize),
+        end: quiet
+            ? 11
+            : DControlStyle.isApplicationSize(controlSize)
             ? DControlStyle.horizontalInset(controlSize)
             : 8,
         top: 1,
@@ -1426,33 +1438,35 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
                 color: foreground,
                 fontSize: fontSize,
                 height: lineHeight / fontSize,
-                fontWeight: FontWeight.w400,
+                fontWeight: quiet ? FontWeight.w500 : FontWeight.w400,
                 letterSpacing: 0,
               ),
               child: _value(),
             ),
           ),
-          SizedBox(width: DControlStyle.contentGap(controlSize)),
-          IconTheme(
-            data: IconThemeData(
-              color: tokens.mutedForeground,
-              size: DControlStyle.chevronDimension(controlSize),
-            ),
-            child:
-                widget.icon ??
-                DIconGlyphTheme(
-                  naturalWidth: DControlStyle.isApplicationSize(controlSize),
-                  scale: DControlStyle.isApplicationSize(controlSize)
-                      ? 1
-                      : DIcon.glyphScale,
-                  child: DIcon(
-                    DControlStyle.isApplicationSize(controlSize)
-                        ? DNativeIcons.filterChevron
-                        : DIcons.chevronDown,
-                    size: DControlStyle.chevronDimension(controlSize),
+          if (!quiet || widget.icon != null) ...[
+            SizedBox(width: DControlStyle.contentGap(controlSize)),
+            IconTheme(
+              data: IconThemeData(
+                color: tokens.mutedForeground,
+                size: DControlStyle.chevronDimension(controlSize),
+              ),
+              child:
+                  widget.icon ??
+                  DIconGlyphTheme(
+                    naturalWidth: DControlStyle.isApplicationSize(controlSize),
+                    scale: DControlStyle.isApplicationSize(controlSize)
+                        ? 1
+                        : DIcon.glyphScale,
+                    child: DIcon(
+                      DControlStyle.isApplicationSize(controlSize)
+                          ? DNativeIcons.filterChevron
+                          : DIcons.chevronDown,
+                      size: DControlStyle.chevronDimension(controlSize),
+                    ),
                   ),
-                ),
-          ),
+            ),
+          ],
         ],
       ),
     );
@@ -1516,9 +1530,37 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         final available = constraints.hasBoundedWidth
             ? constraints.maxWidth
             : widget.width;
-        final popupWidth = widget.isExpanded
+        var popupWidth = widget.isExpanded
             ? math.max(0, available)
             : math.min(widget.width, math.max(0, available));
+        if (widget.size == DControlSize.filter &&
+            !widget.isExpanded &&
+            widget.label == null &&
+            widget.valueBuilder == null) {
+          final value = _items
+              .where(_selected)
+              .map((item) => item.textValue)
+              .join(', ');
+          final painter = TextPainter(
+            text: TextSpan(
+              text: value.isEmpty ? widget.placeholder : value,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontSize: 12.5,
+                height: 1.5,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0,
+              ),
+            ),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          )..layout();
+          popupWidth = math.min(
+            popupWidth,
+            painter.width.ceilToDouble() + 22 + (widget.icon == null ? 0 : 16),
+          );
+          painter.dispose();
+        }
         Widget select = DPopover(
           open: _isOpen,
           controller: _popover,

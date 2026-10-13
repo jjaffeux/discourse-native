@@ -18,7 +18,7 @@ enum DBadgeSize {
   /// Inline topic counts: 11px bold labels with 1px/6px insets.
   unread,
 
-  /// Matches the mockup taxonomy chips: 30.75px with 12.5px labels.
+  /// Matches the mockup taxonomy chips: 30px with 12.5px labels.
   control,
 }
 
@@ -208,16 +208,26 @@ class _DBadgeState extends State<DBadge> {
         tokens.primaryForeground,
       ),
       DBadgeVariant.secondary => (
-        tokens.muted.withValues(alpha: actionHover ? .8 : 1),
-        tokens.foreground,
+        control
+            ? (actionHover
+                  ? tokens.buttonTheme.outline.hover
+                  : tokens.buttonTheme.outline.background)
+            : tokens.muted.withValues(alpha: actionHover ? .8 : 1),
+        control ? tokens.buttonTheme.outline.foreground : tokens.foreground,
       ),
       DBadgeVariant.destructive => (
         tokens.destructive.withValues(alpha: dark || actionHover ? .2 : .1),
         tokens.destructive,
       ),
       DBadgeVariant.outline => (
-        actionHover ? tokens.muted : Colors.transparent,
-        actionHover ? tokens.mutedForeground : tokens.foreground,
+        actionHover
+            ? (control ? tokens.buttonTheme.outline.background : tokens.muted)
+            : Colors.transparent,
+        control
+            ? Color.lerp(tokens.background, tokens.foreground, .40)!
+            : actionHover
+            ? tokens.mutedForeground
+            : tokens.foreground,
       ),
       DBadgeVariant.ghost => (
         active
@@ -235,7 +245,11 @@ class _DBadgeState extends State<DBadge> {
     final border = (focus
         ? tokens.focusRing
         : widget.borderColor ??
-              (widget.variant == DBadgeVariant.outline
+              (control &&
+                      (widget.variant == DBadgeVariant.secondary ||
+                          widget.variant == DBadgeVariant.outline)
+                  ? tokens.buttonTheme.outline.border
+                  : widget.variant == DBadgeVariant.outline
                   ? tokens.border
                   : Colors.transparent));
     Widget visual = _BadgeHoverTransition(

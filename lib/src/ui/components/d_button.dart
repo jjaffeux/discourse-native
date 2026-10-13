@@ -35,6 +35,12 @@ enum DButtonVariant {
   /// The kit owns its artwork, scaling, interaction fill and exact hit bounds.
   launcher,
   secondary,
+
+  /// Flat, borderless page picker. Always uses a pill with medium text.
+  quiet,
+
+  /// A chosen page picker with a stronger fill and foreground.
+  quietSelected,
   ghost,
 
   /// Clear at rest, with a subdued foreground and a neutral interaction fill.
@@ -380,7 +386,9 @@ class DButton extends StatelessWidget {
       MediaQuery.textScalerOf(context),
       context: context,
     );
-    return DControlStyle.isTouch(context) ? height : height * 20 / 34;
+    return DControlStyle.isTouch(context)
+        ? height
+        : height * 20 / DControlStyle.regularHeight;
   }
 
   /// Minimum square cell for launcher grids, growing with the label's text.
@@ -469,7 +477,35 @@ class DButton extends StatelessWidget {
         buttons.primary.foreground,
         expanded: buttons.primary.hover,
       ),
-      DButtonVariant.outline || DButtonVariant.secondary => outline,
+      DButtonVariant.outline => outline,
+      DButtonVariant.secondary => pair(
+        tokens.quietControlSurface().background,
+        tokens.quietControlSurface().hover,
+        tokens.quietControlSurface().foreground,
+        expanded: tokens.quietControlSurface().hover,
+      ),
+      DButtonVariant.quiet || DButtonVariant.quietSelected => pair(
+        tokens
+            .quietControlSurface(
+              selected: variant == DButtonVariant.quietSelected,
+            )
+            .background,
+        tokens
+            .quietControlSurface(
+              selected: variant == DButtonVariant.quietSelected,
+            )
+            .hover,
+        tokens
+            .quietControlSurface(
+              selected: variant == DButtonVariant.quietSelected,
+            )
+            .foreground,
+        expanded: tokens
+            .quietControlSurface(
+              selected: variant == DButtonVariant.quietSelected,
+            )
+            .hover,
+      ),
       DButtonVariant.dashedTile => DButtonVariantStyle(
         enabled: state(
           Colors.transparent,
@@ -578,6 +614,10 @@ class DButton extends StatelessWidget {
         primaryChrome && expanded && onPressed != null && !loading;
     final header = density == DButtonDensity.header;
     final variantStyle = _referenceStyle(tokens, dark);
+    final quiet =
+        variant == DButtonVariant.secondary ||
+        variant == DButtonVariant.quiet ||
+        variant == DButtonVariant.quietSelected;
 
     final mobileDock = density == DButtonDensity.mobileDock;
     final mobileDockAction = density == DButtonDensity.mobileDockAction;
@@ -714,6 +754,7 @@ class DButton extends StatelessWidget {
                     chrome ||
                     avatar ||
                     shape == DButtonShape.pill ||
+                    quiet ||
                     variant == DButtonVariant.primary
               ? DRadius.pill
               : timelineEnd
@@ -777,6 +818,26 @@ class DButton extends StatelessWidget {
     }
 
     DButtonStateStyle resolveState(Set<WidgetState> states) {
+      if (quiet && joined?.quiet == true) {
+        final interactive =
+            enabled &&
+            (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.pressed) ||
+                expanded);
+        final foreground = tokens
+            .quietControlSurface(selected: joined!.quietSelected)
+            .foreground;
+        return DButtonStateStyle(
+          foregroundColor: foreground,
+          iconColor: foreground,
+          backgroundColor: interactive
+              ? (dark ? Colors.white : Colors.black).withValues(
+                  alpha: dark ? .06 : .05,
+                )
+              : Colors.transparent,
+          border: BorderSide.none,
+        );
+      }
       if (postAction) {
         final interacting =
             !states.contains(WidgetState.disabled) &&
@@ -950,6 +1011,11 @@ class DButton extends StatelessWidget {
             ? const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8)
             : variant == DButtonVariant.inline
             ? const EdgeInsets.symmetric(vertical: 1)
+            : quiet
+            ? EdgeInsets.symmetric(
+                horizontal: joined?.quiet == true ? 8 : 11,
+                vertical: 1,
+              )
             : DControlStyle.isApplicationSize(effectiveSize)
             ? EdgeInsets.symmetric(
                 horizontal: DControlStyle.horizontalInset(effectiveSize),
@@ -990,7 +1056,7 @@ class DButton extends StatelessWidget {
               ? FontWeight.w500
               : header
               ? FontWeight.w600
-              : mobileDock || backLink
+              : mobileDock || backLink || quiet
               ? FontWeight.w500
               : variant == DButtonVariant.primary || dashedTile || launcher
               ? FontWeight.w600
@@ -1057,7 +1123,12 @@ class DButton extends StatelessWidget {
             // Launcher cells use a flat interaction tint in both materials.
             color: expandedChrome || (postAction && glass)
                 ? Colors.transparent
-                : postAction || timeline || postReaction || chrome || launcher
+                : postAction ||
+                      timeline ||
+                      postReaction ||
+                      chrome ||
+                      launcher ||
+                      quiet
                 ? state.backgroundColor
                 : DMaterialSurface.fill(context, state.backgroundColor),
             borderColor: resolvedBorderColor,
@@ -1108,7 +1179,7 @@ class DButton extends StatelessWidget {
                   depth: DSurfaceDepth.chromeSelection,
                   child: surface,
                 )
-              : timeline || postReaction || chrome || launcher
+              : timeline || postReaction || chrome || launcher || quiet
               ? surface
               : DMaterialSurface(
                   radius: radius,

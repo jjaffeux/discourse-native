@@ -18,7 +18,7 @@ class TopicTaxonomyButton extends StatelessWidget {
     this.expanded = false,
     this.categoryColor,
     this.showChevron = false,
-    this.quiet = false,
+    this.quiet = true,
     this.quietSelected = false,
   });
 
@@ -44,7 +44,6 @@ class TopicTaxonomyButton extends StatelessWidget {
       child: DButton(
         key: buttonKey,
         size: size,
-        shape: DButtonShape.pill,
         label: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -68,28 +67,31 @@ class TopicTaxonomyButton extends StatelessWidget {
         hasPopup: true,
         expanded: expanded,
         alignment: AlignmentDirectional.centerStart,
-        variant: quiet ? DButtonVariant.secondary : DButtonVariant.outline,
+        variant: quiet
+            ? (quietSelected
+                  ? DButtonVariant.quietSelected
+                  : DButtonVariant.quiet)
+            : DButtonVariant.outline,
         backgroundColor: quiet
-            ? (categoryColor == null
-                  ? quietSelected
-                        ? Color.lerp(
-                            DTokens.of(context).muted,
-                            DTokens.of(context).foreground,
-                            .08,
-                          )
-                        : DTokens.of(context).muted
-                  : Color.lerp(DTokens.of(context).muted, categoryColor, .12))
+            ? null
             : categoryColor == null
             ? null
-            : Color.lerp(DTokens.of(context).background, categoryColor, .18),
+            : DTokens.of(
+                context,
+              ).categoryControlSurface(categoryColor!).background,
+        foregroundColor: !quiet && categoryColor != null
+            ? DTokens.of(
+                context,
+              ).categoryControlSurface(categoryColor!).foreground
+            : null,
         borderColor: quiet
-            ? Colors.transparent
+            ? null
             : categoryColor == null
             ? null
-            : Color.lerp(DTokens.of(context).background, categoryColor, .38),
-        interactiveBackgroundColor: categoryColor == null
+            : DTokens.of(context).categoryControlSurface(categoryColor!).border,
+        interactiveBackgroundColor: quiet || categoryColor == null
             ? null
-            : Color.lerp(DTokens.of(context).background, categoryColor, .30),
+            : DTokens.of(context).categoryControlSurface(categoryColor!).hover,
       ),
     ),
   );

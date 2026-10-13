@@ -1120,7 +1120,7 @@ void main() {
     expect(find.text('Next.js'), findsNothing);
   });
 
-  testWidgets('touch items and actions retain 48 logical pixel targets', (
+  testWidgets('touch actions use 30px surfaces and menu rows keep their visible bounds', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1133,7 +1133,7 @@ void main() {
         theme: ThemeData(platform: TargetPlatform.iOS),
       ),
     );
-    expect(tester.getSize(find.byType(DInputGroupButton)).height, 44);
+    expect(tester.getSize(find.byType(DInputGroupButton)).height, 30);
     await tester.tap(find.byType(TextField));
     await tester.pumpAndSettle();
     expect(

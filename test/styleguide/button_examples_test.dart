@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('registers every documented section in reference order', () {
     expect(buttonExamples.examples.map((example) => example.title), [
+      'Quiet page pickers',
       'Bare post actions',
       'Application control sizes',
       'Topic timeline actions',

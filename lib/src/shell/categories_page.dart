@@ -191,6 +191,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       child: Align(
                         alignment: AlignmentDirectional.centerStart,
                         child: DSelect<CategoryDirectoryScope>.controlled(
+                          size: DControlSize.filter,
                           key: ValueKey(('category-scope', widget.siteUrl)),
                           value: scope,
                           semanticLabel: context.l10n.categoryDirectoryScope,

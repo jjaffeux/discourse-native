@@ -49,8 +49,8 @@ class TopicBookmarkButton extends StatelessWidget {
             topic.topicBookmark?.reminderAt != null
                 ? DIcons.discourseBookmarkClock
                 : topic.hasBookmarks
-                ? DNativeIcons.bookmarkCheck
-                : DIcons.bookmark,
+                ? DIcons.bookmark
+                : DIcons.farBookmark,
           );
     final tooltip = topic.hasBookmarks
         ? context.l10n.manageTopicBookmark(topic.bookmarks.length)
@@ -58,10 +58,14 @@ class TopicBookmarkButton extends StatelessWidget {
     final buttonVariant = topic.topicBookmark != null && variant == null
         ? DButtonVariant.primary
         : variant ?? DButtonVariant.ghost;
-    // A saved bookmark keeps the joined outline while taking the selected fill.
+    // A saved bookmark keeps the neutral surface and accents only its artwork.
     final selectedSurface =
         topic.topicBookmark != null && buttonVariant == DButtonVariant.outline
-        ? DTokens.of(context).buttonTheme.primary
+        ? DControlSurface(
+            background: DTokens.of(context).buttonTheme.outline.background,
+            hover: DTokens.of(context).buttonTheme.outline.hover,
+            foreground: DTokens.of(context).primary,
+          )
         : null;
     void open() => unawaited(
       showTopicBookmarkMenu(
@@ -126,7 +130,7 @@ class TopicBookmarkButtonPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
     onPressed: null,
-    icon: const DIcon(DIcons.bookmark),
+    icon: const DIcon(DIcons.farBookmark),
     tooltip: context.l10n.bookmarkThisTopic,
     shortcut: const DShortcut(topicBookmarkShortcut),
     variant: variant,

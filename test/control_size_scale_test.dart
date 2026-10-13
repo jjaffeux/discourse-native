@@ -4,24 +4,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final scale in [1.0, 2.0]) {
+  for (final (platform, scale) in [
+    for (final platform in [
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    ])
+      for (final scale in [1.0, 2.0]) (platform, scale),
+  ]) {
     for (final (size, baseHeight, fontSize) in [
       (DControlSize.small, 24.0, 12.5),
-      (DControlSize.regular, 34.0, 13.0),
+      (DControlSize.regular, 30.0, 12.5),
       (DControlSize.large, 40.0, 14.0),
-      (DControlSize.filter, 30.75, 12.5),
+      (DControlSize.filter, 30.0, 12.5),
       (DControlSize.field, 35.5, 13.0),
       (DControlSize.preference, 40.25, 13.5),
     ]) {
+      if (platform != TargetPlatform.macOS &&
+          size != DControlSize.regular &&
+          size != DControlSize.filter) {
+        continue;
+      }
       final height = DControlStyle.scaledHeight(size, TextScaler.linear(scale));
       assert(scale != 1 || height == baseHeight);
       testWidgets(
-        '${size.name} at $scale has the same height across controls',
+        '${size.name} on $platform at $scale has the same height across controls',
         (tester) async {
           var presses = 0;
           await tester.pumpWidget(
             MaterialApp(
-              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+              theme: AppTheme.light.copyWith(platform: platform),
               builder: (context, child) => MediaQuery(
                 data: MediaQuery.of(
                   context,

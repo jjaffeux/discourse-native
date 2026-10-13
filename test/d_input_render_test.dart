@@ -176,7 +176,7 @@ void main() {
         DInput(hintText: 'Enter text'),
         'dark-default',
       );
-      final fill = Color.lerp(_background, Colors.white, .03)!;
+      final fill = Color.lerp(_background, Colors.white, .10)!;
       _near(_pixel(defaultPixels, 280, 36), fill);
       _near(
         _pixel(defaultPixels, 20, 36),
@@ -236,7 +236,7 @@ void main() {
           Color.lerp(
             theme.colorScheme.surface,
             theme.colorScheme.onSurface,
-            .03,
+            .10,
           )!,
         );
       }

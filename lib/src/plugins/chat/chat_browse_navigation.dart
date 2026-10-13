@@ -115,8 +115,7 @@ class ChatBrowseFilter<T> extends StatelessWidget {
     },
     triggerBuilder: (context, state, _) => DButton(
       size: DControlSize.filter,
-      shape: DButtonShape.pill,
-      variant: DButtonVariant.secondary,
+      variant: emphasized ? DButtonVariant.quietSelected : DButtonVariant.quiet,
       semanticLabel: '$semanticLabel, $label',
       focusNode: state.focusNode,
       hasPopup: true,
@@ -128,16 +127,8 @@ class ChatBrowseFilter<T> extends StatelessWidget {
         spacing: DSpacing.controlGap,
         children: [
           Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: emphasized ? FontWeight.w600 : FontWeight.w400,
-              ),
-            ),
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
-          const DIcon(DNativeIcons.filterChevron, size: 10),
         ],
       ),
     ),

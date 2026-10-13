@@ -6,6 +6,90 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  for (final material in DAppearanceMaterial.values) {
+    for (final brightness in Brightness.values) {
+      testWidgets(
+        'quiet pickers stay flat with exact colors in $material $brightness',
+        (tester) async {
+          final theme = DMaterialTheme.apply(
+            ThemeData(platform: TargetPlatform.macOS, brightness: brightness),
+            material,
+          );
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: theme,
+              home: Scaffold(
+                body: Row(
+                  children: [
+                    for (final variant in [
+                      DButtonVariant.quiet,
+                      DButtonVariant.quietSelected,
+                    ])
+                      DButton(
+                        key: ValueKey(variant),
+                        variant: variant,
+                        size: DButtonSize.filter,
+                        label: Text(variant.name),
+                        onPressed: () {},
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final dark = brightness == Brightness.dark;
+          final ink = dark ? Colors.white : Colors.black;
+          final quiet = find.byKey(const ValueKey(DButtonVariant.quiet));
+          final selected = find.byKey(
+            const ValueKey(DButtonVariant.quietSelected),
+          );
+          expect(
+            buttonSurface(tester, of: quiet).color,
+            ink.withValues(alpha: dark ? .055 : .045),
+          );
+          expect(
+            buttonSurface(tester, of: selected).color,
+            ink.withValues(alpha: dark ? .12 : .10),
+          );
+          for (final control in [quiet, selected]) {
+            expect(tester.getSize(control).height, 30);
+            expect(buttonSurface(tester, of: control).borderColor.a, 0);
+            expect(
+              buttonSurface(tester, of: control).borderRadius,
+              BorderRadius.circular(DRadius.pill),
+            );
+            final text = find.descendant(
+              of: control,
+              matching: find.byType(Text),
+            );
+            expect(
+              DefaultTextStyle.of(tester.element(text)).style.fontWeight,
+              FontWeight.w500,
+            );
+          }
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: Offset.zero);
+          await mouse.moveTo(tester.getCenter(quiet));
+          await tester.pump();
+          expect(
+            buttonSurface(tester, of: quiet).color,
+            ink.withValues(alpha: dark ? .09 : .075),
+          );
+          await mouse.moveTo(tester.getCenter(selected));
+          await tester.pump();
+          expect(
+            buttonSurface(tester, of: selected).color,
+            ink.withValues(alpha: dark ? .12 : .10),
+          );
+          await mouse.removePointer();
+        },
+      );
+    }
+  }
+
   testWidgets(
     'actions keep the control radius while reactions follow the theme',
     (tester) async {
@@ -112,6 +196,15 @@ void main() {
       final primary = find.byKey(const ValueKey(DButtonVariant.primary));
       final outline = find.byKey(const ValueKey(DButtonVariant.outline));
       final clear = find.byKey(const ValueKey(DButtonVariant.ghost));
+      expect(tester.getSize(outline).height, 30);
+      expect(
+        buttonSurface(tester, of: outline).color,
+        Color.lerp(canvas, ink, .10),
+      );
+      expect(
+        DefaultTextStyle.of(tester.element(find.text('outline'))).style.color,
+        Color.lerp(canvas, ink, .62),
+      );
       expect(
         buttonSurface(tester, of: primary).color,
         Color.lerp(canvas, accent, .25),
