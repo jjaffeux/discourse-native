@@ -341,7 +341,8 @@ class _InsetEdges extends CustomPainter {
 }
 
 /// The panel's catch of light has a fixed 140px falloff, independent of the
-/// window height. Paint inside the clip so no shadow stains its corner gutters.
+/// window height. One rounded rim carries that light through the corners.
+/// Paint inside the clip so no shadow stains its corner gutters.
 class _PanelEdge extends CustomPainter {
   const _PanelEdge(this.radius, this.dark);
   final BorderRadius radius;
@@ -369,14 +370,14 @@ class _PanelEdge extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = Colors.white.withValues(alpha: dark ? .14 : .75),
-    );
-    canvas.drawLine(
-      const Offset(0, .5),
-      Offset(size.width, .5),
-      Paint()
-        ..strokeWidth = 1
-        ..color = Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6),
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: dark ? .18 : .45),
+            Colors.white.withValues(alpha: dark ? .07 : .18),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, 140)),
     );
     canvas.restore();
   }

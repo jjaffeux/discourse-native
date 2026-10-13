@@ -102,7 +102,7 @@ void main() {
   });
 
   for (final material in DAppearanceMaterial.values) {
-    testWidgets('panel rim and 140px highlight match the mockup ($material)', (
+    testWidgets('panel rim follows corners and fades ($material)', (
       tester,
     ) async {
       const backdrop = Color(0xff153d99);
@@ -178,8 +178,27 @@ void main() {
                 0,
                 200,
                 Color.alphaBlend(
-                  Colors.white.withValues(alpha: dark ? .14 : .75),
+                  Colors.white.withValues(alpha: dark ? .07 : .18),
                   base,
+                ),
+              );
+              // The top receives the same continuous rim as the corners,
+              // rather than a second straight highlight over the outline.
+              pixel(
+                100,
+                0,
+                Color.alphaBlend(
+                  Colors.white.withValues(
+                    alpha:
+                        (dark ? .18 : .45) +
+                        ((dark ? .07 : .18) - (dark ? .18 : .45)) * .5 / 140,
+                  ),
+                  Color.alphaBlend(
+                    Colors.white.withValues(
+                      alpha: (dark ? .066 : .5) * (1 - .5 / 140),
+                    ),
+                    base,
+                  ),
                 ),
               );
               pixel(0, 0, backdrop);
