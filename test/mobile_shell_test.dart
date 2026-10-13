@@ -1568,6 +1568,14 @@ void main() {
     final shell = await pumpMobileShellFixture(tester);
     final topic = find.byKey(const ValueKey('mobile-new-topic'));
     expect(topic, findsOneWidget);
+    expect(
+      tester
+          .widget<DIcon>(
+            find.descendant(of: topic, matching: find.byType(DIcon)),
+          )
+          .icon,
+      DIcons.penToSquare,
+    );
     expect(tester.getRect(topic).right, lessThan(tester.getRect(_bar).right));
     expect(tester.getCenter(topic).dy, tester.getCenter(_bar).dy);
     expect(
@@ -1590,6 +1598,32 @@ void main() {
     expect(shell.visibleComposer, isNotNull);
     expect(shell.visibleComposer!.target.isPrivateMessage, isTrue);
     expect(shell.visibleComposer!.target.targetRecipients, '');
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest('minimized composer and dock consume the bottom safe area once', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester);
+    final bottom = 34.0 * tester.view.devicePixelRatio;
+    tester.view.padding = FakeViewPadding(bottom: bottom);
+    tester.view.viewPadding = FakeViewPadding(bottom: bottom);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('composer-close')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Minimize'));
+    await tester.pumpAndSettle();
+    final restore = find.byKey(const ValueKey('composer-restore'));
+    expect(tester.getRect(restore).bottom, closeTo(phone.height - 34, .01));
+    expect(restore.hitTestable(), findsOneWidget);
+    final dock = tester.getRect(
+      find.byKey(const ValueKey('mobile-dock-surface')),
+    );
+    expect(tester.getRect(restore).top - dock.bottom, closeTo(8 + 6, .01));
     expect(tester.takeException(), isNull);
   });
 
@@ -1629,41 +1663,52 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest('identical plus buttons stay still while their actions update', (
-    tester,
-  ) async {
-    final shell = await pumpMobileShellFixture(tester);
-    final fades = find.descendant(
-      of: find.byType(DActionTransition),
-      matching: find.byType(FadeTransition),
-    );
-    final originalAnimation = tester.widget<FadeTransition>(fades).opacity;
-    for (final (tab, key) in [
-      ('panel/chat', 'mobile-panel-action'),
-      ('messages', 'new-message-button'),
-      ('topics', 'mobile-new-topic'),
-      ('panel/chat', 'mobile-panel-action'),
-    ]) {
-      await _tapDockTab(tester, tab, settle: false);
+  _mobileTest(
+    'matching compose glyphs stay still and changed glyphs transition',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      final fades = find.descendant(
+        of: find.byType(DActionTransition),
+        matching: find.byType(FadeTransition),
+      );
+      final originalAnimation = tester.widget<FadeTransition>(fades).opacity;
+      for (final (tab, key) in [
+        ('messages', 'new-message-button'),
+        ('topics', 'mobile-new-topic'),
+        ('messages', 'new-message-button'),
+        ('topics', 'mobile-new-topic'),
+      ]) {
+        await _tapDockTab(tester, tab, settle: false);
+        await tester.pump();
+        expect(fades, findsOneWidget, reason: tab);
+        final animation = tester.widget<FadeTransition>(fades).opacity;
+        expect(animation, same(originalAnimation), reason: tab);
+        expect(animation.value, 1, reason: tab);
+        expect(find.byKey(ValueKey(key)), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(animation.value, 1, reason: tab);
+      }
+      await _tapDockTab(tester, 'messages');
+      await tester.tap(find.byKey(const ValueKey('new-message-button')));
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer!.target.isPrivateMessage, isTrue);
+      shell.closeComposer();
+      await tester.pumpAndSettle();
+      // Chat creates a conversation with a plus, so it now has distinct artwork.
+      await _tapDockTab(tester, 'panel/chat', settle: false);
       await tester.pump();
-      expect(fades, findsOneWidget, reason: tab);
-      final animation = tester.widget<FadeTransition>(fades).opacity;
-      expect(animation, same(originalAnimation), reason: tab);
-      expect(animation.value, 1, reason: tab);
-      expect(find.byKey(ValueKey(key)), findsOneWidget);
-      await tester.pump(const Duration(milliseconds: 60));
-      expect(animation.value, 1, reason: tab);
-    }
-    // The visually identical button must use Chat's latest callback.
-    await tester.tap(find.byKey(const ValueKey('mobile-panel-action')));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('chat-new-direct-message-sheet')),
-      findsOneWidget,
-    );
-    expect(shell.visibleComposer, isNull);
-    expect(tester.takeException(), isNull);
-  });
+      expect(fades, findsNWidgets(2));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('mobile-panel-action')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-new-direct-message-sheet')),
+        findsOneWidget,
+      );
+      expect(shell.visibleComposer, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _mobileTest(
     'wide dock reveals creation labels when their action slot has room',

@@ -829,6 +829,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'iOS minimized composer clears the home indicator and restores its draft',
+    (tester) async {
+      final bottom = 34.0 * tester.view.devicePixelRatio;
+      tester.view.padding = FakeViewPadding(bottom: bottom);
+      tester.view.viewPadding = FakeViewPadding(bottom: bottom);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      final harness = await _Harness.create(
+        tester,
+        mobile: true,
+        platform: TargetPlatform.iOS,
+        size: const Size(390, 800),
+      );
+      final composer = harness.shell.visibleComposer!;
+      final editor = tester.state(find.byType(ComposerEditor));
+      composer.text.text = 'Keep the draft above the home indicator.';
+      await tester.tap(find.byKey(const ValueKey('composer-close')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Minimize'));
+      await tester.pumpAndSettle();
+      final restore = find.byKey(const ValueKey('composer-restore'));
+      expect(tester.getRect(restore).bottom, closeTo(800 - 34, .01));
+      expect(restore.hitTestable(), findsOneWidget);
+      // During keyboard dismissal padding may vanish before viewPadding does.
+      tester.view.padding = const FakeViewPadding();
+      await tester.pumpAndSettle();
+      expect(tester.getRect(restore).bottom, closeTo(800 - 34, .01));
+      await tester.tap(restore);
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(ComposerEditor)), same(editor));
+      expect(composer.raw, 'Keep the draft above the home indicator.');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('mobile keyboard and minimize preserve the draft and editor', (
     tester,
   ) async {

@@ -506,8 +506,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         (showReply
             ? DIcons.reply
             : showNewMessage
-            ? DIcons.plus
-            : panelAction?.icon ?? DIcons.plus);
+            ? DIcons.penToSquare
+            : panelAction?.icon ?? DIcons.penToSquare);
     Widget? primaryAction;
     if (pageAction case final action?) {
       primaryAction = _dockAction(
@@ -540,7 +540,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     } else if (showNewTopic || shell.canCreateTopicFromSidebar) {
       primaryAction = _dockAction(
         key: const ValueKey('mobile-new-topic'),
-        icon: DIcons.plus,
+        icon: DIcons.penToSquare,
         label: context.l10n.newTopic,
         onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
       );

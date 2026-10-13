@@ -640,7 +640,7 @@ class _ComposerDockState extends State<ComposerDock> {
           final width = mobile
               ? constraints.maxWidth
               : math.min(constraints.maxWidth - 12, 460.0);
-          return Column(
+          final content = Column(
             children: [
               Expanded(child: readerViewport()),
               Padding(
@@ -664,6 +664,17 @@ class _ComposerDockState extends State<ComposerDock> {
               ),
             ],
           );
+          // Consume the home-indicator inset once for both the resume strip
+          // and its reader's dock, including while the keyboard dismisses.
+          return mobile
+              ? SafeArea(
+                  top: false,
+                  left: false,
+                  right: false,
+                  maintainBottomViewPadding: true,
+                  child: content,
+                )
+              : content;
         }
         if (mobile || placement == ComposerPlacement.fullScreen) {
           return Stack(

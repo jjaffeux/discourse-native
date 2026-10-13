@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -67,7 +68,13 @@ class _DMobileDockState extends State<DMobileDock> {
       final inset = collapsed ? 4.0 : 6.0;
       final radius = BorderRadius.circular(999);
       final tokens = DTokens.of(context);
-      final well = Color.lerp(tokens.background, tokens.foreground, .12)!;
+      // This surface floats over reading content. Retain its tint instead of
+      // applying the faint transparency used for wells inside opaque panels.
+      final well = Color.lerp(
+        tokens.background,
+        tokens.foreground,
+        .12,
+      )!.withValues(alpha: DMaterialTheme.reducedOf(context) ? 1 : .94);
       return Align(
         alignment: AlignmentDirectional.bottomStart,
         heightFactor: 1,
@@ -76,7 +83,6 @@ class _DMobileDockState extends State<DMobileDock> {
           duration: reduced ? Duration.zero : const Duration(milliseconds: 420),
           curve: const Cubic(.32, .72, 0, 1),
           width: collapsed ? round : constraints.maxWidth,
-          padding: EdgeInsets.all(inset),
           decoration: BoxDecoration(
             color: DMaterialSurface.fill(context, well),
             borderRadius: radius,
@@ -85,61 +91,71 @@ class _DMobileDockState extends State<DMobileDock> {
             color: well,
             radius: radius,
             depth: DSurfaceDepth.recessed,
-            child: ClipRRect(
-              borderRadius: radius,
-              child: SizedBox(
-                height: collapsed ? round - 8 : 50 + growth,
-                child: Stack(
-                  alignment: AlignmentDirectional.centerStart,
-                  children: [
-                    ExcludeSemantics(
-                      excluding: collapsed,
-                      child: IgnorePointer(
-                        ignoring: collapsed,
-                        child: AnimatedOpacity(
-                          opacity: collapsed ? 0 : 1,
-                          duration: reduced
-                              ? Duration.zero
-                              : const Duration(milliseconds: 100),
-                          child: OverflowBox(
-                            alignment: AlignmentDirectional.centerStart,
-                            minWidth: constraints.maxWidth - 12,
-                            maxWidth: constraints.maxWidth - 12,
-                            child: _DockRow(
-                              direction: Directionality.of(context),
-                              onOverflowChanged: _overflow,
-                              count: destinations.length,
-                              actionExtent: 50 + growth,
-                              children: [
-                                for (final (index, item)
-                                    in destinations.indexed)
+            preserveColor: true,
+            // Paint the 62px capsule before insetting its 50px controls. The
+            // surround remains visible in both standard and glass appearance.
+            child: AnimatedPadding(
+              padding: EdgeInsets.all(inset),
+              duration: reduced
+                  ? Duration.zero
+                  : const Duration(milliseconds: 420),
+              curve: const Cubic(.32, .72, 0, 1),
+              child: ClipRRect(
+                borderRadius: radius,
+                child: SizedBox(
+                  height: collapsed ? round - 8 : 50 + growth,
+                  child: Stack(
+                    alignment: AlignmentDirectional.centerStart,
+                    children: [
+                      ExcludeSemantics(
+                        excluding: collapsed,
+                        child: IgnorePointer(
+                          ignoring: collapsed,
+                          child: AnimatedOpacity(
+                            opacity: collapsed ? 0 : 1,
+                            duration: reduced
+                                ? Duration.zero
+                                : const Duration(milliseconds: 100),
+                            child: OverflowBox(
+                              alignment: AlignmentDirectional.centerStart,
+                              minWidth: constraints.maxWidth - 12,
+                              maxWidth: constraints.maxWidth - 12,
+                              child: _DockRow(
+                                direction: Directionality.of(context),
+                                onOverflowChanged: _overflow,
+                                count: destinations.length,
+                                actionExtent: 50 + growth,
+                                children: [
+                                  for (final (index, item)
+                                      in destinations.indexed)
+                                    Offstage(
+                                      offstage:
+                                          index >=
+                                          (_shown ?? destinations.length),
+                                      child: _destination(item),
+                                    ),
                                   Offstage(
-                                    offstage:
-                                        index >=
-                                        (_shown ?? destinations.length),
-                                    child: _destination(item),
+                                    offstage: _shown == destinations.length,
+                                    child: _destination(more),
                                   ),
-                                Offstage(
-                                  offstage: _shown == destinations.length,
-                                  child: _destination(more),
-                                ),
-                                if (action != null)
-                                  action!
-                                else
-                                  const SizedBox.shrink(),
-                              ],
+                                  if (action != null)
+                                    action!
+                                  else
+                                    const SizedBox.shrink(),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    if (collapsed)
-                      SizedBox(
-                        width: round - 8,
-                        height: round - 8,
-                        child: collapsedDestination,
-                      ),
-                  ],
+                      if (collapsed)
+                        SizedBox(
+                          width: round - 8,
+                          height: round - 8,
+                          child: collapsedDestination,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -229,7 +245,8 @@ class _RenderDockRow extends RenderBox
         )
         .toList();
     final actionMin = actionExtent;
-    const gap = 14.0;
+    // The mockup's nav margin is 14px and its capsule row gap adds 4px.
+    const gap = 18.0;
     var shown = count;
     double widest(int n) => n == 0 ? 0 : natural.take(n).reduce(math.max);
     while (shown > 0 &&

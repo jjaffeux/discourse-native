@@ -40,7 +40,7 @@ class MessageCreateButton extends StatelessWidget {
       if (dockAction) {
         return DMobileDockAction(
           buttonKey: const ValueKey('new-message-button'),
-          icon: const DIcon(DIcons.plus),
+          icon: const DIcon(DIcons.penToSquare),
           label: context.l10n.newMessage,
           onPressed: () => _compose(context),
         );
