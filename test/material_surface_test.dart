@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
+import 'package:discourse_native/src/shell/forum_appearance_effects.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -15,6 +16,183 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 void main() {
+  testWidgets('opacity control reports the panel and native ground ceilings', (
+    tester,
+  ) async {
+    for (final material in DAppearanceMaterial.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          themeAnimationStyle: AnimationStyle.noAnimation,
+          theme: DMaterialTheme.apply(AppTheme.dark, material),
+          home: Material(
+            child: ForumAppearanceEffects(
+              effects: const ForumBackground.appearance(transparency: .3),
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+      expect(
+        find.text(material == DAppearanceMaterial.liquidGlass ? '35%' : '60%'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('plain and translucent panels retain the same palette tint', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      for (final material in DAppearanceMaterial.values) {
+        for (final transparency in [0.0, .3]) {
+          for (final reduced in [false, true]) {
+            Color? panel;
+            late Color expected;
+            await tester.pumpWidget(
+              MaterialApp(
+                themeAnimationStyle: AnimationStyle.noAnimation,
+                theme: DMaterialTheme.apply(
+                  AppTheme.forBrightness(
+                    brightness,
+                    background: ForumBackground.appearance(
+                      transparency: transparency,
+                    ),
+                  ),
+                  material,
+                ),
+                home: MediaQuery(
+                  data: MediaQueryData(highContrast: reduced),
+                  child: ForumWindowBackground(
+                    child: Builder(
+                      builder: (context) {
+                        final tokens = DTokens.of(context);
+                        expected = Color.lerp(
+                          tokens.background,
+                          tokens.foreground,
+                          .03,
+                        )!;
+                        panel = ForumWindowBackground.panelColor(context);
+                        return const SizedBox.expand();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+            final alpha = reduced || transparency == 0 ? 1.0 : .6;
+            expect(panel, expected.withValues(alpha: alpha));
+            final canvas = tester.widget<DecoratedBox>(
+              find.byKey(const ValueKey('forum-window-canvas')),
+            );
+            if (transparency == 0 && material == DAppearanceMaterial.standard) {
+              final tokens = DTokens.of(
+                tester.element(find.byType(Builder).last),
+              );
+              expect(
+                (canvas.decoration as BoxDecoration).color,
+                Color.lerp(tokens.background, Colors.black, .14),
+              );
+            }
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    }
+  });
+
+  for (final material in DAppearanceMaterial.values) {
+    testWidgets('panel rim and 140px highlight match the mockup ($material)', (
+      tester,
+    ) async {
+      const backdrop = Color(0xff153d99);
+      const fill = Color(0x99333643);
+      for (final dark in [false, true]) {
+        for (final height in [240.0, 560.0]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              themeAnimationStyle: AnimationStyle.noAnimation,
+              theme: DMaterialTheme.apply(
+                dark ? AppTheme.dark : AppTheme.light,
+                material,
+              ),
+              home: Center(
+                child: RepaintBoundary(
+                  key: const ValueKey('panel-paint'),
+                  child: SizedBox(
+                    width: 200,
+                    height: height,
+                    child: const ColoredBox(
+                      color: backdrop,
+                      child: DCard(
+                        border: false,
+                        spacing: 0,
+                        backgroundColor: fill,
+                        child: Expanded(child: SizedBox.expand()),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.runAsync(() async {
+            final image = await tester
+                .renderObject<RenderRepaintBoundary>(
+                  find.byKey(const ValueKey('panel-paint')),
+                )
+                .toImage();
+            try {
+              final bytes = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!;
+              final base = Color.alphaBlend(fill, backdrop);
+              void pixel(int x, int y, Color expected) {
+                final offset = (y * image.width + x) * 4;
+                for (final (channel, value) in [
+                  expected.r,
+                  expected.g,
+                  expected.b,
+                ].indexed) {
+                  expect(
+                    bytes.getUint8(offset + channel),
+                    closeTo(value * 255, 2),
+                    reason: '$dark $height ($x,$y)',
+                  );
+                }
+              }
+
+              pixel(100, 200, base);
+              pixel(
+                100,
+                20,
+                Color.alphaBlend(
+                  Colors.white.withValues(
+                    alpha: (dark ? .066 : .5) * (1 - 20.5 / 140),
+                  ),
+                  base,
+                ),
+              );
+              pixel(
+                0,
+                200,
+                Color.alphaBlend(
+                  Colors.white.withValues(alpha: dark ? .14 : .75),
+                  base,
+                ),
+              );
+              pixel(0, 0, backdrop);
+            } finally {
+              image.dispose();
+            }
+          });
+          expect(tester.takeException(), isNull);
+        }
+      }
+    });
+  }
+
   testWidgets('recessed actions paint inner depth and leave no outer shadow', (
     tester,
   ) async {
@@ -435,7 +613,7 @@ void main() {
   );
 
   testWidgets(
-    'panel and ground opacity use different material ceilings; hatch precedes content',
+    'panel opacity is shared; only native glass thins the ground; hatch precedes content',
     (tester) async {
       for (final mode in DAppearanceMaterial.values) {
         Color? panel;
@@ -463,10 +641,7 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(
-          panel!.a,
-          closeTo(mode == DAppearanceMaterial.liquidGlass ? .6 : .7, .001),
-        );
+        expect(panel!.a, closeTo(.6, .001));
         final canvas =
             tester
                     .widget<DecoratedBox>(
@@ -476,7 +651,7 @@ void main() {
                 as BoxDecoration;
         expect(
           canvas.color!.a,
-          closeTo(mode == DAppearanceMaterial.liquidGlass ? .35 : .62, .001),
+          closeTo(mode == DAppearanceMaterial.liquidGlass ? .35 : 1, .001),
         );
         final hatch = find.byKey(const ValueKey('forum-hatch-texture'));
         final content = find.byKey(const ValueKey('forum-window-content'));

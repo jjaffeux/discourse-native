@@ -84,6 +84,8 @@ class DMaterialSurface extends StatelessWidget {
           ? null
           : insetEdges
           ? _InsetEdges(radius, dark)
+          : panel && !DMaterialTheme.reducedOf(context)
+          ? _PanelEdge(radius, dark)
           : _DepthEdge(radius, light, dark, recessed, glass && !solid),
       child: background,
     );
@@ -335,6 +337,52 @@ class _InsetEdges extends CustomPainter {
 
   @override
   bool shouldRepaint(_InsetEdges old) =>
+      old.radius != radius || old.dark != dark;
+}
+
+/// The panel's catch of light has a fixed 140px falloff, independent of the
+/// window height. Paint inside the clip so no shadow stains its corner gutters.
+class _PanelEdge extends CustomPainter {
+  const _PanelEdge(this.radius, this.dark);
+  final BorderRadius radius;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    canvas.save();
+    canvas.clipRRect(radius.toRRect(rect));
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withValues(alpha: dark ? .12 * .55 : .5),
+            Colors.white.withValues(alpha: 0),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, 140)),
+    );
+    canvas.drawRRect(
+      radius.toRRect(rect).deflate(.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = Colors.white.withValues(alpha: dark ? .14 : .75),
+    );
+    canvas.drawLine(
+      const Offset(0, .5),
+      Offset(size.width, .5),
+      Paint()
+        ..strokeWidth = 1
+        ..color = Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_PanelEdge old) =>
       old.radius != radius || old.dark != dark;
 }
 

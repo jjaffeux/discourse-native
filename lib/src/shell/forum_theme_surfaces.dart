@@ -9,16 +9,10 @@ import '../models/forum_background.dart';
 import '../theme/app_theme.dart';
 import 'forum_texture.dart';
 
-Color _plainWindowColor(ThemeData theme, DTokens tokens) {
-  final scaffold = theme.scaffoldBackgroundColor;
-  if (scaffold != tokens.background) return scaffold;
-  // Some forums use their reading color for the header too. In that case the
-  // workspace gutters need a separate fill to reveal the framed panels.
-  return Color.lerp(
-    tokens.background,
-    Colors.black,
-    theme.brightness == Brightness.dark ? .20 : .06,
-  )!;
+Color _plainWindowColor(DTokens tokens) {
+  // The mockup ground mixes the palette background with 14% black in both
+  // brightness modes, independently of the sidebar fill.
+  return Color.lerp(tokens.background, Colors.black, .14)!;
 }
 
 /// Paints one shared canvas behind the entire forum workspace.
@@ -41,7 +35,7 @@ class ForumWindowBackground extends StatefulWidget {
   static Color chromeColor(BuildContext context, Color fallback) {
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     return canvas != null && !canvas.continuous
-        ? _plainWindowColor(Theme.of(context), DTokens.of(context))
+        ? _plainWindowColor(DTokens.of(context))
         : fallback;
   }
 
@@ -49,16 +43,11 @@ class ForumWindowBackground extends StatefulWidget {
   /// The slight foreground tint keeps flat backgrounds visibly framed too.
   static Color? panelColor(BuildContext context) {
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
-    if (canvas == null || !canvas.continuous) return null;
+    if (canvas == null) return null;
     final tokens = DTokens.of(context);
     return Color.lerp(tokens.background, tokens.foreground, .03)!.withValues(
-      alpha:
-          1 -
-          (canvas.transparency /
-                      .3 *
-                      (DMaterialTheme.glassOf(context) ? 40 : 30))
-                  .round() /
-              100,
+      // The current reference shares its panel treatment across materials.
+      alpha: 1 - (canvas.transparency / .3 * 40).round() / 100,
     );
   }
 
@@ -140,36 +129,26 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
     final gradient = background?.effect == ForumBackgroundEffect.gradient;
     final tokens = DTokens.of(context);
     final glass = DMaterialTheme.glassOf(context);
+    final panelMaterial = DMaterialTheme.of(context) != null;
     final transparency = DMaterialTheme.reducedOf(context)
         ? 0.0
         : background?.transparency ?? 0;
     _syncNativeMaterial(glass);
     return _ForumCanvas(
-      continuous: background != null || glass,
-      transparency: DMaterialTheme.reducedOf(context)
-          ? 0
-          : background?.transparency ?? 0,
+      continuous: background != null || panelMaterial,
+      transparency: transparency,
       child: DecoratedBox(
         key: const ValueKey('forum-window-canvas'),
         decoration: BoxDecoration(
-          color: glass
-              ? (theme.brightness == Brightness.dark
-                        ? Color.lerp(tokens.background, Colors.black, .14)!
-                        : _plainWindowColor(theme, tokens))
-                    .withValues(
-                      alpha: 1 - (transparency / .3 * 65).round() / 100,
-                    )
-              : background == null
-              ? _plainWindowColor(theme, tokens)
-              : Color.lerp(tokens.background, Colors.black, .14)!.withValues(
-                  alpha: 1 - (transparency / .3 * 38).round() / 100,
-                ),
+          color: _plainWindowColor(tokens).withValues(
+            alpha: glass ? 1 - (transparency / .3 * 65).round() / 100 : 1,
+          ),
           gradient: background == null ? effects?.windowGradient : null,
         ),
         child: Stack(
           fit: StackFit.passthrough,
           children: [
-            if (glass)
+            if (panelMaterial && !DMaterialTheme.reducedOf(context))
               Positioned.fill(
                 child: IgnorePointer(
                   child: CustomPaint(

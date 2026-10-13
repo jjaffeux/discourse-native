@@ -102,10 +102,10 @@ class ForumAppearanceEffects extends StatelessWidget {
     label: appL10n.opacity,
     value: 1 - effects.transparency / ForumBackground.maxTransparency,
     readout:
-        '${(100 - effects.transparency / ForumBackground.maxTransparency * (DMaterialTheme.glassOf(context) ? 65 : 30)).round()}%',
+        '${(100 - effects.transparency / ForumBackground.maxTransparency * (DMaterialTheme.glassOf(context) ? 65 : 40)).round()}%',
     ramp: DSliderRamp(
       startColor: tokens.background.withValues(
-        alpha: DMaterialTheme.glassOf(context) ? .35 : .7,
+        alpha: DMaterialTheme.glassOf(context) ? .35 : .6,
       ),
       endColor: tokens.background,
       pattern: DSliderRampPattern.checkerboard,

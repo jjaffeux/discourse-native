@@ -79,6 +79,29 @@ void main() {
   });
   tearDown(() => shell.dispose());
 
+  testWidgets('desktop pages paint their workspace material only once', (
+    tester,
+  ) async {
+    Future<void> expectSingleSurface() async {
+      await _pump(tester, shell);
+      for (final panel in [_mainPanel, _secondaryPanel]) {
+        if (panel.evaluate().isEmpty) continue;
+        final pages = tester.widgetList<DPageSurface>(
+          find.descendant(of: panel, matching: find.byType(DPageSurface)),
+        );
+        expect(pages, isNotEmpty);
+        expect(pages.every((page) => !page.framed), isTrue);
+      }
+      expect(tester.takeException(), isNull);
+    }
+
+    await expectSingleSurface(); // Topic list.
+    shell.createTab();
+    await expectSingleSurface(); // Start page.
+    _openTopicTab(shell, _topic);
+    await expectSingleSurface(); // Split reader and list.
+  });
+
   for (final panel in ForumPanel.values) {
     test('list and sidebar navigation reuse the active $panel tab', () {
       shell.moveTabToPanel(shell.activeTabId!, panel);

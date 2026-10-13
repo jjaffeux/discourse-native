@@ -305,7 +305,7 @@ class _MainContentBody extends StatelessWidget {
         border: false,
         borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
         backgroundColor: ForumWindowBackground.panelColor(context),
-        framed: !context.isTouch,
+        framed: !context.isTouch && !panelScoped,
         limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
         tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
         child: NewTabPage(
@@ -420,7 +420,7 @@ class _MainContentBody extends StatelessWidget {
           backgroundColor: ForumWindowBackground.panelColor(context),
           identity: contentKey,
           hideHeaderOnScroll: route.isTopic,
-          framed: !context.isTouch,
+          framed: !context.isTouch && !panelScoped,
           limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
           tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
           header:
@@ -741,7 +741,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                           backgroundColor: ForumWindowBackground.panelColor(
                             context,
                           ),
-                          framed: !context.isTouch,
+                          framed: !context.isTouch &&
+                            ForumTabScope.panelOf(context) == null,
                           limitContentSize:
                               ContentSettingsScope.limitContentSizeOf(context),
                           tabs:
@@ -828,7 +829,8 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                         backgroundColor: ForumWindowBackground.panelColor(
                           context,
                         ),
-                        framed: !context.isTouch,
+                        framed: !context.isTouch &&
+                            ForumTabScope.panelOf(context) == null,
                         limitContentSize:
                             ContentSettingsScope.limitContentSizeOf(context),
                         tabs: const TopicPanelTabs(),
