@@ -1,5 +1,36 @@
 part of 'd_sheet.dart';
 
+// iOS reports the end of its keyboard transition explicitly. Other hosts use
+// settled viewport metrics; a focus change alone never starts the inset.
+abstract final class _DSheetKeyboardTransitions {
+  static const _channel = MethodChannel('org.discourse.native/keyboard');
+  static final ready = ValueNotifier<bool?>(null);
+  static bool _installed = false;
+  static int _revision = 0;
+
+  static Future<void> refresh() async {
+    if (!_installed) {
+      _installed = true;
+      _channel.setMethodCallHandler((call) async {
+        if (call.method == 'keyboardReady' && call.arguments is bool) {
+          _revision++;
+          ready.value = call.arguments as bool;
+        }
+      });
+    }
+    final revision = _revision;
+    bool? value;
+    try {
+      value = await _channel.invokeMethod<bool>('keyboardReady');
+    } on MissingPluginException {
+      value = null;
+    } on PlatformException {
+      value = null;
+    }
+    if (revision == _revision) ready.value = value;
+  }
+}
+
 class _DSheetAdaptiveMenuScope extends InheritedWidget {
   const _DSheetAdaptiveMenuScope({
     required this.menu,
@@ -22,29 +53,79 @@ class _DSheetAdaptiveMenuScope extends InheritedWidget {
 // Consume only the part of a finger movement needed to raise the sheet. The
 // remainder scrolls the original viewport in the same gesture, with its native
 // physics. A downward pull transfers back at the top of that viewport.
+// SingleChildScrollView can retain its old metrics after a layout correction.
+// Each physics chain keeps the actual previous extent independently.
+class _DSheetMenuDimensions {
+  double? maximum;
+}
+
 class _DSheetMenuPhysics extends ScrollPhysics {
-  const _DSheetMenuPhysics({required this.consume, super.parent});
+  _DSheetMenuPhysics({
+    required this.consume,
+    required this.resizingInsets,
+    _DSheetMenuDimensions? dimensions,
+    super.parent,
+  }) : _dimensions = dimensions ?? _DSheetMenuDimensions();
 
   final double Function(ScrollMetrics, double) consume;
+  final bool Function() resizingInsets;
+  final _DSheetMenuDimensions _dimensions;
 
   @override
-  _DSheetMenuPhysics applyTo(ScrollPhysics? ancestor) =>
-      _DSheetMenuPhysics(consume: consume, parent: buildParent(ancestor));
+  _DSheetMenuPhysics applyTo(ScrollPhysics? ancestor) => _DSheetMenuPhysics(
+    consume: consume,
+    resizingInsets: resizingInsets,
+    dimensions: _dimensions,
+    parent: buildParent(ancestor),
+  );
 
   @override
   double applyPhysicsToUserOffset(ScrollMetrics position, double offset) =>
       super.applyPhysicsToUserOffset(position, consume(position, offset));
+
+  @override
+  double adjustPositionForNewDimensions({
+    required ScrollMetrics oldPosition,
+    required ScrollMetrics newPosition,
+    required bool isScrolling,
+    required double velocity,
+  }) {
+    final previousMaximum = _dimensions.maximum ?? oldPosition.maxScrollExtent;
+    _dimensions.maximum = newPosition.maxScrollExtent;
+    if (resizingInsets() &&
+        oldPosition.axis == Axis.vertical &&
+        previousMaximum > oldPosition.minScrollExtent) {
+      // Keep the same distance from the end as the floating margins resize
+      // the viewport. Correcting dimensions preserves an active finger drag;
+      // jumpTo would cancel it and pin small reverse drags to the last row.
+      return (newPosition.maxScrollExtent -
+              math.max(0, previousMaximum - newPosition.pixels))
+          .clamp(newPosition.minScrollExtent, newPosition.maxScrollExtent);
+    }
+    return super.adjustPositionForNewDimensions(
+      oldPosition: oldPosition,
+      newPosition: newPosition,
+      isScrolling: isScrolling,
+      velocity: velocity,
+    );
+  }
 }
 
 class _DSheetMenuScrollBehavior extends ScrollBehavior {
-  const _DSheetMenuScrollBehavior(this.delegate, this.consume);
+  const _DSheetMenuScrollBehavior(
+    this.delegate,
+    this.consume,
+    this.resizingInsets,
+  );
 
   final ScrollBehavior delegate;
   final double Function(ScrollMetrics, double) consume;
+  final bool Function() resizingInsets;
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) => _DSheetMenuPhysics(
     consume: consume,
+    resizingInsets: resizingInsets,
     parent: delegate.getScrollPhysics(context),
   );
 
@@ -71,7 +152,9 @@ class _DSheetMenuScrollBehavior extends ScrollBehavior {
 
   @override
   bool shouldNotify(_DSheetMenuScrollBehavior oldDelegate) =>
-      delegate != oldDelegate.delegate || consume != oldDelegate.consume;
+      delegate != oldDelegate.delegate ||
+      consume != oldDelegate.consume ||
+      resizingInsets != oldDelegate.resizingInsets;
 }
 
 class _DSheetAdaptiveMenu extends StatefulWidget {
@@ -110,6 +193,14 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _scheduled = false;
   bool _floating = false;
   bool _raiseForKeyboard = false;
+  bool _resizingInsets = false;
+  double _previousInset = 0;
+  bool _keyboardSettled = false;
+  bool _floatingBeforeKeyboard = false;
+  bool _keyboardMinimumElapsed = false;
+  bool _keyboardMetricsStable = false;
+  Timer? _keyboardMinimum;
+  Timer? _keyboardStability;
   int? _pointer;
   VelocityTracker? _velocity;
   double _startOffset = 0;
@@ -131,6 +222,61 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     super.initState();
     _travel.addListener(_changed);
     _inset.addListener(_changed);
+    _DSheetKeyboardTransitions.ready.addListener(_keyboardTransition);
+    unawaited(_DSheetKeyboardTransitions.refresh());
+  }
+
+  @override
+  void didUpdateWidget(_DSheetAdaptiveMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_interacted &&
+        !identical(
+          oldWidget.presentation.content,
+          widget.presentation.content,
+        )) {
+      _measured = false;
+    }
+  }
+
+  void _keyboardTransition() {
+    if (_keyboard <= 0 || _keyboardSettled) return;
+    final native = _DSheetKeyboardTransitions.ready.value;
+    if (native == true ||
+        (native == null && _keyboardMinimumElapsed && _keyboardMetricsStable)) {
+      _keyboardSettled = true;
+      _scheduleMeasure();
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _keyboardChanged(double keyboard) {
+    final opening = _keyboard == 0 && keyboard > 0;
+    _keyboard = keyboard;
+    _keyboardStability?.cancel();
+    if (keyboard == 0) {
+      _keyboardMinimum?.cancel();
+      _keyboardSettled = false;
+      _keyboardMinimumElapsed = false;
+      _keyboardMetricsStable = false;
+    } else {
+      if (opening) {
+        _floatingBeforeKeyboard = _floating;
+        _keyboardSettled = _DSheetKeyboardTransitions.ready.value == true;
+        _keyboardMinimumElapsed = false;
+        _keyboardMinimum = Timer(const Duration(milliseconds: 300), () {
+          _keyboardMinimumElapsed = true;
+          _keyboardTransition();
+        });
+      }
+      _keyboardMetricsStable = false;
+      _keyboardStability = Timer(const Duration(milliseconds: 80), () {
+        _keyboardMetricsStable = true;
+        _keyboardTransition();
+      });
+      _interacted = true;
+      _raiseForKeyboard = true;
+    }
+    _scheduleMeasure();
   }
 
   void _changed() {
@@ -151,9 +297,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   void _measure() {
     final box = _surface.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
-    _positions.removeWhere(
-      (p) => !(p.context.notificationContext?.mounted ?? false),
-    );
+    _positions.removeWhere((p) {
+      final origin = p.context.notificationContext;
+      return origin == null ||
+          !origin.mounted ||
+          Scrollable.maybeOf(origin)?.position != p;
+    });
     final tall = box.size.height + _lift;
     final half = _room * .55;
     final low = _keyboard == 0 && tall > half + 60 ? tall - half : 0.0;
@@ -166,18 +315,15 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (!_measured || (!_interacted && (wasLow - low).abs() > 1)) {
       _measured = true;
       _travel.value = low;
+      setState(() {});
     }
-    // Lifting the bottom shortens a capped viewport. That is the same end of
-    // the same content, not newly unread content. Hold it through the animation
-    // so the last row stays visible and the sheet cannot oscillate at its end.
+    _resizingInsets = false;
     final more =
         _travel.value > 1 ||
-        _positions.any(
-          (p) =>
-              p.hasContentDimensions &&
-              p.extentAfter > (_floating ? _lift : 0) + 1,
-        );
-    final floating = _keyboard > 0 || !more;
+        _positions.any((p) => p.hasContentDimensions && p.extentAfter > 1);
+    final floating = _keyboard > 0
+        ? _keyboardSettled || _floatingBeforeKeyboard
+        : !more;
     if (floating != _floating) {
       _floating = floating;
       if (_animate) {
@@ -186,16 +332,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         _inset.value = floating ? 1 : 0;
       }
     }
-    if (_floating && _keyboard == 0 && !more) {
-      for (final position in _positions) {
-        if (position.hasContentDimensions &&
-            position.extentAfter > 0 &&
-            position.extentAfter <= _lift + 1) {
-          position.jumpTo(position.maxScrollExtent);
-        }
-      }
-    }
   }
+
+  bool _isResizingInsets() => _resizingInsets;
 
   bool _metrics(ScrollMetricsNotification notification) {
     _remember(notification.context, notification.metrics);
@@ -377,6 +516,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     _travel.dispose();
     _inset.dispose();
+    _keyboardMinimum?.cancel();
+    _keyboardStability?.cancel();
+    _DSheetKeyboardTransitions.ready.removeListener(_keyboardTransition);
     super.dispose();
   }
 
@@ -386,14 +528,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final view = View.of(context);
     final keyboard = media.viewInsets.bottom;
     if (_keyboard != keyboard) {
-      _keyboard = keyboard;
-      if (keyboard > 0) {
-        _interacted = true;
-        _raiseForKeyboard = true;
-        // Insets already animate with the system keyboard. The sheet keeps
-        // its expanded position as that available room changes.
-        _scheduleMeasure();
-      }
+      _keyboardChanged(keyboard);
     }
     final safeTop = math.max(
       media.padding.top,
@@ -406,6 +541,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
             view.viewPadding.bottom / view.devicePixelRatio,
           );
     final side = 6 * _inset.value;
+    if (_previousInset != _inset.value) {
+      _resizingInsets = true;
+      _previousInset = _inset.value;
+    }
     _lift = (6 + safeBottom) * _inset.value;
     _scheduleMeasure();
     final content = _DSheetAdaptiveMenuScope(
@@ -461,10 +600,13 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                                       ? curve
                                       : _dismissCurve)),
                     ),
-                    child: ConstrainedBox(
-                      key: _surface,
-                      constraints: BoxConstraints(maxHeight: maximum),
-                      child: child,
+                    child: Offstage(
+                      offstage: !_measured,
+                      child: ConstrainedBox(
+                        key: _surface,
+                        constraints: BoxConstraints(maxHeight: maximum),
+                        child: child,
+                      ),
                     ),
                   ),
                 ),
@@ -491,6 +633,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                     behavior: _DSheetMenuScrollBehavior(
                       ScrollConfiguration.of(context),
                       _consume,
+                      _isResizingInsets,
                     ),
                     child: content,
                   ),

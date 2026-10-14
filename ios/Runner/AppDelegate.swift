@@ -7,6 +7,9 @@ import UserNotifications
   private let pushNotifications = IOSPushNotifications()
   private var materialAccessibilityChannel: FlutterMethodChannel?
   private var materialAccessibilityObserver: NSObjectProtocol?
+  private var keyboardChannel: FlutterMethodChannel?
+  private var keyboardObservers: [NSObjectProtocol] = []
+  private var keyboardReady = false
   private let videoThumbnails = VideoThumbnailChannel()
   private let pdfThumbnails = PdfThumbnailChannel()
 
@@ -20,6 +23,28 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeKeyboardTransitions") {
+      let channel = FlutterMethodChannel(
+        name: "org.discourse.native/keyboard", binaryMessenger: registrar.messenger()
+      )
+      channel.setMethodCallHandler { [weak self] call, result in
+        if call.method == "keyboardReady" { result(self?.keyboardReady ?? false) }
+        else { result(FlutterMethodNotImplemented) }
+      }
+      keyboardChannel = channel
+      for (notification, ready) in [
+        (UIResponder.keyboardWillShowNotification, false),
+        (UIResponder.keyboardDidShowNotification, true),
+        (UIResponder.keyboardDidHideNotification, false),
+      ] {
+        keyboardObservers.append(NotificationCenter.default.addObserver(
+          forName: notification, object: nil, queue: .main
+        ) { [weak self] _ in
+          self?.keyboardReady = ready
+          channel.invokeMethod("keyboardReady", arguments: ready)
+        })
+      }
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeMaterialAccessibility") {
       let channel = FlutterMethodChannel(name: "org.discourse.native/material_accessibility", binaryMessenger: registrar.messenger())
       channel.setMethodCallHandler { call, result in
@@ -49,6 +74,7 @@ import UserNotifications
 
   deinit {
     if let materialAccessibilityObserver { NotificationCenter.default.removeObserver(materialAccessibilityObserver) }
+    for observer in keyboardObservers { NotificationCenter.default.removeObserver(observer) }
   }
 
   override func application(

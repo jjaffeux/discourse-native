@@ -12,9 +12,11 @@ import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
+import 'd_button.dart';
 import 'd_dialog.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
+import 'd_toggle.dart';
 
 /// Returns a relevance score from zero (hidden) to one (best match).
 typedef DCommandFilter =
@@ -339,7 +341,16 @@ class _DCommandState<T> extends State<DCommand<T>> {
     widget.onSelected?.call(value);
   }
 
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) => _handleKey(event);
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    // Header actions such as token edit/remove buttons own their activation
+    // keys. Let their Native shortcuts run before interpreting menu commands.
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused?.findAncestorWidgetOfExactType<DButton>() != null ||
+        focused?.findAncestorWidgetOfExactType<DToggle>() != null) {
+      return KeyEventResult.ignored;
+    }
+    return _handleKey(event);
+  }
 
   KeyEventResult _handleKey(KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {

@@ -18,6 +18,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'sidebar_filter_parity_test.dart' show filterMenuOptions;
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' show primaryMainContent;
 
@@ -591,7 +592,7 @@ void main() {
       of: find.byKey(const ValueKey('topic-filter-input')),
       matching: find.byType(TextField),
     );
-    await tester.enterText(field, 'status:open');
+    await tester.enterText(field, 'status:open ');
     await tester.pump(const Duration(milliseconds: 350));
     expect(
       api.feedPaths.where((path) => path.startsWith('/filter.json')),
@@ -599,7 +600,7 @@ void main() {
       reason: 'typing only updates suggestions',
     );
 
-    await tester.tap(find.text('Apply'));
+    await tester.tap(find.byKey(const ValueKey('topic-filter-apply')));
     await tester.pumpAndSettle();
     expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));
     expect(find.text('Only open topics'), findsOneWidget);
@@ -611,7 +612,7 @@ void main() {
       reason: 'the submitted query belongs to this site and destination',
     );
 
-    await tester.tap(find.text('Clear filter'));
+    await clearMenu(tester);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('topic-filter-input')), findsNothing);
     expect(find.text('Filtered'), findsNothing);
@@ -650,7 +651,7 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(_filterQuery(tester), 'tag:bug tag:');
-    expect(find.text('tag: bug'), findsOneWidget);
+    expect(find.text('Tags: bug'), findsOneWidget);
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -748,10 +749,10 @@ void main() {
         await tester.pumpAndSettle();
 
         final firstRow = find.byKey(
-          const ValueKey('topic-filter-suggestion-2'),
+          const ValueKey('topic-filter-suggestion-1'),
         );
         final secondRow = find.byKey(
-          const ValueKey('topic-filter-suggestion-1'),
+          const ValueKey('topic-filter-suggestion-2'),
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.pumpAndSettle();
@@ -769,7 +770,7 @@ void main() {
         _expectSuggestionSemantics(
           tester,
           firstRow,
-          label: 'Tag',
+          label: 'Tags',
           selected: true,
         );
         _expectSuggestionSemantics(
@@ -788,7 +789,7 @@ void main() {
         _expectSuggestionSemantics(
           tester,
           firstRow,
-          label: 'Tag',
+          label: 'Tags',
           selected: true,
         );
         _expectSuggestionSemantics(
@@ -804,7 +805,7 @@ void main() {
         _expectSuggestionSemantics(
           tester,
           firstRow,
-          label: 'Tag',
+          label: 'Tags',
           selected: false,
         );
         _expectSuggestionSemantics(
@@ -854,7 +855,7 @@ void main() {
     await _openFilter(tester);
     await tester.enterText(
       find.byKey(const ValueKey('topic-filter-input')),
-      'status:open',
+      'status:open ',
     );
     await tester.pumpAndSettle();
     final shell = ShellScope.read(
@@ -867,11 +868,10 @@ void main() {
         ),
       ),
     );
-    final apply = tester
-        .widget<DButton>(
-          find.ancestor(of: find.text('Apply'), matching: find.byType(DButton)),
-        )
-        .onPressed!;
+    final command = tester.widget<DCommand<String>>(
+      find.byType(DCommand<String>),
+    );
+    void apply() => command.onSelected!('@apply');
     unawaited(shell.selectTopicListMode(TopicListMode.topWeekly));
     final replacement = shell.topicListContent;
     apply();
@@ -935,13 +935,13 @@ void main() {
     expect(input.focusNode!.hasFocus, isTrue);
     expect(_filterQuery(tester), 'tag:"customer feedback" status:');
     expect(find.text('status: open'), findsNothing);
-    expect(find.text('Status: closed'), findsOneWidget);
+    expect(find.text('Closed'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pumpAndSettle();
     expect(_filterQuery(tester), 'tag:"customer feedback" status:closed');
     expect(api.feedPaths, ['/latest.json', '/filter.json']);
-    await tester.tap(find.text('Apply'));
+    await tester.tap(find.byKey(const ValueKey('topic-filter-apply')));
     await tester.pumpAndSettle();
     expect(
       api.feedPaths,
@@ -1005,7 +1005,7 @@ void main() {
     final edit = find.byKey(const ValueKey('topic-filter-token-edit-0'));
     expect(
       tester.widget<DButton>(edit).semanticLabel,
-      'Edit filter category: Parent › Child',
+      'Edit filter Category: Parent › Child',
     );
     Focus.of(
       tester.element(
@@ -1048,7 +1048,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(DCommandList<String>),
-          matching: find.text('Tag  ${_tagOption.description}'),
+          matching: find.text('Tags  Topics by their tags, or a tag group'),
         ),
         findsOneWidget,
       );
@@ -1066,12 +1066,7 @@ void main() {
   ) async {
     final api = FakeDiscourseApi(
       feeds: const {'/latest.json': [], '/filter.json': []},
-      filterOptionsByPath: {
-        '/filter.json': [
-          for (var i = 0; i < 15; i++)
-            TopicFilterOption(name: 'option$i:', priority: 1),
-        ],
-      },
+      filterOptionsByPath: const {'/filter.json': filterMenuOptions},
     );
     await _pump(tester, api);
     await _openFilter(tester);
@@ -1127,8 +1122,9 @@ void main() {
     expect(_filterQuery(tester), 'posts-min:15');
     await tester.enterText(input, 'created-after:');
     await tester.pumpAndSettle();
-    tester.widget<DDatePicker>(find.byType(DDatePicker)).onChanged!(
-      DCalendarDate(2026, 10, 9),
+    tester.widget<DCalendar>(find.byType(DCalendar)).onSelectionChanged!(
+      DCalendarSingleSelection(DCalendarDate(2026, 10, 9)),
+      DCalendarSelectReason.press,
     );
     await tester.pumpAndSettle();
     expect(_filterQuery(tester), 'posts-min:15 created-after:2026-10-09');
@@ -1190,7 +1186,7 @@ void _expectSelectedRow(WidgetTester tester, Finder row) {
     (group) => group.items,
   );
   final item = items.singleWhere((item) => item.key == tester.widget(row).key);
-  expect(command.value, item.value);
+  expect(command.controller!.value, item.value);
 }
 
 void _expectSuggestionSemantics(
@@ -1295,4 +1291,14 @@ String _filterQuery(WidgetTester tester) {
       .text
       .trim();
   return [...tokens, if (draft.isNotEmpty) draft].join(' ');
+}
+
+Future<void> clearMenu(WidgetTester tester) async {
+  final remove = find.byKey(const ValueKey('topic-filter-token-remove-0'));
+  while (remove.evaluate().isNotEmpty) {
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byKey(const ValueKey('topic-filter-apply')));
+  await tester.pumpAndSettle();
 }

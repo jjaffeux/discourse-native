@@ -6,6 +6,8 @@ import 'package:flutter/widgets.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 
+part 'topic_filter_menu.dart';
+
 typedef TopicFilterLookup =
     Future<List<TopicFilterLookupValue>> Function(String term);
 typedef TopicFilterCategoryLookup =
@@ -24,6 +26,10 @@ class TopicFilterSuggestion {
     this.parentCategory,
     this.categoryUp = false,
     this.hasChildren = false,
+    this.menuField,
+    this.menuGroup,
+    this.menuIcon,
+    this.replaceKeys = const [],
   });
 
   final String name;
@@ -36,6 +42,10 @@ class TopicFilterSuggestion {
   final TopicCategory? parentCategory;
   final bool categoryUp;
   final bool hasChildren;
+  final String? menuField;
+  final String? menuGroup;
+  final String? menuIcon;
+  final List<String> replaceKeys;
 }
 
 class TopicFilterSuggestions {
@@ -50,6 +60,8 @@ class TopicFilterSuggestions {
     this.hierarchicalCategories = false,
     this.categoryParentId,
     this.allOptions = false,
+    this.menuField,
+    this.menuDateSelected = false,
   });
 
   static const int maxResults = 20;
@@ -57,6 +69,8 @@ class TopicFilterSuggestions {
   final bool hierarchicalCategories;
   final int? categoryParentId;
   final bool allOptions;
+  final String? menuField;
+  final bool menuDateSelected;
   final List<TopicFilterOption> options;
   final List<TopicCategory> categories;
   final TopicFilterCategoryLookup categoryLookup;
@@ -67,6 +81,10 @@ class TopicFilterSuggestions {
 
   Future<List<TopicFilterSuggestion>> suggestions(String text) async {
     final segment = _FilterInput(text).lastSegment;
+    if (allOptions) {
+      final menu = await _menuSuggestions(segment);
+      if (menu != null) return menu;
+    }
     if (segment.word.isEmpty) {
       final prioritized = [
         for (final option in options)
@@ -111,6 +129,13 @@ class TopicFilterSuggestions {
                 displayName: parent.name,
                 category: parent,
                 categoryUp: true,
+              ),
+            if (parent != null && allOptions)
+              TopicFilterSuggestion(
+                name: '=category:${parent.id}',
+                displayName: appL10n.filterCategoryOnly(parent.name),
+                category: parent,
+                isSuggestion: true,
               ),
             for (final category in siblings)
               TopicFilterSuggestion(

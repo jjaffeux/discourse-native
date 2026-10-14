@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> openMenu(
@@ -9,6 +10,7 @@ Future<void> openMenu(
   required ScrollController scroll,
   int count = 60,
   bool reducedMotion = false,
+  bool settle = true,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -61,7 +63,7 @@ Future<void> openMenu(
     ),
   );
   await tester.tap(find.text('Open filters'));
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
 }
 
 Future<void> expand(WidgetTester tester) async {
@@ -73,6 +75,84 @@ Future<void> expand(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets('opening frames never paint the expanded sheet at the top', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await openMenu(
+      tester,
+      platform: TargetPlatform.iOS,
+      scroll: scroll,
+      settle: false,
+    );
+    for (var frame = 0; frame < 24; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final sheet = find.byType(DSheetContent);
+      if (sheet.evaluate().isNotEmpty) {
+        expect(
+          tester.getTopLeft(sheet).dy,
+          greaterThanOrEqualTo(844 * .45 - 1),
+        );
+      }
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsOneWidget);
+  });
+
+  testWidgets('iOS waits for keyboard completion before animating margins', (
+    tester,
+  ) async {
+    const channel = MethodChannel('org.discourse.native/keyboard');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (_) async => false,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await openMenu(tester, platform: TargetPlatform.iOS, scroll: scroll);
+    final sheet = find.byType(DSheetContent);
+    await tester.tap(find.byType(EditableText));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      tester.getRect(sheet).left,
+      0,
+      reason: 'focus is not keyboard completion',
+    );
+    for (final inset in [100.0, 200.0, 300.0]) {
+      tester.view.viewInsets = FakeViewPadding(bottom: inset);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getRect(sheet).left, 0);
+    }
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      tester.getRect(sheet).left,
+      0,
+      reason: 'native completion takes precedence over a timeout',
+    );
+    await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+      channel.name,
+      const StandardMethodCodec().encodeMethodCall(
+        const MethodCall('keyboardReady', true),
+      ),
+      (_) {},
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getRect(sheet).left, inExclusiveRange(0, 6));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(sheet).left, 6);
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+  });
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final reduced in [false, true]) {
       testWidgets(
@@ -118,6 +198,34 @@ void main() {
           expect(scroll.position.extentAfter, closeTo(0, 1));
           await tester.pump(const Duration(seconds: 1));
           expect(tester.getRect(sheet), floating);
+          final reverse = await tester.startGesture(
+            tester.getCenter(find.byType(ListView)),
+          );
+          await reverse.moveBy(const Offset(0, 40));
+          await reverse.moveBy(const Offset(0, 6));
+          await tester.pump();
+          await tester.pump();
+          final distance = scroll.position.extentAfter;
+          expect(
+            distance,
+            greaterThan(0),
+            reason: 'small reverse drags must leave the end',
+          );
+          expect(
+            distance,
+            lessThan(40),
+            reason: 'exercise the former snap-back range',
+          );
+          await reverse.moveBy(const Offset(0, 6));
+          await tester.pump();
+          expect(
+            scroll.position.extentAfter,
+            greaterThan(distance),
+            reason: 'the same drag stays active while margins change',
+          );
+          await reverse.up();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).left, 0);
           scroll.jumpTo(scroll.offset - 200);
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet).left, 0);
@@ -143,6 +251,8 @@ void main() {
       expect(tester.getRect(sheet).left, 0);
       await tester.tap(find.byType(EditableText));
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
       expect(tester.getRect(sheet).left, 6);
       expect(tester.getRect(sheet).bottom, closeTo(538, 1));

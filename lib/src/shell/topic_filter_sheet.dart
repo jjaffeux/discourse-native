@@ -3,6 +3,120 @@ part of 'topic_filter_input.dart';
 /// The list sheet keeps its editor and results in one Native command surface.
 /// Its vocabulary and comparison operators still come from the forum.
 extension _TopicFilterSheet on _TopicFilterInputState {
+  bool get _canFinishTags =>
+      _sheetTags.isNotEmpty ||
+      splitTopicFilterQuery(
+        widget.initialQuery,
+      ).any((t) => RegExp(r'^-?tags?:').hasMatch(t));
+  List<({List<int> indices, List<String> tokens, String? label})>
+  _displayTokens() {
+    final result =
+        <({List<int> indices, List<String> tokens, String? label})>[];
+    final consumed = <int>{};
+    final fields = topicFilterMenuFields(filter.engine.options);
+    for (var i = 0; i < _tokens.length; i++) {
+      if (consumed.contains(i)) continue;
+      final raw = _tokens[i];
+      final key = topicFilterClauseKey(
+        raw,
+      )?.replaceFirst(RegExp(r'^[-=]+'), '');
+      final field = fields
+          .where(
+            (f) =>
+                f.keys.contains(key) &&
+                (key != 'in:' || f.options.any((o) => o.name == raw)),
+          )
+          .firstOrNull;
+      var value = _topicFilterTokenLabel(raw, widget.categories);
+      value = value.contains(':')
+          ? value.substring(value.indexOf(':') + 1).trim()
+          : value;
+      final indices = [i];
+      final tokens = [raw];
+      if (widget.embedded && field != null) {
+        final n = int.tryParse(raw.substring(raw.indexOf(':') + 1));
+        if (field.number && n != null && n >= 0) {
+          final number = field.id == 'replies' ? (n - 1).clamp(0, n) : n;
+          value =
+              '${key!.endsWith('-max:') ? _sentenceCaseTopicFilterValue(appL10n.atMost) : _sentenceCaseTopicFilterValue(appL10n.atLeast)} $number';
+          final counterpart =
+              '${key.replaceFirst(key.endsWith('-max:') ? '-max:' : '-min:', key.endsWith('-max:') ? '-min:' : '-max:')}$n';
+          final pair = _tokens.indexOf(counterpart);
+          if (pair >= 0 && pair != i && !consumed.contains(pair)) {
+            indices.add(pair);
+            tokens.add(_tokens[pair]);
+            value = '${appL10n.filterExactly} $number';
+          }
+        } else if (field.id == 'tags' && RegExp(r'^-?tags?:').hasMatch(raw)) {
+          final all = raw.contains('+');
+          final negative = raw.startsWith('-');
+          value = value.replaceAll(RegExp('[,+]'), ', ');
+          if (all || negative || value.contains(', ')) {
+            value =
+                '${negative ? (all ? appL10n.filterNotAll : appL10n.none) : (all ? appL10n.filterAll : appL10n.filterAny)} $value';
+          }
+        } else if (field.date) {
+          value =
+              '${key!.contains('-before:') ? appL10n.filterBefore : appL10n.filterAfter} $value';
+        }
+      }
+      consumed.addAll(indices);
+      result.add((
+        indices: indices,
+        tokens: tokens,
+        label: widget.embedded && field != null
+            ? '${field.label}: $value'
+            : null,
+      ));
+    }
+    return result;
+  }
+
+  void _editDisplayToken(
+    ({List<int> indices, List<String> tokens, String? label}) group,
+  ) {
+    if (!widget.embedded || group.indices.length == 1) {
+      _editToken(group.indices.first);
+      return;
+    }
+    _changeSheet(
+      () => _tokens = [
+        for (var i = 0; i < _tokens.length; i++)
+          if (!group.indices.contains(i)) _tokens[i],
+      ],
+    );
+    final key = topicFilterClauseKey(group.tokens.first)!;
+    _activeMenuField = topicFilterMenuFields(
+      widget.options,
+    ).where((f) => f.keys.contains(key)).firstOrNull?.id;
+    _setTokenDraft(key);
+    filter.updateEngine(_engine(_shell!));
+    _focus.requestFocus();
+    widget.onChanged?.call(_composeTokenQuery());
+    unawaited(filter.openSuggestions());
+  }
+
+  Future<bool> _sheetAction(String? value) async {
+    if (value == '@apply' || value == '@clear') {
+      await widget.onSubmitted(value == '@clear' ? '' : _composeTokenQuery());
+      return true;
+    }
+    if (value == '@done-tags') {
+      if (!_canFinishTags) return true;
+      if (widget.onlyKey == 'tag') {
+        await widget.onSubmitted(_tokens.join(' '));
+      } else {
+        _setTokenDraft('');
+        _focus.requestFocus();
+        unawaited(filter.openSuggestions());
+      }
+      return true;
+    }
+    return value == '@tag-mode';
+  }
+
+  String _commandValue(TopicFilterSuggestion item) =>
+      item.menuField == null ? item.name : '${item.menuField}|${item.name}';
   bool get _isTagStage => RegExp(r'^-?tags?:').hasMatch(filter.text.text);
 
   List<String> get _sheetTags {
@@ -70,6 +184,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
   }
 
   String _sheetGroup(TopicFilterSuggestion item) {
+    if (item.menuGroup != null) return item.menuGroup!;
     final name = item.name.replaceAll(RegExp(r'^[-=]+'), '');
     final type = widget.options
         .where((option) => name.startsWith(option.name))
@@ -94,23 +209,31 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         .firstOrNull;
     final groups = <String, List<TopicFilterSuggestion>>{};
     for (final suggestion in filter.suggestions) {
-      if (_isTagStage && suggestion.term == null) continue;
-      (groups[clauseKey == null ? _sheetGroup(suggestion) : ''] ??= []).add(
-        suggestion,
-      );
+      (groups[suggestion.menuGroup ??
+                  (clauseKey == null ? _sheetGroup(suggestion) : '')] ??=
+              [])
+          .add(suggestion);
     }
     Widget row(TopicFilterSuggestion suggestion) => Row(
       children: [
-        if (_isTagStage)
-          SizedBox.square(
-            dimension: 16,
-            child:
-                suggestion.term != null &&
-                    _sheetTags.contains(
-                      _unquoteTopicFilterValue(suggestion.term!),
-                    )
-                ? const DIcon(DIcons.check, size: 16)
-                : null,
+        if (_isTagStage &&
+            RegExp(r'^tags?:').hasMatch(suggestion.name) &&
+            suggestion.term != null)
+          IgnorePointer(
+            child: ExcludeSemantics(
+              child: DCheckbox(
+                value: _sheetTags.contains(
+                  _unquoteTopicFilterValue(suggestion.term!),
+                ),
+                readOnly: true,
+                onChanged: (_) {},
+              ),
+            ),
+          )
+        else if (suggestion.menuIcon case final icon?)
+          DIcon(
+            DIcons.byName[icon] ?? DNativeIcons.byName[icon] ?? DIcons.filter,
+            size: 14,
           )
         else if (suggestion.category case final category?)
           CategoryIcon(
@@ -118,6 +241,15 @@ extension _TopicFilterSheet on _TopicFilterInputState {
             parentCategory: suggestion.parentCategory,
             size: 16,
             siteUrl: widget.siteUrl,
+          )
+        else if (suggestion.term != null &&
+            const {'username', 'username_group_list'}.contains(option?.type))
+          DAvatar(
+            dimension: 20,
+            border: false,
+            fallback: DAvatarFallback(
+              child: Text(suggestion.term!.characters.first.toUpperCase()),
+            ),
           )
         else
           _topicFilterSuggestionIcon(suggestion),
@@ -169,23 +301,58 @@ extension _TopicFilterSheet on _TopicFilterInputState {
           ),
       ],
     );
+    final tagModes = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DToggleGroup<String>(
+          values: [_tagMode],
+          allowEmptySelection: false,
+          density: DToggleDensity.menuFilter,
+          semanticLabel: context.l10n.matchTopicsThat,
+          items: [
+            for (final (value, label) in [
+              ('any', context.l10n.filterAny),
+              ('all', context.l10n.filterAll),
+              ('none', context.l10n.none),
+              ('notAll', context.l10n.filterNotAll),
+            ])
+              DToggleGroupItem(value: value, child: Text(label)),
+          ],
+          onChanged: _sheetTags.isEmpty
+              ? null
+              : (values) {
+                  _tagMode = values.single;
+                  _setSheetTags(_sheetTags);
+                },
+        ),
+        Text(switch (_tagMode) {
+          'all' => context.l10n.filterAllHint,
+          'none' => context.l10n.filterNoneHint,
+          'notAll' => context.l10n.filterNotAllHint,
+          _ => context.l10n.filterAnyHint,
+        }, style: TextStyle(color: DTokens.of(context).mutedForeground)),
+      ],
+    );
     final command = DCommand<String>(
       key: _sheetCommandKey,
       backgroundColor: Colors.transparent,
       controller: _sheetCommand,
       query: filter.text.text,
-      value: filter.selected?.name,
       shouldFilter: false,
       onValueChanged: (value) {
         final index = filter.suggestions.indexWhere(
-          (item) => item.name == value,
+          (item) => _commandValue(item) == value,
         );
         if (index >= 0) filter.select(index);
       },
       onQueryChanged: filter.inputChanged,
       onSelected: (value) {
+        if (value.startsWith('@')) {
+          unawaited(_sheetAction(value));
+          return;
+        }
         final suggestion = filter.suggestions
-            .where((item) => item.name == value)
+            .where((item) => _commandValue(item) == value)
             .firstOrNull;
         if (suggestion != null) unawaited(_acceptSuggestion(suggestion));
       },
@@ -193,73 +360,49 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onKeyEvent: _onKey,
-            child: DCommandInput<String>(
-              borderless: true,
-              autofocus: widget.focusOnOpen,
-              key: widget.inputKey,
-              controller: filter.text,
-              focusNode: _focus,
-              placeholder: widget.hintText,
-              semanticLabel: context.l10n.topicFilterQuery,
-            ),
-          ),
-          const DSeparator(),
-          if (_isTagStage)
-            Row(
-              children: [
-                DLabel(child: Text(context.l10n.searchFilterMatch)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DSelect<String>.controlled(
-                    value: _tagMode,
-                    semanticLabel: context.l10n.matchTopicsThat,
-                    isExpanded: true,
-                    size: DSelectSize.small,
-                    entries: [
-                      for (final (value, label) in [
-                        ('any', context.l10n.includeAny),
-                        ('all', context.l10n.includeAll),
-                        ('none', context.l10n.excludeAny),
-                        ('notAll', context.l10n.excludeCombination),
-                      ])
-                        DSelectItem(
-                          value: value,
-                          textValue: label,
-                          child: Text(label),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      _tagMode = value;
-                      _setSheetTags(_sheetTags);
-                    },
+          Row(
+            children: [
+              if (_tokens.isNotEmpty)
+                Flexible(
+                  flex: 2,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 90),
+                    child: DScrollArea(child: _buildTokens()),
                   ),
                 ),
-              ],
-            ),
-          if (option?.type == 'date')
-            DDatePicker.controlled(
-              semanticLabel: option!.description ?? option.name,
-              value: null,
-              onChanged: (value) {
-                if (value == null) return;
-                _setTokenDraft('${option.name}$value');
+              Expanded(
+                child: Focus(
+                  canRequestFocus: false,
+                  skipTraversal: true,
+                  onKeyEvent: _onKey,
+                  child: DCommandInput<String>(
+                    borderless: true,
+                    autofocus: widget.focusOnOpen,
+                    key: widget.inputKey,
+                    controller: filter.text,
+                    focusNode: _focus,
+                    placeholder: widget.hintText,
+                    semanticLabel: context.l10n.topicFilterQuery,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const DSeparator(),
+          if (option?.type == 'date' &&
+              (_activeMenuField == null || _menuDateSelected))
+            DCalendar(
+              onSelectionChanged: (selection, _) {
+                if (selection is! DCalendarSingleSelection ||
+                    selection.date == null) {
+                  return;
+                }
+                final value = selection.date!;
+                _setTokenDraft('${option!.name}$value');
                 _commitTokenDraft();
                 _focus.requestFocus();
                 unawaited(filter.openSuggestions());
               },
-            ),
-          if (clauseKey == 'category:')
-            DToggle(
-              pressed: !_categoryExact,
-              size: DToggleSize.small,
-              onPressedChanged: (value) =>
-                  _changeSheet(() => _categoryExact = !value),
-              child: Text(context.l10n.includeSubcategories),
             ),
           if (option?.type == 'number')
             DInput(
@@ -273,55 +416,101 @@ extension _TopicFilterSheet on _TopicFilterInputState {
               },
               onSubmitted: (value) {
                 if (int.tryParse(value) == null || int.parse(value) < 0) return;
+                if (_activeMenuField != null) {
+                  unawaited(_acceptSelectedOrFallback());
+                  return;
+                }
                 _setTokenDraft('${option.name}$value');
                 _commitTokenDraft();
                 _focus.requestFocus();
                 unawaited(filter.openSuggestions());
               },
             ),
-          Flexible(
-            child: DCommandList<String>(
-              maxHeight:
-                  const {
-                    TargetPlatform.iOS,
-                    TargetPlatform.android,
-                    TargetPlatform.fuchsia,
-                  }.contains(Theme.of(context).platform)
-                  ? MediaQuery.sizeOf(context).height
-                  : 360,
-              children: [
-                for (final group in groups.entries)
-                  DCommandGroup<String>(
-                    heading: group.key.isEmpty ? null : Text(group.key),
-                    items: [
-                      for (final suggestion in group.value)
-                        DCommandItem<String>(
-                          key: ValueKey(
-                            'topic-filter-suggestion-${filter.suggestions.indexOf(suggestion)}',
-                          ),
-                          value: suggestion.name,
-                          checked:
-                              _isTagStage &&
-                              suggestion.term != null &&
-                              _sheetTags.contains(
-                                _unquoteTopicFilterValue(suggestion.term!),
+          if (!(option?.type == 'date' &&
+              (_activeMenuField == null || _menuDateSelected)))
+            Flexible(
+              child: DCommandList<String>(
+                maxHeight:
+                    const {
+                      TargetPlatform.iOS,
+                      TargetPlatform.android,
+                      TargetPlatform.fuchsia,
+                    }.contains(Theme.of(context).platform)
+                    ? MediaQuery.sizeOf(context).height
+                    : 360,
+                children: [
+                  if (clauseKey == null &&
+                      filter.text.text.isEmpty &&
+                      (_tokens.isNotEmpty || widget.initialQuery.isNotEmpty))
+                    DCommandItem<String>(
+                      key: const ValueKey('topic-filter-apply'),
+                      value: _tokens.isEmpty ? '@clear' : '@apply',
+                      leading: const DIcon(DIcons.filter, size: 14),
+                      trailing: const DIcon(DNativeIcons.arrowRight, size: 12),
+                      child: Text(
+                        _tokens.isEmpty
+                            ? context.l10n.clearFilter
+                            : context.l10n.filterApplyCount(
+                                _displayTokens().length,
                               ),
-                          trailing: _isTagStage
-                              ? Text(
-                                  int.tryParse(suggestion.description ?? '') !=
-                                          null
-                                      ? suggestion.description!
-                                      : '',
-                                )
-                              : null,
-                          child: row(suggestion),
+                      ),
+                    ),
+                  if (_isTagStage) ...[
+                    DCommandItem<String>(
+                      key: const ValueKey('topic-filter-done-tags'),
+                      value: '@done-tags',
+                      enabled: _canFinishTags,
+                      leading: const DIcon(DIcons.tag, size: 14),
+                      trailing: const DIcon(DIcons.check, size: 12),
+                      child: Text(
+                        '${context.l10n.done}  ${_sheetTags.isEmpty ? context.l10n.filterNoTagsYet : _sheetTags.join(', ')}',
+                      ),
+                    ),
+                    DCommandGroup<String>(
+                      heading: Text(context.l10n.searchFilterMatch),
+                      items: [
+                        DCommandItem<String>(
+                          value: '@tag-mode',
+                          enabled: _sheetTags.isNotEmpty,
+                          child: tagModes,
                         ),
-                    ],
-                  ),
-                DCommandEmpty(child: Text(context.l10n.noResultsFound)),
-              ],
+                      ],
+                    ),
+                  ],
+                  for (final group in groups.entries)
+                    DCommandGroup<String>(
+                      heading: group.key.isEmpty ? null : Text(group.key),
+                      items: [
+                        for (final suggestion in group.value)
+                          DCommandItem<String>(
+                            key: ValueKey(
+                              'topic-filter-suggestion-${filter.suggestions.indexOf(suggestion)}',
+                            ),
+                            value: _commandValue(suggestion),
+                            checked:
+                                _isTagStage &&
+                                suggestion.term != null &&
+                                _sheetTags.contains(
+                                  _unquoteTopicFilterValue(suggestion.term!),
+                                ),
+                            trailing: _isTagStage
+                                ? Text(
+                                    int.tryParse(
+                                              suggestion.description ?? '',
+                                            ) !=
+                                            null
+                                        ? suggestion.description!
+                                        : '',
+                                  )
+                                : null,
+                            child: row(suggestion),
+                          ),
+                      ],
+                    ),
+                  DCommandEmpty(child: Text(context.l10n.noResultsFound)),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -329,8 +518,6 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_tokens.isNotEmpty || _isTagStage)
-          SizedBox(height: 90, child: DScrollArea(child: _buildTokens())),
         Flexible(
           child:
               option?.type == 'date' ||

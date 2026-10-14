@@ -80,6 +80,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   bool _visibilityDismissScheduled = false;
   String _tagMode = 'any';
   bool _categoryExact = false;
+  String? _activeMenuField;
+  bool _menuDateSelected = false;
   void _changeSheet(VoidCallback update) => setState(update);
 
   TopicFilterController get filter => _filter!;
@@ -210,6 +212,14 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         hierarchicalCategories: widget.tokenized,
         categoryParentId: _categoryParentId,
         allOptions: widget.embedded,
+        menuField:
+            _activeMenuField ??
+            (widget.onlyKey == 'tag'
+                ? 'tags'
+                : widget.onlyKey == 'category'
+                ? 'category'
+                : null),
+        menuDateSelected: _menuDateSelected,
         categories: widget.categories,
         categoryLookup: (term) =>
             shell.searchFilterCategories(siteUrl: widget.siteUrl, term: term),
@@ -284,7 +294,15 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   String _composeTokenQuery([String? draft]) {
-    final currentDraft = (draft ?? filter.text.text).trim();
+    var currentDraft = (draft ?? filter.text.text).trim();
+    if (widget.embedded && _activeMenuField == 'replies') {
+      final match = RegExp(
+        r'^(posts-(?:min|max):)(\d+)$',
+      ).firstMatch(currentDraft);
+      if (match != null) {
+        currentDraft = '${match[1]}${int.parse(match[2]!) + 1}';
+      }
+    }
     return [..._tokens, if (currentDraft.isNotEmpty) currentDraft].join(' ');
   }
 
@@ -304,6 +322,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       () => _tokens = replaceTopicFilterScopeTokens([..._tokens, ...additions]),
     );
     _categoryParentId = null;
+    _activeMenuField = null;
+    _menuDateSelected = false;
     filter.updateEngine(_engine(_shell!));
     _setTokenDraft('');
     widget.onChanged?.call(_composeTokenQuery());
@@ -322,6 +342,13 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   void _editToken(int index) {
     if (!widget.enabled || index < 0 || index >= _tokens.length) return;
     final token = _tokens[index];
+    if (widget.embedded) {
+      _activeMenuField = topicFilterMenuFields(filter.engine.options)
+          .where((f) => f.keys.contains(topicFilterClauseKey(token)))
+          .firstOrNull
+          ?.id;
+      _menuDateSelected = false;
+    }
     setState(() => _tokens = [..._tokens]..removeAt(index));
     _categoryParentId = null;
     _setTokenDraft(topicFilterClauseKey(token) ?? token);
@@ -359,7 +386,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     );
     if (widget.embedded) {
       filter.select(index);
-      _sheetCommand.highlight(filter.suggestions[index].name);
+      _sheetCommand.highlight(_commandValue(filter.suggestions[index]));
     } else {
       _combobox.highlight(filter.suggestions[index]);
     }
@@ -371,6 +398,19 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       return KeyEventResult.ignored;
     }
     switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowLeft || LogicalKeyboardKey.arrowRight
+          when widget.embedded &&
+              _sheetCommand.value == '@tag-mode' &&
+              _sheetTags.isNotEmpty:
+        final modes = ['any', 'all', 'none', 'notAll'];
+        _tagMode =
+            modes[(modes.indexOf(_tagMode) +
+                    (event.logicalKey == LogicalKeyboardKey.arrowRight
+                        ? 1
+                        : -1)) %
+                modes.length];
+        _setSheetTags(_sheetTags);
+        return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown when filter.isOpen:
         if (widget.embedded) return KeyEventResult.ignored;
         _moveSelection(1);
@@ -447,6 +487,11 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           unawaited(filter.submit());
           return KeyEventResult.handled;
         }
+        if (widget.embedded &&
+            (filter.isOpen ||
+                (_sheetCommand.value?.startsWith('@') ?? false))) {
+          return KeyEventResult.ignored;
+        }
         if (widget.multiline) return KeyEventResult.ignored;
         if (widget.tokenized &&
             filter.text.text.isEmpty &&
@@ -466,6 +511,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   Future<void> _acceptSelectedOrFallback({bool allowFallback = true}) async {
+    if (widget.embedded && await _sheetAction(_sheetCommand.value)) return;
     final controller = filter;
     final fresh = await controller.ensureFreshSuggestions();
     if (!mounted ||
@@ -499,13 +545,32 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   Future<void> _acceptSuggestion(TopicFilterSuggestion suggestion) async {
+    if (widget.embedded) {
+      if (suggestion.menuField case final field?) {
+        _menuDateSelected =
+            _activeMenuField == field && suggestion.menuIcon == 'calendar-days';
+        _activeMenuField = field;
+        filter.updateEngine(_engine(_shell!));
+      }
+    }
     if (suggestion.categoryUp) {
       _browseCategory(suggestion.category, up: true);
       return;
     }
-    if (widget.embedded && _isTagStage && suggestion.term != null) {
+    if (widget.embedded &&
+        _isTagStage &&
+        suggestion.term != null &&
+        RegExp(r'^tags?:').hasMatch(suggestion.name)) {
       _toggleSheetTag(_unquoteTopicFilterValue(suggestion.term!));
       return;
+    }
+    if (widget.embedded && suggestion.replaceKeys.isNotEmpty) {
+      _tokens = _tokens
+          .where(
+            (token) =>
+                !suggestion.replaceKeys.contains(topicFilterClauseKey(token)),
+          )
+          .toList();
     }
     if (widget.embedded && suggestion.category != null && _categoryExact) {
       suggestion = TopicFilterSuggestion(
@@ -565,14 +630,27 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     spacing: 4,
     runSpacing: 4,
     children: [
-      for (var i = 0; i < _tokens.length; i++)
+      for (final group in _displayTokens())
         _TopicFilterTokenChip(
-          raw: _tokens[i],
-          index: i,
+          raw: group.tokens.join(' '),
+          label: group.label,
+          index: group.indices.first,
           categories: widget.categories,
           enabled: widget.enabled,
-          onEdited: () => _editToken(i),
-          onDeleted: () => _removeToken(i),
+          onEdited: () => _editDisplayToken(group),
+          onDeleted: () {
+            if (group.indices.length == 1) {
+              _removeToken(group.indices.first);
+              return;
+            }
+            _changeSheet(
+              () => _tokens = [
+                for (var i = 0; i < _tokens.length; i++)
+                  if (!group.indices.contains(i)) _tokens[i],
+              ],
+            );
+            widget.onChanged?.call(_composeTokenQuery());
+          },
         ),
     ],
   );
@@ -826,6 +904,7 @@ Widget _topicFilterSuggestionIcon(TopicFilterSuggestion suggestion) {
 class _TopicFilterTokenChip extends StatelessWidget {
   const _TopicFilterTokenChip({
     required this.raw,
+    this.label,
     required this.index,
     required this.categories,
     required this.enabled,
@@ -834,6 +913,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
   });
 
   final String raw;
+  final String? label;
   final int index;
   final List<TopicCategory> categories;
   final bool enabled;
@@ -842,7 +922,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = _topicFilterTokenLabel(raw, categories);
+    final label = this.label ?? _topicFilterTokenLabel(raw, categories);
     return DTooltip(
       message: raw,
       child: Row(

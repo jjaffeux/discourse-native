@@ -9,6 +9,125 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get filterVotesTitle => 'Votes';
+
+  @override
+  String filterCategoryOnly(String category) {
+    return '$category only, not its subcategories';
+  }
+
+  @override
+  String get filterAssignedTitle => 'Assigned to';
+
+  @override
+  String get filterTagGroups => 'Tag groups';
+
+  @override
+  String get filterBefore => 'Before';
+
+  @override
+  String get filterAfter => 'After';
+
+  @override
+  String filterApplyCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Apply $count filters',
+      one: 'Apply 1 filter',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get filterWho => 'Who';
+
+  @override
+  String get filterState => 'State';
+
+  @override
+  String get filterNumbersDates => 'Numbers & dates';
+
+  @override
+  String get filterMine => 'Mine';
+
+  @override
+  String get filterCategoryHint => 'Topics in a category';
+
+  @override
+  String get filterTagsHint => 'Topics by their tags, or a tag group';
+
+  @override
+  String get filterTopicHint => 'Posts in one topic';
+
+  @override
+  String get filterPostedByHint => 'Posts by someone';
+
+  @override
+  String get filterStartedByHint => 'Topics someone started';
+
+  @override
+  String get filterGroupHint => 'Posts by members of a group';
+
+  @override
+  String get filterAssignedHint =>
+      'Topics assigned to someone, a group, or no one';
+
+  @override
+  String get filterStatusHint => 'Open, closed, solved and the like';
+
+  @override
+  String get filterTypeHint => 'Pinned topics';
+
+  @override
+  String get filterLanguageHint => 'What language a post is written in';
+
+  @override
+  String get filterPostedHint => 'Before or after a day';
+
+  @override
+  String get filterRepliesHint => 'How many replies a topic has';
+
+  @override
+  String get filterViewsHint => 'How often a topic has been read';
+
+  @override
+  String get filterVotesHint => 'How many votes a topic has';
+
+  @override
+  String get filterActivityHint => 'What you have watched, bookmarked or read';
+
+  @override
+  String get filterSortHint => 'The order results come in';
+
+  @override
+  String get filterAny => 'Any';
+
+  @override
+  String get filterAll => 'All';
+
+  @override
+  String get filterNotAll => 'Not all';
+
+  @override
+  String get filterAnyHint => 'Topics with at least one';
+
+  @override
+  String get filterAllHint => 'Topics with every one';
+
+  @override
+  String get filterNoneHint => 'Topics with none of them';
+
+  @override
+  String get filterNotAllHint => 'Leaves out topics with every one at once';
+
+  @override
+  String get filterNoTagsYet => 'No tags yet';
+
+  @override
+  String get filterExactly => 'Exactly';
+
+  @override
   String get mentionUsersOrGroups => 'Mention users or groups';
 
   @override

@@ -126,14 +126,16 @@ void main() {
                   : item.value == 'category:${menu == 'category' ? 1 : 2}',
             )
             .value;
-        final done = tester
-            .widget<DButton>(
-              find.ancestor(
-                of: find.text('Done'),
-                matching: find.byType(DButton),
-              ),
-            )
-            .onPressed!;
+        final done = menu == 'tag'
+            ? () => command.onSelected!('@done-tags')
+            : tester
+                  .widget<DButton>(
+                    find.ancestor(
+                      of: find.text('Done'),
+                      matching: find.byType(DButton),
+                    ),
+                  )
+                  .onPressed!;
         shell.selectInstance(1);
         final replacement = shell.topicListContent;
         // Deliver both old callbacks before Flutter rebuilds the anchor.
@@ -220,7 +222,9 @@ void main() {
       await _choose(tester, 'tag');
       expect(fixture.shell.topicListContent?.tagNames, ['Original tag']);
       await _open(tester, 'tag');
-      await tester.tap(find.text('Clear filter'));
+      await tester.tap(find.text('Original tag').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
       await tester.pumpAndSettle();
       expect(fixture.shell.topicListContent?.tagNames, isEmpty);
     },
@@ -277,7 +281,7 @@ void main() {
       ));
       await tester.tap(find.text('New result'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Done'));
+      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.tagNames, ['New result']);
       expect(tester.takeException(), isNull);
@@ -358,7 +362,7 @@ Future<void> _choose(
   await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
   if (menu == 'tag') {
-    await tester.tap(find.text('Done'));
+    await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
     await tester.pumpAndSettle();
   }
 }

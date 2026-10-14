@@ -218,7 +218,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
       await tester.pumpAndSettle();
       expect(
-        find.text('category: Product', findRichText: true),
+        find.text('Category: Product', findRichText: true),
         findsOneWidget,
       );
       await tester.tap(find.text('Done'));
@@ -231,7 +231,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Alpha').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Done'));
+      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
       await tester.pumpAndSettle();
       expect(fixture.shell.topicListContent?.tagName, 'Alpha');
       expect(tester.takeException(), isNull);

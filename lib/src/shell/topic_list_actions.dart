@@ -164,9 +164,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
               onDismiss: _popover.close,
             ),
           ),
-          if (widget.filterKey != null ||
-              _query.trim().isNotEmpty ||
-              widget.query.isNotEmpty) ...[
+          if (widget.filterKey == 'category') ...[
             const DSeparator(),
             Wrap(
               alignment: WrapAlignment.end,
@@ -199,7 +197,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
       builder: (context, trigger) => DButton(
         key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
         label: Text(
-          '${widget.label ?? context.l10n.startPageFilters}${widget.filterKey != null || widget.query.isEmpty ? '' : ' · ${splitTopicFilterQuery(widget.query).length}'}',
+          '${widget.label ?? context.l10n.startPageFilters}${widget.filterKey != null || widget.query.isEmpty ? '' : ' · ${topicFilterMenuCount(widget.query)}'}',
           style: widget.dimLabel
               ? TextStyle(
                   color: Color.lerp(

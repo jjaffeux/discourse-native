@@ -61,6 +61,38 @@ const tags = [
 ];
 const config = SiteConfig(taggingEnabled: true);
 
+const filterMenuOptions = [
+  TopicFilterOption(name: 'category:', type: 'category'),
+  TopicFilterOption(name: 'tag:', type: 'tag'),
+  TopicFilterOption(name: 'tag-group:', type: 'tag_group'),
+  TopicFilterOption(name: 'topic:', type: 'text'),
+  TopicFilterOption(name: 'users:', type: 'username'),
+  TopicFilterOption(name: 'created-by:', type: 'username_group_list'),
+  TopicFilterOption(name: 'group:', type: 'group'),
+  TopicFilterOption(name: 'assigned:', type: 'username_group_list'),
+  TopicFilterOption(name: 'status:'),
+  TopicFilterOption(name: 'status:open'),
+  TopicFilterOption(name: 'status:closed'),
+  TopicFilterOption(name: 'status:solved'),
+  TopicFilterOption(name: 'in:'),
+  TopicFilterOption(name: 'in:pinned'),
+  TopicFilterOption(name: 'in:watching'),
+  TopicFilterOption(name: 'in:bookmarked'),
+  TopicFilterOption(name: 'in:untagged'),
+  TopicFilterOption(name: 'locale:', type: 'text'),
+  TopicFilterOption(name: 'created-after:', type: 'date'),
+  TopicFilterOption(name: 'created-before:', type: 'date'),
+  TopicFilterOption(name: 'posts-min:', type: 'number'),
+  TopicFilterOption(name: 'posts-max:', type: 'number'),
+  TopicFilterOption(name: 'views-min:', type: 'number'),
+  TopicFilterOption(name: 'views-max:', type: 'number'),
+  TopicFilterOption(name: 'votes-min:', type: 'number'),
+  TopicFilterOption(name: 'votes-max:', type: 'number'),
+  TopicFilterOption(name: 'order:'),
+  TopicFilterOption(name: 'order:activity'),
+  TopicFilterOption(name: 'order:votes'),
+];
+
 Future<({ShellController shell, FakeDiscourseApi api})> fixture(
   WidgetTester tester, {
   Size size = desktop,
@@ -296,7 +328,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Done'));
+        await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
         await tester.pumpAndSettle();
         expect(
           shell.topicListContent?.tagNames,
@@ -352,7 +384,7 @@ void main() {
         isTrue,
       );
       await openFilters(tester);
-      expect(find.text('category: Remote leaf'), findsOneWidget);
+      expect(find.text('Category: Remote leaf'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
@@ -402,8 +434,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Filters · 2'), findsOneWidget);
       await openFilters(tester);
-      expect(find.text('category: Product'), findsOneWidget);
-      expect(find.text('tag: Alpha'), findsOneWidget);
+      expect(find.text('Category: Product'), findsOneWidget);
+      expect(find.text('Tags: Alpha'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('topic-filter-token-edit-0')));
       await tester.pumpAndSettle();
       expect(textField(tester).controller!.text, 'category:');
@@ -415,9 +447,10 @@ void main() {
       );
       expect(find.text('Design'), findsWidgets);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(find.text('category: Design'), findsOneWidget);
+      expect(find.text('Category: Design'), findsOneWidget);
       expect(
         shell.topicListContent?.categoryId,
         1,
@@ -428,7 +461,7 @@ void main() {
       expect(shell.topicListContent?.categoryId, 2);
       expect(shell.topicListContent?.tagName, 'Alpha');
       await openFilters(tester);
-      await tester.tap(find.text('Clear filter'));
+      await clearMenu(tester);
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, isNull);
       expect(shell.topicListContent?.tagName, isNull);
@@ -459,8 +492,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.topicListContent?.categoryId, 1);
     await openFilters(tester);
-    expect(find.text('category: Product'), findsOneWidget);
-    expect(find.text('category: Design'), findsNothing);
+    expect(find.text('Category: Product'), findsOneWidget);
+    expect(find.text('Category: Design'), findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -496,14 +529,7 @@ void main() {
           final (shell: shell, api: _) = await fixture(
             tester,
             size: phone,
-            filterOptions: [
-              for (var index = 0; index < 28; index++)
-                TopicFilterOption(
-                  name: 'condition$index:',
-                  description: 'Topics matching condition $index',
-                  priority: 1,
-                ),
-            ],
+            filterOptions: filterMenuOptions,
           );
           await shell.forumSettings.setShared(
             SharedAppearance(
@@ -540,18 +566,35 @@ void main() {
           expect(tester.getRect(sheet).top, closeTo(expandedTop, 1));
           expect(position.extentAfter, closeTo(0, 1));
           await capture(tester, 'filter-$platform-$material-inset');
-          await tester.enterText(field, 'condition1');
+          final reverse = await tester.startGesture(
+            tester.getCenter(results.first),
+          );
+          await reverse.moveBy(const Offset(0, 40));
+          await reverse.moveBy(const Offset(0, 6));
+          await tester.pump();
+          await tester.pump();
+          final distance = position.extentAfter;
+          expect(distance, inExclusiveRange(0, 40));
+          await reverse.moveBy(const Offset(0, 6));
+          await tester.pump();
+          expect(position.extentAfter, greaterThan(distance));
+          await reverse.up();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).left, 0);
+          await tester.enterText(field, 'posted');
           tester.view.viewInsets = FakeViewPadding(
             bottom: 300 * tester.view.devicePixelRatio,
           );
           addTearDown(tester.view.resetViewInsets);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet).left, 6);
           expect(
             tester.getRect(sheet).bottom,
             lessThanOrEqualTo(phone.height - 300),
           );
-          expect(textField(tester).controller!.text, 'condition1');
+          expect(textField(tester).controller!.text, 'posted');
           await capture(tester, 'filter-$platform-$material-keyboard');
           expect(tester.takeException(), isNull);
           debugDisableShadows = true;
@@ -588,7 +631,7 @@ void main() {
           tester,
           size == phone ? 'filters-phone-large' : 'filters-desktop-large',
         );
-        await tester.tap(find.text('Clear filter'));
+        await clearMenu(tester);
         await tester.pumpAndSettle();
         expect(shell.topicListContent?.categoryId, isNull);
         expect(tester.takeException(), isNull);
@@ -620,4 +663,14 @@ Future<void> capture(WidgetTester tester, String name) async {
     ).writeAsBytes(bytes!.buffer.asUint8List());
     image.dispose();
   });
+}
+
+Future<void> clearMenu(WidgetTester tester) async {
+  final remove = find.byKey(const ValueKey('topic-filter-token-remove-0'));
+  while (remove.evaluate().isNotEmpty) {
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+  }
+  await tester.tap(find.byKey(const ValueKey('topic-filter-apply')));
+  await tester.pumpAndSettle();
 }

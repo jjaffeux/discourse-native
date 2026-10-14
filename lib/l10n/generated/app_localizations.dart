@@ -94,6 +94,222 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Topic vote count filter title.
+  ///
+  /// In en, this message translates to:
+  /// **'Votes'**
+  String get filterVotesTitle;
+
+  /// Category picker choice excluding subcategories.
+  ///
+  /// In en, this message translates to:
+  /// **'{category} only, not its subcategories'**
+  String filterCategoryOnly(String category);
+
+  /// Assignment filter title.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned to'**
+  String get filterAssignedTitle;
+
+  /// Tag group choices heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Tag groups'**
+  String get filterTagGroups;
+
+  /// Date filter relation.
+  ///
+  /// In en, this message translates to:
+  /// **'Before'**
+  String get filterBefore;
+
+  /// Date filter relation.
+  ///
+  /// In en, this message translates to:
+  /// **'After'**
+  String get filterAfter;
+
+  /// Applies the staged topic-list filters.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Apply 1 filter} other{Apply {count} filters}}'**
+  String filterApplyCount(int count);
+
+  /// Filter menu heading for authors and assignees.
+  ///
+  /// In en, this message translates to:
+  /// **'Who'**
+  String get filterWho;
+
+  /// Filter menu heading for topic state.
+  ///
+  /// In en, this message translates to:
+  /// **'State'**
+  String get filterState;
+
+  /// Filter menu heading for counts and dates.
+  ///
+  /// In en, this message translates to:
+  /// **'Numbers & dates'**
+  String get filterNumbersDates;
+
+  /// Filter menu heading for personal activity.
+  ///
+  /// In en, this message translates to:
+  /// **'Mine'**
+  String get filterMine;
+
+  /// Category filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'Topics in a category'**
+  String get filterCategoryHint;
+
+  /// Tags filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'Topics by their tags, or a tag group'**
+  String get filterTagsHint;
+
+  /// Topic filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'Posts in one topic'**
+  String get filterTopicHint;
+
+  /// Author filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'Posts by someone'**
+  String get filterPostedByHint;
+
+  /// Topic author filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'Topics someone started'**
+  String get filterStartedByHint;
+
+  /// Author group filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'Posts by members of a group'**
+  String get filterGroupHint;
+
+  /// Assignment filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'Topics assigned to someone, a group, or no one'**
+  String get filterAssignedHint;
+
+  /// Topic status filter description; choices depend on the forum.
+  ///
+  /// In en, this message translates to:
+  /// **'Open, closed, solved and the like'**
+  String get filterStatusHint;
+
+  /// Post type hint for the topic-list API's supported pinned filter.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinned topics'**
+  String get filterTypeHint;
+
+  /// Language filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'What language a post is written in'**
+  String get filterLanguageHint;
+
+  /// Date filter description for supported topic-list relations.
+  ///
+  /// In en, this message translates to:
+  /// **'Before or after a day'**
+  String get filterPostedHint;
+
+  /// Reply count filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'How many replies a topic has'**
+  String get filterRepliesHint;
+
+  /// View count filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'How often a topic has been read'**
+  String get filterViewsHint;
+
+  /// Vote count filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'How many votes a topic has'**
+  String get filterVotesHint;
+
+  /// Personal activity hint for the topic-list API's supported choices.
+  ///
+  /// In en, this message translates to:
+  /// **'What you have watched, bookmarked or read'**
+  String get filterActivityHint;
+
+  /// Sort filter description.
+  ///
+  /// In en, this message translates to:
+  /// **'The order results come in'**
+  String get filterSortHint;
+
+  /// Short tag matching mode.
+  ///
+  /// In en, this message translates to:
+  /// **'Any'**
+  String get filterAny;
+
+  /// Short tag matching mode.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get filterAll;
+
+  /// Short tag matching mode excluding the combination.
+  ///
+  /// In en, this message translates to:
+  /// **'Not all'**
+  String get filterNotAll;
+
+  /// Tag matching mode explanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Topics with at least one'**
+  String get filterAnyHint;
+
+  /// Tag matching mode explanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Topics with every one'**
+  String get filterAllHint;
+
+  /// Tag matching mode explanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Topics with none of them'**
+  String get filterNoneHint;
+
+  /// Tag matching mode explanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaves out topics with every one at once'**
+  String get filterNotAllHint;
+
+  /// Disabled tag selection completion row.
+  ///
+  /// In en, this message translates to:
+  /// **'No tags yet'**
+  String get filterNoTagsYet;
+
+  /// Exact numeric filter comparison.
+  ///
+  /// In en, this message translates to:
+  /// **'Exactly'**
+  String get filterExactly;
+
   /// Composer toolbar action that inserts @ and opens mention search.
   ///
   /// In en, this message translates to:
