@@ -42,9 +42,9 @@ final class PreferencesClientIdPersistence implements ClientIdPersistence {
   }
 }
 
-/// API keys use [PrivateStorage]: the Data Protection Keychain on Apple, and a
-/// mode-0600 XDG data file on Linux. The non-secret client ids live in
-/// preferences.
+/// API keys use [PrivateStorage]: Keychain on Apple, Android Keystore
+/// encryption, and a mode-0600 XDG data file on Linux. The non-secret client ids
+/// live in preferences.
 class SecureStore {
   SecureStore({
     PrivateStorage? storage,

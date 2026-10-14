@@ -204,8 +204,7 @@ jobs:
           LC_ALL=C grep -aRqsF 'org.discourse.native/voice_callkit' \
             profiles/full/build/ios/iphonesimulator/Runner.app
 
-  android-video-optimizer:
-    # A disposable host checks the plugin until the app has an Android runner.
+  android:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -221,15 +220,12 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Build and test Android video plugin
+      - name: Build Android app and test video plugin
         run: |
           set -euo pipefail
           export JAVA_HOME="$JAVA_HOME_17_X64"
           export PATH="$JAVA_HOME/bin:$PATH"
-          video_host="$RUNNER_TEMP/video_optimizer_host"
-          flutter create --platforms=android --project-name video_optimizer_host "$video_host"
-          cd "$video_host"
-          flutter pub add discourse_video_optimizer --path "$GITHUB_WORKSPACE/packages/discourse_video_optimizer"
+          flutter pub get
           flutter build apk --debug
           cd android
           ./gradlew :discourse_video_optimizer:testDebugUnitTest

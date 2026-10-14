@@ -30,10 +30,10 @@ void main() {
 
   group('file persistence and schema', () {
     test('retains drafts across reopened instances', () async {
-      final storage = AppleFileDraftPersistence(file: file);
+      final storage = FileDraftPersistence(file: file);
       await storage.write(key, 'unfinished thought');
 
-      final reopened = AppleFileDraftPersistence(file: file);
+      final reopened = FileDraftPersistence(file: file);
       expect(await reopened.read(key), (
         value: 'unfinished thought',
         allowPreferenceFallback: false,
@@ -41,10 +41,7 @@ void main() {
     });
 
     test('writes the stable v1 schema with sorted legacy blockers', () async {
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: null,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: null);
       const later = '${sitePrefix}topic_z';
       const earlier = '${sitePrefix}topic_a';
 
@@ -63,10 +60,7 @@ void main() {
   group('legacy lookup and migration', () {
     test('writes a current draft without consulting the Keychain', () async {
       final legacy = _LegacyDraftStorage({key: 'old'});
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
 
       await storage.write(key, 'new');
 
@@ -76,10 +70,7 @@ void main() {
 
     test('uses a primary file hit without consulting the Keychain', () async {
       final legacy = _LegacyDraftStorage({key: 'old'});
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
       await storage.write(key, 'new');
       legacy.events.clear();
 
@@ -92,10 +83,7 @@ void main() {
 
     test('allows preference fallback when both stores miss', () async {
       final legacy = _LegacyDraftStorage();
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
 
       expect(await storage.read(key), (
         value: null,
@@ -108,10 +96,7 @@ void main() {
       'migrates one exact Keychain draft without enumerating storage',
       () async {
         final legacy = _LegacyDraftStorage({key: 'old'});
-        final storage = AppleFileDraftPersistence(
-          file: file,
-          legacyStorage: legacy,
-        );
+        final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
 
         expect(await storage.read(key), (
           value: 'old',
@@ -121,7 +106,7 @@ void main() {
         expect(legacy.values, {key: 'old'});
 
         legacy.events.clear();
-        final reopened = AppleFileDraftPersistence(
+        final reopened = FileDraftPersistence(
           file: file,
           legacyStorage: legacy,
         );
@@ -136,10 +121,7 @@ void main() {
     test('retries a denied Keychain read', () async {
       final failure = StateError('legacy ACL refused');
       final legacy = _LegacyDraftStorage({key: 'old'})..readError = failure;
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
 
       await expectLater(storage.read(key), throwsA(same(failure)));
       legacy.readError = null;
@@ -156,7 +138,7 @@ void main() {
       await parentBlocker.writeAsString('block directory creation');
       final impossibleFile = File('${parentBlocker.path}/drafts-v1.json');
       final legacy = _LegacyDraftStorage({key: 'old'});
-      final storage = AppleFileDraftPersistence(
+      final storage = FileDraftPersistence(
         file: impossibleFile,
         legacyStorage: legacy,
       );
@@ -177,10 +159,7 @@ void main() {
   group('legacy resurrection blockers', () {
     test('deletes an existing draft and blocks all legacy fallback', () async {
       final legacy = _LegacyDraftStorage({key: 'stale'});
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
       await storage.write(key, 'current');
       expect(legacy.events, isEmpty);
 
@@ -196,10 +175,7 @@ void main() {
 
     test('clearing a site blocks its unknown Keychain drafts only', () async {
       final legacy = _LegacyDraftStorage({key: 'stale', otherKey: 'other-old'});
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
       await storage.write(key, 'current');
       await storage.write(otherKey, 'other-current');
       legacy.events.clear();
@@ -219,15 +195,12 @@ void main() {
 
     test('persist a site blocker across reopened instances', () async {
       final legacy = _LegacyDraftStorage({key: 'stale'});
-      await AppleFileDraftPersistence(
+      await FileDraftPersistence(
         file: file,
         legacyStorage: legacy,
       ).deletePrefix(sitePrefix);
 
-      final reopened = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final reopened = FileDraftPersistence(file: file, legacyStorage: legacy);
 
       expect(await reopened.read(key), (
         value: null,
@@ -238,10 +211,7 @@ void main() {
 
     test('records no key blocker which a site blocker covers', () async {
       final legacy = _LegacyDraftStorage({key: 'stale'});
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
       await storage.deletePrefix(sitePrefix);
 
       await storage.write(key, 'current');
@@ -274,10 +244,7 @@ void main() {
         coveredKey: 'stale',
         otherKey: 'other-stale',
       });
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
 
       await storage.delete(coveredKey);
       expect(await file.readAsString(), seeded);
@@ -304,7 +271,7 @@ void main() {
     test('preserves the corrupt file when a write fails', () async {
       await file.parent.create(recursive: true);
       await file.writeAsString('not json');
-      final storage = AppleFileDraftPersistence(file: file);
+      final storage = FileDraftPersistence(file: file);
 
       await expectLater(
         storage.write(key, 'new'),
@@ -318,9 +285,7 @@ void main() {
       await file.parent.create(recursive: true);
       await file.writeAsString('not json');
       SharedPreferences.setMockInitialValues({key: 'previous account text'});
-      final store = DraftStore(
-        persistence: AppleFileDraftPersistence(file: file),
-      );
+      final store = DraftStore(persistence: FileDraftPersistence(file: file));
 
       expect(await store.read('https://one.example', 'topic_42'), isNull);
       expect(
@@ -340,10 +305,7 @@ void main() {
       final legacy = _LegacyDraftStorage({key: 'old'})
         ..readGate = gate
         ..readStarted = started;
-      final storage = AppleFileDraftPersistence(
-        file: file,
-        legacyStorage: legacy,
-      );
+      final storage = FileDraftPersistence(file: file, legacyStorage: legacy);
 
       final migration = storage.read(key);
       await started.future;

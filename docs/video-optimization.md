@@ -46,8 +46,8 @@ optimization retains its existing site-controlled policy.
 The plugin registers on iOS 15+, macOS 12+, and Android API 23+. It includes both
 Swift Package Manager and CocoaPods support. Android Media3 is pinned to 1.9.2
 to match the existing `video_player_android` backend; upgrade these together.
-The repository currently has no Android application runner. The plugin is ready
-for an Android Flutter host; CI builds a temporary host to check that integration.
+The Android application runner registers the plugin. CI builds the Android app
+and runs the plugin's native policy tests.
 
 Focused checks:
 
