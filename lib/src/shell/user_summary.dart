@@ -291,7 +291,11 @@ class _SummaryLayout extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             header.spacer,
-            Padding(padding: lane.padding, child: content),
+            // Scroll motion can reuse the stacked cards and tables; their
+            // own updates still repaint this layer normally.
+            RepaintBoundary(
+              child: Padding(padding: lane.padding, child: content),
+            ),
           ],
         ),
       ),

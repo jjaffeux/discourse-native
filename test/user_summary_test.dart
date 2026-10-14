@@ -26,8 +26,18 @@ import 'package:discourse_native/src/shell/user_summary.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'
-    show Semantics, Size, SizedBox, ValueKey, PageStorageKey, RepaintBoundary;
-import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+    show
+        AxisDirection,
+        Semantics,
+        Size,
+        SizedBox,
+        ValueKey,
+        PageStorageKey,
+        RepaintBoundary,
+        Scrollable,
+        ScrollableState;
+import 'package:flutter/rendering.dart'
+    show RenderObject, RenderRepaintBoundary, debugOnProfilePaint;
 import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -115,6 +125,74 @@ void main() {
     }
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final tab in ['Highlights', 'Connections', 'Reading']) {
+    testWidgets(
+      'scrolling $tab reuses the summary artwork',
+      (tester) async {
+        await _pump(tester, size: const Size(390, 400));
+        await _openSummaryFromMenu(tester);
+        await _selectSummaryTab(tester, tab);
+        final artwork = <RenderObject>{};
+        void collect(RenderObject object) {
+          artwork.add(object);
+          object.visitChildren(collect);
+        }
+
+        for (final panel
+            in find
+                .descendant(
+                  of: find.byType(UserSummaryView),
+                  matching: find.byWidgetPredicate(
+                    (widget) => widget is DTabPanel,
+                  ),
+                )
+                .evaluate()) {
+          collect(panel.findRenderObject()!);
+        }
+        expect(artwork, isNotEmpty);
+        final scroll = find.descendant(
+          of: find.byKey(const PageStorageKey('user-summary-scroll')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                widget.axisDirection == AxisDirection.down,
+          ),
+        );
+        final position = tester.state<ScrollableState>(scroll).position;
+        expect(position.maxScrollExtent, greaterThan(80));
+        final viewport = position.viewportDimension;
+        final extent = position.maxScrollExtent;
+        var paints = 0;
+        final previous = debugOnProfilePaint;
+        debugOnProfilePaint = (object) {
+          previous?.call(object);
+          if (artwork.contains(object)) paints++;
+        };
+        try {
+          for (final delta in [40.0, 40.0, -40.0, -40.0]) {
+            await tester.pump(const Duration(milliseconds: 450));
+            final before = position.pixels;
+            position.pointerScroll(delta);
+            for (var frame = 0; frame < 20; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+            }
+            expect(position.pixels, closeTo(before + delta, .01));
+            expect(position.viewportDimension, viewport);
+            expect(position.maxScrollExtent, extent);
+          }
+        } finally {
+          debugOnProfilePaint = previous;
+        }
+        expect(paints, 0, reason: 'Scrolling should composite cached artwork.');
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.iOS,
+      }),
+    );
+  }
 
   group('route lifecycle', () {
     for (final layout in [
