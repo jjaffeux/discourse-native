@@ -84,6 +84,9 @@ class _VoiceUserCardCallButtonState extends State<VoiceUserCardCallButton> {
       onPressed: _call,
       icon: const DIcon(VoiceIcons.phone),
       variant: DButtonVariant.primary,
+      size: context.isTouch ? DButtonSize.toolbar : DButtonSize.regular,
+      shape: context.isTouch ? DButtonShape.pill : DButtonShape.rounded,
+      borderColor: context.isTouch ? Colors.transparent : null,
       loading: _calling,
     ),
   );

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show InstalledPlugins, PluginInstaller, PluginManifest;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/calendar_day.dart';
 import 'package:discourse_native/src/models/badge.dart';
@@ -9,6 +11,8 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_card.dart';
+import 'package:discourse_native/src/plugins/voice/voice_module.dart';
+import 'package:discourse_native/src/plugins/voice/voice_user_card.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
@@ -42,8 +46,14 @@ void main() {
         .load();
   });
   testWidgets(
-    'mobile card matches banner, facts and badge layout in both materials',
+    'mobile card actions, banner, facts and badges match in both materials',
     (tester) async {
+      final cardPlugins = PluginInstaller.install(
+        PluginManifest([
+          ...bundledWidgetTestManifest.modules,
+          const VoiceModule.withoutDiagnostics(),
+        ]),
+      );
       final recorder = ui.PictureRecorder();
       final canvas = Canvas(recorder);
       canvas.drawRect(
@@ -94,6 +104,7 @@ void main() {
               scale: scale,
               currentUser: reader,
               safeBottom: 34,
+              cardPlugins: cardPlugins,
             );
             await _open(tester);
             api.requests.single.complete(
@@ -125,10 +136,15 @@ void main() {
                     tier: BadgeTier.silver,
                   ),
                 ],
-                plugins: PluginData.none.withValue(
-                  chatUserCardKey,
-                  const ChatUserCardData(canChat: true),
-                ),
+                plugins: PluginData.none
+                    .withValue(
+                      chatUserCardKey,
+                      const ChatUserCardData(canChat: true),
+                    )
+                    .withValue(
+                      voiceUserCardKey,
+                      const VoiceUserCardData(canCall: true),
+                    ),
               ),
             );
             await tester.pumpAndSettle();
@@ -143,6 +159,30 @@ void main() {
             expect(find.text('Silas Vance'), findsOneWidget);
             expect(find.text('Message'), findsOneWidget);
             expect(find.text('Chat'), findsOneWidget);
+            expect(find.text('Call'), findsOneWidget);
+            final message = tester.getRect(
+              find.widgetWithText(DButton, 'Message'),
+            );
+            for (final label in ['Chat', 'Call']) {
+              final button = find.widgetWithText(DButton, label);
+              final bounds = tester.getRect(button);
+              expect(
+                bounds.height,
+                message.height,
+                reason: '$label must match Message at $scale text scale',
+              );
+              expect(bounds.width, closeTo(message.width, .01));
+              if (scale == 1) expect(bounds.top, message.top);
+              final surface = find.descendant(
+                of: button,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is AnimatedContainer &&
+                      widget.decoration is DButtonDecoration,
+                ),
+              );
+              expect(tester.getRect(surface), bounds);
+            }
             expect(find.text('Portland, OR'), findsOneWidget);
             expect(
               find.text('Last post 20d', findRichText: true),
@@ -629,6 +669,7 @@ Future<_CardApi> _pumpTarget(
   DAppearanceMaterial material = DAppearanceMaterial.standard,
   DiscourseUser? currentUser,
   double safeBottom = 0,
+  InstalledPlugins? cardPlugins,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -641,7 +682,7 @@ Future<_CardApi> _pumpTarget(
     authenticator: FakeAuthenticator()..keys[_siteUrl] = 'key',
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
-    plugins: currentUser == null ? null : installedPlugins,
+    plugins: cardPlugins ?? (currentUser == null ? null : installedPlugins),
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
   );
