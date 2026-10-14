@@ -18,7 +18,7 @@ below and the Topics pin layout in `start-page-topics-mockup-parity.md`.
 | Drafts is conditional | The Drafts shortcut appears for authenticated readers with resumable cached drafts. It opens Native's existing Drafts page and uses the existing resume lifecycle. Start does not fetch drafts to decide whether to show it. |
 | Search affects only Recently closed | Its match count includes only matching closed entries. Destination shortcuts stay available independently of the query. The existing chrome search interface is retained. |
 | Upcoming events becomes Events | Enabled event destinations use Events on Start, in the sidebar and in retained destination navigation. The event route and site setting checks remain the same. |
-| Keep the forum header and Filters | The forum switcher, external website link, Filters action, account permissions and enabled plugin destinations remain available. |
+| No Start page header or Filters | The launcher and Recently closed list begin at the top of the reading column. Start omits the forum logo, title menu, external website link and Filters action, matching the mockup’s plain HomeScroller. Search results remain in the scrolling content; account permissions and enabled plugin destinations remain available. |
 
 Changes to post reactions, general back/forward transitions, mobile docks,
 platform glass and the Lab in the same mockup history are outside Start's

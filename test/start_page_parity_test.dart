@@ -13,7 +13,6 @@ import 'package:discourse_native/src/shell/topic_filter_input.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,84 +26,53 @@ void main() {
     });
   });
 
-  testStartPage(
-    'start-page filter builder navigates to applied topic filters',
-    (tester) async {
-      final api = FakeDiscourseApi(
-        feeds: const {
-          '/latest.json': [],
-          '/filter.json': [],
-          '/filter.json?q=status%3Aopen': [],
-        },
-        filterOptionsByPath: const {
-          '/filter.json': [TopicFilterOption(name: 'status:open')],
-        },
-      );
-      await pumpShell(tester, desktop, api: api);
-      final shell = ShellScope.read(
-        tester.element(find.byType(MainContent).first),
-      );
-      shell.pushContent(ContentRoute.newTab());
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('topic-list-filter')).first);
-      await tester.pumpAndSettle();
-      expect(find.byType(TopicFilterInput), findsOneWidget);
-      expect(
-        tester
-            .widget<TopicFilterInput>(find.byType(TopicFilterInput))
-            .options
-            .map((option) => option.name),
-        ['status:open'],
-        reason: 'The builder loads its options from the forum.',
-      );
-      await tester.tap(find.text('Status: open'));
-      await tester.pumpAndSettle();
-      expect(find.text('status: open'), findsOneWidget);
-      await tester.tap(find.widgetWithText(DButton, 'Apply'));
-      await tester.pumpAndSettle();
-      expect(shell.topicListContent?.topicFilterQuery, 'status:open');
-      expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));
-      expect(
-        find.descendant(
-          of: find.byType(MainContent).first,
-          matching: find.byType(NewTabPage),
-        ),
-        findsNothing,
-      );
-    },
-  );
-
-  testStartPage('domain opens the forum base in the external browser', (
+  testStartPage('Topics shortcut keeps the feed filter builder available', (
     tester,
   ) async {
-    const channel = MethodChannel('plugins.flutter.io/url_launcher');
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    final launched = <String>[];
-    messenger.setMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'launch') {
-        launched.add((call.arguments as Map)['url'] as String);
-      }
-      return true;
-    });
-    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
-    await pumpShell(tester, desktop);
+    final api = FakeDiscourseApi(
+      feeds: const {
+        '/latest.json': [],
+        '/filter.json': [],
+        '/filter.json?q=status%3Aopen': [],
+      },
+      filterOptionsByPath: const {
+        '/filter.json': [TopicFilterOption(name: 'status:open')],
+      },
+    );
+    await pumpShell(tester, desktop, api: api);
     final shell = ShellScope.read(
       tester.element(find.byType(MainContent).first),
     );
     shell.pushContent(ContentRoute.newTab());
     await tester.pumpAndSettle();
     await tester.tap(
-      find.byKey(const ValueKey('start-page-forum-website')).first,
+      find.byKey(const ValueKey('start-page-section-link-Topics')).first,
     );
     await tester.pumpAndSettle();
-    expect(launched, [shell.currentInstance!.url]);
+    await tester.tap(find.byKey(const ValueKey('topic-list-filter')).first);
+    await tester.pumpAndSettle();
+    expect(find.byType(TopicFilterInput), findsOneWidget);
+    expect(
+      tester
+          .widget<TopicFilterInput>(find.byType(TopicFilterInput))
+          .options
+          .map((option) => option.name),
+      ['status:open'],
+      reason: 'The builder loads its options from the forum.',
+    );
+    await tester.tap(find.text('Status: open'));
+    await tester.pumpAndSettle();
+    expect(find.text('status: open'), findsOneWidget);
+    await tester.tap(find.widgetWithText(DButton, 'Apply'));
+    await tester.pumpAndSettle();
+    expect(shell.topicListContent?.topicFilterQuery, 'status:open');
+    expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));
     expect(
       find.descendant(
         of: find.byType(MainContent).first,
         matching: find.byType(NewTabPage),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 

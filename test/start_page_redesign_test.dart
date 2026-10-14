@@ -228,7 +228,7 @@ void main() {
   );
 
   testWidgets(
-    'scrolling reuses start-page artwork across header motion',
+    'scrolling reuses start-page artwork without a page header',
     (tester) async {
       await _start(tester, const Size(390, 400));
       final content = tester.renderObject<RenderObject>(
@@ -252,9 +252,8 @@ void main() {
           _onPage(find.byKey(const ValueKey('start-page-content'))),
         ),
         insideViewport: true,
-      )!;
-      final headerExtent = header.visibleExtent;
-      expect(headerExtent, greaterThan(0));
+      );
+      expect(header, isNull);
       var paints = 0;
       final previous = debugOnProfilePaint;
       debugOnProfilePaint = (object) {
@@ -272,9 +271,6 @@ void main() {
           expect(position.pixels, closeTo(before + delta, .01));
           expect(position.viewportDimension, viewport);
           expect(position.maxScrollExtent, extent);
-          if (delta > 0) {
-            expect(header.visibleExtent, lessThan(headerExtent));
-          }
         }
       } finally {
         debugOnProfilePaint = previous;
@@ -401,13 +397,13 @@ void main() {
     await _capture(tester, 'desktop-closed-launcher');
   });
 
-  _test('Start retains Filters and opening a shortcut navigates to its page', (
+  _test('Start omits Filters and opening a shortcut navigates to its page', (
     tester,
   ) async {
     final api = _api();
     final shell = await _start(tester, desktop, api: api);
     final requests = [...api.feedPaths];
-    expect(_onPage(find.text('Filters')), findsOneWidget);
+    expect(_onPage(find.text('Filters')), findsNothing);
     await tester.tap(shortcut('Topics'));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'latest');

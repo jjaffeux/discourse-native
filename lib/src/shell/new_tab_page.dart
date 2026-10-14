@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -18,16 +17,12 @@ import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
-import 'external_link.dart';
-import 'forum_icon.dart';
 import 'forum_tabs_bar.dart';
-import 'instance_actions.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
 import 'start_page_drag.dart';
-import 'topic_list_actions.dart';
 
 /// The landing surface for an otherwise empty forum tab.
 class NewTabPage extends StatelessWidget {
@@ -283,141 +278,22 @@ class NewTabPage extends StatelessWidget {
       }
       return a.title.toLowerCase().compareTo(b.title.toLowerCase());
     });
-    final title = LayoutBuilder(
-      builder: (context, constraints) => Row(
-        key: const ValueKey('start-page-heading'),
-        spacing: 10,
-        children: [
-          if (forum != null) ForumIcon(forum: forum, size: 28),
-          Flexible(
-            child: forum == null
-                ? Text(
-                    context.l10n.startPage,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  )
-                : DDropdownMenu(
-                    content: DDropdownMenuContent(
-                      width: 240,
-                      children: [
-                        DDropdownMenuItem(
-                          leading: const DIcon(DIcons.upRightFromSquare),
-                          child: Text(
-                            context.l10n.openForumInBrowser,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onPressed: () =>
-                              unawaited(openExternalLink(forum.url)),
-                        ),
-                        const DDropdownMenuSeparator(),
-                        DDropdownMenuItem(
-                          variant: DDropdownMenuItemVariant.destructive,
-                          leading: const DIcon(DIcons.trashCan),
-                          child: Text(
-                            context.l10n.removeForum,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          onPressed: () =>
-                              unawaited(confirmInstanceRemoval(context, forum)),
-                        ),
-                      ],
-                    ),
-                    child: DDropdownMenuTrigger(
-                      builder: (context, state) => DButton(
-                        key: const ValueKey('start-page-forum-options'),
-                        variant: DButtonVariant.inline,
-                        semanticLabel: context.l10n.showForumActions,
-                        focusNode: state.focusNode,
-                        hasPopup: true,
-                        expanded: state.open,
-                        icon: const DIcon(DIcons.chevronDown, size: 10),
-                        iconPosition: DButtonIconPosition.end,
-                        label: SiteEmojiText.plain(
-                          forum.title,
-                          siteUrl: forum.url,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                fontSize: DiscourseTypography.xxl,
-                                fontWeight: FontWeight.w700,
-                                height: 1.25,
-                              ),
-                        ),
-                        onPressed: state.toggle,
-                      ),
-                    ),
-                  ),
-          ),
-          if (forum != null)
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: constraints.maxWidth * .45),
-              child: DButton(
-                key: const ValueKey('start-page-forum-website'),
-                variant: DButtonVariant.inline,
-                size: DButtonSize.chip,
-                foregroundColor: DTokens.of(context).mutedForeground,
-                isLink: true,
-                label: Text(
-                  Uri.tryParse(forum.url)?.host ?? forum.url,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onPressed: () => unawaited(openExternalLink(forum.url)),
-              ),
-            ),
-        ],
-      ),
-    );
-    final controls = Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      spacing: 8,
-      children: [
-        if (siteUrl != null)
-          TopicListFilterMenu(
-            siteUrl: siteUrl,
-            query: '',
-            label: context.l10n.startPageFilters,
-          ),
-      ],
-    );
     return DPageSurface.scrollable(
       framed: false,
-      hideHeaderOnScroll: true,
-      revealHeaderAtEnd: false,
       identity: (siteUrl, ForumTabScope.idOf(context)),
-      header: Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          shell?.desktopPanelsEnabled == true ? 4 : 16,
-          16,
-          0,
-        ),
-        child: title,
-      ),
-      headerControls: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 8,
-          children: [
-            controls,
-            if (query.isNotEmpty)
-              Text(
+      bodyBuilder: (context, header) => _StartList(
+        key: ValueKey((siteUrl, ForumTabScope.idOf(context))),
+        sections: visibleSections,
+        header: header,
+        searchResults: query.isEmpty
+            ? null
+            : Text(
                 found == 0
                     ? context.l10n.startPageNoMatches(query)
                     : context.l10n.startPageResults(found, query),
                 key: const ValueKey('start-page-search-results'),
                 style: TextStyle(color: DTokens.of(context).mutedForeground),
               ),
-          ],
-        ),
-      ),
-      bodyBuilder: (context, header) => _StartList(
-        key: ValueKey((siteUrl, ForumTabScope.idOf(context))),
-        sections: visibleSections,
-        header: header,
         fallback: shell == null
             ? DButton(
                 onPressed: onBrowseTopics,
@@ -513,10 +389,12 @@ class _StartList extends StatelessWidget {
     required this.sections,
     required this.header,
     this.fallback,
+    this.searchResults,
   });
   final List<_StartSection> sections;
   final DPageHeaderGeometry header;
   final Widget? fallback;
+  final Widget? searchResults;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -528,7 +406,7 @@ class _StartList extends StatelessWidget {
         children: [
           header.spacer,
           // Keep the static launcher artwork in its own layer while the
-          // viewport and header move. Content and interaction changes still
+          // viewport moves. Content and interaction changes still
           // invalidate this layer normally.
           RepaintBoundary(
             child: Padding(
@@ -538,6 +416,7 @@ class _StartList extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 spacing: 20,
                 children: [
+                  ?searchResults,
                   for (final section in sections.where(
                     (s) => s.id == 'recently-closed',
                   ))

@@ -38,7 +38,7 @@ void main() {
     (TargetPlatform.iOS, phone),
   ]) {
     testWidgets(
-      'forum header aligns its logo, title and compact website on $platform',
+      'Start begins with launchers and has no forum header or Filters on $platform',
       (tester) async {
         SharedPreferences.setMockInitialValues({
           'discourse_native.panel_tutorial_dismissed': true,
@@ -55,25 +55,25 @@ void main() {
         await tester.pumpAndSettle();
 
         final page = find.byType(NewTabPage).first;
-        final logo = tester.getRect(
+        expect(
           find.descendant(of: page, matching: find.byType(ForumIcon)),
+          findsNothing,
         );
-        final title = tester.getRect(startPageText('Discourse Dev'));
-        final website = startPageItem(
-          const ValueKey('start-page-forum-website'),
+        expect(startPageText('Discourse Dev'), findsNothing);
+        expect(startPageText('dev.discourse.org'), findsNothing);
+        expect(startPageText('Filters'), findsNothing);
+        expect(
+          startPageItem(const ValueKey('start-page-forum-options')),
+          findsNothing,
         );
-        final address = tester.getRect(
-          find.descendant(
-            of: website,
-            matching: find.text('dev.discourse.org'),
-          ),
+        final content = startPageItem(const ValueKey('start-page-content'));
+        expect(tester.getTopLeft(content).dy, tester.getTopLeft(page).dy);
+        expect(
+          tester
+              .getTopLeft(startPageItem(const ValueKey('start-page-shortcuts')))
+              .dy,
+          closeTo(tester.getTopLeft(page).dy + 18, .01),
         );
-        final websiteRect = tester.getRect(website);
-        expect(logo.width, 28);
-        expect(title.left - logo.right, closeTo(10, .01));
-        expect(address.left, greaterThan(title.right));
-        expect(title.center.dy, closeTo(logo.center.dy, .01));
-        expect(websiteRect.center.dy, closeTo(logo.center.dy, .01));
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
