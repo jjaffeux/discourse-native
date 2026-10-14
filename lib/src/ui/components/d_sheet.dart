@@ -130,10 +130,17 @@ class DSheetViewport extends StatelessWidget {
     super.key,
     required this.content,
 
+    this.onDismiss,
     this.onSwipeDismissRequested,
   });
 
   final DSheetContent content;
+
+  /// Called after a downward swipe finishes moving the sheet off-screen.
+  ///
+  /// The host can remove the sheet or leave it mounted to return it to its
+  /// open position.
+  final VoidCallback? onDismiss;
 
   /// Intercepts a swipe as soon as it reaches the dismissal threshold.
   ///
@@ -162,9 +169,9 @@ class DSheetViewport extends StatelessWidget {
         false,
         content.fillAvailableHeight,
         content.extendBehindKeyboard,
-        (onSwipeDismissRequested != null),
+        onDismiss != null || onSwipeDismissRequested != null,
         retainKeyboardInsets: true,
-        onRetainedDismiss: null,
+        onRetainedDismiss: onDismiss,
         onRetainedSwipeDismissRequested: onSwipeDismissRequested,
       ),
     );

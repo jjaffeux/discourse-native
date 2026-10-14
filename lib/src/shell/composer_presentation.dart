@@ -208,11 +208,15 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     unawaited(_place(entry, _previousDockPlacement, focusEditor: false));
   }
 
-  void _showMobileCloseMenu(_ComposerEntry entry) {
-    if (!mounted || _mobileSheetEntry != entry || entry.composer.isDisposed) {
+  void _minimize(_ComposerEntry entry) {
+    if (!mounted || entry.composer.isDisposed) {
       return;
     }
-    setState(() => entry.closeMenuOpen = true);
+    entry.composer.focus.unfocus();
+    setState(() {
+      entry.closeMenuOpen = false;
+      entry.minimized = true;
+    });
   }
 
   Future<void> _place(
@@ -305,10 +309,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
             onPlacement: (value) => unawaited(_place(entry, value)),
             onExitFullScreen: () =>
                 unawaited(_place(entry, _previousDockPlacement)),
-            onMinimize: () {
-              entry.composer.focus.unfocus();
-              setState(() => entry.minimized = true);
-            },
+            onMinimize: () => _minimize(entry),
             onRestore: () {
               setState(() => entry.minimized = false);
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -381,8 +382,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                 },
                 child: DSheetViewport(
                   key: ObjectKey(mobileSheet.composer),
-                  onSwipeDismissRequested: () =>
-                      _showMobileCloseMenu(mobileSheet),
+                  onDismiss: () => _minimize(mobileSheet),
                   content: DSheetContent(
                     key: const ValueKey('composer-mobile-sheet'),
                     side: DSheetSide.bottom,

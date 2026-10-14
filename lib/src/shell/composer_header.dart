@@ -268,11 +268,6 @@ class ComposerHeader extends StatelessWidget {
                     onPressed: onDiscard,
                     child: Text(context.l10n.discard),
                   ),
-                  DDropdownMenuItem(
-                    key: const ValueKey('composer-minimize'),
-                    onPressed: onMinimize,
-                    child: Text(context.l10n.minimize),
-                  ),
                 ],
               ),
               child: DDropdownMenuTrigger(

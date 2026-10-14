@@ -813,7 +813,7 @@ void main() {
       tester
           .widgetList<DDropdownMenuItem>(find.byType(DDropdownMenuItem))
           .map((item) => (item.child as Text).data),
-      ['Save draft', 'Discard', 'Minimize'],
+      ['Save draft', 'Discard'],
     );
     await tester.tap(find.text('Save draft'));
     await tester.pumpAndSettle();
@@ -846,9 +846,10 @@ void main() {
       final composer = harness.shell.visibleComposer!;
       final editor = tester.state(find.byType(ComposerEditor));
       composer.text.text = 'Keep the draft above the home indicator.';
-      await tester.tap(find.byKey(const ValueKey('composer-close')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Minimize'));
+      await tester.dragFrom(
+        tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+        const Offset(0, 300),
+      );
       await tester.pumpAndSettle();
       final restore = find.byKey(const ValueKey('composer-restore'));
       expect(tester.getRect(restore).bottom, closeTo(800 - 34, .01));
@@ -899,9 +900,10 @@ void main() {
       expect(tester.state(find.byType(ComposerEditor)), same(editor));
       expect(composer.text.selection.extentOffset, 7);
     }
-    await tester.tap(find.byKey(const ValueKey('composer-close')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Minimize'));
+    await tester.dragFrom(
+      tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+      const Offset(0, 300),
+    );
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('reader-list')).hitTestable(),
@@ -918,7 +920,7 @@ void main() {
     for (final origin in ['header', 'body', 'bottom']) {
       for (final keyboard in [0.0, 300.0]) {
         testWidgets(
-          '$platform composer ${origin == 'bottom' ? 'keeps bottom overscroll open then swipes from the top' : 'swipes from $origin'} and opens close actions (keyboard: $keyboard)',
+          '$platform composer ${origin == 'bottom' ? 'keeps bottom overscroll open then swipes from the top' : 'swipes from $origin'} and minimizes (keyboard: $keyboard)',
           (tester) async {
             tester.view.physicalSize =
                 const Size(390, 800) * tester.view.devicePixelRatio;
@@ -997,19 +999,18 @@ void main() {
             await gesture.moveBy(const Offset(0, 30));
             await gesture.moveBy(Offset(0, origin == 'header' ? 300 : 600));
             await tester.pump();
-            expect(tester.getTopLeft(sheet).dy, closeTo(top, .01));
+            expect(tester.getTopLeft(sheet).dy, greaterThan(top));
             if (origin == 'header') expect(scroll.offset, 400);
-            await tester.pump();
-            await tester.pump(const Duration(milliseconds: 16));
-            for (final action in ['Save draft', 'Discard', 'Minimize']) {
-              expect(find.text(action).hitTestable(), findsOneWidget);
-            }
-            // The menu is available while the finger is still down. Continued
-            // movement must neither drag the sheet again nor duplicate it.
+            expect(find.text('Discard'), findsNothing);
+            expect(find.text('Minimize'), findsNothing);
+            expect(
+              find.byKey(const ValueKey('composer-restore')),
+              findsNothing,
+            );
+            // Continue the gesture without snapping back or opening actions.
             await gesture.moveBy(const Offset(0, 30));
             await tester.pump();
-            expect(tester.getTopLeft(sheet).dy, closeTo(top, .01));
-            expect(find.text('Discard'), findsOneWidget);
+            expect(tester.getTopLeft(sheet).dy, greaterThan(top));
             await gesture.up();
             await tester.pumpAndSettle();
             expect(harness.shell.visibleComposer, same(composer));
@@ -1017,23 +1018,17 @@ void main() {
             expect(composer.isDisposed, isFalse);
             expect(composer.raw, text);
             expect(composer.text.selection.extentOffset, 0);
-            expect(tester.state(find.byType(ComposerEditor)), same(editor));
-            expect(tester.getTopLeft(sheet).dy, closeTo(top, .01));
-            expect(api.draftsSaved.length, savesBeforeSwipe);
-            for (final action in ['Save draft', 'Discard', 'Minimize']) {
-              expect(find.text(action).hitTestable(), findsOneWidget);
-            }
-            await tester.tap(find.text('Save draft'));
-            await tester.pumpAndSettle();
-            expect(harness.shell.visibleComposer, isNull);
             expect(sheet, findsNothing);
-            final request =
-                (harness.shell.api.composerPersistence as FakeDiscourseApi)
-                    .draftsSaved
-                    .last;
-            final saved = ComposerDraft.decode(request['data'] as String);
-            expect(saved?.title, 'Keep my draft');
-            expect(saved?.reply, text);
+            expect(api.draftsSaved.length, savesBeforeSwipe);
+            expect(find.text('Discard'), findsNothing);
+            await tester.tap(find.byKey(const ValueKey('composer-restore')));
+            await tester.pumpAndSettle();
+            expect(tester.state(find.byType(ComposerEditor)), same(editor));
+            expect(composer.raw, text);
+            expect(composer.title.text, 'Keep my draft');
+            expect(composer.text.selection.extentOffset, 0);
+            expect(sheet, findsOneWidget);
+            expect(find.text('Discard'), findsNothing);
             expect(tester.takeException(), isNull);
           },
         );
@@ -1068,16 +1063,20 @@ void main() {
     await tester.drag(viewport, const Offset(0, 600));
     await tester.pumpAndSettle();
     expect(harness.shell.visibleComposer, same(composer));
-    expect(tester.getRect(sheet), bounds);
-    expect(find.text('Discard').hitTestable(), findsOneWidget);
-    expect(find.text('Minimize').hitTestable(), findsOneWidget);
-    expect(find.text('Save draft').hitTestable(), findsOneWidget);
+    expect(sheet, findsNothing);
+    expect(
+      find.byKey(const ValueKey('composer-restore')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.text('Discard'), findsNothing);
+    expect(find.text('Minimize'), findsNothing);
+    expect(find.text('Save draft'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
   for (final reducedMotion in [false, true]) {
     testWidgets(
-      'swiping an empty composer opens actions without closing it (reduced: $reducedMotion)',
+      'swiping an empty composer minimizes without closing it (reduced: $reducedMotion)',
       (tester) async {
         final harness = await _Harness.create(
           tester,
@@ -1087,7 +1086,7 @@ void main() {
         );
         final composer = harness.shell.visibleComposer!;
         final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
-        final bounds = tester.getRect(sheet);
+        final editor = tester.state(find.byType(ComposerEditor));
         for (var attempt = 0; attempt < 2; attempt++) {
           await tester.dragFrom(
             tester.getCenter(find.byKey(const ValueKey('composer-header'))),
@@ -1096,13 +1095,12 @@ void main() {
           await tester.pumpAndSettle();
           expect(harness.shell.visibleComposer, same(composer));
           expect(composer.isDisposed, isFalse);
-          expect(tester.getRect(sheet), bounds);
-          for (final action in ['Save draft', 'Discard', 'Minimize']) {
-            expect(find.text(action).hitTestable(), findsOneWidget);
-          }
-          await tester.tap(find.byKey(const ValueKey('composer-close')));
-          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
           expect(find.text('Discard'), findsNothing);
+          await tester.tap(find.byKey(const ValueKey('composer-restore')));
+          await tester.pumpAndSettle();
+          expect(sheet, findsOneWidget);
+          expect(tester.state(find.byType(ComposerEditor)), same(editor));
           expect(harness.shell.visibleComposer, same(composer));
         }
         expect(tester.takeException(), isNull);
@@ -1110,60 +1108,42 @@ void main() {
     );
   }
 
-  for (final action in ['Discard', 'Minimize']) {
-    testWidgets('swipe close actions can $action the composer', (tester) async {
-      final harness = await _Harness.create(
-        tester,
-        mobile: true,
-        size: const Size(390, 800),
+  testWidgets('mobile X discard requires confirmation', (tester) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    composer.text.text = 'Keep the draft until an action is chosen';
+    await tester.pumpAndSettle();
+    for (final confirm in [false, true]) {
+      await tester.tap(find.byKey(const ValueKey('composer-close')));
+      await tester.pumpAndSettle();
+      expect(find.text('Minimize'), findsNothing);
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('composer-discard-dialog')),
+        findsOneWidget,
       );
-      final composer = harness.shell.visibleComposer!;
-      composer.text.text = 'Keep the draft until an action is chosen';
-      await tester.pumpAndSettle();
-      final editor = tester.state(find.byType(ComposerEditor));
-      await tester.dragFrom(
-        tester.getCenter(find.byKey(const ValueKey('composer-header'))),
-        const Offset(0, 300),
+      expect(composer.isDisposed, isFalse);
+      await tester.tap(
+        find.byKey(
+          ValueKey(
+            confirm ? 'composer-confirm-discard' : 'composer-cancel-discard',
+          ),
+        ),
       );
       await tester.pumpAndSettle();
-      expect(harness.shell.visibleComposer, same(composer));
-      await tester.tap(find.text(action));
-      await tester.pumpAndSettle();
-      if (action == 'Discard') {
-        expect(
-          find.byKey(const ValueKey('composer-discard-dialog')),
-          findsOneWidget,
-        );
-        expect(composer.isDisposed, isFalse);
-        await tester.tap(find.byKey(const ValueKey('composer-cancel-discard')));
-        await tester.pumpAndSettle();
-        expect(composer.raw, 'Keep the draft until an action is chosen');
-        await tester.dragFrom(
-          tester.getCenter(find.byKey(const ValueKey('composer-header'))),
-          const Offset(0, 300),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Discard'));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(const ValueKey('composer-confirm-discard')),
-        );
-        await tester.pumpAndSettle();
+      if (confirm) {
         expect(harness.shell.visibleComposer, isNull);
       } else {
-        expect(
-          find.byKey(const ValueKey('composer-mobile-sheet')),
-          findsNothing,
-        );
-        expect(harness.shell.visibleComposer, same(composer));
-        await tester.tap(find.byKey(const ValueKey('composer-restore')));
-        await tester.pumpAndSettle();
-        expect(tester.state(find.byType(ComposerEditor)), same(editor));
         expect(composer.raw, 'Keep the draft until an action is chosen');
       }
-      expect(tester.takeException(), isNull);
-    });
-  }
+    }
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('partial swipe cancellation keeps the composer and selection', (
     tester,
@@ -1211,9 +1191,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a swipe cannot close a composer during submission', (
-    tester,
-  ) async {
+  testWidgets('a swipe minimizes a composer during submission', (tester) async {
     final harness = await _Harness.create(
       tester,
       mobile: true,
@@ -1224,7 +1202,6 @@ void main() {
     composer.beginSubmit();
     await tester.pump();
     final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
-    final bounds = tester.getRect(sheet);
     await tester.dragFrom(
       tester.getCenter(find.byKey(const ValueKey('composer-header'))),
       const Offset(0, 300),
@@ -1234,7 +1211,14 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
     }
     expect(harness.shell.visibleComposer, same(composer));
-    expect(tester.getRect(sheet), bounds);
+    expect(sheet, findsNothing);
+    expect(
+      find.byKey(const ValueKey('composer-restore')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(find.text('Discard'), findsNothing);
+    expect(composer.isDisposed, isFalse);
+    expect(composer.submitting, isTrue);
     expect(composer.raw, 'Keep the pending post');
     expect(tester.takeException(), isNull);
     await tester.pump(const Duration(seconds: 3));

@@ -232,16 +232,17 @@ void main() {
           builder: (context, setState) => retained
               ? visible
                     ? DSheetViewport(
-                        onSwipeDismissRequested: dismissOnSwipe
+                        onDismiss: dismissOnSwipe
                             ? () {
-                                onSwipeDismissRequested?.call();
-
+                                onRetainedDismiss?.call();
                                 if (!controlled) {
                                   setState(() => visible = false);
                                 }
                               }
                             : null,
-
+                        onSwipeDismissRequested: dismissOnSwipe
+                            ? onSwipeDismissRequested
+                            : null,
                         content: content(),
                       )
                     : const SizedBox.shrink()
@@ -808,6 +809,46 @@ void main() {
           },
         );
       }
+    }
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final reducedMotion in [false, true]) {
+      testWidgets(
+        '$platform retained swipe completes its exit before dismissal (reduced: $reducedMotion)',
+        (tester) async {
+          var exits = 0;
+          final sheet = find.byType(DSheetContent);
+          await openSwipeSheet(
+            tester,
+            platform: platform,
+            retained: true,
+            disableAnimations: reducedMotion,
+            onRetainedDismiss: () => exits++,
+          );
+          final top = tester.getTopLeft(sheet).dy;
+          final gesture = await tester.startGesture(
+            tester.getCenter(find.text('Swipe sheet')),
+          );
+          await gesture.moveBy(const Offset(0, 30));
+          await gesture.moveBy(const Offset(0, 300));
+          await tester.pump();
+          expect(exits, 0);
+          expect(tester.getTopLeft(sheet).dy, greaterThan(top));
+          await gesture.up();
+          if (!reducedMotion) {
+            await tester.pump();
+            final releasedTop = tester.getTopLeft(sheet).dy;
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(exits, 0);
+            expect(tester.getTopLeft(sheet).dy, greaterThan(releasedTop));
+          }
+          await tester.pumpAndSettle();
+          expect(exits, 1);
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
   }
 
