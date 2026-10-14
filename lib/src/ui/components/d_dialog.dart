@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/d_overlay_route.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -631,7 +632,9 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
         );
         backdrop = FadeTransition(opacity: curved, child: backdrop);
         popup = FadeTransition(
-          opacity: curved,
+          opacity: DMaterialTheme.glassOf(context)
+              ? kAlwaysCompleteAnimation
+              : curved,
           child: ScaleTransition(
             scale: Tween<double>(begin: .95, end: 1).animate(curved),
             child: popup,

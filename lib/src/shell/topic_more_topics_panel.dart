@@ -164,7 +164,9 @@ class TopicChromeVisibility extends StatelessWidget {
           excluding: hidden,
           child: AnimatedOpacity(
             opacity: hidden ? 0 : 1,
-            duration: MediaQuery.disableAnimationsOf(context)
+            duration:
+                MediaQuery.disableAnimationsOf(context) ||
+                    DMaterialTheme.glassOf(context)
                 ? Duration.zero
                 : const Duration(milliseconds: 200),
             child: child,

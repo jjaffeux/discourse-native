@@ -564,7 +564,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
                       child: IgnorePointer(
                         ignoring: folding,
                         child: FadeTransition(
-                          opacity: folding
+                          opacity: folding && !DMaterialTheme.glassOf(context)
                               ? ReverseAnimation(_folded)
                               : kAlwaysCompleteAnimation,
                           child: SlideTransition(

@@ -46,6 +46,15 @@ rim lighting, with specular sharpness 0.5. The kit does not paint an additional
 1px highlight over those lenses. Standard surfaces and recessed wells retain
 their existing edge treatment; menus retain their separate top sheen.
 
+Live lenses must stay outside fractional-opacity layers. Glass dialogs, pickers,
+tab changes and panel folds keep their movement without fading the live surface.
+Captured page images can still crossfade. Covered topic chrome hides immediately
+in glass appearance. Disabled raised controls dim their flat artwork and tint
+independently of the lens, preserving the disabled state and visible hit bounds.
+Already-loaded shaders are reused on the first frame of each new surface.
+`test/glass_compositing_test.dart` covers these production paths in both materials
+and brightness modes; its integration wrapper checks the native shader renderer.
+
 - **iOS/Impeller:** lenses refract the app's live backdrop. The iPhone 18 Pro
   simulator on iOS 27 reported Impeller/Metal, shader filters supported, and
   successful shader initialization. Both brightness modes and 200% text were

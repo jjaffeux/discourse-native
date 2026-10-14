@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 
 /// Interactive edge swipes over a single live history page.
@@ -18,7 +19,7 @@ import '../foundation/tokens.dart';
 /// parallax and soft edge shadow separate the pages during a drag. Background
 /// pages stay inside the viewport, shrinking as a forward page covers them.
 /// The background page lightens as it is revealed and darkens as it is covered.
-/// Tab switches use a short directional slide and crossfade.
+/// Tab switches slide directionally; glass fades only the captured outgoing page.
 ///
 /// History previews are in-memory snapshots. Up to eight recently visited
 /// pages are retained, at most one million pixels each.
@@ -522,7 +523,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                           child: IgnorePointer(
                             ignoring: _dragging || _settling || switching,
                             child: Opacity(
-                              opacity: switching ? p : 1,
+                              opacity:
+                                  switching && !DMaterialTheme.glassOf(context)
+                                  ? p
+                                  : 1,
                               child: child,
                             ),
                           ),

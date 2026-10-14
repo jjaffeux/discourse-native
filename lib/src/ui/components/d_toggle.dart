@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 
@@ -536,6 +537,14 @@ class _DToggleState extends State<DToggle> {
               ? tokens.foreground.withValues(alpha: .13)
               : DControlStyle.rowHover(tokens)
         : Colors.transparent;
+    final disabledGlassLens =
+        !_enabled &&
+        DMaterialTheme.glassOf(context) &&
+        !postReaction &&
+        !chatReaction &&
+        !splitView &&
+        !menuFilter &&
+        surfaceColor.a > 0;
     final artwork = AnimatedContainer(
       duration: splitView && !reducedMotion
           ? const Duration(milliseconds: 150)
@@ -631,7 +640,9 @@ class _DToggleState extends State<DToggle> {
         ? artwork
         : DMaterialSurface(
             radius: radius,
-            color: surfaceColor,
+            color: disabledGlassLens
+                ? surfaceColor.withValues(alpha: surfaceColor.a * .6)
+                : surfaceColor,
             // The writing button already owns the mockup's accent tint,
             // radial catch and inset rim. Reuse it inside the filter mask.
             depth: menuFilter && !_current
@@ -641,7 +652,9 @@ class _DToggleState extends State<DToggle> {
                 : DSurfaceDepth.raised,
             preserveColor: menuFilter && !_current,
             insetEdges: menuFilter && !_current,
-            child: artwork,
+            child: disabledGlassLens
+                ? Opacity(opacity: .6, child: artwork)
+                : artwork,
           );
 
     final control = MergeSemantics(
@@ -708,7 +721,10 @@ class _DToggleState extends State<DToggle> {
                       _toggle();
                     }
                   : null,
-              child: Opacity(opacity: _enabled ? 1 : .6, child: surface),
+              child: Opacity(
+                opacity: _enabled || disabledGlassLens ? 1 : .6,
+                child: surface,
+              ),
             ),
           ),
         ),

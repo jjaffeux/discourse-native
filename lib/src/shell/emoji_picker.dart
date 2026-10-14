@@ -122,7 +122,9 @@ Future<String?> showEmojiPicker({
             curve: Curves.easeOut,
             reverseCurve: Curves.easeIn,
             builder: (context, curved) => FadeTransition(
-              opacity: curved,
+              opacity: DMaterialTheme.glassOf(context)
+                  ? kAlwaysCompleteAnimation
+                  : curved,
               child: ScaleTransition(
                 scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
                 alignment: Alignment.bottomLeft,

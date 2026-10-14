@@ -1016,6 +1016,21 @@ class DButton extends StatelessWidget {
       return withBackground(variantStyle.enabled);
     }
 
+    final disabledGlassLens =
+        glass &&
+        !enabled &&
+        !timelineEnd &&
+        !postAction &&
+        !postReaction &&
+        !chrome &&
+        !launcher &&
+        !quiet &&
+        variant != DButtonVariant.recessed &&
+        resolveState({WidgetState.disabled}).backgroundColor.a > 0;
+    Color materialColor(Color color) => disabledGlassLens
+        ? color.withValues(alpha: color.a * buttons.disabledOpacity)
+        : color;
+
     final style = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
         _iconOnly && !intrinsicIcon
@@ -1169,7 +1184,7 @@ class DButton extends StatelessWidget {
                   (border.style == BorderStyle.none || border.width == 0
                       ? Colors.transparent
                       : border.color);
-        final surface = _DButtonSurface(
+        final flatSurface = _DButtonSurface(
           duration: effectiveAnimationDuration,
           hovered:
               states.contains(WidgetState.hovered) ||
@@ -1201,6 +1216,10 @@ class DButton extends StatelessWidget {
           ),
           child: child,
         );
+        // Dim the flat control artwork independently of the live glass lens.
+        final Widget surface = disabledGlassLens
+            ? Opacity(opacity: buttons.disabledOpacity, child: flatSurface)
+            : flatSurface;
         final artwork = DControlArtwork(
           child: postAction
               ? DPostActionSurface(
@@ -1216,7 +1235,7 @@ class DButton extends StatelessWidget {
               ? glass
                     ? DMaterialSurface(
                         radius: radius,
-                        color: state.backgroundColor,
+                        color: materialColor(state.backgroundColor),
                         preserveColor: true,
                         child: surface,
                       )
@@ -1247,7 +1266,7 @@ class DButton extends StatelessWidget {
               ? surface
               : DMaterialSurface(
                   radius: radius,
-                  color: state.backgroundColor,
+                  color: materialColor(state.backgroundColor),
                   depth: variant == DButtonVariant.recessed
                       ? DSurfaceDepth.recessed
                       : DSurfaceDepth.raised,
@@ -1463,7 +1482,7 @@ class DButton extends StatelessWidget {
             clipBehavior: Clip.none,
             child: child,
           );
-    if (!enabled && !timelineEnd) {
+    if (!enabled && !timelineEnd && !disabledGlassLens) {
       result = Opacity(opacity: buttons.disabledOpacity, child: result);
     }
     if (tooltip case final tooltip?) {
