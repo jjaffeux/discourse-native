@@ -39,167 +39,176 @@ void main() {
         testWidgets('reference geometry on $platform, dark $dark, $material', (
           tester,
         ) async {
-          final (shell, _) = await _mount(
-            tester,
-            platform: platform,
-            dark: dark,
-            material: material,
-            paletteId: dark ? 'dracula' : 'solarized',
-          );
-          final originalRoute = shell.currentContent;
-          final panel = tester.getRect(find.byType(UserMenuPanel));
-          final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
-          expect(panel.width, platform == TargetPlatform.macOS ? 400 : 320);
-          expect(panel.height, 640);
-          expect(panel.top - bell.bottom, 8);
-          expect(find.text('Notifications'), findsOneWidget);
-          expect(find.text('Mark all read'), findsOneWidget);
-          expect(find.byType(DSheetContent), findsNothing);
-          final menuSurface = tester.widget<DMaterialSurface>(
-            find.byWidgetPredicate(
-              (widget) =>
-                  widget is DMaterialSurface &&
-                  widget.depth == DSurfaceDepth.menu,
-            ),
-          );
-          final filters = find.byKey(const ValueKey('user-menu-mobile-tabs'));
-          final all = _filter('all');
-          expect(tester.getSize(all).height, 26);
-          final inactive = _filter('replies');
-          final tokens = DTokens.of(tester.element(inactive));
-          expect(
-            menuSurface.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .03),
-          );
-          final well = tester.widget<DMaterialSurface>(
-            find.descendant(
-              of: inactive,
-              matching: find.byType(DMaterialSurface),
-            ),
-          );
-          expect(well.depth, DSurfaceDepth.recessed);
-          expect(well.color, Colors.black.withValues(alpha: dark ? .16 : .045));
-          expect(well.preserveColor, isTrue);
-          expect(well.insetEdges, isTrue);
-          final border =
+          final shadowsDisabled = debugDisableShadows;
+          debugDisableShadows = false;
+          try {
+            final (shell, _) = await _mount(
+              tester,
+              platform: platform,
+              dark: dark,
+              material: material,
+              paletteId: dark ? 'dracula' : 'solarized',
+            );
+            final originalRoute = shell.currentContent;
+            final panel = tester.getRect(find.byType(UserMenuPanel));
+            final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
+            expect(panel.width, platform == TargetPlatform.macOS ? 400 : 320);
+            expect(panel.height, 640);
+            expect(panel.top - bell.bottom, 8);
+            expect(find.text('Notifications'), findsOneWidget);
+            expect(find.text('Mark all read'), findsOneWidget);
+            expect(find.byType(DSheetContent), findsNothing);
+            final menuSurface = tester.widget<DMaterialSurface>(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is DMaterialSurface &&
+                    widget.depth == DSurfaceDepth.menu,
+              ),
+            );
+            final filters = find.byKey(const ValueKey('user-menu-mobile-tabs'));
+            final all = _filter('all');
+            expect(tester.getSize(all).height, 26);
+            final inactive = _filter('replies');
+            final tokens = DTokens.of(tester.element(inactive));
+            expect(
+              menuSurface.color,
+              Color.lerp(tokens.colors.surface, tokens.foreground, .03),
+            );
+            final well = tester.widget<DMaterialSurface>(
+              find.descendant(
+                of: inactive,
+                matching: find.byType(DMaterialSurface),
+              ),
+            );
+            expect(well.depth, DSurfaceDepth.recessed);
+            expect(
+              well.color,
+              Colors.black.withValues(alpha: dark ? .16 : .045),
+            );
+            expect(well.preserveColor, isTrue);
+            expect(well.insetEdges, isTrue);
+            final border =
+                tester
+                        .widget<AnimatedContainer>(
+                          find.descendant(
+                            of: inactive,
+                            matching: find.byType(AnimatedContainer),
+                          ),
+                        )
+                        .decoration
+                    as BoxDecoration;
+            expect((border.border! as Border).top.color, Colors.transparent);
+            final label = tester.renderObject<RenderParagraph>(
+              find.descendant(of: inactive, matching: find.text('Replies')),
+            );
+            expect(
+              label.text.style!.color,
+              Color.lerp(tokens.colors.surface, tokens.foreground, .62),
+            );
+            expect(
+              find.descendant(of: all, matching: find.text('4')),
+              findsOneWidget,
+            );
+            final row = find.byKey(const ValueKey('notification-row-1'));
+            expect(tester.getSize(row).height, closeTo(52.05, .05));
+            expect(
+              tester.getSize(
+                find.descendant(of: row, matching: find.byType(DAvatar)),
+              ),
+              const Size(30, 30),
+            );
+            final image = tester.widget<AvatarImage>(
+              find.descendant(of: row, matching: find.byType(AvatarImage)),
+            );
+            expect(image.url, 'https://meta.example/avatars/mossy_mo/90.png');
+            final time = tester.getRect(
+              find.descendant(of: row, matching: find.text('22m')),
+            );
+            final dot = tester.getRect(
+              find.descendant(of: row, matching: find.byType(DNotificationDot)),
+            );
+            expect(dot.right, time.right);
+            expect(dot.top, greaterThan(time.bottom));
+            expect(
+              find.text('What is everyone’s sourdough hydration?'),
+              findsOneWidget,
+            );
+            final headline = tester.renderObject<RenderParagraph>(
+              find.descendant(
+                of: row,
+                matching: find.textContaining('mossy_mo', findRichText: true),
+              ),
+            );
+            expect(
+              headline.text.style!.color,
+              Color.lerp(tokens.colors.surface, tokens.foreground, .50),
+            );
+            final subject = tester.renderObject<RenderParagraph>(
+              find.descendant(
+                of: row,
+                matching: find.text('What is everyone’s sourdough hydration?'),
+              ),
+            );
+            expect(
+              subject.text.style!.color,
+              Color.lerp(tokens.colors.surface, tokens.foreground, .90),
+            );
+            final readRow = find.byKey(const ValueKey('notification-row-4'));
+            final readSubject = tester.renderObject<RenderParagraph>(
+              find.descendant(
+                of: readRow,
+                matching: find.text('Show & tell: houseplant shelfie thread'),
+              ),
+            );
+            expect(
+              readSubject.text.style!.color,
+              Color.lerp(tokens.colors.surface, tokens.foreground, .50),
+            );
+            expect(
               tester
-                      .widget<AnimatedContainer>(
-                        find.descendant(
-                          of: inactive,
-                          matching: find.byType(AnimatedContainer),
-                        ),
-                      )
-                      .decoration
-                  as BoxDecoration;
-          expect((border.border! as Border).top.color, Colors.transparent);
-          final label = tester.renderObject<RenderParagraph>(
-            find.descendant(of: inactive, matching: find.text('Replies')),
-          );
-          expect(
-            label.text.style!.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .62),
-          );
-          expect(
-            find.descendant(of: all, matching: find.text('4')),
-            findsOneWidget,
-          );
-          final row = find.byKey(const ValueKey('notification-row-1'));
-          expect(tester.getSize(row).height, closeTo(52.05, .05));
-          expect(
-            tester.getSize(
-              find.descendant(of: row, matching: find.byType(DAvatar)),
-            ),
-            const Size(30, 30),
-          );
-          final image = tester.widget<AvatarImage>(
-            find.descendant(of: row, matching: find.byType(AvatarImage)),
-          );
-          expect(image.url, 'https://meta.example/avatars/mossy_mo/90.png');
-          final time = tester.getRect(
-            find.descendant(of: row, matching: find.text('22m')),
-          );
-          final dot = tester.getRect(
-            find.descendant(of: row, matching: find.byType(DNotificationDot)),
-          );
-          expect(dot.right, time.right);
-          expect(dot.top, greaterThan(time.bottom));
-          expect(
-            find.text('What is everyone’s sourdough hydration?'),
-            findsOneWidget,
-          );
-          final headline = tester.renderObject<RenderParagraph>(
-            find.descendant(
-              of: row,
-              matching: find.textContaining('mossy_mo', findRichText: true),
-            ),
-          );
-          expect(
-            headline.text.style!.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .50),
-          );
-          final subject = tester.renderObject<RenderParagraph>(
-            find.descendant(
-              of: row,
-              matching: find.text('What is everyone’s sourdough hydration?'),
-            ),
-          );
-          expect(
-            subject.text.style!.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .90),
-          );
-          final readRow = find.byKey(const ValueKey('notification-row-4'));
-          final readSubject = tester.renderObject<RenderParagraph>(
-            find.descendant(
-              of: readRow,
-              matching: find.text('Show & tell: houseplant shelfie thread'),
-            ),
-          );
-          expect(
-            readSubject.text.style!.color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .50),
-          );
-          expect(
-            tester
-                .renderObject<RenderParagraph>(
-                  find.descendant(of: row, matching: find.text('22m')),
-                )
-                .text
-                .style!
-                .color,
-            Color.lerp(tokens.colors.surface, tokens.foreground, .40),
-          );
-          final grouped = find.byKey(const ValueKey('notification-row-2'));
-          expect(
-            find.descendant(of: grouped, matching: find.text('3')),
-            findsNothing,
-          );
-          expect(
-            find.descendant(of: grouped, matching: find.byType(DIcon)),
-            findsOneWidget,
-          );
-          expect(
-            find.descendant(
-              of: grouped,
-              matching: find.textContaining('3 réponses', findRichText: true),
-            ),
-            findsOneWidget,
-          );
-          final filtersRect = tester.getRect(filters);
-          await _captureImage(
-            tester,
-            '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}',
-          );
-          await tester.drag(
-            find.descendant(
-              of: find.byType(UserMenuPanel),
-              matching: find.byType(ListView),
-            ),
-            const Offset(0, -250),
-          );
-          await tester.pumpAndSettle();
-          expect(tester.getRect(filters), filtersRect);
-          expect(shell.currentContent, same(originalRoute));
-          expect(tester.takeException(), isNull);
+                  .renderObject<RenderParagraph>(
+                    find.descendant(of: row, matching: find.text('22m')),
+                  )
+                  .text
+                  .style!
+                  .color,
+              Color.lerp(tokens.colors.surface, tokens.foreground, .40),
+            );
+            final grouped = find.byKey(const ValueKey('notification-row-2'));
+            expect(
+              find.descendant(of: grouped, matching: find.text('3')),
+              findsNothing,
+            );
+            expect(
+              find.descendant(of: grouped, matching: find.byType(DIcon)),
+              findsOneWidget,
+            );
+            expect(
+              find.descendant(
+                of: grouped,
+                matching: find.textContaining('3 réponses', findRichText: true),
+              ),
+              findsOneWidget,
+            );
+            final filtersRect = tester.getRect(filters);
+            await _captureImage(
+              tester,
+              '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}',
+            );
+            await tester.drag(
+              find.descendant(
+                of: find.byType(UserMenuPanel),
+                matching: find.byType(ListView),
+              ),
+              const Offset(0, -250),
+            );
+            await tester.pumpAndSettle();
+            expect(tester.getRect(filters), filtersRect);
+            expect(shell.currentContent, same(originalRoute));
+            expect(tester.takeException(), isNull);
+          } finally {
+            debugDisableShadows = shadowsDisabled;
+          }
         });
       }
     }
@@ -446,6 +455,23 @@ Future<void> _captureImage(WidgetTester tester, String name) async {
     await File(
       '$directory/$name.png',
     ).writeAsBytes(bytes!.buffer.asUint8List());
+    final bounds = tester
+        .getRect(_filter('all'))
+        .shift(-tester.getRect(find.byKey(_capture)).topLeft);
+    final detail = await (boundary.debugLayer! as OffsetLayer).toImage(
+      bounds.inflate(12),
+      pixelRatio: 2,
+    );
+    try {
+      final detailBytes = await detail.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      await File(
+        '$directory/$name-all-filter.png',
+      ).writeAsBytes(detailBytes!.buffer.asUint8List());
+    } finally {
+      detail.dispose();
+    }
     image.dispose();
   });
 }

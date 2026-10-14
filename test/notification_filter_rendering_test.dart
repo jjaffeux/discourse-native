@@ -27,99 +27,120 @@ void notificationFilterRenderingTests() {
       testWidgets(
         'scrolling filters retain their painted pills: $dark $material',
         (tester) async {
-          final palette = forumThemePresets
-              .firstWhere(
-                (theme) => theme.id == (dark ? 'dracula' : 'solarized'),
-              )
-              .resolve(dark ? Brightness.dark : Brightness.light);
-          final theme = DMaterialTheme.apply(
-            AppTheme.fromPalette(palette, fontFamily: 'Lato'),
-            material,
-          );
-          await tester.pumpWidget(
-            MaterialApp(
-              debugShowCheckedModeBanner: false,
-              themeAnimationStyle: AnimationStyle.noAnimation,
-              theme: theme,
-              home: RepaintBoundary(
-                key: _capture,
-                child: Scaffold(
-                  backgroundColor: palette.secondary,
-                  body: const Center(
-                    child: SizedBox(
-                      width: 288,
-                      child: DToggleGroup<String>(
-                        density: DToggleDensity.menuFilter,
-                        scrollable: true,
-                        spacing: 1.5,
-                        allowEmptySelection: false,
-                        items: [
-                          DToggleGroupItem(value: 'all', child: Text('All 6')),
-                          DToggleGroupItem(
-                            value: 'replies',
-                            child: Text('Replies'),
-                          ),
-                          DToggleGroupItem(
-                            value: 'likes',
-                            child: Text('Likes'),
-                          ),
-                          DToggleGroupItem(
-                            value: 'messages',
-                            child: Text('Messages'),
-                          ),
-                          DToggleGroupItem(
-                            value: 'bookmarks',
-                            child: Text('Bookmarks'),
-                          ),
-                        ],
+          final shadowsDisabled = debugDisableShadows;
+          debugDisableShadows = false;
+          try {
+            final palette = forumThemePresets
+                .firstWhere(
+                  (theme) => theme.id == (dark ? 'dracula' : 'solarized'),
+                )
+                .resolve(dark ? Brightness.dark : Brightness.light);
+            final theme = DMaterialTheme.apply(
+              AppTheme.fromPalette(palette, fontFamily: 'Lato'),
+              material,
+            );
+            var activations = 0;
+            await tester.pumpWidget(
+              MaterialApp(
+                debugShowCheckedModeBanner: false,
+                themeAnimationStyle: AnimationStyle.noAnimation,
+                theme: theme,
+                home: RepaintBoundary(
+                  key: _capture,
+                  child: Scaffold(
+                    backgroundColor: palette.secondary,
+                    body: Center(
+                      child: SizedBox(
+                        width: 288,
+                        child: DToggleGroup<String>(
+                          density: DToggleDensity.menuFilter,
+                          scrollable: true,
+                          spacing: 1.5,
+                          allowEmptySelection: false,
+                          onItemActivated: (_) => activations++,
+                          items: const [
+                            DToggleGroupItem(
+                              value: 'all',
+                              child: Text('All 6'),
+                            ),
+                            DToggleGroupItem(
+                              value: 'replies',
+                              child: Text('Replies'),
+                            ),
+                            DToggleGroupItem(
+                              value: 'likes',
+                              child: Text('Likes'),
+                            ),
+                            DToggleGroupItem(
+                              value: 'messages',
+                              child: Text('Messages'),
+                            ),
+                            DToggleGroupItem(
+                              value: 'bookmarks',
+                              child: Text('Bookmarks'),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Replies'));
-          await tester.pumpAndSettle();
-          final selected = find.ancestor(
-            of: find.text('Replies'),
-            matching: find.byType(DToggle),
-          );
-          expect(tester.widget<DToggle>(selected).pressed, isTrue);
-          expect(tester.getSize(selected).height, 26);
-          await _assertPillPaint(
-            tester,
-            selected,
-            '${dark ? 'dark' : 'light'}-${material.name}-replies',
-          );
-          await tester.drag(
-            find.byType(SingleChildScrollView),
-            const Offset(-180, 0),
-          );
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Messages'));
-          await tester.pumpAndSettle();
-          expect(
-            tester
-                .widget<DToggle>(
-                  find.ancestor(
-                    of: find.text('Messages'),
-                    matching: find.byType(DToggle),
-                  ),
-                )
-                .pressed,
-            isTrue,
-          );
-          await _assertPillPaint(
-            tester,
-            find.ancestor(
-              of: find.text('Messages'),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Replies'));
+            await tester.pumpAndSettle();
+            final selected = find.ancestor(
+              of: find.text('Replies'),
               matching: find.byType(DToggle),
-            ),
-            '${dark ? 'dark' : 'light'}-${material.name}-messages',
-          );
-          expect(tester.takeException(), isNull);
+            );
+            expect(tester.widget<DToggle>(selected).pressed, isTrue);
+            expect(tester.getSize(selected).height, 26);
+            expect(activations, 1);
+            await tester.tapAt(
+              tester.getRect(selected).bottomCenter + const Offset(0, 3),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              activations,
+              1,
+              reason: 'The shadow is outside the button target',
+            );
+            await _assertPillPaint(
+              tester,
+              selected,
+              '${dark ? 'dark' : 'light'}-${material.name}-replies',
+            );
+            await tester.drag(
+              find.byType(SingleChildScrollView),
+              const Offset(-180, 0),
+            );
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Messages'));
+            await tester.pumpAndSettle();
+            expect(
+              tester
+                  .widget<DToggle>(
+                    find.ancestor(
+                      of: find.text('Messages'),
+                      matching: find.byType(DToggle),
+                    ),
+                  )
+                  .pressed,
+              isTrue,
+            );
+            await _assertPillPaint(
+              tester,
+              find.ancestor(
+                of: find.text('Messages'),
+                matching: find.byType(DToggle),
+              ),
+              '${dark ? 'dark' : 'light'}-${material.name}-messages',
+            );
+            expect(tester.takeException(), isNull);
+          } finally {
+            debugDisableShadows = shadowsDisabled;
+          }
         },
       );
     }
@@ -158,6 +179,25 @@ Future<void> _assertPillPaint(
         );
       }
       final backdrop = pixel(Offset(rect.center.dx, rect.top - 10));
+      final below = pixel(Offset(rect.center.dx, rect.bottom + 3));
+      expect(
+        [
+          for (var c = 0; c < 3; c++) backdrop[c] - below[c],
+        ].reduce((a, b) => a + b),
+        greaterThan(3),
+        reason: 'The soft outer shadow must extend below the pill bounds',
+      );
+      for (final x in [rect.left + 3, rect.right - 3]) {
+        final aboveCorner = pixel(Offset(x, rect.bottom - 1));
+        final belowCorner = pixel(Offset(x, rect.bottom + 1));
+        expect(
+          [
+            for (var c = 0; c < 3; c++) (aboveCorner[c] - belowCorner[c]).abs(),
+          ].reduce((a, b) => a + b),
+          lessThan(10),
+          reason: 'The corner shadow must fade without a hard offset block',
+        );
+      }
       expect(
         [
           for (var c = 0; c < 3; c++) (right[c] - backdrop[c]).abs(),
@@ -175,6 +215,23 @@ Future<void> _assertPillPaint(
         await File(
           '$directory/$name.png',
         ).writeAsBytes(png!.buffer.asUint8List());
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(_capture),
+        );
+        final detail = await (boundary.debugLayer! as OffsetLayer).toImage(
+          rect.inflate(12),
+          pixelRatio: 2,
+        );
+        try {
+          final detailBytes = await detail.toByteData(
+            format: ui.ImageByteFormat.png,
+          );
+          await File(
+            '$directory/$name-detail.png',
+          ).writeAsBytes(detailBytes!.buffer.asUint8List());
+        } finally {
+          detail.dispose();
+        }
       }
     } finally {
       image.dispose();

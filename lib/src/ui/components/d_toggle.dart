@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
 import '../foundation/material_surface.dart';
-import '../foundation/material_theme.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 
@@ -564,6 +563,8 @@ class _DToggleState extends State<DToggle> {
       decoration: BoxDecoration(
         color: splitView
             ? null
+            : menuFilter && _current
+            ? Colors.transparent
             : postReaction || chatReaction
             ? surfaceColor
             : DMaterialSurface.fill(context, surfaceColor),
@@ -635,7 +636,7 @@ class _DToggleState extends State<DToggle> {
             // radial catch and inset rim. Reuse it inside the filter mask.
             depth: menuFilter && !_current
                 ? DSurfaceDepth.recessed
-                : menuFilter && DMaterialTheme.glassOf(context)
+                : menuFilter
                 ? DSurfaceDepth.primaryCapsule
                 : DSurfaceDepth.raised,
             preserveColor: menuFilter && !_current,

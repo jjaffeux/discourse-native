@@ -18,10 +18,13 @@ the palette's 62% text mix. Hover uses white 5% dark / black 7% light. Filters
 have 26px base artwork, grow with text, scroll under a directional 28px fade,
 and retain the kit's keyboard focus and exact visible hit bounds.
 
-Selected Liquid Glass filters reuse the existing Native writing capsule's
-accent tint (76% opacity), radial highlight, 1px rim and inset edge lighting.
+Selected filters in both appearance modes reuse the existing Native writing
+capsule's accent tint (76% opacity), radial highlight, 1px rim and inset edge lighting.
 This keeps the reference's glass appearance inside the overflow mask without
 putting a live refraction shader into that mask's offscreen pass.
+The strip's 12px side and 8px/10px vertical padding belongs inside the scroll
+viewport, so the soft shadow can extend beyond each pill without being cut
+at its corners. The buttons retain their 26px base activation bounds.
 The panel mixes raw foreground 3% into the canvas; row actions/read subjects
 use 50%, unread subjects 90%, and times 40%, including Solarized palettes.
 Collapsed server reply labels and `consolidated_count` use the reply glyph.
@@ -52,7 +55,10 @@ Native control suites cover the affected integration contracts.
 
 `integration_test/notification_filter_rendering_test.dart` runs the filter
 paint regression on iOS: both ends of a selected pill must retain accent fill
-before and after scrolling. The previous live shader fails this check under
+before and after scrolling, and its blurred shadow must extend below the
+button without accepting taps. Captures enable real shadow blur; Flutter's
+default test setting otherwise produces hard offset blocks at the corners.
+The previous live shader fails the pill-fill check under
 Impeller. The shared capsule passes in light/dark Standard and Liquid Glass.
 Use `--dart-define=NOTIFICATION_FILTER_CAPTURE_DIR=/path` to save PNGs.
 
@@ -64,3 +70,7 @@ not change dock artwork. Focused static analysis is clean.
 The glass/color follow-up passes 83 focused checks, including the four native
 iOS rendering cases and the desktop/mobile color matrix. Static analysis is
 clean for the changed files.
+
+The corner/shadow follow-up passes 59 focused checks, including native iOS
+pixel checks for a smooth corner transition, an outer shadow below the pill,
+and no button activation when tapping that shadow. Static analysis is clean.

@@ -116,7 +116,7 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
           Padding(
             key: filtersKey,
             padding: notificationStyle
-                ? const EdgeInsets.fromLTRB(12, 8, 12, 10)
+                ? EdgeInsets.zero
                 : const EdgeInsets.fromLTRB(8, 8, 8, 10),
             child: DToggleGroup<T>(
               key: controlsKey,

@@ -584,6 +584,11 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
     if (widget.scrollable && !widget.expanded) {
       group = SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        // The mockup pads the scroll viewport itself. Padding outside it
+        // clips the capsule's shadow at its 26px bounds, flattening corners.
+        padding: widget.density == DToggleDensity.menuFilter
+            ? const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 10)
+            : null,
         child: group,
       );
       if (widget.density == DToggleDensity.menuFilter) {
