@@ -6,8 +6,9 @@ Reference: `discourse-native-mockups` at `070b91a`, `UserCard`, `UserCardHead`,
 Phones open the account-owned card in a Native inset bottom Sheet. It shares
 the topic progress menu preset: 6px side/bottom gaps above the device safe area,
 rounded 22px top/24px bottom corners, and swipe, outside, Back and Escape
-dismissal. Long cards scroll below the top safe area; small swipes restore the
-surface. Desktop popovers and hover previews keep their existing presentation.
+dismissal. A downward swipe can start on the empty backdrop above the sheet
+as well as on the sheet itself. Long cards scroll below the top safe area;
+small swipes restore the surface. Desktop popovers and hover previews keep their existing presentation.
 
 The Sheet owns the optional 132px banner and 45%/84%/opaque gradient wash.
 With a banner, the white 36 by 5px grab handle overlays its top with a dark edge

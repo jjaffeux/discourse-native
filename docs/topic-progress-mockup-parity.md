@@ -12,9 +12,10 @@ can still retry. Large accessibility text stacks the buttons and wraps dates.
 
 Phones use a route-owned Native bottom Sheet. The shared `DSheetVariant.menu`
 preset supplies its 36 by 5px grab handle, 22px top/24px bottom corners,
-6px side/bottom gap and bottom safe-area exclusion. It supports downward swipe,
-short-swipe restoration, outside dismissal, Back and Escape. Horizontal timeline
-input remains independent of sheet dismissal. Existing sheet presets keep
+6px side/bottom gap and bottom safe-area exclusion. Downward swipes start on
+the sheet or the empty backdrop above it. It supports short-swipe restoration,
+outside dismissal, Back and Escape. Horizontal timeline input remains independent
+of sheet dismissal. Existing sheet presets keep
 their original geometry.
 
 The editor retains its opening account/site/topic/tab lease. A drag previews

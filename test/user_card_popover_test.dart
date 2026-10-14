@@ -314,6 +314,15 @@ void main() {
         await _open(tester);
         expect(find.text('Sam Example'), findsOneWidget);
         expect(_surface, findsOneWidget);
+        final ready = tester.getRect(_surface);
+        await tester.dragFrom(
+          Offset(ready.center.dx, ready.top - 40),
+          const Offset(0, 220),
+          kind: PointerDeviceKind.touch,
+        );
+        await tester.pumpAndSettle();
+        expect(_surface, findsNothing);
+        await _open(tester);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(_surface, findsNothing);

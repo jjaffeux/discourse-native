@@ -134,6 +134,17 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
     await tester.pumpAndSettle();
     expect(_selection('2 / 3'), findsOneWidget);
+    final above = Offset(panel.center.dx, panel.top - 40);
+    await tester.dragFrom(
+      above,
+      const Offset(0, 180),
+      kind: PointerDeviceKind.touch,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    expect(shell.topicNavigationRevision, revision);
+    await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
+    await tester.pumpAndSettle();
     await tester.tapAt(const Offset(3, 100));
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsNothing);

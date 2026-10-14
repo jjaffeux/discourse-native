@@ -17,6 +17,7 @@ final sheetExamples = ComponentExamples(
       'surface over a darker opaque backdrop in both light and dark themes. '
       'Mobile bottom sheets dismiss with a downward touch swipe from their '
       'header or continued pulling down beyond the top of their content. '
+      'Menu sheets also accept downward swipes on the empty backdrop above them. '
       'Upward movement at the bottom keeps the sheet open; '
       'dismissOnSwipe can disable downward dismissal gestures. '
       'Release before 30% of the distance to the screen bottom to restore the '

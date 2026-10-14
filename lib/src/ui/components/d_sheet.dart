@@ -271,6 +271,7 @@ class _DSheetCurves extends StatefulWidget {
     Animation<double> popupCurve,
     Animation<double> backdropCurve,
     ValueNotifier<double> swipeProgress,
+    GlobalKey<_DSheetSwipeDismissState> swipeKey,
   )
   builder;
 
@@ -282,6 +283,7 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
   late CurvedAnimation _popup;
   late CurvedAnimation _backdrop;
   final _swipeProgress = ValueNotifier(0.0);
+  final _swipeKey = GlobalKey<_DSheetSwipeDismissState>();
 
   @override
   void initState() {
@@ -324,7 +326,7 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
 
   @override
   Widget build(BuildContext context) =>
-      widget.builder(context, _popup, _backdrop, _swipeProgress);
+      widget.builder(context, _popup, _backdrop, _swipeProgress, _swipeKey);
 }
 
 Widget _sheetPresentation(
@@ -344,25 +346,27 @@ Widget _sheetPresentation(
   VoidCallback? onRetainedSwipeDismissRequested,
 }) => _DSheetCurves(
   animation: presentation.animation,
-  builder: (context, popupCurve, backdropCurve, swipeProgress) => _sheetLayout(
-    context,
-    presentation,
-    popupCurve,
-    backdropCurve,
-    swipeProgress,
-    requestedSide,
-    maxWidth,
-    width,
-    inset,
-    animateSize,
-    fillAvailableHeight,
-    extendBehindKeyboard,
-    dismissOnSwipe,
-    variant: variant,
-    retainKeyboardInsets: retainKeyboardInsets,
-    onRetainedDismiss: onRetainedDismiss,
-    onRetainedSwipeDismissRequested: onRetainedSwipeDismissRequested,
-  ),
+  builder: (context, popupCurve, backdropCurve, swipeProgress, swipeKey) =>
+      _sheetLayout(
+        context,
+        presentation,
+        popupCurve,
+        backdropCurve,
+        swipeProgress,
+        swipeKey,
+        requestedSide,
+        maxWidth,
+        width,
+        inset,
+        animateSize,
+        fillAvailableHeight,
+        extendBehindKeyboard,
+        dismissOnSwipe,
+        variant: variant,
+        retainKeyboardInsets: retainKeyboardInsets,
+        onRetainedDismiss: onRetainedDismiss,
+        onRetainedSwipeDismissRequested: onRetainedSwipeDismissRequested,
+      ),
 );
 
 Widget _sheetLayout(
@@ -371,6 +375,7 @@ Widget _sheetLayout(
   Animation<double> popupCurve,
   Animation<double> backdropCurve,
   ValueNotifier<double> swipeProgress,
+  GlobalKey<_DSheetSwipeDismissState> swipeKey,
   DSheetSide requestedSide,
   double maxWidth,
   double? width,
@@ -458,9 +463,37 @@ Widget _sheetLayout(
     _ => false,
   };
   if (dismissOnSwipe && mobile && side == DSheetSide.bottom) {
+    if (variant == DSheetVariant.menu &&
+        presentation.modal &&
+        presentation.dismissOnBarrier) {
+      // The backdrop owns outside gestures; the sheet keeps its own bounds.
+      // Forward to the same motion owner so threshold, cancellation and exit
+      // velocity agree with a drag begun on the sheet itself. Pointer cancel
+      // restores the sheet before an accepted drag emits its end callback.
+      backdrop = Listener(
+        onPointerDown: (event) => swipeKey.currentState?._onPointerDown(event),
+        onPointerMove: (event) => swipeKey.currentState?._onPointerMove(event),
+        onPointerUp: (event) => swipeKey.currentState?._onPointerUp(event),
+        onPointerCancel: (event) =>
+            swipeKey.currentState?._onPointerCancel(event),
+        child: GestureDetector(
+          excludeFromSemantics: true,
+          supportedDevices: const {PointerDeviceKind.touch},
+          onVerticalDragStart: (_) => swipeKey.currentState?._start(),
+          onVerticalDragUpdate: (details) =>
+              swipeKey.currentState?._update(details.delta.dy),
+          onVerticalDragEnd: (details) =>
+              swipeKey.currentState?._finish(details.primaryVelocity ?? 0),
+          onVerticalDragCancel: () =>
+              swipeKey.currentState?._finish(0, cancelled: true),
+          child: backdrop,
+        ),
+      );
+    }
     final content = popup;
     Widget swipe(VoidCallback? close, {bool retained = false}) =>
         _DSheetSwipeDismiss(
+          key: swipeKey,
           onDismiss: close,
           onDismissRequested: retained ? onRetainedSwipeDismissRequested : null,
           retained: retained,
@@ -689,6 +722,7 @@ class _DSheetSwipeScope extends InheritedWidget {
 
 class _DSheetSwipeDismiss extends StatefulWidget {
   const _DSheetSwipeDismiss({
+    super.key,
     required this.onDismiss,
     this.onDismissRequested,
     required this.retained,
@@ -916,6 +950,37 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     }
   }
 
+  void _onPointerDown(PointerDownEvent event) {
+    if (_exiting || _pointer != null || event.kind != PointerDeviceKind.touch) {
+      return;
+    }
+    _pointer = event.pointer;
+    _velocity = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.position);
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (event.pointer == _pointer) {
+      _velocity?.addPosition(event.timeStamp, event.position);
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    if (event.pointer != _pointer) return;
+    if (_scrollOrigin != null || _swipeIntercepted) {
+      _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
+    }
+    _pointer = null;
+    _velocity = null;
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _pointer) return;
+    _finish(0, cancelled: true);
+    _pointer = null;
+    _velocity = null;
+  }
+
   bool _onScroll(ScrollNotification notification) {
     if (_exiting ||
         _swipeIntercepted ||
@@ -985,35 +1050,10 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       );
     },
     child: Listener(
-      onPointerDown: (event) {
-        if (_exiting ||
-            _pointer != null ||
-            event.kind != PointerDeviceKind.touch) {
-          return;
-        }
-        _pointer = event.pointer;
-        _velocity = VelocityTracker.withKind(event.kind)
-          ..addPosition(event.timeStamp, event.position);
-      },
-      onPointerMove: (event) {
-        if (event.pointer == _pointer) {
-          _velocity?.addPosition(event.timeStamp, event.position);
-        }
-      },
-      onPointerUp: (event) {
-        if (event.pointer != _pointer) return;
-        if (_scrollOrigin != null || _swipeIntercepted) {
-          _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
-        }
-        _pointer = null;
-        _velocity = null;
-      },
-      onPointerCancel: (event) {
-        if (event.pointer != _pointer) return;
-        _finish(0, cancelled: true);
-        _pointer = null;
-        _velocity = null;
-      },
+      onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
       child: GestureDetector(
         supportedDevices: const {PointerDeviceKind.touch},
         onVerticalDragStart: (_) => _start(),
