@@ -1091,11 +1091,15 @@ class _FeedBackedContent extends StatelessWidget {
                 : topicListHeadingBuilder?.call(context, null),
             keepTopicOpen: keepTopicOpen,
           );
-        } else if (feed == null) {
+        } else if (feed == null &&
+            route.feedPath == null &&
+            !route.isTopicList) {
           content = fallback ?? const _ContentNotFound();
         } else {
+          // Forum settings and tab hydration can resolve the route before its
+          // first feed request starts. A missing feed is still loading here.
           content = TopicListView(
-            feed: feed,
+            feed: feed ?? const TopicFeed.loading(),
             inbox: inbox,
             showHeader: !route.isTopicListFilter,
           );

@@ -19,6 +19,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/platform.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
@@ -900,6 +901,8 @@ void main() {
         );
         expect(find.byKey(originalViewportKey), findsNothing);
         expect(find.byKey(slowViewportKey), findsOneWidget);
+        expect(find.byType(TopicListLoadingSkeleton), findsOneWidget);
+        expect(find.text('Not found'), findsNothing);
         expect(slowFeedStarted.isCompleted, isFalse);
         expect(tabStore.saveCount, savesBeforeTap);
       });
@@ -927,6 +930,8 @@ void main() {
       );
       expect(find.byKey(originalViewportKey), findsNothing);
       expect(find.byKey(slowViewportKey), findsOneWidget);
+      expect(find.byType(TopicListLoadingSkeleton), findsOneWidget);
+      expect(find.text('Not found'), findsNothing);
       final slowContentText = _contentTextOutsideTabs('Slow destination');
       expect(
         slowContentText,
