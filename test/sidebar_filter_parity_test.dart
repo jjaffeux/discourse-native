@@ -522,6 +522,76 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final material in DAppearanceMaterial.values) {
       testWidgets(
+        'focusing Filters animates its bounds after the keyboard on $platform ($material)',
+        (tester) async {
+          const channel = MethodChannel('org.discourse.native/keyboard');
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            (_) async => false,
+          );
+          addTearDown(
+            () => tester.binding.defaultBinaryMessenger
+                .setMockMethodCallHandler(channel, null),
+          );
+          tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+          tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+          final (shell: shell, api: _) = await fixture(
+            tester,
+            size: phone,
+            filterOptions: filterMenuOptions,
+          );
+          await shell.forumSettings.setShared(
+            SharedAppearance(material: material),
+          );
+          await tester.pumpAndSettle();
+          await openFilters(tester);
+          final sheet = find.byType(DSheetContent);
+          final opened = tester.getRect(sheet);
+          await tester.tap(field);
+          await tester.pump();
+          expect(tester.getRect(sheet), opened);
+          for (final keyboard in [100.0, 200.0, 300.0]) {
+            tester.view.viewInsets = FakeViewPadding(
+              bottom: keyboard * tester.view.devicePixelRatio,
+            );
+            await tester.pump(const Duration(milliseconds: 100));
+            expect(tester.getRect(sheet), opened);
+            await tester.pump();
+            expect(tester.getRect(sheet), opened);
+          }
+          await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+            channel.name,
+            const StandardMethodCodec().encodeMethodCall(
+              const MethodCall('keyboardReady', true),
+            ),
+            (_) {},
+          );
+          await tester.pump();
+          await tester.pump();
+          expect(tester.getRect(sheet), opened);
+          var previous = opened;
+          for (var frame = 0; frame < 4; frame++) {
+            await tester.pump(const Duration(milliseconds: 32));
+            final current = tester.getRect(sheet);
+            expect(current.left, 0, reason: 'margins follow the rise');
+            expect(current.top, lessThan(previous.top));
+            expect(current.height, lessThan(previous.height));
+            expect(current.top, greaterThan(55));
+            expect(current.bottom, greaterThan(phone.height - 300));
+            previous = current;
+          }
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).left, 6);
+          expect(tester.getRect(sheet).top, closeTo(55, 1));
+          expect(tester.getRect(sheet).bottom, closeTo(phone.height - 306, 1));
+          tester.view.viewInsets = FakeViewPadding.zero;
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
+
+      testWidgets(
         'filter sheet expands, floats, and preserves its query on $platform ($material)',
         (tester) async {
           debugDisableShadows = false;

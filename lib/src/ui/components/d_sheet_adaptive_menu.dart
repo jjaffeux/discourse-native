@@ -291,6 +291,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     super.didUpdateWidget(oldWidget);
     if (_dismissOrigin == null &&
         !_interacted &&
+        // The overlay can rebuild its content before build observes the first
+        // keyboard inset. Keep the measured detent: remeasuring as an initial
+        // layout would reset travel to zero and skip the keyboard animation.
+        MediaQuery.viewInsetsOf(context).bottom == 0 &&
         !identical(
           oldWidget.presentation.content,
           widget.presentation.content,
