@@ -129,7 +129,7 @@ void _registerReactionAndLikeTests() {
       );
       if (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS) {
-        await tester.tap(find.bySemanticsLabel('Topics'));
+        await tester.tap(find.bySemanticsLabel('Topics').hitTestable().first);
         await tester.pumpAndSettle();
       }
       await tester.tap(topicListTitle('A real topic'));
@@ -139,6 +139,54 @@ void _registerReactionAndLikeTests() {
 
     Finder count(String value) =>
         find.descendant(of: find.byType(PostLikes), matching: find.text(value));
+
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      testWidgets('double tap likes a post once with a short haptic', (
+        tester,
+      ) async {
+        final api = await openTopic(tester, first: post());
+        final haptics = <Object?>[];
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'HapticFeedback.vibrate') {
+              haptics.add(call.arguments);
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        Future<void> doubleTap() async {
+          await tester.tap(find.text('First post body', findRichText: true));
+          await tester.pump(const Duration(milliseconds: 50));
+          await tester.tap(find.text('First post body', findRichText: true));
+          await tester.pumpAndSettle();
+        }
+
+        await doubleTap();
+        expect(api.liked, [1]);
+        expect(haptics, ['HapticFeedbackType.selectionClick']);
+        await doubleTap();
+        expect(api.liked, [1]);
+        expect(api.unliked, isEmpty);
+        expect(haptics, hasLength(1));
+      }, variant: TargetPlatformVariant.only(platform));
+    }
+    testWidgets('double tap does not like a post without permission', (
+      tester,
+    ) async {
+      final api = await openTopic(tester, first: post(canLike: false));
+      await tester.tap(find.text('First post body', findRichText: true));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('First post body', findRichText: true));
+      await tester.pumpAndSettle();
+      expect(api.liked, isEmpty);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
     testWidgets('a post nobody has liked says so by saying nothing', (
       tester,
@@ -588,7 +636,7 @@ void _registerReactionAndLikeTests() {
       if (beforeSettle == null) {
         if (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS) {
-          await tester.tap(find.bySemanticsLabel('Topics'));
+          await tester.tap(find.bySemanticsLabel('Topics').hitTestable().first);
           await tester.pumpAndSettle();
         }
         await tester.tap(topicListTitle('A real topic'));
@@ -620,6 +668,33 @@ void _registerReactionAndLikeTests() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('More emojis'));
       await tester.pumpAndSettle();
+    }
+
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      testWidgets(
+        'double tap uses the site primary reaction without a like write',
+        (tester) async {
+          final config = installedPlugins.models.siteConfig(const {
+            'discourse_reactions_enabled': true,
+            'discourse_reactions_reaction_for_like': 'clap',
+            'discourse_reactions_enabled_reactions': 'heart|clap',
+          }, site);
+          final api = await openTopic(tester, posts: [post()], config: config);
+          Future<void> doubleTap() async {
+            await tester.tap(find.text('First post body', findRichText: true));
+            await tester.pump(const Duration(milliseconds: 50));
+            await tester.tap(find.text('First post body', findRichText: true));
+            await tester.pumpAndSettle();
+          }
+
+          await doubleTap();
+          expect(api.reacted, [(postId: 1, reaction: 'clap')]);
+          expect(api.liked, isEmpty);
+          await doubleTap();
+          expect(api.reacted, hasLength(1));
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
     }
 
     testWidgets('a site with reactions draws them where the likes were', (

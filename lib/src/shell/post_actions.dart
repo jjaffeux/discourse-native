@@ -43,6 +43,16 @@ class PostActions extends StatefulWidget {
   final Widget child;
   final bool persistent;
 
+  /// Keeps body gestures separate from the post's action controls.
+  static Widget reactOnDoubleTap(BuildContext context, Widget child) {
+    final onReact = context
+        .dependOnInheritedWidgetOfExactType<_PostQuickReactionScope>()
+        ?.onReact;
+    return onReact == null
+        ? child
+        : GestureDetector(onDoubleTap: onReact, child: child);
+  }
+
   @override
   State<PostActions> createState() => _PostActionsState();
 }
@@ -217,10 +227,12 @@ class _PostActionsState extends State<PostActions> {
     }
   }
 
-  ({List<PostAction> actions, Listenable? rebuildOn}) _actions(
-    BuildContext context,
-    ShellController controller,
-  ) {
+  ({
+    List<PostAction> actions,
+    Listenable? rebuildOn,
+    Future<String?> Function()? quickReaction,
+  })
+  _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
     final topic = controller.currentTopic;
     final registry =
@@ -240,6 +252,7 @@ class _PostActionsState extends State<PostActions> {
             ),
         ],
         rebuildOn: null,
+        quickReaction: null,
       );
     }
     final instance = controller.currentInstance;
@@ -643,6 +656,19 @@ class _PostActionsState extends State<PostActions> {
           ),
       ],
       rebuildOn: contribution.rebuildOn,
+      quickReaction:
+          controller.postWriteInFlight(post.id, siteUrl: widget.siteUrl)
+          ? null
+          : contribution.replacesLike
+          ? contribution.quickReaction
+          : post.canLike && !post.liked
+          ? () {
+              final latest =
+                  controller.store.read<Post>(widget.siteUrl, post.id) ?? post;
+              if (latest.liked || !latest.canLike) return Future.value(null);
+              return controller.toggleLike(latest, siteUrl: widget.siteUrl);
+            }
+          : null,
     );
   }
 
@@ -865,22 +891,30 @@ class _PostActionsState extends State<PostActions> {
       // Discovering the plugin's rebuild signal already constructed the menu.
       // Reuse that snapshot for this builder's first call, then read fresh
       // actions on notifications. A parent rebuild supplies a new snapshot.
-      List<PostAction>? initialActions = snapshot.actions;
+      var initial = true;
       return ForumTabListenableBuilder(
         listenable: rebuildOn,
         builder: (context, _) {
-          final actions =
-              initialActions ??
-              _actions(context, ShellScope.read(context)).actions;
-          initialActions = null;
-          return _buildActionList(context, actions);
+          final current = initial
+              ? snapshot
+              : _actions(context, ShellScope.read(context));
+          initial = false;
+          return _buildActionList(
+            context,
+            current.actions,
+            current.quickReaction,
+          );
         },
       );
     }
-    return _buildActionList(context, snapshot.actions);
+    return _buildActionList(context, snapshot.actions, snapshot.quickReaction);
   }
 
-  Widget _buildActionList(BuildContext context, List<PostAction> actions) {
+  Widget _buildActionList(
+    BuildContext context,
+    List<PostAction> actions,
+    Future<String?> Function()? quickReaction,
+  ) {
     actions = [
       for (final group in PostActionGroup.values)
         ...actions.where((action) => action.group == group),
@@ -890,6 +924,18 @@ class _PostActionsState extends State<PostActions> {
       siteUrl: widget.siteUrl,
       postId: widget.post.id,
     );
+    void react() {
+      if (!owner.isCurrent(
+        context,
+        siteUrl: widget.siteUrl,
+        postId: widget.post.id,
+      )) {
+        return;
+      }
+      unawaited(HapticFeedback.selectionClick());
+      unawaited(_report(ShellScope.read(context), quickReaction!()));
+    }
+
     void invoke(PostAction action, BuildContext anchorContext) =>
         _invokeFrom(action, anchorContext, owner);
     if (widget.persistent) {
@@ -899,14 +945,17 @@ class _PostActionsState extends State<PostActions> {
         firstFocus: _firstActionFocus,
         onInvoke: invoke,
         postNumber: widget.post.postNumber,
-        child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.contextMenu):
-                _openFromKeyboard,
-            const SingleActivator(LogicalKeyboardKey.f10, shift: true):
-                _openFromKeyboard,
-          },
-          child: widget.child,
+        child: _PostQuickReactionScope(
+          onReact: context.isTouch && quickReaction != null ? react : null,
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.contextMenu):
+                  _openFromKeyboard,
+              const SingleActivator(LogicalKeyboardKey.f10, shift: true):
+                  _openFromKeyboard,
+            },
+            child: widget.child,
+          ),
         ),
       );
       return context.isTouch && actions.isNotEmpty
@@ -951,7 +1000,10 @@ class _PostActionsState extends State<PostActions> {
             ),
           ),
         ),
-        child: widget.child,
+        child: _PostQuickReactionScope(
+          onReact: context.isTouch && quickReaction != null ? react : null,
+          child: widget.child,
+        ),
       ),
     );
 
@@ -974,6 +1026,16 @@ class _PostActionsState extends State<PostActions> {
       child: keyboardReachable,
     );
   }
+}
+
+class _PostQuickReactionScope extends InheritedWidget {
+  const _PostQuickReactionScope({required this.onReact, required super.child});
+
+  final VoidCallback? onReact;
+
+  @override
+  bool updateShouldNotify(_PostQuickReactionScope oldWidget) =>
+      oldWidget.onReact != onReact;
 }
 
 bool _hasFiniteEdges(Rect rect) =>

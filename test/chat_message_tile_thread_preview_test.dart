@@ -56,6 +56,100 @@ const _replyToMessageAction = CustomSemanticsAction(label: 'Reply');
 const _copyLinkAction = CustomSemanticsAction(label: 'Copy link');
 
 void main() {
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    for (final main in [null, 'clap']) {
+      testWidgets(
+        '$platform double tap adds ${main ?? 'heart'} once with a short haptic',
+        (tester) async {
+          final config = installedPlugins.models.siteConfig({
+            'discourse_reactions_enabled': main != null,
+            'discourse_reactions_reaction_for_like': main,
+          }, _siteUrl);
+          final api = FakeDiscourseApi(siteConfigs: {_siteUrl: config});
+          final controller = await _controller(
+            _message(null),
+            api: api,
+            signedIn: true,
+          );
+          addTearDown(controller.dispose);
+          await controller.resolveSiteConfig(_siteUrl);
+          final haptics = <Object?>[];
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            (call) async {
+              if (call.method == 'HapticFeedback.vibrate') {
+                haptics.add(call.arguments);
+              }
+              return null;
+            },
+          );
+          addTearDown(
+            () => tester.binding.defaultBinaryMessenger
+                .setMockMethodCallHandler(SystemChannels.platform, null),
+          );
+          await tester.pumpWidget(
+            _TestTile(
+              controller: controller,
+              onOpenThread: (_) {},
+              platform: platform,
+            ),
+          );
+          await tester.pumpAndSettle();
+          Future<void> doubleTap() async {
+            final body = find.text('Root message', findRichText: true);
+            await tester.tap(body);
+            await tester.pump(const Duration(milliseconds: 50));
+            await tester.tap(body);
+            await tester.pumpAndSettle();
+          }
+
+          await doubleTap();
+          expect(api.chatReactionsSet, hasLength(1));
+          expect(api.chatReactionsSet.single.emoji, main ?? 'heart');
+          expect(api.chatReactionsSet.single.action, ChatReactionAction.add);
+          expect(haptics, ['HapticFeedbackType.selectionClick']);
+          await doubleTap();
+          expect(api.chatReactionsSet, hasLength(1));
+          expect(haptics, hasLength(1));
+          expect(find.byType(DSheetContent), findsNothing);
+        },
+      );
+    }
+  }
+  testWidgets('double tap cannot react in a read-only chat channel', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi();
+    final controller = await _controller(
+      _message(null),
+      api: api,
+      signedIn: true,
+    );
+    addTearDown(controller.dispose);
+    controller.chatRecords.put(
+      _siteUrl,
+      const ChatChannel(
+        id: 9,
+        title: 'Support',
+        kind: ChatChannelKind.category,
+        status: ChatChannelStatus.readOnly,
+        membership: ChatMembership(following: true),
+      ),
+    );
+    await tester.pumpWidget(
+      _TestTile(
+        controller: controller,
+        onOpenThread: (_) {},
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Root message', findRichText: true));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Root message', findRichText: true));
+    await tester.pumpAndSettle();
+    expect(api.chatReactionsSet, isEmpty);
+  });
   setUpAll(() async {
     final output = Platform.environment['CHAT_REACTION_RENDER_DIR'];
     if (output != null) {

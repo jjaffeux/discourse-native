@@ -5075,38 +5075,42 @@ class _PostTileState extends State<_PostTile> {
                                 post: post,
                                 topicId: widget.topic.id,
                                 displayedCooked: displayedCooked,
-                                child: AnimatedOpacity(
-                                  opacity: post.hidden || post.isDeleted
-                                      ? .5
-                                      : 1,
-                                  duration: DMotion.duration(
-                                    context,
-                                    DMotion.change,
-                                  ),
-                                  child: CookedHtml(
-                                    html: displayedCooked,
-                                    renderMode: const ProgressiveHtmlMode(),
-                                    buildAsync: CookedHtml.buildsAsynchronously(
-                                      post.cooked,
+                                child: PostActions.reactOnDoubleTap(
+                                  context,
+                                  AnimatedOpacity(
+                                    opacity: post.hidden || post.isDeleted
+                                        ? .5
+                                        : 1,
+                                    duration: DMotion.duration(
+                                      context,
+                                      DMotion.change,
                                     ),
-                                    textStyle: theme.textTheme.bodyLarge
-                                        ?.copyWith(
-                                          height: DiscourseTypography
-                                              .lineHeightCooked,
-                                        ),
-                                    siteUrl: widget.siteUrl,
-                                    post: post,
-                                    containingTopic: PluginContainingTopic(
-                                      id: widget.topic.id,
-                                      slug:
-                                          ShellScope.read(
-                                            context,
-                                          ).currentContent?.slug ??
-                                          'topic',
-                                      archived: widget.topic.archived,
+                                    child: CookedHtml(
+                                      html: displayedCooked,
+                                      renderMode: const ProgressiveHtmlMode(),
+                                      buildAsync:
+                                          CookedHtml.buildsAsynchronously(
+                                            post.cooked,
+                                          ),
+                                      textStyle: theme.textTheme.bodyLarge
+                                          ?.copyWith(
+                                            height: DiscourseTypography
+                                                .lineHeightCooked,
+                                          ),
+                                      siteUrl: widget.siteUrl,
+                                      post: post,
+                                      containingTopic: PluginContainingTopic(
+                                        id: widget.topic.id,
+                                        slug:
+                                            ShellScope.read(
+                                              context,
+                                            ).currentContent?.slug ??
+                                            'topic',
+                                        archived: widget.topic.archived,
+                                      ),
+                                      mentionedUserStatuses:
+                                          post.mentionedUserStatuses,
                                     ),
-                                    mentionedUserStatuses:
-                                        post.mentionedUserStatuses,
                                   ),
                                 ),
                               ),

@@ -937,6 +937,7 @@ class PostMenuContribution {
     this.entries = const [],
     this.replacesLike = false,
     this.rebuildOn,
+    this.quickReaction,
   });
 
   static const PostMenuContribution none = PostMenuContribution();
@@ -945,6 +946,9 @@ class PostMenuContribution {
 
   /// A feature which replaces Like semantics must suppress the core write path.
   final bool replacesLike;
+
+  /// Adds the site's primary reaction without opening a picker.
+  final Future<String?> Function()? quickReaction;
 
   /// Listened to only while this post menu is rendered.
   final Listenable? rebuildOn;

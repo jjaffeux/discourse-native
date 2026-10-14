@@ -187,6 +187,44 @@ void main() {
   });
 
   group('post model contributions', () {
+    testWidgets(
+      'dispatches the plugin primary reaction with replacement policy',
+      (tester) async {
+        var writes = 0;
+        final registry = PluginRegistry([
+          const _NamedPlugin('unrelated'),
+          _MenuPlugin(
+            'reactions',
+            replacesLike: true,
+            quickReaction: () async {
+              writes++;
+              return 'write error';
+            },
+          ),
+        ]);
+        late PostMenuContribution contribution;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) {
+                contribution = registry.postMenu(
+                  context,
+                  'https://example.com',
+                  _post,
+                  topic: _topic,
+                  currentUser: null,
+                );
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        );
+        expect(contribution.replacesLike, isTrue);
+        expect(writes, 0);
+        expect(await contribution.quickReaction!(), 'write error');
+        expect(writes, 1);
+      },
+    );
     testWidgets('aggregate menu entries and replacement policy in order', (
       tester,
     ) async {
@@ -799,10 +837,16 @@ final class _RebuildingHeaderPlugin extends _NamedPlugin
 }
 
 final class _MenuPlugin extends _NamedPlugin implements PostMenuPlugin {
-  const _MenuPlugin(super.name, {this.replacesLike = false, this.rebuildOn});
+  const _MenuPlugin(
+    super.name, {
+    this.replacesLike = false,
+    this.rebuildOn,
+    this.quickReaction,
+  });
 
   final bool replacesLike;
   final Listenable? rebuildOn;
+  final Future<String?> Function()? quickReaction;
 
   @override
   PostMenuContribution postMenu(PostMenuContext context) =>
@@ -817,6 +861,7 @@ final class _MenuPlugin extends _NamedPlugin implements PostMenuPlugin {
         ],
         replacesLike: replacesLike,
         rebuildOn: rebuildOn,
+        quickReaction: quickReaction,
       );
 }
 

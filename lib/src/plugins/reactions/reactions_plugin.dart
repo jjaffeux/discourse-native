@@ -92,9 +92,23 @@ class ReactionsPlugin
     // so this menu names no rebuildOn: the controller would rebuild every
     // action bar on screen for any post's reactor load or reaction write.
     final writeInFlight = controller.writeInFlight(siteUrl, post.id);
+    final main = controller.siteConfigFor(siteUrl).mainReaction ?? 'heart';
 
     return PostMenuContribution(
       replacesLike: true,
+      quickReaction: writeInFlight || post.reactions?.mine?.id == main
+          ? null
+          : () async {
+              final latest = controller.post(siteUrl, post.id) ?? post;
+              final main =
+                  controller.siteConfigFor(siteUrl).mainReaction ?? 'heart';
+              if (!latest.canReact ||
+                  latest.reactions?.mine?.id == main ||
+                  controller.writeInFlight(siteUrl, post.id)) {
+                return null;
+              }
+              return controller.toggle(latest, main, siteUrl: siteUrl);
+            },
       entries: [
         PostAction(
           icon: DIcons.farFaceSmile,

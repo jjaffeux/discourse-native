@@ -15,6 +15,7 @@ import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
+import 'chat_plugin_data.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
 import 'chat_services.dart';
@@ -152,6 +153,7 @@ class ChatMessageTile extends StatelessWidget {
       Widget? messageActions,
       Widget? messageReaction,
       Widget? messageReply,
+      VoidCallback? onQuickReact,
     ]) => _Tile(
       siteUrl: siteUrl,
       message: message,
@@ -167,6 +169,7 @@ class ChatMessageTile extends StatelessWidget {
       messageActions: messageActions,
       messageReaction: messageReaction,
       messageReply: messageReply,
+      onQuickReact: onQuickReact,
     );
     if (selecting) {
       // The row already speaks its author, time and body; the checkbox is the
@@ -356,6 +359,7 @@ class _ChatMessageActions extends StatefulWidget {
     Widget? messageActions,
     Widget? messageReaction,
     Widget? messageReply,
+    VoidCallback? onQuickReact,
   )
   childBuilder;
 
@@ -540,6 +544,25 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
   }
 
   void _edit() => widget.onEdit?.call(widget.message);
+
+  Future<void> _quickReact() async {
+    final chat = PluginUiScope.require(context, chatControllerService);
+    final message = chat.message(widget.siteUrl, widget.message.id);
+    final emoji = chat.siteConfigFor(widget.siteUrl).chatSettings.quickReaction;
+    if (message == null ||
+        !chat.canAddReactionToMessage(widget.siteUrl, message) ||
+        message.reactions.any((r) => r.emoji == emoji && r.reacted)) {
+      return;
+    }
+    unawaited(HapticFeedback.selectionClick());
+    final error = await chat.addMessageReaction(
+      widget.siteUrl,
+      message.id,
+      emoji,
+    );
+    if (!mounted || error == null) return;
+    DToast.show(context, error, type: DToastType.error);
+  }
 
   Future<void> _delete() async {
     final chat = PluginUiScope.require(context, chatControllerService);
@@ -1095,6 +1118,9 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                           chat.canReplyToMessage(widget.siteUrl, widget.message)
                       ? _messageReply()
                       : null,
+                  context.isTouch && canAddReaction
+                      ? () => unawaited(_quickReact())
+                      : null,
                 ),
               ),
             ),
@@ -1137,6 +1163,7 @@ class _Tile extends StatelessWidget {
     this.messageActions,
     this.messageReaction,
     this.messageReply,
+    this.onQuickReact,
   });
 
   final String siteUrl;
@@ -1152,6 +1179,7 @@ class _Tile extends StatelessWidget {
   final Widget? messageActions;
   final Widget? messageReaction;
   final Widget? messageReply;
+  final VoidCallback? onQuickReact;
 
   @override
   Widget build(BuildContext context) => _conversationMessage(context);
@@ -1474,12 +1502,15 @@ class _Tile extends StatelessWidget {
                                           ChatMessageTile.bodySelectionKey(
                                             message.id,
                                           ),
-                                      child: _body(
-                                        context,
-                                        textStyle: style,
-                                        contentSized: false,
-                                        linkStyle: DText.linkStyleOf(context),
-                                      )!,
+                                      child: GestureDetector(
+                                        onDoubleTap: onQuickReact,
+                                        child: _body(
+                                          context,
+                                          textStyle: style,
+                                          contentSized: false,
+                                          linkStyle: DText.linkStyleOf(context),
+                                        )!,
+                                      ),
                                     );
                                   },
                                 ),

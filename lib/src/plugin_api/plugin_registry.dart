@@ -1563,6 +1563,7 @@ final class PluginRegistry
     final entries = <PostAction>[];
     final rebuildListenables = <Listenable>[];
     var replacesLike = false;
+    Future<String?> Function()? quickReaction;
     for (final plugin in plugins.whereType<PostMenuPlugin>()) {
       final contribution = plugin.postMenu(
         PostMenuContext(
@@ -1575,16 +1576,21 @@ final class PluginRegistry
       );
       entries.addAll(contribution.entries);
       replacesLike |= contribution.replacesLike;
+      quickReaction ??= contribution.quickReaction;
       if (contribution.rebuildOn case final listenable?) {
         rebuildListenables.add(listenable);
       }
     }
-    if (entries.isEmpty && !replacesLike && rebuildListenables.isEmpty) {
+    if (entries.isEmpty &&
+        !replacesLike &&
+        rebuildListenables.isEmpty &&
+        quickReaction == null) {
       return PostMenuContribution.none;
     }
     return PostMenuContribution(
       entries: entries,
       replacesLike: replacesLike,
+      quickReaction: quickReaction,
       rebuildOn: switch (rebuildListenables) {
         [] => null,
         [final listenable] => listenable,

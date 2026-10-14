@@ -13,6 +13,34 @@ const _registry = PluginRegistry([ChatPlugin()]);
 
 void main() {
   test(
+    'quick reaction follows the enabled site setting and survives storage',
+    () {
+      final enabled = ChatSettings.fromSettings(const {
+        'discourse_reactions_enabled': true,
+        'discourse_reactions_reaction_for_like': 'clap',
+      });
+      expect(enabled.quickReaction, 'clap');
+      expect(
+        ChatSettings.fromStored(Map<String, dynamic>.from(enabled.toStored())),
+        enabled,
+      );
+      for (final settings in [
+        <String, dynamic>{},
+        {
+          'discourse_reactions_enabled': false,
+          'discourse_reactions_reaction_for_like': 'clap',
+        },
+        {
+          'discourse_reactions_enabled': true,
+          'discourse_reactions_reaction_for_like': '',
+        },
+      ]) {
+        expect(ChatSettings.fromSettings(settings).quickReaction, 'heart');
+      }
+      expect(ChatSettings.fromStored(const {}).quickReaction, 'heart');
+    },
+  );
+  test(
     'send shortcut decodes both server names and survives storage and copies',
     () {
       for (final field in ['chat_send_shortcut', 'send_shortcut']) {

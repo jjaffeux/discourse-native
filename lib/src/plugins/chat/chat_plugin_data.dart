@@ -85,12 +85,16 @@ final class ChatSettings {
     this.directMessageRetentionDays = 0,
     this.maximumDirectMessageUsers = defaultMaximumDirectMessageUsers,
     this.separateSidebarMode = ChatSeparateSidebarMode.never,
+    this.quickReaction = 'heart',
   });
 
   static const int defaultMaximumDirectMessageUsers = 20;
   static const int maximumDirectMessageUsersLimit = 100;
 
   factory ChatSettings.fromSettings(Map<String, dynamic> json) => ChatSettings(
+    quickReaction: json['discourse_reactions_enabled'] == true
+        ? jsonText(json['discourse_reactions_reaction_for_like']) ?? 'heart'
+        : 'heart',
     chatEnabled: json['chat_enabled'] != false,
     uploadsEnabled: json['chat_allow_uploads'] != false,
     searchEnabled: json['chat_search_enabled'] == true,
@@ -108,6 +112,7 @@ final class ChatSettings {
   );
 
   factory ChatSettings.fromStored(Map<String, dynamic> json) => ChatSettings(
+    quickReaction: jsonText(json['quickReaction']) ?? 'heart',
     chatEnabled: json['chatEnabled'] != false,
     uploadsEnabled: json['uploadsEnabled'] != false,
     searchEnabled: json['searchEnabled'] == true,
@@ -127,6 +132,9 @@ final class ChatSettings {
   );
 
   final bool chatEnabled;
+
+  /// Uses the site's primary post reaction; heart is the Like fallback.
+  final String quickReaction;
   final bool uploadsEnabled;
   final bool searchEnabled;
   final bool publicChannelsEnabled;
@@ -138,6 +146,7 @@ final class ChatSettings {
   final ChatSeparateSidebarMode separateSidebarMode;
 
   Map<String, Object?> toStored() => {
+    if (quickReaction != 'heart') 'quickReaction': quickReaction,
     if (!chatEnabled) 'chatEnabled': false,
     'uploadsEnabled': uploadsEnabled,
     'searchEnabled': searchEnabled,
@@ -154,6 +163,7 @@ final class ChatSettings {
   bool operator ==(Object other) =>
       other is ChatSettings &&
       other.chatEnabled == chatEnabled &&
+      other.quickReaction == quickReaction &&
       other.uploadsEnabled == uploadsEnabled &&
       other.searchEnabled == searchEnabled &&
       other.publicChannelsEnabled == publicChannelsEnabled &&
@@ -166,6 +176,7 @@ final class ChatSettings {
 
   @override
   int get hashCode => Object.hash(
+    quickReaction,
     chatEnabled,
     uploadsEnabled,
     searchEnabled,
