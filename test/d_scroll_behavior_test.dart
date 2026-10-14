@@ -67,6 +67,131 @@ Widget _list(ScrollController scroll, {bool reverse = false, int count = 30}) =>
     );
 
 void main() {
+  for (final direction in TextDirection.values) {
+    for (final reverse in [false, true]) {
+      testWidgets('opt-in horizontal fades follow physical edges in '
+          '$direction, reverse=$reverse', (tester) async {
+        final key = GlobalKey();
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await tester.pumpWidget(
+          _host(
+            key,
+            Directionality(
+              textDirection: direction,
+              child: DScrollFadeScope(
+                horizontalExtent: 30,
+                child: SingleChildScrollView(
+                  controller: scroll,
+                  scrollDirection: Axis.horizontal,
+                  reverse: reverse,
+                  child: const SizedBox(
+                    width: 1000,
+                    height: 180,
+                    child: ColoredBox(color: _ink),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final leftward = scroll.position.axisDirection == AxisDirection.left;
+        _expectInk(await _pixel(tester, key, 90, x: 0), leftward ? .5 / 30 : 1);
+        _expectInk(
+          await _pixel(tester, key, 90, x: 199),
+          leftward ? 1 : .5 / 30,
+        );
+        // Horizontal fades do not borrow the vertical top/bottom geometry.
+        _expectInk(await _pixel(tester, key, 0, x: 100), 1);
+        scroll.jumpTo(150);
+        await tester.pumpAndSettle();
+        _expectInk(await _pixel(tester, key, 90, x: 0), .5 / 30);
+        _expectInk(await _pixel(tester, key, 90, x: 15), 15.5 / 30);
+        _expectInk(await _pixel(tester, key, 90, x: 30), 1);
+        _expectInk(await _pixel(tester, key, 90, x: 184), 15.5 / 30);
+        _expectInk(await _pixel(tester, key, 90, x: 199), .5 / 30);
+        scroll.jumpTo(scroll.position.maxScrollExtent - 1);
+        await tester.pumpAndSettle();
+        _expectInk(await _pixel(tester, key, 90, x: 0), leftward ? 1 : .5 / 30);
+        _expectInk(
+          await _pixel(tester, key, 90, x: 199),
+          leftward ? .5 / 30 : 1,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets('horizontal fades update after resize and content changes '
+      'without consuming edge hits', (tester) async {
+    final key = GlobalKey();
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    var contentWidth = 600.0;
+    var width = 200.0;
+    var taps = 0;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: StatefulBuilder(
+            builder: (_, setState) {
+              update = setState;
+              return SizedBox(
+                width: width,
+                height: 180,
+                child: RepaintBoundary(
+                  key: key,
+                  child: ColoredBox(
+                    color: _ground,
+                    child: DScrollFadeScope(
+                      horizontalExtent: 30,
+                      child: DScrollArea(
+                        controller: scroll,
+                        axes: DScrollAxes.horizontal,
+                        showScrollbar: false,
+                        child: Listener(
+                          onPointerDown: (_) => taps++,
+                          child: SizedBox(
+                            width: contentWidth,
+                            height: 180,
+                            child: const ColoredBox(color: _ink),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final position = scroll.position;
+    _expectInk(await _pixel(tester, key, 90, x: 199), .5 / 30);
+    scroll.jumpTo(100);
+    await tester.pumpAndSettle();
+    final bounds = tester.getRect(find.byKey(key));
+    await tester.tapAt(bounds.centerLeft + const Offset(1, 0));
+    await tester.tapAt(bounds.centerRight - const Offset(1, 0));
+    expect(taps, 2);
+    update(() => contentWidth = 200);
+    await tester.pumpAndSettle();
+    _expectInk(await _pixel(tester, key, 90, x: 0), 1);
+    _expectInk(await _pixel(tester, key, 90, x: 199), 1);
+    update(() => width = 100);
+    await tester.pumpAndSettle();
+    _expectInk(await _pixel(tester, key, 90, x: 99), .5 / 30);
+    update(() => width = 200);
+    await tester.pumpAndSettle();
+    _expectInk(await _pixel(tester, key, 90, x: 199), 1);
+    expect(scroll.position, same(position));
+    expect(tester.takeException(), isNull);
+  });
+
   for (final reverse in [false, true]) {
     testWidgets(
       'fades only continuing physical edges, reverse=$reverse',

@@ -9,7 +9,7 @@ final scrollAreaExamples = ComponentExamples(
   description:
       'Native scrolling with transparent edge fades and compact, themed draggable scrollbars.',
   notes:
-      'Vertical content fades over 14px at the top and 20px at the bottom only while more content remains beyond that edge. DScrollFadeScope changes the extent or follows a floating header; nested lists keep their own edges. Horizontal viewports are unchanged. Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork adapts to its surface with at least 3:1 contrast and a 2px container inset. Supply backgroundColor for a custom surface.',
+      'Vertical content fades over 14px at the top and 20px at the bottom only while more content remains beyond that edge. DScrollFadeScope changes the extent or follows a floating header; nested lists keep their own edges. Horizontal viewports are unfaded by default; opt into matching left/right fades with DScrollFadeScope(horizontalExtent: 30). Controllers are borrowed when supplied. DScrollBar decorates an existing viewport without replacing virtualization or restoration. Tab into an overflowing area, then use arrows, Page Up/Down, Home/End or Space/Shift+Space. Thumb artwork adapts to its surface with at least 3:1 contrast and a 2px container inset. Supply backgroundColor for a custom surface.',
   examples: [
     StyleguideExample(
       title: 'Surface contrast',
@@ -65,6 +65,32 @@ final scrollAreaExamples = ComponentExamples(
           'The reference photographs, 150 × 200px, 16px gaps and padding in a 384px area. Drag the bottom thumb or use a trackpad.',
       code: _artworkCode,
       builder: (_) => const _Artworks(),
+    ),
+    StyleguideExample(
+      title: 'Horizontal fades',
+      description:
+          'A 30px transparent fade at each edge with hidden content, as in the desktop tab strip. Scroll with a trackpad or focus the viewport and use the arrow keys.',
+      code:
+          'DScrollFadeScope(horizontalExtent: 30, child: DScrollArea(axes: DScrollAxes.horizontal, showScrollbar: false, child: content))',
+      builder: (_) => DScrollFadeScope(
+        horizontalExtent: 30,
+        child: SizedBox(
+          height: 60,
+          child: DScrollArea(
+            axes: DScrollAxes.horizontal,
+            showScrollbar: false,
+            child: Row(
+              children: [
+                for (var index = 1; index <= 12; index++)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('Forum tab $index'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     ),
     StyleguideExample(
       title: 'RTL',

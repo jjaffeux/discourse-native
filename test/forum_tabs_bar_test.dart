@@ -1766,7 +1766,7 @@ void main() {
   group('overflow layout', () {
     for (final direction in TextDirection.values) {
       for (final material in DAppearanceMaterial.values) {
-        testWidgets('scroll button corners reveal the parent surface in '
+        testWidgets('overflow fades retain the transparent parent in '
             '$direction with $material', (tester) async {
           const background = Color(0xff535969);
           final items = [
@@ -1776,37 +1776,38 @@ void main() {
           await _pumpBar(
             tester,
             items: items,
-            selectedId: items.first.id,
+            selectedId: items[4].id,
             width: 320,
             theme: DMaterialTheme.apply(AppTheme.dark, material),
             textDirection: direction,
             backgroundColor: background,
           );
-          final forward = find.byKey(
-            const ValueKey('forum-tabs-scroll-forward'),
+          final scroll = find.byKey(const ValueKey('forum-tabs-scroll'));
+          final rect = tester.getRect(scroll);
+          expect(
+            tester
+                .widget<DScrollFadeScope>(find.byType(DScrollFadeScope))
+                .horizontalExtent,
+            30,
           );
-          await tester.tap(forward);
-          await tester.pumpAndSettle();
-          final backward = find.byKey(
-            const ValueKey('forum-tabs-scroll-backward'),
+          expect(
+            find.byKey(const ValueKey('forum-tabs-scroll-forward')),
+            findsNothing,
           );
-          expect(forward, findsOneWidget);
-          expect(backward, findsOneWidget);
-          final samples = <(Offset, Color)>[];
-          for (final control in [forward, backward]) {
-            final rect = tester.getRect(control);
-            samples.addAll([
-              (Offset(rect.left + 1, rect.top + 1), background),
-              (Offset(rect.right - 2, rect.top + 1), background),
-            ]);
-          }
-          await _expectTabPixels(tester, samples);
+          expect(
+            find.byKey(const ValueKey('forum-tabs-scroll-backward')),
+            findsNothing,
+          );
+          await _expectTabPixels(tester, [
+            (Offset(rect.left + 1, rect.top + 1), background),
+            (Offset(rect.right - 2, rect.top + 1), background),
+          ]);
           expect(tester.takeException(), isNull);
         });
       }
     }
 
-    testWidgets('scroll buttons reveal tabs and stay beside the tab lane', (
+    testWidgets('wheel scrolling reveals tabs without reserving arrow space', (
       tester,
     ) async {
       final items = [
@@ -1819,66 +1820,104 @@ void main() {
         selectedId: items.first.id,
         width: 320,
       );
-
-      final forward = find.byKey(const ValueKey('forum-tabs-scroll-forward'));
-      final backward = find.byKey(const ValueKey('forum-tabs-scroll-backward'));
       final scroll = find.byKey(const ValueKey('forum-tabs-scroll'));
-      final scrollable = find.descendant(
-        of: scroll,
-        matching: find.byType(Scrollable),
-      );
-      final position = tester.state<ScrollableState>(scrollable).position;
+      final position = tester
+          .state<ScrollableState>(
+            find.descendant(of: scroll, matching: find.byType(Scrollable)),
+          )
+          .position;
       final add = find.byKey(const ValueKey('forum-tabs-add'));
       final addRect = tester.getRect(add);
-
+      final switcher = tester.getRect(
+        find.byKey(const ValueKey('forum-tabs-switcher')),
+      );
+      final scrollRect = tester.getRect(scroll);
       expect(position.maxScrollExtent, greaterThan(0));
-      expect(forward, findsOneWidget);
-      expect(backward, findsNothing);
+      expect(scrollRect.left, closeTo(switcher.right + 8, .01));
+      expect(scrollRect.right, closeTo(addRect.left - 6, .01));
       expect(
-        tester.getRect(scroll).right,
-        lessThanOrEqualTo(tester.getRect(forward).left),
+        find.byKey(const ValueKey('forum-tabs-scroll-forward')),
+        findsNothing,
       );
       expect(
-        tester
-            .widget<DButton>(
-              find.descendant(of: forward, matching: find.byType(DButton)),
-            )
-            .tooltip,
-        'Show more tabs',
+        find.byKey(const ValueKey('forum-tabs-scroll-backward')),
+        findsNothing,
       );
 
-      await tester.tap(forward);
-      await tester.pumpAndSettle();
-      expect(position.pixels, greaterThan(0));
-      expect(backward, findsOneWidget);
-      expect(
-        tester.getRect(backward).right,
-        lessThanOrEqualTo(tester.getRect(scroll).left),
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          kind: PointerDeviceKind.mouse,
+          position: scrollRect.center,
+          scrollDelta: const Offset(120, 0),
+        ),
       );
+      await tester.pumpAndSettle();
+      expect(position.pixels, 120);
       expect(tester.getRect(add), addRect);
-
-      for (
-        var attempt = 0;
-        attempt < 30 && forward.evaluate().isNotEmpty;
-        attempt++
-      ) {
-        await tester.tap(forward);
-        await tester.pumpAndSettle();
-      }
-      expect(position.pixels, closeTo(position.maxScrollExtent, 2));
-      expect(forward, findsNothing);
-      expect(backward, findsOneWidget);
-      final lastTab = tester.getRect(
-        find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          kind: PointerDeviceKind.trackpad,
+          position: scrollRect.center,
+          scrollDelta: const Offset(-120, 0),
+        ),
       );
-      expect(lastTab.right, lessThanOrEqualTo(tester.getRect(scroll).right));
-      await tester.tap(backward);
       await tester.pumpAndSettle();
-      expect(position.pixels, lessThan(position.maxScrollExtent));
+      expect(position.pixels, 0);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('scroll controls are absent when tabs fit', (tester) async {
+    for (final direction in TextDirection.values) {
+      testWidgets('keyboard scrolling reaches both ends of the tab strip in '
+          '$direction', (tester) async {
+        final items = [
+          for (var index = 0; index < 12; index++)
+            ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+        ];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items.first.id,
+          width: 320,
+          textDirection: direction,
+        );
+        final scroll = find.byKey(const ValueKey('forum-tabs-scroll'));
+        final position = tester
+            .state<ScrollableState>(
+              find.descendant(of: scroll, matching: find.byType(Scrollable)),
+            )
+            .position;
+        tester
+            .widget<FocusableActionDetector>(
+              find
+                  .descendant(
+                    of: scroll,
+                    matching: find.byType(FocusableActionDetector),
+                  )
+                  .first,
+            )
+            .focusNode!
+            .requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(
+          direction == TextDirection.ltr
+              ? LogicalKeyboardKey.arrowRight
+              : LogicalKeyboardKey.arrowLeft,
+        );
+        await tester.pumpAndSettle();
+        expect(position.pixels, 40);
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        await tester.pumpAndSettle();
+        expect(position.pixels, position.maxScrollExtent);
+        await tester.sendKeyEvent(LogicalKeyboardKey.home);
+        await tester.pumpAndSettle();
+        expect(position.pixels, 0);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('fades and scroll controls are absent when tabs fit', (
+      tester,
+    ) async {
       await _pumpBar(
         tester,
         items: const [first, second],
@@ -1886,6 +1925,7 @@ void main() {
         width: 800,
       );
       expect(find.byKey(const ValueKey('forum-tabs-scroll')), findsNothing);
+      expect(find.byType(DScrollFadeScope), findsNothing);
       expect(
         find.byKey(const ValueKey('forum-tabs-scroll-forward')),
         findsNothing,
@@ -1896,47 +1936,49 @@ void main() {
       );
     });
 
-    testWidgets('selected final tab is fully visible without a forward arrow', (
-      tester,
-    ) async {
-      final items = [
-        for (var index = 0; index < 12; index++)
-          ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
-      ];
-      for (final width in [220.0, 320.0]) {
-        await tester.pumpWidget(const SizedBox.shrink());
-        await _pumpBar(
-          tester,
-          items: items,
-          selectedId: items.last.id,
-          width: width,
-        );
-        final forward = find.byKey(const ValueKey('forum-tabs-scroll-forward'));
-        for (
-          var attempt = 0;
-          attempt < 5 && forward.evaluate().isNotEmpty;
-          attempt++
-        ) {
-          await tester.tap(forward);
-          await tester.pumpAndSettle();
+    for (final direction in TextDirection.values) {
+      testWidgets('selected tabs remain visible in the fading strip in '
+          '$direction', (tester) async {
+        final items = [
+          for (var index = 0; index < 12; index++)
+            ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+        ];
+        for (final width in [220.0, 320.0, 500.0]) {
+          for (final selected in [items.first, items[5], items.last]) {
+            await tester.pumpWidget(const SizedBox.shrink());
+            await _pumpBar(
+              tester,
+              items: items,
+              selectedId: selected.id,
+              width: width,
+              textDirection: direction,
+            );
+            final scroll = tester.getRect(
+              find.byKey(const ValueKey('forum-tabs-scroll')),
+            );
+            final tab = tester.getRect(
+              find.byKey(ValueKey('forum-tab-item-${selected.id}')),
+            );
+            expect(tab.left, greaterThanOrEqualTo(scroll.left - .01));
+            expect(tab.right, lessThanOrEqualTo(scroll.right + .01));
+            if (selected == items[5] && width >= 320) {
+              expect(tab.left - scroll.left, greaterThanOrEqualTo(30));
+              expect(scroll.right - tab.right, greaterThanOrEqualTo(30));
+            }
+            expect(
+              find
+                  .byKey(ValueKey('forum-tab-close-${selected.id}'))
+                  .hitTestable(),
+              findsOneWidget,
+            );
+            expect(tester.takeException(), isNull);
+          }
         }
-        final scroll = tester.getRect(
-          find.byKey(const ValueKey('forum-tabs-scroll')),
-        );
-        final lastTab = tester.getRect(
-          find.byKey(ValueKey('forum-tab-item-${items.last.id}')),
-        );
-        expect(lastTab.right, lessThanOrEqualTo(scroll.right));
-        if (width == 220) {
-          expect(scroll.right - lastTab.right, greaterThan(20));
-        }
-        expect(forward, findsNothing);
-        expect(tester.takeException(), isNull);
-      }
-    });
+      });
+    }
 
     for (final scale in [2.0, 3.0]) {
-      testWidgets('scroll controls remain usable at ${scale}x text', (
+      testWidgets('fading tabs scroll and retain actions at ${scale}x text', (
         tester,
       ) async {
         final items = [
@@ -1950,47 +1992,28 @@ void main() {
           width: 320,
           textScaler: TextScaler.linear(scale),
         );
-        final forward = find.byKey(const ValueKey('forum-tabs-scroll-forward'));
-        final add = find.byKey(const ValueKey('forum-tabs-add'));
-        expect(forward.hitTestable(), findsOneWidget);
-        expect(add.hitTestable(), findsOneWidget);
-        await tester.tap(forward);
-        await tester.pumpAndSettle();
+        final scroll = find.byKey(const ValueKey('forum-tabs-scroll'));
+        final position = tester
+            .state<ScrollableState>(
+              find.descendant(of: scroll, matching: find.byType(Scrollable)),
+            )
+            .position;
         expect(
-          find.byKey(const ValueKey('forum-tabs-scroll-backward')),
+          find.byKey(const ValueKey('forum-tabs-add')).hitTestable(),
           findsOneWidget,
         );
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            kind: PointerDeviceKind.mouse,
+            position: tester.getRect(scroll).center,
+            scrollDelta: const Offset(120, 0),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(position.pixels, greaterThan(0));
         expect(tester.takeException(), isNull);
       });
     }
-
-    testWidgets('RTL scroll buttons point toward available tabs', (
-      tester,
-    ) async {
-      final items = [
-        for (var index = 0; index < 8; index++)
-          ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
-      ];
-      await _pumpBar(
-        tester,
-        items: items,
-        selectedId: items.first.id,
-        width: 320,
-        textDirection: TextDirection.rtl,
-      );
-      final forward = find.byKey(const ValueKey('forum-tabs-scroll-forward'));
-      final icon = find.descendant(of: forward, matching: find.byType(DIcon));
-      expect(tester.widget<DIcon>(icon).icon, DIcons.chevronLeft);
-      await tester.tap(forward);
-      await tester.pumpAndSettle();
-      final backward = find.byKey(const ValueKey('forum-tabs-scroll-backward'));
-      final backwardIcon = find.descendant(
-        of: backward,
-        matching: find.byType(DIcon),
-      );
-      expect(tester.widget<DIcon>(backwardIcon).icon, DIcons.chevronRight);
-      expect(tester.takeException(), isNull);
-    });
 
     testWidgets(
       'crowded tabs keep the selected close action inside its surface',

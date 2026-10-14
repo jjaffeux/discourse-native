@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 /// Native scrolling with transparent fades wherever a vertical list continues.
+/// Horizontal fades are opt-in through [DScrollFadeScope.horizontalExtent].
 /// The delegate retains its platform physics, gestures, and scrollbar policy.
 class DScrollBehavior extends ScrollBehavior {
   const DScrollBehavior({this.delegate = const MaterialScrollBehavior()});
@@ -54,8 +55,7 @@ class DScrollBehavior extends ScrollBehavior {
       child,
       details,
     );
-    if (axisDirectionToAxis(details.direction) != Axis.vertical ||
-        decorated is _ScrollEdgeFade) {
+    if (decorated is _ScrollEdgeFade) {
       return decorated;
     }
     final scope = DScrollFadeScope._of(context);
@@ -67,12 +67,17 @@ class DScrollBehavior extends ScrollBehavior {
             !identical(DScrollFadeScope._of(parent.context), scope)
         ? scope
         : null;
+    final axis = axisDirectionToAxis(details.direction);
+    final horizontal = axis == Axis.horizontal;
+    final horizontalExtent = local?.horizontalExtent ?? 0;
+    if (horizontal && horizontalExtent == 0) return decorated;
     return _ScrollEdgeFade(
       controller: details.controller,
-      topExtent: local?.topExtent ?? 14,
-      bottomExtent: local?.bottomExtent ?? 20,
-      topInset: local?.topInset,
-      repaint: local?.repaint,
+      axis: axis,
+      topExtent: horizontal ? horizontalExtent : local?.topExtent ?? 14,
+      bottomExtent: horizontal ? horizontalExtent : local?.bottomExtent ?? 20,
+      topInset: horizontal ? null : local?.topInset,
+      repaint: horizontal ? null : local?.repaint,
       child: decorated,
     );
   }
@@ -83,7 +88,7 @@ class DScrollBehavior extends ScrollBehavior {
       delegate.shouldNotify(oldDelegate.delegate);
 }
 
-/// Edge geometry for the first vertical viewport in this subtree.
+/// Edge geometry for the first viewport in this subtree.
 /// Nested lists retain their own default fades. Insets are read during paint,
 /// so a floating header can move without rebuilding the list on scroll.
 class DScrollFadeScope extends InheritedWidget {
@@ -91,14 +96,19 @@ class DScrollFadeScope extends InheritedWidget {
     super.key,
     this.topExtent = 14,
     this.bottomExtent = 20,
+    this.horizontalExtent = 0,
     this.topInset,
     this.repaint,
     required super.child,
   }) : assert(topExtent >= 0 && topExtent < double.infinity),
-       assert(bottomExtent >= 0 && bottomExtent < double.infinity);
+       assert(bottomExtent >= 0 && bottomExtent < double.infinity),
+       assert(horizontalExtent >= 0 && horizontalExtent < double.infinity);
 
   final double topExtent;
   final double bottomExtent;
+
+  /// Fade width at continuing horizontal edges. Zero leaves them unfaded.
+  final double horizontalExtent;
   final ValueGetter<double>? topInset;
 
   /// Repaints changing insets without replacing the scroll position.
@@ -111,6 +121,7 @@ class DScrollFadeScope extends InheritedWidget {
   bool updateShouldNotify(DScrollFadeScope oldWidget) =>
       topExtent != oldWidget.topExtent ||
       bottomExtent != oldWidget.bottomExtent ||
+      horizontalExtent != oldWidget.horizontalExtent ||
       topInset != oldWidget.topInset ||
       repaint != oldWidget.repaint;
 }
@@ -118,6 +129,7 @@ class DScrollFadeScope extends InheritedWidget {
 class _ScrollEdgeFade extends StatefulWidget {
   const _ScrollEdgeFade({
     required this.controller,
+    required this.axis,
     required this.topExtent,
     required this.bottomExtent,
     required this.topInset,
@@ -126,6 +138,7 @@ class _ScrollEdgeFade extends StatefulWidget {
   });
 
   final ScrollController? controller;
+  final Axis axis;
   final double topExtent;
   final double bottomExtent;
   final ValueGetter<double>? topInset;
@@ -151,6 +164,7 @@ class _ScrollEdgeFadeState extends State<_ScrollEdgeFade> {
         child: _ScrollFadeMask(
           key: _maskKey,
           controller: widget.controller,
+          axis: widget.axis,
           topExtent: widget.topExtent,
           bottomExtent: widget.bottomExtent,
           topInset: widget.topInset,
@@ -164,6 +178,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
   const _ScrollFadeMask({
     super.key,
     required this.controller,
+    required this.axis,
     required this.topExtent,
     required this.bottomExtent,
     required this.topInset,
@@ -172,6 +187,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
   });
 
   final ScrollController? controller;
+  final Axis axis;
   final double topExtent;
   final double bottomExtent;
   final ValueGetter<double>? topInset;
@@ -181,6 +197,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
   RenderObject createRenderObject(BuildContext context) =>
       _RenderScrollFadeMask(
         controller,
+        axis,
         topExtent,
         bottomExtent,
         topInset,
@@ -192,13 +209,21 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
     BuildContext context,
     covariant _RenderScrollFadeMask renderObject,
   ) {
-    renderObject.update(controller, topExtent, bottomExtent, topInset, repaint);
+    renderObject.update(
+      controller,
+      axis,
+      topExtent,
+      bottomExtent,
+      topInset,
+      repaint,
+    );
   }
 }
 
 class _RenderScrollFadeMask extends RenderProxyBox {
   _RenderScrollFadeMask(
     this._controller,
+    this._axis,
     this._topExtent,
     this._bottomExtent,
     this._topInset,
@@ -206,6 +231,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
   );
 
   ScrollController? _controller;
+  Axis _axis;
   double _topExtent;
   double _bottomExtent;
   ValueGetter<double>? _topInset;
@@ -213,6 +239,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
 
   void update(
     ScrollController? controller,
+    Axis axis,
     double topExtent,
     double bottomExtent,
     ValueGetter<double>? topInset,
@@ -229,6 +256,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
       if (attached) _repaint?.addListener(markNeedsPaint);
     }
     _topExtent = topExtent;
+    _axis = axis;
     _bottomExtent = bottomExtent;
     _topInset = topInset;
     markNeedsPaint();
@@ -258,15 +286,19 @@ class _RenderScrollFadeMask extends RenderProxyBox {
   void paint(PaintingContext context, Offset offset) {
     final positions = _controller?.positions;
     final position = positions?.length == 1 ? positions!.single : null;
+    final horizontal = _axis == Axis.horizontal;
+    final extent = horizontal ? size.width : size.height;
     if (child == null ||
-        size.height == 0 ||
+        extent == 0 ||
         position == null ||
         !position.hasContentDimensions) {
       layer = null;
       super.paint(context, offset);
       return;
     }
-    final reversed = position.axisDirection == AxisDirection.up;
+    final reversed =
+        position.axisDirection == AxisDirection.up ||
+        position.axisDirection == AxisDirection.left;
     // Match the mockup's 2px tolerance, including elastic overscroll.
     final before = position.pixels - position.minScrollExtent > 2;
     final after = position.maxScrollExtent - position.pixels > 2;
@@ -277,15 +309,15 @@ class _RenderScrollFadeMask extends RenderProxyBox {
       super.paint(context, offset);
       return;
     }
-    final inset = (_topInset?.call() ?? 0).clamp(0.0, size.height);
-    final room = size.height - inset;
+    final inset = (_topInset?.call() ?? 0).clamp(0.0, extent);
+    final room = extent - inset;
     final topFade = top ? math.min(_topExtent, room / 2) : 0.0;
     final bottomFade = bottom ? math.min(_bottomExtent, room / 2) : 0.0;
     layer ??= ShaderMaskLayer();
     layer!
       ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+        begin: horizontal ? Alignment.centerLeft : Alignment.topCenter,
+        end: horizontal ? Alignment.centerRight : Alignment.bottomCenter,
         colors: [
           if (top) ...[Colors.transparent, Colors.transparent],
           Colors.white,
@@ -293,9 +325,9 @@ class _RenderScrollFadeMask extends RenderProxyBox {
           if (bottom) Colors.transparent,
         ],
         stops: [
-          if (top) ...[0, inset / size.height],
-          top ? (inset + topFade) / size.height : 0,
-          bottom ? (size.height - bottomFade) / size.height : 1,
+          if (top) ...[0, inset / extent],
+          top ? (inset + topFade) / extent : 0,
+          bottom ? (extent - bottomFade) / extent : 1,
           if (bottom) 1,
         ],
       ).createShader(Offset.zero & size)
