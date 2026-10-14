@@ -101,9 +101,14 @@ final class _CollapsedComponentSourceNormalizer {
                   double.infinity,
                 ),
               ),
-              child: padding == EdgeInsets.zero
-                  ? span.child
-                  : Padding(padding: padding, child: span.child),
+              // RenderEditable repaints its inline children while scrolling.
+              // Cache the whole component, including selection surfaces and
+              // toolbars outside an embedded editor's own painting layers.
+              child: RepaintBoundary(
+                child: padding == EdgeInsets.zero
+                    ? span.child
+                    : Padding(padding: padding, child: span.child),
+              ),
             );
           },
         ),

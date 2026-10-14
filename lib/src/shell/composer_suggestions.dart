@@ -121,7 +121,7 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
     if (_popup.isOpen && widget.composer.isEditing) {
       final opening = !_portal.isShowing;
       _anchor.value = _anchorRect();
-      _portal.show();
+      if (opening) _portal.show();
       if (opening && _popup.trigger?.kind == ComposerTriggerKind.mention) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted &&
@@ -132,7 +132,9 @@ class _ComposerSuggestionFieldState extends State<ComposerSuggestionField> {
         });
       }
     } else {
-      _portal.hide();
+      // Scrolls also synchronize the anchor. Hiding an already closed portal
+      // rebuilds and lays out nested editor content unnecessarily.
+      if (_portal.isShowing) _portal.hide();
       if (_searchFocus.hasFocus && widget.composer.isEditing) {
         widget.composer.focus.requestFocus();
       }
