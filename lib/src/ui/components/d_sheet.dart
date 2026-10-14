@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/d_overlay_route.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
@@ -629,22 +630,24 @@ class _DSheetMotion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (MediaQuery.disableAnimationsOf(context)) return child;
-    return FadeTransition(
-      opacity: curve,
-      child: AnimatedBuilder(
-        animation: curve,
-        child: scale
-            ? ScaleTransition(
-                scale: Tween<double>(begin: .97, end: 1).animate(curve),
-                child: child,
-              )
-            : child,
-        builder: (context, child) => Transform.translate(
-          offset: Offset.lerp(beginOffset, Offset.zero, curve.value)!,
-          child: child,
-        ),
+    final motion = AnimatedBuilder(
+      animation: curve,
+      child: scale
+          ? ScaleTransition(
+              scale: Tween<double>(begin: .97, end: 1).animate(curve),
+              child: child,
+            )
+          : child,
+      builder: (context, child) => Transform.translate(
+        offset: Offset.lerp(beginOffset, Offset.zero, curve.value)!,
+        child: child,
       ),
     );
+    // A fractional opacity layer isolates a live glass lens from its backdrop.
+    // Keep the sheet's movement while sampling the painted page throughout it.
+    return DMaterialTheme.glassOf(context)
+        ? motion
+        : FadeTransition(opacity: curve, child: motion);
   }
 }
 

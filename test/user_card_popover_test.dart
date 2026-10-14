@@ -20,8 +20,10 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fake_image_http_client.dart';
@@ -38,6 +40,102 @@ const _profile = UserCard(
 final _surface = find.byKey(const ValueKey('user-card-surface'));
 final _target = find.byType(UserCardTarget);
 
+/// Also run on the native renderer, where the glass lens samples the backdrop.
+void userCardBackdropTests({bool slowAnimations = false}) {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final material in DAppearanceMaterial.values) {
+      for (final dark in [false, true]) {
+        testWidgets(
+          'cached ${platform.name} card preserves its material while opening and closing ($material, dark: $dark)',
+          (tester) async {
+            final previousTimeDilation = timeDilation;
+            if (slowAnimations) timeDilation = 5;
+            try {
+              if (ui.ImageFilter.isShaderFilterSupported) {
+                await tester.runAsync(LiquidGlassShaders.ensureLoaded);
+              }
+              final api = await _pumpTarget(
+                tester,
+                platform: platform,
+                size: const Size(390, 844),
+                material: material,
+                dark: dark,
+              );
+              ShellScope.read(
+                tester.element(_target),
+              ).store.put(_siteUrl, _profile);
+
+              void checkMaterial() {
+                expect(_surface, findsOneWidget);
+                expect(find.text('Sam Example'), findsOneWidget);
+                expect(find.byType(DSkeletonRegion), findsNothing);
+                expect(api.requests, isEmpty);
+                final fades = find.ancestor(
+                  of: _surface,
+                  matching: find.byType(FadeTransition),
+                );
+                if (material == DAppearanceMaterial.liquidGlass) {
+                  expect(fades, findsNothing);
+                  if (ui.ImageFilter.isShaderFilterSupported) {
+                    // Warm shaders must paint the lens on the very first frame.
+                    expect(find.byType(LiquidGlassLens), findsWidgets);
+                    expect(find.byType(LiquidGlassLite), findsNothing);
+                  }
+                } else {
+                  expect(fades, findsOneWidget);
+                  expect(
+                    tester.widget<FadeTransition>(fades).opacity.value,
+                    inExclusiveRange(0, 1),
+                  );
+                }
+                expect(tester.takeException(), isNull);
+              }
+
+              await tester.tap(_target);
+              await tester.pump();
+              if (material == DAppearanceMaterial.liquidGlass &&
+                  ui.ImageFilter.isShaderFilterSupported) {
+                expect(_surface, findsOneWidget);
+                expect(find.byType(LiquidGlassLens), findsWidgets);
+                expect(find.byType(LiquidGlassLite), findsNothing);
+              }
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 16));
+              checkMaterial();
+              final entering = tester.getRect(_surface);
+              await tester.pump(const Duration(milliseconds: 16));
+              checkMaterial();
+              expect(tester.getRect(_surface).top, lessThan(entering.top));
+              await _captureCard(
+                tester,
+                'transition-${platform.name}-${material.name}-$dark-enter',
+              );
+              await tester.pumpAndSettle();
+              final resting = tester.getRect(_surface);
+              expect(resting.top, lessThan(entering.top));
+
+              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 16));
+              checkMaterial();
+              expect(tester.getRect(_surface).top, greaterThan(resting.top));
+              await _captureCard(
+                tester,
+                'transition-${platform.name}-${material.name}-$dark-exit',
+              );
+              await tester.pumpAndSettle();
+              expect(_surface, findsNothing);
+              expect(tester.takeException(), isNull);
+            } finally {
+              timeDilation = previousTimeDilation;
+            }
+          },
+        );
+      }
+    }
+  }
+}
+
 void main() {
   setUpAll(() async {
     await (FontLoader('Lato')
@@ -45,6 +143,7 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
   });
+  userCardBackdropTests();
   testWidgets(
     'mobile card actions, banner, facts and badges match in both materials',
     (tester) async {
@@ -790,7 +889,11 @@ class _CardApi extends FakeDiscourseApi {
 }
 
 Future<void> _captureCard(WidgetTester tester, String name) async {
-  final path = Platform.environment['USER_CARD_CAPTURE_DIR'];
+  final path =
+      Platform.environment['USER_CARD_CAPTURE_DIR'] ??
+      (const bool.fromEnvironment('USER_CARD_CAPTURE')
+          ? '${Directory.systemTemp.path}/user-card-captures'
+          : null);
   if (path == null) return;
   await tester.runAsync(() async {
     final image = await tester
@@ -802,6 +905,9 @@ Future<void> _captureCard(WidgetTester tester, String name) async {
     final file = File('$path/$name.png');
     await file.parent.create(recursive: true);
     await file.writeAsBytes(bytes!.buffer.asUint8List());
+    if (const bool.fromEnvironment('USER_CARD_CAPTURE')) {
+      debugPrint('USER_CARD_CAPTURE ${file.path}');
+    }
     image.dispose();
   });
 }

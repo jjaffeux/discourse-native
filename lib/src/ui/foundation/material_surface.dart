@@ -471,7 +471,7 @@ class _GlassPaint extends StatefulWidget {
 
 class _GlassPaintState extends State<_GlassPaint> {
   static Future<bool>? _programs;
-  bool ready = false;
+  bool ready = LiquidGlassShaders.isLoaded;
   static Future<bool> _load() async {
     try {
       await LiquidGlassShaders.ensureLoaded();
@@ -485,6 +485,7 @@ class _GlassPaintState extends State<_GlassPaint> {
   @override
   void initState() {
     super.initState();
+    if (ready) return;
     unawaited(
       (_programs ??= _load()).then((value) {
         if (mounted && value) setState(() => ready = true);

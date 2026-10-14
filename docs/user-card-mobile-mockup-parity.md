@@ -13,6 +13,8 @@ small swipes restore the surface. Desktop popovers and hover previews keep their
 The Sheet owns the optional 132px banner and 45%/84%/opaque gradient wash.
 With a banner, the white 36 by 5px grab handle overlays its top with a dark edge
 and shadow. Loading-to-ready changes reuse the card request and account owner.
+Glass sheets animate their position without fading the live backdrop lens;
+loaded shaders paint the glass material from the first frame.
 The mobile identity uses the 64px Native avatar, 18px name, 13px handle/title,
 and banner text halo. Existing status, staff and suspension meaning stays visible.
 
