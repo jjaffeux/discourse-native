@@ -260,7 +260,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
     _search.activateField(_field);
     _openSearch();
-    _focus.requestFocus();
+    _requestEditorFocus();
   }
 
   void _requestShortcutFocus(SearchFocusMode mode) {
@@ -268,6 +268,17 @@ class _ForumSearchState extends State<ForumSearch> {
 
     _search.activateField(_field);
     _openSearch(mode: mode);
+    _requestEditorFocus();
+  }
+
+  void _requestEditorFocus() {
+    if (widget.fullScreen &&
+        (_page == null ||
+            !_page!.isCurrent ||
+            _page!.offstage ||
+            _page!.animation?.status != AnimationStatus.completed)) {
+      return;
+    }
     _focus.requestFocus();
   }
 
@@ -402,7 +413,7 @@ class _ForumSearchState extends State<ForumSearch> {
       }
       if (_text.text == editingValue.text) _text.value = editingValue;
       if (open) {
-        _focus.requestFocus();
+        _requestEditorFocus();
       } else {
         _focus.unfocus();
       }
@@ -967,67 +978,73 @@ class _ForumSearchState extends State<ForumSearch> {
   );
 
   void _openPage() {
+    final content = ListenableBuilder(
+      listenable: Listenable.merge([_global, _pageRevision]),
+      builder: (context, _) => Column(
+        key: ForumSearch.panelKey,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(DSpacing.sm),
+            child: Row(
+              children: [
+                DButton.iconOnly(
+                  key: const ValueKey('mobile-search-back'),
+                  icon: const DIcon(DIcons.arrowLeft),
+                  tooltip: appL10n.back,
+                  variant: DButtonVariant.ghost,
+                  onPressed: _closeSearch,
+                ),
+                Expanded(
+                  child: _editor(
+                    MediaQuery.sizeOf(context).width - 64,
+                    expanded: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const DSeparator(),
+          Expanded(
+            child: GlobalSearchPanel(
+              key: _panelKey,
+              showConditions: false,
+              showClearFilters:
+                  _listExpression.isNotEmpty &&
+                  _global.wordsQuery.isEmpty &&
+                  _global.conditions.isEmpty,
+              controller: _global,
+              onApply: _apply,
+              onOpenSection: _openSection,
+              onRefocus: _focus.requestFocus,
+              selectedResultId: _selectedResultId,
+              onSelect: (id) {
+                _selectedResultId = id;
+                _pageRevision.value++;
+              },
+              onOpen: _openResult,
+            ),
+          ),
+        ],
+      ),
+    );
     final page = MaterialPageRoute<void>(
       settings: const RouteSettings(name: '/search'),
-      builder: (pageContext) => InheritedTheme.captureAll(
+      builder: (_) => InheritedTheme.captureAll(
         context,
         ShellScope(
           controller: _shell!,
-          child: ListenableBuilder(
-            listenable: Listenable.merge([_global, _pageRevision]),
-            // A page canvas supplies the Material ancestor required by DInputGroup.
-            builder: (context, _) => Material(
+          // Keep the search subtree stable as the keyboard animates its insets.
+          // Its LayoutBuilder still responds to the changing available height.
+          child: Builder(
+            builder: (context) => Material(
               color: DTokens.of(context).background,
               child: SafeArea(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.viewInsetsOf(context).bottom,
-                  ),
-                  child: Column(
-                    key: ForumSearch.panelKey,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(DSpacing.sm),
-                        child: Row(
-                          children: [
-                            DButton.iconOnly(
-                              key: const ValueKey('mobile-search-back'),
-                              icon: const DIcon(DIcons.arrowLeft),
-                              tooltip: appL10n.back,
-                              variant: DButtonVariant.ghost,
-                              onPressed: _closeSearch,
-                            ),
-                            Expanded(
-                              child: _editor(
-                                MediaQuery.sizeOf(context).width - 64,
-                                expanded: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const DSeparator(),
-                      Expanded(
-                        child: GlobalSearchPanel(
-                          key: _panelKey,
-                          showConditions: false,
-                          showClearFilters:
-                              _listExpression.isNotEmpty &&
-                              _global.wordsQuery.isEmpty &&
-                              _global.conditions.isEmpty,
-                          controller: _global,
-                          onApply: _apply,
-                          onOpenSection: _openSection,
-                          onRefocus: _focus.requestFocus,
-                          selectedResultId: _selectedResultId,
-                          onSelect: (id) {
-                            _selectedResultId = id;
-                            _pageRevision.value++;
-                          },
-                          onOpen: _openResult,
-                        ),
-                      ),
-                    ],
+                child: Builder(
+                  builder: (context) => Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.viewInsetsOf(context).bottom,
+                    ),
+                    child: content,
                   ),
                 ),
               ),
@@ -1038,8 +1055,22 @@ class _ForumSearchState extends State<ForumSearch> {
     );
     _page = page;
     _openChanged(true, DPopoverChangeReason.imperative);
+    final popped = Navigator.of(context).push(page);
+    final animation = page.animation!;
+    void focusAfterTransition(AnimationStatus status) {
+      if (status != AnimationStatus.completed || page.offstage) return;
+      animation.removeStatusListener(focusAfterTransition);
+      if (!mounted || _page != page || !_search.ownsPanel(_field)) return;
+      // Keep keyboard resizing and editor focus work out of the page slide.
+      _requestEditorFocus();
+    }
+
+    animation.addStatusListener(focusAfterTransition);
+    // A zero-duration transition may already have completed during push.
+    focusAfterTransition(animation.status);
     unawaited(
-      Navigator.of(context).push(page).then((_) {
+      popped.then((_) {
+        animation.removeStatusListener(focusAfterTransition);
         if (!mounted || _page != page) return;
         _page = null;
         _openChanged(false, DPopoverChangeReason.imperative);

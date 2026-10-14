@@ -4,6 +4,7 @@ import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
+import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -16,7 +17,82 @@ import 'support/fakes.dart';
 import 'support/global_search_fixtures.dart';
 import 'support/shell_test_harness.dart';
 
-void main() {
+bool _useDeviceMetrics = false;
+
+void main({bool useDeviceMetrics = false}) {
+  _useDeviceMetrics = useDeviceMetrics;
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    _testPresentation(
+      'mobile $platform keyboard insets spare search rebuilding',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        await _pumpSearch(tester, size: phone);
+        await _openAndSearch(tester, 'design');
+        var panelBuilds = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previous?.call(element, builtOnce);
+          if (element.widget is GlobalSearchPanel) panelBuilds++;
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+        for (final bottom in [100.0, 200.0, 300.0]) {
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: bottom * tester.view.devicePixelRatio,
+          );
+          await tester.pump();
+        }
+        await tester.pumpAndSettle();
+        expect(panelBuilds, 0);
+        expect(
+          tester.getRect(find.byKey(ForumSearch.panelKey)).bottom,
+          lessThanOrEqualTo(phone.height - 300),
+        );
+        expect(_editor(tester).focusNode.hasFocus, isTrue);
+        await tester.enterText(find.byKey(ForumSearch.inputKey), 'keyboard');
+        await _finishSearch(tester);
+        expect(_editor(tester).controller.text, 'keyboard');
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    _testPresentation('mobile $platform focuses after the page transition', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = platform;
+      await _pumpSearch(tester, size: phone);
+      await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+      await tester.pump();
+      await tester.pump();
+      final route = ModalRoute.of(
+        tester.element(find.byKey(ForumSearch.inputKey)),
+      )!;
+      expect(route.animation!.status, AnimationStatus.forward);
+      expect(_editor(tester).focusNode.hasFocus, isFalse);
+      await tester.pumpAndSettle();
+      expect(route.animation!.status, AnimationStatus.completed);
+      expect(_editor(tester).focusNode.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
+    _testPresentation('mobile $platform can dismiss search while opening', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = platform;
+      final shell = await _pumpSearch(tester, size: phone);
+      await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+      await tester.pump();
+      await tester.pump();
+      Navigator.of(tester.element(find.byKey(ForumSearch.inputKey))).pop();
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      expect(shell.search.panelOpen, isFalse);
+      await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+      await tester.pumpAndSettle();
+      expect(_editor(tester).focusNode.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   _testPresentation('mobile result selection closes the search page', (
     tester,
   ) async {
@@ -1073,6 +1149,15 @@ Future<ShellController> _pumpSearch(
         globalSearchFixtureOtherSite: 'local-fixture',
       }),
   );
+  if (_useDeviceMetrics) {
+    // Native keyboard insets arrive in device pixels. Keep the real pixel ratio
+    // and constrain the logical test surface instead of faking device pixels.
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+    await tester.binding.setSurfaceSize(size);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpAndSettle();
+  }
   return ShellScope.read(tester.element(find.byType(ForumSearch)));
 }
 

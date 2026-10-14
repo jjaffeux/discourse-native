@@ -112,17 +112,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           ? (down ? 0 : _actions.length - 1)
           : (current + (down ? 1 : -1) + _actions.length) % _actions.length;
       setState(() => _selected = _actions[next].id);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final target = _resultKeys[_selected]?.currentContext;
-        if (target != null) {
-          unawaited(
-            _scroll.position.ensureVisible(
-              target.findRenderObject()!,
-              alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-            ),
-          );
-        }
-      });
+      _revealSelection(
+        _actions[next].id,
+        _navigationSignature,
+        forward: current < 0 ? !down : next > current,
+      );
       return true;
     }
     if (key == LogicalKeyboardKey.enter ||
@@ -144,6 +138,52 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       return true;
     }
     return false;
+  }
+
+  void _revealSelection(String id, Object? signature, {required bool forward}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _selected != id ||
+          _navigationSignature != signature ||
+          !_scroll.hasClients) {
+        return;
+      }
+      final target = _resultKeys[id]?.currentContext;
+      if (target != null) {
+        unawaited(
+          _scroll.position.ensureVisible(
+            target.findRenderObject()!,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          ),
+        );
+        unawaited(
+          _scroll.position.ensureVisible(
+            target.findRenderObject()!,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+          ),
+        );
+        return;
+      }
+      // Keyboard actions include rows that the lazy viewport has not mounted.
+      // Advance a viewport at a time until the target can be made visible,
+      // without assuming fixed heights (large text can wrap any row).
+      final index = _actions.indexWhere((action) => action.id == id);
+      final firstMounted = _actions.indexWhere(
+        (action) => _resultKeys[action.id]?.currentContext != null,
+      );
+      if (index < 0) return;
+      final position = _scroll.position;
+      final direction = firstMounted < 0
+          ? (forward ? 1 : -1)
+          : (index < firstMounted ? -1 : 1);
+      final offset = (position.pixels + direction * position.viewportDimension)
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      if (offset == position.pixels) return;
+      position.jumpTo(offset);
+      _revealSelection(id, signature, forward: forward);
+      WidgetsBinding.instance.ensureVisualUpdate();
+    });
   }
 
   void resetSelection() {
@@ -186,7 +226,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     widget.onRefocus?.call();
   }
 
-  Widget _filterRows(BuildContext context) {
+  List<Widget> _filterRows(BuildContext context) {
     final controller = widget.controller;
     final tail = controller.query.endsWith(' ')
         ? ''
@@ -209,57 +249,56 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-          child: Text(
-            context.l10n.addFilter,
-            style: TextStyle(color: DTokens.of(context).mutedForeground),
-          ),
+    // Keep each filter as a sliver child: a Column mounts and lays out the
+    // entire catalogue even when only its first few rows are visible.
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        child: Text(
+          context.l10n.addFilter,
+          style: TextStyle(color: DTokens.of(context).mutedForeground),
         ),
-        for (final group in groups.entries) ...[
-          if (group.key.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-              child: Text(
-                group.key,
-                style: TextStyle(color: DTokens.of(context).mutedForeground),
-              ),
+      ),
+      for (final group in groups.entries) ...[
+        if (group.key.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: Text(
+              group.key,
+              style: TextStyle(color: DTokens.of(context).mutedForeground),
             ),
-          for (final filter in group.value)
-            _action(
-              'filter:${filter.id}',
-              () => _stage(filter),
-              DItem(
-                key: ValueKey('global-search-offered-${filter.id}'),
-                size: DItemSize.sm,
-                selected:
-                    _selected == 'filter:${filter.id}' ||
-                    (_selected == null && _actions.isEmpty),
-                showSelectionIndicator: false,
-                onPressed: () => _stage(filter),
-                children: [
-                  DItemMedia(
-                    child: DIcon(_filterIcon(context, filter.icon), size: 16),
-                  ),
-                  DItemContent(
-                    children: [
-                      DItemTitle(
-                        child: Text(
-                          filter.label,
-                          style: TextStyle(color: DTokens.of(context).primary),
-                        ),
+          ),
+        for (final filter in group.value)
+          _action(
+            'filter:${filter.id}',
+            () => _stage(filter),
+            DItem(
+              key: ValueKey('global-search-offered-${filter.id}'),
+              size: DItemSize.sm,
+              selected:
+                  _selected == 'filter:${filter.id}' ||
+                  (_selected == null && _actions.isEmpty),
+              showSelectionIndicator: false,
+              onPressed: () => _stage(filter),
+              children: [
+                DItemMedia(
+                  child: DIcon(_filterIcon(context, filter.icon), size: 16),
+                ),
+                DItemContent(
+                  children: [
+                    DItemTitle(
+                      child: Text(
+                        filter.label,
+                        style: TextStyle(color: DTokens.of(context).primary),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-        ],
+          ),
       ],
-    );
+    ];
   }
 
   void _loadStage(GlobalSearchFilter filter) {
@@ -802,7 +841,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
     }
     final children = <Widget>[
-      if (controller.hintedFilters.isNotEmpty) _filterRows(context),
+      if (controller.hintedFilters.isNotEmpty) ..._filterRows(context),
       for (final section in controller.sections.where(
         (section) =>
             controller.scope != GlobalSearchScope.all ||
@@ -863,7 +902,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         ),
       if (controller.wordsQuery.trim().isEmpty &&
           controller.hintedFilters.isEmpty)
-        _filterRows(context),
+        ..._filterRows(context),
     ];
     final ids = {for (final result in results) result.id};
     _resultKeys.removeWhere(
@@ -1049,7 +1088,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 ),
               ),
             ),
-          _filterRows(context),
+          ..._filterRows(context),
         ],
       ),
     );

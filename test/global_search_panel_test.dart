@@ -26,6 +26,57 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  for (final height in [300.0, 650.0]) {
+    for (final textScale in [1.0, 2.0]) {
+      testWidgets(
+        'opening search mounts nearby rows at $height with $textScale text',
+        (tester) async {
+          final controller = await _pump(
+            tester,
+            width: 390,
+            height: height,
+            textScale: textScale,
+            viewport: const Size(390, 844),
+            platform: TargetPlatform.iOS,
+          );
+          final offered = find.byWidgetPredicate(
+            (widget) =>
+                widget is DItem &&
+                widget.key is ValueKey<String> &&
+                (widget.key! as ValueKey<String>).value.startsWith(
+                  'global-search-offered-',
+                ),
+          );
+          final mounted = offered.evaluate().length;
+          debugPrint(
+            'Search opening: $mounted/${controller.availableFilters.length} filter rows mounted',
+          );
+          expect(find.byType(ListView), findsOneWidget);
+          expect(mounted, lessThan(controller.availableFilters.length));
+
+          final state = tester.state<GlobalSearchPanelState>(
+            find.byType(GlobalSearchPanel),
+          );
+          expect(state.handleKey(LogicalKeyboardKey.arrowUp), isTrue);
+          await tester.pumpAndSettle();
+          final selected = find.byWidgetPredicate(
+            (widget) => widget is DItem && widget.selected,
+          );
+          expect(selected.hitTestable(), findsOneWidget);
+          final lastKey = tester.widget<DItem>(selected).key;
+          expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+          await tester.pumpAndSettle();
+          expect(selected.hitTestable(), findsOneWidget);
+          expect(tester.widget<DItem>(selected).key, isNot(lastKey));
+          expect(state.handleKey(LogicalKeyboardKey.enter), isTrue);
+          await tester.pumpAndSettle();
+          expect(controller.stagedFilter, isNotNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final width in [320.0, 430.0]) {
     for (final textScale in [1.0, 2.0]) {
       testWidgets(
