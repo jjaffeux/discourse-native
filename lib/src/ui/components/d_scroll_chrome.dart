@@ -8,6 +8,84 @@ import 'package:flutter/widgets.dart';
 import '../foundation/header_motion.dart';
 import 'd_scroll_behavior.dart';
 
+/// Reports whether a scrollable's visual bottom is a temporary page boundary.
+/// Wrap the primary scroll view and update these values with its feed state.
+/// Chrome stays compact at that boundary while more content exists or loads;
+/// scrolling back up and explicitly revealing the chrome still work normally.
+class DScrollChromePagination extends StatefulWidget {
+  const DScrollChromePagination({
+    super.key,
+    required this.hasMore,
+    required this.loading,
+    required this.child,
+  });
+
+  /// Whether more content is available below the currently loaded rows.
+  /// For reversed lists this describes newer content at the visual bottom.
+  final bool hasMore;
+  final bool loading;
+  final Widget child;
+
+  @override
+  State<DScrollChromePagination> createState() =>
+      _DScrollChromePaginationState();
+}
+
+class _DScrollChromePaginationState extends State<DScrollChromePagination> {
+  bool _reportScheduled = false;
+
+  void _reportBoundary() {
+    if (_reportScheduled) return;
+    _reportScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reportScheduled = false;
+      if (mounted) DScrollChrome.maybeOf(context)?._paginationChanged(this);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reportBoundary();
+  }
+
+  @override
+  void didUpdateWidget(DScrollChromePagination oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((oldWidget.hasMore || oldWidget.loading) !=
+        (widget.hasMore || widget.loading)) {
+      // Check after layout: a final response may also append more rows, in
+      // which case the reader has not reached the new bottom yet.
+      _reportBoundary();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _ScrollPaginationScope(
+    owner: this,
+    hasMore: widget.hasMore,
+    loading: widget.loading,
+    child: widget.child,
+  );
+}
+
+class _ScrollPaginationScope extends InheritedWidget {
+  const _ScrollPaginationScope({
+    required this.owner,
+    required this.hasMore,
+    required this.loading,
+    required super.child,
+  });
+
+  final Object owner;
+  final bool hasMore;
+  final bool loading;
+
+  @override
+  bool updateShouldNotify(_ScrollPaginationScope oldWidget) =>
+      hasMore != oldWidget.hasMore || loading != oldWidget.loading;
+}
+
 /// Coordinates a page's retracting headers and navigation footer. Slow reading
 /// moves a continuous target; reversal slack and holds prevent accidental flips.
 /// Only direct input in the primary vertical scroll view can hide the chrome.
@@ -53,9 +131,10 @@ class DScrollChrome extends StatefulWidget {
 /// Shared animation and header geometry for [DScrollChrome] participants.
 class DScrollChromeController extends ChangeNotifier
     implements ValueListenable<double> {
-  DScrollChromeController._(this._animation);
+  DScrollChromeController._(this._animation, this._paginationChanged);
 
   final HeaderMotion _animation;
+  final void Function(Object owner) _paginationChanged;
   final _headers =
       <
         Object,
@@ -131,7 +210,10 @@ class DScrollChromeController extends ChangeNotifier
 class _DScrollChromeState extends State<DScrollChrome>
     with SingleTickerProviderStateMixin {
   late final _animation = HeaderMotion(this)..addListener(_update);
-  late final _controller = DScrollChromeController._(_animation);
+  late final _controller = DScrollChromeController._(
+    _animation,
+    _paginationChanged,
+  );
   final _footerFocus = FocusNode(canRequestFocus: false);
   final _footerKey = GlobalKey();
   final _footerContentKey = GlobalKey();
@@ -294,12 +376,65 @@ class _DScrollChromeState extends State<DScrollChrome>
 
   bool _onMetrics(ScrollMetricsNotification notification) {
     final source = _pageScroll(notification.context, notification.metrics.axis);
+    if (source != null) {
+      _releaseEndHold(source, notification.context, notification.metrics);
+    }
     if (source != null &&
         identical(source, _activeSource) &&
         _shortContent(notification.metrics)) {
       _setHidden(false);
     }
     return false;
+  }
+
+  bool _canContinue(BuildContext? context) {
+    final pagination = context
+        ?.getInheritedWidgetOfExactType<_ScrollPaginationScope>();
+    return pagination != null && (pagination.hasMore || pagination.loading);
+  }
+
+  void _paginationChanged(Object owner) {
+    final source = _activeSource;
+    if (!widget.visible ||
+        !widget.enabled ||
+        source == null ||
+        !source.mounted ||
+        !source.position.hasContentDimensions) {
+      return;
+    }
+    final context = source.position.context.notificationContext;
+    final pagination = context
+        ?.getInheritedWidgetOfExactType<_ScrollPaginationScope>();
+    if (pagination?.owner != owner) return;
+    final metrics = source.position;
+    _releaseEndHold(source, context, metrics);
+    final bottom = metrics.axisDirection == AxisDirection.up
+        ? metrics.extentBefore
+        : metrics.extentAfter;
+    if (!_canContinue(context) && bottom <= 4) {
+      _intents[source]!.endContentExtent = _contentExtent(metrics);
+      _setHidden(false);
+    }
+  }
+
+  double _contentExtent(ScrollMetrics metrics) =>
+      metrics.maxScrollExtent -
+      metrics.minScrollExtent +
+      metrics.viewportDimension;
+
+  void _releaseEndHold(
+    ScrollableState source,
+    BuildContext? context,
+    ScrollMetrics metrics,
+  ) {
+    final intent = _intents[source];
+    final heldExtent = intent?.endContentExtent;
+    if (heldExtent != null &&
+        (_canContinue(context) || _contentExtent(metrics) > heldExtent + .5)) {
+      // Content growth releases the hold; revealing our bars only changes
+      // viewport/travel and must not create a hide/reveal feedback loop.
+      intent!.endContentExtent = null;
+    }
   }
 
   bool _onScroll(ScrollNotification notification) {
@@ -310,10 +445,11 @@ class _DScrollChromeState extends State<DScrollChrome>
       return false;
     }
     final intent = _intents[source] ??= _ScrollIntent();
+    _releaseEndHold(source, notification.context, metrics);
     if (notification is ScrollStartNotification &&
         notification.dragDetails == null &&
         !intent.userScrolling) {
-      intent.holdAtEnd = false;
+      intent.endContentExtent = null;
     }
     if (notification is UserScrollNotification) {
       intent.userScrolling = notification.direction != ScrollDirection.idle;
@@ -339,16 +475,16 @@ class _DScrollChromeState extends State<DScrollChrome>
     final down = reversed ? delta < 0 : delta > 0;
 
     if (_shortContent(metrics) || top <= 48) {
-      intent.holdAtEnd = false;
+      intent.endContentExtent = null;
       _setHidden(false);
-    } else if (travel - top <= 4) {
-      intent.holdAtEnd = true;
+    } else if (travel - top <= 4 && !_canContinue(notification.context)) {
+      intent.endContentExtent = _contentExtent(metrics);
       _setHidden(false);
     } else if (!metrics.outOfRange) {
       if (_footerFocus.hasFocus || _controller._hasFocus) {
         _animation.reveal(fresh: true);
       } else if (!down || !intent.holdAtEnd) {
-        if (!down) intent.holdAtEnd = false;
+        if (!down) intent.endContentExtent = null;
         _animation.scroll(
           down && top - delta.abs() < 48
               ? top - 48
@@ -560,5 +696,6 @@ class _ChromeScope extends InheritedWidget {
 class _ScrollIntent {
   bool userScrolling = false;
   ScrollDirection direction = ScrollDirection.idle;
-  bool holdAtEnd = false;
+  double? endContentExtent;
+  bool get holdAtEnd => endContentExtent != null;
 }

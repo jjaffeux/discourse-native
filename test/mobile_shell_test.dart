@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -128,6 +129,8 @@ Future<ShellController> pumpMobileShellFixture(
   PluginManifest? pluginManifest,
   ChatChannels? conversations,
   List<Topic>? topics,
+  List<Topic> moreTopics = const [],
+  Completer<void>? moreTopicsGate,
   List<ChatMessage>? chatMessages,
   ChatThread? chatThread,
 }) async {
@@ -208,7 +211,12 @@ Future<ShellController> pumpMobileShellFixture(
         '/c/support/42.json': const [
           Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
         ],
+        if (moreTopics.isNotEmpty) '/latest.json?page=1': moreTopics,
       },
+      nextPages: {
+        if (moreTopics.isNotEmpty) '/latest.json': '/latest.json?page=1',
+      },
+      feedGates: {'/latest.json?page=1': ?moreTopicsGate},
       topics: {7: topic ?? topicPayload(id: 7, title: 'Shared topic card')},
       composerCapabilities: const TopicComposerCapabilities(canTagTopics: true),
       topicTagSearches: const {
@@ -496,6 +504,72 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _mobileTest('Topics keeps the dock compact across a delayed infinite page', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    List<Topic> topics(int first, int last) => [
+      for (var id = first; id <= last; id++)
+        Topic(id: id, title: 'Scrollable topic $id', slug: 'scrollable-$id'),
+    ];
+    final shell = await pumpMobileShellFixture(
+      tester,
+      topics: topics(1, 50),
+      moreTopics: topics(51, 100),
+      moreTopicsGate: gate,
+    );
+    final list = find.byType(TopicListView);
+    final scroll = tester.state<ScrollableState>(
+      find
+          .descendant(
+            of: list,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Scrollable &&
+                  widget.axisDirection == AxisDirection.down,
+            ),
+          )
+          .first,
+    );
+    final chrome = DScrollChrome.maybeOf(scroll.context)!;
+    await tester.drag(list, const Offset(0, -240));
+    await tester.pumpAndSettle();
+    expect(chrome.hiddenFraction, 1);
+    expect(shell.currentFeed!.hasMore, isTrue);
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(list),
+        scrollDelta: const Offset(0, 100000),
+      ),
+    );
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(chrome.hiddenFraction, 1);
+    }
+    expect(shell.currentFeed!.loadingMore, isTrue);
+    expect(scroll.position.extentAfter, closeTo(0, 1));
+    gate.complete();
+    for (var frame = 0; frame < 60; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(chrome.hiddenFraction, 1);
+    }
+    expect(shell.currentFeed!.topicIds, hasLength(100));
+    expect(shell.currentFeed!.hasMore, isFalse);
+    expect(scroll.position.extentAfter, greaterThan(0));
+    await _chatWheel(tester, list, 100);
+    expect(chrome.hiddenFraction, 1);
+    await _chatWheel(tester, list, -100);
+    expect(chrome.hiddenFraction, 0);
+    await _chatWheel(tester, list, 100);
+    expect(chrome.hiddenFraction, 1);
+    await _chatWheel(tester, list, 100000);
+    expect(chrome.hiddenFraction, 0);
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest(
     'scrolling the Chat inbox hides and restores the shared tab bar',
@@ -1914,9 +1988,7 @@ void main() {
     expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('composer-close')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Minimize'));
+    await tester.tap(find.byKey(const ValueKey('composer-minimize-header')));
     await tester.pumpAndSettle();
     final restore = find.byKey(const ValueKey('composer-restore'));
     expect(tester.getRect(restore).bottom, closeTo(phone.height - 34, .01));

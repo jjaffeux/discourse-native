@@ -186,7 +186,7 @@ class _MembersSectionState extends State<_MembersSection> {
             : appL10n.noMembersMatch((widget.filter).toString()),
       );
     }
-    return LayoutBuilder(
+    final content = LayoutBuilder(
       builder: (context, constraints) {
         final desktop =
             ContentReadingLane.breakpointWidthOf(
@@ -250,6 +250,11 @@ class _MembersSectionState extends State<_MembersSection> {
           ),
         );
       },
+    );
+    return DScrollChromePagination(
+      hasMore: widget.hasMore,
+      loading: widget.loading || widget.loadingMore,
+      child: content,
     );
   }
 }

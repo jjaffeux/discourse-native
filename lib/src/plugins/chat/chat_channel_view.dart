@@ -1636,7 +1636,7 @@ class _StreamState extends State<ChatMessageStream>
     final header = _headerGeometry;
     final contentRows = leading + items.length + (stream.loadingOlder ? 1 : 0);
 
-    return DPageReadingLane(
+    final content = DPageReadingLane(
       // Chat keeps a readable, centered transcript independently of the forum's
       // optional content-width preference. The scroll viewport stays full width.
       limitContentSize: true,
@@ -1866,6 +1866,11 @@ class _StreamState extends State<ChatMessageStream>
           ],
         ),
       ),
+    );
+    return DScrollChromePagination(
+      hasMore: stream.canLoadMoreFuture,
+      loading: stream.loadingNewer,
+      child: content,
     );
   }
 

@@ -148,7 +148,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
         );
       }
 
-      return ChatChromeScrollView(
+      final content = ChatChromeScrollView(
         header: ContentReadingLaneBox(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -245,6 +245,11 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
                   ),
           );
         },
+      );
+      return DScrollChromePagination(
+        hasMore: hasMore,
+        loading: _directory.loading,
+        child: content,
       );
     },
   );

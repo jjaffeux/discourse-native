@@ -30,6 +30,16 @@ switch between resting and floating Native surfaces; their rule stays in the
 scrolling row. Desktop spacing, sidebar treatment and glass surface rendering
 belong to their separate implementation groups.
 
+Paginated mobile viewports report `hasMore` and `loading` through
+`DScrollChromePagination`. Reaching the currently loaded boundary keeps compact
+chrome compact while another page is available or loading. Appending rows does
+not reveal or retract it; upward scrolling, focus and the compact dock's reveal
+action continue to work. Completed feeds retain bottom reveal, including an
+empty final response when the reader is already at the end. Reversed chat
+streams report newer paging at their visual bottom. A bottom hold records content
+extent, so actual content growth releases it without treating the chrome's own
+viewport changes as new content.
+
 Focused regressions cover continuous reversals, hold/pause timing, all settling
 rules, 60/120 Hz elapsed-time smoothing, rendered geometry without content
 rebuild/layout, account persistence, preference controls, mobile anchors, topic

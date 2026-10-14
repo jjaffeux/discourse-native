@@ -289,7 +289,7 @@ class AssignedGroupPresentationView extends StatelessWidget {
   }) {
     final feed = state.feed;
     final topics = state.topics;
-    return CustomScrollView(
+    final content = CustomScrollView(
       key: PageStorageKey(
         'assigned-${state.groupName}-${state.filter.routeSegment(state.groupName)}',
       ),
@@ -353,6 +353,11 @@ class AssignedGroupPresentationView extends StatelessWidget {
           ),
         ),
       ],
+    );
+    return DScrollChromePagination(
+      hasMore: feed.hasMore,
+      loading: feed.loading || feed.loadingMore,
+      child: content,
     );
   }
 }
@@ -472,7 +477,7 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
           )
         : null;
 
-    return Column(
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
@@ -496,6 +501,11 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
           ),
         ),
       ],
+    );
+    return DScrollChromePagination(
+      hasMore: widget.members.hasMore,
+      loading: widget.members.loading || widget.members.loadingMore,
+      child: content,
     );
   }
 

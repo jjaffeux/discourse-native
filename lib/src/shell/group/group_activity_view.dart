@@ -176,7 +176,7 @@ class _ActivityRows extends StatelessWidget {
         title: context.l10n.noYet((kind).toString()),
       );
     }
-    return ContentReadingLane(
+    final content = ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
       builder: (context, lane) => ListView.separated(
         key: PageStorageKey('group-activity-$kind-scroll'),
@@ -242,6 +242,11 @@ class _ActivityRows extends StatelessWidget {
           );
         },
       ),
+    );
+    return DScrollChromePagination(
+      hasMore: hasMore,
+      loading: loading || loadingMore,
+      child: content,
     );
   }
 }

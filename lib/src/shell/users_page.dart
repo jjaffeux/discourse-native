@@ -617,7 +617,7 @@ class _UsersPageState extends State<UsersPage> {
         .where((entry) => entry.value == data.query.order)
         .firstOrNull
         ?.key;
-    return ColoredBox(
+    final content = ColoredBox(
       key: const ValueKey('users-page'),
       color: DTokens.of(context).background,
       child: ContentReadingLaneBox(
@@ -933,6 +933,11 @@ class _UsersPageState extends State<UsersPage> {
           },
         ),
       ),
+    );
+    return DScrollChromePagination(
+      hasMore: data.hasMore,
+      loading: data.loading || data.loadingMore,
+      child: content,
     );
   }
 }

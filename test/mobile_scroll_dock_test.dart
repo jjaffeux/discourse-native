@@ -31,6 +31,8 @@ Future<void> _mount(
   bool visible = true,
   bool hideOnScroll = true,
   bool keepVisible = false,
+  bool hasMore = false,
+  bool loading = false,
   Object identity = 'topics',
   int count = 100,
   VoidCallback? onPressed,
@@ -46,9 +48,13 @@ Future<void> _mount(
             visible: visible,
             hideOnScroll: hideOnScroll,
             keepActionVisible: keepVisible,
-            body:
-                body ??
-                _list(controller: controller, reverse: reverse, count: count),
+            body: DScrollChromePagination(
+              hasMore: hasMore,
+              loading: loading,
+              child:
+                  body ??
+                  _list(controller: controller, reverse: reverse, count: count),
+            ),
             dockBuilder: (_) => SizedBox(
               key: _dock,
               height: 60,
@@ -252,6 +258,184 @@ void main() {
       expect(find.byKey(_dock), findsOneWidget);
     }
   });
+
+  for (final floating in [false, true]) {
+    for (final reducedMotion in [false, true]) {
+      for (final loading in [false, true]) {
+        testWidgets(
+          'temporary bottom stays compact through loading and appended rows '
+          '(floating: $floating, reduced motion: $reducedMotion, loading: $loading)',
+          (tester) async {
+            final controller = ScrollController(initialScrollOffset: 200);
+            addTearDown(controller.dispose);
+            Future<void> mount({required int count, bool complete = false}) =>
+                _mount(
+                  tester,
+                  controller: controller,
+                  count: count,
+                  floating: floating,
+                  reducedMotion: reducedMotion,
+                  hasMore: !complete && !loading,
+                  loading: !complete && loading,
+                );
+            double fraction() => DScrollChrome.maybeOf(
+              tester.element(find.byKey(_body)),
+            )!.hiddenFraction;
+            await mount(count: 100);
+            await _wheel(tester, 100);
+            expect(fraction(), 1);
+            await _wheel(tester, 10000);
+            expect(fraction(), 1);
+            // A slow request must not cause even a partial expansion.
+            for (var frame = 0; frame < 60; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expect(fraction(), 1);
+            }
+            await mount(count: 150);
+            expect(fraction(), 1);
+            await _wheel(tester, 100);
+            expect(fraction(), 1);
+            await _wheel(tester, -100);
+            expect(fraction(), 0);
+            await _wheel(tester, 100);
+            expect(fraction(), 1);
+            // The final response appends rows before marking the feed complete.
+            await mount(count: 200, complete: true);
+            expect(fraction(), 1);
+            await _wheel(tester, 10000);
+            expect(fraction(), 0);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
+  testWidgets('an empty final page reveals the dock at the confirmed end', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 200);
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller, hasMore: true);
+    await _wheel(tester, 100);
+    await _wheel(tester, 10000);
+    expect(find.byKey(_dock), findsNothing);
+    await _mount(tester, controller: controller, loading: true);
+    expect(find.byKey(_dock), findsNothing);
+    await _mount(tester, controller: controller);
+    expect(find.byKey(_dock), findsOneWidget);
+    // The automatic reveal releases layout space without retracting again.
+    await _wheel(tester, 25);
+    expect(find.byKey(_dock), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('content growth releases the bottom hold during the same drag', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 200);
+    addTearDown(controller.dispose);
+    await _mount(tester, controller: controller);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(_body)),
+    );
+    await gesture.moveBy(const Offset(0, -100));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 450));
+    expect(find.byKey(_dock), findsNothing);
+    await gesture.moveBy(const Offset(0, -10000));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_dock), findsOneWidget);
+    await _mount(tester, controller: controller, count: 150);
+    // Appending rows does not itself retract the bar; continued input does.
+    expect(find.byKey(_dock), findsOneWidget);
+    await gesture.moveBy(const Offset(0, -100));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_dock), findsNothing);
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('a confirmed end reveals during elastic bottom overscroll', (
+    tester,
+  ) async {
+    final controller = ScrollController(initialScrollOffset: 400);
+    addTearDown(controller.dispose);
+    Widget body() => ListView.builder(
+      key: _body,
+      controller: controller,
+      physics: const BouncingScrollPhysics(),
+      itemExtent: 50,
+      itemCount: 100,
+      itemBuilder: (_, index) => Text('Row $index'),
+    );
+    Future<void> mount(bool hasMore) =>
+        _mount(tester, floating: true, hasMore: hasMore, body: body());
+    double fraction() => DScrollChrome.maybeOf(
+      tester.element(find.byKey(_body)),
+    )!.hiddenFraction;
+    await mount(true);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(_body)),
+    );
+    await gesture.moveBy(const Offset(0, -100));
+    await tester.pumpAndSettle();
+    expect(fraction(), 1);
+    await gesture.moveBy(const Offset(0, -10000));
+    await tester.pumpAndSettle();
+    expect(controller.position.outOfRange, isTrue);
+    expect(fraction(), 1);
+    await mount(false);
+    expect(fraction(), 0);
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(fraction(), 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final reverse in [false, true]) {
+    testWidgets('touch overscroll at a paginated visual bottom stays compact '
+        '(reverse: $reverse)', (tester) async {
+      final controller = ScrollController(
+        initialScrollOffset: reverse ? 4000 : 400,
+      );
+      addTearDown(controller.dispose);
+      await _mount(
+        tester,
+        floating: true,
+        hasMore: true,
+        body: ListView.builder(
+          key: _body,
+          controller: controller,
+          reverse: reverse,
+          physics: const BouncingScrollPhysics(),
+          itemExtent: 50,
+          itemCount: 100,
+          itemBuilder: (_, index) => Text('Row $index'),
+        ),
+      );
+      double fraction() => DScrollChrome.maybeOf(
+        tester.element(find.byKey(_body)),
+      )!.hiddenFraction;
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(_body)),
+      );
+      await gesture.moveBy(const Offset(0, -100));
+      await tester.pumpAndSettle();
+      expect(fraction(), 1);
+      await tester.pump(const Duration(milliseconds: 450));
+      await gesture.moveBy(const Offset(0, -10000));
+      await tester.pumpAndSettle();
+      expect(controller.position.outOfRange, isTrue);
+      expect(fraction(), 1);
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      expect(fraction(), 1);
+      await _wheel(tester, -100);
+      expect(fraction(), 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final atEnd in [false, true]) {
     testWidgets(

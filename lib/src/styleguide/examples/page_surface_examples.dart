@@ -16,7 +16,12 @@ final pageSurfaceExamples = ComponentExamples(
       'visible through viewport changes until scrolling back up. '
       'Focused header controls remain visible. '
       'Inside DScrollChrome, mobile headers share the footer’s visibility and '
-      'progress. Fully shown or hidden chrome holds for 400ms; after a 120ms '
+      'progress. Wrap paginated viewports in DScrollChromePagination with their '
+      'hasMore and loading state. Temporary bottom boundaries keep the chrome '
+      'compact through requests and appended rows; upward scrolling still reveals '
+      'it. Only a completed feed reveals at the bottom. For reversed chat lists, '
+      'report newer paging at the visual bottom. Fully shown or hidden chrome '
+      'holds for 400ms; after a 120ms '
       'pause a partial header settles in the last accepted direction. '
       'DHeaderMotionSettings selects the settling rule, threshold and timing. '
       'The first 48px and content shorter than two screens stay visible. '
@@ -63,11 +68,15 @@ final pageSurfaceExamples = ComponentExamples(
       code: """DScrollChrome(
   identity: pageId,
   footerBuilder: (_) => navigation,
-  child: DPageSurface.scrollable(
-    hideHeaderOnScroll: true,
-    header: title,
-    bodyBuilder: (_, header) => CustomScrollView(
-      slivers: [SliverToBoxAdapter(child: header.spacer), rows],
+  child: DScrollChromePagination(
+    hasMore: feed.hasMore,
+    loading: feed.loadingMore,
+    child: DPageSurface.scrollable(
+      hideHeaderOnScroll: true,
+      header: title,
+      bodyBuilder: (_, header) => CustomScrollView(
+        slivers: [SliverToBoxAdapter(child: header.spacer), rows],
+      ),
     ),
   ),
 )""",

@@ -911,13 +911,18 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           !id.startsWith('section:') &&
           !id.startsWith('filter:'),
     );
-    return DScrollBar(
+    final content = DScrollBar(
       controller: _scroll,
       child: ListView(
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
         children: children,
       ),
+    );
+    return DScrollChromePagination(
+      hasMore: controller.hasMore,
+      loading: controller.loadingMore,
+      child: content,
     );
   }
 

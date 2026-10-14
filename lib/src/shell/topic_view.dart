@@ -2743,7 +2743,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             ),
           ),
       ];
-      final postStreamContent = NotificationListener<ScrollMetricsNotification>(
+      final postStream = NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) {
           if (notification.depth == 0) {
             if (_isScrollCaptureRecording) {
@@ -2793,6 +2793,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             ),
           ),
         ),
+      );
+      final postStreamContent = DScrollChromePagination(
+        hasMore: snapshot.hasMore,
+        loading: snapshot.loadingMore,
+        child: postStream,
       );
       // Each mounted reader sees every key, in mount order. While another
       // tab's reader is active, this one declines post commands: answering

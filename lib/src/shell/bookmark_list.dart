@@ -367,7 +367,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       }
     }
 
-    return NotificationListener<ScrollNotification>(
+    final content = NotificationListener<ScrollNotification>(
       onNotification: _onScroll,
       child: CustomScrollView(
         controller: _scrollController,
@@ -402,6 +402,11 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           ],
         ],
       ),
+    );
+    return DScrollChromePagination(
+      hasMore: feed.hasMore,
+      loading: feed.loading,
+      child: content,
     );
   }
 

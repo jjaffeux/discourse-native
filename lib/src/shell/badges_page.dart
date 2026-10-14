@@ -40,42 +40,51 @@ class BadgesPage extends StatelessWidget {
   final ValueChanged<String> onOpenUrl;
 
   @override
-  Widget build(BuildContext context) => ContentReadingLane(
-    basePadding: route.isDirectory
-        ? const EdgeInsets.symmetric(vertical: 16)
-        : const EdgeInsets.all(16),
-    builder: (context, lane) => CustomScrollView(
-      key: PageStorageKey('badges-$siteUrl-${route.id}'),
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: lane.padding.add(
-            EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+  Widget build(BuildContext context) => DScrollChromePagination(
+    hasMore: state.hasMore,
+    loading: state.loading || state.loadingMore,
+    child: ContentReadingLane(
+      basePadding: route.isDirectory
+          ? const EdgeInsets.symmetric(vertical: 16)
+          : const EdgeInsets.all(16),
+      builder: (context, lane) => CustomScrollView(
+        key: PageStorageKey('badges-$siteUrl-${route.id}'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: lane.padding.add(
+              EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+            ),
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                if (state.error != null)
+                  SliverToBoxAdapter(
+                    child: _BadgeError(
+                      message: state.error!,
+                      onRetry: onRefresh,
+                    ),
+                  ),
+                if (state.loading &&
+                    state.catalog == null &&
+                    state.badge == null)
+                  const SliverDirectorySkeleton(
+                    key: ValueKey('badges-loading'),
+                    kind: DirectorySkeletonKind.badges,
+                  )
+                else if (route.isDirectory && state.catalog != null)
+                  _BadgeDirectory(
+                    key: ValueKey((siteUrl, currentUsername)),
+                    catalog: state.catalog!,
+                    siteUrl: siteUrl,
+                    onOpenBadge: onOpenBadge,
+                  )
+                else if (state.badge != null)
+                  ..._detail(context, state.badge!),
+              ],
+            ),
           ),
-          sliver: SliverMainAxisGroup(
-            slivers: [
-              if (state.error != null)
-                SliverToBoxAdapter(
-                  child: _BadgeError(message: state.error!, onRetry: onRefresh),
-                ),
-              if (state.loading && state.catalog == null && state.badge == null)
-                const SliverDirectorySkeleton(
-                  key: ValueKey('badges-loading'),
-                  kind: DirectorySkeletonKind.badges,
-                )
-              else if (route.isDirectory && state.catalog != null)
-                _BadgeDirectory(
-                  key: ValueKey((siteUrl, currentUsername)),
-                  catalog: state.catalog!,
-                  siteUrl: siteUrl,
-                  onOpenBadge: onOpenBadge,
-                )
-              else if (state.badge != null)
-                ..._detail(context, state.badge!),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 

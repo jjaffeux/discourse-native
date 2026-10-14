@@ -192,7 +192,7 @@ class _ActivityListState extends State<_ActivityList> {
         )
         .toList();
     final hasFooter = feed.loading || feed.error != null || feed.hasMore;
-    return Column(
+    final content = Column(
       children: [
         ContentReadingLaneBox(
           child: Padding(
@@ -294,6 +294,11 @@ class _ActivityListState extends State<_ActivityList> {
           ),
         ),
       ],
+    );
+    return DScrollChromePagination(
+      hasMore: feed.hasMore,
+      loading: feed.loading,
+      child: content,
     );
   }
 }

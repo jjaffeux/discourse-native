@@ -168,7 +168,7 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    return ContentReadingLane(
+    final content = ContentReadingLane(
       basePadding: const EdgeInsets.symmetric(horizontal: 16),
       builder: (context, lane) => NotificationListener<ScrollNotification>(
         onNotification: _onScroll,
@@ -268,6 +268,11 @@ class _GroupsPageState extends State<GroupsPage> {
           ),
         ),
       ),
+    );
+    return DScrollChromePagination(
+      hasMore: data.hasMore,
+      loading: data.loading || data.loadingMore,
+      child: content,
     );
   }
 }

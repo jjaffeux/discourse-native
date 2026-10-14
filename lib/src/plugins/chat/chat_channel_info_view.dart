@@ -947,7 +947,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
         ),
       );
     }
-    return ListView.builder(
+    final content = ListView.builder(
       key: const ValueKey('chat-channel-member-list'),
       controller: _scroll,
       padding: EdgeInsets.only(
@@ -1020,6 +1020,11 @@ class _ChannelMembersState extends State<_ChannelMembers> {
           ),
         );
       },
+    );
+    return DScrollChromePagination(
+      hasMore: _canLoadMore,
+      loading: _loading,
+      child: content,
     );
   }
 }

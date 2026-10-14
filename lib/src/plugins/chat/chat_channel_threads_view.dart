@@ -167,7 +167,7 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
           loadingMore ||
           error != null ||
           _chat.channelThreadsHaveMore(widget.siteUrl, widget.channelId);
-      return ContentReadingLane(
+      final content = ContentReadingLane(
         basePadding: const EdgeInsets.symmetric(vertical: 8),
         builder: (context, lane) => ListView.separated(
           key: PageStorageKey<String>(
@@ -226,6 +226,11 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
             );
           },
         ),
+      );
+      return DScrollChromePagination(
+        hasMore: _chat.channelThreadsHaveMore(widget.siteUrl, widget.channelId),
+        loading: loadingMore,
+        child: content,
       );
     },
   );

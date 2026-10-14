@@ -173,7 +173,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
             .toList();
     _scheduleVisibleEndCheck();
 
-    return ContentReadingLane(
+    final content = ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       builder: (context, lane) => NotificationListener<ScrollNotification>(
         onNotification: _onScroll,
@@ -276,6 +276,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
           ],
         ),
       ),
+    );
+    return DScrollChromePagination(
+      hasMore: feed.hasMore,
+      loading: feed.loadingMore,
+      child: content,
     );
   }
 

@@ -188,7 +188,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     if (state.hits.isEmpty) return const SizedBox.shrink();
 
     final hasFooter = state.loadingMore || state.error != null || state.hasMore;
-    return ContentReadingLane(
+    final content = ContentReadingLane(
       basePadding: const EdgeInsets.symmetric(vertical: 8),
       builder: (context, lane) => ListView.separated(
         key: const PageStorageKey('chat-search-results'),
@@ -227,6 +227,11 @@ class _ChatSearchViewState extends State<ChatSearchView> {
           );
         },
       ),
+    );
+    return DScrollChromePagination(
+      hasMore: state.hasMore,
+      loading: state.loadingMore,
+      child: content,
     );
   }
 

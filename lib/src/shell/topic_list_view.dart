@@ -691,7 +691,7 @@ class _TopicListViewState extends State<TopicListView> {
       }
     }
 
-    return Column(
+    final content = Column(
       children: [
         if (feed.error case final error? when !feed.pageError)
           _FeedErrorBanner(
@@ -877,6 +877,11 @@ class _TopicListViewState extends State<TopicListView> {
           ),
         ),
       ],
+    );
+    return DScrollChromePagination(
+      hasMore: feed.hasMore,
+      loading: feed.loadingMore,
+      child: content,
     );
   }
 

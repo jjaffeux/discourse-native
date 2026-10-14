@@ -37,6 +37,8 @@ Future<void> _mount(
       home: MediaQuery(
         data: MediaQueryData(disableAnimations: reducedMotion),
         child: MobileScrollDock(
+          // These assertions measure layout released by the column dock.
+          floating: false,
           identity: identity,
           hideOnScroll: enabled,
           keepActionVisible: keepActionVisible,
