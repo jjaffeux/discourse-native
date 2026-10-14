@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../foundation/calendar_day.dart';
+import '../foundation/clock_time.dart';
 import '../foundation/count_label.dart';
+import '../foundation/timezone_environment.dart';
 import '../foundation/uri_path.dart';
+import '../models/badge.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_card.dart';
 import '../plugin_api/plugin_scope.dart';
@@ -17,6 +21,7 @@ import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'external_link.dart';
 import 'inline_action.dart';
+import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -278,6 +283,54 @@ Future<void> showUserCard({
   final controller = ShellScope.read(context);
   final targetSite = siteUrl ?? controller.currentInstance?.url;
   if (targetSite == null) return Future<void>.value();
+  if (context.isTouch) {
+    return showDSheet<void>(
+      context: context,
+      side: DSheetSide.bottom,
+      inset: true,
+      variant: DSheetVariant.menu,
+      builder: (context, sheet) =>
+          ShellSelector<({ShellController controller, Object session})>(
+            select: (controller) => (
+              controller: controller,
+              session: controller.lifecycle.capture(targetSite).session,
+            ),
+            builder: (context, owner, _) => ListenableBuilder(
+              listenable: owner.controller.store.ref<UserCard>(
+                targetSite,
+                username.toLowerCase(),
+              ),
+              builder: (context, _) {
+                final card = owner.controller.userCard(
+                  username,
+                  siteUrl: targetSite,
+                );
+                return DSheetContent(
+                  key: const ValueKey<String>('user-card-surface'),
+                  side: DSheetSide.bottom,
+                  inset: true,
+                  variant: DSheetVariant.menu,
+                  showCloseButton: false,
+                  semanticLabel: context.l10n.profileFor(username),
+                  topBottomMaxHeightFactor: .9,
+                  headerImage: card?.cardBackgroundUrl == null
+                      ? null
+                      : NetworkImage(card!.cardBackgroundUrl!),
+                  children: [
+                    _ControllerUserCardPopup(
+                      key: ValueKey(owner),
+                      controller: owner.controller,
+                      username: username,
+                      siteUrl: targetSite,
+                      close: sheet.close,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+    );
+  }
   final anchor = anchorRect(
     anchor: context.findRenderObject() as RenderBox?,
     overlay:
@@ -454,6 +507,9 @@ class _CardBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final card = controller.userCard(username, siteUrl: siteUrl);
     if (card != null) {
+      if (context.isTouch) {
+        return _MobileCardContent(card: card, siteUrl: siteUrl, close: close);
+      }
       return _CardContent(card: card, siteUrl: siteUrl, close: close);
     }
 
@@ -661,6 +717,273 @@ class _CardContent extends StatelessWidget {
       return '${host.startsWith('www.') ? host.substring(4) : host}${uri!.path == '/' ? '' : uri.path}';
     }
     return website;
+  }
+}
+
+class _MobileCardContent extends StatelessWidget {
+  const _MobileCardContent({
+    required this.card,
+    required this.siteUrl,
+    required this.close,
+  });
+  final UserCard card;
+  final String siteUrl;
+  final VoidCallback close;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final shell = ShellScope.read(context);
+    final current = shell.currentUserFor(siteUrl);
+    final own =
+        current != null &&
+        (card.id != null && current.id != null
+            ? card.id == current.id
+            : card.username.toLowerCase() == current.username.toLowerCase());
+    final lease = shell.lifecycle.capture(siteUrl);
+    final actions = <Widget>[
+      if (own)
+        DButton(
+          size: DButtonSize.toolbar,
+          shape: DButtonShape.pill,
+          borderColor: Colors.transparent,
+          label: Text(context.l10n.userCardEditProfileAction),
+          icon: const DIcon(DIcons.pencil),
+          onPressed: () {
+            if (lease.isCurrent) {
+              close();
+              shell.openPreferences(siteUrl);
+            }
+          },
+        ),
+      if (!own &&
+          card.canSendPrivateMessage &&
+          current?.canSendPrivateMessages == true)
+        DButton(
+          size: DButtonSize.toolbar,
+          shape: DButtonShape.pill,
+          borderColor: Colors.transparent,
+          label: Text(context.l10n.userCardMessageAction),
+          icon: const DIcon(DIcons.envelope),
+          onPressed: () {
+            if (lease.isCurrent && shell.currentInstance?.url == siteUrl) {
+              close();
+              shell.openPrivateMessage(
+                siteUrl: siteUrl,
+                targetRecipients: card.username,
+              );
+            }
+          },
+        ),
+      if (!own)
+        ...PluginScope.of(
+          context,
+        ).registry.userCardActions(context, siteUrl, card, close),
+    ];
+    final zone = TimezoneEnvironment.instance.location(card.timezone);
+    final secondary = Color.lerp(tokens.background, tokens.foreground, .62)!;
+    final muted = Color.lerp(tokens.background, tokens.foreground, .50)!;
+    final textStyle = TextStyle(
+      fontSize: DiscourseTypography.preview,
+      height: 1.5,
+      color: secondary,
+    );
+    Widget fact(Widget icon, String label) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconTheme.merge(
+          data: IconThemeData(size: 11, color: muted),
+          child: icon,
+        ),
+        const SizedBox(width: 6),
+        Flexible(child: Text(label, style: textStyle)),
+      ],
+    );
+    Widget stat(String label, String value) => Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$label ',
+            style: TextStyle(color: muted),
+          ),
+          TextSpan(
+            text: value,
+            style: TextStyle(
+              color: tokens.foreground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+      style: textStyle,
+    );
+    final remainder = (card.badgeCount - card.featuredBadges.length).clamp(
+      0,
+      1 << 31,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        UserCardHeader(card: card, siteUrl: siteUrl, mobileSheet: true),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (actions.isNotEmpty) ...[
+                LayoutBuilder(
+                  builder: (context, bounds) {
+                    if (MediaQuery.textScalerOf(context).scale(13) > 19) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final action in actions)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: action,
+                            ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        for (var i = 0; i < actions.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          Expanded(child: actions[i]),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (card.bioExcerpt case final bio?) ...[
+                CookedHtml(
+                  html: bio,
+                  siteUrl: siteUrl,
+                  textStyle: TextStyle(
+                    fontSize: DiscourseTypography.compact,
+                    height: 1.5,
+                    color: Color.lerp(
+                      tokens.background,
+                      tokens.foreground,
+                      .90,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (card.website != null ||
+                  card.location != null ||
+                  zone != null) ...[
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 6,
+                  children: [
+                    if (card.website case final website?)
+                      _CardDetail(
+                        icon: const DIcon(DIcons.globe, size: 11),
+                        label:
+                            card.websiteName ??
+                            _CardContent._websiteLabel(website),
+                        onTap: () => unawaited(openExternalLink(website)),
+                      ),
+                    if (card.location case final location?)
+                      fact(const DIcon(DIcons.locationDot), location),
+                    if (zone != null)
+                      fact(
+                        const DIcon(DIcons.farClock),
+                        clockTimeLabel(context, tz.TZDateTime.now(zone)),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (card.createdAt != null ||
+                  card.lastPostedAt != null ||
+                  card.timeRead > 0) ...[
+                DSeparator(
+                  color: Color.lerp(tokens.background, tokens.foreground, .12),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 6,
+                  children: [
+                    if (card.lastPostedAt case final last?)
+                      RelativeTimeBuilder(
+                        when: last,
+                        builder: (context, label) =>
+                            stat(context.l10n.lastPost, label),
+                      ),
+                    if (card.createdAt case final created?)
+                      stat(context.l10n.joined, _CardContent._month(created)),
+                    if (card.timeRead > 0)
+                      stat(
+                        context.l10n.userCardReadTime,
+                        _readTime(card.timeRead),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
+              if (card.featuredBadges.isNotEmpty || remainder > 0)
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final badge in card.featuredBadges)
+                      DBadge(
+                        size: DBadgeSize.featured,
+                        variant: DBadgeVariant.secondary,
+                        backgroundColor: Color.lerp(
+                          tokens.background,
+                          tokens.foreground,
+                          .10,
+                        ),
+                        foregroundColor: tokens.foreground,
+                        leading: DIcon(
+                          pluginIconNamed(context, badge.icon) ??
+                              DIcons.certificate,
+                          color: switch (badge.tier) {
+                            BadgeTier.gold => const Color(0xffe2b55e),
+                            BadgeTier.silver => const Color(0xffa6b6ba),
+                            BadgeTier.bronze => const Color(0xffd5a25e),
+                          },
+                        ),
+                        child: Text(badge.name),
+                      ),
+                    if (remainder > 0)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          context.l10n.userCardMoreBadges(remainder),
+                          style: TextStyle(
+                            fontSize: DiscourseTypography.xs,
+                            height: 1.5,
+                            color: muted,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _readTime(int seconds) {
+    const month = 30 * Duration.secondsPerDay;
+    return seconds >= month && seconds < 365 * Duration.secondsPerDay
+        ? appL10n.relativeDurationMonths((seconds / month).round())
+        : durationLabel(seconds).short;
   }
 }
 

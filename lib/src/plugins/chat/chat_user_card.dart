@@ -93,6 +93,19 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
         onPressed: _open,
         icon: const DIcon(DIcons.comment),
         variant: DButtonVariant.primary,
+        size: context.isTouch ? DButtonSize.toolbar : DButtonSize.regular,
+        shape: context.isTouch ? DButtonShape.pill : DButtonShape.rounded,
+        backgroundColor: context.isTouch
+            ? Color.lerp(
+                DTokens.of(context).background,
+                DTokens.of(context).foreground,
+                .10,
+              )
+            : null,
+        borderColor: context.isTouch ? Colors.transparent : null,
+        foregroundColor: context.isTouch
+            ? DTokens.of(context).foreground
+            : null,
         loading: _opening,
       ),
     );

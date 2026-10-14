@@ -3,6 +3,64 @@ import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'card retains permission, timezone and featured badges in server order',
+    () {
+      const user = <String, dynamic>{
+        'username': 'reader',
+        'timezone': 'America/Los_Angeles',
+        'can_send_private_message_to_user': true,
+        'badge_count': 29,
+        'featured_user_badges': [22, 21, 999],
+      };
+      const payload = <String, dynamic>{
+        'user_badges': [
+          {'id': 21, 'badge_id': 1},
+          {'id': 22, 'badge_id': 2},
+        ],
+        'badges': [
+          {'id': 1, 'name': 'Great reply', 'icon': 'reply', 'badge_type_id': 1},
+          {
+            'id': 2,
+            'name': 'Autobiographer',
+            'icon': 'user',
+            'badge_type_id': 3,
+          },
+        ],
+      };
+      final card = UserCard.fromJson(
+        user,
+        'https://forum.example',
+        payload: payload,
+      );
+      expect(card.timezone, 'America/Los_Angeles');
+      expect(card.canSendPrivateMessage, isTrue);
+      expect(card.featuredBadges.map((badge) => badge.name), [
+        'Autobiographer',
+        'Great reply',
+      ]);
+      expect(card.badgeCount, 29);
+      expect(
+        card,
+        UserCard.fromJson(user, 'https://forum.example', payload: payload),
+      );
+      expect(
+        card.hashCode,
+        UserCard.fromJson(
+          user,
+          'https://forum.example',
+          payload: payload,
+        ).hashCode,
+      );
+      expect(
+        UserCard.fromJson(const {
+          'username': 'reader',
+        }, 'https://forum.example').canSendPrivateMessage,
+        isFalse,
+      );
+    },
+  );
+
   test('card banner and role come from the forum response', () {
     final card = UserCard.fromJson(const {
       'username': 'reader',

@@ -70,8 +70,16 @@ final class DiscourseModelCodec {
     recommendationSources: recommendationSources,
   );
 
-  UserCard userCard(Map<String, dynamic> json, String siteUrl) =>
-      UserCard.fromJson(json, siteUrl, extensions: extensions);
+  UserCard userCard(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    Map<String, dynamic>? payload,
+  }) => UserCard.fromJson(
+    json,
+    siteUrl,
+    extensions: extensions,
+    payload: payload,
+  );
 
   SiteConfig siteConfig(Map<String, dynamic> json, String siteUrl) =>
       SiteConfig.fromSettings(json, siteUrl: siteUrl, extensions: extensions);

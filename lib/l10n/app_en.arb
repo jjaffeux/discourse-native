@@ -20058,5 +20058,14 @@
   "draftPreviewRemoved": "Removed: {text}",
   "@draftPreviewRemoved": {"description": "Composer saved-draft rollback action or accessible revision preview.", "placeholders": {"text": {"type": "String"}}},
   "draftPreviewRestored": "Restored: {text}",
-  "@draftPreviewRestored": {"description": "Composer saved-draft rollback action or accessible revision preview.", "placeholders": {"text": {"type": "String"}}}
+  "@draftPreviewRestored": {"description": "Composer saved-draft rollback action or accessible revision preview.", "placeholders": {"text": {"type": "String"}}},
+  "userCardMessageAction": "Message",
+  "@userCardMessageAction": {"description": "Private message action in the profile card."},
+  "userCardEditProfileAction": "Edit profile",
+  "@userCardEditProfileAction": {"description": "Open own profile preferences from the profile card."},
+  "userCardMoreBadges": "+{count} more",
+  "@userCardMoreBadges": {"placeholders": {"count": {"type": "int"}}},
+  "userCardReadTime": "Read time",
+  "@userCardReadTime": {"description": "Reading duration in the profile card."}
+
 }

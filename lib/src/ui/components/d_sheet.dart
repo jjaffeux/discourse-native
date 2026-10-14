@@ -547,7 +547,21 @@ Widget _sheetLayout(
             ? null
             : margin + safeBottom,
         width: horizontal ? panelWidth : null,
-        child: popup,
+        child: variant == DSheetVariant.menu && side == DSheetSide.bottom
+            ? ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: math.max(
+                    0,
+                    bounds.maxHeight -
+                        safeTop -
+                        DSpacing.sm -
+                        safeBottom -
+                        margin,
+                  ),
+                ),
+                child: popup,
+              )
+            : popup,
       );
       return Stack(
         children: [
@@ -1056,6 +1070,7 @@ class DSheetContent extends StatelessWidget {
 
     this.semanticLabel,
     this.backgroundColor,
+    this.headerImage,
     this.sidePanelMaxWidth = 384,
     this.sidePanelWidth,
     this.inset = false,
@@ -1086,6 +1101,10 @@ class DSheetContent extends StatelessWidget {
   /// Defaults to opaque [DTokens.background] for full-height sheets and
   /// [DTokens.surface] otherwise.
   final Color? backgroundColor;
+
+  /// A menu banner behind its identity row and overlaid grab handle.
+  /// The Native wash preserves legibility over light and dark artwork.
+  final ImageProvider<Object>? headerImage;
 
   final double sidePanelMaxWidth;
 
@@ -1143,29 +1162,45 @@ class DSheetContent extends StatelessWidget {
         ((fillsHeight || topBottomMaxHeightFactor != null) &&
             (MediaQuery.textScalerOf(context).scale(1) > 1.5 ||
                 (topBottomMaxHeightFactor != null && !hasBody)));
-    final parts = <Widget>[
-      if (variant == DSheetVariant.menu)
-        Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 10),
-          child: Center(
-            child: DSheetDragRegion(
-              child: ExcludeSemantics(
-                child: DecoratedBox(
-                  key: const ValueKey('sheet-drag-handle'),
-                  decoration: BoxDecoration(
-                    color: Color.lerp(
-                      tokens.background,
-                      tokens.foreground,
-                      .35,
-                    )!.withValues(alpha: .5),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: const SizedBox(width: 36, height: 5),
-                ),
+    final overArtwork = headerImage != null;
+    final handle = Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: Center(
+        child: DSheetDragRegion(
+          child: ExcludeSemantics(
+            child: DecoratedBox(
+              key: const ValueKey('sheet-drag-handle'),
+              decoration: BoxDecoration(
+                color: overArtwork
+                    ? Colors.white.withValues(alpha: .9)
+                    : Color.lerp(
+                        tokens.background,
+                        tokens.foreground,
+                        .35,
+                      )!.withValues(alpha: .5),
+                borderRadius: BorderRadius.circular(3),
+                boxShadow: overArtwork
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .18),
+                          spreadRadius: .5,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .35),
+                          offset: const Offset(0, 1),
+                          blurRadius: 4,
+                        ),
+                      ]
+                    : const [],
               ),
+              child: const SizedBox(width: 36, height: 5),
             ),
           ),
         ),
+      ),
+    );
+    final parts = <Widget>[
+      if (variant == DSheetVariant.menu && !overArtwork) handle,
     ];
     for (var index = 0; index < children.length; index++) {
       final child = children[index];
@@ -1260,6 +1295,42 @@ class DSheetContent extends StatelessWidget {
               ),
               child: Stack(
                 children: [
+                  if (headerImage != null)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: 132,
+                      child: IgnorePointer(
+                        child: ExcludeSemantics(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image(
+                                image: headerImage!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    const SizedBox.shrink(),
+                              ),
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      surfaceColor.withValues(alpha: .45),
+                                      surfaceColor.withValues(alpha: .84),
+                                      surfaceColor,
+                                    ],
+                                    stops: const [0, .55, 1],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   if (scrollWholeSheet)
                     SingleChildScrollView(
                       primary: false,
@@ -1277,6 +1348,8 @@ class DSheetContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: parts,
                     ),
+                  if (variant == DSheetVariant.menu && overArtwork)
+                    Positioned(top: 0, left: 0, right: 0, child: handle),
                   if (showCloseButton)
                     Positioned(
                       top: DSpacing.md,
@@ -1475,10 +1548,7 @@ class _DSheetCloseIconPainter extends CustomPainter {
 }
 
 typedef DSheetContentBuilder<T> =
-    DSheetContent Function(
-      BuildContext context,
-      DSheetController<T> controller,
-    );
+    Widget Function(BuildContext context, DSheetController<T> controller);
 
 /// Opens a route-owned Sheet and returns its typed result.
 Future<T?> showDSheet<T>({

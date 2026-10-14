@@ -3533,8 +3533,22 @@ void _feedGroups() {
           expect(request.url.path, '/u/joffrey%20j/card.json');
           return http.Response(
             jsonEncode({
+              'badges': [
+                {
+                  'id': 8,
+                  'name': 'Great reply',
+                  'icon': 'reply',
+                  'badge_type_id': 1,
+                },
+              ],
+              'user_badges': [
+                {'id': 31, 'badge_id': 8},
+              ],
               'user': {
                 'username': 'joffreyj',
+                'timezone': 'Europe/Paris',
+                'can_send_private_message_to_user': true,
+                'featured_user_badges': [31],
                 'name': 'Joffrey',
                 'title': 'Team',
                 'bio_excerpt': '<p>Hello</p>',
@@ -3559,6 +3573,9 @@ void _feedGroups() {
       );
 
       expect(card.username, 'joffreyj');
+      expect(card.timezone, 'Europe/Paris');
+      expect(card.canSendPrivateMessage, isTrue);
+      expect(card.featuredBadges.single.name, 'Great reply');
       expect(card.displayName, 'Joffrey');
       expect(card.title, 'Team');
       expect(card.avatarUrl, 'https://example.com/user_avatar/j/240.png');

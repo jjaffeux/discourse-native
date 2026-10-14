@@ -15052,4 +15052,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String draftPreviewRestored(String text) {
     return 'Restored: $text';
   }
+
+  @override
+  String get userCardMessageAction => 'Message';
+
+  @override
+  String get userCardEditProfileAction => 'Edit profile';
+
+  @override
+  String userCardMoreBadges(int count) {
+    return '+$count more';
+  }
+
+  @override
+  String get userCardReadTime => 'Read time';
 }

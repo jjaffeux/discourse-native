@@ -510,7 +510,7 @@ final class DiscourseAccountApi {
     if (user == null) {
       throw SiteLookupException(SiteLookupFailure.notDiscourse, siteUrl);
     }
-    return _models.userCard(user, siteUrl);
+    return _models.userCard(user, siteUrl, payload: body);
   }
 
   Future<void> setUserStatus({

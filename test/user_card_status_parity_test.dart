@@ -302,8 +302,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('user-card-surface')), findsOneWidget);
       expect(find.text('Alex Morgan'), findsOneWidget);
-      expect(find.text('Preferences'), findsOneWidget);
-      await tester.tap(find.text('Preferences'));
+      expect(
+        find.text(
+          platform == TargetPlatform.android ? 'Edit profile' : 'Preferences',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.text(
+          platform == TargetPlatform.android ? 'Edit profile' : 'Preferences',
+        ),
+      );
       await tester.pumpAndSettle();
       expect(shell.currentContent!.isPreferences, isTrue);
     });

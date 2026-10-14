@@ -20,6 +20,9 @@ enum DBadgeSize {
 
   /// Matches the mockup taxonomy chips: 30px with 12.5px labels.
   control,
+
+  /// Profile awards: 26px pills with 12px labels and 10.5px artwork.
+  featured,
 }
 
 enum _BadgeInteraction { none, action, link }
@@ -177,6 +180,7 @@ class _DBadgeState extends State<DBadge> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final compact = widget.size == DBadgeSize.compact;
+    final featured = widget.size == DBadgeSize.featured;
 
     final unread = widget.size == DBadgeSize.unread;
     final overlay = widget._overlay;
@@ -196,7 +200,9 @@ class _DBadgeState extends State<DBadge> {
         : compact
         ? 14 / DiscourseTypography.xs
         : DiscourseTypography.lineHeightCaption;
-    final artworkSize = control
+    final artworkSize = featured
+        ? 10.5
+        : control
         ? DControlStyle.iconDimension(DControlSize.filter, context: context)
         : 12.0;
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -262,7 +268,9 @@ class _DBadgeState extends State<DBadge> {
         clipBehavior: Clip.antiAlias,
         constraints: BoxConstraints(
           minWidth: overlay ? 14 : (unread ? 18 : 0),
-          minHeight: control
+          minHeight: featured
+              ? 26 + (MediaQuery.textScalerOf(context).scale(12) - 12) * 1.5
+              : control
               ? DControlStyle.scaledHeight(
                   DControlSize.filter,
                   MediaQuery.textScalerOf(context),
@@ -292,13 +300,17 @@ class _DBadgeState extends State<DBadge> {
             : (unread
                   ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
                   : EdgeInsetsDirectional.fromSTEB(
-                      control
+                      featured
+                          ? 10
+                          : control
                           ? 11
                           : compact
                           ? 4
                           : (widget.leading == null ? 8 : 6),
                       compact ? 0 : 1,
-                      control
+                      featured
+                          ? 10
+                          : control
                           ? 11
                           : compact
                           ? 4

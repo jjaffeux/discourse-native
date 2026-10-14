@@ -23516,6 +23516,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restored: {text}'**
   String draftPreviewRestored(String text);
+
+  /// Private message action in the profile card.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get userCardMessageAction;
+
+  /// Open own profile preferences from the profile card.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit profile'**
+  String get userCardEditProfileAction;
+
+  /// No description provided for @userCardMoreBadges.
+  ///
+  /// In en, this message translates to:
+  /// **'+{count} more'**
+  String userCardMoreBadges(int count);
+
+  /// Reading duration in the profile card.
+  ///
+  /// In en, this message translates to:
+  /// **'Read time'**
+  String get userCardReadTime;
 }
 
 class _AppLocalizationsDelegate

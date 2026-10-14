@@ -14,16 +14,19 @@ class UserCardHeader extends StatelessWidget {
     required this.card,
     required this.siteUrl,
     this.statusContent,
+    this.mobileSheet = false,
   });
 
   final UserCard card;
   final String siteUrl;
   final Widget? statusContent;
+  final bool mobileSheet;
   static const double avatarSize = 64;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (mobileSheet) return _mobileIdentity(context);
     // One reading for the whole card: a suspension that lapses between two
     // reads would open the badge row and then draw nothing in it.
     final suspended = card.isSuspendedAt(DateTime.now());
@@ -166,6 +169,143 @@ class UserCardHeader extends StatelessWidget {
         ),
         content,
       ],
+    );
+  }
+
+  Widget _mobileIdentity(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final banner = card.cardBackgroundUrl != null;
+    final suspended = card.isSuspendedAt(DateTime.now());
+    final shadows = banner
+        ? [
+            for (final blur in [4.0, 10.0, 18.0])
+              Shadow(
+                color: Color.lerp(tokens.background, tokens.foreground, .03)!,
+                blurRadius: blur,
+              ),
+          ]
+        : null;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, banner ? 26 : 4, 16, 0),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DAvatar(
+                border: false,
+                dimension: avatarSize,
+                fallback: DAvatarFallback(
+                  child: Text(
+                    card.username.characters.firstOrNull?.toUpperCase() ?? '?',
+                  ),
+                ),
+                child: AvatarImage(
+                  url: card.avatarUrl,
+                  size: avatarSize,
+                  fallback: DAvatarFallback(
+                    child: Text(
+                      card.username.characters.firstOrNull?.toUpperCase() ??
+                          '?',
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      card.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: DiscourseTypography.xl,
+                        height: 1.25,
+                        color: tokens.foreground,
+                        fontWeight: FontWeight.w700,
+                        shadows: shadows,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '@${card.username}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: DiscourseTypography.control,
+                        height: 1.5,
+                        color: Color.lerp(
+                          tokens.background,
+                          tokens.foreground,
+                          banner ? .62 : .50,
+                        ),
+                        shadows: shadows,
+                      ),
+                    ),
+                    if (card.title case final title?) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: DiscourseTypography.control,
+                          height: 1.5,
+                          color: Color.lerp(
+                            tokens.background,
+                            tokens.foreground,
+                            banner ? .90 : .62,
+                          ),
+                          shadows: shadows,
+                        ),
+                      ),
+                    ],
+                    if (card.isStaff || suspended)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (card.isStaff)
+                            DBadge(
+                              variant: DBadgeVariant.secondary,
+                              child: Text(
+                                card.isAdmin
+                                    ? context.l10n.admin
+                                    : card.isModerator
+                                    ? context.l10n.moderator
+                                    : context.l10n.staffChatmessagetile,
+                              ),
+                            ),
+                          if (suspended)
+                            DBadge(
+                              variant: DBadgeVariant.destructive,
+                              child: Text(context.l10n.suspended),
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            top: -31,
+            left: 48,
+            right: 0,
+            child:
+                statusContent ??
+                UserStatusMessage(
+                  siteUrl: siteUrl,
+                  userId: card.id,
+                  status: card.status,
+                  showDescription: true,
+                  asBubble: true,
+                  size: 15,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
