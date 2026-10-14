@@ -9,7 +9,9 @@ final actionTransitionExamples = ComponentExamples(
   description: 'Quick, gentle entrances and exits for contextual actions.',
   notes:
       'Actions fade and scale around their center from 72% to full size over '
-      '240ms, and leave in 160ms. Use a stable key for each action and null for '
+      '240ms, and leave in 160ms. Glass actions shrink out in 96ms, then grow '
+      'their replacement without fading the live backdrop. '
+      'Use a stable key for each action and null for '
       'an empty slot. '
       'Outgoing actions immediately leave hit testing, focus and semantics. '
       'A fixed slot keeps neighboring controls still. Reduced motion switches '

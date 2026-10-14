@@ -46,6 +46,7 @@ import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1649,6 +1650,48 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('root action changes preserve their live glass backdrop', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester);
+    final glass = DMaterialTheme.glassOf(tester.element(_bar));
+    await _tapDockTab(tester, 'panel/chat');
+    for (final (tab, key) in [
+      ('messages', 'new-message-button'),
+      ('panel/chat', 'mobile-panel-action'),
+      ('topics', 'mobile-new-topic'),
+      ('panel/chat', 'mobile-panel-action'),
+      ('messages', 'new-message-button'),
+    ]) {
+      await _tapDockTab(tester, tab, settle: false);
+      await tester.pump();
+      final actions = find.byKey(ValueKey(key));
+      expect(actions, findsAtLeastNWidgets(1));
+      final action = actions.last;
+      for (var frame = 0; frame < 10; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (glass) {
+          RenderObject? ancestor = tester.renderObject(action);
+          while (ancestor != null) {
+            if (ancestor is RenderOpacity) {
+              expect(ancestor.opacity, anyOf(0.0, 1.0), reason: tab);
+            } else if (ancestor is RenderAnimatedOpacity) {
+              expect(ancestor.opacity.value, anyOf(0.0, 1.0), reason: tab);
+            }
+            ancestor = ancestor.parent;
+          }
+        }
+      }
+      // Switch roots again before the incoming action has fully settled.
+    }
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('new-message-button')));
+    await tester.pumpAndSettle();
+    final shell = ShellScope.read(tester.element(find.byType(MobileForumRoot)));
+    expect(shell.visibleComposer!.target.isPrivateMessage, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('minimized composer and dock consume the bottom safe area once', (
     tester,
   ) async {
@@ -1746,11 +1789,11 @@ void main() {
     'matching compose glyphs stay still and changed glyphs transition',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
-      final fades = find.descendant(
+      final scales = find.descendant(
         of: find.byType(DActionTransition),
-        matching: find.byType(FadeTransition),
+        matching: find.byType(ScaleTransition),
       );
-      final originalAnimation = tester.widget<FadeTransition>(fades).opacity;
+      final originalTransition = tester.element(scales);
       for (final (tab, key) in [
         ('messages', 'new-message-button'),
         ('topics', 'mobile-new-topic'),
@@ -1759,9 +1802,9 @@ void main() {
       ]) {
         await _tapDockTab(tester, tab, settle: false);
         await tester.pump();
-        expect(fades, findsOneWidget, reason: tab);
-        final animation = tester.widget<FadeTransition>(fades).opacity;
-        expect(animation, same(originalAnimation), reason: tab);
+        expect(scales, findsOneWidget, reason: tab);
+        final animation = tester.widget<ScaleTransition>(scales).scale;
+        expect(tester.element(scales), same(originalTransition), reason: tab);
         expect(animation.value, 1, reason: tab);
         expect(find.byKey(ValueKey(key)), findsOneWidget);
         await tester.pump(const Duration(milliseconds: 60));
@@ -1776,7 +1819,7 @@ void main() {
       // Chat creates a conversation with a plus, so it now has distinct artwork.
       await _tapDockTab(tester, 'panel/chat', settle: false);
       await tester.pump();
-      expect(fades, findsNWidgets(2));
+      expect(scales, findsNWidgets(2));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('mobile-panel-action')));
       await tester.pumpAndSettle();
@@ -1811,12 +1854,12 @@ void main() {
       expect(topic, findsNothing);
       expect(
         tester
-            .widget<FadeTransition>(
+            .widget<ScaleTransition>(
               find
-                  .ancestor(of: message, matching: find.byType(FadeTransition))
+                  .ancestor(of: message, matching: find.byType(ScaleTransition))
                   .first,
             )
-            .opacity
+            .scale
             .value,
         1,
       );
@@ -1889,14 +1932,14 @@ void main() {
     final entering = paintedReply();
     expect(
       tester
-          .widget<FadeTransition>(
+          .widget<ScaleTransition>(
             find
-                .ancestor(of: reply, matching: find.byType(FadeTransition))
+                .ancestor(of: reply, matching: find.byType(ScaleTransition))
                 .first,
           )
-          .opacity
+          .scale
           .value,
-      inExclusiveRange(0, 1),
+      allOf(greaterThanOrEqualTo(0), lessThan(1)),
     );
     await tester.pumpAndSettle();
     final settled = paintedReply();
@@ -1916,14 +1959,14 @@ void main() {
     expect(paintedReply().center.dy, closeTo(settled.center.dy, .001));
     expect(
       tester
-          .widget<FadeTransition>(
+          .widget<ScaleTransition>(
             find
-                .ancestor(of: reply, matching: find.byType(FadeTransition))
+                .ancestor(of: reply, matching: find.byType(ScaleTransition))
                 .first,
           )
-          .opacity
+          .scale
           .value,
-      inExclusiveRange(0, 1),
+      allOf(greaterThanOrEqualTo(0), lessThan(1)),
     );
     await tester.pumpAndSettle();
     expect(reply, findsNothing);
