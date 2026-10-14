@@ -1039,7 +1039,13 @@ class DPopoverContent extends StatelessWidget {
         ? Color.lerp(tokens.background, tokens.foreground, .03)!
         : tokens.surface;
     final edge = variant == DPopoverVariant.timeline
-        ? Color.lerp(tokens.background, tokens.foreground, .22)!
+        ? DMaterialTheme.glassOf(context)
+              ? Colors.white.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark
+                      ? .14
+                      : .75,
+                )
+              : Color.lerp(tokens.background, tokens.foreground, .22)!
         : DControlStyle.outlineBorder(
             tokens,
             dark: Theme.of(context).brightness == Brightness.dark,

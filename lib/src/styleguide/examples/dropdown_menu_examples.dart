@@ -30,6 +30,73 @@ final dropdownMenuExamples = ComponentExamples(
     _example('Complex', _DropdownExampleKind.complex),
     _example('RTL', _DropdownExampleKind.rtl),
     StyleguideExample(
+      title: 'Profile account',
+      description:
+          'The same anchored account menu on desktop and touch, with a full-sized avatar, mixed palette colors, and compact toggle indicators.',
+      code:
+          "DDropdownMenu(content: DDropdownMenuContent(width: 216, sideOffset: 8, align: DPopoverAlign.end, variant: DPopoverVariant.timeline, padding: EdgeInsets.all(7), highlightInitialFocus: false, children: [DDropdownMenuItem(leading: DAvatar(border: false), leadingGap: 10, padding: EdgeInsets.all(8), onPressed: openCard, child: Column(children: [Text('Ty'), Text('@tynaut')])), DDropdownMenuSeparator(inset: true, space: 11), DDropdownMenuCheckboxItem(checked: online, onChanged: setOnline, leading: onlineIcon, leadingGap: 9, indicatorSize: 11, child: Text('Online'))]), child: avatarTrigger)",
+      builder: (_) => DDropdownMenu(
+        content: DDropdownMenuContent(
+          width: 216,
+          sideOffset: 8,
+          align: DPopoverAlign.end,
+          variant: DPopoverVariant.timeline,
+          padding: const EdgeInsets.all(7),
+          highlightInitialFocus: false,
+          children: [
+            DDropdownMenuItem(
+              leading: const DAvatar(
+                border: false,
+                fallback: DAvatarFallback(child: Text('T')),
+              ),
+              leadingGap: 10,
+              padding: const EdgeInsets.all(8),
+              onPressed: () {},
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ty',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text('@tynaut', style: TextStyle(fontSize: 12)),
+                ],
+              ),
+            ),
+            const DDropdownMenuSeparator(inset: true, space: 11),
+            DDropdownMenuCheckboxItem(
+              checked: true,
+              onChanged: (_) {},
+              leadingGap: 9,
+              indicatorSize: 11,
+              leading: const Icon(Icons.toggle_on, size: 13),
+              child: const Text('Online'),
+            ),
+            DDropdownMenuItem(
+              variant: DDropdownMenuItemVariant.destructive,
+              onPressed: () {},
+              child: const Text('Disconnect'),
+            ),
+          ],
+        ),
+        child: DDropdownMenuTrigger(
+          builder: (context, state) => DButton.iconOnly(
+            density: DButtonDensity.avatar,
+            shape: DButtonShape.pill,
+            focusNode: state.focusNode,
+            hasPopup: true,
+            expanded: state.open,
+            tooltip: 'Profile',
+            onPressed: state.toggle,
+            icon: const DAvatar(fallback: DAvatarFallback(child: Text('T'))),
+          ),
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Grouped guide',
       description:
           'A sidebar-style vertical guide groups indented choices beneath a label. The guide follows the reading direction and live palette.',

@@ -103,7 +103,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
             previous.siteUrl == owner.siteUrl &&
                 (previous.userId != owner.userId ||
                     previous.session != owner.session));
-    if (retired && !context.isTouch) {
+    if (retired) {
       // Site navigation keeps the selected menu section. A retired account
       // removes its content before the dismissal animation can reload it.
       _menuGeneration++;
@@ -298,11 +298,7 @@ class _AccountMenuPopover extends StatelessWidget {
   Widget build(BuildContext context) {
     void activate(BuildContext context, DPopoverTriggerState trigger) {
       onOpen();
-      if (view == UserMenuView.profile && context.isTouch) {
-        unawaited(showUserMenuSheet(context, view: view));
-      } else {
-        trigger.toggle();
-      }
+      trigger.toggle();
     }
 
     Widget buildTrigger(BuildContext context, DPopoverTriggerState trigger) {
@@ -355,13 +351,26 @@ class _AccountMenuPopover extends StatelessWidget {
       );
     }
 
-    if (view == UserMenuView.profile && !context.isTouch) {
+    if (view == UserMenuView.profile) {
+      // Header SafeArea has consumed the local padding. Placement still needs
+      // the physical view's safe area so large menus avoid the home indicator.
+      final media = MediaQueryData.fromView(View.of(context));
       return DDropdownMenu(
         controller: controller,
         content: DDropdownMenuContent(
           semanticLabel: context.l10n.profile,
           align: DPopoverAlign.end,
+          sideOffset: 8,
+          collisionBoundary: Rect.fromLTRB(
+            media.padding.left,
+            media.padding.top,
+            media.size.width - media.padding.right,
+            media.size.height - media.padding.bottom - media.viewInsets.bottom,
+          ),
           width: 216,
+          padding: const EdgeInsets.all(7),
+          variant: DPopoverVariant.timeline,
+          highlightInitialFocus: false,
           children: [UserProfileMenuItems(onDismiss: controller.close)],
         ),
         child: DDropdownMenuTrigger(builder: buildTrigger),

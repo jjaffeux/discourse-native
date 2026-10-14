@@ -115,7 +115,7 @@ class DMaterialSurface extends StatelessWidget {
     final alpha = accented
         ? 1.0
         : menu
-        ? .88
+        ? .68
         : dark
         ? .66
         : .72;
@@ -140,6 +140,10 @@ class DMaterialSurface extends StatelessWidget {
     background = CustomPaint(
       foregroundPainter: color.a == 0
           ? null
+          : menu
+          ? glass
+                ? _MenuEdge(radius, dark)
+                : null
           : insetEdges
           ? _InsetEdges(radius, dark)
           : panel && !DMaterialTheme.reducedOf(context)
@@ -148,11 +152,17 @@ class DMaterialSurface extends StatelessWidget {
       child: background,
     );
     final shadow = BoxShadow(
-      color: Colors.black.withValues(alpha: dark ? .24 : .09),
+      color: Colors.black.withValues(
+        alpha: menu
+            ? .28
+            : dark
+            ? .24
+            : .09,
+      ),
       offset: Offset(0, menu ? 18 : 1),
       blurRadius: menu ? 44 : 3,
     );
-    final castsShadow = !recessed && !panel && color.a > 0;
+    final castsShadow = !recessed && !panel && color.a > 0 && (!menu || glass);
     final surface = CustomPaint(
       painter: castsShadow && joined != null
           ? _JoinedSurfaceShadow(
@@ -187,6 +197,48 @@ class DMaterialSurface extends StatelessWidget {
     // painted stack instead of a card's earlier shared backdrop.
     return menu ? LiquidGlassBatch.exclude(child: surface) : surface;
   }
+}
+
+/// The menu's radial top sheen and inset highlight from the mockup CSS.
+class _MenuEdge extends CustomPainter {
+  const _MenuEdge(this.radius, this.dark);
+
+  final BorderRadius radius;
+  final bool dark;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final rect = Offset.zero & size;
+    final hi = dark ? .12 : .55;
+    canvas.save();
+    canvas.clipRRect(radius.toRRect(rect));
+    canvas.save();
+    canvas.translate(size.width * .4, size.height * -.3);
+    canvas.scale(size.width * 1.4, size.height * .9);
+    canvas.drawPaint(
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset.zero,
+          1,
+          [Colors.white.withValues(alpha: hi * .6), Colors.transparent],
+          const [0, .6],
+        ),
+    );
+    canvas.restore();
+    canvas.drawLine(
+      const Offset(0, .5),
+      Offset(size.width, .5),
+      Paint()
+        ..strokeWidth = 1
+        ..color = Colors.white.withValues(alpha: hi),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_MenuEdge oldDelegate) =>
+      radius != oldDelegate.radius || dark != oldDelegate.dark;
 }
 
 /// CSS outer shadows exclude the border box. Flutter's ordinary BoxShadow

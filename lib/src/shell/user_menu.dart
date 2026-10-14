@@ -906,6 +906,12 @@ class UserProfileMenuItems extends StatelessWidget {
       final user = state.user;
       if (siteUrl == null || user == null) return const SizedBox.shrink();
       final controller = state.controller;
+      final tokens = DTokens.of(context);
+      Widget rule() => DDropdownMenuSeparator(
+        inset: true,
+        space: 11,
+        color: Color.lerp(tokens.background, tokens.foreground, .12),
+      );
       final rows =
           userMenuSections(
                 null,
@@ -938,77 +944,101 @@ class UserProfileMenuItems extends StatelessWidget {
         };
       }
 
-      return ListenableBuilder(
-        listenable: controller.draftList,
-        builder: (context, _) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!statusOnly)
-              _OwnCardMenuEntry(
-                siteUrl: siteUrl,
-                onDismiss: onDismiss,
-                dropdown: true,
-              ),
-            for (final row in rows)
-              if (row.isHidePresence)
-                _HidePresenceTile(siteUrl: siteUrl, dropdown: true)
-              else if (row.isDoNotDisturb)
-                _DoNotDisturbTile(
+      return DIconGlyphTheme(
+        scale: 1,
+        naturalWidth: true,
+        child: ListenableBuilder(
+          listenable: controller.draftList,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!statusOnly) ...[
+                _OwnCardMenuEntry(
                   siteUrl: siteUrl,
+                  onDismiss: onDismiss,
                   dropdown: true,
-                  onPause: () {
-                    final dialog = showDoNotDisturbDialog(
-                      context,
-                      siteUrl: siteUrl,
-                      controller: controller,
-                    );
-                    onDismiss();
-                    unawaited(dialog);
-                  },
-                )
-              else ...[
-                if (row.isSummary) const DDropdownMenuSeparator(inset: true),
+                ),
+                rule(),
+              ],
+              for (final row in rows)
+                if (row.isHidePresence)
+                  _HidePresenceTile(siteUrl: siteUrl, dropdown: true)
+                else if (row.isDoNotDisturb)
+                  _DoNotDisturbTile(
+                    siteUrl: siteUrl,
+                    dropdown: true,
+                    onPause: () {
+                      final dialog = showDoNotDisturbDialog(
+                        context,
+                        siteUrl: siteUrl,
+                        controller: controller,
+                      );
+                      onDismiss();
+                      unawaited(dialog);
+                    },
+                  )
+                else ...[
+                  if (row.isSummary) rule(),
+                  DDropdownMenuItem(
+                    key: ValueKey('user-menu-row-${row.id}'),
+                    leadingGap: 9,
+                    leading: row.isUserStatus && row.status != null
+                        ? UserStatusMessage(
+                            siteUrl: siteUrl,
+                            userId: row.userId,
+                            status: row.status,
+                            size: 14,
+                          )
+                        : DIcon(
+                            row.isPreferences
+                                ? DNativeIcons.profileSliders
+                                : row.isUserStatus
+                                ? DIcons.faceSmile
+                                : row.icon,
+                            size: 13,
+                            color: tokens.mutedForeground,
+                          ),
+                    trailing: row.isDrafts
+                        ? Text(
+                            '${controller.draftCountFor(siteUrl)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: tokens.mutedForeground,
+                            ),
+                          )
+                        : null,
+                    onPressed: action(row),
+                    child: Text(row.title),
+                  ),
+                ],
+              if (!statusOnly) ...[
+                rule(),
                 DDropdownMenuItem(
-                  key: ValueKey('user-menu-row-${row.id}'),
-                  leading: row.isUserStatus && row.status != null
-                      ? UserStatusMessage(
-                          siteUrl: siteUrl,
-                          userId: row.userId,
-                          status: row.status,
-                          size: 16,
-                        )
-                      : DIcon(row.icon, size: 16),
-                  trailing:
-                      row.isDrafts && controller.draftCountFor(siteUrl) > 0
-                      ? DText(
-                          '${controller.draftCountFor(siteUrl)}',
-                          variant: DTextVariant.muted,
-                        )
-                      : null,
-                  onPressed: action(row),
-                  child: Text(row.title),
+                  key: const ValueKey('user-menu-row-about'),
+                  leadingGap: 9,
+                  leading: DIcon(
+                    DIcons.circleQuestion,
+                    size: 13,
+                    color: tokens.mutedForeground,
+                  ),
+                  onPressed: () => _openAboutAfterMenu(context, onDismiss),
+                  child: Text(context.l10n.about),
+                ),
+                DDropdownMenuItem(
+                  key: const ValueKey('user-menu-row-disconnect'),
+                  leadingGap: 9,
+                  variant: DDropdownMenuItemVariant.destructive,
+                  leading: const DIcon(DIcons.rightFromBracket, size: 13),
+                  onPressed: () {
+                    onDismiss();
+                    controller.disconnectInstance(siteUrl).ignore();
+                  },
+                  child: Text(context.l10n.disconnect),
                 ),
               ],
-            if (!statusOnly) ...[
-              DDropdownMenuItem(
-                key: const ValueKey('user-menu-row-about'),
-                leading: const DIcon(DIcons.circleInfo, size: 16),
-                onPressed: () => _openAboutAfterMenu(context, onDismiss),
-                child: Text(context.l10n.about),
-              ),
-              const DDropdownMenuSeparator(inset: true),
-              DDropdownMenuItem(
-                variant: DDropdownMenuItemVariant.destructive,
-                leading: const DIcon(DIcons.rightFromBracket, size: 16),
-                onPressed: () {
-                  onDismiss();
-                  controller.disconnectInstance(siteUrl).ignore();
-                },
-                child: Text(context.l10n.disconnect),
-              ),
             ],
-          ],
+          ),
         ),
       );
     },
@@ -1160,14 +1190,18 @@ class _DoNotDisturbTile extends StatelessWidget {
           return DDropdownMenuCheckboxItem(
             key: const ValueKey('pause-notifications-row'),
             checked: active,
+            indicatorSize: 11,
+            leadingGap: 9,
+            semanticLabel: context.l10n.pauseNotifications,
+            semanticValue: value,
             onChanged: action == null ? null : (_) => action(),
             leading: DIcon(
               active ? DIcons.toggleOn : DIcons.toggleOff,
-              size: 16,
+              size: 13,
+              color: active
+                  ? DTokens.of(context).foreground
+                  : DTokens.of(context).mutedForeground,
             ),
-            trailing: detail == null
-                ? null
-                : DText(detail, variant: DTextVariant.muted),
             child: Text(context.l10n.pauseNotifications),
           );
         }
@@ -1305,16 +1339,18 @@ class _HidePresenceTile extends StatelessWidget {
             DDropdownMenuCheckboxItem(
               key: semanticsKey,
               checked: hidden == false,
+              indicatorSize: 11,
+              leadingGap: 9,
               onChanged: onTap == null ? null : (_) => onTap(),
               semanticLabel: [semanticsLabel, ?semanticsValue].join(', '),
               leading: DIcon(
                 hidden == false ? DIcons.toggleOn : DIcons.toggleOff,
-                size: 16,
+                size: 13,
                 color: hidden == false
                     ? DTokens.of(context).success
                     : DTokens.of(context).mutedForeground,
               ),
-              child: Text(title),
+              child: Text(hidden == null ? title : context.l10n.online),
             ),
             if (state.error != null)
               DDropdownMenuLabel(child: Text(state.error!)),
@@ -1912,19 +1948,35 @@ class _OwnCardMenuEntry extends StatelessWidget {
 
     final avatar = UserMenuAvatar(
       avatarUrl: user.avatarUrl,
-      initial: user.username.characters.firstOrNull,
+      initial: user.username.characters.firstOrNull?.toUpperCase(),
       connecting: false,
     );
     if (dropdown) {
       return DDropdownMenuItem(
         key: const ValueKey('user-menu-own-card'),
         leading: avatar,
+        leadingGap: 10,
+        padding: const EdgeInsets.all(8),
+        semanticLabel: '${user.displayName}, @${user.username}',
         onPressed: () => unawaited(open()),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(user.name ?? user.username),
-            Text('@${user.username}'),
+            Text(
+              user.displayName,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: DTokens.of(context).foreground,
+              ),
+            ),
+            Text(
+              '@${user.username}',
+              style: TextStyle(
+                fontSize: 12,
+                color: DTokens.of(context).mutedForeground,
+              ),
+            ),
           ],
         ),
       );

@@ -303,7 +303,8 @@ void main() {
               isChecked: true,
             ),
           );
-          expect(find.text('30m'), findsOneWidget);
+          expect(tester.getSemantics(row).value, startsWith('On, until'));
+          expect(find.text('30m'), findsNothing);
 
           await tester.tap(row);
           await tester.pumpAndSettle();
@@ -347,7 +348,7 @@ void main() {
     );
 
     testWidgets(
-      'custom status opens above the touch profile and returns after saving',
+      'custom status dismisses the touch dropdown before editing and saving',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         await _openNestedSection(tester, 'Profile');
         await tester.tap(
@@ -370,7 +371,7 @@ void main() {
 
         expect(fixture.api.userStatusesSet.single.description, 'Available');
         expect(editor, findsNothing);
-        expect(find.text('Profile'), findsOneWidget);
+        expect(find.byType(DDropdownMenuContent), findsNothing);
         expect(tester.takeException(), isNull);
       }),
     );
@@ -622,7 +623,7 @@ void main() {
     );
 
     testWidgets(
-      'closes both touch sheets and keeps the source account',
+      'touch profile follows the selected account before opening preferences',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         await _openNestedSection(tester, 'Profile');
         final preferences = find.byKey(
@@ -632,6 +633,7 @@ void main() {
         shell.selectInstance(1);
         await tester.pumpAndSettle();
         expect(shell.currentInstance?.url, _teamUrl);
+        expect(find.text('Team User'), findsOneWidget);
 
         await tester.tap(preferences);
         await tester.pumpAndSettle();
@@ -640,12 +642,12 @@ void main() {
         expect(find.byType(PreferencesPage), findsOneWidget);
         expect(
           tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
-          _metaUrl,
+          _teamUrl,
         );
-        expect(shell.currentInstance?.url, _metaUrl);
+        expect(shell.currentInstance?.url, _teamUrl);
         expect(shell.currentContent?.isPreferences, isTrue);
         expect(fixture.api.userPreferenceLoads, [
-          (siteUrl: _metaUrl, username: 'meta-user', clientId: 'test-client'),
+          (siteUrl: _teamUrl, username: 'team-user', clientId: 'test-client'),
         ]);
       }),
     );
@@ -653,7 +655,7 @@ void main() {
 
   group('profile source actions', () {
     testWidgets(
-      'disconnect the nested profile account and retain the exact other account',
+      'disconnect the visible touch profile account and retain the other account',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         await _openNestedSection(tester, 'Profile');
         final shell = ShellScope.read(tester.element(find.text('Disconnect')));
@@ -663,14 +665,14 @@ void main() {
         await tester.tap(find.text('Disconnect'));
         await tester.pumpAndSettle();
 
-        expect(fixture.auth.disconnected, [_metaUrl]);
-        expect(shell.currentInstance?.url, _teamUrl);
-        expect(shell.currentInstance?.user, _teamUser);
+        expect(fixture.auth.disconnected, [_teamUrl]);
+        expect(shell.currentUserFor(_teamUrl), isNull);
+        expect(shell.currentUserFor(_metaUrl), _metaUser);
       }),
     );
 
     testWidgets(
-      'return to and load the nested profile account for Activity',
+      'load the visible touch profile account for Activity',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         final api = fixture.api;
 
@@ -698,15 +700,15 @@ void main() {
           ),
           findsOneWidget,
         );
-        expect(shell.currentInstance?.url, _metaUrl);
+        expect(shell.currentInstance?.url, _teamUrl);
         expect(shell.currentContent?.id, 'activity');
-        expect(api.userActivitySites, [_metaUrl]);
-        expect(api.userActivityUsers, ['meta-user']);
+        expect(api.userActivitySites, [_teamUrl]);
+        expect(api.userActivityUsers, ['team-user']);
       }),
     );
 
     testWidgets(
-      'change presence only for the nested profile account',
+      'change presence only for the visible touch profile account',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         final api = fixture.api;
 
@@ -719,10 +721,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(api.presenceUpdates, [
-          (siteUrl: _metaUrl, username: 'meta-user', hidePresence: true),
+          (siteUrl: _teamUrl, username: 'team-user', hidePresence: false),
         ]);
-        expect(shell.hidePresenceFor(_metaUrl), isTrue);
-        expect(shell.hidePresenceFor(_teamUrl), isTrue);
+        expect(shell.hidePresenceFor(_metaUrl), isFalse);
+        expect(shell.hidePresenceFor(_teamUrl), isFalse);
       }),
     );
   });

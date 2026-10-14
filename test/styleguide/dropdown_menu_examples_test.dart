@@ -27,6 +27,7 @@ void main() {
       'Avatar',
       'Complex',
       'RTL',
+      'Profile account',
       'Grouped guide',
       'Custom popup corners',
       'Sheet on mobile',

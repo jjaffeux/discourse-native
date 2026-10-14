@@ -121,8 +121,11 @@ void main() {
     await tester.pumpAndSettle();
     for (final key in ['user-menu-hide-presence', 'pause-notifications-row']) {
       final control = find.byKey(ValueKey(key));
-      expect(tester.widget(control), isA<DToggle>());
-      expect(tester.widget<DToggle>(control).enabled, isTrue);
+      expect(tester.widget(control), isA<DDropdownMenuCheckboxItem>());
+      expect(
+        tester.widget<DDropdownMenuCheckboxItem>(control).onChanged,
+        isNotNull,
+      );
       expect(tester.getRect(control).left, greaterThanOrEqualTo(0));
       expect(tester.getRect(control).right, lessThanOrEqualTo(320));
     }
@@ -161,14 +164,10 @@ void main() {
               presence ? 'user-menu-hide-presence' : 'pause-notifications-row',
             ),
           );
-          if (defaultTargetPlatform == TargetPlatform.macOS) {
-            expect(tester.widget(control), isA<DDropdownMenuCheckboxItem>());
-          } else {
-            expect(tester.widget(control), isA<DToggle>());
-          }
-          final desktopControl = defaultTargetPlatform == TargetPlatform.macOS
-              ? tester.widget<DDropdownMenuCheckboxItem>(control)
-              : null;
+          expect(tester.widget(control), isA<DDropdownMenuCheckboxItem>());
+          final sourceControl = tester.widget<DDropdownMenuCheckboxItem>(
+            control,
+          );
           final source = tester.element(control);
           final shell = ShellScope.read(tester.element(control));
           final lease = shell.lifecycle.capture(_site);
@@ -195,9 +194,9 @@ void main() {
             shell.doNotDisturb.stateFor(_site).isActiveAt(DateTime.now()),
             isTrue,
           );
-          if (retired && desktopControl != null) {
+          if (retired) {
             // Even a held callback cannot act for a retired account session.
-            desktopControl.onChanged?.call(!desktopControl.checked);
+            sourceControl.onChanged?.call(!sourceControl.checked);
           } else {
             await tester.tap(control);
           }
@@ -209,13 +208,11 @@ void main() {
               shell.doNotDisturb.stateFor(_site).isActiveAt(DateTime.now()),
               isTrue,
             );
-            if (desktopControl != null) {
-              expect(control, findsNothing);
-              expect(source.mounted, isFalse);
-              await tester.tap(find.byKey(UserMenuButton.avatarKey));
-              await tester.pumpAndSettle();
-              expect(tester.element(control), isNot(same(source)));
-            }
+            expect(control, findsNothing);
+            expect(source.mounted, isFalse);
+            await tester.tap(find.byKey(UserMenuButton.avatarKey));
+            await tester.pumpAndSettle();
+            expect(tester.element(control), isNot(same(source)));
             await tester.tap(control);
             await tester.pumpAndSettle();
           }

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_popover.dart';
@@ -78,6 +79,7 @@ class DDropdownMenu extends StatelessWidget {
         collisionBoundary: content.collisionBoundary,
         width: content.width,
         cornerRadius: content.cornerRadius,
+        variant: content.variant,
         constraints: content.constraints,
         padding: EdgeInsets.zero,
         // The menu adds a popup-local viewport only when its rows overflow.
@@ -155,9 +157,12 @@ class DDropdownMenuContent extends StatefulWidget {
     this.collisionBoundary,
     this.width = 160,
     this.cornerRadius,
+    this.variant = DPopoverVariant.standard,
+    this.padding = DInsets.menu,
     this.constraints = const BoxConstraints(minWidth: 128),
     this.isSubmenu = false,
     this.autofocus = true,
+    this.highlightInitialFocus = true,
   }) : assert(width == null || width >= 96),
        assert(cornerRadius == null || cornerRadius >= 0),
        assert(sideOffset >= 0),
@@ -177,12 +182,22 @@ class DDropdownMenuContent extends StatefulWidget {
 
   /// Uniform popup corner radius. Null keeps the Native menu default.
   final double? cornerRadius;
+
+  /// Timeline uses the mockup panel, muted, positive and destructive mixes.
+  final DPopoverVariant variant;
+
+  /// Interior spacing, including any inset needed for the popup's ring.
+  final EdgeInsetsGeometry padding;
   final BoxConstraints constraints;
   final bool isSubmenu;
 
   /// Focuses the first enabled item once it is available, including items
   /// inserted or enabled after asynchronous loading.
   final bool autofocus;
+
+  /// Keeps initial keyboard focus without highlighting a pointer-opened menu.
+  /// Keyboard navigation still reveals the focused row.
+  final bool highlightInitialFocus;
 
   @override
   State<DDropdownMenuContent> createState() => _DDropdownMenuContentState();
@@ -241,7 +256,8 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   bool get showFocusHighlight =>
       !_pointerHighlight &&
       _activeSubmenu == null &&
-      (!DControlStyle.isTouch(context) || _keyboardHighlight);
+      (widget.highlightInitialFocus && !DControlStyle.isTouch(context) ||
+          _keyboardHighlight);
 
   void _usePointerHighlight() {
     _parentContent?._usePointerHighlight();
@@ -536,7 +552,33 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
+    final baseTokens = DTokens.of(context);
+    final tokens = widget.variant == DPopoverVariant.timeline
+        ? baseTokens.copyWith(
+            surface: Color.lerp(
+              baseTokens.background,
+              baseTokens.foreground,
+              .03,
+            ),
+            colors: baseTokens.colors.copyWith(
+              onSurfaceVariant: Color.lerp(
+                baseTokens.background,
+                baseTokens.foreground,
+                .50,
+              ),
+              error: Color.lerp(
+                baseTokens.foreground,
+                baseTokens.destructive,
+                .50,
+              ),
+            ),
+            successColor: Color.lerp(
+              baseTokens.foreground,
+              baseTokens.success,
+              .50,
+            ),
+          )
+        : baseTokens;
     final textStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
       fontSize: DControlStyle.labelFontSize,
@@ -545,31 +587,41 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
       letterSpacing: 0,
       decoration: TextDecoration.none,
     );
-    return _DropdownMenuContentScope(
-      state: this,
-      child: MouseRegion(
-        onEnter: (_) => _usePointerHighlight(),
-        onHover: (_) => _usePointerHighlight(),
-        onExit: (_) => cancelPointerIntent(),
-        child: Semantics(
-          container: true,
-          explicitChildNodes: true,
-          label: widget.semanticLabel,
-          child: Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onKeyEvent: _onKey,
-            child: DefaultTextStyle(
-              style: textStyle,
-              child: IconTheme.merge(
-                data: IconThemeData(color: tokens.foreground, size: 16),
-                child: _DropdownMenuOverflowViewport(
-                  controller: _scrollController,
-                  padding: DInsets.menu,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: widget.children,
+    return Theme(
+      data: Theme.of(context).copyWith(
+        extensions: [
+          ...Theme.of(
+            context,
+          ).extensions.values.where((extension) => extension is! DTokens),
+          tokens,
+        ],
+      ),
+      child: _DropdownMenuContentScope(
+        state: this,
+        child: MouseRegion(
+          onEnter: (_) => _usePointerHighlight(),
+          onHover: (_) => _usePointerHighlight(),
+          onExit: (_) => cancelPointerIntent(),
+          child: Semantics(
+            container: true,
+            explicitChildNodes: true,
+            label: widget.semanticLabel,
+            child: Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: _onKey,
+              child: DefaultTextStyle(
+                style: textStyle,
+                child: IconTheme.merge(
+                  data: IconThemeData(color: tokens.foreground, size: 16),
+                  child: _DropdownMenuOverflowViewport(
+                    controller: _scrollController,
+                    padding: widget.padding,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: widget.children,
+                    ),
                   ),
                 ),
               ),
@@ -816,10 +868,17 @@ class DDropdownMenuLabel extends StatelessWidget {
 }
 
 class DDropdownMenuSeparator extends StatelessWidget {
-  const DDropdownMenuSeparator({super.key, this.inset = false});
+  const DDropdownMenuSeparator({
+    super.key,
+    this.inset = false,
+    this.space = 9,
+    this.color,
+  });
 
   /// Aligns the rule with menu item content instead of the popup edges.
   final bool inset;
+  final double space;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -840,19 +899,21 @@ class DDropdownMenuSeparator extends StatelessWidget {
           : surfaceLuminance / luminance;
     }
 
-    final color = contrast(tokens.border) >= contrast(fallback)
-        ? tokens.border
-        : fallback;
+    final color =
+        this.color ??
+        (contrast(tokens.border) >= contrast(fallback)
+            ? tokens.border
+            : fallback);
     return ExcludeSemantics(
       child: SizedBox(
-        height: 9,
+        height: space,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             PositionedDirectional(
               start: inset ? DInsets.menuItem.start : -DInsets.menu.left,
               end: inset ? DInsets.menuItem.end : -DInsets.menu.right,
-              top: 4,
+              top: (space - 1) / 2,
               height: 1,
               child: ColoredBox(color: color),
             ),
@@ -907,6 +968,8 @@ class DDropdownMenuItem extends StatelessWidget {
     this.closeOnSelect = true,
     this.semanticLabel,
     this.focusNode,
+    this.padding,
+    this.leadingGap = 6,
   });
 
   final Widget child;
@@ -919,6 +982,10 @@ class DDropdownMenuItem extends StatelessWidget {
   final String? semanticLabel;
   final FocusNode? focusNode;
 
+  /// Account headers can use their ordinary visible content padding.
+  final EdgeInsetsGeometry? padding;
+  final double leadingGap;
+
   @override
   Widget build(BuildContext context) => _DropdownMenuItemSurface(
     label: semanticLabel ?? _plainText(child),
@@ -927,6 +994,8 @@ class DDropdownMenuItem extends StatelessWidget {
     variant: variant,
     inset: inset,
     leading: leading,
+    padding: padding,
+    leadingGap: leadingGap,
     trailing: trailing,
     onActivate: () {
       onPressed?.call();
@@ -947,7 +1016,10 @@ class DDropdownMenuCheckboxItem extends StatelessWidget {
     this.inset = false,
     this.closeOnSelect = false,
     this.semanticLabel,
+    this.semanticValue,
     this.focusNode,
+    this.indicatorSize = 16,
+    this.leadingGap = 6,
   });
 
   final bool checked;
@@ -958,18 +1030,24 @@ class DDropdownMenuCheckboxItem extends StatelessWidget {
   final bool inset;
   final bool closeOnSelect;
   final String? semanticLabel;
+  final String? semanticValue;
   final FocusNode? focusNode;
+  final double indicatorSize;
+  final double leadingGap;
 
   @override
   Widget build(BuildContext context) => _DropdownMenuItemSurface(
     label: semanticLabel ?? _plainText(child),
+    semanticValue: semanticValue,
     enabled: onChanged != null,
     focusNode: focusNode,
     inset: inset,
     leading: leading,
+    leadingGap: leadingGap,
     // The reference reserves its absolute indicator column even while the
     // choice is unchecked, so labels do not reflow when state changes.
-    trailing: trailing ?? _CheckIndicator(checked: checked),
+    trailing:
+        trailing ?? _CheckIndicator(checked: checked, size: indicatorSize),
     checked: checked,
     onActivate: () {
       onChanged?.call(!checked);
@@ -1200,6 +1278,7 @@ class _DropdownMenuItemSurface extends StatefulWidget {
     required this.onActivate,
     required this.child,
     this.focusNode,
+    this.semanticValue,
     this.leading,
     this.trailing,
     this.inset = false,
@@ -1210,6 +1289,8 @@ class _DropdownMenuItemSurface extends StatefulWidget {
     this.onHover,
     this.onKey,
     this.preserveSubmenuOnFocus = false,
+    this.padding,
+    this.leadingGap = 6,
   });
 
   final String label;
@@ -1217,6 +1298,7 @@ class _DropdownMenuItemSurface extends StatefulWidget {
   final VoidCallback onActivate;
   final Widget child;
   final FocusNode? focusNode;
+  final String? semanticValue;
   final Widget? leading;
   final Widget? trailing;
   final bool inset;
@@ -1227,6 +1309,8 @@ class _DropdownMenuItemSurface extends StatefulWidget {
   final ValueChanged<bool>? onHover;
   final KeyEventResult Function(KeyEvent event)? onKey;
   final bool preserveSubmenuOnFocus;
+  final EdgeInsetsGeometry? padding;
+  final double leadingGap;
 
   @override
   State<_DropdownMenuItemSurface> createState() =>
@@ -1312,8 +1396,17 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
             _content?.isHovered(this) == true ||
             widget.expanded == true ||
             (_content?.showFocusHighlight == true && _focused));
+    final referencePalette =
+        _content?.widget.variant == DPopoverVariant.timeline;
+    final glass = DMaterialTheme.glassOf(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final referenceHover =
+        (glass ? (dark ? Colors.white : Colors.black) : tokens.foreground)
+            .withValues(alpha: glass ? (dark ? .08 : .05) : .08);
     final background = interactive
-        ? destructive
+        ? referencePalette
+              ? referenceHover
+              : destructive
               ? tokens.destructive.withValues(
                   alpha:
                       tokens.destructive.a *
@@ -1333,12 +1426,14 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
     // next row animates in briefly presents two highlighted menu choices.
     final row = interactiveRowSurface(
       constraints: const BoxConstraints(minHeight: DControlStyle.rowHeight),
-      padding: EdgeInsetsDirectional.fromSTEB(
-        startPadding,
-        DControlStyle.menuVerticalInset(context),
-        endPadding,
-        DControlStyle.menuVerticalInset(context),
-      ),
+      padding:
+          widget.padding ??
+          EdgeInsetsDirectional.fromSTEB(
+            startPadding,
+            DControlStyle.menuVerticalInset(context),
+            endPadding,
+            DControlStyle.menuVerticalInset(context),
+          ),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(DControlStyle.rowRadius),
@@ -1349,9 +1444,16 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
           if (widget.leading != null) ...[
             IconTheme.merge(
               data: IconThemeData(color: foreground, size: 16),
-              child: SizedBox.square(dimension: 16, child: widget.leading),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 16),
+                child: Center(
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: widget.leading,
+                ),
+              ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: widget.leadingGap),
           ],
           Expanded(child: widget.child),
           if (widget.trailing != null) ...[
@@ -1378,6 +1480,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
       inMutuallyExclusiveGroup: widget.inMutuallyExclusiveGroup,
       expanded: widget.expanded,
       label: widget.label.isEmpty ? null : widget.label,
+      value: widget.semanticValue,
       excludeSemantics: widget.label.isNotEmpty,
       onTap: widget.enabled ? widget.onActivate : null,
       child: Opacity(
@@ -1436,24 +1539,27 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
 }
 
 class _CheckIcon extends StatelessWidget {
-  const _CheckIcon();
+  const _CheckIcon({this.size = 16});
+
+  final double size;
 
   @override
   Widget build(BuildContext context) => CustomPaint(
-    size: const Size.square(16),
+    size: Size.square(size),
     painter: _CheckPainter(IconTheme.of(context).color ?? Colors.black),
   );
 }
 
 class _CheckIndicator extends StatelessWidget {
-  const _CheckIndicator({required this.checked});
+  const _CheckIndicator({required this.checked, this.size = 16});
 
   final bool checked;
+  final double size;
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
-    dimension: 16,
-    child: checked ? const _CheckIcon() : null,
+    dimension: size,
+    child: checked ? _CheckIcon(size: size) : null,
   );
 }
 
@@ -1468,7 +1574,7 @@ class _CheckPainter extends CustomPainter {
       ..color = color
       ..style = PaintingStyle.stroke
       // Lucide's 2px stroke in a 24px viewBox scales to 4/3px at 16px.
-      ..strokeWidth = 4 / 3
+      ..strokeWidth = size.width / 12
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(

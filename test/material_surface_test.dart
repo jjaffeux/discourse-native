@@ -16,6 +16,47 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 void main() {
+  testWidgets('menu material follows the mockup frost and shadow', (
+    tester,
+  ) async {
+    for (final material in DAppearanceMaterial.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: DMaterialTheme.apply(AppTheme.dark, material),
+          home: const Center(
+            child: DMaterialSurface(
+              depth: DSurfaceDepth.menu,
+              color: Color(0xff323543),
+              radius: BorderRadius.all(Radius.circular(10)),
+              child: SizedBox(width: 216, height: 200),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final shadows = tester
+          .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .expand((decoration) => decoration.boxShadow ?? const <BoxShadow>[])
+          .toList();
+      if (material == DAppearanceMaterial.standard) {
+        expect(shadows, isEmpty);
+        expect(find.byType(LiquidGlassLite), findsNothing);
+      } else {
+        final glass = tester.widget<LiquidGlassLite>(
+          find.byType(LiquidGlassLite),
+        );
+        expect(glass.color, const Color(0xff323543).withValues(alpha: .68));
+        expect(glass.blur, 26);
+        expect(shadows.single.offset, const Offset(0, 18));
+        expect(shadows.single.blurRadius, 44);
+        expect(shadows.single.color, Colors.black.withValues(alpha: .28));
+      }
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('opacity control reports the panel and native ground ceilings', (
     tester,
   ) async {
