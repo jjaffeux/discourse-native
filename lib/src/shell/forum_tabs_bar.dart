@@ -153,6 +153,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   static const _tabGap = 6.0;
   static const _switcherGap = 8.0;
   static const _minimumTabWidth = 110.0;
+  static const _tabVerticalInset = 10.5;
+  static const _tabShadowOutset = 20.0;
   Widget? _contents;
   final _barKey = GlobalKey();
   final _tabRowKey = GlobalKey();
@@ -604,15 +606,19 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                         return Row(
                           children: [
                             Flexible(
-                              child: Padding(
-                                // A scrolling viewport includes the shadow's
-                                // vertical space instead of clipping at the
-                                // pill's bounds. The tab positions stay fixed.
-                                padding: EdgeInsets.symmetric(
-                                  vertical: scrollTabs ? 0 : 10.5,
-                                ),
-                                child: scrollTabs
-                                    ? DScrollFadeScope(
+                              child: scrollTabs
+                                  // Let the viewport and its edge-fade mask
+                                  // paint the full shadow above and below the
+                                  // strip. The layout and input bounds remain
+                                  // the strip's original height.
+                                  ? OverflowBox(
+                                      minHeight:
+                                          constraints.maxHeight +
+                                          2 * _tabShadowOutset,
+                                      maxHeight:
+                                          constraints.maxHeight +
+                                          2 * _tabShadowOutset,
+                                      child: DScrollFadeScope(
                                         horizontalExtent: 30,
                                         child: DScrollArea(
                                           key: const ValueKey(
@@ -622,13 +628,20 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                           axes: DScrollAxes.horizontal,
                                           showScrollbar: false,
                                           padding: const EdgeInsets.symmetric(
-                                            vertical: 10.5,
+                                            vertical:
+                                                _tabVerticalInset +
+                                                _tabShadowOutset,
                                           ),
                                           child: tabs,
                                         ),
-                                      )
-                                    : tabs,
-                              ),
+                                      ),
+                                    )
+                                  : Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: _tabVerticalInset,
+                                      ),
+                                      child: tabs,
+                                    ),
                             ),
                             if (widget.showAdd) ...[
                               const SizedBox(width: 6),

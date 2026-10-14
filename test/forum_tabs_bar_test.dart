@@ -32,34 +32,41 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void forumTabShadowTests() {
-  for (final width in [220.0, 500.0]) {
-    testWidgets('scrolling tab shadows fade below the pill at width $width', (
-      tester,
-    ) async {
+  for (final (width, count, scale, theme) in [
+    (220.0, 12, 1.0, AppTheme.dark),
+    (500.0, 12, 1.0, AppTheme.dark),
+    (500.0, 12, 2.0, AppTheme.dark),
+    (500.0, 1, 1.0, AppTheme.dark),
+    (500.0, 12, 1.0, AppTheme.light),
+    (500.0, 1, 1.0, AppTheme.light),
+  ]) {
+    testWidgets('tab shadows fade past the strip at '
+        '$width/$count/${scale}x/${theme.brightness}', (tester) async {
       final previous = debugDisableShadows;
       debugDisableShadows = false;
       try {
         final items = [
-          for (var index = 0; index < 12; index++)
+          for (var index = 0; index < count; index++)
             ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
         ];
+        final background = theme.brightness == Brightness.dark
+            ? const Color(0xff3c404c)
+            : const Color(0xffedf0f5);
+        final backgroundRed = (background.r * 255).round();
         await _pumpBar(
           tester,
           items: items,
           selectedId: items.first.id,
           width: width,
-          backgroundColor: const Color(0xff3c404c),
-          theme: DMaterialTheme.apply(
-            AppTheme.dark,
-            DAppearanceMaterial.liquidGlass,
-          ),
+          paintOutset: 30,
+          textScaler: TextScaler.linear(scale),
+          backgroundColor: background,
+          theme: DMaterialTheme.apply(theme, DAppearanceMaterial.liquidGlass),
         );
         final tab = tester.getRect(
           find.byKey(ValueKey('forum-tab-item-${items.first.id}')),
         );
-        final scroll = tester.getRect(
-          find.byKey(const ValueKey('forum-tabs-scroll')),
-        );
+        final strip = tester.getRect(find.byType(ForumTabsBar));
         final boundary = tester.renderObject<RenderRepaintBoundary>(
           find.byKey(const ValueKey('forum-tabs-paint-boundary')),
         );
@@ -89,23 +96,53 @@ void forumTabShadowTests() {
                 format: ImageByteFormat.png,
               ))!;
               await File(
-                '$destination/strip-$width.png',
+                '$destination/strip-$width-$count-${scale}x-${theme.brightness.name}.png',
               ).writeAsBytes(png.buffer.asUint8List());
-              debugPrint('Tab shadow capture: $destination/strip-$width.png');
+              debugPrint('Tab shadow captures: $destination');
             }
-            // Both samples are outside the pill but inside the strip. Its
-            // blurred shadow should fade here, not stop at the tab's bottom.
+            // Follow the shadow across the strip's lower edge, where a
+            // viewport clip used to cut it off before its blur had faded.
             final x = tab.center.dx
-                .clamp(scroll.left + 3, scroll.right - 3)
+                .clamp(strip.left + 50, strip.right - 50)
                 .toDouble();
             expect(
               red(Offset(x, tab.bottom + 2)),
               lessThan(red(Offset(x, tab.bottom + 9)) - 1),
             );
+            expect(red(Offset(x, strip.bottom + 1)), lessThan(backgroundRed));
+            expect(
+              red(Offset(x, strip.bottom - .5)),
+              closeTo(red(Offset(x, strip.bottom + .5)), 1),
+            );
+            expect(
+              red(Offset(x, strip.bottom + 18)),
+              closeTo(backgroundRed, 1),
+            );
           } finally {
             image.dispose();
           }
         });
+        if (count > 1) {
+          final position = tester
+              .state<ScrollableState>(
+                find.descendant(
+                  of: find.byKey(const ValueKey('forum-tabs-scroll')),
+                  matching: find.byType(Scrollable),
+                ),
+              )
+              .position;
+          final before = position.pixels;
+          for (final y in [strip.top - 5, strip.bottom + 5]) {
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: Offset(tab.center.dx, y),
+                scrollDelta: const Offset(100, 0),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(position.pixels, before);
+          }
+        }
         expect(tester.takeException(), isNull);
       } finally {
         debugDisableShadows = previous;
@@ -1781,6 +1818,7 @@ void main() {
             theme: DMaterialTheme.apply(AppTheme.dark, material),
             textDirection: direction,
             backgroundColor: background,
+            paintOutset: 30,
           );
           final scroll = find.byKey(const ValueKey('forum-tabs-scroll'));
           final rect = tester.getRect(scroll);
@@ -2472,6 +2510,7 @@ Future<void> _pumpBar(
   double width = 500,
   ThemeData? theme,
   Color? backgroundColor,
+  double paintOutset = 0,
   ShellController? controller,
   ForumPanel? panel,
   void Function(String id, ForumPanel panel)? onMoveToPanel,
@@ -2508,26 +2547,29 @@ Future<void> _pumpBar(
                   color:
                       backgroundColor ??
                       (theme ?? AppTheme.light).shell.sidebar,
-                  child: StatefulBuilder(
-                    builder: (context, setState) => ForumTabsBar(
-                      panel: panel,
-                      onMoveToPanel: onMoveToPanel,
-                      forumName: 'Discourse Meta',
-                      items: items,
-                      selectedId: selected,
-                      onAdd: addEnabled ? (onAdd ?? () {}) : null,
-                      onSelect: (id) {
-                        onSelect?.call(id);
-                        // As in the app, pressing a tab selects it, which
-                        // re-centres a scrolling strip on it.
-                        if (followSelection) setState(() => selected = id);
-                      },
-                      onClose: onClose ?? (_) {},
-                      onReorder: onReorder ?? (_, _) {},
-                      onCloseOthers: onCloseOthers ?? (_) {},
-                      recentlyClosedItems: recentlyClosedItems,
-                      onReopen: onReopen,
-                      onRename: onRename,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: paintOutset),
+                    child: StatefulBuilder(
+                      builder: (context, setState) => ForumTabsBar(
+                        panel: panel,
+                        onMoveToPanel: onMoveToPanel,
+                        forumName: 'Discourse Meta',
+                        items: items,
+                        selectedId: selected,
+                        onAdd: addEnabled ? (onAdd ?? () {}) : null,
+                        onSelect: (id) {
+                          onSelect?.call(id);
+                          // As in the app, pressing a tab selects it, which
+                          // re-centres a scrolling strip on it.
+                          if (followSelection) setState(() => selected = id);
+                        },
+                        onClose: onClose ?? (_) {},
+                        onReorder: onReorder ?? (_, _) {},
+                        onCloseOthers: onCloseOthers ?? (_) {},
+                        recentlyClosedItems: recentlyClosedItems,
+                        onReopen: onReopen,
+                        onRename: onRename,
+                      ),
                     ),
                   ),
                 ),
