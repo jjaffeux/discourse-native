@@ -158,6 +158,11 @@ class _DMobileDockState extends State<DMobileDock>
       final radius = BorderRadius.circular(999);
       final tokens = DTokens.of(context);
       final glass = DMaterialTheme.glassOf(context);
+      // Opacity creates an empty offscreen layer around a live backdrop lens.
+      // Keep glass on the dock's painted backdrop and dissolve the row through
+      // geometry instead. Each control keeps its slot throughout the morph.
+      Widget navigationArtwork(Widget child) =>
+          glass ? Transform.scale(scale: navOpacity, child: child) : child;
       // Frost supplies readability in glass appearance while leaving enough
       // of the live backdrop visible for refraction. Standard keeps its fill.
       final well = Color.lerp(tokens.background, tokens.foreground, .12)!
@@ -203,7 +208,9 @@ class _DMobileDockState extends State<DMobileDock>
                         child: IgnorePointer(
                           ignoring: collapsed || navOpacity < 1,
                           child: AnimatedOpacity(
-                            opacity: navOpacity,
+                            opacity: glass
+                                ? (navOpacity > 0 ? 1 : 0)
+                                : navOpacity,
                             duration: reduced || _spring
                                 ? Duration.zero
                                 : const Duration(milliseconds: 100),
@@ -228,14 +235,18 @@ class _DMobileDockState extends State<DMobileDock>
                                       offstage:
                                           index >=
                                           (_shown ?? destinations.length),
-                                      child: _destination(item),
+                                      child: navigationArtwork(
+                                        _destination(item),
+                                      ),
                                     ),
                                   Offstage(
                                     offstage: _shown == destinations.length,
-                                    child: _destination(more),
+                                    child: navigationArtwork(
+                                      _destination(more),
+                                    ),
                                   ),
                                   if (action != null)
-                                    action!
+                                    navigationArtwork(action!)
                                   else
                                     const SizedBox.shrink(),
                                 ],

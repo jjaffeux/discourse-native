@@ -227,6 +227,76 @@ void main() {
     expect(tester.getSize(surface), open);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('glass controls retain their tint during the spring morph', (
+    tester,
+  ) async {
+    final theme = DMaterialTheme.apply(
+      AppTheme.dark,
+      DAppearanceMaterial.liquidGlass,
+    );
+    final controls = [
+      find.byKey(const ValueKey('Topics')),
+      find.byType(DMobileDockAction),
+    ];
+    Future<List<List<int>>> sample() async {
+      final boundaryFinder = find.byKey(const ValueKey('dock-capture'));
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        boundaryFinder,
+      );
+      final origin = tester.getTopLeft(boundaryFinder);
+      final bounds = controls.map(tester.getRect).toList();
+      return (await tester.runAsync(() async {
+        final image = await boundary.toImage(pixelRatio: 1);
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!.buffer.asUint8List();
+        final colors = <List<int>>[];
+        for (final rect in bounds) {
+          // Inside the glass, beside the centered glyph and above labels.
+          final x = (rect.left + rect.width * .2 - origin.dx).round();
+          final y = (rect.center.dy - origin.dy).round();
+          final index = (y * image.width + x) * 4;
+          colors.add(bytes.sublist(index, index + 3));
+        }
+        image.dispose();
+        return colors;
+      }))!;
+    }
+
+    await tester.pumpWidget(fixture(theme: theme));
+    await tester.pumpAndSettle();
+    final resting = await sample();
+    final widths = controls
+        .map(tester.getRect)
+        .map((rect) => rect.width)
+        .toList();
+    await tester.pumpWidget(fixture(theme: theme, collapsed: true));
+    await tester.pump(const Duration(milliseconds: 16));
+    final moving = await sample();
+    for (var item = 0; item < controls.length; item++) {
+      // Widget tests use the frost fallback. Also pin the compositing contract
+      // required by iOS's live shader: no fractional opacity above its lens.
+      RenderObject? ancestor = tester.renderObject(controls[item]);
+      while (ancestor != null) {
+        if (ancestor is RenderOpacity) {
+          expect(ancestor.opacity, anyOf(0.0, 1.0));
+        } else if (ancestor is RenderAnimatedOpacity) {
+          expect(ancestor.opacity.value, anyOf(0.0, 1.0));
+        }
+        ancestor = ancestor.parent;
+      }
+      for (var channel = 0; channel < 3; channel++) {
+        expect(
+          (moving[item][channel] - resting[item][channel]).abs(),
+          lessThanOrEqualTo(12),
+          reason: 'Control $item must retain its glass tint while morphing',
+        );
+      }
+      expect(tester.getRect(controls[item]).width, lessThan(widths[item]));
+    }
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
   for (final direction in TextDirection.values) {
     testWidgets(
       'measures labels and badges, keeps overflow and action visible ($direction)',
