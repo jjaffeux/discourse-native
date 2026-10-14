@@ -41,6 +41,11 @@ control contracts remain in use.
 menus and dialogs are not used. SDK validation used Flutter 3.47.6 / Dart 3.13.5.
 See the [package documentation](https://pub.dev/packages/liquid_glass_easy).
 
+Raised glass controls use the package's specular band and glow as their only
+rim lighting, with specular sharpness 0.5. The kit does not paint an additional
+1px highlight over those lenses. Standard surfaces and recessed wells retain
+their existing edge treatment; menus retain their separate top sheen.
+
 - **iOS/Impeller:** lenses refract the app's live backdrop. The iPhone 18 Pro
   simulator on iOS 27 reported Impeller/Metal, shader filters supported, and
   successful shader initialization. Both brightness modes and 200% text were

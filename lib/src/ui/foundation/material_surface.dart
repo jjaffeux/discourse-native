@@ -148,6 +148,9 @@ class DMaterialSurface extends StatelessWidget {
           ? _InsetEdges(radius, dark)
           : panel && !DMaterialTheme.reducedOf(context)
           ? _PanelEdge(radius, dark)
+          // Raised lenses already paint their own specular band and glow.
+          : lens
+          ? null
           : _DepthEdge(radius, light, dark, recessed, glass && !solid),
       child: background,
     );
@@ -494,11 +497,11 @@ class _GlassPaintState extends State<_GlassPaint> {
     final shape = LiquidGlassShape.roundedRectangle(
       cornerRadius: widget.radius.topLeft.x,
     );
-    // Version 5 expresses rim thickness in logical pixels and separates it
-    // from the outline. Keep the subdued rim using the migration's scale.
+    // Version 5 expresses rim thickness in logical pixels. A half-sharp band
+    // gives the subdued rim depth instead of reducing it to a hairline.
     const specular = LiquidGlassLight.specular(
       thickness: 2.7,
-      sharpness: 0,
+      sharpness: .5,
       intensity: .25,
       angle: 0,
       spread: .5,
