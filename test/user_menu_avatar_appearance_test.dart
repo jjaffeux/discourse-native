@@ -2,6 +2,8 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
@@ -39,8 +41,12 @@ void main() {
         );
         await controller.load();
         addTearDown(controller.dispose);
-        final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
-          platform: platform,
+        final palette = forumThemePresets.first.resolve(
+          dark ? Brightness.dark : Brightness.light,
+        );
+        final theme = DMaterialTheme.apply(
+          AppTheme.fromPalette(palette).copyWith(platform: platform),
+          DAppearanceMaterial.standard,
         );
         const captureKey = ValueKey('account-controls-paint');
         final semantics = tester.ensureSemantics();
@@ -53,11 +59,15 @@ void main() {
                   theme: theme,
                   home: MediaQuery(
                     data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                    child: const Scaffold(
+                    child: Scaffold(
                       body: Center(
                         child: RepaintBoundary(
                           key: captureKey,
-                          child: UserMenuButton(),
+                          child: ForumSidebarTheme(
+                            child: UserMenuButton(
+                              compact: platform != TargetPlatform.macOS,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -97,10 +107,16 @@ void main() {
               });
               // The first two pixels are one solid border. The next pixel is
               // the avatar itself, with neither a surface gap nor a second edge.
-              final tokens = DTokens.of(tester.element(button));
+              // app.css --border mixes 22% primary into secondary. The
+              // divider token is the weaker --border-subtle (12%).
+              final border = Color.lerp(
+                palette.secondary,
+                palette.primary,
+                .22,
+              )!;
               for (final (inset, color) in [
-                (.5, tokens.border),
-                (1.5, tokens.border),
+                (.5, border),
+                (1.5, border),
                 (2.5, theme.colorScheme.primary),
               ]) {
                 final x = (top.dx * 4).round();

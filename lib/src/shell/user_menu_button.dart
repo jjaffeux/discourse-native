@@ -307,6 +307,7 @@ class _AccountMenuPopover extends StatelessWidget {
 
     Widget buildTrigger(BuildContext context, DPopoverTriggerState trigger) {
       final isProfile = view == UserMenuView.profile;
+      final tokens = DTokens.of(context);
       if (notificationCount > 0 && !connecting) {
         return headerNotificationButton(
           context,
@@ -343,6 +344,10 @@ class _AccountMenuPopover extends StatelessWidget {
         shape: DButtonShape.pill,
         backgroundColor: isProfile ? Colors.transparent : null,
         interactiveBackgroundColor: isProfile ? Colors.transparent : null,
+        // The mockup uses --border (22%), rather than the divider's subtle 12%.
+        borderColor: isProfile
+            ? Color.lerp(tokens.background, tokens.foreground, .22)
+            : null,
         hasPopup: true,
         expanded: trigger.open,
         focusNode: trigger.focusNode,
