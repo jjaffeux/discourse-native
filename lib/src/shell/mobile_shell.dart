@@ -98,9 +98,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       6,
                       6 + MediaQuery.paddingOf(context).bottom,
                     ),
-                    child: DPageSurface(
+                    child: ForumMobileSurface(
                       key: const ValueKey('mobile-navigation-panel'),
-                      border: false,
                       child: InstanceSidebar(
                         key: ValueKey(('mobile-navigation', owner)),
                         mobile: true,
@@ -458,7 +457,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       padding: const EdgeInsets.only(top: 6),
                       child: ForumMobileSurface(
                         key: const ValueKey('mobile-content-panel'),
-                        pushed: !panelRoot && shell.mobileNavigation.canGoBack,
                         child: Stack(
                           fit: StackFit.expand,
                           children: [

@@ -570,6 +570,7 @@ void main() {
         );
         final footer = find.byKey(const ValueKey('topic-bottom-bar'));
         final separator = find.byKey(const ValueKey('topic-scroll-separator'));
+        expect(separator, findsNothing);
         // Only what renders identically once loaded is drawn from the row.
         expect(inHeader(find.text('Topic 1')), findsOneWidget);
         expect(closed, findsOneWidget);
@@ -630,7 +631,7 @@ void main() {
           find.byKey(const ValueKey('topic-header-activity')),
           findsNothing,
         );
-        expect(separator, findsOneWidget);
+        expect(separator, findsNothing);
         expect(footer, findsNothing);
         expect(tester.getRect(reader), loadingReader);
         _expectFloatingProgressFits(tester, 'loaded reader at $width');
@@ -1648,8 +1649,9 @@ void main() {
             matching: find.byType(CustomScrollView),
           ),
         );
-        final divider = tester.getRect(
+        expect(
           find.byKey(const ValueKey('topic-scroll-separator')),
+          findsNothing,
         );
         final inset = limited && viewport.width > 825
             ? (viewport.width - 825) / 2
@@ -1657,8 +1659,6 @@ void main() {
         expect(before.left, closeTo(viewport.left + inset + 16, 1));
         expect(before.right, closeTo(viewport.right - inset - 16, 1));
         expect(back.left, closeTo(viewport.left + inset + 16, 1));
-        expect(divider.left, closeTo(viewport.left + inset + 16, 1));
-        expect(divider.right, closeTo(viewport.right - inset - 16, 1));
         final postBody = tester.getRect(find.byType(CookedHtml).first);
         expect(postBody.left, closeTo(viewport.left + inset + 16 + 39, 1));
         expect(postBody.right, closeTo(viewport.right - inset - 16, 1));

@@ -1145,19 +1145,6 @@ void main() {
       }
 
       await capture('root');
-      if (const bool.fromEnvironment('captureMobileChrome')) {
-        await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('composer-close')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Minimize'));
-        await tester.pumpAndSettle();
-        await capture('root-minimized');
-        await tester.tap(find.byKey(const ValueKey('composer-restore')));
-        await tester.pumpAndSettle();
-        shell.closeComposer();
-        await tester.pumpAndSettle();
-      }
       final controls = tester.getRect(
         find.byKey(const ValueKey('topic-list-feed-row')),
       );
@@ -1182,7 +1169,7 @@ void main() {
       expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
       expect(
         tester.widget<DPageSurface>(mobileSurface).borderRadius,
-        BorderRadius.circular(14),
+        BorderRadius.zero,
       );
       final reader = find.byType(TopicView);
       final element = tester.element(reader);
@@ -1208,6 +1195,10 @@ void main() {
         findsOneWidget,
       );
       final controller = tester.widget<CustomScrollView>(list).controller!;
+      expect(
+        find.byKey(const ValueKey('topic-scroll-separator')),
+        findsNothing,
+      );
       final offset = controller.offset;
       await capture('reader-folded');
       await tester.tap(find.byKey(const ValueKey('mobile-dock-reveal')));
@@ -1724,6 +1715,17 @@ void main() {
         final panel = tester.getRect(
           find.byKey(const ValueKey('mobile-navigation-panel')),
         );
+        final frame = find
+            .descendant(
+              of: find.byKey(const ValueKey('mobile-navigation-panel')),
+              matching: find.byType(DPageSurface),
+            )
+            .first;
+        expect(
+          tester.widget<DPageSurface>(frame).borderRadius,
+          BorderRadius.zero,
+        );
+        expect(tester.widget<DPageSurface>(frame).border, isFalse);
         expect(page.bottom - panel.bottom, bottom + 6);
         expect(panel.top - page.top, 6);
         final rail = tester.getRect(find.byType(InstanceRail));

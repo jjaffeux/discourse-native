@@ -329,14 +329,9 @@ class _PalettePools extends CustomPainter {
 }
 
 /// Phone pages paint the mockup's panel below the floating window chrome.
-/// Root panels are square; pushed readers retain their rounded sheet corners.
+/// Every destination shares square corners and one frame-owned fill.
 class ForumMobileSurface extends StatefulWidget {
-  const ForumMobileSurface({
-    super.key,
-    required this.pushed,
-    required this.child,
-  });
-  final bool pushed;
+  const ForumMobileSurface({super.key, required this.child});
   final Widget child;
   @override
   State<ForumMobileSurface> createState() => _ForumMobileSurfaceState();
@@ -350,7 +345,7 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
     // background:none on phone roots. They still own a fill and inset rim.
     framed: true,
     border: false,
-    borderRadius: widget.pushed ? BorderRadius.circular(14) : BorderRadius.zero,
+    borderRadius: BorderRadius.zero,
     backgroundColor: ForumWindowBackground.panelColor(context),
     child: _MobileSurfaceScope(key: _content, child: widget.child),
   );

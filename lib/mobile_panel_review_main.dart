@@ -142,7 +142,6 @@ class _MobilePanelReviewState extends State<MobilePanelReview> {
                       const SizedBox(height: 6),
                       Expanded(
                         child: ForumMobileSurface(
-                          pushed: _pushed,
                           child: DPageSurface(
                             framed: false,
                             header: Padding(

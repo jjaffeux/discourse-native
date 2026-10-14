@@ -2127,22 +2127,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                       ),
                     ),
                   ...overlays,
-                  Positioned(
-                    key: const ValueKey('topic-scroll-separator-slot'),
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: header.inset(
-                      Padding(
-                        padding: lanePadding.add(
-                          const EdgeInsets.symmetric(horizontal: 16),
-                        ),
-                        child: const DSeparator(
-                          key: ValueKey('topic-scroll-separator'),
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

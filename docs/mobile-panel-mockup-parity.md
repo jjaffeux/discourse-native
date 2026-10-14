@@ -10,9 +10,9 @@ paint. Its root list therefore exposed the gradient behind all the text and
 lost the visible separation from the window header.
 
 `ForumMobileSurface` now paints one Native `DPageSurface` for root screens as
-well as pushed pages. Root corners are square, as in the rendered mockup;
-pushed reader corners remain 14px. Inner pages continue to inherit a clear
-surface so the panel fill paints once. The window header stays on the canvas.
+well as pushed pages. All destinations use square corners, including pushed
+readers. Inner pages continue to inherit a clear surface so the panel fill
+paints once. The window header stays on the canvas.
 Existing palette tint, material selection, opacity and accessibility settings
 remain the source of its fill.
 
@@ -25,7 +25,7 @@ Focused validation:
 
 - `test/forum_mobile_surface_test.dart`: rendered root/reader, light/dark,
   both materials, opacity endpoints and high-contrast fallbacks; verifies
-  header ground, reading fill, square root corners and rounded reader corners.
+  header ground, reading fill, both square top corners.
 - `test/material_surface_test.dart`: rendered panel edges and highlights.
 - `test/mobile_shell_test.dart`: production phone composition, navigation,
   scroll/header/dock behavior and text scaling. Its two existing
@@ -45,3 +45,9 @@ It saves 16 captures in the platform temporary directory, covering light/dark,
 Standard/Liquid Glass, opaque/translucent and root/reader. These provide native
 panel/header rendering evidence; sample discussion text is not a whole-app
 content or typography comparison.
+
+The October 14 reader correction removes the route-dependent corner exception.
+Root, reader, sidebar, chat and other destinations all inherit the same mobile
+frame. Topic and message readers also no longer overlay a fixed separator at
+the header edge; post separators stay in the scrolling content, matching the
+list treatment and avoiding a dark line as the header retracts.
