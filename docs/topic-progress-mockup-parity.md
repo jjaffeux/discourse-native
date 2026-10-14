@@ -20,8 +20,9 @@ their original geometry.
 
 The editor retains its opening account/site/topic/tab lease. A drag previews
 loaded author/date metadata, falling back to Post N for unloaded positions.
-Post navigation commits on release, closing the phone sheet immediately while
-an unloaded post resolves; cancellation restores the preview and leaves it open.
+Releasing the slider or tapping First post/Latest post commits navigation and
+closes the phone sheet immediately while an unloaded post resolves. Cancellation
+restores the preview and leaves it open.
 Late lookups cannot mutate a replacement route or a reopened panel. Topic API
 creation/latest timestamps remain available when endpoint posts are unloaded.
 

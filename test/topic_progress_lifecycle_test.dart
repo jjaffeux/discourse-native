@@ -197,15 +197,20 @@ void main() {
               );
               await tester.tap(find.text('First post'));
               await tester.pumpAndSettle();
-              expect(
-                tester
-                    .widget<DButton>(find.widgetWithText(DButton, 'First post'))
-                    .onPressed,
-                isNull,
-              );
-              expect(_selection('1 / 3'), findsOneWidget);
-              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-              await tester.pumpAndSettle();
+              expect(shell.currentContent?.postNumber, 1);
+              if (platform == TargetPlatform.macOS) {
+                expect(
+                  tester
+                      .widget<DButton>(
+                        find.widgetWithText(DButton, 'First post'),
+                      )
+                      .onPressed,
+                  isNull,
+                );
+                expect(_selection('1 / 3'), findsOneWidget);
+                await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+                await tester.pumpAndSettle();
+              }
               expect(_panelFinder(platform), findsNothing);
               expect(tester.takeException(), isNull);
               await tester.pumpWidget(const SizedBox.shrink());
@@ -296,6 +301,7 @@ void main() {
         await _openProgress(tester, shell, platform);
         await tester.tap(find.text('First post'));
         await tester.pumpAndSettle();
+        if (mobile) await _reopenProgress(tester);
         await tester.tap(find.byType(DMultiSlider));
         await tester.pumpAndSettle();
         expect(shell.currentContent?.postNumber, _target.postNumber);
@@ -359,7 +365,7 @@ void main() {
           final source = shell.currentContent;
           final revision = shell.topicNavigationRevision;
 
-          await _scrubToMiddle(tester);
+          await _scrubToMiddle(tester, platform);
           await tester.pumpAndSettle();
 
           expect(shell.currentContent, same(source));
@@ -398,7 +404,7 @@ void main() {
           final shell = await _loadShell(api, cacheTarget: false);
           final navigator = await _openProgress(tester, shell, platform);
 
-          await _scrubToMiddle(tester);
+          await _scrubToMiddle(tester, platform);
           await tester.pump();
           expect(api.postFetches, [
             [200],
@@ -452,7 +458,7 @@ void main() {
         );
         final shell = await _loadShell(api, cacheTarget: false);
         await _openProgress(tester, shell, platform);
-        await _scrubToMiddle(tester);
+        await _scrubToMiddle(tester, platform);
         await tester.pump();
         if (!mobile) await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
@@ -478,7 +484,7 @@ void main() {
         );
         final shell = await _loadShell(api, cacheTarget: false);
         await _openProgress(tester, shell, platform);
-        await _scrubToMiddle(tester);
+        await _scrubToMiddle(tester, platform);
         expect(api.postFetches, [
           [200],
         ]);
@@ -490,49 +496,72 @@ void main() {
         expect(_selection('2 / 3'), findsOneWidget);
         await tester.tap(find.text('First post'));
         await tester.pumpAndSettle();
-        expect(_selection('1 / 3'), findsOneWidget);
+        expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
+        if (!mobile) expect(_selection('1 / 3'), findsOneWidget);
         expect(shell.currentContent?.postNumber, 1);
         final revision = shell.topicNavigationRevision;
         gate.complete();
         await tester.pumpAndSettle();
         expect(shell.currentContent?.postNumber, 1);
         expect(shell.topicNavigationRevision, revision);
-        expect(_selection('1 / 3'), findsOneWidget);
+        if (!mobile) expect(_selection('1 / 3'), findsOneWidget);
         expect(find.text('Could not open that post. Try again.'), findsNothing);
-        expect(_panelFinder(platform), findsOneWidget);
+        expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
       });
 
       for (final action in ['First post', 'Latest post']) {
-        testWidgets('$action jumps and keeps the popover open', (tester) async {
-          final api = FakeDiscourseApi(
-            user: _user,
-            postsById: const {
-              300: Post(
-                id: 300,
-                postNumber: 12,
-                username: 'sam',
-                cooked: '<p>Last</p>',
-              ),
-            },
-          );
-          final shell = await _loadShell(api);
-          await _openProgress(tester, shell, platform);
-          await tester.tap(find.text(action));
-          await tester.pumpAndSettle();
-          expect(
-            shell.currentContent?.postNumber,
-            action == 'First post' ? 1 : 12,
-          );
-          expect(
-            find.byKey(const ValueKey('topic-progress-selection')),
-            findsOneWidget,
-          );
-          expect(
-            _selection(action == 'First post' ? '1 / 3' : '3 / 3'),
-            findsOneWidget,
-          );
-          expect(tester.takeException(), isNull);
-        });
+        testWidgets(
+          '$action jumps and ${mobile ? 'dismisses the sheet' : 'keeps the popover open'}',
+          (tester) async {
+            final gate = Completer<void>();
+            final api = FakeDiscourseApi(
+              user: _user,
+              postGate: gate,
+              postsById: const {
+                300: Post(
+                  id: 300,
+                  postNumber: 12,
+                  username: 'sam',
+                  cooked: '<p>Last</p>',
+                ),
+              },
+            );
+            final shell = await _loadShell(api);
+            await _openProgress(tester, shell, platform);
+            await tester.tap(find.text(action));
+            await tester.pumpAndSettle();
+            expect(
+              _panelFinder(platform),
+              mobile ? findsNothing : findsOneWidget,
+            );
+            expect(shell.currentContent?.postNumber, 1);
+            expect(
+              api.postFetches,
+              action == 'First post'
+                  ? isEmpty
+                  : [
+                      [300],
+                    ],
+            );
+            gate.complete();
+            await tester.pumpAndSettle();
+            expect(
+              shell.currentContent?.postNumber,
+              action == 'First post' ? 1 : 12,
+            );
+            expect(
+              _panelFinder(platform),
+              mobile ? findsNothing : findsOneWidget,
+            );
+            if (!mobile) {
+              expect(
+                _selection(action == 'First post' ? '1 / 3' : '3 / 3'),
+                findsOneWidget,
+              );
+            }
+            expect(tester.takeException(), isNull);
+          },
+        );
       }
 
       testWidgets('an unchanged source can retry a failed lookup and jump', (
@@ -543,7 +572,7 @@ void main() {
         final shell = await _loadShell(api, cacheTarget: false);
         await _openProgress(tester, shell, platform);
 
-        await _scrubToMiddle(tester);
+        await _scrubToMiddle(tester, platform);
         await tester.pumpAndSettle();
 
         expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
@@ -558,7 +587,7 @@ void main() {
         expect(shell.currentContent?.postNumber, 1);
 
         responses[200] = _target;
-        await _scrubToMiddle(tester);
+        await _scrubToMiddle(tester, platform);
         await tester.pumpAndSettle();
 
         expect(api.postFetches, [
@@ -584,11 +613,18 @@ Future<void> _reopenProgress(WidgetTester tester) async {
   expect(_selection('2 / 3'), findsOneWidget);
 }
 
-Future<void> _scrubToMiddle(WidgetTester tester) async {
+Future<void> _scrubToMiddle(
+  WidgetTester tester,
+  TargetPlatform platform,
+) async {
   // Move away first: like a real controlled range input, an unchanged thumb
   // does not emit onChanged. Returning to the middle also permits a retry.
   await tester.tap(find.text('First post'));
-  await tester.pump();
+  await tester.pumpAndSettle();
+  if (platform != TargetPlatform.macOS &&
+      _panelFinder(platform).evaluate().isEmpty) {
+    await _reopenProgress(tester);
+  }
   await tester.tap(find.byType(DMultiSlider));
   await tester.pump();
 }
