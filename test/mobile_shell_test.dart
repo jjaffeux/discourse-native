@@ -1178,8 +1178,12 @@ void main() {
             matching: find.byType(DPageSurface),
           )
           .first;
-      // The mockup's root canvas is square; only pushed readers own a card.
-      expect(tester.widget<DPageSurface>(mobileSurface).framed, isFalse);
+      // The glass stylesheet frames root panels too, with square corners.
+      expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
+      expect(
+        tester.widget<DPageSurface>(mobileSurface).borderRadius,
+        BorderRadius.zero,
+      );
       await tester.tap(find.byKey(const ValueKey('topic-card-7')));
       await tester.pumpAndSettle();
       expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);

@@ -328,7 +328,8 @@ class _PalettePools extends CustomPainter {
       old.accent != accent || old.secondary != secondary;
 }
 
-/// Root screens share the canvas; a pushed reader owns one rounded panel.
+/// Phone pages paint the mockup's panel below the floating window chrome.
+/// Root panels are square; pushed readers retain their rounded sheet corners.
 class ForumMobileSurface extends StatefulWidget {
   const ForumMobileSurface({
     super.key,
@@ -345,9 +346,11 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
   final _content = GlobalKey();
   @override
   Widget build(BuildContext context) => DPageSurface(
-    framed: widget.pushed,
+    // The reference's [data-glass] [data-panel] rule overrides the inline
+    // background:none on phone roots. They still own a fill and inset rim.
+    framed: true,
     border: false,
-    borderRadius: BorderRadius.circular(14),
+    borderRadius: widget.pushed ? BorderRadius.circular(14) : BorderRadius.zero,
     backgroundColor: ForumWindowBackground.panelColor(context),
     child: _MobileSurfaceScope(key: _content, child: widget.child),
   );

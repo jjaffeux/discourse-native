@@ -534,7 +534,7 @@ class _InsetEdges extends CustomPainter {
 }
 
 /// The panel's catch of light has a fixed 140px falloff, independent of the
-/// window height. One rounded rim carries that light through the corners.
+/// window height. Its constant inset rim and soft top edge follow the corners.
 /// Paint inside the clip so no shadow stains its corner gutters.
 class _PanelEdge extends CustomPainter {
   const _PanelEdge(this.radius, this.dark);
@@ -563,14 +563,20 @@ class _PanelEdge extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withValues(alpha: dark ? .18 : .45),
-            Colors.white.withValues(alpha: dark ? .07 : .18),
-          ],
-        ).createShader(Rect.fromLTWH(0, 0, size.width, 140)),
+        // The mockup's inset 1px --glass-rim stays constant down the panel.
+        // Only the broad catch of light above it fades within 140px.
+        ..color = Colors.white.withValues(alpha: dark ? .14 : .75),
+    );
+    // CSS inset 0 1px 1px white: light from the shifted shape's outside is
+    // blurred through the panel clip, following rounded sheet corners too.
+    canvas.drawPath(
+      Path()
+        ..fillType = PathFillType.evenOdd
+        ..addRect(rect.inflate(8))
+        ..addRRect(radius.toRRect(rect).shift(const Offset(0, 1))),
+      Paint()
+        ..color = Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .5),
     );
     canvas.restore();
   }

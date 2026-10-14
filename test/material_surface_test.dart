@@ -102,7 +102,7 @@ void main() {
   });
 
   for (final material in DAppearanceMaterial.values) {
-    testWidgets('panel rim follows corners and fades ($material)', (
+    testWidgets('panel rim stays uniform while its top highlight fades ($material)', (
       tester,
     ) async {
       const backdrop = Color(0xff153d99);
@@ -174,33 +174,59 @@ void main() {
                   base,
                 ),
               );
-              pixel(
-                0,
-                200,
+              // The constant rim receives a small contribution from the
+              // blurred inset shadow at both vertical edges. GPU blur kernels
+              // vary slightly, so bound that contribution and check constancy.
+              final sideBase = Color.alphaBlend(
+                Colors.white.withValues(alpha: dark ? .14 : .75),
+                base,
+              );
+              final sideLit = Color.alphaBlend(
+                Colors.white.withValues(
+                  alpha: (dark ? .12 : .55) * 1.6 * .25,
+                ),
+                sideBase,
+              );
+              for (final (channel, bounds) in [
+                (sideBase.r, sideLit.r),
+                (sideBase.g, sideLit.g),
+                (sideBase.b, sideLit.b),
+              ].indexed) {
+                final value = bytes.getUint8(200 * image.width * 4 + channel);
+                expect(
+                  value,
+                  inInclusiveRange(bounds.$1 * 255 - 2, bounds.$2 * 255 + 2),
+                );
+                expect(
+                  bytes.getUint8(160 * image.width * 4 + channel),
+                  closeTo(value, 1),
+                );
+              }
+              // The top adds the reference's soft inset 0 1px 1px catch.
+              final topBase = Color.alphaBlend(
+                Colors.white.withValues(alpha: dark ? .14 : .75),
                 Color.alphaBlend(
-                  Colors.white.withValues(alpha: dark ? .07 : .18),
+                  Colors.white.withValues(
+                    alpha: (dark ? .066 : .5) * (1 - .5 / 140),
+                  ),
                   base,
                 ),
               );
-              // The top receives the same continuous rim as the corners,
-              // rather than a second straight highlight over the outline.
-              pixel(
-                100,
-                0,
-                Color.alphaBlend(
-                  Colors.white.withValues(
-                    alpha:
-                        (dark ? .18 : .45) +
-                        ((dark ? .07 : .18) - (dark ? .18 : .45)) * .5 / 140,
-                  ),
-                  Color.alphaBlend(
-                    Colors.white.withValues(
-                      alpha: (dark ? .066 : .5) * (1 - .5 / 140),
-                    ),
-                    base,
-                  ),
-                ),
+              final topLit = Color.alphaBlend(
+                Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6),
+                topBase,
               );
+              const offset = 100 * 4;
+              for (final (channel, bounds) in [
+                (topBase.r, topLit.r),
+                (topBase.g, topLit.g),
+                (topBase.b, topLit.b),
+              ].indexed) {
+                expect(
+                  bytes.getUint8(offset + channel),
+                  inInclusiveRange(bounds.$1 * 255 + 1, bounds.$2 * 255 + 2),
+                );
+              }
               pixel(0, 0, backdrop);
             } finally {
               image.dispose();
