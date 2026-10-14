@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_sheet.dart';
 
@@ -605,6 +606,7 @@ class _DPopoverState extends State<DPopover>
             content: widget.content,
             direction: Directionality.of(context),
             animation: _curve,
+            glass: DMaterialTheme.glassOf(context),
             child: Actions(
               actions: {
                 DismissIntent: CallbackAction<DismissIntent>(
@@ -1278,6 +1280,7 @@ class _PopoverPositioner extends SingleChildRenderObjectWidget {
     required this.content,
     required this.direction,
     required this.animation,
+    required this.glass,
     required super.child,
   });
 
@@ -1286,6 +1289,7 @@ class _PopoverPositioner extends SingleChildRenderObjectWidget {
   final DPopoverContent content;
   final TextDirection direction;
   final Animation<double> animation;
+  final bool glass;
 
   @override
   RenderObject createRenderObject(BuildContext context) => _RenderPopover(this);
@@ -1306,8 +1310,8 @@ class _RenderPopover extends RenderShiftedBox {
 
   set configuration(_PopoverPositioner value) {
     if (_configuration.animation != value.animation && attached) {
-      _configuration.animation.removeListener(markNeedsPaint);
-      value.animation.addListener(markNeedsPaint);
+      _configuration.animation.removeListener(_animationChanged);
+      value.animation.addListener(_animationChanged);
     }
     _configuration = value;
     markNeedsLayout();
@@ -1316,13 +1320,18 @@ class _RenderPopover extends RenderShiftedBox {
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
-    _configuration.animation.addListener(markNeedsPaint);
+    _configuration.animation.addListener(_animationChanged);
   }
 
   @override
   void detach() {
-    _configuration.animation.removeListener(markNeedsPaint);
+    _configuration.animation.removeListener(_animationChanged);
     super.detach();
+  }
+
+  void _animationChanged() {
+    markNeedsPaint();
+    markNeedsSemanticsUpdate();
   }
 
   DPopoverSide _physical(DPopoverSide side) => switch (side) {
@@ -1544,39 +1553,60 @@ class _RenderPopover extends RenderShiftedBox {
     };
   }
 
+  Matrix4 get _contentTransform {
+    final value = _configuration.animation.value;
+    final origin = (child!.parentData! as BoxParentData).offset;
+    final slide = (1 - value) * 8;
+    final delta = switch (_side) {
+      DPopoverSide.top => Offset(0, slide),
+      DPopoverSide.bottom => Offset(0, -slide),
+      DPopoverSide.left => Offset(slide, 0),
+      _ => Offset(-slide, 0),
+    };
+    final scale = 0.95 + value * 0.05;
+    final pivot = origin + _transformOrigin;
+    return Matrix4.identity()
+      ..translateByDouble(pivot.dx + delta.dx, pivot.dy + delta.dy, 0, 1)
+      ..scaleByDouble(scale, scale, 1, 1)
+      ..translateByDouble(-_transformOrigin.dx, -_transformOrigin.dy, 0, 1);
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
     final value = _configuration.animation.value;
     if (value <= 0 || child!.size.isEmpty) return;
-    final origin = (child!.parentData! as BoxParentData).offset;
-    context.pushOpacity(offset, (255 * value).round(), (context, offset) {
-      final slide = (1 - value) * 8;
-      final delta = switch (_side) {
-        DPopoverSide.top => Offset(0, slide),
-        DPopoverSide.bottom => Offset(0, -slide),
-        DPopoverSide.left => Offset(slide, 0),
-        _ => Offset(-slide, 0),
-      };
-      final scale = 0.95 + value * 0.05;
-      final pivot = origin + _transformOrigin;
-      final transform = Matrix4.identity()
-        ..translateByDouble(pivot.dx + delta.dx, pivot.dy + delta.dy, 0, 1)
-        ..scaleByDouble(scale, scale, 1, 1)
-        ..translateByDouble(-pivot.dx, -pivot.dy, 0, 1);
-      context.pushTransform(needsCompositing, offset, transform, (
+    void paintSurface(PaintingContext context, Offset offset) {
+      context.pushTransform(needsCompositing, offset, _contentTransform, (
         context,
         offset,
       ) {
-        context.paintChild(child!, offset + origin);
+        context.paintChild(child!, offset);
       });
-    });
+    }
+
+    // A live glass lens must read the page beneath the popup. Fractional
+    // opacity isolates it in an offscreen layer, producing blank or split
+    // backdrop tiles during entrance and exit. Keep its slide and scale.
+    if (_configuration.glass) {
+      paintSurface(context, offset);
+    } else {
+      context.pushOpacity(offset, (255 * value).round(), paintSurface);
+    }
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) {
+    assert(child == this.child);
+    // Glass shaders query the render tree at compositing time. Report the
+    // same animated transform that paints their clips and content.
+    transform.multiply(_contentTransform);
   }
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
-    final childParentData = child!.parentData! as BoxParentData;
-    return result.addWithPaintOffset(
-      offset: childParentData.offset,
+    if (_configuration.animation.value <= 0) return false;
+    return result.addWithPaintTransform(
+      transform: _contentTransform,
       position: position,
       hitTest: (result, transformed) =>
           child!.hitTest(result, position: transformed),
