@@ -10,7 +10,7 @@ import 'linear_controls_example.dart';
 import 'mockup_control_sizes_example.dart';
 
 final buttonExamples = ComponentExamples(
-  topLevelExampleIndex: 2,
+  topLevelExampleIndex: 3,
   description: 'Actions and links, with variants for emphasis and intent.',
   status: ComponentStatus.implemented,
   notes:
@@ -26,6 +26,19 @@ final buttonExamples = ComponentExamples(
       'The avatar density gives icon-only profile triggers a 36px circle with a '
       '2px border flush against a borderless DAvatar. Both grow with text scaling.',
   examples: [
+    StyleguideExample(
+      title: 'Header menu action',
+      description:
+          'Compact accent text with 7px corners and matching visible hit bounds on desktop and mobile.',
+      code:
+          "DButton(density: DButtonDensity.menuAction, variant: DButtonVariant.ghost, label: Text('Mark all read'), onPressed: markRead)",
+      builder: (_) => DButton(
+        density: DButtonDensity.menuAction,
+        variant: DButtonVariant.ghost,
+        label: const Text('Mark all read'),
+        onPressed: () {},
+      ),
+    ),
     StyleguideExample(
       title: 'Quiet page pickers',
       description:

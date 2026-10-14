@@ -31,6 +31,8 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
     required this.child,
     this.busy = false,
     this.controlsKey,
+    this.notificationStyle = false,
+    this.filtersKey,
   });
 
   final String title;
@@ -41,6 +43,8 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final Widget child;
   final bool busy;
+  final bool notificationStyle;
+  final Key? filtersKey;
 
   /// Resets account-bound gestures without replacing the displayed feed.
   final Key? controlsKey;
@@ -52,84 +56,160 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
       null;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: math.min(
-      460,
-      math.max(120, MediaQuery.sizeOf(context).height - 130),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(11, 6, 6, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: notificationStyle
+            ? 0
+            : math.min(
+                460,
+                constraints.hasBoundedHeight
+                    ? constraints.maxHeight
+                    : math.max(120, MediaQuery.sizeOf(context).height - 130),
               ),
-              Flexible(
-                child: DButton(
-                  key: controlsKey,
-                  label: Text(action, softWrap: true),
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.small,
-                  loading: busy,
-                  onPressed: onAction,
-                ),
-              ),
-            ],
-          ),
+        maxHeight: math.min(
+          notificationStyle ? 640 : 460,
+          constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : math.max(120, MediaQuery.sizeOf(context).height - 130),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
-          child: DToggleGroup<T>(
-            key: controlsKey,
-            values: [value],
-            onChanged: (values) => onChanged(values.single),
-            onItemActivated: (activated) {
-              if (activated == value) onChanged(activated);
-            },
-            allowEmptySelection: false,
-            scrollable: true,
-            size: DToggleSize.small,
-            variant: DToggleVariant.outline,
-            spacing: 1.5,
-            semanticLabel: title,
-            items: [
-              for (final filter in filters)
-                DToggleGroupItem(
-                  value: filter.value,
-                  semanticLabel: filter.unread > 0
-                      ? context.l10n.unreadUsermenu(
-                          filter.label,
-                          '${filter.unread}',
-                        )
-                      : filter.label,
-                  visualStyle: const DToggleVisualStyle(
-                    borderRadius: BorderRadius.all(Radius.circular(999)),
+      ),
+      child: Column(
+        mainAxisSize: notificationStyle ? MainAxisSize.min : MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: notificationStyle
+                ? const EdgeInsetsDirectional.fromSTEB(15, 10, 10, 0)
+                : const EdgeInsets.fromLTRB(11, 6, 6, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: notificationStyle
+                        ? Theme.of(context).textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          )
+                        : Theme.of(context).textTheme.titleSmall,
                   ),
-                  child: KeyedSubtree(
-                    key: filter.key,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      spacing: 6,
-                      children: [
-                        Text(filter.label),
-                        if (filter.unread > 0)
-                          Text(filter.unread > 99 ? '99+' : '${filter.unread}'),
-                      ],
+                ),
+                Flexible(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: DButton(
+                      key: controlsKey,
+                      label: Text(action, softWrap: true),
+                      variant: DButtonVariant.ghost,
+                      size: DButtonSize.small,
+                      density: notificationStyle
+                          ? DButtonDensity.menuAction
+                          : DButtonDensity.standard,
+                      loading: busy,
+                      onPressed: onAction,
                     ),
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const DSeparator(space: 1),
-        Expanded(child: _DesktopHeaderMenuScope(child: child)),
-      ],
+          Padding(
+            key: filtersKey,
+            padding: notificationStyle
+                ? const EdgeInsets.fromLTRB(12, 8, 12, 10)
+                : const EdgeInsets.fromLTRB(8, 8, 8, 10),
+            child: DToggleGroup<T>(
+              key: controlsKey,
+              values: [value],
+              onChanged: (values) => onChanged(values.single),
+              onItemActivated: (activated) {
+                if (activated == value) onChanged(activated);
+              },
+              allowEmptySelection: false,
+              scrollable: true,
+              size: DToggleSize.small,
+              density: notificationStyle
+                  ? DToggleDensity.menuFilter
+                  : DToggleDensity.standard,
+              variant: DToggleVariant.outline,
+              spacing: 1.5,
+              semanticLabel: title,
+              items: [
+                for (final filter in filters)
+                  DToggleGroupItem(
+                    value: filter.value,
+                    semanticLabel: filter.unread > 0
+                        ? context.l10n.unreadUsermenu(
+                            filter.label,
+                            '${filter.unread}',
+                          )
+                        : filter.label,
+                    visualStyle: const DToggleVisualStyle(
+                      borderRadius: BorderRadius.all(Radius.circular(999)),
+                    ),
+                    child: KeyedSubtree(
+                      key: filter.key,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: 6,
+                        children: [
+                          Text(filter.label),
+                          if (filter.unread > 0)
+                            Text(
+                              filter.unread > 99 ? '99+' : '${filter.unread}',
+                              style: notificationStyle
+                                  ? TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                      color:
+                                          (filter.value == value
+                                                  ? DTokens.of(context)
+                                                        .buttonTheme
+                                                        .primary
+                                                        .foreground
+                                                  : Color.lerp(
+                                                      DTokens.of(
+                                                        context,
+                                                      ).colors.surface,
+                                                      DTokens.of(
+                                                        context,
+                                                      ).foreground,
+                                                      .62,
+                                                    )!)
+                                              .withValues(
+                                                alpha: filter.value == value
+                                                    ? .85
+                                                    : .7,
+                                              ),
+                                    )
+                                  : null,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          DSeparator(
+            space: 1,
+            color: notificationStyle
+                ? Color.lerp(
+                    DTokens.of(context).background,
+                    DTokens.of(context).foreground,
+                    .12,
+                  )
+                : null,
+          ),
+          Flexible(
+            fit: notificationStyle ? FlexFit.loose : FlexFit.tight,
+            child: _DesktopHeaderMenuScope(child: child),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -146,6 +226,7 @@ class DesktopHeaderMenuRow extends StatelessWidget {
     this.time,
     this.count = 0,
     this.semanticLabel,
+    this.notificationStyle = false,
   });
   final Widget title;
   final Widget? description;
@@ -155,54 +236,69 @@ class DesktopHeaderMenuRow extends StatelessWidget {
   final bool unread;
   final VoidCallback onPressed;
   final String? semanticLabel;
+  final bool notificationStyle;
 
   @override
-  Widget build(BuildContext context) => DItem(
-    size: DItemSize.sm,
-    shape: DItemShape.menu,
-    padding: const EdgeInsets.all(7),
-    onPressed: onPressed,
-    semanticLabel: semanticLabel,
-    children: [
-      if (leading != null) DItemMedia(child: leading!),
-      DItemContent(
-        children: [
-          DItemTitle(
-            child: Row(
-              spacing: 8,
+  Widget build(BuildContext context) => notificationStyle
+      ? DMenuFeedRow(
+          title: title,
+          description: description,
+          leading: leading,
+          time: time,
+          count: count,
+          unread: unread,
+          semanticLabel: semanticLabel,
+          onPressed: onPressed,
+        )
+      : DItem(
+          size: DItemSize.sm,
+          shape: DItemShape.menu,
+          padding: const EdgeInsets.all(7),
+          onPressed: onPressed,
+          semanticLabel: semanticLabel,
+          children: [
+            if (leading != null) DItemMedia(child: leading!),
+            DItemContent(
               children: [
-                Expanded(
-                  child: DefaultTextStyle.merge(
-                    style: TextStyle(
-                      fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                    child: title,
+                DItemTitle(
+                  child: Row(
+                    spacing: 8,
+                    children: [
+                      Expanded(
+                        child: DefaultTextStyle.merge(
+                          style: TextStyle(
+                            fontWeight: unread
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                          child: title,
+                        ),
+                      ),
+                      if (time != null)
+                        Text(
+                          time!,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: DTokens.of(context).mutedForeground,
+                              ),
+                        ),
+                    ],
                   ),
                 ),
-                if (time != null)
-                  Text(
-                    time!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: DTokens.of(context).mutedForeground,
-                    ),
-                  ),
+                if (description != null) DItemDescription(child: description!),
               ],
             ),
-          ),
-          if (description != null) DItemDescription(child: description!),
-        ],
-      ),
-      if (unread)
-        DItemActions(
-          children: [
-            if (count > 0)
-              DBadge(child: Text(count > 99 ? '99+' : '$count'))
-            else
-              DNotificationDot(color: DTokens.of(context).primary),
+            if (unread)
+              DItemActions(
+                children: [
+                  if (count > 0)
+                    DBadge(child: Text(count > 99 ? '99+' : '$count'))
+                  else
+                    DNotificationDot(color: DTokens.of(context).primary),
+                ],
+              ),
           ],
-        ),
-    ],
-  );
+        );
 }
 
 class _DesktopHeaderMenuScope extends InheritedWidget {

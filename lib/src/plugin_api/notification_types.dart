@@ -36,11 +36,21 @@ final class NotificationPresentation {
     required this.icon,
     required this.phrase,
     this.actor,
+    this.menuLead,
+    this.menuPhrase,
+    this.subject,
+    this.avatarUrl,
   });
 
   final DIconData icon;
   final String? actor;
   final String phrase;
+
+  /// Structured menu copy; [phrase] retains the complete spoken description.
+  final String? menuLead;
+  final String? menuPhrase;
+  final String? subject;
+  final String? avatarUrl;
 }
 
 @immutable
@@ -358,7 +368,8 @@ ResolvedNotification? _decodeCoreNotification(
     _ => true,
   };
   final actor = namesActor
-      ? jsonText(
+      ? notification.actingUserName ??
+            jsonText(
               data['display_username'] ??
                   data['username'] ??
                   data['original_username'],
@@ -407,11 +418,38 @@ ResolvedNotification? _decodeCoreNotification(
   };
   if (phrase == null) return null;
 
+  final menuPhrase = switch (type) {
+    1 || 15 => appL10n.mentionedYouInNotificationtypes(''),
+    2 => appL10n.repliedTo(''),
+    3 => appL10n.quotedYouIn(''),
+    4 => appL10n.editedYourPostIn(''),
+    5 => appL10n.likedYourPostIn(''),
+    11 => appL10n.linkedToYourPostFrom(''),
+    6 => appL10n.sentYou(''),
+    7 || 13 => appL10n.invitedYouToNotificationtypes(''),
+    9 || 36 => appL10n.postedIn(''),
+    17 => appL10n.created(''),
+    10 => appL10n.moved(''),
+    18 || 24 => appL10n.reminderNotificationtypes(''),
+    _ => null,
+  };
+  final groupedReplies = type == 9 && count > 1;
+
   return ResolvedNotification(
     presentation: NotificationPresentation(
       icon: _coreIcon(type),
       actor: actor,
       phrase: phrase,
+      menuLead: groupedReplies ? countLabel(count, CountNoun.reply) : null,
+      menuPhrase: menuPhrase?.trim(),
+      subject: menuPhrase == null
+          ? null
+          : type == 18 || type == 24
+          ? _reminderTitle(notification)
+          : title,
+      avatarUrl: namesActor && !groupedReplies
+          ? resolveAvatarUrl(notification.actingUserAvatarTemplate, siteUrl)
+          : null,
     ),
     path: _corePath(siteUrl, notification),
   );

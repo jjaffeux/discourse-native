@@ -3223,8 +3223,45 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
+  static PluginNotificationFeedId _messageNotificationFeedId(String siteUrl) =>
+      PluginNotificationFeedId(
+        owner: const PluginId('core'),
+        name: 'message-notifications:$siteUrl',
+      );
+
+  Listenable messageNotificationsListenable(String siteUrl) => accountActivity
+      .pluginNotificationsListenable(_messageNotificationFeedId(siteUrl));
+
+  NotificationFeed messageNotificationsFor(String siteUrl) => accountActivity
+      .pluginNotificationsFor(_messageNotificationFeedId(siteUrl), siteUrl);
+
+  Future<void> loadMessageNotifications(String siteUrl) async {
+    final instance = _instanceAt(siteUrl);
+    if (instance == null) return;
+    // Core uses the same session-owned typed cache as contributed feeds.
+    await accountActivity.loadPluginNotifications(
+      instance,
+      PluginNotificationFeedSource(
+        id: _messageNotificationFeedId(siteUrl),
+        filterByTypes: const [
+          NotificationTypeName('private_message'),
+          NotificationTypeName('group_message_summary'),
+        ],
+        reconnectMessage: appL10n.reconnectToToSeeNotifications(instance.host),
+        failureMessage: appL10n.couldnTLoadNotificationsFrom(instance.host),
+        emptyMessage: appL10n.nothingNew,
+      ),
+    );
+  }
+
   int likeNotificationUnreadCount(String siteUrl) =>
       _groupedUnreadCountOf(siteUrl, plugins.registry.likeNotificationTypes);
+
+  /// The menu counts unread rows even after opening the bell marks them seen.
+  int allNotificationUnreadCount(String siteUrl) =>
+      _groupedUnreadNotificationCountsFor(siteUrl)?.totalExcluding(const []) ??
+      accountActivity.totalsFor(siteUrl)?.coreBadge ??
+      0;
 
   // The Replies, Messages and Bookmarks tabs count unread notifications of
   // their own types, as Discourse's menu does. The seen-scoped

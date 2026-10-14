@@ -195,12 +195,10 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                   children: [
                     ...?widget.leadingActions,
                     _AccountMenuPopover(
-                      key: context.isTouch
-                          ? null
-                          : ValueKey((
-                              UserMenuView.notifications,
-                              _menuGeneration,
-                            )),
+                      key: ValueKey((
+                        UserMenuView.notifications,
+                        _menuGeneration,
+                      )),
                       view: UserMenuView.notifications,
                       controller: _notifications,
                       onOpen: _profile.close,
@@ -376,13 +374,30 @@ class _AccountMenuPopover extends StatelessWidget {
         child: DDropdownMenuTrigger(builder: buildTrigger),
       );
     }
-    if (!context.isTouch) {
+    if (view == UserMenuView.notifications) {
+      final media = MediaQueryData.fromView(View.of(context));
       return DDropdownMenu(
         controller: controller,
         content: DDropdownMenuContent(
           semanticLabel: tooltip,
           align: DPopoverAlign.end,
-          width: DesktopHeaderMenu.width,
+          width: MediaQuery.sizeOf(context).width < 600
+              ? UserMenuPanel.mobileWidth
+              : DesktopHeaderMenu.width,
+          sideOffset: 8,
+          collisionPadding: 0,
+          collisionBoundary: Rect.fromLTRB(
+            media.padding.left + 12,
+            media.padding.top + 6,
+            media.size.width - media.padding.right - 12,
+            media.size.height -
+                media.padding.bottom -
+                media.viewInsets.bottom -
+                6,
+          ),
+          cornerRadius: 12,
+          padding: EdgeInsets.zero,
+          scrollable: false,
           autofocus: false,
           children: [UserMenuPanel(onDismiss: controller.close)],
         ),

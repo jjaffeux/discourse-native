@@ -8,7 +8,7 @@ import '../styleguide_example.dart';
 const _assets = 'packages/discourse_native/src/styleguide/assets/item/';
 
 final itemExamples = ComponentExamples(
-  topLevelExampleIndex: 1,
+  topLevelExampleIndex: 2,
   status: ComponentStatus.implemented,
   description: 'Content with media, a title, a description, and actions.',
   notes:
@@ -23,6 +23,28 @@ final itemExamples = ComponentExamples(
       'and accessible round icon buttons. The Dropdown example composes accepted '
       'Dropdown Menu primitives with actual passive xs Items.',
   examples: [
+    StyleguideExample(
+      title: 'Header menu feed row',
+      description:
+          'Two lines beside a 30px identity, with time above the unread marker. Read subjects recede; large text reflows.',
+      code:
+          "DMenuFeedRow(title: Text('Sam replied to'), description: Text('A useful topic'), time: '22m', unread: true, onPressed: open)",
+      builder: (_) => SizedBox(
+        width: 320,
+        child: DMenuFeedRow(
+          leading: const DAvatar(
+            dimension: 30,
+            border: false,
+            fallback: DAvatarFallback(child: Text('S')),
+          ),
+          title: const Text('Sam replied to'),
+          description: const Text('A useful topic'),
+          time: '22m',
+          unread: true,
+          onPressed: () {},
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Fit content',
       description:

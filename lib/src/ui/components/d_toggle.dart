@@ -21,6 +21,9 @@ enum DToggleVariant { standard, outline, segmented, inline }
 /// with a circular hover surface and a press animation.
 enum DToggleDensity {
   standard,
+
+  /// 26px header-menu filter pills, with accent selection and recessed rest.
+  menuFilter,
   chatReaction,
 
   /// Flat 30px post pills with 14px emoji, 12.5px counts and accent selection.
@@ -263,6 +266,7 @@ class _DToggleState extends State<DToggle> {
     final outline = tokens.buttonTheme.outline;
 
     final postReaction = widget.density == DToggleDensity.postReaction;
+    final menuFilter = widget.density == DToggleDensity.menuFilter;
     final chatReaction = widget.density == DToggleDensity.chatReaction;
     // ChatBubble derives these roles from the palette's raw secondary, not
     // the panel fill. Reaction chips stay flat in both appearance materials.
@@ -275,6 +279,10 @@ class _DToggleState extends State<DToggle> {
     final interacting = _enabled && (_hovered || _pointerPressed);
     final foreground = postReaction
         ? DPostReactionStyle.foreground(tokens, selected: _current)
+        : menuFilter
+        ? (_current
+              ? tokens.buttonTheme.primary.foreground
+              : Color.lerp(tokens.colors.surface, tokens.foreground, .62)!)
         : splitView
         ? Color.lerp(tokens.colors.surface, tokens.foreground, .62)!
         : inline
@@ -299,6 +307,8 @@ class _DToggleState extends State<DToggle> {
     final scaler = MediaQuery.textScalerOf(context);
     final visualDimension = postReaction
         ? DPostReactionStyle.height(scaler)
+        : menuFilter
+        ? 26.0 + math.max(0, scaler.scale(12.5) - 12.5) * 1.5
         : splitView
         ? 36.0 + math.max(0, scaler.scale(13) - 13)
         : chrome
@@ -326,6 +336,8 @@ class _DToggleState extends State<DToggle> {
               : DControlStyle.iconDimension(widget.size, context: context));
     final fontSize = postReaction
         ? DPostReactionStyle.fontSize
+        : menuFilter
+        ? 12.5
         : tile
         ? 11.5
         : chatReaction
@@ -333,6 +345,8 @@ class _DToggleState extends State<DToggle> {
         : (DControlStyle.fontSize(widget.size, context: context));
     final lineHeight = postReaction
         ? DPostReactionStyle.fontSize * 1.5
+        : menuFilter
+        ? 12.5 * 1.5
         : tile
         ? 17.0
         : chatReaction
@@ -344,6 +358,8 @@ class _DToggleState extends State<DToggle> {
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
         : postReaction
+        ? Colors.transparent
+        : menuFilter
         ? Colors.transparent
         : splitView
         ? interacting
@@ -371,7 +387,7 @@ class _DToggleState extends State<DToggle> {
     final radius =
         (widget.visualStyle?.borderRadius ??
                 BorderRadius.circular(
-                  splitView || chatReaction || postReaction
+                  splitView || chatReaction || postReaction || menuFilter
                       ? 999
                       : outlined
                       ? tokens.buttonTheme.radius
@@ -410,7 +426,9 @@ class _DToggleState extends State<DToggle> {
               color: foreground,
               fontSize: fontSize,
               height: lineHeight / fontSize,
-              fontWeight: segmented
+              fontWeight: menuFilter
+                  ? (_current ? FontWeight.w600 : FontWeight.w500)
+                  : segmented
                   ? (_current ? FontWeight.w600 : FontWeight.w400)
                   : tile
                   ? (_current ? FontWeight.w600 : FontWeight.w400)
@@ -477,6 +495,16 @@ class _DToggleState extends State<DToggle> {
             selected: _current,
             interacting: interacting,
           )
+        : menuFilter
+        ? (_current
+              ? (interacting
+                    ? tokens.buttonTheme.primary.hover
+                    : tokens.buttonTheme.primary.background)
+              : interacting
+              ? (dark ? Colors.white : Colors.black).withValues(
+                  alpha: dark ? .05 : .07,
+                )
+              : Colors.black.withValues(alpha: dark ? .16 : .045))
         : splitView
         ? interacting
               ? Color.lerp(
@@ -523,6 +551,8 @@ class _DToggleState extends State<DToggle> {
           ? const EdgeInsets.symmetric(horizontal: 4, vertical: 7)
           : postReaction
           ? const EdgeInsets.symmetric(horizontal: 10)
+          : menuFilter
+          ? const EdgeInsets.symmetric(horizontal: 11)
           : chatReaction
           ? const EdgeInsets.symmetric(horizontal: 9, vertical: 2)
           : (DToggle._paddingFor(
@@ -597,7 +627,16 @@ class _DToggleState extends State<DToggle> {
           )
         : postReaction || chatReaction
         ? artwork
-        : DMaterialSurface(radius: radius, color: surfaceColor, child: artwork);
+        : DMaterialSurface(
+            radius: radius,
+            color: surfaceColor,
+            depth: menuFilter && !_current
+                ? DSurfaceDepth.recessed
+                : DSurfaceDepth.raised,
+            preserveColor: menuFilter && !_current,
+            insetEdges: menuFilter && !_current,
+            child: artwork,
+          );
 
     final control = MergeSemantics(
       child: Semantics(

@@ -61,6 +61,7 @@ export 'src/ui/components/d_label.dart';
 export 'src/ui/components/d_layout_glyph.dart';
 export 'src/ui/components/d_marker.dart';
 export 'src/ui/components/d_menubar.dart';
+export 'src/ui/components/d_menu_feed_row.dart';
 export 'src/ui/components/d_mermaid.dart';
 export 'src/ui/components/d_mermaid_editor.dart';
 export 'src/ui/components/d_message.dart';

@@ -13,6 +13,7 @@ enum _AccountActivityRequest {
   notifications,
   replyNotifications,
   likeNotifications,
+  messageNotifications,
   otherNotifications,
   bookmarks,
   bookmarkList,
@@ -23,6 +24,7 @@ enum _AccountActivityRequest {
         notifications => controller.loadNotifications(siteUrl),
         replyNotifications => controller.loadReplyNotifications(siteUrl),
         likeNotifications => controller.loadLikeNotifications(siteUrl),
+        messageNotifications => controller.loadMessageNotifications(siteUrl),
         otherNotifications => controller.loadOtherNotifications(siteUrl),
         bookmarks => controller.loadBookmarks(siteUrl),
         bookmarkList => controller.loadBookmarkList(siteUrl),
@@ -60,6 +62,12 @@ class AccountActivityLoader extends StatelessWidget {
     required this.siteUrl,
     required this.builder,
   }) : _request = _AccountActivityRequest.likeNotifications;
+
+  const AccountActivityLoader.messageNotifications({
+    super.key,
+    required this.siteUrl,
+    required this.builder,
+  }) : _request = _AccountActivityRequest.messageNotifications;
 
   const AccountActivityLoader.otherNotifications({
     super.key,

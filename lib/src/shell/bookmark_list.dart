@@ -12,6 +12,7 @@ import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
+import 'desktop_header_menu.dart';
 import 'directory_skeleton.dart';
 import 'external_link.dart';
 import 'notification_list.dart';
@@ -266,12 +267,18 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     if (!feed.loaded) {
       return UserMenuLoading(semanticsLabel: context.l10n.loadingBookmarks);
     }
-    if (!feed.hasRows) {
-      return UserMenuMessage(text: context.l10n.nothingBookmarkedYet);
+    if (!feed.hasRows ||
+        DesktopHeaderMenu.isActiveOf(context) && feed.reminders.isEmpty) {
+      return UserMenuMessage(
+        text: DesktopHeaderMenu.isActiveOf(context)
+            ? context.l10n.nothingNew
+            : context.l10n.nothingBookmarkedYet,
+      );
     }
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: DesktopHeaderMenu.isActiveOf(context) ? 2 : 0,
       children: [
         for (final reminder in feed.reminders)
           Builder(
@@ -291,12 +298,13 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               );
             },
           ),
-        for (final bookmark in feed.bookmarks)
-          BookmarkRow(
-            bookmark: bookmark,
-            siteUrl: widget.siteUrl,
-            onTap: () => _openBookmark(bookmark),
-          ),
+        if (!DesktopHeaderMenu.isActiveOf(context))
+          for (final bookmark in feed.bookmarks)
+            BookmarkRow(
+              bookmark: bookmark,
+              siteUrl: widget.siteUrl,
+              onTap: () => _openBookmark(bookmark),
+            ),
       ],
     );
   }

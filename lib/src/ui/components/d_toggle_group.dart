@@ -409,6 +409,10 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         renderObject,
         alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
       );
+      if (widget.density == DToggleDensity.menuFilter) {
+        // Keep a keyboard-selected pill clear of the menu's overflow fade.
+        scrollable.position.ensureVisible(renderObject, alignment: .5);
+      }
     });
   }
 
@@ -582,6 +586,22 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         scrollDirection: Axis.horizontal,
         child: group,
       );
+      if (widget.density == DToggleDensity.menuFilter) {
+        group = ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) => LinearGradient(
+            begin: Directionality.of(context) == TextDirection.rtl
+                ? Alignment.centerRight
+                : Alignment.centerLeft,
+            end: Directionality.of(context) == TextDirection.rtl
+                ? Alignment.centerLeft
+                : Alignment.centerRight,
+            colors: const [Colors.black, Colors.black, Colors.transparent],
+            stops: [0, (1 - 28 / bounds.width).clamp(0, 1), 1],
+          ).createShader(bounds),
+          child: group,
+        );
+      }
     }
     if (widget.inset) {
       final tokens = DTokens.of(context);

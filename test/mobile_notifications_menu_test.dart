@@ -47,7 +47,7 @@ void main() {
             );
             expect(
               tester.getSemantics(_tab('all')),
-              isSemantics(label: 'Notifications, 3 unread', isSelected: true),
+              isSemantics(label: 'All, 3 unread', isToggled: true),
             );
 
             // Scrolling the feed must leave navigation fixed at the top.
@@ -64,7 +64,7 @@ void main() {
             expect(find.textContaining('Reply feed item'), findsOneWidget);
             expect(
               tester.getSemantics(_tab('replies')),
-              isSemantics(isSelected: true),
+              isSemantics(isToggled: true),
             );
 
             final scrollable = find.descendant(
@@ -83,7 +83,7 @@ void main() {
             expect(find.byType(OtherNotificationsSection), findsOneWidget);
             expect(find.byType(UserMenuPanel), findsOneWidget);
 
-            await tester.tapAt(const Offset(190, 720));
+            await tester.tapAt(const Offset(5, 740));
             await tester.pumpAndSettle();
             expect(find.byType(UserMenuPanel), findsNothing);
             expect(tester.takeException(), isNull);
@@ -108,7 +108,7 @@ void main() {
       expect(rect.bottom, lessThanOrEqualTo(800 - UserMenuPanel.margin));
       // Each tab answers exactly where its pill is painted, and the pill
       // grows to hold its label at 200% text.
-      for (final tab in find.byType(DTabTrigger<String>).evaluate()) {
+      for (final tab in find.byType(DToggle).evaluate()) {
         final trigger = find.byWidget(tab.widget);
         final bounds = tester.getRect(trigger);
         expect(
@@ -121,7 +121,7 @@ void main() {
           ),
         );
         final label = tester.getRect(
-          find.descendant(of: trigger, matching: find.byType(Text)),
+          find.descendant(of: trigger, matching: find.byType(Text)).first,
         );
         expect(bounds.expandToInclude(label), bounds);
       }
@@ -180,30 +180,27 @@ void main() {
           ('replies', 'Replies, 3 unread'),
           ('messages', 'Messages, 2 unread'),
           ('bookmarks', 'Bookmarks, 1 unread'),
-          ('all', 'Notifications'),
+          ('all', 'All, 6 unread'),
           ('likes', 'Likes'),
           ('other', 'Other'),
         ]) {
-          expect(tester.getSemantics(_tab(id)).label, label, reason: id);
+          await tester.ensureVisible(_tab(id));
+          await tester.pumpAndSettle();
+          expect(
+            tester.getSemantics(_tab(id)),
+            isSemantics(label: label),
+            reason: id,
+          );
         }
-        if (width >= 600) {
-          for (final (id, count) in [
-            ('replies', '3'),
-            ('messages', '2'),
-            ('bookmarks', '1'),
-          ]) {
-            expect(
-              find.descendant(
-                of: _tab(id),
-                matching: find.descendant(
-                  of: find.byType(DBadge),
-                  matching: find.text(count),
-                ),
-              ),
-              findsOneWidget,
-              reason: id,
-            );
-          }
+        for (final (id, count) in [
+          ('replies', '3'),
+          ('messages', '2'),
+          ('bookmarks', '1'),
+        ]) {
+          expect(
+            find.descendant(of: _tab(id), matching: find.text(count)),
+            findsOneWidget,
+          );
         }
         expect(tester.takeException(), isNull);
       } finally {
@@ -235,7 +232,13 @@ void main() {
           ('messages', 'Messages'),
           ('bookmarks', 'Bookmarks'),
         ]) {
-          expect(tester.getSemantics(_tab(id)).label, label, reason: id);
+          await tester.ensureVisible(_tab(id));
+          await tester.pumpAndSettle();
+          expect(
+            tester.getSemantics(_tab(id)),
+            isSemantics(label: label),
+            reason: id,
+          );
           expect(
             find.descendant(of: _tab(id), matching: find.byType(DBadge)),
             findsNothing,
@@ -293,7 +296,13 @@ void main() {
   });
 }
 
-Finder _tab(String id) => find.byKey(ValueKey('user-menu-tab-$id'));
+Finder _tab(String id) => find.descendant(
+  of: find.ancestor(
+    of: find.byKey(ValueKey('user-menu-tab-$id')),
+    matching: find.byType(DToggle),
+  ),
+  matching: find.byType(MergeSemantics),
+);
 
 Future<ShellController> _mount(
   WidgetTester tester, {

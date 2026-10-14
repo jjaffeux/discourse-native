@@ -37,6 +37,59 @@ String line(NotificationPresentation description) => description.actor == null
 const _siteUrl = 'https://forum.example';
 
 void main() {
+  test(
+    'menu copy separates action and subject and retains server identity',
+    () {
+      final notification = DiscourseNotification.fromJson(const {
+        'id': 1,
+        'notification_type': 2,
+        'fancy_title': 'A &amp; B',
+        'acting_user_name': 'Sam Reader',
+        'acting_user_avatar_template':
+            '/user_avatar/forum.example/sam/{size}/1.png',
+        'data': {'display_username': 'sam'},
+      });
+      final presentation = resolveCoreNotification(
+        _siteUrl,
+        notification,
+      ).presentation;
+      expect(presentation.actor, 'Sam Reader');
+      expect(presentation.menuPhrase, 'replied to');
+      expect(presentation.subject, 'A & B');
+      expect(
+        presentation.avatarUrl,
+        'https://forum.example/user_avatar/forum.example/sam/90/1.png',
+      );
+      expect(line(presentation), 'Sam Reader replied to A & B');
+      expect(
+        notification.asRead().actingUserAvatarTemplate,
+        notification.actingUserAvatarTemplate,
+      );
+    },
+  );
+
+  test('grouped replies use their count and a glyph instead of an actor', () {
+    final presentation = describe(CoreNotificationTypes.posted, count: 4);
+    expect(presentation.menuLead, '4 replies');
+    expect(presentation.menuPhrase, 'posted in');
+    expect(presentation.subject, 'Better image handling');
+    expect(presentation.avatarUrl, isNull);
+  });
+
+  test('unknown notification types never interpret type-owned actor data', () {
+    final presentation = fallbackNotification(
+      const DiscourseNotification.test(
+        id: 1,
+        typeId: NotificationTypeId(999),
+        title: 'Custom subject',
+        data: {'display_username': 'sam', 'avatar_template': '/private.png'},
+      ),
+    ).presentation;
+    expect(presentation.actor, isNull);
+    expect(presentation.avatarUrl, isNull);
+    expect(presentation.phrase, 'Custom subject');
+  });
+
   group('core notification wording', () {
     test('names who did it and what they did', () {
       expect(

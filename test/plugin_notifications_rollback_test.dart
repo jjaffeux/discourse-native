@@ -120,9 +120,8 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 100));
-        if (defaultTargetPlatform == TargetPlatform.macOS &&
-            operation != _Operation.cancelledReconnect) {
-          // Desktop menus retire with their account session. Reopening Chat
+        if (operation != _Operation.cancelledReconnect) {
+          // Anchored menus retire with their account session. Reopening Chat
           // must load notifications for the restored account.
           expect(section, findsNothing);
           expect(state.mounted, isFalse);

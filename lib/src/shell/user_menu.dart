@@ -22,7 +22,6 @@ import 'do_not_disturb_dialog.dart';
 import 'external_link.dart';
 import 'invite_list.dart';
 import 'notification_list.dart';
-import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'user_card.dart';
@@ -152,6 +151,7 @@ List<UserMenuSection> userMenuSections(
   NotificationTotals? totals, {
   DiscourseUser? user,
   bool userStatusEnabled = false,
+  int? notificationsBadge,
   int repliesBadge = 0,
   int likesBadge = 0,
   int messagesBadge = 0,
@@ -164,7 +164,7 @@ List<UserMenuSection> userMenuSections(
       id: UserMenuSection.notificationsId,
       icon: DIcons.bell,
       label: appL10n.notifications,
-      badge: totals?.unreadNotifications ?? 0,
+      badge: notificationsBadge ?? totals?.unreadNotifications ?? 0,
     ),
     UserMenuSection(
       id: UserMenuSection.repliesId,
@@ -257,13 +257,13 @@ class UserMenuPanel extends StatefulWidget {
 
   final VoidCallback onDismiss;
 
-  static const double width = 500;
+  static const double width = 400;
   static const double mobileWidth = 320;
   static const double profileWidth = 280;
   static const double height = 460;
   static const double railWidth = 168;
 
-  static const double margin = 8;
+  static const double margin = 12;
 
   @override
   State<UserMenuPanel> createState() => _UserMenuPanelState();
@@ -286,7 +286,6 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
       );
     },
     builder: (context, menu, _) {
-      final theme = Theme.of(context);
       final controller = ShellScope.read(context);
 
       return ListenableBuilder(
@@ -309,6 +308,9 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             totals,
             user: menu.user,
             userStatusEnabled: menu.userStatusEnabled,
+            notificationsBadge: siteUrl == null
+                ? 0
+                : controller.allNotificationUnreadCount(siteUrl),
             repliesBadge: siteUrl == null
                 ? 0
                 : controller.replyNotificationUnreadCount(siteUrl),
@@ -364,11 +366,6 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             final selected = sections.firstWhere(
               (candidate) => candidate.id == id,
             );
-            if (selected.isMessages) {
-              widget.onDismiss();
-              _openMessages(controller);
-              return;
-            }
             final activePath = selected.plugin?.linkWhenActive;
             if (id == _sectionId && activePath != null) {
               widget.onDismiss();
@@ -381,10 +378,12 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
           }
 
           final notificationSections = sections
-              .where((section) => !section.isProfile)
+              .where((section) => !section.isProfile && !section.isInvites)
               .toList();
-          if (!context.isTouch && widget.view == UserMenuView.notifications) {
+          if (widget.view == UserMenuView.notifications) {
             return DesktopHeaderMenu<String>(
+              notificationStyle: true,
+              filtersKey: const ValueKey('user-menu-mobile-tabs'),
               controlsKey: ValueKey((
                 controller,
                 siteUrl,
@@ -431,86 +430,9 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             );
           }
           return SizedBox(
-            width: widget.view == UserMenuView.profile
-                ? UserMenuPanel.profileWidth
-                : UserMenuPanel.width,
+            width: UserMenuPanel.profileWidth,
             height: UserMenuPanel.height,
-            child: widget.view == UserMenuView.profile
-                ? body
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth < 440) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(
-                                DSpacing.controlGap,
-                              ),
-                              child: DTabs<String>.controlled(
-                                value: section.id,
-                                onActivated: selectSection,
-                                children: [
-                                  DTabList<String>(
-                                    key: const ValueKey(
-                                      'user-menu-mobile-tabs',
-                                    ),
-                                    variant: DTabListVariant.outlinePill,
-                                    size: DControlSize.small,
-                                    children: [
-                                      for (final section
-                                          in notificationSections)
-                                        DTabTrigger<String>(
-                                          key: ValueKey(
-                                            'user-menu-tab-${section.id}',
-                                          ),
-                                          value: section.id,
-                                          semanticLabel: section.badge > 0
-                                              ? context.l10n.unreadUsermenu(
-                                                  section.label.toString(),
-                                                  section.badge.toString(),
-                                                )
-                                              : section.label,
-                                          child: ExcludeSemantics(
-                                            child: Text(section.label),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            DSeparator(
-                              space: 1,
-                              thickness: 1,
-                              color: _userMenuBorderColor(theme),
-                            ),
-                            Expanded(child: body),
-                          ],
-                        );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            width: UserMenuPanel.railWidth,
-                            child: _TabRail(
-                              sections: notificationSections,
-                              selectedId: section.id,
-                              onSelect: selectSection,
-                            ),
-                          ),
-                          DSeparator(
-                            orientation: Axis.vertical,
-                            space: 1,
-                            thickness: 1,
-                            color: _userMenuBorderColor(theme),
-                          ),
-                          Expanded(child: body),
-                        ],
-                      );
-                    },
-                  ),
+            child: body,
           );
         },
       );
@@ -526,213 +448,6 @@ Future<void> _openPluginUserMenuLink(
   final url = controller.siteLink(path, siteUrl: siteUrl);
   if (await controller.openNotificationUrl(url)) return;
   await openExternalLink(url);
-}
-
-class _TabRail extends StatefulWidget {
-  const _TabRail({
-    required this.sections,
-    required this.selectedId,
-    required this.onSelect,
-  });
-
-  final List<UserMenuSection> sections;
-  final String selectedId;
-  final ValueChanged<String> onSelect;
-
-  @override
-  State<_TabRail> createState() => _TabRailState();
-}
-
-class _TabRailState extends State<_TabRail> {
-  bool _canScrollUp = false;
-  bool _canScrollDown = false;
-
-  void _updateScrollCues(ScrollMetrics metrics) {
-    final canScrollUp = metrics.extentBefore > 1;
-    final canScrollDown = metrics.extentAfter > 1;
-    if (canScrollUp == _canScrollUp && canScrollDown == _canScrollDown) {
-      return;
-    }
-    setState(() {
-      _canScrollUp = canScrollUp;
-      _canScrollDown = canScrollDown;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final railColor = Color.alphaBlend(
-      theme.colorScheme.onSurface.withValues(alpha: 0.04),
-      theme.shell.floating,
-    );
-
-    return Material(
-      color: railColor,
-      child: Column(
-        children: [
-          Expanded(
-            child: NotificationListener<ScrollMetricsNotification>(
-              onNotification: (notification) {
-                if (notification.depth == 0) {
-                  _updateScrollCues(notification.metrics);
-                }
-                return false;
-              },
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification.depth == 0) {
-                    _updateScrollCues(notification.metrics);
-                  }
-                  return false;
-                },
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) =>
-                            DTabs<String>.controlled(
-                              value: widget.selectedId,
-                              orientation: Axis.vertical,
-                              onActivated: widget.onSelect,
-                              children: [
-                                DTabList<String>(
-                                  variant: DTabListVariant.plain,
-                                  size: DControlSize.large,
-                                  children: [
-                                    for (final section in widget.sections)
-                                      if (!section.isProfile)
-                                        _SectionTab(
-                                          section: section,
-                                          compact: constraints.maxWidth < 100,
-                                        ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                      ),
-                    ),
-                    if (_canScrollUp)
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: _RailScrollCue(
-                          key: const ValueKey('user-menu-rail-scroll-up'),
-                          atTop: true,
-                          background: railColor,
-                        ),
-                      ),
-                    if (_canScrollDown)
-                      Positioned(
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: _RailScrollCue(
-                          key: const ValueKey('user-menu-rail-scroll-down'),
-                          atTop: false,
-                          background: railColor,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RailScrollCue extends StatelessWidget {
-  const _RailScrollCue({
-    super.key,
-    required this.atTop,
-    required this.background,
-  });
-
-  final bool atTop;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: ExcludeSemantics(
-      child: Container(
-        height: 34,
-        alignment: atTop ? Alignment.topCenter : Alignment.bottomCenter,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: atTop ? Alignment.bottomCenter : Alignment.topCenter,
-            end: atTop ? Alignment.topCenter : Alignment.bottomCenter,
-            colors: [background.withValues(alpha: 0), background],
-            stops: const [0, 0.65],
-          ),
-        ),
-        child: RotatedBox(
-          quarterTurns: atTop ? 2 : 0,
-          child: DIcon(
-            DIcons.chevronDown,
-            size: 14,
-            color: Theme.of(context).colorScheme.onSurface,
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class _SectionTab extends StatelessWidget {
-  const _SectionTab({required this.section, required this.compact});
-
-  final UserMenuSection section;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final icon = DIcon(section.icon, size: 16);
-    final tab = DTabTrigger<String>(
-      key: ValueKey('user-menu-tab-${section.id}'),
-      value: section.id,
-      semanticLabel: section.badge > 0
-          ? context.l10n.unreadUsermenu(
-              section.label.toString(),
-              section.badge.toString(),
-            )
-          : section.label,
-      child: ExcludeSemantics(
-        child: compact
-            ? Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  icon,
-                  if (section.badge > 0)
-                    PositionedDirectional(
-                      top: -10,
-                      end: -10,
-                      child: ExcludeSemantics(
-                        child: _Badge(count: section.badge),
-                      ),
-                    ),
-                ],
-              )
-            : Row(
-                children: [
-                  icon,
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(section.label, maxLines: 2, softWrap: true),
-                  ),
-                  if (section.badge > 0) _Badge(count: section.badge),
-                ],
-              ),
-      ),
-    );
-    return compact ? DTooltip(message: section.label, child: tab) : tab;
-  }
 }
 
 class _SectionBody extends StatelessWidget {
@@ -776,6 +491,8 @@ class _SectionBody extends StatelessWidget {
         NotificationSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isReplies && siteUrl != null)
         RepliesSection(siteUrl: siteUrl, onOpened: onDismiss)
+      else if (section.isMessages && siteUrl != null)
+        MessageNotificationsSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isLikes && siteUrl != null)
         LikesSection(siteUrl: siteUrl, onOpened: onDismiss)
       else if (section.isBookmarks && siteUrl != null)
@@ -861,7 +578,9 @@ class _SectionBody extends StatelessWidget {
             listenable: controller.draftList,
             builder: (context, _) => ListView(
               shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: DesktopHeaderMenu.isActiveOf(context)
+                  ? const EdgeInsets.all(6)
+                  : const EdgeInsets.symmetric(vertical: 6),
               children: rows(),
             ),
           ),

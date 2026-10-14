@@ -71,6 +71,9 @@ enum DButtonShape { rounded, pill }
 enum DButtonDensity {
   standard,
 
+  /// Header-menu text action: 12.5px semibold, 4px/8px insets and 7px corners.
+  menuAction,
+
   /// A translucent 26px pill with 11.5px text, 11px insets and a 3px
   /// backdrop blur. Liquid Glass uses the shared raised surface treatment.
   floatingCall,
@@ -617,6 +620,7 @@ class DButton extends StatelessWidget {
     final expandedChrome =
         primaryChrome && expanded && onPressed != null && !loading;
     final header = density == DButtonDensity.header;
+    final menuAction = density == DButtonDensity.menuAction;
     final variantStyle = _referenceStyle(tokens, dark);
     final quiet =
         variant == DButtonVariant.secondary ||
@@ -657,7 +661,7 @@ class DButton extends StatelessWidget {
         ? 12.5
         : postReaction
         ? DPostReactionStyle.fontSize
-        : header
+        : header || menuAction
         ? 12.5
         : launcher
         ? 13.0
@@ -722,6 +726,8 @@ class DButton extends StatelessWidget {
         ? 28 +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
+        : menuAction
+        ? MediaQuery.textScalerOf(context).scale(fontSize) * 1.5 + 8
         : launcher
         ? launcherMinimumExtent(context)
         : resume
@@ -770,7 +776,7 @@ class DButton extends StatelessWidget {
                     quiet ||
                     variant == DButtonVariant.primary
               ? DRadius.pill
-              : timelineEnd
+              : timelineEnd || menuAction
               ? 7
               : chatMessageAction
               ? 6
@@ -831,6 +837,20 @@ class DButton extends StatelessWidget {
     }
 
     DButtonStateStyle resolveState(Set<WidgetState> states) {
+      if (menuAction) {
+        final interactive =
+            enabled &&
+            (states.contains(WidgetState.hovered) ||
+                states.contains(WidgetState.pressed));
+        return DButtonStateStyle(
+          foregroundColor: tokens.primary,
+          iconColor: tokens.primary,
+          backgroundColor: interactive
+              ? DControlStyle.rowHover(tokens)
+              : Colors.transparent,
+          border: BorderSide.none,
+        );
+      }
       if (quiet && joined?.quiet == true) {
         final interactive =
             enabled &&
@@ -1004,6 +1024,8 @@ class DButton extends StatelessWidget {
                     ? 8
                     : 7,
               )
+            : menuAction
+            ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
             : header
             ? (_iconOnly
                   ? EdgeInsets.zero
@@ -1058,7 +1080,8 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: mobileDock ? 11 : fontSize,
-          height: timeline || postReaction || header || inlineMetadata
+          height:
+              timeline || postReaction || header || menuAction || inlineMetadata
               ? 1.5
               : mobileDock
               ? 13 / 11
@@ -1073,7 +1096,7 @@ class DButton extends StatelessWidget {
               ? FontWeight.w400
               : postReaction
               ? FontWeight.w500
-              : header
+              : header || menuAction
               ? FontWeight.w600
               : mobileDock || backLink || quiet
               ? FontWeight.w500

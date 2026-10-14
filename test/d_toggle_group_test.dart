@@ -309,6 +309,7 @@ void main() {
     (tester) async {
       expect(componentExamples['toggle-group'], same(toggleGroupExamples));
       expect(toggleGroupExamples.examples.map((example) => example.title), [
+        'Header menu filters',
         'Compact inset icon choices',
         'Appearance mode segments',
         'Texture tiles',

@@ -163,6 +163,7 @@ class DDropdownMenuContent extends StatefulWidget {
     this.isSubmenu = false,
     this.autofocus = true,
     this.highlightInitialFocus = true,
+    this.scrollable = true,
   }) : assert(width == null || width >= 96),
        assert(cornerRadius == null || cornerRadius >= 0),
        assert(sideOffset >= 0),
@@ -198,6 +199,9 @@ class DDropdownMenuContent extends StatefulWidget {
   /// Keeps initial keyboard focus without highlighting a pointer-opened menu.
   /// Keyboard navigation still reveals the focused row.
   final bool highlightInitialFocus;
+
+  /// Composite menus can own a fixed header and their bounded feed viewport.
+  final bool scrollable;
 
   @override
   State<DDropdownMenuContent> createState() => _DDropdownMenuContentState();
@@ -614,15 +618,27 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
                 style: textStyle,
                 child: IconTheme.merge(
                   data: IconThemeData(color: tokens.foreground, size: 16),
-                  child: _DropdownMenuOverflowViewport(
-                    controller: _scrollController,
-                    padding: widget.padding,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: widget.children,
-                    ),
-                  ),
+                  child: widget.scrollable
+                      ? _DropdownMenuOverflowViewport(
+                          controller: _scrollController,
+                          padding: widget.padding,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: widget.children,
+                          ),
+                        )
+                      : Padding(
+                          padding: widget.padding,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final child in widget.children)
+                                Flexible(child: child),
+                            ],
+                          ),
+                        ),
                 ),
               ),
             ),

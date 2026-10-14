@@ -266,6 +266,11 @@ final class DiscourseNotification {
 
   final Map<String, Object?> wire;
 
+  /// Actor identity supplied by the server outside type-owned payload data.
+  String? get actingUserAvatarTemplate =>
+      jsonText(wire['acting_user_avatar_template']);
+  String? get actingUserName => jsonText(wire['acting_user_name']);
+
   final int id;
   final NotificationTypeId typeId;
 

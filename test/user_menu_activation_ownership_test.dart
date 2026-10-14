@@ -201,7 +201,14 @@ class _MenuApi extends FakeDiscourseApi {
     required String username,
     String? clientId,
   }) async => (
-    reminders: const <DiscourseNotification>[],
+    reminders: [
+      DiscourseNotification.test(
+        id: 31,
+        typeId: const NotificationTypeId(24),
+        title: siteUrl == _meta ? 'Meta chat bookmark' : 'Team chat bookmark',
+        data: const {'bookmarkable_url': '/chat/c/-/9/31'},
+      ),
+    ],
     bookmarks: [
       Bookmark(
         id: 31,

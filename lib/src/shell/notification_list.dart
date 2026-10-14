@@ -4,11 +4,14 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../models/json.dart';
 import '../plugin_api/notification_feed_host.dart';
 import '../plugin_api/notification_types.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
 import 'adaptive_dialog_action.dart';
+import 'avatar_image.dart';
 import 'desktop_header_menu.dart';
 import 'external_link.dart';
 import 'open_link.dart';
@@ -51,7 +54,7 @@ class NotificationDescription {
   final String phrase;
 }
 
-enum _NotificationFeedKind { all, replies, likes, other }
+enum _NotificationFeedKind { all, replies, likes, messages, other }
 
 class NotificationSection extends StatelessWidget {
   const NotificationSection({
@@ -119,6 +122,27 @@ class LikesSection extends StatelessWidget {
       kind: _NotificationFeedKind.likes,
     ),
   );
+}
+
+class MessageNotificationsSection extends StatelessWidget {
+  const MessageNotificationsSection({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  });
+  final String siteUrl;
+  final VoidCallback onOpened;
+  @override
+  Widget build(BuildContext context) =>
+      AccountActivityLoader.messageNotifications(
+        siteUrl: siteUrl,
+        builder: (context, controller) => _NotificationSectionView(
+          controller: controller,
+          siteUrl: siteUrl,
+          onOpened: onOpened,
+          kind: _NotificationFeedKind.messages,
+        ),
+      );
 }
 
 class OtherNotificationsSection extends StatelessWidget {
@@ -423,6 +447,7 @@ class _PluginNotificationsSectionState
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: DesktopHeaderMenu.isActiveOf(context) ? 2 : 0,
           children: [
             ...feed.notifications.map((notification) {
               final resolved =
@@ -514,6 +539,10 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         controller.accountActivity.likeNotificationsListenable,
         () => controller.loadLikeNotifications(widget.siteUrl),
       ),
+      _NotificationFeedKind.messages => (
+        controller.messageNotificationsListenable(widget.siteUrl),
+        () => controller.loadMessageNotifications(widget.siteUrl),
+      ),
       _NotificationFeedKind.other => (
         controller.accountActivity.otherNotificationsListenable,
         () => controller.loadOtherNotifications(widget.siteUrl),
@@ -530,6 +559,9 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
             widget.siteUrl,
           ),
           _NotificationFeedKind.likes => controller.likeNotificationsFor(
+            widget.siteUrl,
+          ),
+          _NotificationFeedKind.messages => controller.messageNotificationsFor(
             widget.siteUrl,
           ),
           _NotificationFeedKind.other => controller.otherNotificationsFor(
@@ -560,6 +592,7 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: DesktopHeaderMenu.isActiveOf(context) ? 2 : 0,
           children: [
             ...currentFeed.notifications.map((notification) {
               final resolved = controller.plugins.registry.resolveNotification(
@@ -687,37 +720,95 @@ class NotificationRow extends StatelessWidget {
       ),
     );
     if (DesktopHeaderMenu.isActiveOf(context)) {
-      row = DesktopHeaderMenuRow(
-        key: ValueKey('notification-row-${notification.id}'),
-        title: SiteEmojiText.plain(
-          line,
-          siteUrl: siteUrl,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+      final presentation =
+          resolved?.presentation ??
+          resolveCoreNotification(siteUrl, notification).presentation;
+      final lead = presentation.menuLead ?? presentation.actor;
+      final phrase = presentation.menuPhrase ?? presentation.phrase;
+      final subject =
+          presentation.subject ??
+          (notification.title.isEmpty ||
+                  presentation.phrase.contains(notification.title)
+              ? null
+              : notification.title);
+      final largeText = MediaQuery.textScalerOf(context).scale(13) > 19.5;
+      final actor = presentation.menuLead == null ? presentation.actor : null;
+      final menuLine = [lead, phrase, subject].whereType<String>().join(' ');
+      final menuLabel = notification.isUnread
+          ? context.l10n.unreadNotificationlist(menuLine)
+          : menuLine;
+      final fallback = DAvatarFallback(
+        backgroundColor: Color.lerp(
+          tokens.colors.surface,
+          tokens.foreground,
+          .10,
         ),
-        description:
-            notification.title.isEmpty ||
-                description.phrase.contains(notification.title)
+        foregroundColor: tokens.mutedForeground,
+        child: actor != null && actor.isNotEmpty
+            ? Text(actor.characters.first.toUpperCase())
+            : DIcon(
+                presentation.menuLead != null ? DIcons.reply : description.icon,
+                size: 12,
+              ),
+      );
+      Widget menuRow(String? time) => DesktopHeaderMenuRow(
+        key: ValueKey('notification-row-${notification.id}'),
+        notificationStyle: true,
+        title: SiteEmojiText(
+          [
+            if (lead != null)
+              SiteEmojiTextRun(
+                '$lead ',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: tokens.foreground,
+                ),
+              ),
+            SiteEmojiTextRun(phrase),
+          ],
+          siteUrl: siteUrl,
+          maxLines: largeText ? null : 1,
+          overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
+        ),
+        description: subject == null
             ? null
             : SiteEmojiText.plain(
-                notification.title,
+                subject,
                 siteUrl: siteUrl,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: largeText ? null : 1,
+                overflow: largeText ? TextOverflow.clip : TextOverflow.ellipsis,
               ),
         leading: DAvatar(
-          size: DAvatarSize.standard,
-          fallback: DAvatarFallback(child: DIcon(description.icon)),
+          dimension: 30,
+          border: false,
+          decorative: true,
+          fallback: fallback,
+          child: actor == null
+              ? null
+              : AvatarImage(
+                  url:
+                      presentation.avatarUrl ??
+                      resolveAvatarUrl(
+                        notification.actingUserAvatarTemplate,
+                        siteUrl,
+                      ),
+                  size: 30,
+                  fallback: fallback,
+                ),
         ),
-        time: notification.createdAt == null
-            ? null
-            : relativeTime(notification.createdAt!),
+        time: time,
         unread: notification.isUnread,
-        semanticLabel: accessibilityLabel,
+        semanticLabel: time == null ? menuLabel : '$menuLabel, $time',
         onPressed: () {
           if (ownsSource()) onTap();
         },
       );
+      row = notification.createdAt == null
+          ? menuRow(null)
+          : RelativeTimeBuilder(
+              when: notification.createdAt!,
+              builder: (context, time) => menuRow(time),
+            );
     }
     final interactive = GestureDetector(
       behavior: HitTestBehavior.opaque,
