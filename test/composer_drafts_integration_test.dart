@@ -2504,7 +2504,7 @@ void _registerComposerAndDraftTests() {
       expect(api.userDraftsDeleted.single.sequence, 2);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('a late restore preserves taxonomy and advances its sequence', (
+    testWidgets('late restore keeps taxonomy without empty saves', (
       tester,
     ) async {
       const writer = DiscourseUser(
@@ -2562,9 +2562,9 @@ void _registerComposerAndDraftTests() {
       expect(composer.categoryId, 99);
       expect(composer.title.text, isEmpty);
       expect(composer.text.text, isEmpty);
-      expect(composer.draftSequence, 8);
-      expect(api.draftsSaved.single['sequence'], 7);
-      expect(api.draftsSaved.single['data'], contains('"categoryId":99'));
+      expect(composer.draftSequence, 7);
+      expect(api.draftsSaved, isEmpty);
+      expect(api.userDraftsDeleted.single.sequence, 7);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     for (final escape in [false, true]) {

@@ -49,6 +49,129 @@ const _listedTopicDraft = UserDraft(
 );
 
 void main() {
+  test('empty and metadata-only drafts are never saved', () async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    final composer = harness.open(_newTopicTarget).composer;
+    composer.title.text = '  ';
+    composer.text.text = ' \n\t ';
+    composer.setCategory(8);
+
+    await composer.flushDraft();
+
+    expect(harness.api.draftsSaved, isEmpty);
+    expect(harness.api.userDraftsDeleted, isEmpty);
+    expect(harness.localStore.saved, isEmpty);
+    expect(
+      harness.localStore.events.where((event) => event.startsWith('write:')),
+      isEmpty,
+    );
+  });
+
+  test(
+    'clearing a saved draft deletes it instead of saving empty data',
+    () async {
+      final harness = _Harness(cachedSequence: 4, serverDraftKnown: true);
+      addTearDown(harness.dispose);
+      final composer = harness.open(_replyTarget).composer;
+      composer.text.text = 'Save before clearing';
+      await composer.flushDraft();
+      composer.text.text = ' \n ';
+
+      await composer.flushDraft();
+
+      expect(harness.api.draftsSaved, hasLength(1));
+      expect(harness.api.userDraftsDeleted.single.sequence, 5);
+      expect(harness.cachedDraft, isNull);
+      expect(harness.localStore.saved, isEmpty);
+      expect(
+        harness.localStore.events.where((event) => event.startsWith('write:')),
+        hasLength(1),
+      );
+      expect(composer.isDisposed, isFalse);
+    },
+  );
+
+  test('an empty queued revision deletes after an in-flight save', () async {
+    final gate = Completer<void>();
+    final harness = _Harness(api: FakeDiscourseApi(draftGate: gate));
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+      harness.dispose();
+    });
+    final composer = harness.open(_replyTarget).composer;
+    composer.text.text = 'In-flight body';
+    final saving = composer.flushDraft();
+    await pumpEventQueue();
+    expect(harness.api.draftsSaved, hasLength(1));
+    composer.text.clear();
+    final clearing = composer.flushDraft();
+    await pumpEventQueue();
+    expect(harness.localStore.saved, isEmpty);
+
+    gate.complete();
+    await saving;
+    await clearing;
+
+    expect(harness.api.draftsSaved, hasLength(1));
+    expect(harness.api.userDraftsDeleted.single.sequence, 1);
+    expect(harness.cachedDraft, isNull);
+    expect(harness.localStore.saved, isEmpty);
+    expect(
+      harness.localStore.events.where((event) => event.startsWith('write:')),
+      hasLength(1),
+    );
+  });
+
+  test('empty local-only saves and disposal clear the local copy', () async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    final (:composer, :session) = harness.open(_replyTarget);
+    await harness.localStore.write(
+      _siteUrl,
+      _replyTarget.draftKey,
+      const ComposerDraft(reply: 'Old local copy').encode(),
+    );
+
+    await session.save(
+      ComposerDraftSave(
+        target: _replyTarget,
+        draft: const ComposerDraft(reply: ' '),
+        sequence: 0,
+        localOnly: true,
+        isCurrent: () => true,
+      ),
+    );
+    expect(harness.localStore.saved, isEmpty);
+    expect(harness.api.draftsSaved, isEmpty);
+
+    composer.text.text = 'Typed and removed';
+    composer.text.clear();
+    harness.coordinator.preservePendingLocally(composer);
+    await pumpEventQueue();
+    expect(harness.localStore.saved, isEmpty);
+    expect(
+      harness.localStore.events.where((event) => event.startsWith('write:')),
+      hasLength(1),
+    );
+  });
+
+  test('title-only drafts are saved', () async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    final composer = harness.open(_newTopicTarget).composer;
+    composer.title.text = 'A title to finish later';
+
+    await composer.flushDraft();
+
+    expect(
+      ComposerDraft.decode(
+        harness.api.draftsSaved.single['data'] as String,
+      )?.title,
+      'A title to finish later',
+    );
+  });
+
   test(
     'saves locally before committing the server sequence and cache',
     () async {

@@ -237,6 +237,7 @@ class ComposerHeader extends StatelessWidget {
     }
 
     if (mobileSubmit != null && !minimized) {
+      final empty = composer.draft.isEmpty;
       return Padding(
         key: const ValueKey('composer-header'),
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -273,15 +274,19 @@ class ComposerHeader extends StatelessWidget {
               child: DDropdownMenuTrigger(
                 builder: (context, trigger) => DButton.iconOnly(
                   key: const ValueKey('composer-close'),
-                  onPressed: trigger.toggle,
+                  onPressed: empty ? onClose : trigger.toggle,
                   icon: const DIcon(DIcons.xmark),
-                  tooltip: context.l10n.composerActions,
-                  semanticLabel: context.l10n.composerActions,
+                  tooltip: empty
+                      ? context.l10n.closeComposer
+                      : context.l10n.composerActions,
+                  semanticLabel: empty
+                      ? context.l10n.closeComposer
+                      : context.l10n.composerActions,
                   variant: DButtonVariant.outline,
                   shape: DButtonShape.pill,
                   focusNode: trigger.focusNode,
-                  hasPopup: true,
-                  expanded: trigger.open,
+                  hasPopup: !empty,
+                  expanded: !empty && trigger.open,
                 ),
               ),
             ),
@@ -399,7 +404,10 @@ class ComposerHeader extends StatelessWidget {
                       Expanded(
                         child: minimized
                             ? heading
-                            : composer.canSaveDraft && ShellScope.read(context).liveComposers.contains(composer)
+                            : composer.canSaveDraft &&
+                                  ShellScope.read(
+                                    context,
+                                  ).liveComposers.contains(composer)
                             ? ComposerDraftTabs(composer: composer)
                             : Align(
                                 alignment: AlignmentDirectional.centerStart,
@@ -487,7 +495,11 @@ class _DraftSaveFailure extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Flexible(
-                    child: DIcon(DIcons.triangleExclamation, size: 14, color: color),
+                    child: DIcon(
+                      DIcons.triangleExclamation,
+                      size: 14,
+                      color: color,
+                    ),
                   ),
                   if (showLabel && constraints.maxWidth >= 40) ...[
                     const SizedBox(width: 6),

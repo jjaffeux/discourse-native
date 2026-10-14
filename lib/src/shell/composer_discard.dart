@@ -14,7 +14,8 @@ Future<void> closeComposerFromPanel({
   required ComposerController composer,
   ShellController? controller,
 }) async {
-  if (composer.canSaveDraft &&
+  if (!composer.draft.isEmpty &&
+      composer.canSaveDraft &&
       (composer.hasChanges ||
           composer.metadataChanged ||
           composer.savedDraft != null)) {
@@ -112,9 +113,10 @@ Future<void> requestComposerDiscard({
     shell.closeComposer(composer: composer);
     return;
   }
-  if (!composer.hasChanges &&
-      !composer.metadataChanged &&
-      composer.savedDraft == null) {
+  if (composer.draft.isEmpty ||
+      (!composer.hasChanges &&
+          !composer.metadataChanged &&
+          composer.savedDraft == null)) {
     final error = await shell.discardComposer(composer);
     if (error != null && context.mounted) _showDiscardError(context, error);
     return;

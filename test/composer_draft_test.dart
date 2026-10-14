@@ -94,6 +94,16 @@ void main() {
     test('treats an empty reply as no draft at all', () {
       expect(ComposerDraft.decode(jsonEncode({'reply': '   '})), isNull);
       expect(ComposerDraft.decode(jsonEncode({})), isNull);
+      expect(
+        ComposerDraft.decode(jsonEncode({'reply': ' \n ', 'title': ' \t '})),
+        isNull,
+      );
+      expect(
+        ComposerDraft.decode(
+          jsonEncode({'reply': '', 'title': 'A title'}),
+        )?.title,
+        'A title',
+      );
     });
 
     test('treats nothing, and nonsense, as no draft', () {

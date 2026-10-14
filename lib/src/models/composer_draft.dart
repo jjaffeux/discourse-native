@@ -62,9 +62,7 @@ class ComposerDraft {
       final draft = ComposerDraft.fromJson(
         jsonDecode(data) as Map<String, dynamic>,
       );
-      return draft.reply.trim().isEmpty && (draft.title?.trim().isEmpty ?? true)
-          ? null
-          : draft;
+      return draft.isEmpty ? null : draft;
     } catch (_) {
       return null;
     }
@@ -99,6 +97,8 @@ class ComposerDraft {
   final Duration typingTime;
 
   final Duration composerTime;
+
+  bool get isEmpty => reply.trim().isEmpty && (title?.trim().isEmpty ?? true);
 
   Map<String, dynamic> toJson() => {
     'reply': reply,

@@ -399,6 +399,8 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('composer-close')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(cancel.hitTestable(), findsOneWidget);
       }
       await tester.tap(cancel);
       // Autosave stays pending while the prompt is open; its spinner keeps
@@ -417,6 +419,8 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('composer-close')));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(cancel.hitTestable(), findsOneWidget);
       }
       await tester.tap(cancel);
       await tester.pump();
@@ -1076,7 +1080,7 @@ void main() {
 
   for (final reducedMotion in [false, true]) {
     testWidgets(
-      'swiping an empty composer minimizes without closing it (reduced: $reducedMotion)',
+      'swiping an empty composer closes without saving it (reduced: $reducedMotion)',
       (tester) async {
         final harness = await _Harness.create(
           tester,
@@ -1086,27 +1090,97 @@ void main() {
         );
         final composer = harness.shell.visibleComposer!;
         final sheet = find.byKey(const ValueKey('composer-mobile-sheet'));
-        final editor = tester.state(find.byType(ComposerEditor));
-        for (var attempt = 0; attempt < 2; attempt++) {
-          await tester.dragFrom(
-            tester.getCenter(find.byKey(const ValueKey('composer-header'))),
-            const Offset(0, 300),
-          );
-          await tester.pumpAndSettle();
-          expect(harness.shell.visibleComposer, same(composer));
-          expect(composer.isDisposed, isFalse);
-          expect(sheet, findsNothing);
-          expect(find.text('Discard'), findsNothing);
-          await tester.tap(find.byKey(const ValueKey('composer-restore')));
-          await tester.pumpAndSettle();
-          expect(sheet, findsOneWidget);
-          expect(tester.state(find.byType(ComposerEditor)), same(editor));
-          expect(harness.shell.visibleComposer, same(composer));
-        }
+        await tester.dragFrom(
+          tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+          const Offset(0, 300),
+        );
+        await tester.pumpAndSettle();
+        expect(harness.shell.visibleComposer, isNull);
+        expect(composer.isDisposed, isTrue);
+        expect(sheet, findsNothing);
+        expect(find.byKey(const ValueKey('composer-restore')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('composer-discard-dialog')),
+          findsNothing,
+        );
+        final api = harness.shell.api.composerPersistence as FakeDiscourseApi;
+        expect(api.draftsSaved, isEmpty);
         expect(tester.takeException(), isNull);
       },
     );
   }
+
+  for (final action in ['close', 'minimize-header', 'swipe']) {
+    for (final cleared in [false, true]) {
+      testWidgets(
+        'mobile $action closes ${cleared ? 'cleared saved' : 'whitespace-only'} drafts',
+        (tester) async {
+          final drafts = FakeDraftStore();
+          final harness = await _Harness.create(
+            tester,
+            mobile: true,
+            platform: TargetPlatform.android,
+            size: const Size(390, 800),
+            drafts: drafts,
+          );
+          final composer = harness.shell.visibleComposer!;
+          final api = harness.shell.api.composerPersistence as FakeDiscourseApi;
+          if (cleared) {
+            composer.title.text = 'A saved topic';
+            composer.text.text = 'A saved body';
+            await tester.runAsync(composer.flushDraft);
+            composer.captureDraftSavepoint();
+          }
+          final savedBefore = api.draftsSaved.length;
+          composer.title.text = '  ';
+          composer.text.text = ' \n\t ';
+          await tester.pump();
+          if (action == 'swipe') {
+            await tester.dragFrom(
+              tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+              const Offset(0, 300),
+            );
+          } else {
+            await tester.tap(find.byKey(ValueKey('composer-$action')));
+          }
+          await tester.pumpAndSettle();
+          expect(harness.shell.visibleComposer, isNull);
+          expect(composer.isDisposed, isTrue);
+          expect(find.byKey(const ValueKey('composer-restore')), findsNothing);
+          expect(
+            find.byKey(const ValueKey('composer-discard-dialog')),
+            findsNothing,
+          );
+          expect(api.draftsSaved, hasLength(savedBefore));
+          expect(drafts.saved, isEmpty);
+          expect(api.userDraftsDeleted.last.draftKey, composer.target.draftKey);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('a title-only draft still minimizes and restores', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    final composer = harness.shell.visibleComposer!;
+    composer.title.text = 'Keep this title';
+    await tester.runAsync(composer.flushDraft);
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('composer-minimize-header')));
+    await tester.pumpAndSettle();
+    expect(harness.shell.visibleComposer, same(composer));
+    await tester.tap(find.byKey(const ValueKey('composer-restore')));
+    await tester.pumpAndSettle();
+    expect(composer.title.text, 'Keep this title');
+    expect(composer.isDisposed, isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('mobile X discard requires confirmation', (tester) async {
     final harness = await _Harness.create(
@@ -1529,6 +1603,7 @@ class _Harness {
     FocusNode? readerFocus,
     Widget? reader,
     double? windowCorner,
+    FakeDraftStore? drafts,
   }) async {
     const user = DiscourseUser(
       id: 7,
@@ -1547,7 +1622,7 @@ class _Harness {
       ),
       authenticator: FakeAuthenticator()
         ..keys['https://meta.discourse.org'] = 'key',
-      drafts: FakeDraftStore(),
+      drafts: drafts ?? FakeDraftStore(),
       trackers: FakeSiteTracker.reset(),
       updateStore: FakeUpdateStore(),
     );

@@ -219,6 +219,31 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     });
   }
 
+  Future<void> _dismissMobile(_ComposerEntry entry) async {
+    final composer = entry.composer;
+    if (!mounted || composer.isDisposed) return;
+    if (composer.draft.isEmpty &&
+        !composer.submitting &&
+        !composer.loadingBody &&
+        !composer.hasActiveUploads &&
+        composer.state != ComposerState.checking) {
+      if (composer.canSaveDraft &&
+          !await _shell!.finishComposerDraftRestore(composer)) {
+        return;
+      }
+      if (!mounted || composer.isDisposed) return;
+      if (composer.draft.isEmpty) {
+        await saveComposerFromPanel(
+          context: context,
+          composer: composer,
+          controller: _shell,
+        );
+        return;
+      }
+    }
+    _minimize(entry);
+  }
+
   Future<void> _place(
     _ComposerEntry entry,
     ComposerPlacement placement, {
@@ -309,7 +334,8 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
             onPlacement: (value) => unawaited(_place(entry, value)),
             onExitFullScreen: () =>
                 unawaited(_place(entry, _previousDockPlacement)),
-            onMinimize: () => _minimize(entry),
+            onMinimize: () =>
+                mobile ? unawaited(_dismissMobile(entry)) : _minimize(entry),
             onRestore: () {
               setState(() => entry.minimized = false);
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -382,7 +408,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                 },
                 child: DSheetViewport(
                   key: ObjectKey(mobileSheet.composer),
-                  onDismiss: () => _minimize(mobileSheet),
+                  onDismiss: () => unawaited(_dismissMobile(mobileSheet)),
                   content: DSheetContent(
                     key: const ValueKey('composer-mobile-sheet'),
                     side: DSheetSide.bottom,

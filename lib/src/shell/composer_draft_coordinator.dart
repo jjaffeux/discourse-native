@@ -504,9 +504,11 @@ final class ComposerDraftCoordinator {
   void preservePendingLocally(ComposerController? composer) {
     if (composer == null || !composer.draftPersistencePending) return;
     final target = composer.target;
-    final data = composer.draft.encode();
+    final draft = composer.draft;
     Future<void>.sync(
-      () => _localStore.write(target.siteUrl, target.draftKey, data),
+      () => draft.isEmpty
+          ? _localStore.clear(target.siteUrl, target.draftKey)
+          : _localStore.write(target.siteUrl, target.draftKey, draft.encode()),
     ).ignore();
   }
 
@@ -774,10 +776,8 @@ final class ComposerDraftCoordinator {
     final key = session._keyFor(save.target);
     final generation = _claimGeneration(key, session);
     return _trackLocalWrite(
-      _localStore.write(
-        save.target.siteUrl,
-        save.target.draftKey,
-        save.draft.encode(),
+      _writeLocalDraft(
+        save,
         ifCurrent: () =>
             save.isCurrent() &&
             session._lease.isCurrent &&
@@ -787,13 +787,34 @@ final class ComposerDraftCoordinator {
     );
   }
 
+  Future<void> _writeLocalDraft(
+    ComposerDraftSave save, {
+    required bool Function() ifCurrent,
+  }) async {
+    final target = save.target;
+    if (!save.draft.isEmpty) {
+      await _localStore.write(
+        target.siteUrl,
+        target.draftKey,
+        save.draft.encode(),
+        ifCurrent: ifCurrent,
+      );
+    } else if (!await _localStore.clearChecked(
+          target.siteUrl,
+          target.draftKey,
+          ifCurrent: ifCurrent,
+        ) &&
+        ifCurrent()) {
+      throw const DraftWriteException();
+    }
+  }
+
   Future<int?> _save(
     ComposerDraftSave save,
     ComposerDraftSession session,
   ) async {
     final target = save.target;
     final lease = session._lease;
-    final data = save.draft.encode();
     final key = session._keyFor(target);
     final generation = _claimGeneration(key, session);
     bool ownsLatestGeneration() => _latestGenerations[key] == generation;
@@ -805,10 +826,8 @@ final class ComposerDraftCoordinator {
     final localWrite = _trackLocalWrite(() async {
       DraftWriteException? failure;
       try {
-        await _localStore.write(
-          target.siteUrl,
-          target.draftKey,
-          data,
+        await _writeLocalDraft(
+          save,
           ifCurrent: () =>
               save.isCurrent() &&
               !wasDeleted() &&
@@ -850,6 +869,40 @@ final class ComposerDraftCoordinator {
           if (!lease.isCurrent) return null;
           if (credential.failure case final failure?) throw failure;
           final apiKey = credential.apiKey!;
+          if (save.draft.isEmpty) {
+            final requestSequence = sequenceFor(target);
+            final draftWasKnown =
+                _knownServerDrafts.contains(key) || _isServerDraftKnown(target);
+            if (draftWasKnown) {
+              await _draftsApi.deleteUserDraft(
+                siteUrl: target.siteUrl,
+                apiKey: apiKey,
+                draftKey: target.draftKey,
+                sequence: requestSequence,
+              );
+            }
+            lease.commit(() {
+              if (draftWasKnown) {
+                session._composer?.unappliedDraftWasOverwritten();
+              }
+              if (save.isCurrent() && identical(_saveRequests[key], request)) {
+                if (!target.createsTopic) {
+                  _writeCachedDraft(target, null, requestSequence);
+                }
+                _recordDraftDestroyed(
+                  target.siteUrl,
+                  target.draftKey,
+                  knownToExist:
+                      draftWasKnown &&
+                      !_draftsCreatedAfterCachedCount.contains(key),
+                );
+              }
+              _knownServerDrafts.remove(key);
+              _draftsCreatedAfterCachedCount.remove(key);
+            });
+            if (localFailure != null) throw localFailure;
+            return null;
+          }
           final clientId = await _readClientId();
           if (!lease.isCurrent) return null;
 
@@ -859,7 +912,7 @@ final class ComposerDraftCoordinator {
             apiKey: apiKey,
             draftKey: target.draftKey,
             sequence: requestSequence,
-            data: data,
+            data: save.draft.encode(),
             // Discourse uses this to distinguish another writer from this
             // client returning to its own draft.
             owner: clientId,
