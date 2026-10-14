@@ -216,7 +216,12 @@ void main() {
     }
   });
 
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    final mobile = platform != TargetPlatform.macOS;
     group(platform.name, () {
       testWidgets('drag previews posts and fetches only the released target', (
         tester,
@@ -231,7 +236,10 @@ void main() {
         await _openProgress(tester, shell, platform);
         final revision = shell.topicNavigationRevision;
         final slider = tester.getRect(find.byType(DMultiSlider));
-        final gesture = await tester.startGesture(slider.center);
+        final gesture = await tester.startGesture(
+          slider.center,
+          kind: mobile ? PointerDeviceKind.touch : PointerDeviceKind.mouse,
+        );
         await tester.pump();
         await gesture.moveTo(Offset(slider.right - 7, slider.center.dy));
         await tester.pump();
@@ -244,15 +252,19 @@ void main() {
         await tester.pump();
         expect(_selection('2 / 3'), findsOneWidget);
         expect(api.postFetches, isEmpty);
+        expect(_panelFinder(platform), findsOneWidget);
         await gesture.up();
         await tester.pump();
         expect(api.postFetches, [
           [200],
         ]);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.postNumber, 1);
+        expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
         gate.complete();
         await tester.pumpAndSettle();
         expect(shell.currentContent?.postNumber, _target.postNumber);
-        expect(_panelFinder(platform), findsOneWidget);
+        expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
         expect(tester.takeException(), isNull);
       });
 
@@ -264,7 +276,10 @@ void main() {
         await _openProgress(tester, shell, platform);
         final revision = shell.topicNavigationRevision;
         final slider = tester.getRect(find.byType(DMultiSlider));
-        final gesture = await tester.startGesture(slider.center);
+        final gesture = await tester.startGesture(
+          slider.center,
+          kind: mobile ? PointerDeviceKind.touch : PointerDeviceKind.mouse,
+        );
         await gesture.moveTo(Offset(slider.right - 7, slider.center.dy));
         await tester.pump();
         expect(_selection('3 / 3'), findsOneWidget);
@@ -284,10 +299,20 @@ void main() {
         await tester.tap(find.byType(DMultiSlider));
         await tester.pumpAndSettle();
         expect(shell.currentContent?.postNumber, _target.postNumber);
+        if (mobile) await _reopenProgress(tester);
+        final thumbFocus = find.descendant(
+          of: find.byType(DMultiSlider),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Focus && widget.onKeyEvent != null,
+          ),
+        );
+        tester.widget<Focus>(thumbFocus).focusNode!.requestFocus();
+        await tester.pump();
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
         await tester.pumpAndSettle();
         expect(shell.currentContent?.postNumber, 1);
-        expect(_selection('1 / 3'), findsOneWidget);
+        expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
+        if (!mobile) expect(_selection('1 / 3'), findsOneWidget);
       });
 
       for (final change in [
@@ -359,7 +384,8 @@ void main() {
         });
       }
 
-      for (final dismissal in ['Escape', 'barrier']) {
+      for (final dismissal
+          in mobile ? ['slider release'] : ['Escape', 'barrier']) {
         testWidgets('late success after $dismissal preserves a new route', (
           tester,
         ) async {
@@ -381,10 +407,11 @@ void main() {
 
           if (dismissal == 'Escape') {
             await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-          } else {
+          } else if (dismissal == 'barrier') {
             await tester.tapAt(const Offset(5, 5));
           }
-          await tester.pump();
+          await tester.pumpAndSettle();
+          expect(_panelFinder(platform), findsNothing);
 
           unawaited(
             navigator.push<void>(
@@ -414,7 +441,7 @@ void main() {
         });
       }
 
-      testWidgets('late completion cannot close a reopened popover', (
+      testWidgets('late completion cannot close a reopened panel', (
         tester,
       ) async {
         final gate = Completer<void>();
@@ -427,10 +454,9 @@ void main() {
         await _openProgress(tester, shell, platform);
         await _scrubToMiddle(tester);
         await tester.pump();
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        if (!mobile) await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
-        await tester.pumpAndSettle();
+        await _reopenProgress(tester);
         gate.complete();
         await tester.pumpAndSettle();
         expect(
@@ -456,6 +482,11 @@ void main() {
         expect(api.postFetches, [
           [200],
         ]);
+        if (mobile) {
+          await tester.pumpAndSettle();
+          expect(_panelFinder(platform), findsNothing);
+          await _reopenProgress(tester);
+        }
         expect(_selection('2 / 3'), findsOneWidget);
         await tester.tap(find.text('First post'));
         await tester.pumpAndSettle();
@@ -515,14 +546,15 @@ void main() {
         await _scrubToMiddle(tester);
         await tester.pumpAndSettle();
 
-        expect(
-          find.text('Could not open that post. Try again.'),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('topic-progress-selection')),
-          findsOneWidget,
-        );
+        expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
+        if (mobile) {
+          await _reopenProgress(tester);
+        } else {
+          expect(
+            find.text('Could not open that post. Try again.'),
+            findsOneWidget,
+          );
+        }
         expect(shell.currentContent?.postNumber, 1);
 
         responses[200] = _target;
@@ -534,10 +566,7 @@ void main() {
           [200],
         ]);
         expect(shell.currentContent?.postNumber, _target.postNumber);
-        expect(
-          find.byKey(const ValueKey('topic-progress-selection')),
-          findsOneWidget,
-        );
+        expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
         expect(
           find.byKey(const ValueKey('topic-progress-button')),
           findsOneWidget,
@@ -549,6 +578,12 @@ void main() {
 }
 
 const _siteUrl = 'https://meta.example';
+Future<void> _reopenProgress(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
+  await tester.pumpAndSettle();
+  expect(_selection('2 / 3'), findsOneWidget);
+}
+
 Future<void> _scrubToMiddle(WidgetTester tester) async {
   // Move away first: like a real controlled range input, an unchanged thumb
   // does not emit onChanged. Returning to the middle also permits a retry.

@@ -19,8 +19,9 @@ of sheet dismissal. Existing sheet presets keep
 their original geometry.
 
 The editor retains its opening account/site/topic/tab lease. A drag previews
-loaded author/date metadata, falling back to Post N for unloaded positions;
-post navigation still commits on release and cancellation restores the preview.
+loaded author/date metadata, falling back to Post N for unloaded positions.
+Post navigation commits on release, closing the phone sheet immediately while
+an unloaded post resolves; cancellation restores the preview and leaves it open.
 Late lookups cannot mutate a replacement route or a reopened panel. Topic API
 creation/latest timestamps remain available when endpoint posts are unloaded.
 

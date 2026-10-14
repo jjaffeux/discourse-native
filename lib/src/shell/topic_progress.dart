@@ -119,6 +119,7 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
                 position: widget.position,
                 total: widget.total < 1 ? 1 : widget.total,
                 isOpen: () => _sheet.isOpen,
+                onSliderCommit: _sheet.close,
               ),
             ),
           ],
@@ -176,12 +177,14 @@ class _TopicProgressEditor extends StatefulWidget {
     required this.total,
     super.key,
     required this.isOpen,
+    this.onSliderCommit,
   });
 
   final ShellController controller;
   final int position;
   final int total;
   final bool Function() isOpen;
+  final VoidCallback? onSliderCommit;
 
   @override
   State<_TopicProgressEditor> createState() => _TopicProgressEditorState();
@@ -254,7 +257,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     return false;
   }
 
-  Future<void> _jump(int position) async {
+  Future<void> _jump(int position, {bool sliderCommit = false}) async {
     if (!mounted || !widget.isOpen() || !_checkSource()) {
       return;
     }
@@ -264,7 +267,9 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
       _selected = target;
       _error = null;
     });
-    final opened = await widget.controller.jumpToCurrentTopicIndex(target);
+    final navigation = widget.controller.jumpToCurrentTopicIndex(target);
+    if (sliderCommit) widget.onSliderCommit?.call();
+    final opened = await navigation;
     if (!mounted ||
         request != _request ||
         !widget.isOpen() ||
@@ -303,6 +308,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     firstPostedAt: _postAt(1)?.createdAt ?? _topic?.createdAt,
     lastPostedAt: _postAt(widget.total)?.createdAt ?? _topic?.lastPostedAt,
     onJump: (value) => unawaited(_jump(value)),
+    onSliderCommit: (value) => unawaited(_jump(value, sliderCommit: true)),
   );
 }
 
@@ -314,6 +320,7 @@ class TopicProgressPanel extends StatefulWidget {
     required this.position,
     required this.total,
     required this.onJump,
+    this.onSliderCommit,
     this.error,
     this.postAt,
     this.firstPostedAt,
@@ -323,6 +330,7 @@ class TopicProgressPanel extends StatefulWidget {
   final int position;
   final int total;
   final ValueChanged<int> onJump;
+  final ValueChanged<int>? onSliderCommit;
   final String? error;
   final Post? Function(int position)? postAt;
   final DateTime? firstPostedAt;
@@ -464,7 +472,7 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
           onChanged: total <= 1
               ? null
               : (value) => setState(() => _preview = value),
-          onChangeEnd: widget.onJump,
+          onChangeEnd: widget.onSliderCommit ?? widget.onJump,
           onChangeCancel: () => setState(() => _preview = widget.position),
         ),
         const SizedBox(height: 4),
