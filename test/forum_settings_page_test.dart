@@ -4,13 +4,93 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
+import 'package:discourse_native/src/shell/mobile_shell.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fakes.dart';
+import 'support/shell_test_harness.dart';
 import 'support/theme_settings.dart';
 
 void main() {
+  for (final (bottom, scale) in [(0.0, 1.0), (34.0, 1.0), (34.0, 2.0)]) {
+    testWidgets(
+      'mobile settings clear the dock at the scroll end ($bottom, $scale)',
+      (tester) async {
+        tester.view.padding = FakeViewPadding(top: 44, bottom: bottom);
+        tester.view.viewPadding = FakeViewPadding(top: 44, bottom: bottom);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pumpShell(tester, phone, instances: [instance('a.example')]);
+        final shell = ShellScope.read(
+          tester.element(find.byType(MobileForumRoot)),
+        );
+        shell.openCurrentSettings();
+        await tester.pumpAndSettle();
+
+        final page = find.byType(ForumSettingsPage);
+        final dock = find.byKey(const ValueKey('mobile-bottom-bar'));
+        Future<void> scrollToEnd(Finder control) async {
+          final scrollable = find
+              .ancestor(of: control, matching: find.byType(Scrollable))
+              .first;
+          final position = tester.state<ScrollableState>(scrollable).position;
+          position.jumpTo(position.maxScrollExtent);
+          DScrollChrome.maybeOf(tester.element(page))!.reveal();
+          await tester.pumpAndSettle();
+          expect(position.pixels, closeTo(position.maxScrollExtent, .01));
+          expect(
+            tester.getRect(control).bottom,
+            greaterThan(tester.getRect(scrollable).top),
+          );
+          expect(
+            tester.getRect(control).bottom,
+            lessThanOrEqualTo(tester.getRect(dock).top - 16),
+          );
+          expect(tester.takeException(), isNull);
+        }
+
+        final rawMarkdown = find.byKey(
+          const ValueKey('raw-markdown-composers-switch'),
+        );
+        await scrollToEnd(rawMarkdown);
+        // At large text sizes the row can be taller than the viewport.
+        await tester.tapAt(
+          tester.getBottomRight(rawMarkdown) - const Offset(16, 16),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.appSettings.rawMarkdownComposers, isTrue);
+
+        await tester.ensureVisible(find.text('Themes'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Themes'));
+        await tester.pumpAndSettle();
+        await scrollToEnd(find.byKey(const ValueKey('theme-use-everywhere')));
+
+        await tester.ensureVisible(find.text('Accessibility'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Accessibility'));
+        await tester.pumpAndSettle();
+        final disableGifs = find.byKey(
+          const ValueKey('disable-gif-animations-switch'),
+        );
+        await scrollToEnd(disableGifs);
+        await tester.tapAt(
+          tester.getBottomRight(disableGifs) - const Offset(16, 16),
+        );
+        await tester.pumpAndSettle();
+        expect(shell.appSettings.disableGifAnimations, isTrue);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
   testWidgets('Display exposes raw Markdown on narrow screens', (tester) async {
     final shell = controller();
     addTearDown(shell.dispose);

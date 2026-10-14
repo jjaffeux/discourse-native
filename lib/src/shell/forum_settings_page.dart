@@ -70,31 +70,41 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
               appSettings: appSettings,
               forumSettings: ShellScope.identityOf(context).forumSettings,
             ),
-            'accessibility' => DPageReadingLaneBox(
-              padding: const EdgeInsets.all(16),
-              widthLimit: DPageReadingLane.maxWidth - 32,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ListenableBuilder(
-                    listenable: appSettings,
-                    builder: (context, _) => DSwitchTile(
-                      key: const ValueKey('disable-gif-animations-switch'),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                      title: DLabel(
-                        child: Text(context.l10n.disableGIFAnimations),
-                      ),
-                      subtitle: DFieldDescription(
-                        child: Text(
-                          context.l10n.pauseGIFsByDefaultInPostsAndChatMessages,
+            'accessibility' => DScrollArea(
+              padding: EdgeInsets.only(
+                bottom: DScrollChrome.bottomInsetOf(context),
+              ),
+              child: DPageReadingLaneBox(
+                padding: const EdgeInsets.all(16),
+                widthLimit: DPageReadingLane.maxWidth - 32,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ListenableBuilder(
+                      listenable: appSettings,
+                      builder: (context, _) => DSwitchTile(
+                        key: const ValueKey('disable-gif-animations-switch'),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                        ),
+                        title: DLabel(
+                          child: Text(context.l10n.disableGIFAnimations),
+                        ),
+                        subtitle: DFieldDescription(
+                          child: Text(
+                            context
+                                .l10n
+                                .pauseGIFsByDefaultInPostsAndChatMessages,
+                          ),
+                        ),
+                        value: appSettings.disableGifAnimations,
+                        onChanged: (value) => unawaited(
+                          appSettings.setDisableGifAnimations(value),
                         ),
                       ),
-                      value: appSettings.disableGifAnimations,
-                      onChanged: (value) =>
-                          unawaited(appSettings.setDisableGifAnimations(value)),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             _ => ForumAppearanceSettings(

@@ -291,6 +291,7 @@ class _ForumAppearanceSettingsState extends State<ForumAppearanceSettings> {
       final editing = _editing;
       return SingleChildScrollView(
         key: const PageStorageKey('theme-settings-scroll'),
+        padding: EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
         child: DPageReadingLaneBox(
           padding: const EdgeInsets.all(16),
           widthLimit: DPageReadingLane.maxWidth - 32,

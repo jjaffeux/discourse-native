@@ -49,6 +49,7 @@ class ForumDisplaySettings extends StatelessWidget {
       final scale = appSettings.textScale;
       final percentage = (scale.factor * 100).round();
       return SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
         child: DPageReadingLaneBox(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           widthLimit: DPageReadingLane.maxWidth - 32,
