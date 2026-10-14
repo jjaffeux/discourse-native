@@ -65,6 +65,10 @@ final class _EventCalendarState extends State<EventCalendar> {
   );
 
   String get _locale => Localizations.localeOf(context).toString();
+  bool get _touch => switch (Theme.of(context).platform) {
+    TargetPlatform.android || TargetPlatform.iOS => true,
+    _ => false,
+  };
   bool get _use24HourClock => use24HourClockOf(context);
   String _time(DateTime value) =>
       clockTime(value, use24HourClock: _use24HourClock, locale: _locale);
@@ -453,7 +457,8 @@ final class _EventCalendarState extends State<EventCalendar> {
           ?widget.status,
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              // Mobile scroll fades reach the page edge beneath the dock.
+              padding: EdgeInsets.fromLTRB(16, 0, 16, _touch ? 0 : 16),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -482,12 +487,8 @@ final class _EventCalendarState extends State<EventCalendar> {
   );
 
   Widget _buildCalendar({required bool compact}) {
-    final touch = switch (Theme.of(context).platform) {
-      TargetPlatform.android || TargetPlatform.iOS => true,
-      _ => false,
-    };
     final rowHeight = math.max(
-      touch ? kMinInteractiveDimension : DControlStyle.smallHeight,
+      _touch ? kMinInteractiveDimension : DControlStyle.smallHeight,
       MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) *
               DiscourseTypography.lineHeightSmall +
           10,

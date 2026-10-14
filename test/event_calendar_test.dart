@@ -167,6 +167,10 @@ void main() {
         expect(separator.left, 16);
         expect(separator.width, width - 32);
         expect(tester.getRect(header).bottom - separator.bottom, 16);
+        expect(
+          tester.getRect(find.byType(kalender.KalenderView)).bottom,
+          platform == TargetPlatform.iOS ? 844 : 844 - 16,
+        );
         final headingStyle = tester.widget<Text>(find.text('Events')).style!;
         expect(headingStyle.fontSize, 22);
         expect(headingStyle.fontWeight, FontWeight.w700);
@@ -197,6 +201,10 @@ void main() {
         await tester.tap(find.text('Schedule'));
         await tester.pumpAndSettle();
         expect(page.view, EventCalendarView.schedule);
+        expect(
+          tester.getRect(find.byType(kalender.ScheduleBody)).bottom,
+          platform == TargetPlatform.iOS ? 844 : 844 - 16,
+        );
         await tester.tap(find.byTooltip('Next month'));
         await tester.pumpAndSettle();
         expect(find.text('October 2026'), findsOneWidget);

@@ -85,7 +85,7 @@ void main() {
           expectSkeletonFillsViewport(
             tester,
             label: 'Loading events',
-            bottom: 844 - 16,
+            bottom: 844,
           );
         }
         final calendar = tester.state(
@@ -124,7 +124,7 @@ void main() {
           expectSkeletonFillsViewport(
             tester,
             label: 'Loading events',
-            bottom: 844 - 16,
+            bottom: 844,
           );
         }
 
