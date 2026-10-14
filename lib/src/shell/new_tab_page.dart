@@ -527,43 +527,49 @@ class _StartList extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           header.spacer,
-          Padding(
-            key: const ValueKey('start-page-content'),
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 20,
-              children: [
-                for (final section in sections.where(
-                  (s) => s.id == 'recently-closed',
-                ))
-                  section,
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    const gap = 8.0;
-                    final columns = math.max(
-                      1,
-                      ((constraints.maxWidth + gap) /
-                              (DButton.launcherMinimumExtent(context) + gap))
-                          .floor(),
-                    );
-                    final width =
-                        (constraints.maxWidth - gap * (columns - 1)) / columns;
-                    return Wrap(
-                      key: const ValueKey('start-page-shortcuts'),
-                      spacing: gap,
-                      runSpacing: gap,
-                      children: [
-                        for (final section in sections.where(
-                          (s) => s.id != 'recently-closed',
-                        ))
-                          SizedBox(width: width, child: section),
-                      ],
-                    );
-                  },
-                ),
-                ?fallback,
-              ],
+          // Keep the static launcher artwork in its own layer while the
+          // viewport and header move. Content and interaction changes still
+          // invalidate this layer normally.
+          RepaintBoundary(
+            child: Padding(
+              key: const ValueKey('start-page-content'),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 20,
+                children: [
+                  for (final section in sections.where(
+                    (s) => s.id == 'recently-closed',
+                  ))
+                    section,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const gap = 8.0;
+                      final columns = math.max(
+                        1,
+                        ((constraints.maxWidth + gap) /
+                                (DButton.launcherMinimumExtent(context) + gap))
+                            .floor(),
+                      );
+                      final width =
+                          (constraints.maxWidth - gap * (columns - 1)) /
+                          columns;
+                      return Wrap(
+                        key: const ValueKey('start-page-shortcuts'),
+                        spacing: gap,
+                        runSpacing: gap,
+                        children: [
+                          for (final section in sections.where(
+                            (s) => s.id != 'recently-closed',
+                          ))
+                            SizedBox(width: width, child: section),
+                        ],
+                      );
+                    },
+                  ),
+                  ?fallback,
+                ],
+              ),
             ),
           ),
         ],

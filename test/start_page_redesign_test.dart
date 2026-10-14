@@ -23,15 +23,15 @@ import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'support/fakes.dart';
 import 'support/button_surface.dart';
+import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -225,6 +225,67 @@ void main() {
       (widget) =>
           widget is DButton && widget.variant == DButtonVariant.launcher,
     ),
+  );
+
+  testWidgets(
+    'scrolling reuses start-page artwork across header motion',
+    (tester) async {
+      await _start(tester, const Size(390, 400));
+      final content = tester.renderObject<RenderObject>(
+        _onPage(find.byKey(const ValueKey('start-page-content'))),
+      );
+      final artwork = <RenderObject>{};
+      void collect(RenderObject object) {
+        artwork.add(object);
+        object.visitChildren(collect);
+      }
+
+      collect(content);
+      final position = tester
+          .state<ScrollableState>(_onPage(find.byType(Scrollable)))
+          .position;
+      expect(position.maxScrollExtent, greaterThan(200));
+      final viewport = position.viewportDimension;
+      final extent = position.maxScrollExtent;
+      final header = DPageSurface.headerGeometryOf(
+        tester.element(
+          _onPage(find.byKey(const ValueKey('start-page-content'))),
+        ),
+        insideViewport: true,
+      )!;
+      final headerExtent = header.visibleExtent;
+      expect(headerExtent, greaterThan(0));
+      var paints = 0;
+      final previous = debugOnProfilePaint;
+      debugOnProfilePaint = (object) {
+        previous?.call(object);
+        if (artwork.contains(object)) paints++;
+      };
+      try {
+        for (final delta in [120.0, 120.0, -120.0, -120.0]) {
+          await tester.pump(const Duration(milliseconds: 450));
+          final before = position.pixels;
+          position.pointerScroll(delta);
+          for (var frame = 0; frame < 20; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          expect(position.pixels, closeTo(before + delta, .01));
+          expect(position.viewportDimension, viewport);
+          expect(position.maxScrollExtent, extent);
+          if (delta > 0) {
+            expect(header.visibleExtent, lessThan(headerExtent));
+          }
+        }
+      } finally {
+        debugOnProfilePaint = previous;
+      }
+      expect(paints, 0, reason: 'Scrolling should composite cached artwork.');
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+    }),
   );
 
   _test('Start is an alphabetical square launcher with settings last', (
