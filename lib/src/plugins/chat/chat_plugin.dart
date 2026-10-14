@@ -318,7 +318,7 @@ class ChatPlugin
       myThreadsRouteId,
     }.contains(shell.currentContent?.id);
     return [
-      if (!directoryOpen)
+      if (!context.isTouch && !directoryOpen)
         SidebarSection(
           id: 'chat-directories',
           title: appL10n.chat,

@@ -31,6 +31,8 @@ typedef _DockDestination = ({
   VoidCallback onPressed,
 });
 
+const double _mobileRailWidth = 53;
+
 /// Persistent mobile chrome around one live feature renderer.
 class MobileForumRoot extends StatefulWidget {
   const MobileForumRoot({
@@ -84,14 +86,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           },
           child: Focus(
             autofocus: sidebarOpen,
-            child: Padding(
+            child: Row(
               key: const ValueKey('mobile-navigation-page'),
-              padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
-              child: Row(
-                children: [
-                  const SizedBox(width: 48, child: InstanceRail()),
-                  Expanded(
+              children: [
+                const SizedBox(width: _mobileRailWidth, child: InstanceRail()),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
                     child: DPageSurface(
+                      key: const ValueKey('mobile-navigation-panel'),
                       border: false,
                       child: InstanceSidebar(
                         key: ValueKey(('mobile-navigation', owner)),
@@ -100,8 +103,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -308,22 +311,27 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             ForumSidebarTheme(
               child: Padding(
                 key: const ValueKey('mobile-header'),
-                padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+                padding: const EdgeInsetsDirectional.fromSTEB(0, 8, 14, 4),
                 child: Builder(
                   builder: (context) {
                     final navigation = <Widget>[
-                      DButton.iconOnly(
-                        key: const ValueKey('mobile-menu-button'),
-                        icon: const Icon(Icons.menu, size: 20),
-                        tooltip: sidebarOpen
-                            ? context.l10n.closeNavigation
-                            : context.l10n.openNavigation,
-                        variant: DButtonVariant.inline,
-                        expanded: sidebarOpen,
-                        onPressed: () {
-                          FocusManager.instance.primaryFocus?.unfocus();
-                          shell.toggleMobileSidebar();
-                        },
+                      SizedBox(
+                        width: _mobileRailWidth,
+                        child: Center(
+                          child: DButton.iconOnly(
+                            key: const ValueKey('mobile-menu-button'),
+                            icon: const Icon(Icons.menu, size: 20),
+                            tooltip: sidebarOpen
+                                ? context.l10n.closeNavigation
+                                : context.l10n.openNavigation,
+                            variant: DButtonVariant.inline,
+                            expanded: sidebarOpen,
+                            onPressed: () {
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              shell.toggleMobileSidebar();
+                            },
+                          ),
+                        ),
                       ),
                       Expanded(
                         child: Align(

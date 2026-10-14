@@ -58,3 +58,40 @@ reproduced on unchanged main before this change.
 The material correction is additionally covered by `d_sidebar_tab_material_test.dart`
 (rendered tint against two backdrops, bare hover, pointer exit and high contrast)
 and `d_document_tab_material_test.dart` (the shared glass painter's document tabs).
+
+## Mobile navigation
+
+The phone navigation page now uses the same mode switch as desktop, including
+Chat's plugin visibility, glyphs, badges and selected-label animation. Choosing
+a mode changes the sidebar without navigating the retained page. Dock-owned
+mobile panel roots continue to use their own mobile builder.
+
+The phone reference in `App.tsx` uses a 53px rail and a sidebar inset of 6px on
+all four sides. Its switch has 10px top, 12px horizontal and 8px bottom spacing.
+The production mobile composition now uses those dimensions. The hamburger's
+layout column shares the rail's width so the menu glyph and
+forum icons have the same horizontal center. The button retains its Native
+visible hit bounds. Voice rooms and Chat's compact inbox/filter controls belong
+to the Chat sidebar mode. Mobile
+omits the desktop directory rows above the filters, matching `showTopItems` in
+the reference. Forum contains its categories/tags and Shortcuts its custom links.
+
+`test/support/mobile_sidebar_review_main.dart` runs the production app shell
+with in-memory forum, Chat and Voice fixtures and saves six native captures:
+
+```sh
+flutter run -d <simulator-id> -t test/support/mobile_sidebar_review_main.dart
+```
+
+The October 14 verification includes light/dark Forum, Chat and Shortcuts on
+the iPhone 18 Pro simulator with Impeller. This is simulator evidence, not a
+physical-device capture. Widget checks cover iOS/Android, both material settings
+(Apple platforms resolve to Liquid glass), switch geometry, unchanged page
+routing, Chat capability visibility, conversation opening, Voice revocation,
+320/430/600px widths with 200% text and rail bounds throughout swipe gestures.
+The owning desktop panel/badge checks also remain covered by
+`sidebar_panel_tabs_test.dart`.
+
+The two existing `mobile_shell_test.dart` minimized-composer checks still fail
+on unchanged main: they attempt to tap the retired `Minimize` text. They are
+outside the sidebar change.

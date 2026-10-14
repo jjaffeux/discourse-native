@@ -3,9 +3,11 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
+import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -394,7 +396,8 @@ final class _RecordingSiteActivator implements PluginSiteActivator {
 }
 
 void main() {
-  if (const bool.fromEnvironment('captureMobileChrome')) {
+  if (const bool.fromEnvironment('captureMobileChrome') ||
+      const bool.fromEnvironment('captureMobileSidebar')) {
     // Keep the channel alive through app disposal between capture variants.
     TestWidgetsFlutterBinding.ensureInitialized();
     final messenger =
@@ -1316,7 +1319,8 @@ void main() {
       );
       final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
       final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
-      expect(identity.left - menu.right, 10);
+      expect(menu.center.dx, 53 / 2);
+      expect(identity.left, 53 + 10);
       expect(bell.left - search.right, closeTo(10, .001));
       expect(avatar.left - bell.right, DSpacing.controlGap);
       final menuIcon = tester.getRect(
@@ -1388,6 +1392,161 @@ void main() {
     },
   );
 
+  for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
+    for (final material in DAppearanceMaterial.values) {
+      _mobileTest('mobile sidebar mockup parity ${mode.name} ${material.name}', (
+        tester,
+      ) async {
+        if (const bool.fromEnvironment('captureMobileSidebar')) {
+          await tester.runAsync(() async {
+            final manifest =
+                jsonDecode(await rootBundle.loadString('FontManifest.json'))
+                    as List;
+            for (final entry in manifest.cast<Map<String, dynamic>>()) {
+              final loader = FontLoader(entry['family'] as String);
+              for (final face
+                  in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+                loader.addFont(rootBundle.load(face['asset'] as String));
+              }
+              await loader.load();
+            }
+          });
+        }
+        final shell = await pumpMobileShellFixture(tester, voice: true);
+        await shell.forumSettings.setThemeMode(_site, mode);
+        await shell.forumSettings.setThemes(
+          _site,
+          ForumThemePreferences.preset('dracula'),
+        );
+        await shell.forumSettings.setShared(
+          shell.forumSettings.shared.copyWith(
+            material: material,
+            font: const bool.fromEnvironment('captureMobileSidebar')
+                ? ForumFont.lato
+                : null,
+            interfaceFont: const bool.fromEnvironment('captureMobileSidebar')
+                ? ForumFont.lato
+                : null,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+        await tester.pumpAndSettle();
+        final route = shell.currentContent;
+        final tab = shell.mobileNavigation.tab;
+        final switcher = find.byKey(const ValueKey('sidebar-panel-tabs'));
+        final list = find.descendant(
+          of: switcher,
+          matching: find.byType(DTabList<String>),
+        );
+        expect(tester.widget<DTabList<String>>(list).expandSelected, isTrue);
+        final panel = tester.getRect(
+          find.byKey(const ValueKey('mobile-navigation-panel')),
+        );
+        expect(tester.getRect(list).left, panel.left + 12);
+        expect(tester.getRect(list).right, panel.right - 12);
+        expect(tester.getRect(list).top, panel.top + 10);
+        expect(find.text('Watercooler'), findsNothing);
+
+        Future<void> capture(String state) async {
+          if (!const bool.fromEnvironment('captureMobileSidebar')) return;
+          await tester.runAsync(() async {
+            final builder = ui.SceneBuilder();
+            tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+            final scene = builder.build();
+            final image = await scene.toImage(390, 844);
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            final platform = Theme.of(tester.element(_header)).platform.name;
+            await File(
+              '/private/tmp/mobile-sidebar-$platform-${mode.name}-${material.name}-$state.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+            scene.dispose();
+          });
+        }
+
+        await capture('forum');
+        await tester.tap(
+          find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('chat-inbox-channel-9')),
+          findsOneWidget,
+        );
+        expect(find.text('Voice rooms'), findsOneWidget);
+        expect(find.text('Watercooler'), findsOneWidget);
+        expect(find.byType(ChatMobileSidebar), findsNothing);
+        for (final label in ['Chats', 'Channels', 'Threads']) {
+          expect(sidebarDestination(label), findsNothing);
+        }
+        expect(shell.currentContent, same(route));
+        expect(shell.mobileNavigation.tab, tab);
+        expect(shell.mobileNavigation.sidebarOpen, isTrue);
+        await capture('chat');
+        await tester.tap(
+          find.byKey(const ValueKey('sidebar-panel-switch-shortcuts')),
+        );
+        await tester.pumpAndSettle();
+        expect(sidebarDestination('Handbook'), findsOneWidget);
+        expect(find.text('Watercooler'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('chat-inbox-channel-9')),
+          findsNothing,
+        );
+        await capture('shortcuts');
+        await tester.tap(
+          find.byKey(const ValueKey('sidebar-panel-switch-main')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Categories'), findsOneWidget);
+        expect(sidebarDestination('Handbook'), findsNothing);
+        expect(shell.currentContent, same(route));
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  _mobileTest('mobile sidebar hides unavailable Chat and opens conversations', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(tester, chat: false);
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('sidebar-panel-switch-chat')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('sidebar-panel-switch-main')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('sidebar-panel-switch-shortcuts')),
+      findsOneWidget,
+    );
+    // Replace the account fixture, then open Chat from the navigation switch.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    final shell = await pumpMobileShellFixture(tester);
+    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-chat')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('chat-inbox-channel-10')));
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(shell.currentContent?.id, 'chat-c-10');
+    expect(find.byType(InstanceRail), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest(
     'navigation page exposes Forum categories/tags and custom Shortcuts',
     (tester) async {
@@ -1426,7 +1585,9 @@ void main() {
         ),
         findsOneWidget,
       );
-      await tester.tap(find.text('Shortcuts'));
+      await tester.tap(
+        find.byKey(const ValueKey('sidebar-panel-switch-shortcuts')),
+      );
       await tester.pumpAndSettle();
       expect(sidebarDestination('Handbook'), findsOneWidget);
       expect(
@@ -1571,7 +1732,19 @@ void main() {
       expect(navigation.left, 0);
       expect(navigation.width, width);
       final rail = tester.getRect(find.byType(InstanceRail));
-      expect(rail.left, DSpacing.xs);
+      expect(rail.left, 0);
+      expect(rail.width, 53);
+      final menu = tester.getRect(
+        find.byKey(const ValueKey('mobile-menu-button')),
+      );
+      expect(menu.center.dx, closeTo(rail.center.dx, .001));
+      final navigationPanel = tester.getRect(
+        find.byKey(const ValueKey('mobile-navigation-panel')),
+      );
+      expect(navigationPanel.left, rail.right + 6);
+      expect(navigationPanel.right, width - 6);
+      expect(navigationPanel.top, navigation.top + 6);
+      expect(navigationPanel.bottom, navigation.bottom - 6);
       final addButton = tester.getRect(
         find.byKey(const ValueKey('add-instance-rail-button')),
       );
@@ -2446,7 +2619,7 @@ void main() {
   );
 
   _mobileTest(
-    'voice rooms remain in navigation without replacing the Chat inbox',
+    'voice rooms belong to the navigation Chat tab and the Chat inbox',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester, voice: true);
       final voice = shell.pluginSession.require(voiceControllerService);
@@ -2466,6 +2639,10 @@ void main() {
       expect(find.byType(InstanceRail), findsNothing);
       expect(voice.call, isNull);
       await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Voice rooms'), findsNothing);
+      expect(find.text('Watercooler'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-chat')));
       await tester.pumpAndSettle();
       expect(find.text('Voice rooms'), findsOneWidget);
       expect(find.text('Watercooler'), findsOneWidget);
@@ -3026,7 +3203,7 @@ void main() {
           final box = tester.renderObject<RenderBox>(finder);
           final left = box.localToGlobal(Offset.zero).dx;
           final right = box.localToGlobal(Offset(box.size.width, 0)).dx;
-          expect(left, greaterThan(0));
+          expect(left, greaterThanOrEqualTo(-.001));
           expect(right, lessThan(width));
         }
         expect(tester.getRect(_header), header);

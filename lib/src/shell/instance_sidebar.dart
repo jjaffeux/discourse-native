@@ -185,7 +185,7 @@ class InstanceSidebar extends StatelessWidget {
   final bool showUserMenu;
   final SidebarSectionStore? sectionStore;
 
-  /// Mobile roots own their header and select sidebar modes in the bottom bar.
+  /// Mobile navigation omits the community header; panel roots use the dock.
   final bool mobile;
   final String? panelOwner;
   final VoidCallback? onNavigate;
@@ -378,12 +378,13 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       controller.currentContent?.id,
       routedPanel?.owner,
     );
-    if (_navigation != navigation) {
+    if (!widget.mobile && _navigation != navigation) {
       _navigation = navigation;
       _selectedOwner = routedPanel?.owner.value;
       if (routedPanel != null) _shortcuts = false;
     }
-    if (widget.mobile) _selectedOwner = widget.panelOwner;
+    final mobileRoot = widget.mobile && widget.panelOwner != null;
+    if (mobileRoot) _selectedOwner = widget.panelOwner;
     final selectedPanel = panels
         .where((panel) => panel.owner.value == _selectedOwner)
         .firstOrNull;
@@ -393,8 +394,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     final showCoreSections = activePanel == null;
     final showShortcuts = showCoreSections && _shortcuts;
 
-    if (activePanel?.panel.mobileBuilder case final builder?
-        when widget.mobile) {
+    if (activePanel?.panel.mobileBuilder case final builder? when mobileRoot) {
       return PluginUiScope.own(activePanel!.owner, Builder(builder: builder));
     }
 
@@ -402,20 +402,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       if (activePanel case final active?) return active.includesOwner(owner);
       return !panels.any((candidate) => candidate.includesOwner(owner));
     }
-
-    final mobileNavigationOwners = <PluginId>{
-      if (widget.mobile && showCoreSections)
-        for (final group in panels)
-          if (group.panel.mobileBuilder != null)
-            ...group.sectionOwners.where((owner) => owner != group.owner),
-    };
-    // A custom mobile root owns the primary plugin's content. Keep its
-    // auxiliary plugins reachable through the main navigation instead.
-    bool includeSidebarOwner(PluginId owner) => showShortcuts && !widget.mobile
-        ? false
-        : widget.mobile && showCoreSections
-        ? mobileNavigationOwners.contains(owner)
-        : includePluginOwner(owner);
 
     final customSections = [
       for (final section in sidebar.sections)
@@ -503,52 +489,36 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
           ),
         _ => null,
       },
-      header: widget.mobile
-          ? showCoreSections
-                ? DSidebarHeader(
-                    child: DTabs<bool>.controlled(
-                      value: _shortcuts,
-                      onChanged: (value) =>
-                          setState(() => _shortcuts = value ?? false),
-                      children: [
-                        DTabList<bool>(
-                          children: [
-                            DTabTrigger(
-                              value: false,
-                              child: Text(context.l10n.forum),
-                            ),
-                            DTabTrigger(
-                              value: true,
-                              child: Text(
-                                context.l10n.shortcutsInstancesidebar,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  )
-                : null
+      header: mobileRoot
+          ? null
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: EdgeInsetsDirectional.only(
-                    start: widget.communityHeaderLeadingInset,
+                if (!widget.mobile) ...[
+                  Padding(
+                    padding: EdgeInsetsDirectional.only(
+                      start: widget.communityHeaderLeadingInset,
+                    ),
+                    child: const _SidebarCommunityHeader(),
                   ),
-                  child: const _SidebarCommunityHeader(),
-                ),
-                if (showUserMenu) const _SidebarUserHeader(),
-                DSidebarHeader(
-                  child: _SidebarPanelTabs(
-                    selectedOwner: selectedPanel?.owner.value,
-                    shortcutsSelected: _shortcuts,
-                    onSelected: (owner) => setState(() {
-                      _shortcuts = owner == 'shortcuts';
-                      _selectedOwner = owner == 'forum' || _shortcuts
-                          ? null
-                          : owner;
-                    }),
+                  if (showUserMenu) const _SidebarUserHeader(),
+                ],
+                Padding(
+                  // Mobile SideNav has no community header above the switch.
+                  padding: widget.mobile
+                      ? const EdgeInsets.fromLTRB(4, 2, 4, 0)
+                      : EdgeInsets.zero,
+                  child: DSidebarHeader(
+                    child: _SidebarPanelTabs(
+                      selectedOwner: selectedPanel?.owner.value,
+                      shortcutsSelected: _shortcuts,
+                      onSelected: (owner) => setState(() {
+                        _shortcuts = owner == 'shortcuts';
+                        _selectedOwner = owner == 'forum' || _shortcuts
+                            ? null
+                            : owner;
+                      }),
+                    ),
                   ),
                 ),
               ],
@@ -705,21 +675,19 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                               ],
                             ),
                           ),
-                        if ((!widget.mobile ||
-                                !showCoreSections ||
-                                mobileNavigationOwners.isNotEmpty) &&
+                        if ((!widget.mobile || !showCoreSections) &&
                             !showShortcuts)
                           ListenableBuilder(
                             listenable: Listenable.merge(
                               registry.sidebarListenables(
                                 context,
-                                includeOwner: includeSidebarOwner,
+                                includeOwner: includePluginOwner,
                               ),
                             ),
                             builder: (context, _) {
                               final sections = registry.sidebarSections(
                                 context,
-                                includeOwner: includeSidebarOwner,
+                                includeOwner: includePluginOwner,
                               );
                               return _RestoredSidebarSections(
                                 siteUrl: sidebar.siteUrl!,
