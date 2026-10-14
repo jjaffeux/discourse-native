@@ -92,7 +92,12 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 const SizedBox(width: _mobileRailWidth, child: InstanceRail()),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(6),
+                    padding: EdgeInsets.fromLTRB(
+                      6,
+                      6,
+                      6,
+                      6 + MediaQuery.paddingOf(context).bottom,
+                    ),
                     child: DPageSurface(
                       key: const ValueKey('mobile-navigation-panel'),
                       border: false,

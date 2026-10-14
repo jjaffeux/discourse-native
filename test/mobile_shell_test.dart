@@ -1707,6 +1707,44 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final (bottom, keyboard) in [(0.0, 0.0), (34.0, 0.0), (0.0, 280.0)]) {
+    _mobileTest(
+      'navigation panel consumes bottom safe area once ($bottom, $keyboard)',
+      (tester) async {
+        tester.view.padding = FakeViewPadding(top: 44, bottom: bottom);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
+        final shell = await pumpMobileShellFixture(tester);
+        final menu = find.byKey(const ValueKey('mobile-menu-button'));
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        final page = tester.getRect(
+          find.byKey(const ValueKey('mobile-navigation-page')),
+        );
+        final panel = tester.getRect(
+          find.byKey(const ValueKey('mobile-navigation-panel')),
+        );
+        expect(page.bottom - panel.bottom, bottom + 6);
+        expect(panel.top - page.top, 6);
+        final rail = tester.getRect(find.byType(InstanceRail));
+        expect(panel.left - rail.right, 6);
+        expect(page.right - panel.right, 6);
+        final menuBounds = tester.getRect(menu);
+        expect(menuBounds.center.dx, closeTo(rail.center.dx, .001));
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        expect(shell.mobileNavigation.sidebarOpen, isFalse);
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.byKey(const ValueKey('mobile-navigation-panel'))),
+          panel,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final width in [320.0, 430.0, 600.0]) {
     _mobileTest('navigation uses the full $width viewport with large text', (
       tester,

@@ -67,7 +67,10 @@ a mode changes the sidebar without navigating the retained page. Dock-owned
 mobile panel roots continue to use their own mobile builder.
 
 The phone reference in `App.tsx` uses a 53px rail and a sidebar inset of 6px on
-all four sides. Its switch has 10px top, 12px horizontal and 8px bottom spacing.
+all four sides, with the device bottom safe area added to the panel's bottom
+margin. The rail consumes its own safe area independently. When the keyboard
+replaces that inset, the panel retains its 6px margin. Its switch has 10px top,
+12px horizontal and 8px bottom spacing.
 The production mobile composition now uses those dimensions. The hamburger's
 layout column shares the rail's width so the menu glyph and
 forum icons have the same horizontal center. The button retains its Native
