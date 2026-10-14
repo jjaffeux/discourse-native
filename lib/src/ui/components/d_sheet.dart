@@ -680,17 +680,20 @@ class _DSheetMotion extends StatelessWidget {
   }
 }
 
-// Start the exit at the swipe's release velocity. Slow swipes accelerate to
-// finish within 320ms; a faster swipe coasts without losing any of its speed.
+const _sheetDismissFraction = .3;
+
+// Start the exit at the release velocity and accelerate slow swipes to finish
+// within the requested duration; faster swipes retain their speed.
 class _DSheetDismissSimulation extends Simulation {
   _DSheetDismissSimulation(
     this.distance,
     this.velocity,
     this.initialValue, {
     this.endValue = 0,
+    double duration = .32,
   }) : acceleration = math.max(
          0,
-         2 * (distance - velocity * .32) / (.32 * .32),
+         2 * (distance - velocity * duration) / (duration * duration),
        );
 
   final double distance;
@@ -895,7 +898,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     if (_exiting || _swipeIntercepted) return;
     _travel.value = math.max(0, _travel.value + delta);
     if (widget.onDismissRequested != null &&
-        _travel.value >= _swipeExtent * .3) {
+        _travel.value >= _swipeExtent * _sheetDismissFraction) {
       _swipeIntercepted = true;
       _dragging = false;
       _scrollOrigin = null;
@@ -973,7 +976,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     // Require a deliberate pull regardless of release speed. Measure against
     // the distance off-screen so opening the keyboard does not make the sheet
     // easier to dismiss; velocity only determines how an accepted exit moves.
-    if (!cancelled && _travel.value >= _swipeExtent * .3) {
+    if (!cancelled && _travel.value >= _swipeExtent * _sheetDismissFraction) {
       if (widget.retained && widget.onDismiss != null) {
         _dismissRetained(velocity);
         return;

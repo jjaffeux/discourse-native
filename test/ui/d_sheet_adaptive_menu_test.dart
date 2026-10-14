@@ -11,12 +11,30 @@ Future<void> openMenu(
   int count = 60,
   bool reducedMotion = false,
   bool settle = true,
+  VoidCallback? onContentLayout,
+  Size size = const Size(390, 844),
 }) async {
-  tester.view.physicalSize = const Size(390, 844);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
   tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
   addTearDown(tester.view.reset);
+  final contents = Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      DInput(hintText: 'Add a filter'),
+      Flexible(
+        child: ListView.builder(
+          controller: scroll,
+          shrinkWrap: true,
+          itemExtent: 40,
+          itemCount: count,
+          itemBuilder: (_, index) =>
+              DButton(label: Text('Filter $index'), onPressed: () {}),
+        ),
+      ),
+    ],
+  );
   await tester.pumpWidget(
     MaterialApp(
       theme: ThemeData(platform: platform),
@@ -31,24 +49,14 @@ Future<void> openMenu(
               mobileSheetVariant: DSheetVariant.adaptiveMenu,
               content: DPopoverContent(
                 semanticLabel: 'Filters',
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    DInput(hintText: 'Add a filter'),
-                    Flexible(
-                      child: ListView.builder(
-                        controller: scroll,
-                        shrinkWrap: true,
-                        itemExtent: 40,
-                        itemCount: count,
-                        itemBuilder: (_, index) => DButton(
-                          label: Text('Filter $index'),
-                          onPressed: () {},
-                        ),
+                child: onContentLayout == null
+                    ? contents
+                    : LayoutBuilder(
+                        builder: (_, _) {
+                          onContentLayout();
+                          return contents;
+                        },
                       ),
-                    ),
-                  ],
-                ),
               ),
               child: DPopoverTrigger(
                 builder: (_, trigger) => DButton(
@@ -100,60 +108,193 @@ void main() {
     expect(find.byType(DSheetContent), findsOneWidget);
   });
 
-  testWidgets('iOS waits for keyboard completion before animating margins', (
-    tester,
-  ) async {
-    const channel = MethodChannel('org.discourse.native/keyboard');
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (_) async => false,
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+  testWidgets(
+    'iOS finishes keyboard, then raises the sheet, then adds margins',
+    (tester) async {
+      const channel = MethodChannel('org.discourse.native/keyboard');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         channel,
-        null,
-      ),
-    );
-    final scroll = ScrollController();
-    addTearDown(scroll.dispose);
-    await openMenu(tester, platform: TargetPlatform.iOS, scroll: scroll);
-    final sheet = find.byType(DSheetContent);
-    await tester.tap(find.byType(EditableText));
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      tester.getRect(sheet).left,
-      0,
-      reason: 'focus is not keyboard completion',
-    );
-    for (final inset in [100.0, 200.0, 300.0]) {
-      tester.view.viewInsets = FakeViewPadding(bottom: inset);
+        (_) async => false,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await openMenu(tester, platform: TargetPlatform.iOS, scroll: scroll);
+      final sheet = find.byType(DSheetContent);
+      final opened = tester.getRect(sheet);
+      await tester.tap(find.byType(EditableText));
       await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        tester.getRect(sheet).left,
+        0,
+        reason: 'focus is not keyboard completion',
+      );
+      for (final inset in [100.0, 200.0, 300.0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: inset);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          tester.getRect(sheet),
+          opened,
+          reason: 'the sheet waits for the keyboard',
+        );
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        tester.getRect(sheet).left,
+        0,
+        reason: 'native completion takes precedence over a timeout',
+      );
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(
+          const MethodCall('keyboardReady', true),
+        ),
+        (_) {},
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getRect(sheet).left, 0, reason: 'raising precedes spacing');
+      expect(tester.getRect(sheet).top, inExclusiveRange(55, opened.top));
+      await tester.pump(const Duration(milliseconds: 181));
+      expect(tester.getRect(sheet).top, closeTo(55, 1));
       expect(tester.getRect(sheet).left, 0);
-    }
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(
-      tester.getRect(sheet).left,
-      0,
-      reason: 'native completion takes precedence over a timeout',
-    );
-    await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
-      channel.name,
-      const StandardMethodCodec().encodeMethodCall(
-        const MethodCall('keyboardReady', true),
-      ),
-      (_) {},
-    );
-    await tester.pump();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(tester.getRect(sheet).left, inExclusiveRange(0, 6));
-    await tester.pumpAndSettle();
-    expect(tester.getRect(sheet).left, 6);
-    tester.view.viewInsets = FakeViewPadding.zero;
-    await tester.pumpAndSettle();
-  });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getRect(sheet).left, inExclusiveRange(0, 6));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(sheet).left, 6);
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+    },
+  );
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final expanded in [false, true]) {
+      for (final origin in ['handle', 'content']) {
+        testWidgets(
+          'short fast $origin pull restores ${expanded ? 'expanded' : 'lower'} sheet on $platform',
+          (tester) async {
+            final scroll = ScrollController();
+            addTearDown(scroll.dispose);
+            await openMenu(tester, platform: platform, scroll: scroll);
+            if (expanded) await expand(tester);
+            final sheet = find.byType(DSheetContent);
+            final opened = tester.getRect(sheet);
+            final target = origin == 'handle'
+                ? find.byKey(const ValueKey('sheet-drag-handle'))
+                : find.byType(ListView);
+            await tester.fling(target, const Offset(0, 70), 6000);
+            await tester.pumpAndSettle();
+            expect(tester.getRect(sheet), opened);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+
+    testWidgets(
+      'a deliberate pull lowers an expanded sheet before dismissal on $platform',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await openMenu(tester, platform: platform, scroll: scroll);
+        final sheet = find.byType(DSheetContent);
+        final lower = tester.getRect(sheet);
+        await expand(tester);
+        final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+        await tester.timedDrag(
+          handle,
+          const Offset(0, 300),
+          const Duration(milliseconds: 400),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), lower);
+        await tester.timedDrag(
+          handle,
+          const Offset(0, 200),
+          const Duration(milliseconds: 400),
+        );
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+      },
+    );
+
+    for (final expanded in [false, true]) {
+      testWidgets(
+        'outside tap slides ${expanded ? 'expanded' : 'lower'} sheet down quickly on $platform',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openMenu(tester, platform: platform, scroll: scroll);
+          if (expanded) await expand(tester);
+          final sheet = find.byType(DSheetContent);
+          final opened = tester.getRect(sheet);
+          await tester.tapAt(const Offset(8, 20));
+          await tester.pump();
+          await tester.pump();
+          expect(
+            tester.getRect(sheet),
+            opened,
+            reason: 'exit starts from the current geometry',
+          );
+          await tester.pump(const Duration(milliseconds: 60));
+          expect(tester.getRect(sheet).top, greaterThan(opened.top + 20));
+          expect(
+            sheet,
+            findsOneWidget,
+            reason: 'the sheet stays mounted during its exit',
+          );
+          await tester.pump(const Duration(milliseconds: 140));
+          await tester.pump();
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    for (final count in [2, 60]) {
+      testWidgets(
+        'dragging follows the finger without laying out menu content ($count rows) on $platform',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          var layouts = 0;
+          await openMenu(
+            tester,
+            platform: platform,
+            scroll: scroll,
+            onContentLayout: () => layouts++,
+            count: count,
+          );
+          final sheet = find.byType(DSheetContent);
+          final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+          final drag = await tester.startGesture(tester.getCenter(handle));
+          await drag.moveBy(const Offset(0, 40));
+          await tester.pump();
+          final before = tester.getRect(sheet);
+          final beforeLayouts = layouts;
+          for (var i = 0; i < 10; i++) {
+            await drag.moveBy(const Offset(0, 3));
+            await tester.pump(const Duration(milliseconds: 16));
+            final current = tester.getRect(sheet);
+            expect(current.top, closeTo(before.top + (i + 1) * 3, .1));
+            expect(current.size, before.size);
+            expect(scroll.offset, 0);
+            expect(layouts, beforeLayouts);
+          }
+          await drag.cancel();
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     for (final reduced in [false, true]) {
       testWidgets(
         'adaptive menu expands, floats at its end, and returns on $platform (reduced: $reduced)',
@@ -318,7 +459,7 @@ void main() {
           expect(find.bySemanticsLabel('Collapse'), findsOneWidget);
           await tester.timedDrag(
             find.byKey(const ValueKey('sheet-drag-handle')),
-            const Offset(0, 450),
+            const Offset(0, 600),
             const Duration(milliseconds: 500),
           );
           await tester.pumpAndSettle();
@@ -330,6 +471,104 @@ void main() {
       },
     );
   }
+
+  for (final height in [600.0, 1000.0]) {
+    testWidgets(
+      'adaptive pull threshold scales with $height and is checked on release',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        await openMenu(
+          tester,
+          platform: TargetPlatform.iOS,
+          scroll: scroll,
+          size: Size(390, height),
+        );
+        final sheet = find.byType(DSheetContent);
+        final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+        final opened = tester.getRect(sheet);
+        final threshold = (height - opened.top) * .3;
+        Future<TestGesture> pullTo(double offset) async {
+          final gesture = await tester.startGesture(tester.getCenter(handle));
+          await gesture.moveBy(const Offset(0, 40));
+          await tester.pump(const Duration(milliseconds: 16));
+          final moved = tester.getRect(sheet).top - opened.top;
+          await gesture.moveBy(Offset(0, offset - moved));
+          await tester.pump(const Duration(milliseconds: 16));
+          return gesture;
+        }
+
+        final retreat = await pullTo(threshold + 20);
+        await retreat.moveBy(const Offset(0, -21));
+        await tester.pump();
+        expect(
+          tester.getRect(sheet).top - opened.top,
+          closeTo(threshold - 1, .01),
+        );
+        await retreat.up();
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), opened);
+        final dismiss = await pullTo(threshold + 1);
+        await dismiss.up();
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+      },
+    );
+  }
+
+  testWidgets('the keyboard does not make the pull threshold shorter', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await openMenu(tester, platform: TargetPlatform.iOS, scroll: scroll);
+    await tester.tap(find.byType(EditableText));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(DSheetContent);
+    final opened = tester.getRect(sheet);
+    await tester.timedDrag(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+      const Offset(0, 200),
+      const Duration(milliseconds: 400),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getRect(sheet), opened);
+  });
+
+  testWidgets(
+    'outside dismissal during opening starts from its visible position',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await openMenu(
+        tester,
+        platform: TargetPlatform.iOS,
+        scroll: scroll,
+        settle: false,
+      );
+      final sheet = find.byType(DSheetContent);
+      for (var frame = 0; frame < 8 && sheet.evaluate().isEmpty; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(sheet, findsOneWidget);
+      expect(
+        ModalRoute.of(tester.element(sheet))!.animation!.status,
+        AnimationStatus.forward,
+      );
+      final opened = tester.getRect(sheet);
+      await tester.tapAt(const Offset(8, 20));
+      await tester.pump();
+      await tester.pump();
+      expect(tester.getRect(sheet), opened);
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(tester.getRect(sheet).top, greaterThan(opened.top));
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+    },
+  );
 
   testWidgets('retained adaptive menus finish their swipe before dismissal', (
     tester,

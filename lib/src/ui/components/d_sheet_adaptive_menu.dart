@@ -80,8 +80,14 @@ class _DSheetMenuPhysics extends ScrollPhysics {
   );
 
   @override
-  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) =>
-      super.applyPhysicsToUserOffset(position, consume(position, offset));
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    final remaining = consume(position, offset);
+    // BouncingScrollPhysics expects a nonzero offset. A drag fully consumed
+    // by the sheet has nothing left to send to the content viewport.
+    return remaining == 0
+        ? 0
+        : super.applyPhysicsToUserOffset(position, remaining);
+  }
 
   @override
   double adjustPositionForNewDimensions({
@@ -182,6 +188,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   final _positions = <ScrollPosition>{};
   late final _travel = AnimationController.unbounded(vsync: this);
   late final _inset = AnimationController(vsync: this, duration: _duration);
+  late final _keyboardPlacement = AnimationController(
+    vsync: this,
+    duration: _duration,
+  );
   double _low = 0;
   double _room = 0;
   double _lift = 0;
@@ -193,6 +203,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _scheduled = false;
   bool _floating = false;
   bool _raiseForKeyboard = false;
+  bool _expanded = true;
   bool _resizingInsets = false;
   double _previousInset = 0;
   bool _keyboardSettled = false;
@@ -204,8 +215,14 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   int? _pointer;
   VelocityTracker? _velocity;
   double _startOffset = 0;
+  double _swipeExtent = 1;
   double? _dismissOrigin;
   double _dismissCurve = 1;
+  double _dismissAnimationOrigin = 1;
+  double _exitVelocity = 0;
+  double? _exitKeyboard;
+  double? _exitSafeBottom;
+  double _safeBottom = 0;
   DOverlayRoute<dynamic, Object>? _route;
   Simulation? Function()? _exitSimulation;
 
@@ -215,21 +232,65 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       ? _travel.value
       : _dismissOrigin! +
             (_room - _dismissOrigin!) *
-                (1 - widget.presentation.animation.value);
+                (1 -
+                        widget.presentation.animation.value /
+                            _dismissAnimationOrigin)
+                    .clamp(0.0, 1.0);
 
   @override
   void initState() {
     super.initState();
-    _travel.addListener(_changed);
+    _travel.addListener(_travelChanged);
+    _travel.addStatusListener(_travelStatus);
     _inset.addListener(_changed);
+    _keyboardPlacement.addListener(_changed);
+    _keyboardPlacement.addStatusListener(_travelStatus);
     _DSheetKeyboardTransitions.ready.addListener(_keyboardTransition);
     unawaited(_DSheetKeyboardTransitions.refresh());
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (identical(route, _route)) return;
+    if (_route?.reverseSimulationBuilder == _exitSimulation) {
+      _route?.reverseSimulationBuilder = null;
+    }
+    _route = !widget.retained && route is DOverlayRoute<dynamic, Object>
+        ? route
+        : null;
+    _exitSimulation = _beginExit;
+    _route?.reverseSimulationBuilder = _exitSimulation;
+  }
+
+  Simulation? _beginExit() {
+    if (!_animate) return null;
+    _interacted = true;
+    _travel.stop();
+    _inset.stop();
+    _keyboardPlacement.stop();
+    _dismissOrigin = _travel.value;
+    _dismissAnimationOrigin = math.max(
+      .001,
+      widget.presentation.animation.value,
+    );
+    _dismissCurve = _curve.transform(widget.presentation.animation.value);
+    _exitKeyboard = _keyboard * _keyboardPlacement.value;
+    _exitSafeBottom = _safeBottom;
+    return _DSheetDismissSimulation(
+      math.max(1, _room - _travel.value),
+      math.max(0, _exitVelocity),
+      widget.presentation.animation.value,
+      duration: _exitVelocity > 0 ? .24 : .18,
+    );
+  }
+
+  @override
   void didUpdateWidget(_DSheetAdaptiveMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_interacted &&
+    if (_dismissOrigin == null &&
+        !_interacted &&
         !identical(
           oldWidget.presentation.content,
           widget.presentation.content,
@@ -244,6 +305,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (native == true ||
         (native == null && _keyboardMinimumElapsed && _keyboardMetricsStable)) {
       _keyboardSettled = true;
+      _raiseForKeyboard = true;
       _scheduleMeasure();
       if (mounted) setState(() {});
     }
@@ -256,12 +318,15 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (keyboard == 0) {
       _keyboardMinimum?.cancel();
       _keyboardSettled = false;
+      _raiseForKeyboard = false;
+      _keyboardPlacement.value = 0;
       _keyboardMinimumElapsed = false;
       _keyboardMetricsStable = false;
     } else {
       if (opening) {
         _floatingBeforeKeyboard = _floating;
         _keyboardSettled = _DSheetKeyboardTransitions.ready.value == true;
+        _raiseForKeyboard = _keyboardSettled;
         _keyboardMinimumElapsed = false;
         _keyboardMinimum = Timer(const Duration(milliseconds: 300), () {
           _keyboardMinimumElapsed = true;
@@ -274,9 +339,25 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         _keyboardTransition();
       });
       _interacted = true;
-      _raiseForKeyboard = true;
     }
     _scheduleMeasure();
+  }
+
+  void _travelChanged() {
+    // Translation and backdrop dimming listen directly to travel. Rebuild the
+    // content's inherited state only when the handle changes Expand/Collapse.
+    final expanded = _travel.value <= 1;
+    if (expanded == _expanded || !mounted) return;
+    _expanded = expanded;
+    setState(() {});
+    _scheduleMeasure();
+  }
+
+  void _travelStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed ||
+        status == AnimationStatus.dismissed) {
+      _scheduleMeasure();
+    }
   }
 
   void _changed() {
@@ -292,9 +373,11 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _scheduled = false;
       if (mounted) _measure();
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _measure() {
+    if (_dismissOrigin != null) return;
     final box = _surface.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
     _positions.removeWhere((p) {
@@ -308,21 +391,34 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final low = _keyboard == 0 && tall > half + 60 ? tall - half : 0.0;
     final wasLow = _low;
     _low = low;
-    if (_raiseForKeyboard) {
-      _raiseForKeyboard = false;
-      _settle(0);
-    }
     if (!_measured || (!_interacted && (wasLow - low).abs() > 1)) {
       _measured = true;
       _travel.value = low;
       setState(() {});
     }
+    if (_raiseForKeyboard) {
+      _raiseForKeyboard = false;
+      _settle(0);
+      if (_animate) {
+        unawaited(_keyboardPlacement.animateTo(1, curve: _curve));
+      } else {
+        _keyboardPlacement.value = 1;
+      }
+    }
     _resizingInsets = false;
     final more =
         _travel.value > 1 ||
         _positions.any((p) => p.hasContentDimensions && p.extentAfter > 1);
-    final floating = _keyboard > 0
-        ? _keyboardSettled || _floatingBeforeKeyboard
+    // Keep the viewport's width and corner geometry stable while following a
+    // finger or returning to a detent. Insets can settle after the translation.
+    final floating = _dragging || _travel.isAnimating
+        ? _floating
+        : _keyboard > 0
+        ? _floatingBeforeKeyboard ||
+              (_keyboardSettled &&
+                  _travel.value <= 1 &&
+                  !_keyboardPlacement.isAnimating &&
+                  _keyboardPlacement.value == 1)
         : !more;
     if (floating != _floating) {
       _floating = floating;
@@ -358,6 +454,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _interacted = true;
     _dragging = true;
     _startOffset = _travel.value;
+    final box = _surface.currentContext?.findRenderObject();
+    _swipeExtent = math.max(
+      1,
+      MediaQuery.sizeOf(context).height -
+          (box is RenderBox ? box.localToGlobal(Offset.zero).dy : 0),
+    );
     _travel.stop();
   }
 
@@ -404,10 +506,21 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _settle(_startOffset > _low / 2 ? _low : 0);
       return;
     }
-    final ahead = _travel.value + velocity * .18;
-    if (ahead > _low + 60) {
-      _dismiss(velocity);
+    final pulled = _travel.value - _startOffset;
+    if (pulled >= 0) {
+      // Match standard sheets: velocity shapes an accepted exit, but never
+      // turns a short pull into a dismissal. A deliberate expanded pull can
+      // return to the lower detent before another pull dismisses it.
+      final threshold = _swipeExtent * _sheetDismissFraction;
+      if (pulled < threshold) {
+        _settle(_startOffset > _low / 2 ? _low : 0);
+      } else if (_travel.value >= _low + threshold) {
+        _dismiss(velocity);
+      } else {
+        _settle(_low);
+      }
     } else {
+      final ahead = _travel.value + velocity * .18;
       final to = velocity < -500
           ? 0.0
           : velocity > 500 && _low > 0
@@ -457,25 +570,15 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       );
       return;
     }
-    final route = ModalRoute.of(context);
-    if (_animate && route is DOverlayRoute<dynamic, Object>) {
-      _route = route;
-      _exitSimulation = () {
-        _dismissOrigin = _travel.value;
-        _dismissCurve = _curve.transform(widget.presentation.animation.value);
-        return _DSheetDismissSimulation(
-          math.max(1, _room - _travel.value),
-          math.max(0, velocity),
-          widget.presentation.animation.value,
-        );
-      };
-      route.reverseSimulationBuilder = _exitSimulation;
-    }
+    _exitVelocity = velocity;
     dismiss();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
           widget.presentation.animation.status == AnimationStatus.completed) {
         _dismissOrigin = null;
+        _exitKeyboard = null;
+        _exitSafeBottom = null;
+        _exitVelocity = 0;
         _settle(_low);
       }
     });
@@ -516,6 +619,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     _travel.dispose();
     _inset.dispose();
+    _keyboardPlacement.dispose();
     _keyboardMinimum?.cancel();
     _keyboardStability?.cancel();
     _DSheetKeyboardTransitions.ready.removeListener(_keyboardTransition);
@@ -526,20 +630,23 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final view = View.of(context);
-    final keyboard = media.viewInsets.bottom;
-    if (_keyboard != keyboard) {
-      _keyboardChanged(keyboard);
+    final systemKeyboard = media.viewInsets.bottom;
+    if (_dismissOrigin == null && _keyboard != systemKeyboard) {
+      _keyboardChanged(systemKeyboard);
     }
+    final keyboard = _exitKeyboard ?? _keyboard * _keyboardPlacement.value;
     final safeTop = math.max(
       media.padding.top,
       view.viewPadding.top / view.devicePixelRatio,
     );
-    final safeBottom = keyboard > 0
-        ? 0.0
-        : math.max(
-            media.viewPadding.bottom,
-            view.viewPadding.bottom / view.devicePixelRatio,
-          );
+    final safeBottom =
+        _exitSafeBottom ??
+        math.max(
+              media.viewPadding.bottom,
+              view.viewPadding.bottom / view.devicePixelRatio,
+            ) *
+            (1 - _keyboardPlacement.value);
+    _safeBottom = safeBottom;
     final side = 6 * _inset.value;
     if (_previousInset != _inset.value) {
       _resizingInsets = true;
@@ -549,7 +656,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _scheduleMeasure();
     final content = _DSheetAdaptiveMenuScope(
       menu: this,
-      expanded: _travel.value <= 1,
+      expanded: _expanded,
       canCollapse: _low > 0,
       child: _DSheetSideScope(
         side: DSheetSide.bottom,
@@ -566,12 +673,13 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         ),
       ),
     );
+    final backdrop = widget.presentation.buildBackdrop(blurSigma: 2);
     return LayoutBuilder(
       builder: (context, bounds) {
         _room = math.max(0, bounds.maxHeight - keyboard);
         final maximum = math.max(0.0, _room - safeTop - 8 - _lift);
         return AnimatedBuilder(
-          animation: widget.presentation.animation,
+          animation: Listenable.merge([widget.presentation.animation, _travel]),
           builder: (context, child) {
             final curve = _animate
                 ? _curve.transform(widget.presentation.animation.value)
@@ -582,10 +690,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
             return Stack(
               clipBehavior: Clip.hardEdge,
               children: [
-                Opacity(
-                  opacity: curve * dim,
-                  child: widget.presentation.buildBackdrop(blurSigma: 2),
-                ),
+                Opacity(opacity: curve * dim, child: backdrop),
                 Positioned(
                   left: side,
                   right: side,
