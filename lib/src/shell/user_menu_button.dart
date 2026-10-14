@@ -396,6 +396,7 @@ class _AccountMenuPopover extends StatelessWidget {
                 6,
           ),
           cornerRadius: 12,
+          variant: DPopoverVariant.timeline,
           padding: EdgeInsets.zero,
           scrollable: false,
           autofocus: false,

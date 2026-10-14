@@ -76,6 +76,33 @@ void main() {
     expect(presentation.avatarUrl, isNull);
   });
 
+  test(
+    'server consolidated replies and localized collapsed labels are groups',
+    () {
+      final consolidated = describe(
+        CoreNotificationTypes.replied,
+        data: const {'consolidated_count': 3, 'reply_to_post_number': 1},
+      );
+      expect(consolidated.menuLead, '3 replies');
+      expect(consolidated.menuPhrase, 'posted in');
+      expect(consolidated.avatarUrl, isNull);
+      final legacy = describe(
+        CoreNotificationTypes.posted,
+        actor: '3 réponses',
+        data: const {'original_username': 'sam'},
+      );
+      expect(legacy.menuLead, '3 réponses');
+      expect(legacy.menuPhrase, 'posted in');
+      expect(legacy.avatarUrl, isNull);
+      final ordinary = describe(
+        CoreNotificationTypes.posted,
+        data: const {'original_username': 'sam'},
+      );
+      expect(ordinary.menuLead, isNull);
+      expect(ordinary.actor, 'sam');
+    },
+  );
+
   test('unknown notification types never interpret type-owned actor data', () {
     final presentation = fallbackNotification(
       const DiscourseNotification.test(

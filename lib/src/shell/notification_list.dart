@@ -743,7 +743,11 @@ class NotificationRow extends StatelessWidget {
           tokens.foreground,
           .10,
         ),
-        foregroundColor: tokens.mutedForeground,
+        foregroundColor: Color.lerp(
+          tokens.colors.surface,
+          tokens.foreground,
+          .50,
+        ),
         child: actor != null && actor.isNotEmpty
             ? Text(actor.characters.first.toUpperCase())
             : DIcon(

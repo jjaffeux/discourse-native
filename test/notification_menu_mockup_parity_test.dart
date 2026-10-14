@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
@@ -43,6 +44,7 @@ void main() {
             platform: platform,
             dark: dark,
             material: material,
+            paletteId: dark ? 'dracula' : 'solarized',
           );
           final originalRoute = shell.currentContent;
           final panel = tester.getRect(find.byType(UserMenuPanel));
@@ -53,11 +55,22 @@ void main() {
           expect(find.text('Notifications'), findsOneWidget);
           expect(find.text('Mark all read'), findsOneWidget);
           expect(find.byType(DSheetContent), findsNothing);
+          final menuSurface = tester.widget<DMaterialSurface>(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is DMaterialSurface &&
+                  widget.depth == DSurfaceDepth.menu,
+            ),
+          );
           final filters = find.byKey(const ValueKey('user-menu-mobile-tabs'));
           final all = _filter('all');
           expect(tester.getSize(all).height, 26);
           final inactive = _filter('replies');
           final tokens = DTokens.of(tester.element(inactive));
+          expect(
+            menuSurface.color,
+            Color.lerp(tokens.colors.surface, tokens.foreground, .03),
+          );
           final well = tester.widget<DMaterialSurface>(
             find.descendant(
               of: inactive,
@@ -112,6 +125,63 @@ void main() {
           expect(dot.top, greaterThan(time.bottom));
           expect(
             find.text('What is everyone’s sourdough hydration?'),
+            findsOneWidget,
+          );
+          final headline = tester.renderObject<RenderParagraph>(
+            find.descendant(
+              of: row,
+              matching: find.textContaining('mossy_mo', findRichText: true),
+            ),
+          );
+          expect(
+            headline.text.style!.color,
+            Color.lerp(tokens.colors.surface, tokens.foreground, .50),
+          );
+          final subject = tester.renderObject<RenderParagraph>(
+            find.descendant(
+              of: row,
+              matching: find.text('What is everyone’s sourdough hydration?'),
+            ),
+          );
+          expect(
+            subject.text.style!.color,
+            Color.lerp(tokens.colors.surface, tokens.foreground, .90),
+          );
+          final readRow = find.byKey(const ValueKey('notification-row-4'));
+          final readSubject = tester.renderObject<RenderParagraph>(
+            find.descendant(
+              of: readRow,
+              matching: find.text('Show & tell: houseplant shelfie thread'),
+            ),
+          );
+          expect(
+            readSubject.text.style!.color,
+            Color.lerp(tokens.colors.surface, tokens.foreground, .50),
+          );
+          expect(
+            tester
+                .renderObject<RenderParagraph>(
+                  find.descendant(of: row, matching: find.text('22m')),
+                )
+                .text
+                .style!
+                .color,
+            Color.lerp(tokens.colors.surface, tokens.foreground, .40),
+          );
+          final grouped = find.byKey(const ValueKey('notification-row-2'));
+          expect(
+            find.descendant(of: grouped, matching: find.text('3')),
+            findsNothing,
+          );
+          expect(
+            find.descendant(of: grouped, matching: find.byType(DIcon)),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
+              of: grouped,
+              matching: find.textContaining('3 réponses', findRichText: true),
+            ),
             findsOneWidget,
           );
           final filtersRect = tester.getRect(filters);
@@ -222,6 +292,7 @@ Future<(ShellController, _MenuApi)> _mount(
   bool dark = false,
   DAppearanceMaterial material = DAppearanceMaterial.standard,
   double height = 844,
+  String? paletteId,
 }) async {
   tester.view.physicalSize = Size(
     platform == TargetPlatform.macOS ? 1000 : 390,
@@ -245,9 +316,17 @@ Future<(ShellController, _MenuApi)> _mount(
   await shell.load();
   await shell.accountActivity.refresh(shell.currentInstance!);
   addTearDown(shell.dispose);
-  final base = (dark ? AppTheme.dark : AppTheme.light).copyWith(
-    platform: platform,
-  );
+  final base =
+      (paletteId == null
+              ? dark
+                    ? AppTheme.dark
+                    : AppTheme.light
+              : AppTheme.fromPalette(
+                  forumThemePresets
+                      .firstWhere((p) => p.id == paletteId)
+                      .resolve(dark ? Brightness.dark : Brightness.light),
+                ))
+          .copyWith(platform: platform);
   await tester.pumpWidget(
     RepaintBoundary(
       key: _capture,
@@ -303,11 +382,22 @@ class _MenuApi extends FakeDiscourseApi {
           for (var id = 2; id <= 20; id++)
             DiscourseNotification.test(
               id: id,
-              typeId: const NotificationTypeId(9),
+              typeId: NotificationTypeId(id == 3 ? 2 : 9),
               read: id > 3,
               title: 'Show & tell: houseplant shelfie thread',
               createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-              data: const {'count': 4},
+              data: id == 2
+                  ? const {
+                      'display_username': '3 réponses',
+                      'original_username': 'sam',
+                    }
+                  : id == 3
+                  ? const {
+                      'consolidated_count': 4,
+                      'display_username': '4 replies',
+                      'original_username': 'sam',
+                    }
+                  : const {'count': 4},
             ),
         ],
         otherNotificationList: const [

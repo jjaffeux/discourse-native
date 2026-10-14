@@ -433,15 +433,36 @@ ResolvedNotification? _decodeCoreNotification(
     18 || 24 => appL10n.reminderNotificationtypes(''),
     _ => null,
   };
-  final groupedReplies = type == 9 && count > 1;
+  final consolidatedCount = jsonInt(data['consolidated_count']);
+  final displayUsername = jsonText(data['display_username']);
+  final originalUsername = jsonText(data['original_username']);
+  // Older collapsed posted notifications put the localized reply count in
+  // display_username without a numeric count. It is a label, not an actor.
+  final collapsedReplyLabel =
+      type == 9 &&
+      displayUsername != null &&
+      originalUsername != null &&
+      displayUsername != originalUsername &&
+      notification.actingUserName == null &&
+      notification.actingUserAvatarTemplate == null;
+  final groupedReplyCount = consolidatedCount > 1 ? consolidatedCount : count;
+  final groupedReplies =
+      ((type == 2 || type == 9) && groupedReplyCount > 1) ||
+      collapsedReplyLabel;
 
   return ResolvedNotification(
     presentation: NotificationPresentation(
       icon: _coreIcon(type),
       actor: actor,
       phrase: phrase,
-      menuLead: groupedReplies ? countLabel(count, CountNoun.reply) : null,
-      menuPhrase: menuPhrase?.trim(),
+      menuLead: groupedReplies
+          ? groupedReplyCount > 1
+                ? countLabel(groupedReplyCount, CountNoun.reply)
+                : displayUsername
+          : null,
+      menuPhrase: groupedReplies
+          ? appL10n.postedIn('').trim()
+          : menuPhrase?.trim(),
       subject: menuPhrase == null
           ? null
           : type == 18 || type == 24

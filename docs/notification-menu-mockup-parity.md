@@ -18,6 +18,14 @@ the palette's 62% text mix. Hover uses white 5% dark / black 7% light. Filters
 have 26px base artwork, grow with text, scroll under a directional 28px fade,
 and retain the kit's keyboard focus and exact visible hit bounds.
 
+Selected Liquid Glass filters reuse the existing Native writing capsule's
+accent tint (76% opacity), radial highlight, 1px rim and inset edge lighting.
+This keeps the reference's glass appearance inside the overflow mask without
+putting a live refraction shader into that mask's offscreen pass.
+The panel mixes raw foreground 3% into the canvas; row actions/read subjects
+use 50%, unread subjects 90%, and times 40%, including Solarized palettes.
+Collapsed server reply labels and `consolidated_count` use the reply glyph.
+
 Rows have 8px/9px insets, a 30px avatar or glyph, 10px content gaps, a 13px
 headline, and a 12.5px subject separated by 1px. Time and the unread dot share
 the trailing column. Actors stay bold, read subjects recede, and accessible
@@ -42,7 +50,17 @@ iOS/Android, RTL, 200% text, horizontal navigation, live counts, and dismissal.
 Focused notification navigation, account-session, bookmark, profile-menu, and
 Native control suites cover the affected integration contracts.
 
-Validation: 362 tests pass across 17 focused files. The remaining button suite
+`integration_test/notification_filter_rendering_test.dart` runs the filter
+paint regression on iOS: both ends of a selected pill must retain accent fill
+before and after scrolling. The previous live shader fails this check under
+Impeller. The shared capsule passes in light/dark Standard and Liquid Glass.
+Use `--dart-define=NOTIFICATION_FILTER_CAPTURE_DIR=/path` to save PNGs.
+
+Initial menu validation: 362 tests pass across 17 focused files. The remaining button suite
 passes 73 tests and has one existing dock assertion expecting 44px instead of
 50px; that failure reproduces on unchanged `main` at `f4569a004`. The patch does
 not change dock artwork. Focused static analysis is clean.
+
+The glass/color follow-up passes 83 focused checks, including the four native
+iOS rendering cases and the desktop/mobile color matrix. Static analysis is
+clean for the changed files.

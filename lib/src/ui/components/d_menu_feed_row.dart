@@ -32,6 +32,7 @@ class DMenuFeedRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final muted = Color.lerp(tokens.colors.surface, tokens.foreground, .50)!;
     final scaler = MediaQuery.textScalerOf(context);
     final largeText = scaler.scale(13) > 19.5;
     final titleHeight = scaler.scale(13) * 1.35;
@@ -81,7 +82,7 @@ class DMenuFeedRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         spacing: 1,
                         children: [
-                          line(title, 13, 1.35, tokens.mutedForeground),
+                          line(title, 13, 1.35, muted),
                           if (description != null)
                             line(
                               description!,
@@ -93,7 +94,7 @@ class DMenuFeedRow extends StatelessWidget {
                                       tokens.foreground,
                                       .90,
                                     )!
-                                  : tokens.mutedForeground,
+                                  : muted,
                             ),
                         ],
                       ),
