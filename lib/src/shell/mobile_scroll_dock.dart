@@ -27,14 +27,19 @@ class MobileScrollDock extends StatelessWidget {
   final bool floating;
 
   @override
-  Widget build(BuildContext context) => DScrollChrome(
-    identity: identity,
-    visible: visible,
-    enabled: hideOnScroll,
-    keepFooterVisible: keepActionVisible,
-    floatingFooter: floating,
-    footerBuilder: (hidden) =>
-        dockBuilder(floating ? hidden : hidden && keepActionVisible),
-    child: body,
+  Widget build(BuildContext context) => RepaintBoundary(
+    // Scrolling and dock motion must not repaint the surrounding mobile shell.
+    child: DScrollChrome(
+      identity: identity,
+      visible: visible,
+      enabled: hideOnScroll,
+      keepFooterVisible: keepActionVisible,
+      floatingFooter: floating,
+      footerBuilder: (hidden) => RepaintBoundary(
+        child: dockBuilder(floating ? hidden : hidden && keepActionVisible),
+      ),
+      // Keep the reader and dock independent while either one is animating.
+      child: RepaintBoundary(child: body),
+    ),
   );
 }
