@@ -68,6 +68,33 @@ List<int> loaded(Store store, TopicDetail topic) => [
 ];
 
 void main() {
+  test('timeline dates parse and survive topic updates', () {
+    final topic = TopicDetail.parse({
+      'id': 7,
+      'title': 'A topic',
+      'created_at': '2026-05-17T08:30:00Z',
+      'last_posted_at': '2026-10-14T19:00:00Z',
+      'post_stream': {
+        'stream': [1, 2],
+        'posts': <Object?>[],
+      },
+    }, site).detail;
+    expect(topic.createdAt, DateTime.utc(2026, 5, 17, 8, 30));
+    expect(topic.lastPostedAt, DateTime.utc(2026, 10, 14, 19));
+    for (final updated in [
+      topic.copyWith(title: 'Updated'),
+      topic.withPlugins(PluginData.none),
+      topic.withPostId(3),
+    ]) {
+      expect(updated.createdAt, topic.createdAt);
+      expect(updated.lastPostedAt, topic.lastPostedAt);
+    }
+    expect(
+      topic,
+      isNot(const TopicDetail(id: 7, title: 'A topic', stream: [1, 2])),
+    );
+  });
+
   group('wire parsing', () {
     test('preserves plain topic previews across model updates', () {
       final topic = Topic.fromJson(

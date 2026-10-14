@@ -109,9 +109,9 @@ class Post with Storable<Post> {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
     final like = _likeSummary(json['actions_summary']);
-    final linkCountJson = jsonObjects(
-      json['link_counts'],
-    ).take(maximumLinkCounts).toList(growable: false);
+    final linkCountJson = jsonObjects(json['link_counts'])
+        .take(maximumLinkCounts)
+        .toList(growable: false);
     return Post(
       id: jsonInt(json['id']),
       postNumber: jsonInt(json['post_number']),
@@ -592,6 +592,8 @@ class TopicDetail with Storable<TopicDetail> {
     required this.title,
     required this.stream,
     this.messageBusLastId,
+    this.createdAt,
+    this.lastPostedAt,
     this.isMegaTopic = false,
     this.lastPostId,
     this.highestPostNumber = 0,
@@ -671,15 +673,17 @@ class TopicDetail with Storable<TopicDetail> {
         id: jsonInt(json['id']),
         title: jsonTitle(json['title'], json['fancy_title']),
         messageBusLastId: jsonIntOrNull(json['message_bus_last_id']),
+        createdAt: jsonDate(json['created_at']),
+        lastPostedAt: jsonDate(json['last_posted_at']),
         stream: List.unmodifiable(
           isMegaTopic
               ? {
                   for (final post in posts)
                     if (post.id > 0) post.id,
                 }
-              : jsonArray(
-                  postStream['stream'],
-                ).map(jsonIntOrNull).whereType<int>(),
+              : jsonArray(postStream['stream'])
+                    .map(jsonIntOrNull)
+                    .whereType<int>(),
         ),
         isMegaTopic: isMegaTopic,
         lastPostId: isMegaTopic ? jsonIntOrNull(postStream['lastId']) : null,
@@ -776,6 +780,8 @@ class TopicDetail with Storable<TopicDetail> {
   final int id;
   final String title;
   final int? messageBusLastId;
+  final DateTime? createdAt;
+  final DateTime? lastPostedAt;
 
   /// The topic's post ids in reading order, or for a mega topic, only the
   /// contiguous run of them read so far.
@@ -1125,6 +1131,8 @@ class TopicDetail with Storable<TopicDetail> {
     id: id,
     title: title,
     messageBusLastId: messageBusLastId,
+    createdAt: createdAt,
+    lastPostedAt: lastPostedAt,
     stream: stream,
     isMegaTopic: isMegaTopic,
     lastPostId: lastPostId,
@@ -1274,6 +1282,8 @@ class TopicDetail with Storable<TopicDetail> {
     id: id,
     title: title ?? this.title,
     messageBusLastId: messageBusLastId,
+    createdAt: createdAt,
+    lastPostedAt: lastPostedAt,
     stream: stream == null ? this.stream : List.unmodifiable(stream),
     isMegaTopic: isMegaTopic,
     lastPostId: lastPostId ?? this.lastPostId,
@@ -1340,6 +1350,8 @@ class TopicDetail with Storable<TopicDetail> {
           other.id == id &&
           other.title == title &&
           other.messageBusLastId == messageBusLastId &&
+          other.createdAt == createdAt &&
+          other.lastPostedAt == lastPostedAt &&
           listEquals(other.stream, stream) &&
           other.isMegaTopic == isMegaTopic &&
           other.lastPostId == lastPostId &&
@@ -1397,6 +1409,8 @@ class TopicDetail with Storable<TopicDetail> {
     id,
     title,
     messageBusLastId,
+    createdAt,
+    lastPostedAt,
     Object.hashAll(stream),
     isMegaTopic,
     lastPostId,

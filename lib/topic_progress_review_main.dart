@@ -3,6 +3,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'src/macos_launch_screen.dart';
+import 'src/models/post.dart';
 import 'src/shell/topic_progress.dart';
 import 'src/theme/app_theme.dart';
 
@@ -67,7 +68,7 @@ class _TimelineExampleState extends State<_TimelineExample> {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 270,
+    width: 342,
     child: DCard(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -80,12 +81,21 @@ class _TimelineExampleState extends State<_TimelineExample> {
             // possible; clicking the trigger also exercises the real popover.
             DPopoverContent(
               variant: DPopoverVariant.timeline,
-              width: 228,
-              cornerRadius: 12,
-              padding: const EdgeInsets.fromLTRB(6, 11, 6, 9),
+              width: 300,
+              cornerRadius: 16,
+              padding: const EdgeInsets.all(14),
               child: TopicProgressPanel(
                 position: _position,
                 total: 120,
+                postAt: (at) => Post(
+                  id: at,
+                  postNumber: at,
+                  username: 'flourpower',
+                  cooked: '',
+                  createdAt: DateTime(2026, 5, 17),
+                ),
+                firstPostedAt: DateTime(2026, 5, 17),
+                lastPostedAt: DateTime(2026, 10, 14),
                 onJump: (at) => setState(() => _position = at),
               ),
             ),
@@ -96,10 +106,10 @@ class _TimelineExampleState extends State<_TimelineExample> {
                 variant: DPopoverVariant.timeline,
                 side: DPopoverSide.top,
                 align: DPopoverAlign.end,
-                width: 228,
+                width: 300,
                 sideOffset: 8,
-                cornerRadius: 12,
-                padding: const EdgeInsets.fromLTRB(6, 11, 6, 9),
+                cornerRadius: 16,
+                padding: const EdgeInsets.all(14),
                 child: TopicProgressPanel(
                   position: _position,
                   total: 120,

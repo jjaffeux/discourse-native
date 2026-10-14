@@ -45,25 +45,20 @@ void main() {
           );
           final slider = find.byType(DSlider);
           final rect = tester.getRect(slider);
-          expect(rect.height, 14);
+          expect(rect.height, 22);
           final thumb = tester.widget<AnimatedContainer>(
             find.descendant(
               of: slider,
               matching: find.byType(AnimatedContainer),
             ),
           );
-          expect(thumb.constraints!.maxWidth, 14);
+          expect(thumb.constraints!.maxWidth, 20);
           final decoration = thumb.decoration! as BoxDecoration;
-          final context = tester.element(slider);
-          expect(decoration.color, DTokens.of(context).primary);
-          expect(decoration.border!.top.width, 2);
+          expect(decoration.color, Colors.white);
+          expect(decoration.border!.top.width, .5);
           expect(
             decoration.border!.top.color,
-            Color.lerp(
-              DTokens.of(context).background,
-              DTokens.of(context).foreground,
-              .03,
-            ),
+            Colors.black.withValues(alpha: .12),
           );
           // Input beyond the visible extent cannot change the post.
           await tester.tapAt(Offset(rect.right - 1, rect.bottom + 1));

@@ -3,8 +3,13 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import '../theme/discourse_typography.dart';
+import 'package:intl/intl.dart' show DateFormat;
 
+import '../models/post.dart';
+import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
+import 'avatar_image.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 
 class TopicProgressButton extends StatelessWidget {
@@ -79,48 +84,89 @@ class TopicProgressPopover extends StatefulWidget {
 
 class _TopicProgressPopoverState extends State<TopicProgressPopover> {
   final _popover = DPopoverController();
+  final _sheet = DSheetController<void>();
   int _session = 0;
 
   @override
   void dispose() {
     _popover.dispose();
+    _sheet.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => DPopover(
-    controller: _popover,
-    onOpenChange: (open, _) {
-      if (open) setState(() => _session++);
-    },
-    content: DPopoverContent(
-      variant: DPopoverVariant.timeline,
-      side: DPopoverSide.top,
-      align: DPopoverAlign.end,
-      width: 228,
-      sideOffset: 8,
-      cornerRadius: 12,
-      padding: const EdgeInsets.fromLTRB(6, 11, 6, 9),
-      semanticLabel: context.l10n.postNavigation,
-      child: _TopicProgressEditor(
-        key: ValueKey(_session),
-        controller: widget.controller,
-        position: widget.position,
-        total: widget.total < 1 ? 1 : widget.total,
-        isOpen: () => _popover.isOpen,
+  Widget build(BuildContext context) {
+    if (context.isTouch) {
+      return DSheet<void>(
+        controller: _sheet,
+        onOpenChanged: (details) {
+          if (details.open) setState(() => _session++);
+        },
+        content: DSheetContent(
+          key: const ValueKey('topic-progress-sheet'),
+          variant: DSheetVariant.menu,
+          side: DSheetSide.bottom,
+          inset: true,
+          showCloseButton: false,
+          semanticLabel: context.l10n.postNavigation,
+          topBottomMaxHeightFactor: .9,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+              child: _TopicProgressEditor(
+                key: ValueKey(_session),
+                controller: widget.controller,
+                position: widget.position,
+                total: widget.total < 1 ? 1 : widget.total,
+                isOpen: () => _sheet.isOpen,
+              ),
+            ),
+          ],
+        ),
+        trigger: DSheetTrigger(
+          builder: (context, open) => TopicProgressButton(
+            position: widget.position,
+            total: widget.total,
+            expanded: _sheet.isOpen,
+            onPressed: open,
+          ),
+        ),
+      );
+    }
+    return DPopover(
+      controller: _popover,
+      onOpenChange: (open, _) {
+        if (open) setState(() => _session++);
+      },
+      content: DPopoverContent(
+        variant: DPopoverVariant.timeline,
+        side: DPopoverSide.top,
+        align: DPopoverAlign.end,
+        width: 300,
+        sideOffset: 8,
+        cornerRadius: 16,
+        padding: const EdgeInsets.all(14),
+        semanticLabel: context.l10n.postNavigation,
+        child: _TopicProgressEditor(
+          key: ValueKey(_session),
+          controller: widget.controller,
+          position: widget.position,
+          total: widget.total < 1 ? 1 : widget.total,
+          isOpen: () => _popover.isOpen,
+        ),
       ),
-    ),
-    child: DPopoverTrigger(
-      builder: (context, trigger) => TopicProgressButton(
-        position: widget.position,
-        total: widget.total,
-        onPressed: trigger.toggle,
-        floating: widget.floating,
-        focusNode: trigger.focusNode,
-        expanded: trigger.open,
+      child: DPopoverTrigger(
+        builder: (context, trigger) => TopicProgressButton(
+          position: widget.position,
+          total: widget.total,
+          onPressed: trigger.toggle,
+          floating: widget.floating,
+          focusNode: trigger.focusNode,
+          expanded: trigger.open,
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _TopicProgressEditor extends StatefulWidget {
@@ -145,6 +191,9 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
   late int _selected = widget.position.clamp(1, widget.total);
   int _request = 0;
   String? _error;
+  String? _siteUrl;
+  TopicDetail? _topic;
+  List<int> _stream = const [];
 
   late final bool Function() _ownsSource;
   late final VoidCallback _sourceListener;
@@ -155,6 +204,9 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     final controller = widget.controller;
     final siteUrl = controller.currentInstance?.url;
     final topicId = controller.currentContent?.topicId;
+    _siteUrl = siteUrl;
+    _topic = controller.currentTopic;
+    _stream = List.of(controller.currentTopicStreamIds);
     final tabId = controller.activeTabId;
     if (controller.accountSessionDisposed ||
         siteUrl == null ||
@@ -219,10 +271,27 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
         !_checkSource()) {
       return;
     }
-    if (opened) return;
+    if (opened) {
+      setState(() {});
+      return;
+    }
     setState(() {
       _error = appL10n.couldNotOpenThatPostTryAgain;
     });
+  }
+
+  Post? _postAt(int position) {
+    final site = _siteUrl;
+    if (site == null) return null;
+    if (_topic?.isMegaTopic == true && !widget.controller.currentTopicSummary) {
+      for (final id in widget.controller.currentTopicStreamIds) {
+        final post = widget.controller.store.read<Post>(site, id);
+        if (post?.postNumber == position) return post;
+      }
+      return null;
+    }
+    if (position < 1 || position > _stream.length) return null;
+    return widget.controller.store.read<Post>(site, _stream[position - 1]);
   }
 
   @override
@@ -230,6 +299,9 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     position: _selected,
     total: widget.total,
     error: _error,
+    postAt: _postAt,
+    firstPostedAt: _postAt(1)?.createdAt ?? _topic?.createdAt,
+    lastPostedAt: _postAt(widget.total)?.createdAt ?? _topic?.lastPostedAt,
     onJump: (value) => unawaited(_jump(value)),
   );
 }
@@ -243,12 +315,18 @@ class TopicProgressPanel extends StatefulWidget {
     required this.total,
     required this.onJump,
     this.error,
+    this.postAt,
+    this.firstPostedAt,
+    this.lastPostedAt,
   });
 
   final int position;
   final int total;
   final ValueChanged<int> onJump;
   final String? error;
+  final Post? Function(int position)? postAt;
+  final DateTime? firstPostedAt;
+  final DateTime? lastPostedAt;
 
   @override
   State<TopicProgressPanel> createState() => _TopicProgressPanelState();
@@ -268,87 +346,174 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final tokens = DTokens.of(context);
+    final total = widget.total < 1 ? 1 : widget.total;
+    final at = _preview.clamp(1, total);
+    final post = widget.postAt?.call(at);
+    final muted = Color.lerp(tokens.background, tokens.foreground, .50)!;
+    final dayStyle = TextStyle(
+      color: muted,
+      fontSize: DiscourseTypography.metadata,
+      height: 1.5,
+    );
+    String day(DateTime? value) => value == null
+        ? ''
+        : DateFormat(
+            context.l10n.calendarDatePattern,
+            context.l10n.localeName,
+          ).format(value.toLocal());
+    final fallback = DAvatarFallback(
+      child: Text(post?.username.characters.firstOrNull?.toUpperCase() ?? ''),
+    );
+    Widget endButton(bool first) => DButton(
+      label: Text(first ? context.l10n.firstPost : context.l10n.latestPost),
+      icon: RotatedBox(
+        quarterTurns: first ? 0 : 2,
+        child: const DIcon(DIcons.arrowUp),
+      ),
+      variant: DButtonVariant.ghost,
+      density: DButtonDensity.timelineEnd,
+      onPressed: at == (first ? 1 : total) && widget.error == null
+          ? null
+          : () {
+              final target = first ? 1 : total;
+              setState(() => _preview = target);
+              widget.onJump(target);
+            },
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 7),
-          child: Text.rich(
-            TextSpan(
-              text: context.l10n.postTopicprogress(_preview.toString()),
-              children: [
-                TextSpan(
-                  text: context.l10n.messageOf(widget.total.toString()),
-                  style: TextStyle(
-                    color: Color.lerp(
-                      DTokens.of(context).background,
-                      DTokens.of(context).foreground,
-                      .50,
-                    ),
-                    fontWeight: FontWeight.w400,
-                  ),
+        Row(
+          children: [
+            if (post != null) ...[
+              DAvatar(
+                border: false,
+                decorative: true,
+                fallback: fallback,
+                child: AvatarImage(
+                  url: post.avatarUrl,
+                  size: 32,
+                  fallback: fallback,
                 ),
-              ],
+              ),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    post?.username ??
+                        context.l10n.postTopicprogress(at.toString()),
+                    key: const ValueKey('topic-progress-author'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: tokens.foreground,
+                      fontSize: DiscourseTypography.compact,
+                      height: 1.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (post?.createdAt != null) ...[
+                    const SizedBox(height: 1),
+                    Text(day(post!.createdAt), style: dayStyle),
+                  ],
+                ],
+              ),
             ),
-            key: const ValueKey('topic-progress-selection'),
-            style: TextStyle(
-              color: DTokens.of(context).foreground,
-              fontSize: DiscourseTypography.preview,
-              height: 1.5,
-              fontWeight: FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
+            const SizedBox(width: 10),
+            Semantics(
+              label: context.l10n.postOf(at.toString(), total.toString()),
+              excludeSemantics: true,
+              child: Text.rich(
+                TextSpan(
+                  text: at.toString(),
+                  style: TextStyle(
+                    color: tokens.foreground,
+                    fontSize: DiscourseTypography.lg,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: ' / $total',
+                      style: TextStyle(
+                        color: muted,
+                        fontSize: DiscourseTypography.control,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+                key: const ValueKey('topic-progress-selection'),
+                textDirection: TextDirection.ltr,
+                style: const TextStyle(
+                  height: 1.5,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
             ),
-          ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        TopicPositionSlider(
+          position: at,
+          total: total,
+          onChanged: total <= 1
+              ? null
+              : (value) => setState(() => _preview = value),
+          onChangeEnd: widget.onJump,
+          onChangeCancel: () => setState(() => _preview = widget.position),
         ),
         const SizedBox(height: 4),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-          child: TopicPositionSlider(
-            position: _preview,
-            total: widget.total,
-            onChanged: (value) => setState(() => _preview = value),
-            onChangeEnd: widget.onJump,
-            onChangeCancel: () => setState(() => _preview = widget.position),
-          ),
+        Row(
+          children: [
+            Expanded(child: Text(day(widget.firstPostedAt), style: dayStyle)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                day(widget.lastPostedAt),
+                style: dayStyle,
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         if (widget.error case final message?) ...[
           Semantics(
             liveRegion: true,
             child: Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(color: theme.colorScheme.error),
+              style: TextStyle(color: tokens.destructive),
             ),
           ),
           const SizedBox(height: 12),
         ],
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          spacing: DSpacing.controlGap,
-          runSpacing: 8,
-          children: [
-            DButton(
-              label: Text(context.l10n.firstPost),
-              variant: DButtonVariant.ghost,
-              density: DButtonDensity.timelineEnd,
-              onPressed: () {
-                setState(() => _preview = 1);
-                widget.onJump(1);
-              },
-            ),
-            DButton(
-              label: Text(context.l10n.latestPost),
-              variant: DButtonVariant.ghost,
-              density: DButtonDensity.timelineEnd,
-              onPressed: () {
-                setState(() => _preview = widget.total);
-                widget.onJump(widget.total);
-              },
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, bounds) {
+            // Larger accessibility text stacks the full buttons within the panel.
+            if (MediaQuery.textScalerOf(context).scale(12.5) > 18) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  endButton(true),
+                  const SizedBox(height: 8),
+                  endButton(false),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: endButton(true)),
+                const SizedBox(width: 8),
+                Expanded(child: endButton(false)),
+              ],
+            );
+          },
         ),
       ],
     );

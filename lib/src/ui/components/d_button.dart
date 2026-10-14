@@ -675,6 +675,8 @@ class DButton extends StatelessWidget {
     // Both dock densities scale artwork with the 11px destination labels.
     final spacingUnit = postReaction
         ? DPostReactionStyle.iconSize
+        : timelineEnd
+        ? 11.0
         : header
         ? 16.0
         : chrome
@@ -686,7 +688,9 @@ class DButton extends StatelessWidget {
         : (chatMessageAction
               ? 16.0
               : (DControlStyle.iconDimension(effectiveSize, context: context)));
-    final gap = postReaction
+    final gap = timelineEnd
+        ? 6.0
+        : postReaction
         ? DPostReactionStyle.gap
         : header
         ? 8.0
@@ -717,7 +721,7 @@ class DButton extends StatelessWidget {
                   ? 26
                   : topicProgress
                   ? 30
-                  : 28.75) +
+                  : 34) +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
         : postReaction
@@ -769,6 +773,7 @@ class DButton extends StatelessWidget {
               ? 8
               : floatingCall ||
                     topicProgress ||
+                    timelineEnd ||
                     postReaction ||
                     chrome ||
                     avatar ||
@@ -904,7 +909,11 @@ class DButton extends StatelessWidget {
         final foreground =
             foregroundColor ??
             (timelineEnd
-                ? tokens.buttonTheme.accent.foreground
+                ? Color.lerp(
+                    tokens.background,
+                    tokens.foreground,
+                    states.contains(WidgetState.disabled) ? .35 : .90,
+                  )!
                 : Color.lerp(tokens.background, tokens.foreground, .50)!);
         return DButtonStateStyle(
           foregroundColor: foreground,
@@ -917,8 +926,12 @@ class DButton extends StatelessWidget {
                         .10,
                       )!.withValues(alpha: dark ? .42 : .50)
                     : _floatingCallFill(tokens)
-              : timelineEnd && interactive
-              ? tokens.buttonTheme.accent.hover
+              : timelineEnd
+              ? Color.lerp(
+                  tokens.background,
+                  tokens.foreground,
+                  interactive ? .14 : .10,
+                )!
               : Colors.transparent,
           border: floatingCall && !glass
               ? BorderSide(
@@ -1092,7 +1105,9 @@ class DButton extends StatelessWidget {
                     fontSize,
           fontWeight: floatingCall
               ? FontWeight.w600
-              : topicProgress || timelineEnd
+              : timelineEnd
+              ? FontWeight.w500
+              : topicProgress
               ? FontWeight.w400
               : postReaction
               ? FontWeight.w500
@@ -1448,7 +1463,7 @@ class DButton extends StatelessWidget {
             clipBehavior: Clip.none,
             child: child,
           );
-    if (!enabled) {
+    if (!enabled && !timelineEnd) {
       result = Opacity(opacity: buttons.disabledOpacity, child: result);
     }
     if (tooltip case final tooltip?) {

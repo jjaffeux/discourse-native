@@ -293,7 +293,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
       final inset = math.min(13.0, extent / 2);
       return ((_reverse ? 1 - f : f) * extent).clamp(inset, extent - inset);
     }
-    final diameter = widget.variant == DSliderVariant.timeline ? 14.0 : 12.0;
+    final diameter = widget.variant == DSliderVariant.timeline ? 20.0 : 12.0;
     return diameter / 2 +
         (_reverse ? 1 - f : f) * math.max(0, extent - diameter);
   }
@@ -306,7 +306,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
       );
       return widget.min + (_reverse ? 1 - f : f) * (widget.max - widget.min);
     }
-    final diameter = widget.variant == DSliderVariant.timeline ? 14.0 : 12.0;
+    final diameter = widget.variant == DSliderVariant.timeline ? 20.0 : 12.0;
     final f =
         (((_vertical ? point.dy : point.dx) - diameter / 2) /
                 math.max(1, extent - diameter))
@@ -523,7 +523,7 @@ class _DMultiSliderState extends State<DMultiSlider> {
     final tokens = DTokens.of(context);
     final crossExtent = switch (widget.variant) {
       DSliderVariant.standard => 12.0,
-      DSliderVariant.timeline => 14.0,
+      DSliderVariant.timeline => 22.0,
 
       DSliderVariant.ramp => 26.0,
     };
@@ -600,6 +600,11 @@ class _DMultiSliderState extends State<DMultiSlider> {
                                       fraction: _fraction(_values.last),
                                     )
                                   : _SliderTrack(
+                                      breadth:
+                                          widget.variant ==
+                                              DSliderVariant.timeline
+                                          ? 6
+                                          : 4,
                                       vertical: _vertical,
 
                                       start: _values.length == 1
@@ -780,7 +785,7 @@ class _SliderThumbState extends State<_SliderThumb> {
           final width = widget.ramp
               ? 18.0
               : widget.timeline
-              ? 14.0
+              ? 20.0
               : 12.0;
           final height = width;
           final offset = widget.offset;
@@ -804,31 +809,32 @@ class _SliderThumbState extends State<_SliderThumb> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(999),
                     // base-nova explicitly uses bg-white in both color modes.
-                    color: widget.ramp
-                        ? Colors.transparent
-                        : widget.timeline
-                        ? DTokens.of(context).primary
-                        : Colors.white,
+                    color: widget.ramp ? Colors.transparent : Colors.white,
                     border: Border.all(
                       color: widget.timeline
-                          ? Color.lerp(
-                              DTokens.of(context).background,
-                              DTokens.of(context).foreground,
-                              .03,
-                            )!
+                          ? Colors.black.withValues(alpha: .12)
                           : widget.ramp
                           ? DTokens.of(context).foreground
                           : ring,
-                      width: widget.ramp || widget.timeline ? 2 : 1,
+                      width: widget.timeline
+                          ? .5
+                          : widget.ramp
+                          ? 2
+                          : 1,
                     ),
-                    boxShadow: highlighted
-                        ? [
-                            BoxShadow(
-                              color: ring.withValues(alpha: 0.5),
-                              spreadRadius: 3,
-                            ),
-                          ]
-                        : [],
+                    boxShadow: [
+                      if (widget.timeline)
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .30),
+                          offset: const Offset(0, 2),
+                          blurRadius: 6,
+                        ),
+                      if (highlighted)
+                        BoxShadow(
+                          color: ring.withValues(alpha: 0.5),
+                          spreadRadius: 3,
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -969,8 +975,10 @@ class _SliderTrack extends CustomPainter {
     required this.buffered,
     required this.muted,
     required this.primary,
+    required this.breadth,
   });
 
+  final double breadth;
   final bool vertical;
   final double start, end, origin;
   final double? buffered;
@@ -978,7 +986,6 @@ class _SliderTrack extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final crossExtent = vertical ? size.width : size.height;
-    const breadth = (4.0);
     final inset = (crossExtent - breadth) / 2;
     final rect = vertical
         ? Rect.fromLTWH(inset, 0, breadth, size.height)
@@ -1014,6 +1021,7 @@ class _SliderTrack extends CustomPainter {
 
   @override
   bool shouldRepaint(_SliderTrack oldDelegate) =>
+      breadth != oldDelegate.breadth ||
       (vertical != oldDelegate.vertical) ||
       start != oldDelegate.start ||
       end != oldDelegate.end ||

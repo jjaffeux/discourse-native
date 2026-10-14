@@ -66,7 +66,7 @@ void main() {
                           ? 26
                           : footer
                           ? 30
-                          : 28.75) +
+                          : 34) +
                       fontSize * (scale - 1) * 1.5,
                   .01,
                 ),
@@ -75,7 +75,11 @@ void main() {
               final glass = material == DAppearanceMaterial.liquidGlass;
               expect(
                 surface.color.a,
-                floating && !glass ? closeTo(.4, .001) : 0,
+                floating && !glass
+                    ? closeTo(.4, .001)
+                    : footer || floating
+                    ? 0
+                    : 1,
               );
               expect(
                 surface.borderColor.a,
@@ -91,10 +95,7 @@ void main() {
                 expect(materialSurface.preserveColor, isTrue);
                 expect(materialSurface.color.a, closeTo(dark ? .42 : .5, .001));
               }
-              expect(
-                surface.borderRadius.topLeft.x,
-                floating || footer ? 999 : 7,
-              );
+              expect(surface.borderRadius.topLeft.x, 999);
               expect(
                 find.descendant(
                   of: button,

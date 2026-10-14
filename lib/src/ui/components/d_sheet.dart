@@ -12,6 +12,10 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
 
+/// Sheet artwork presets. Menu sheets float above the home indicator with
+/// a grab handle and rounded corners matching anchored Native menus.
+enum DSheetVariant { standard, menu }
+
 /// Physical edges, direction-aware conveniences, and a centered reading panel.
 enum DSheetSide { top, right, bottom, left, start, end, center }
 
@@ -113,6 +117,7 @@ class DSheet<T> extends StatelessWidget {
       content.fillAvailableHeight,
       content.extendBehindKeyboard,
       true,
+      variant: content.variant,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -170,6 +175,7 @@ class DSheetViewport extends StatelessWidget {
         content.fillAvailableHeight,
         content.extendBehindKeyboard,
         onDismiss != null || onSwipeDismissRequested != null,
+        variant: content.variant,
         retainKeyboardInsets: true,
         onRetainedDismiss: onDismiss,
         onRetainedSwipeDismissRequested: onSwipeDismissRequested,
@@ -332,6 +338,7 @@ Widget _sheetPresentation(
   bool fillAvailableHeight,
   bool extendBehindKeyboard,
   bool dismissOnSwipe, {
+  DSheetVariant variant = DSheetVariant.standard,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
@@ -351,6 +358,7 @@ Widget _sheetPresentation(
     fillAvailableHeight,
     extendBehindKeyboard,
     dismissOnSwipe,
+    variant: variant,
     retainKeyboardInsets: retainKeyboardInsets,
     onRetainedDismiss: onRetainedDismiss,
     onRetainedSwipeDismissRequested: onRetainedSwipeDismissRequested,
@@ -371,6 +379,7 @@ Widget _sheetLayout(
   bool fillAvailableHeight,
   bool extendBehindKeyboard,
   bool dismissOnSwipe, {
+  DSheetVariant variant = DSheetVariant.standard,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
@@ -475,7 +484,11 @@ Widget _sheetLayout(
 
   final layout = LayoutBuilder(
     builder: (context, bounds) {
-      final margin = inset ? DSpacing.md : 0.0;
+      final margin = inset
+          ? variant == DSheetVariant.menu
+                ? 6.0
+                : DSpacing.md
+          : 0.0;
       // A trigger inside SafeArea can capture a MediaQuery with its top padding
       // consumed, even though the overlay route covers the whole screen.
       final view = View.of(context);
@@ -1038,6 +1051,7 @@ class DSheetContent extends StatelessWidget {
     super.key,
     required this.children,
     this.side = DSheetSide.right,
+    this.variant = DSheetVariant.standard,
     this.showCloseButton = true,
 
     this.semanticLabel,
@@ -1060,6 +1074,7 @@ class DSheetContent extends StatelessWidget {
        );
 
   final List<Widget> children;
+  final DSheetVariant variant;
   final DSheetSide side;
   final bool showCloseButton;
 
@@ -1128,7 +1143,30 @@ class DSheetContent extends StatelessWidget {
         ((fillsHeight || topBottomMaxHeightFactor != null) &&
             (MediaQuery.textScalerOf(context).scale(1) > 1.5 ||
                 (topBottomMaxHeightFactor != null && !hasBody)));
-    final parts = <Widget>[];
+    final parts = <Widget>[
+      if (variant == DSheetVariant.menu)
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 10),
+          child: Center(
+            child: DSheetDragRegion(
+              child: ExcludeSemantics(
+                child: DecoratedBox(
+                  key: const ValueKey('sheet-drag-handle'),
+                  decoration: BoxDecoration(
+                    color: Color.lerp(
+                      tokens.background,
+                      tokens.foreground,
+                      .35,
+                    )!.withValues(alpha: .5),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const SizedBox(width: 36, height: 5),
+                ),
+              ),
+            ),
+          ),
+        ),
+    ];
     for (var index = 0; index < children.length; index++) {
       final child = children[index];
       if (index > 0) parts.add(const SizedBox(height: DSpacing.lg));
@@ -1157,14 +1195,21 @@ class DSheetContent extends StatelessWidget {
             DSheetSide.left => Border(right: edgeBorder),
             _ => throw StateError('Sheet side was not resolved.'),
           };
-    final radius = inset
+    final radius = variant == DSheetVariant.menu
+        ? const BorderRadius.vertical(
+            top: Radius.circular(22),
+            bottom: Radius.circular(24),
+          )
+        : inset
         ? BorderRadius.circular(DRadius.panel)
         : extendBehindKeyboard
         ? const BorderRadius.vertical(top: Radius.circular(DRadius.panel * 2))
         : BorderRadius.zero;
     final surfaceColor =
         backgroundColor ??
-        (fillAvailableHeight
+        (variant == DSheetVariant.menu
+            ? Color.lerp(tokens.background, tokens.foreground, .03)!
+            : fillAvailableHeight
             ? tokens.background.withValues(alpha: 1)
             : tokens.surface);
     Widget surface = DMaterialSurface(
@@ -1442,6 +1487,7 @@ Future<T?> showDSheet<T>({
   DSheetSide side = DSheetSide.right,
 
   bool inset = false,
+  DSheetVariant variant = DSheetVariant.standard,
 
   bool fillAvailableHeight = false,
 
@@ -1474,6 +1520,7 @@ Future<T?> showDSheet<T>({
       fillAvailableHeight,
       false,
       true,
+      variant: variant,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),

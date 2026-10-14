@@ -2,14 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DButtonVariant, DButtonDensity, DPopoverContent, DMultiSlider;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -53,9 +53,9 @@ void main() {
             expect(panel.contains(bounds.bottomRight), isTrue);
           }
           expect(find.text('Jump'), findsNothing);
-          expect(panel.width, 228);
+          expect(panel.width, 300);
           if (scale == 1) {
-            expect(panel.height, closeTo(92, 1));
+            expect(panel.height, closeTo(168, 1));
             final first = tester.getRect(
               find.widgetWithText(DButton, 'First post'),
             );
@@ -92,6 +92,119 @@ void main() {
     }
   });
 
+  testWidgets('phone sheet respects consumed safe areas and swipes away', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+    final shell = await _loadShell(FakeDiscourseApi(user: _user));
+    await _openProgress(
+      tester,
+      shell,
+      TargetPlatform.iOS,
+      consumeSafeArea: true,
+    );
+    final panel = tester.getRect(find.byType(DSheetContent));
+    expect(panel.left, 6);
+    expect(panel.right, 384);
+    expect(panel.bottom, 804);
+    final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+    expect(tester.getSize(handle), const Size(36, 5));
+    final revision = shell.topicNavigationRevision;
+    await tester.drag(
+      handle,
+      const Offset(0, 12),
+      kind: PointerDeviceKind.touch,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsOneWidget);
+    expect(tester.getRect(find.byType(DSheetContent)), panel);
+    await tester.drag(
+      handle,
+      const Offset(0, 150),
+      kind: PointerDeviceKind.touch,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    expect(shell.topicNavigationRevision, revision);
+    await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
+    await tester.pumpAndSettle();
+    expect(_selection('2 / 3'), findsOneWidget);
+    await tester.tapAt(const Offset(3, 100));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('timeline metadata and controls fit both materials and routes', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      for (final material in DAppearanceMaterial.values) {
+        for (final dark in [false, true]) {
+          for (final scale in [1.0, 2.0]) {
+            for (final direction in TextDirection.values) {
+              final shell = await _loadShell(FakeDiscourseApi(user: _user));
+              await _openProgress(
+                tester,
+                shell,
+                platform,
+                dark: dark,
+                scale: scale,
+                direction: direction,
+                material: material,
+              );
+              expect(find.text('sam'), findsOneWidget);
+              expect(find.text('17 May 2026'), findsNWidgets(2));
+              expect(find.text('14 October 2026'), findsOneWidget);
+              expect(
+                tester.getSize(find.byType(DAvatar)),
+                Size(32 * scale, 32 * scale),
+              );
+              final panel = tester.getRect(_panelFinder(platform));
+              for (final label in ['First post', 'Latest post']) {
+                final button = find.widgetWithText(DButton, label);
+                final rect = tester.getRect(button);
+                expect(panel.contains(rect.topLeft), isTrue);
+                expect(panel.contains(rect.bottomRight), isTrue);
+                expect(
+                  rect.height,
+                  closeTo(34 + 12.5 * (scale - 1) * 1.5, .01),
+                );
+              }
+              await _capture(
+                tester,
+                '${platform.name}-${material.name}-${dark ? 'dark' : 'light'}-$scale-${direction.name}',
+              );
+              await tester.tap(find.text('First post'));
+              await tester.pumpAndSettle();
+              expect(
+                tester
+                    .widget<DButton>(find.widgetWithText(DButton, 'First post'))
+                    .onPressed,
+                isNull,
+              );
+              expect(_selection('1 / 3'), findsOneWidget);
+              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+              await tester.pumpAndSettle();
+              expect(_panelFinder(platform), findsNothing);
+              expect(tester.takeException(), isNull);
+              await tester.pumpWidget(const SizedBox.shrink());
+            }
+          }
+        }
+      }
+    }
+  });
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     group(platform.name, () {
       testWidgets('drag previews posts and fetches only the released target', (
@@ -111,14 +224,14 @@ void main() {
         await tester.pump();
         await gesture.moveTo(Offset(slider.right - 7, slider.center.dy));
         await tester.pump();
-        expect(find.text('Post 3 of 3'), findsOneWidget);
+        expect(_selection('3 / 3'), findsOneWidget);
         expect(shell.currentContent?.postNumber, 1);
         expect(shell.topicNavigationRevision, revision);
         expect(api.postFetches, isEmpty);
 
         await gesture.moveTo(slider.center);
         await tester.pump();
-        expect(find.text('Post 2 of 3'), findsOneWidget);
+        expect(_selection('2 / 3'), findsOneWidget);
         expect(api.postFetches, isEmpty);
         await gesture.up();
         await tester.pump();
@@ -128,7 +241,7 @@ void main() {
         gate.complete();
         await tester.pumpAndSettle();
         expect(shell.currentContent?.postNumber, _target.postNumber);
-        expect(find.byType(DPopoverContent), findsOneWidget);
+        expect(_panelFinder(platform), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
 
@@ -143,10 +256,10 @@ void main() {
         final gesture = await tester.startGesture(slider.center);
         await gesture.moveTo(Offset(slider.right - 7, slider.center.dy));
         await tester.pump();
-        expect(find.text('Post 3 of 3'), findsOneWidget);
+        expect(_selection('3 / 3'), findsOneWidget);
         await gesture.cancel();
         await tester.pumpAndSettle();
-        expect(find.text('Post 2 of 3'), findsOneWidget);
+        expect(_selection('2 / 3'), findsOneWidget);
         expect(shell.currentContent?.postNumber, 1);
         expect(shell.topicNavigationRevision, revision);
         expect(api.postFetches, isEmpty);
@@ -163,7 +276,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
         await tester.pumpAndSettle();
         expect(shell.currentContent?.postNumber, 1);
-        expect(find.text('Post 1 of 3'), findsOneWidget);
+        expect(_selection('1 / 3'), findsOneWidget);
       });
 
       for (final change in [
@@ -313,7 +426,7 @@ void main() {
           find.byKey(const ValueKey('topic-progress-selection')),
           findsOneWidget,
         );
-        expect(find.text('Post 2 of 3'), findsOneWidget);
+        expect(_selection('2 / 3'), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
 
@@ -332,19 +445,19 @@ void main() {
         expect(api.postFetches, [
           [200],
         ]);
-        expect(find.text('Post 2 of 3'), findsOneWidget);
+        expect(_selection('2 / 3'), findsOneWidget);
         await tester.tap(find.text('First post'));
         await tester.pumpAndSettle();
-        expect(find.text('Post 1 of 3'), findsOneWidget);
+        expect(_selection('1 / 3'), findsOneWidget);
         expect(shell.currentContent?.postNumber, 1);
         final revision = shell.topicNavigationRevision;
         gate.complete();
         await tester.pumpAndSettle();
         expect(shell.currentContent?.postNumber, 1);
         expect(shell.topicNavigationRevision, revision);
-        expect(find.text('Post 1 of 3'), findsOneWidget);
+        expect(_selection('1 / 3'), findsOneWidget);
         expect(find.text('Could not open that post. Try again.'), findsNothing);
-        expect(find.byType(DPopoverContent), findsOneWidget);
+        expect(_panelFinder(platform), findsOneWidget);
       });
 
       for (final action in ['First post', 'Latest post']) {
@@ -373,7 +486,7 @@ void main() {
             findsOneWidget,
           );
           expect(
-            find.text(action == 'First post' ? 'Post 1 of 3' : 'Post 3 of 3'),
+            _selection(action == 'First post' ? '1 / 3' : '3 / 3'),
             findsOneWidget,
           );
           expect(tester.takeException(), isNull);
@@ -484,6 +597,8 @@ void _storeTopics(
           title: 'Topic $topicId',
           stream: [firstId, firstId + 100, firstId + 200],
           postsCount: 3,
+          createdAt: DateTime(2026, 5, 17),
+          lastPostedAt: DateTime(2026, 10, 14),
         ),
       )
       ..put(
@@ -493,6 +608,7 @@ void _storeTopics(
           postNumber: 1,
           username: 'sam',
           cooked: '<p>First</p>',
+          createdAt: DateTime(2026, 5, 17),
         ),
       );
     if (cacheTarget) {
@@ -503,6 +619,7 @@ void _storeTopics(
           postNumber: _target.postNumber,
           username: 'sam',
           cooked: '<p>Target</p>',
+          createdAt: DateTime(2026, 5, 17),
         ),
       );
     }
@@ -525,33 +642,43 @@ Future<NavigatorState> _openProgress(
   bool dark = false,
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
+  DAppearanceMaterial material = DAppearanceMaterial.standard,
+  bool consumeSafeArea = false,
 }) async {
   final navigatorKey = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
     MaterialApp(
       navigatorKey: navigatorKey,
-      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-        platform: platform,
-        textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
-          fontFamily: 'Lato',
+      theme: DMaterialTheme.apply(
+        (dark ? AppTheme.dark : AppTheme.light).copyWith(
+          platform: platform,
+          textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
+            fontFamily: 'Lato',
+          ),
         ),
+        material,
       ),
       builder: (context, child) => RepaintBoundary(
         key: const ValueKey('timeline-capture'),
         child: MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
           child: Directionality(textDirection: direction, child: child!),
         ),
       ),
       home: Scaffold(
-        body: Align(
-          alignment: Alignment.bottomRight,
-          child: TopicProgressPopover(
-            controller: shell,
-            position: 2,
-            total: 3,
-            floating: platform == TargetPlatform.macOS,
+        body: SafeArea(
+          top: consumeSafeArea,
+          bottom: consumeSafeArea,
+          child: Align(
+            alignment: Alignment.bottomRight,
+            child: TopicProgressPopover(
+              controller: shell,
+              position: 2,
+              total: 3,
+              floating: platform == TargetPlatform.macOS,
+            ),
           ),
         ),
       ),
@@ -559,18 +686,33 @@ Future<NavigatorState> _openProgress(
   );
   await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
   await tester.pumpAndSettle();
-  expect(find.text('Post 2 of 3'), findsOneWidget);
-  expect(find.byType(DPopoverContent), findsOneWidget);
+  expect(_selection('2 / 3'), findsOneWidget);
+  expect(_panelFinder(platform), findsOneWidget);
   expect(find.byType(Dialog), findsNothing);
   expect(find.byType(BottomSheet), findsNothing);
   expect(
-    tester.getRect(find.byType(DPopoverContent)).bottom,
-    lessThanOrEqualTo(
-      tester.getRect(find.byKey(const ValueKey('topic-progress-button'))).top,
-    ),
+    tester.getRect(_panelFinder(platform)).bottom,
+    platform == TargetPlatform.macOS
+        ? lessThanOrEqualTo(
+            tester
+                .getRect(find.byKey(const ValueKey('topic-progress-button')))
+                .top,
+          )
+        : lessThanOrEqualTo(
+            tester.view.physicalSize.height / tester.view.devicePixelRatio - 6,
+          ),
   );
   return navigatorKey.currentState!;
 }
+
+Finder _selection(String text) => find.descendant(
+  of: find.byType(TopicProgressPanel),
+  matching: find.text(text),
+);
+
+Finder _panelFinder(TargetPlatform platform) => platform == TargetPlatform.macOS
+    ? find.byType(DPopoverContent)
+    : find.byType(DSheetContent);
 
 Future<void> _capture(WidgetTester tester, String name) async {
   final output = Platform.environment['TOPIC_PROGRESS_CAPTURE_DIR'];

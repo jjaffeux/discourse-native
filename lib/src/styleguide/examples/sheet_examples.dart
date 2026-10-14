@@ -32,6 +32,31 @@ final sheetExamples = ComponentExamples(
       'Swipe handles, detents and snap points belong to Drawer.',
   examples: [
     StyleguideExample(
+      title: 'Mobile menu sheet',
+      description:
+          'An inset menu with a visible grab handle above the home indicator. Swipe down to dismiss.',
+      code:
+          'DSheetContent(variant: DSheetVariant.menu, side: DSheetSide.bottom, inset: true, showCloseButton: false, children: [body])',
+      builder: (_) => DSheet<void>(
+        trigger: DSheetTrigger(
+          builder: (context, open) => _trigger('Open menu sheet', open),
+        ),
+        content: const DSheetContent(
+          variant: DSheetVariant.menu,
+          side: DSheetSide.bottom,
+          inset: true,
+          showCloseButton: false,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('A compact menu over the current page.'),
+            ),
+          ],
+        ),
+      ),
+      states: const ['safe area', 'swipe', 'outside dismissal'],
+    ),
+    StyleguideExample(
       title: 'Behind the keyboard',
       description:
           'A rounded sheet over a darker opaque background. The content scrolls '

@@ -9,6 +9,38 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('one-post timeline disables its ends and stays bounded', (
+    tester,
+  ) async {
+    var jumps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: SizedBox(
+            width: 300,
+            child: TopicProgressPanel(
+              position: 0,
+              total: 0,
+              onJump: (_) => jumps++,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('1 / 1'), findsOneWidget);
+    for (final label in ['First post', 'Latest post']) {
+      expect(
+        tester.widget<DButton>(find.widgetWithText(DButton, label)).onPressed,
+        isNull,
+      );
+    }
+    await tester.tap(find.byType(DMultiSlider));
+    await tester.pumpAndSettle();
+    expect(jumps, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'large progress counts remain complete on one line and clickable',
     (tester) async {
