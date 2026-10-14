@@ -329,9 +329,15 @@ class _PalettePools extends CustomPainter {
 }
 
 /// Phone pages paint the mockup's panel below the floating window chrome.
-/// Every destination shares square corners and one frame-owned fill.
+/// Pages have square corners; the inset sidebar has rounded corners.
 class ForumMobileSurface extends StatefulWidget {
-  const ForumMobileSurface({super.key, required this.child});
+  const ForumMobileSurface({super.key, required this.child}) : _sidebar = false;
+
+  /// The mockup's mobile SideNav is a rounded sheet on the window ground.
+  const ForumMobileSurface.sidebar({super.key, required this.child})
+    : _sidebar = true;
+
+  final bool _sidebar;
   final Widget child;
   @override
   State<ForumMobileSurface> createState() => _ForumMobileSurfaceState();
@@ -345,7 +351,9 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
     // background:none on phone roots. They still own a fill and inset rim.
     framed: true,
     border: false,
-    borderRadius: BorderRadius.zero,
+    borderRadius: widget._sidebar
+        ? BorderRadius.circular(DRadius.panel)
+        : BorderRadius.zero,
     backgroundColor: ForumWindowBackground.panelColor(context),
     child: _MobileSurfaceScope(key: _content, child: widget.child),
   );

@@ -1508,6 +1508,17 @@ void main() {
         final panel = tester.getRect(
           find.byKey(const ValueKey('mobile-navigation-panel')),
         );
+        final frame = find
+            .descendant(
+              of: find.byKey(const ValueKey('mobile-navigation-panel')),
+              matching: find.byType(DPageSurface),
+            )
+            .first;
+        expect(
+          tester.widget<DPageSurface>(frame).borderRadius,
+          BorderRadius.circular(DRadius.panel),
+        );
+        expect(tester.widget<DPageSurface>(frame).border, isFalse);
         expect(tester.getRect(list).left, panel.left + 12);
         expect(tester.getRect(list).right, panel.right - 12);
         expect(tester.getRect(list).top, panel.top + 10);
@@ -1797,7 +1808,7 @@ void main() {
             .first;
         expect(
           tester.widget<DPageSurface>(frame).borderRadius,
-          BorderRadius.zero,
+          BorderRadius.circular(DRadius.panel),
         );
         expect(tester.widget<DPageSurface>(frame).border, isFalse);
         expect(page.bottom - panel.bottom, bottom + 6);

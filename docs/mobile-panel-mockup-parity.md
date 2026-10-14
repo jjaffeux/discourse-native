@@ -10,7 +10,7 @@ paint. Its root list therefore exposed the gradient behind all the text and
 lost the visible separation from the window header.
 
 `ForumMobileSurface` now paints one Native `DPageSurface` for root screens as
-well as pushed pages. All destinations use square corners, including pushed
+well as pushed pages. Content pages use square corners, including pushed
 readers. Inner pages continue to inherit a clear surface so the panel fill
 paints once. The window header stays on the canvas.
 Existing palette tint, material selection, opacity and accessibility settings
@@ -47,7 +47,13 @@ panel/header rendering evidence; sample discussion text is not a whole-app
 content or typography comparison.
 
 The October 14 reader correction removes the route-dependent corner exception.
-Root, reader, sidebar, chat and other destinations all inherit the same mobile
-frame. Topic and message readers also no longer overlay a fixed separator at
+Root, reader, chat and other content destinations inherit the same mobile
+frame. The inset navigation sidebar uses `ForumMobileSurface.sidebar` with the
+Native 14px panel radius, matching `NavSidebarContent`'s `.side-nav.glass-sheet`
+in the reference. Its fill, inset rim and top highlight use the shared panel
+treatment in both materials; the inner sidebar remains transparent so they
+paint once. Rendered tests check all four rounded corners, palette fill, rim
+and highlight across light/dark, both materials, opacity and high contrast.
+Topic and message readers also no longer overlay a fixed separator at
 the header edge; post separators stay in the scrolling content, matching the
 list treatment and avoiding a dark line as the header retracts.

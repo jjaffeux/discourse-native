@@ -10,14 +10,22 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('phone panel separates the reading surface from window chrome', (
+  testWidgets('phone pages and sidebar paint one surface over window chrome', (
     tester,
   ) async {
     for (final brightness in Brightness.values) {
       for (final material in DAppearanceMaterial.values) {
         for (final transparency in [0.0, .3]) {
-          for (final highContrast in [false, true]) {
+          for (final (highContrast, sidebar) in [
+            (false, false),
+            (true, false),
+            (false, true),
+            (true, true),
+          ]) {
             late Color fill;
+            final surface = sidebar
+                ? ForumMobileSurface.sidebar
+                : ForumMobileSurface.new;
             const backdrop = Color(0xff143c68);
             final palette = forumThemePresets
                 .firstWhere((theme) => theme.id == 'dracula')
@@ -55,7 +63,7 @@ void main() {
                                   children: [
                                     const SizedBox(height: 48),
                                     Expanded(
-                                      child: ForumMobileSurface(
+                                      child: surface(
                                         child: Builder(
                                           builder: (context) => ColoredBox(
                                             // Inner pages let the owner paint once.
@@ -103,7 +111,7 @@ void main() {
                       closeTo(value * 255, 2),
                       reason:
                           '$brightness $material $transparency '
-                          'contrast=$highContrast ($x,$y)',
+                          'contrast=$highContrast sidebar=$sidebar ($x,$y)',
                     );
                   }
                 }
@@ -111,9 +119,19 @@ void main() {
                 final base = Color.alphaBlend(fill, backdrop);
                 pixel(120, 20, backdrop); // Header stays on the window ground.
                 pixel(120, 250, base); // Reading area owns a filled panel.
+                if (sidebar) {
+                  // All four clipped corners expose the canvas, including
+                  // when the child would otherwise paint an opaque fallback.
+                  for (final x in [1, 238]) {
+                    pixel(x, 49, backdrop);
+                    pixel(x, 358, backdrop);
+                  }
+                }
                 if (highContrast) {
-                  pixel(4, 52, base);
-                  pixel(235, 52, base);
+                  if (!sidebar) {
+                    pixel(4, 52, base);
+                    pixel(235, 52, base);
+                  }
                 } else {
                   final rim = Color.alphaBlend(
                     Colors.white.withValues(
@@ -155,20 +173,22 @@ void main() {
                       base,
                     ),
                   );
-                  // Every mobile page fills to both top corners.
-                  for (final x in [4, 235]) {
-                    pixel(
-                      x,
-                      52,
-                      Color.alphaBlend(
-                        Colors.white.withValues(
-                          alpha:
-                              (brightness == Brightness.dark ? .066 : .5) *
-                              (1 - 4.5 / 140),
+                  if (!sidebar) {
+                    // Ordinary mobile pages fill to both square top corners.
+                    for (final x in [4, 235]) {
+                      pixel(
+                        x,
+                        52,
+                        Color.alphaBlend(
+                          Colors.white.withValues(
+                            alpha:
+                                (brightness == Brightness.dark ? .066 : .5) *
+                                (1 - 4.5 / 140),
+                          ),
+                          base,
                         ),
-                        base,
-                      ),
-                    );
+                      );
+                    }
                   }
                 }
               } finally {

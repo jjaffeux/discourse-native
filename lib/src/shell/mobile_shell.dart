@@ -98,7 +98,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       6,
                       6 + MediaQuery.paddingOf(context).bottom,
                     ),
-                    child: ForumMobileSurface(
+                    child: ForumMobileSurface.sidebar(
                       key: const ValueKey('mobile-navigation-panel'),
                       child: InstanceSidebar(
                         key: ValueKey(('mobile-navigation', owner)),
