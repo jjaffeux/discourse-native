@@ -30,8 +30,53 @@ final sheetExamples = ComponentExamples(
       'onSwipeDismissRequested instead restores the sheet as soon as the swipe '
       'reaches the dismissal threshold, then lets the host show close actions. '
       'DSheetDragRegion lets a pinned header drag independently of scrolling. '
-      'Swipe handles, detents and snap points belong to Drawer.',
+      'Adaptive menu sheets open at 55% for tall content and can be pulled '
+      'to their full height. They animate to 6px side margins and float above '
+      'the home indicator at the end of their content, for short content, or '
+      'above the system keyboard. Other snap-point compositions use Drawer.',
   examples: [
+    StyleguideExample(
+      title: 'Adaptive menu sheet',
+      description:
+          'Pull upward to expand; scroll to the end to reveal the rounded foot. '
+          'The same surface floats above a visible keyboard.',
+      code:
+          'DSheetContent(variant: DSheetVariant.adaptiveMenu, side: DSheetSide.bottom, showCloseButton: false, scrollWholeSheet: false, children: [Flexible(child: menu)])',
+      builder: (_) => DSheet<void>(
+        trigger: DSheetTrigger(
+          builder: (context, open) => _trigger('Open adaptive menu', open),
+        ),
+        content: DSheetContent(
+          variant: DSheetVariant.adaptiveMenu,
+          side: DSheetSide.bottom,
+          showCloseButton: false,
+          scrollWholeSheet: false,
+          children: [
+            Flexible(
+              child: DScrollArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var index = 0; index < 30; index++)
+                      DButton(
+                        label: Text('Option ${index + 1}'),
+                        onPressed: () {},
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      states: const [
+        'collapsed',
+        'expanded',
+        'scroll end',
+        'keyboard',
+        'reduced motion',
+      ],
+    ),
     StyleguideExample(
       title: 'Mobile menu sheet',
       description:

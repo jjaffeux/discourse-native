@@ -92,6 +92,72 @@ Widget _command({
 
 void main() {
   testWidgets(
+    'inline command input leaves focus idle and retains IME and selection',
+    (tester) async {
+      final focus = FocusNode();
+      final editing = TextEditingController();
+      final command = DCommandController<String>();
+      addTearDown(focus.dispose);
+      addTearDown(editing.dispose);
+      addTearDown(command.dispose);
+      String? selected;
+      await tester.pumpWidget(
+        _host(
+          DCommand<String>(
+            controller: command,
+            onSelected: (value) => selected = value,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DCommandInput<String>(
+                  borderless: true,
+                  autofocus: false,
+                  focusNode: focus,
+                  controller: editing,
+                ),
+                const DCommandList<String>(
+                  children: [
+                    DCommandItem(value: 'Calendar', child: Text('Calendar')),
+                    DCommandItem(value: 'Profile', child: Text('Profile')),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(focus.hasFocus, isFalse);
+      final input = tester.widget<DInput>(find.byType(DInput));
+      expect(input.borderless, isTrue);
+      expect(input.suffix, isNull);
+      await tester.enterText(find.byType(EditableText), 'Cal');
+      await tester.pumpAndSettle();
+      expect(find.text('Profile'), findsNothing);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Cal',
+          selection: TextSelection.collapsed(offset: 3),
+          composing: TextRange(start: 0, end: 3),
+        ),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(selected, isNull);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'Cal',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(selected, 'Calendar');
+    },
+  );
+  testWidgets(
     'empty Backspace leaves query state and focus with the caller',
     (tester) async {
       final editing = TextEditingController();

@@ -36,6 +36,7 @@ class TopicFilterInput extends StatefulWidget {
     this.multiline = false,
     this.onDismiss,
     this.embedded = false,
+    this.focusOnOpen = true,
     this.onlyKey,
   });
 
@@ -57,6 +58,7 @@ class TopicFilterInput extends StatefulWidget {
   final bool multiline;
   final VoidCallback? onDismiss;
   final bool embedded;
+  final bool focusOnOpen;
   final String? onlyKey;
 
   @override
@@ -67,6 +69,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   final FocusNode _focus = FocusNode();
   final _combobox = DComboboxController<TopicFilterSuggestion>();
   final _sheetCommand = DCommandController<String>();
+  final _sheetCommandKey = GlobalKey();
 
   ShellController? _shell;
   TopicFilterController? _filter;
@@ -181,7 +184,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     if (widget.embedded) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _focus.requestFocus();
+          if (widget.focusOnOpen) _focus.requestFocus();
           unawaited(filter.openSuggestions());
         }
       });

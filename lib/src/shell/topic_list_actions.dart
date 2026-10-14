@@ -124,6 +124,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   Widget build(BuildContext context) => DPopover(
     controller: _popover,
     sheetOnMobile: true,
+    mobileSheetVariant: DSheetVariant.adaptiveMenu,
     onOpenChange: (open, _) {
       if (open) {
         setState(() => _query = widget.query);
@@ -131,8 +132,8 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
       }
     },
     content: DPopoverContent(
-      width: 400,
-      align: DPopoverAlign.end,
+      width: 320,
+      align: DPopoverAlign.start,
       semanticLabel: context.l10n.filterTopics,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -140,50 +141,57 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         spacing: 12,
         children: [
           Flexible(
-            child: DScrollArea(
-              child: TopicFilterInput(
-                siteUrl: widget.siteUrl,
-                initialQuery: widget.query,
-                options: _options ?? const [],
-                categories: ShellScope.read(
-                  context,
-                ).filterCategoriesFor(widget.siteUrl),
-                hintText: context.l10n.addAFilter,
-                tokenized: true,
-                embedded: true,
-                onlyKey: widget.filterKey,
-                multiline: false,
-                padding: EdgeInsets.zero,
-                onChanged: (query) => setState(() => _query = query),
-                onSubmitted: _apply,
-                onDismiss: _popover.close,
-              ),
+            child: TopicFilterInput(
+              siteUrl: widget.siteUrl,
+              initialQuery: widget.query,
+              options: _options ?? const [],
+              categories: ShellScope.read(
+                context,
+              ).filterCategoriesFor(widget.siteUrl),
+              hintText: context.l10n.addAFilter,
+              tokenized: true,
+              embedded: true,
+              focusOnOpen: !const {
+                TargetPlatform.iOS,
+                TargetPlatform.android,
+                TargetPlatform.fuchsia,
+              }.contains(Theme.of(context).platform),
+              onlyKey: widget.filterKey,
+              multiline: false,
+              padding: EdgeInsets.zero,
+              onChanged: (query) => setState(() => _query = query),
+              onSubmitted: _apply,
+              onDismiss: _popover.close,
             ),
           ),
-          const DSeparator(),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: DSpacing.sm,
-            runSpacing: DSpacing.sm,
-            children: [
-              if (widget.query.isNotEmpty) ...[
+          if (widget.filterKey != null ||
+              _query.trim().isNotEmpty ||
+              widget.query.isNotEmpty) ...[
+            const DSeparator(),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: DSpacing.sm,
+              runSpacing: DSpacing.sm,
+              children: [
+                if (widget.query.isNotEmpty) ...[
+                  DButton(
+                    label: Text(context.l10n.clearFilter),
+                    variant: DButtonVariant.ghost,
+                    onPressed: () => _apply(''),
+                  ),
+                ],
                 DButton(
-                  label: Text(context.l10n.clearFilter),
-                  variant: DButtonVariant.ghost,
-                  onPressed: () => _apply(''),
+                  label: Text(
+                    widget.filterKey == null
+                        ? context.l10n.apply
+                        : context.l10n.done,
+                  ),
+                  size: DButtonSize.small,
+                  onPressed: () => _apply(_query),
                 ),
               ],
-              DButton(
-                label: Text(
-                  widget.filterKey == null
-                      ? context.l10n.apply
-                      : context.l10n.done,
-                ),
-                size: DButtonSize.small,
-                onPressed: () => _apply(_query),
-              ),
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     ),

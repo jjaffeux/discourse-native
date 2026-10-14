@@ -1,0 +1,505 @@
+part of 'd_sheet.dart';
+
+class _DSheetAdaptiveMenuScope extends InheritedWidget {
+  const _DSheetAdaptiveMenuScope({
+    required this.menu,
+    required this.expanded,
+    required this.canCollapse,
+    required super.child,
+  });
+
+  final _DSheetAdaptiveMenuState menu;
+  final bool expanded;
+  final bool canCollapse;
+
+  @override
+  bool updateShouldNotify(_DSheetAdaptiveMenuScope oldWidget) =>
+      menu != oldWidget.menu ||
+      expanded != oldWidget.expanded ||
+      canCollapse != oldWidget.canCollapse;
+}
+
+// Consume only the part of a finger movement needed to raise the sheet. The
+// remainder scrolls the original viewport in the same gesture, with its native
+// physics. A downward pull transfers back at the top of that viewport.
+class _DSheetMenuPhysics extends ScrollPhysics {
+  const _DSheetMenuPhysics({required this.consume, super.parent});
+
+  final double Function(ScrollMetrics, double) consume;
+
+  @override
+  _DSheetMenuPhysics applyTo(ScrollPhysics? ancestor) =>
+      _DSheetMenuPhysics(consume: consume, parent: buildParent(ancestor));
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) =>
+      super.applyPhysicsToUserOffset(position, consume(position, offset));
+}
+
+class _DSheetMenuScrollBehavior extends ScrollBehavior {
+  const _DSheetMenuScrollBehavior(this.delegate, this.consume);
+
+  final ScrollBehavior delegate;
+  final double Function(ScrollMetrics, double) consume;
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) => _DSheetMenuPhysics(
+    consume: consume,
+    parent: delegate.getScrollPhysics(context),
+  );
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => delegate.buildScrollbar(context, child, details);
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => delegate.buildOverscrollIndicator(context, child, details);
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => delegate.dragDevices;
+
+  @override
+  TargetPlatform getPlatform(BuildContext context) =>
+      delegate.getPlatform(context);
+
+  @override
+  bool shouldNotify(_DSheetMenuScrollBehavior oldDelegate) =>
+      delegate != oldDelegate.delegate || consume != oldDelegate.consume;
+}
+
+class _DSheetAdaptiveMenu extends StatefulWidget {
+  const _DSheetAdaptiveMenu({
+    required this.presentation,
+    required this.onDismiss,
+    required this.retained,
+    this.onDismissRequested,
+  });
+
+  final DDialogPresentation presentation;
+  final VoidCallback? onDismiss;
+  final bool retained;
+  final VoidCallback? onDismissRequested;
+
+  @override
+  State<_DSheetAdaptiveMenu> createState() => _DSheetAdaptiveMenuState();
+}
+
+class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
+    with TickerProviderStateMixin {
+  static const _duration = Duration(milliseconds: 280);
+  static const _curve = Cubic(.32, .72, 0, 1);
+  final _surface = GlobalKey();
+  final _positions = <ScrollPosition>{};
+  late final _travel = AnimationController.unbounded(vsync: this);
+  late final _inset = AnimationController(vsync: this, duration: _duration);
+  double _low = 0;
+  double _room = 0;
+  double _lift = 0;
+  double _keyboard = 0;
+  bool _measured = false;
+  bool _interacted = false;
+  bool _dragging = false;
+  bool _scrollDrag = false;
+  bool _scheduled = false;
+  bool _floating = false;
+  bool _raiseForKeyboard = false;
+  int? _pointer;
+  VelocityTracker? _velocity;
+  double _startOffset = 0;
+  double? _dismissOrigin;
+  double _dismissCurve = 1;
+  DOverlayRoute<dynamic, Object>? _route;
+  Simulation? Function()? _exitSimulation;
+
+  bool get _animate => !MediaQuery.disableAnimationsOf(context);
+
+  double get _offset => _dismissOrigin == null
+      ? _travel.value
+      : _dismissOrigin! +
+            (_room - _dismissOrigin!) *
+                (1 - widget.presentation.animation.value);
+
+  @override
+  void initState() {
+    super.initState();
+    _travel.addListener(_changed);
+    _inset.addListener(_changed);
+  }
+
+  void _changed() {
+    if (!mounted) return;
+    setState(() {});
+    _scheduleMeasure();
+  }
+
+  void _scheduleMeasure() {
+    if (_scheduled) return;
+    _scheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (mounted) _measure();
+    });
+  }
+
+  void _measure() {
+    final box = _surface.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return;
+    _positions.removeWhere(
+      (p) => !(p.context.notificationContext?.mounted ?? false),
+    );
+    final tall = box.size.height + _lift;
+    final half = _room * .55;
+    final low = _keyboard == 0 && tall > half + 60 ? tall - half : 0.0;
+    final wasLow = _low;
+    _low = low;
+    if (_raiseForKeyboard) {
+      _raiseForKeyboard = false;
+      _settle(0);
+    }
+    if (!_measured || (!_interacted && (wasLow - low).abs() > 1)) {
+      _measured = true;
+      _travel.value = low;
+    }
+    // Lifting the bottom shortens a capped viewport. That is the same end of
+    // the same content, not newly unread content. Hold it through the animation
+    // so the last row stays visible and the sheet cannot oscillate at its end.
+    final more =
+        _travel.value > 1 ||
+        _positions.any(
+          (p) =>
+              p.hasContentDimensions &&
+              p.extentAfter > (_floating ? _lift : 0) + 1,
+        );
+    final floating = _keyboard > 0 || !more;
+    if (floating != _floating) {
+      _floating = floating;
+      if (_animate) {
+        unawaited(_inset.animateTo(floating ? 1 : 0, curve: _curve));
+      } else {
+        _inset.value = floating ? 1 : 0;
+      }
+    }
+    if (_floating && _keyboard == 0 && !more) {
+      for (final position in _positions) {
+        if (position.hasContentDimensions &&
+            position.extentAfter > 0 &&
+            position.extentAfter <= _lift + 1) {
+          position.jumpTo(position.maxScrollExtent);
+        }
+      }
+    }
+  }
+
+  bool _metrics(ScrollMetricsNotification notification) {
+    _remember(notification.context, notification.metrics);
+    return false;
+  }
+
+  bool _scroll(ScrollNotification notification) {
+    _remember(notification.context, notification.metrics);
+    return false;
+  }
+
+  void _remember(BuildContext? origin, ScrollMetrics metrics) {
+    if (origin == null || metrics.axis != Axis.vertical) return;
+    final position = Scrollable.maybeOf(origin)?.position;
+    if (position != null) _positions.add(position);
+    _scheduleMeasure();
+  }
+
+  void _start() {
+    if (_dismissOrigin != null) return;
+    _interacted = true;
+    _dragging = true;
+    _startOffset = _travel.value;
+    _travel.stop();
+  }
+
+  void _update(double delta) {
+    if (_dismissOrigin != null) return;
+    _travel.value = math.max(0, _travel.value + delta);
+  }
+
+  double _consume(ScrollMetrics metrics, double delta) {
+    if (_pointer == null ||
+        metrics.axis != Axis.vertical ||
+        _dismissOrigin != null) {
+      return delta;
+    }
+    if (_travel.value <= 0 &&
+        !(delta > 0 && metrics.pixels <= metrics.minScrollExtent)) {
+      return delta;
+    }
+    if (!_dragging) _start();
+    _scrollDrag = true;
+    final before = _travel.value;
+    _update(delta);
+    return delta - (_travel.value - before);
+  }
+
+  void _settle(double to) {
+    if (_animate) {
+      unawaited(_travel.animateTo(to, duration: _duration, curve: _curve));
+    } else {
+      _travel.value = to;
+    }
+  }
+
+  void _toggle() {
+    _interacted = true;
+    _settle(_travel.value > 1 ? 0 : _low);
+  }
+
+  void _finish(double velocity, {bool cancelled = false}) {
+    if (!_dragging || _dismissOrigin != null) return;
+    _dragging = false;
+    _scrollDrag = false;
+    if (cancelled) {
+      _settle(_startOffset > _low / 2 ? _low : 0);
+      return;
+    }
+    final ahead = _travel.value + velocity * .18;
+    if (ahead > _low + 60) {
+      _dismiss(velocity);
+    } else {
+      final to = velocity < -500
+          ? 0.0
+          : velocity > 500 && _low > 0
+          ? _low
+          : ahead > _low / 2
+          ? _low
+          : 0.0;
+      _settle(to);
+    }
+  }
+
+  void _dismiss(double velocity) {
+    _travel.stop();
+    if (widget.onDismissRequested != null) {
+      _settle(_low);
+      widget.onDismissRequested!();
+      return;
+    }
+    final dismiss = widget.onDismiss;
+    if (dismiss == null) {
+      _settle(_low);
+      return;
+    }
+    if (widget.retained) {
+      if (!_animate) {
+        dismiss();
+        return;
+      }
+      final destination = MediaQuery.sizeOf(context).height + _lift;
+      unawaited(
+        _travel
+            .animateWith(
+              _DSheetDismissSimulation(
+                math.max(1, destination - _travel.value),
+                math.max(0, velocity),
+                _travel.value,
+                endValue: destination,
+              ),
+            )
+            .then<void>((_) {
+              if (!mounted) return;
+              dismiss();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _settle(_low);
+              });
+            }),
+      );
+      return;
+    }
+    final route = ModalRoute.of(context);
+    if (_animate && route is DOverlayRoute<dynamic, Object>) {
+      _route = route;
+      _exitSimulation = () {
+        _dismissOrigin = _travel.value;
+        _dismissCurve = _curve.transform(widget.presentation.animation.value);
+        return _DSheetDismissSimulation(
+          math.max(1, _room - _travel.value),
+          math.max(0, velocity),
+          widget.presentation.animation.value,
+        );
+      };
+      route.reverseSimulationBuilder = _exitSimulation;
+    }
+    dismiss();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          widget.presentation.animation.status == AnimationStatus.completed) {
+        _dismissOrigin = null;
+        _settle(_low);
+      }
+    });
+  }
+
+  void _down(PointerDownEvent event) {
+    if (_pointer != null || event.kind != PointerDeviceKind.touch) return;
+    _pointer = event.pointer;
+    _velocity = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.position);
+  }
+
+  void _move(PointerMoveEvent event) {
+    if (_pointer == event.pointer) {
+      _velocity?.addPosition(event.timeStamp, event.position);
+    }
+  }
+
+  void _up(PointerUpEvent event) {
+    if (_pointer != event.pointer) return;
+    _velocity?.addPosition(event.timeStamp, event.position);
+    if (_scrollDrag) _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
+    _pointer = null;
+    _velocity = null;
+  }
+
+  void _cancel(PointerCancelEvent event) {
+    if (_pointer != event.pointer) return;
+    _finish(0, cancelled: true);
+    _pointer = null;
+    _velocity = null;
+  }
+
+  @override
+  void dispose() {
+    if (_route?.reverseSimulationBuilder == _exitSimulation) {
+      _route?.reverseSimulationBuilder = null;
+    }
+    _travel.dispose();
+    _inset.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final view = View.of(context);
+    final keyboard = media.viewInsets.bottom;
+    if (_keyboard != keyboard) {
+      _keyboard = keyboard;
+      if (keyboard > 0) {
+        _interacted = true;
+        _raiseForKeyboard = true;
+        // Insets already animate with the system keyboard. The sheet keeps
+        // its expanded position as that available room changes.
+        _scheduleMeasure();
+      }
+    }
+    final safeTop = math.max(
+      media.padding.top,
+      view.viewPadding.top / view.devicePixelRatio,
+    );
+    final safeBottom = keyboard > 0
+        ? 0.0
+        : math.max(
+            media.viewPadding.bottom,
+            view.viewPadding.bottom / view.devicePixelRatio,
+          );
+    final side = 6 * _inset.value;
+    _lift = (6 + safeBottom) * _inset.value;
+    _scheduleMeasure();
+    final content = _DSheetAdaptiveMenuScope(
+      menu: this,
+      expanded: _travel.value <= 1,
+      canCollapse: _low > 0,
+      child: _DSheetSideScope(
+        side: DSheetSide.bottom,
+        inset: _inset.value > 0,
+        menuInsetProgress: _inset.value,
+        fillAvailableHeight: false,
+        extendBehindKeyboard: false,
+        child: MediaQuery(
+          data: media.copyWith(
+            padding: EdgeInsets.only(bottom: safeBottom * (1 - _inset.value)),
+            viewInsets: EdgeInsets.zero,
+          ),
+          child: widget.presentation.content,
+        ),
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, bounds) {
+        _room = math.max(0, bounds.maxHeight - keyboard);
+        final maximum = math.max(0.0, _room - safeTop - 8 - _lift);
+        return AnimatedBuilder(
+          animation: widget.presentation.animation,
+          builder: (context, child) {
+            final curve = _animate
+                ? _curve.transform(widget.presentation.animation.value)
+                : 1.0;
+            final dim =
+                (1 - math.max(0, _offset - _low) / math.max(1, _room - _low))
+                    .clamp(0.0, 1.0);
+            return Stack(
+              clipBehavior: Clip.hardEdge,
+              children: [
+                Opacity(
+                  opacity: curve * dim,
+                  child: widget.presentation.buildBackdrop(blurSigma: 2),
+                ),
+                Positioned(
+                  left: side,
+                  right: side,
+                  bottom: keyboard + _lift,
+                  child: Transform.translate(
+                    offset: Offset(
+                      0,
+                      _offset +
+                          40 *
+                              (1 -
+                                  (_dismissOrigin == null
+                                      ? curve
+                                      : _dismissCurve)),
+                    ),
+                    child: ConstrainedBox(
+                      key: _surface,
+                      constraints: BoxConstraints(maxHeight: maximum),
+                      child: child,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          child: Listener(
+            onPointerDown: _down,
+            onPointerMove: _move,
+            onPointerUp: _up,
+            onPointerCancel: _cancel,
+            child: GestureDetector(
+              supportedDevices: const {PointerDeviceKind.touch},
+              onVerticalDragStart: (_) => _start(),
+              onVerticalDragUpdate: (details) => _update(details.delta.dy),
+              onVerticalDragEnd: (details) =>
+                  _finish(details.primaryVelocity ?? 0),
+              onVerticalDragCancel: () => _finish(0, cancelled: true),
+              child: NotificationListener<ScrollMetricsNotification>(
+                onNotification: _metrics,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _scroll,
+                  child: ScrollConfiguration(
+                    behavior: _DSheetMenuScrollBehavior(
+                      ScrollConfiguration.of(context),
+                      _consume,
+                    ),
+                    child: content,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

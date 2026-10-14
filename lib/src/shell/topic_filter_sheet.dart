@@ -123,17 +123,37 @@ extension _TopicFilterSheet on _TopicFilterInputState {
           _topicFilterSuggestionIcon(suggestion),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            suggestion.displayName ??
-                (suggestion.category != null ? suggestion.description : null) ??
-                (suggestion.term != null
-                    ? _unquoteTopicFilterValue(suggestion.term!)
-                    : _sentenceCaseTopicFilterValue(
-                        suggestion.name
-                            .replaceFirst(RegExp(r'^-'), '− ')
-                            .replaceAll(RegExp(r':$'), '')
-                            .replaceAll(':', ': '),
-                      )),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text:
+                      suggestion.displayName ??
+                      (suggestion.category != null
+                          ? suggestion.description
+                          : null) ??
+                      (suggestion.term != null
+                          ? _unquoteTopicFilterValue(suggestion.term!)
+                          : _sentenceCaseTopicFilterValue(
+                              suggestion.name
+                                  .replaceFirst(RegExp(r'^-'), '− ')
+                                  .replaceAll(RegExp(r':$'), '')
+                                  .replaceAll(':', ': '),
+                            )),
+                ),
+                if (suggestion.term == null &&
+                    suggestion.category == null &&
+                    suggestion.description != null)
+                  TextSpan(
+                    text: '  ${suggestion.description}',
+                    style: TextStyle(
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         if (suggestion.hasChildren)
@@ -150,6 +170,8 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       ],
     );
     final command = DCommand<String>(
+      key: _sheetCommandKey,
+      backgroundColor: Colors.transparent,
       controller: _sheetCommand,
       query: filter.text.text,
       value: filter.selected?.name,
@@ -176,6 +198,8 @@ extension _TopicFilterSheet on _TopicFilterInputState {
             skipTraversal: true,
             onKeyEvent: _onKey,
             child: DCommandInput<String>(
+              borderless: true,
+              autofocus: widget.focusOnOpen,
               key: widget.inputKey,
               controller: filter.text,
               focusNode: _focus,
@@ -183,6 +207,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
               semanticLabel: context.l10n.topicFilterQuery,
             ),
           ),
+          const DSeparator(),
           if (_isTagStage)
             Row(
               children: [
@@ -254,39 +279,48 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                 unawaited(filter.openSuggestions());
               },
             ),
-          DCommandList<String>(
-            height: 280,
-            children: [
-              for (final group in groups.entries)
-                DCommandGroup<String>(
-                  heading: group.key.isEmpty ? null : Text(group.key),
-                  items: [
-                    for (final suggestion in group.value)
-                      DCommandItem<String>(
-                        key: ValueKey(
-                          'topic-filter-suggestion-${filter.suggestions.indexOf(suggestion)}',
+          Flexible(
+            child: DCommandList<String>(
+              maxHeight:
+                  const {
+                    TargetPlatform.iOS,
+                    TargetPlatform.android,
+                    TargetPlatform.fuchsia,
+                  }.contains(Theme.of(context).platform)
+                  ? MediaQuery.sizeOf(context).height
+                  : 360,
+              children: [
+                for (final group in groups.entries)
+                  DCommandGroup<String>(
+                    heading: group.key.isEmpty ? null : Text(group.key),
+                    items: [
+                      for (final suggestion in group.value)
+                        DCommandItem<String>(
+                          key: ValueKey(
+                            'topic-filter-suggestion-${filter.suggestions.indexOf(suggestion)}',
+                          ),
+                          value: suggestion.name,
+                          checked:
+                              _isTagStage &&
+                              suggestion.term != null &&
+                              _sheetTags.contains(
+                                _unquoteTopicFilterValue(suggestion.term!),
+                              ),
+                          trailing: _isTagStage
+                              ? Text(
+                                  int.tryParse(suggestion.description ?? '') !=
+                                          null
+                                      ? suggestion.description!
+                                      : '',
+                                )
+                              : null,
+                          child: row(suggestion),
                         ),
-                        value: suggestion.name,
-                        checked:
-                            _isTagStage &&
-                            suggestion.term != null &&
-                            _sheetTags.contains(
-                              _unquoteTopicFilterValue(suggestion.term!),
-                            ),
-                        trailing: _isTagStage
-                            ? Text(
-                                int.tryParse(suggestion.description ?? '') !=
-                                        null
-                                    ? suggestion.description!
-                                    : '',
-                              )
-                            : null,
-                        child: row(suggestion),
-                      ),
-                  ],
-                ),
-              DCommandEmpty(child: Text(context.l10n.noResultsFound)),
-            ],
+                    ],
+                  ),
+                DCommandEmpty(child: Text(context.l10n.noResultsFound)),
+              ],
+            ),
           ),
         ],
       ),
@@ -297,7 +331,14 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       children: [
         if (_tokens.isNotEmpty || _isTagStage)
           SizedBox(height: 90, child: DScrollArea(child: _buildTokens())),
-        command,
+        Flexible(
+          child:
+              option?.type == 'date' ||
+                  option?.type == 'number' ||
+                  MediaQuery.textScalerOf(context).scale(1) > 1.5
+              ? DScrollArea(child: command)
+              : command,
+        ),
       ],
     );
   }

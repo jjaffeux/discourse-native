@@ -13,9 +13,18 @@ import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
 
+part 'd_sheet_adaptive_menu.dart';
+
 /// Sheet artwork presets. Menu sheets float above the home indicator with
 /// a grab handle and rounded corners matching anchored Native menus.
-enum DSheetVariant { standard, menu }
+enum DSheetVariant {
+  standard,
+  menu,
+
+  /// A mobile menu with a lower opening height, pull-to-expand, and animated
+  /// clearance when the keyboard is visible or there is no more content below.
+  adaptiveMenu,
+}
 
 /// Physical edges, direction-aware conveniences, and a centered reading panel.
 enum DSheetSide { top, right, bottom, left, start, end, center }
@@ -230,6 +239,7 @@ class _DSheetSideScope extends InheritedWidget {
     required this.inset,
     required this.fillAvailableHeight,
     required this.extendBehindKeyboard,
+    this.menuInsetProgress,
     required super.child,
   });
 
@@ -237,6 +247,7 @@ class _DSheetSideScope extends InheritedWidget {
   final bool inset;
   final bool fillAvailableHeight;
   final bool extendBehindKeyboard;
+  final double? menuInsetProgress;
 
   static DSheetSide? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetSideScope>()?.side;
@@ -256,6 +267,7 @@ class _DSheetSideScope extends InheritedWidget {
   bool updateShouldNotify(_DSheetSideScope oldWidget) =>
       side != oldWidget.side ||
       inset != oldWidget.inset ||
+      menuInsetProgress != oldWidget.menuInsetProgress ||
       fillAvailableHeight != oldWidget.fillAvailableHeight ||
       extendBehindKeyboard != oldWidget.extendBehindKeyboard;
 }
@@ -345,30 +357,46 @@ Widget _sheetPresentation(
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
-}) => _DSheetCurves(
-  animation: presentation.animation,
-  builder: (context, popupCurve, backdropCurve, swipeProgress, swipeKey) =>
-      _sheetLayout(
-        context,
-        presentation,
-        popupCurve,
-        backdropCurve,
-        swipeProgress,
-        swipeKey,
-        requestedSide,
-        maxWidth,
-        width,
-        inset,
-        animateSize,
-        fillAvailableHeight,
-        extendBehindKeyboard,
-        dismissOnSwipe,
-        variant: variant,
-        retainKeyboardInsets: retainKeyboardInsets,
-        onRetainedDismiss: onRetainedDismiss,
-        onRetainedSwipeDismissRequested: onRetainedSwipeDismissRequested,
-      ),
-);
+}) {
+  if (variant == DSheetVariant.adaptiveMenu &&
+      requestedSide == DSheetSide.bottom) {
+    Widget menu(VoidCallback? close) => _DSheetAdaptiveMenu(
+      presentation: presentation,
+      onDismiss: dismissOnSwipe ? close : null,
+      retained: retainKeyboardInsets,
+      onDismissRequested: onRetainedSwipeDismissRequested,
+    );
+    return _DSheetKeyboardInsets(
+      child: retainKeyboardInsets
+          ? _DSheetRetainedKeyboardInsets(child: menu(onRetainedDismiss))
+          : DSheetClose<void>(builder: (context, close) => menu(close)),
+    );
+  }
+  return _DSheetCurves(
+    animation: presentation.animation,
+    builder: (context, popupCurve, backdropCurve, swipeProgress, swipeKey) =>
+        _sheetLayout(
+          context,
+          presentation,
+          popupCurve,
+          backdropCurve,
+          swipeProgress,
+          swipeKey,
+          requestedSide,
+          maxWidth,
+          width,
+          inset,
+          animateSize,
+          fillAvailableHeight,
+          extendBehindKeyboard,
+          dismissOnSwipe,
+          variant: variant,
+          retainKeyboardInsets: retainKeyboardInsets,
+          onRetainedDismiss: onRetainedDismiss,
+          onRetainedSwipeDismissRequested: onRetainedSwipeDismissRequested,
+        ),
+  );
+}
 
 Widget _sheetLayout(
   BuildContext context,
@@ -696,6 +724,28 @@ class DSheetDragRegion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final menuScope = context
+        .dependOnInheritedWidgetOfExactType<_DSheetAdaptiveMenuScope>();
+    if (menuScope != null) {
+      final menu = menuScope.menu;
+      return Semantics(
+        button: menuScope.canCollapse,
+        label: menuScope.canCollapse
+            ? (menuScope.expanded ? context.l10n.collapse : context.l10n.expand)
+            : null,
+        onTap: menuScope.canCollapse ? menu._toggle : null,
+        child: GestureDetector(
+          onTap: menuScope.canCollapse ? menu._toggle : null,
+          supportedDevices: const {PointerDeviceKind.touch},
+          onVerticalDragStart: (_) => menu._start(),
+          onVerticalDragUpdate: (details) => menu._update(details.delta.dy),
+          onVerticalDragEnd: (details) =>
+              menu._finish(details.primaryVelocity ?? 0),
+          onVerticalDragCancel: () => menu._finish(0, cancelled: true),
+          child: child,
+        ),
+      );
+    }
     final swipe = context
         .dependOnInheritedWidgetOfExactType<_DSheetSwipeScope>()
         ?.swipe;
@@ -1206,6 +1256,7 @@ class DSheetContent extends StatelessWidget {
             (MediaQuery.textScalerOf(context).scale(1) > 1.5 ||
                 (topBottomMaxHeightFactor != null && !hasBody)));
     final overArtwork = headerImage != null;
+    final menu = variant != DSheetVariant.standard;
     final handle = Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 10),
       child: Center(
@@ -1242,9 +1293,7 @@ class DSheetContent extends StatelessWidget {
         ),
       ),
     );
-    final parts = <Widget>[
-      if (variant == DSheetVariant.menu && !overArtwork) handle,
-    ];
+    final parts = <Widget>[if (menu && !overArtwork) handle];
     for (var index = 0; index < children.length; index++) {
       final child = children[index];
       if (index > 0) parts.add(const SizedBox(height: DSpacing.lg));
@@ -1273,10 +1322,13 @@ class DSheetContent extends StatelessWidget {
             DSheetSide.left => Border(right: edgeBorder),
             _ => throw StateError('Sheet side was not resolved.'),
           };
-    final radius = variant == DSheetVariant.menu
-        ? const BorderRadius.vertical(
-            top: Radius.circular(22),
-            bottom: Radius.circular(24),
+    final menuInsetProgress = context
+        .dependOnInheritedWidgetOfExactType<_DSheetSideScope>()
+        ?.menuInsetProgress;
+    final radius = menu
+        ? BorderRadius.vertical(
+            top: const Radius.circular(22),
+            bottom: Radius.circular(24 * (menuInsetProgress ?? 1)),
           )
         : inset
         ? BorderRadius.circular(DRadius.panel)
@@ -1285,7 +1337,7 @@ class DSheetContent extends StatelessWidget {
         : BorderRadius.zero;
     final surfaceColor =
         backgroundColor ??
-        (variant == DSheetVariant.menu
+        (menu
             ? Color.lerp(tokens.background, tokens.foreground, .03)!
             : fillAvailableHeight
             ? tokens.background.withValues(alpha: 1)
@@ -1318,7 +1370,7 @@ class DSheetContent extends StatelessWidget {
           child: Material(
             animationDuration: Duration.zero,
             borderRadius: radius,
-            clipBehavior: inset || extendBehindKeyboard
+            clipBehavior: inset || extendBehindKeyboard || menu
                 ? Clip.antiAlias
                 : Clip.none,
             color: DMaterialSurface.fill(context, surfaceColor),
@@ -1391,7 +1443,7 @@ class DSheetContent extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: parts,
                     ),
-                  if (variant == DSheetVariant.menu && overArtwork)
+                  if (menu && overArtwork)
                     Positioned(top: 0, left: 0, right: 0, child: handle),
                   if (showCloseButton)
                     Positioned(

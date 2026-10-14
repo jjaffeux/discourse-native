@@ -213,6 +213,8 @@ void main() {
         find.byKey(const ValueKey('topic-list-category-filter')),
       );
       await tester.pumpAndSettle();
+      await tester.tap(list_fixture.field);
+      await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
       await tester.pumpAndSettle();
       expect(

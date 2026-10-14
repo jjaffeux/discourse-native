@@ -66,6 +66,9 @@ Future<({ShellController shell, FakeDiscourseApi api})> fixture(
   Size size = desktop,
   List<SidebarTag> knownTags = tags,
   Map<String, List<TopicCategory>> categorySearches = const {},
+  List<TopicFilterOption> filterOptions = const [
+    TopicFilterOption(name: 'status:open', priority: 1),
+  ],
 }) async {
   final api = FakeDiscourseApi(
     user: user,
@@ -81,9 +84,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> fixture(
       '/tags/c/product/1/Alpha.json': [],
       '/tags/c/product/design/2/Alpha.json': [],
     },
-    filterOptionsByPath: const {
-      '/filter.json': [TopicFilterOption(name: 'status:open', priority: 1)],
-    },
+    filterOptionsByPath: {'/filter.json': filterOptions},
     categoryFilterTagSearches: const {
       (1, ''): [
         TopicFilterLookupValue(name: 'Alpha', description: '8'),
@@ -485,6 +486,81 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final material in DAppearanceMaterial.values) {
+      testWidgets(
+        'filter sheet expands, floats, and preserves its query on $platform ($material)',
+        (tester) async {
+          debugDisableShadows = false;
+          addTearDown(() => debugDisableShadows = true);
+          final (shell: shell, api: _) = await fixture(
+            tester,
+            size: phone,
+            filterOptions: [
+              for (var index = 0; index < 28; index++)
+                TopicFilterOption(
+                  name: 'condition$index:',
+                  description: 'Topics matching condition $index',
+                  priority: 1,
+                ),
+            ],
+          );
+          await shell.forumSettings.setShared(
+            SharedAppearance(
+              font: ForumFont.openSans,
+              interfaceFont: ForumFont.openSans,
+              material: material,
+            ),
+          );
+          await shell.forumSettings.setThemeMode(site, AppThemeMode.dark);
+          await tester.pumpAndSettle();
+          await openFilters(tester);
+          final sheet = find.byType(DSheetContent);
+          expect(tester.getRect(sheet).width, phone.width);
+          expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
+          expect(textField(tester).focusNode!.hasFocus, isFalse);
+          await capture(tester, 'filter-$platform-$material-collapsed');
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            const Offset(0, -350),
+          );
+          await tester.pumpAndSettle();
+          final expandedTop = tester.getRect(sheet).top;
+          await capture(tester, 'filter-$platform-$material-expanded');
+          final results = find.descendant(
+            of: find.byType(DCommandList<String>),
+            matching: find.byType(Scrollable),
+          );
+          final position = tester
+              .state<ScrollableState>(results.first)
+              .position;
+          position.jumpTo(position.maxScrollExtent);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).left, 6);
+          expect(tester.getRect(sheet).top, closeTo(expandedTop, 1));
+          expect(position.extentAfter, closeTo(0, 1));
+          await capture(tester, 'filter-$platform-$material-inset');
+          await tester.enterText(field, 'condition1');
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: 300 * tester.view.devicePixelRatio,
+          );
+          addTearDown(tester.view.resetViewInsets);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).left, 6);
+          expect(
+            tester.getRect(sheet).bottom,
+            lessThanOrEqualTo(phone.height - 300),
+          );
+          expect(textField(tester).controller!.text, 'condition1');
+          await capture(tester, 'filter-$platform-$material-keyboard');
+          expect(tester.takeException(), isNull);
+          debugDisableShadows = true;
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
+    }
+  }
+
   for (final size in [desktop, phone]) {
     testWidgets(
       'compact filters stay usable at $size and 200 percent text',
@@ -501,6 +577,13 @@ void main() {
         );
         await tester.pumpAndSettle();
         await openFilters(tester);
+        if (size == phone) {
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            const Offset(0, -350),
+          );
+          await tester.pumpAndSettle();
+        }
         await capture(
           tester,
           size == phone ? 'filters-phone-large' : 'filters-desktop-large',

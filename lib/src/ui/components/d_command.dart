@@ -511,6 +511,8 @@ class DCommandInput<T> extends StatefulWidget {
     this.focusNode,
 
     this.enabled = true,
+    this.borderless = false,
+    this.autofocus = true,
     this.onEmptyBackspace,
     this._semanticLabel,
   });
@@ -521,6 +523,12 @@ class DCommandInput<T> extends StatefulWidget {
   final FocusNode? focusNode;
 
   final bool enabled;
+
+  /// An inline query with no field frame or search glyph, for menu surfaces.
+  final bool borderless;
+
+  /// Whether the query requests focus when it mounts.
+  final bool autofocus;
 
   /// Called when Backspace is pressed in an empty query, including on mobile.
   final VoidCallback? onEmptyBackspace;
@@ -630,29 +638,37 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
           });
         }
         return Padding(
-          padding: const EdgeInsets.only(bottom: DSpacing.xs),
+          padding: widget.borderless
+              ? const EdgeInsets.symmetric(
+                  horizontal: DSpacing.sm,
+                  vertical: DSpacing.sm,
+                )
+              : const EdgeInsets.only(bottom: DSpacing.xs),
           child: Focus(
             canRequestFocus: false,
             skipTraversal: true,
             onKeyEvent: _onKey,
             child: DInput(
+              borderless: widget.borderless,
               controller: _editing,
               focusNode: widget.focusNode,
               semanticLabel: widget.semanticLabel,
               hintText: widget.placeholder,
-              autofocus: true,
+              autofocus: widget.autofocus,
               enabled: widget.enabled,
               onEmptyBackspace: widget.onEmptyBackspace,
               autocorrect: false,
               enableSuggestions: false,
               textInputAction: TextInputAction.search,
-              suffix: ExcludeSemantics(
-                child: DIcon(
-                  DIcons.magnifyingGlass,
-                  size: 16,
-                  color: DTokens.of(context).mutedForeground,
-                ),
-              ),
+              suffix: widget.borderless
+                  ? null
+                  : ExcludeSemantics(
+                      child: DIcon(
+                        DIcons.magnifyingGlass,
+                        size: 16,
+                        color: DTokens.of(context).mutedForeground,
+                      ),
+                    ),
             ),
           ),
         );

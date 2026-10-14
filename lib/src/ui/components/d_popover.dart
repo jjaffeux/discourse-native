@@ -151,6 +151,7 @@ class DPopover extends StatefulWidget {
     this.onOpenChangeComplete,
     this.restoreFocus = true,
     this.sheetOnMobile = false,
+    this.mobileSheetVariant = DSheetVariant.standard,
     this.fullScreenOnMobile = false,
     this.initialFocusNode,
     this.focusContentOnOpen = true,
@@ -171,6 +172,9 @@ class DPopover extends StatefulWidget {
   /// Presents a modal bottom sheet on iOS, Android and Fuchsia.
   /// Desktop platforms retain the anchored popup.
   final bool sheetOnMobile;
+
+  /// The shared sheet presentation used by [sheetOnMobile].
+  final DSheetVariant mobileSheetVariant;
 
   /// Fills the available mobile viewport with an inset, keyboard-aware sheet.
   /// Desktop retains the anchored popup.
@@ -230,6 +234,7 @@ class _DPopoverState extends State<DPopover>
   FocusNode? _previousFocus;
   bool _open = false;
   bool _sheet = false;
+  final _menuFocus = FocusNode(skipTraversal: true);
   bool _initialized = false;
   bool _syncScheduled = false;
   bool _suspended = false;
@@ -708,6 +713,9 @@ class _DPopoverState extends State<DPopover>
       child: widget.child,
     );
     if (_sheet) {
+      final adaptiveMenu =
+          widget.mobileSheetVariant == DSheetVariant.adaptiveMenu &&
+          !widget.fullScreenOnMobile;
       final media = MediaQuery.of(context);
       final view = View.of(context);
       return MediaQuery(
@@ -720,7 +728,8 @@ class _DPopoverState extends State<DPopover>
           ),
         ),
         child: DSheet<void>(
-          initialFocusNode: widget.initialFocusNode,
+          initialFocusNode:
+              widget.initialFocusNode ?? (adaptiveMenu ? _menuFocus : null),
           open: _open,
           onOpenChangeComplete: widget.onOpenChangeComplete,
           restoreFocus: widget.restoreFocus,
@@ -739,21 +748,30 @@ class _DPopoverState extends State<DPopover>
           trigger: DSheetTrigger(builder: (_, _) => trigger),
           content: DSheetContent(
             side: DSheetSide.bottom,
+            variant: widget.fullScreenOnMobile
+                ? DSheetVariant.standard
+                : widget.mobileSheetVariant,
+            showCloseButton: !adaptiveMenu,
             semanticLabel: widget.content.semanticLabel,
-            topBottomMaxHeightFactor: widget.fullScreenOnMobile ? 1 : .8,
+            topBottomMaxHeightFactor: adaptiveMenu
+                ? null
+                : widget.fullScreenOnMobile
+                ? 1
+                : .8,
             inset: widget.fullScreenOnMobile,
             fillAvailableHeight: widget.fullScreenOnMobile,
             scrollWholeSheet: false,
             children: [
-              DSheetHeader(
-                children: [
-                  DSheetTitle(
-                    child: Text(
-                      widget.content.semanticLabel ?? context.l10n.options,
+              if (!adaptiveMenu)
+                DSheetHeader(
+                  children: [
+                    DSheetTitle(
+                      child: Text(
+                        widget.content.semanticLabel ?? context.l10n.options,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               Flexible(
                 child: DJoinedControlScope.boundary(
                   child: _PopoverScope(
@@ -762,7 +780,15 @@ class _DPopoverState extends State<DPopover>
                       DPopoverChangeReason.closePress,
                       DPopoverInteraction.imperative,
                     ),
-                    child: widget.fullScreenOnMobile
+                    child: adaptiveMenu
+                        ? Focus(
+                            focusNode: _menuFocus,
+                            child: Padding(
+                              padding: widget.content.padding,
+                              child: widget.content.child,
+                            ),
+                          )
+                        : widget.fullScreenOnMobile
                         ? SizedBox.expand(child: widget.content.child)
                         : widget.content.child,
                   ),
@@ -794,6 +820,7 @@ class _DPopoverState extends State<DPopover>
     _curve.dispose();
     _animation.dispose();
     _surfaceFocus.dispose();
+    _menuFocus.dispose();
     _ownedController.dispose();
     super.dispose();
   }

@@ -852,6 +852,11 @@ void main() {
     );
     await _pump(tester, api);
     await _openFilter(tester);
+    await tester.enterText(
+      find.byKey(const ValueKey('topic-filter-input')),
+      'status:open',
+    );
+    await tester.pumpAndSettle();
     final shell = ShellScope.read(
       tester.element(
         find.descendant(
@@ -1043,7 +1048,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byType(DCommandList<String>),
-          matching: find.text('Tag'),
+          matching: find.text('Tag  ${_tagOption.description}'),
         ),
         findsOneWidget,
       );
@@ -1209,7 +1214,7 @@ void _expectSuggestionSemantics(
   }
 
   visit(semantics);
-  expect(labels, contains(label));
+  expect(labels, contains(anyOf(label, startsWith('$label  '))));
 }
 
 Future<void> _pump(
