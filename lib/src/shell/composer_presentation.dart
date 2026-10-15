@@ -928,7 +928,8 @@ class _ComposerSurface extends StatelessWidget {
     final composer = entry.composer;
     final minimized = entry.minimized && !parked;
     return Material(
-      color: minimized
+      // The mobile sheet paints one surface behind its handle and editor.
+      color: minimized || mobile
           ? Colors.transparent
           : ForumWindowBackground.surfaceColor(
               context,

@@ -386,10 +386,12 @@ class ComposerPanel extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           // The dock divider owns the boundary with adjacent containers.
           decoration: BoxDecoration(
-            color: ForumWindowBackground.surfaceColor(
-              context,
-              theme.shell.content,
-            ),
+            color: mobile
+                ? Colors.transparent
+                : ForumWindowBackground.surfaceColor(
+                    context,
+                    theme.shell.content,
+                  ),
           ),
           child: CallbackShortcuts(
             bindings: {
