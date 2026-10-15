@@ -194,106 +194,112 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       hasMore: _hasMore,
       loading: _loading || _loadingMore,
       child: ChatChromeScrollView(
-        header: FocusTraversalGroup(
-          policy: WidgetOrderTraversalPolicy(),
-          child: ContentReadingLaneBox(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: DSpacing.md,
-              children: [
-                ChatBrowseNavigation(
-                  siteUrl: widget.siteUrl,
-                  page: ChatBrowsePage.channels,
-                ),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final search = DInput(
-                      size: DControlSize.field,
-                      key: const ValueKey('chat-browse-filter'),
-                      controller: _filterController,
-                      onChanged: _filterChanged,
-                      hintText: context.l10n.findAChannel,
-                      semanticLabel: context.l10n.findAChannel,
-                      prefix: const DIcon(DIcons.magnifyingGlass),
-                    );
-                    final filters = Wrap(
-                      spacing: DSpacing.controlGap,
-                      runSpacing: DSpacing.controlGap,
-                      children: [
-                        ChatBrowseFilter<ChatChannelBrowseStatus>(
-                          key: const ValueKey('chat-browse-status'),
-                          value: _status,
-                          label: _status == ChatChannelBrowseStatus.all
-                              ? context.l10n.status
-                              : _statusLabel(_status),
-                          semanticLabel: context.l10n.status,
-                          emphasized: _status != ChatChannelBrowseStatus.all,
-                          entries: [
-                            for (final status in ChatChannelBrowseStatus.values)
-                              DSelectOption(
-                                value: status,
-                                label: _statusLabel(status),
-                                child: Text(_statusLabel(status)),
-                              ),
-                          ],
-                          onChanged: (status) {
-                            if (status == _status) return;
-                            setState(() => _status = status);
-                            _chat.inboxFilters
-                                    .browseFor(widget.siteUrl)
-                                    .status =
-                                status;
-                            unawaited(_load(reset: true));
-                          },
-                        ),
-                        ChatBrowseFilter<ChatChannelJoinedFilter>(
-                          key: const ValueKey('chat-browse-joined'),
-                          value: _joined,
-                          label: _joined == ChatChannelJoinedFilter.all
-                              ? context.l10n.membership
-                              : _joinedLabel(_joined),
-                          semanticLabel: context.l10n.membership,
-                          emphasized: _joined != ChatChannelJoinedFilter.all,
-                          entries: [
-                            for (final joined in ChatChannelJoinedFilter.values)
-                              DSelectOption(
-                                value: joined,
-                                label: _joinedLabel(joined),
-                                child: Text(_joinedLabel(joined)),
-                              ),
-                          ],
-                          onChanged: (joined) {
-                            setState(() => _joined = joined);
-                            _chat.inboxFilters
-                                    .browseFor(widget.siteUrl)
-                                    .membership =
-                                joined;
-                          },
-                        ),
-                      ],
-                    );
-                    return constraints.maxWidth >=
-                            MediaQuery.textScalerOf(context).scale(600)
-                        ? Row(
-                            spacing: DSpacing.controlGap,
-                            children: [
-                              Expanded(child: search),
-                              filters,
+        // Scroll fades and mobile chrome must not repaint the fixed filters.
+        header: RepaintBoundary(
+          child: FocusTraversalGroup(
+            policy: WidgetOrderTraversalPolicy(),
+            child: ContentReadingLaneBox(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: DSpacing.md,
+                children: [
+                  ChatBrowseNavigation(
+                    siteUrl: widget.siteUrl,
+                    page: ChatBrowsePage.channels,
+                  ),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final search = DInput(
+                        size: DControlSize.field,
+                        key: const ValueKey('chat-browse-filter'),
+                        controller: _filterController,
+                        onChanged: _filterChanged,
+                        hintText: context.l10n.findAChannel,
+                        semanticLabel: context.l10n.findAChannel,
+                        prefix: const DIcon(DIcons.magnifyingGlass),
+                      );
+                      final filters = Wrap(
+                        spacing: DSpacing.controlGap,
+                        runSpacing: DSpacing.controlGap,
+                        children: [
+                          ChatBrowseFilter<ChatChannelBrowseStatus>(
+                            key: const ValueKey('chat-browse-status'),
+                            value: _status,
+                            label: _status == ChatChannelBrowseStatus.all
+                                ? context.l10n.status
+                                : _statusLabel(_status),
+                            semanticLabel: context.l10n.status,
+                            emphasized: _status != ChatChannelBrowseStatus.all,
+                            entries: [
+                              for (final status
+                                  in ChatChannelBrowseStatus.values)
+                                DSelectOption(
+                                  value: status,
+                                  label: _statusLabel(status),
+                                  child: Text(_statusLabel(status)),
+                                ),
                             ],
-                          )
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            spacing: DSpacing.controlGap,
-                            children: [search, filters],
-                          );
-                  },
-                ),
-              ],
+                            onChanged: (status) {
+                              if (status == _status) return;
+                              setState(() => _status = status);
+                              _chat.inboxFilters
+                                      .browseFor(widget.siteUrl)
+                                      .status =
+                                  status;
+                              unawaited(_load(reset: true));
+                            },
+                          ),
+                          ChatBrowseFilter<ChatChannelJoinedFilter>(
+                            key: const ValueKey('chat-browse-joined'),
+                            value: _joined,
+                            label: _joined == ChatChannelJoinedFilter.all
+                                ? context.l10n.membership
+                                : _joinedLabel(_joined),
+                            semanticLabel: context.l10n.membership,
+                            emphasized: _joined != ChatChannelJoinedFilter.all,
+                            entries: [
+                              for (final joined
+                                  in ChatChannelJoinedFilter.values)
+                                DSelectOption(
+                                  value: joined,
+                                  label: _joinedLabel(joined),
+                                  child: Text(_joinedLabel(joined)),
+                                ),
+                            ],
+                            onChanged: (joined) {
+                              setState(() => _joined = joined);
+                              _chat.inboxFilters
+                                      .browseFor(widget.siteUrl)
+                                      .membership =
+                                  joined;
+                            },
+                          ),
+                        ],
+                      );
+                      return constraints.maxWidth >=
+                              MediaQuery.textScalerOf(context).scale(600)
+                          ? Row(
+                              spacing: DSpacing.controlGap,
+                              children: [
+                                Expanded(child: search),
+                                filters,
+                              ],
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              spacing: DSpacing.controlGap,
+                              children: [search, filters],
+                            );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        list: _buildResults,
+        list: (context, lazy) =>
+            RepaintBoundary(child: _buildResults(context, lazy)),
       ),
     ),
   );
