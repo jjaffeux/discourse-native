@@ -870,15 +870,19 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
           child: SingleChildScrollView(
             controller: _scroll,
             padding: padding,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: minHeight),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: showsResults && resultNodes.isNotEmpty
-                    ? MainAxisAlignment.start
-                    : MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: rendered,
+            // Scrolling and edge fades only move/composite these rows. Keep
+            // their text and icons cached until a row or the results change.
+            child: RepaintBoundary(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minHeight),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: showsResults && resultNodes.isNotEmpty
+                      ? MainAxisAlignment.start
+                      : MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: rendered,
+                ),
               ),
             ),
           ),
