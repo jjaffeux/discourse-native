@@ -25,6 +25,8 @@ final pageSurfaceExamples = ComponentExamples(
       'Specialized readers use DPageSurface.scrollable for custom compact headers '
       'or headerSuppressed. Their full spacer stays reserved and their existing '
       'two-viewport short-content policy remains. '
+      'initialCompactHeader chooses the opening reader layout from a known post '
+      'position and keeps it through loading and restoration until user scroll input. '
       'measureCompactHeader premeasures an inert copy of the compact layout at '
       'the current reading width and text scale. Use independently owned controls '
       'and keys for that copy. Reversed lists measure the cutoff from their '

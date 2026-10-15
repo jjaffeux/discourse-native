@@ -47,6 +47,7 @@ class DPageSurface extends StatefulWidget {
        header = _PageTitle(child: title),
        headerControls = _PageControls(child: controls),
        compactHeader = null,
+       initialCompactHeader = null,
        measureCompactHeader = false,
        tabs = null,
        framed = false,
@@ -61,6 +62,7 @@ class DPageSurface extends StatefulWidget {
     super.key,
     this.header,
     this.compactHeader,
+    this.initialCompactHeader,
     this.measureCompactHeader = false,
     this.headerControls,
     this.tabs,
@@ -88,6 +90,7 @@ class DPageSurface extends StatefulWidget {
     super.key,
     this.header,
     this.compactHeader,
+    this.initialCompactHeader,
     this.measureCompactHeader = false,
     this.headerControls,
     this.tabs,
@@ -117,6 +120,11 @@ class DPageSurface extends StatefulWidget {
   /// Alternative reader layout after scrolling past the difference between
   /// its full and compact measured extents. The full spacer remains reserved.
   final Widget? compactHeader;
+
+  /// Starts a reader in this layout and keeps it through restoration and
+  /// loading until the user scrolls. Null follows scroll position immediately.
+  /// Changes take effect when [identity] changes, not when content arrives.
+  final bool? initialCompactHeader;
 
   /// Measures an inert, offstage copy of [compactHeader] before its first use.
   /// This makes the switch follow its actual width and text scaling instead of
@@ -228,6 +236,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   )..addListener(_updateHeader);
   double _titleFoldTarget = 0;
   bool _compact = false;
+  bool _compactFollowsScroll = true;
   double _compactHeight = 76;
   Timer? _compactTimer;
   Widget? get _header =>
@@ -257,6 +266,8 @@ class _DPageSurfaceState extends State<DPageSurface>
   @override
   void initState() {
     super.initState();
+    _compact = widget.initialCompactHeader ?? false;
+    _compactFollowsScroll = widget.initialCompactHeader == null;
     _headerFocus.addListener(_revealFocusedHeader);
     widget.headerSuppressed?.addListener(_syncSuppression);
     _suppression.value = widget.headerSuppressed?.value == true ? 1 : 0;
@@ -339,7 +350,8 @@ class _DPageSurfaceState extends State<DPageSurface>
         oldWidget.revealHeaderAtEnd != widget.revealHeaderAtEnd ||
         (oldWidget.header != null && _header == null)) {
       _compactTimer?.cancel();
-      _compact = false;
+      _compact = widget.initialCompactHeader ?? false;
+      _compactFollowsScroll = widget.initialCompactHeader == null;
       _compactHeight = 76;
       _measuredCompactHeight = null;
       _headerHeldAtEnd = false;
@@ -507,7 +519,8 @@ class _DPageSurfaceState extends State<DPageSurface>
     int depth,
     BuildContext? scrollContext,
   ) {
-    if (_headerFocus.hasFocus ||
+    if (!_compactFollowsScroll ||
+        _headerFocus.hasFocus ||
         widget.compactHeader == null ||
         metrics.axis != Axis.vertical ||
         !_isPageScroll(depth, scrollContext)) {
@@ -548,6 +561,15 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScroll(ScrollNotification notification) {
+    if (!_compactFollowsScroll &&
+        notification.metrics.axis == Axis.vertical &&
+        ((notification is UserScrollNotification &&
+                notification.direction != ScrollDirection.idle) ||
+            (notification is ScrollUpdateNotification &&
+                notification.dragDetails != null)) &&
+        _isPageScroll(notification.depth, notification.context)) {
+      _compactFollowsScroll = true;
+    }
     _revealStandardTitleAtTop(
       notification.metrics,
       notification.depth,

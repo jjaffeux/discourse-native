@@ -122,14 +122,33 @@ class TopicInboxHeader extends StatelessWidget {
         children: rows,
       );
     }
+    final shell = ShellScope.read(context);
+    final route = this.route ?? shell.currentContent;
+    final topicId = topic?.id ?? route?.topicId ?? preview?.id;
+    final row =
+        preview ??
+        (siteUrl != null && topicId != null
+            ? shell.store.read<Topic>(siteUrl, topicId)
+            : null);
+    final openingPostNumber = topicId == null
+        ? null
+        : shell.topicScrollPostNumber(
+                topicId,
+                tabId: ForumTabScope.idOf(context),
+              ) ??
+              route?.postNumber ??
+              topic?.resumePostNumber ??
+              row?.lastUnreadPostNumber;
     return DPageSurface.scrollable(
       headerSuppressed: headerSuppressed,
       hideHeaderOnScroll: true,
       framed: false,
-      identity: (siteUrl, topic?.id, scrollController),
+      identity: (siteUrl, topicId),
+      initialCompactHeader: shell.mobileNavigationEnabled
+          ? (openingPostNumber ?? 1) > 1
+          : null,
       header: _morphHeader(context, compact: false, rows: rows),
-      compactHeader:
-          ShellScope.read(context).mobileNavigationEnabled && hasTopic
+      compactHeader: shell.mobileNavigationEnabled
           ? _morphHeader(context, compact: true, rows: rows)
           : null,
       headerControls: headerControls,
@@ -142,15 +161,84 @@ class TopicInboxHeader extends StatelessWidget {
     required bool compact,
     required List<Widget> rows,
   }) {
-    if (!ShellScope.read(context).mobileNavigationEnabled ||
-        loading ||
-        topic == null) {
+    if (!ShellScope.read(context).mobileNavigationEnabled) {
       return Column(children: rows);
     }
     return DHeaderMorph(
       key: const ValueKey('topic-header-morph'),
       compact: compact,
       builder: (context, compact, part) {
+        if (loading || topic == null) {
+          if (!compact) return Column(children: rows);
+          final style = Theme.of(
+            context,
+          ).textTheme.labelSmall!.copyWith(fontSize: 11);
+          return ContentReadingLaneBox(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(
+              key: const ValueKey('topic-header-compact-layout'),
+              spacing: 10,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 3,
+                    children: [
+                      part(
+                        'title',
+                        _TopicHeaderTitle(header: this, compact: true),
+                      ),
+                      part(
+                        'meta',
+                        SizedBox(
+                          height:
+                              MediaQuery.textScalerOf(context).scale(11) *
+                              (style.height ?? 1),
+                          child: TopicSkeletonReveal(
+                            child: DSkeletonRegion(
+                              semanticsLabel: context.l10n.loadingTopicDetails,
+                              color: skeletonFill(context),
+                              child: const Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: DSkeleton(width: 130, height: 8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (siteUrl != null &&
+                    ShellScope.read(context).instanceFor(siteUrl!)?.user !=
+                        null)
+                  const DButtonGroup(
+                    children: [
+                      TopicBookmarkButtonPlaceholder(
+                        variant: DButtonVariant.outline,
+                        size: DButtonSize.filter,
+                      ),
+                      TopicNotificationLevelPlaceholder(
+                        showChevron: true,
+                        variant: DButtonVariant.outline,
+                        size: DButtonSize.filter,
+                      ),
+                    ],
+                  ),
+                part(
+                  'tools',
+                  DButton.iconOnly(
+                    key: const ValueKey('topic-compact-more'),
+                    icon: const DIcon(DIcons.ellipsisVertical),
+                    tooltip: context.l10n.more,
+                    size: DButtonSize.filter,
+                    onPressed: null,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         final shell = ShellScope.read(context);
         final detail = topic!;
         final category = shell.categoryFor(detail.categoryId, siteUrl: siteUrl);
@@ -476,15 +564,7 @@ class _TopicHeaderTitle extends StatelessWidget {
         (style?.height ?? DiscourseTypography.lineHeightLarge);
     final known = header.title;
     final Widget title;
-    if (compact) {
-      title = Text(
-        known ?? topic?.title ?? '',
-        key: const ValueKey('topic-header-compact-title'),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: style,
-      );
-    } else if (known == null && header.loading) {
+    if (known == null && header.loading) {
       title = SizedBox(
         key: const ValueKey('topic-header-title-placeholder'),
         height: lineHeight,
@@ -502,6 +582,14 @@ class _TopicHeaderTitle extends StatelessWidget {
             ),
           ),
         ),
+      );
+    } else if (compact) {
+      title = Text(
+        known ?? topic?.title ?? '',
+        key: const ValueKey('topic-header-compact-title'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
       );
     } else if (topic?.canEdit == true && siteUrl != null) {
       title = InlineTopicTitleEditor(

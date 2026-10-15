@@ -1,8 +1,99 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final shared in [false, true]) {
+    for (final compact in [false, true]) {
+      testWidgets(
+        'initial compact=$compact survives jumps until user input (shared: $shared)',
+        (tester) async {
+          final scroll = ScrollController(initialScrollOffset: 600);
+          addTearDown(scroll.dispose);
+          Future<void> pump({String identity = 'one', bool? initial}) async {
+            final page = DPageSurface.scrollable(
+              identity: identity,
+              initialCompactHeader: initial ?? compact,
+              framed: false,
+              hideHeaderOnScroll: true,
+              measureCompactHeader: true,
+              header: const SizedBox(
+                key: ValueKey('full'),
+                height: 180,
+                child: Text('Full title'),
+              ),
+              compactHeader: const SizedBox(
+                key: ValueKey('compact'),
+                height: 47,
+                child: Text('Compact title'),
+              ),
+              bodyBuilder: (_, header) => ListView(
+                key: const ValueKey('viewport'),
+                controller: scroll,
+                children: [header.spacer, const SizedBox(height: 4000)],
+              ),
+            );
+            await tester.pumpWidget(
+              MaterialApp(
+                home: Scaffold(
+                  body: shared
+                      ? DScrollChrome(
+                          identity: 'reader',
+                          footerBuilder: (_) => const SizedBox(height: 50),
+                          child: page,
+                        )
+                      : page,
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+          }
+
+          void expectInitial() => expect(
+            find.byKey(ValueKey(compact ? 'compact' : 'full')),
+            findsOneWidget,
+          );
+          await pump();
+          expectInitial();
+          scroll.jumpTo(0);
+          await tester.pumpAndSettle();
+          expectInitial();
+          // Hydration may discover a different read position. It must not
+          // replace the choice the reader has already seen.
+          await pump(initial: !compact);
+          expectInitial();
+          scroll.jumpTo(600);
+          await tester.pumpAndSettle();
+          expectInitial();
+          await tester.sendEventToBinding(
+            const PointerScrollEvent(
+              position: Offset(400, 350),
+              scrollDelta: Offset(0, 10),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('compact')), findsOneWidget);
+          scroll.jumpTo(0);
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('full')), findsOneWidget);
+          await pump(identity: 'two', initial: true);
+          expect(find.byKey(const ValueKey('compact')), findsOneWidget);
+          await tester.drag(
+            find.byKey(const ValueKey('viewport')),
+            const Offset(0, -40),
+          );
+          await tester.pumpAndSettle();
+          // A real drag also releases the initial choice at the top.
+          scroll.jumpTo(0);
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('full')), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   testWidgets('a resized full header updates its reserved space', (
     tester,
   ) async {
