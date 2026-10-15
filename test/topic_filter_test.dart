@@ -1004,7 +1004,7 @@ void main() {
     await tester.pumpAndSettle();
     final edit = find.byKey(const ValueKey('topic-filter-token-edit-0'));
     expect(
-      tester.widget<DButton>(edit).semanticLabel,
+      tester.getSemantics(edit).label,
       'Edit filter Category: Parent › Child',
     );
     Focus.of(

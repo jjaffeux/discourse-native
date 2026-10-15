@@ -517,6 +517,7 @@ const componentCatalogue = <ComponentReference>[
       "Shortcuts",
       "Groups",
       "Scrollable",
+      "Filter tokens",
       "RTL",
       "API Reference",
     ],

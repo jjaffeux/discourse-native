@@ -440,36 +440,29 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           RepaintBoundary(
-            child: Row(
-              children: [
-                if (_tokens.isNotEmpty)
-                  Flexible(
-                    flex: 2,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 90),
-                      child: DScrollArea(child: _buildTokens()),
-                    ),
-                  ),
-                Expanded(
-                  child: Focus(
-                    canRequestFocus: false,
-                    skipTraversal: true,
-                    onKeyEvent: _onKey,
-                    child: DCommandInput<String>(
-                      borderless: true,
-                      autofocus: widget.focusOnOpen,
-                      key: widget.inputKey,
-                      controller: widget.onlyKey == null ? filter.text : null,
-                      onEmptyBackspace: widget.onlyKey == null
-                          ? null
-                          : _stepBackScope,
-                      focusNode: _focus,
-                      placeholder: widget.hintText,
-                      semanticLabel: context.l10n.topicFilterQuery,
-                    ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(2, 2, 2, 8),
+              child: Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                onKeyEvent: _onKey,
+                child: KeyedSubtree(
+                  key: const ValueKey('topic-filter-token-field'),
+                  child: DCommandInput<String>(
+                    density: DCommandInputDensity.menuFilter,
+                    tokens: _buildTokenChips(),
+                    autofocus: widget.focusOnOpen,
+                    key: widget.inputKey,
+                    controller: widget.onlyKey == null ? filter.text : null,
+                    onEmptyBackspace: widget.onlyKey == null
+                        ? null
+                        : _stepBackScope,
+                    focusNode: _focus,
+                    placeholder: widget.hintText,
+                    semanticLabel: context.l10n.topicFilterQuery,
                   ),
                 ),
-              ],
+              ),
             ),
           ),
           const DSeparator(),

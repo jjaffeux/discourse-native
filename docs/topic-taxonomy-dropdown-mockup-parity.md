@@ -34,6 +34,42 @@ Real-font captures cover desktop/phone, Standard/Liquid Glass, light/dark, and
 fallback, rather than physical-device captures. Set `SIDEBAR_FILTER_REVIEW_DIR`
 when running `test/topic_taxonomy_dropdown_parity_test.dart` to export PNGs.
 
+## Selected-filter header
+
+`FilterToken` and the inline field in the reference's `FilterSheet` define the
+header geometry. Native `DFilterToken` puts independent edit/remove actions
+inside one translucent accent pill: 12/18px text, a 5px label/value gap, 9px outer
+insets and a 10px remove glyph. The category key uses the theme's accent text;
+the value is semibold. Actions retain separate accessible names and Enter/Space
+activation, including when nested inside the command menu.
+
+`DCommandInputDensity.menuFilter` uses 13px borderless text with 3px/4px insets.
+Tokens and query share a 5px wrapping row; the query fills remaining space or
+moves below when less than 90px remains. The header has 2px top/side and 8px
+bottom padding above its stationary separator. Both controls use Native's
+reference text scale, retaining app zoom and OS accessibility without the mobile
+reading-text uplift. Short and long selected values retain bounded pill targets.
+
+`test/topic_taxonomy_header_test.dart` renders the selected **baking** category
+on macOS/iOS Liquid Glass and Linux/Android Standard, at normal and 200% text.
+The owning Native tests check adjacent action bounds, RTL, keyboard activation,
+and the query's 90px wrapping threshold. Existing production tests exercise
+editing, removal, search, Escape/Backspace and retained unrelated filters.
+
+The native iPhone 18 Pro simulator checks also passed at normal and 200% text,
+using the actual 402x874 logical viewport, DPR 3 and Liquid Glass shaders. Both
+PNG captures were inspected; these are simulator renders, not physical-device
+captures.
+
+For actual iPhone renderer screenshots (using an isolated bundle as below):
+
+```sh
+TAXONOMY_REVIEW_DIR=/private/tmp/taxonomy-native-header \
+flutter drive --no-pub --no-start-paused --debug -d <simulator-id> \
+  --driver integration_test/taxonomy_header_driver.dart \
+  --target integration_test/topic_taxonomy_header_test.dart
+```
+
 ## Performance checks
 
 `test/topic_taxonomy_scroll_performance_test.dart` drives the production menus

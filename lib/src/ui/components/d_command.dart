@@ -9,12 +9,14 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/app_text_scaler.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
+import 'd_filter_token.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
 import 'd_toggle.dart';
@@ -329,6 +331,7 @@ class _DCommandState<T> extends State<DCommand<T>> {
     // keys. Let their Native shortcuts run before interpreting menu commands.
     final focused = FocusManager.instance.primaryFocus?.context;
     if (focused?.findAncestorWidgetOfExactType<DButton>() != null ||
+        focused?.findAncestorWidgetOfExactType<DFilterToken>() != null ||
         focused?.findAncestorWidgetOfExactType<DToggle>() != null) {
       return KeyEventResult.ignored;
     }
@@ -496,6 +499,9 @@ class _DCommandScope<T> extends InheritedWidget {
       backgroundColor != oldWidget.backgroundColor;
 }
 
+/// Query geometry for ordinary command palettes and compact filter menus.
+enum DCommandInputDensity { standard, menuFilter }
+
 /// The native editable query field. Borrowed editing resources are not disposed.
 class DCommandInput<T> extends StatefulWidget {
   const DCommandInput({
@@ -506,6 +512,8 @@ class DCommandInput<T> extends StatefulWidget {
 
     this.enabled = true,
     this.borderless = false,
+    this.density = DCommandInputDensity.standard,
+    this.tokens = const [],
     this.autofocus = true,
     this.onEmptyBackspace,
     this._semanticLabel,
@@ -520,6 +528,12 @@ class DCommandInput<T> extends StatefulWidget {
 
   /// An inline query with no field frame or search glyph, for menu surfaces.
   final bool borderless;
+
+  /// The menu preset uses a 13px borderless editor with 3px/4px insets.
+  /// Tokens precede it in a wrapping row; the query fills the remaining space
+  /// or starts a new row when less than 90px remains.
+  final DCommandInputDensity density;
+  final List<Widget> tokens;
 
   /// Whether the query requests focus when it mounts.
   final bool autofocus;
@@ -620,6 +634,10 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
 
   @override
   Widget build(BuildContext context) {
+    assert(
+      widget.tokens.isEmpty ||
+          widget.density == DCommandInputDensity.menuFilter,
+    );
     final scope = _DCommandScope.of<T>(context);
     return AnimatedBuilder(
       animation: scope.controller._queryChanges,
@@ -631,6 +649,60 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
             }
           });
         }
+        final menu = widget.density == DCommandInputDensity.menuFilter;
+        final borderless = widget.borderless || menu;
+        final input = Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          onKeyEvent: _onKey,
+          child: DInput(
+            borderless: borderless,
+            style: menu
+                ? Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    fontSize: 13,
+                    height: 1.5,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: 0,
+                    color: DTokens.of(context).foreground,
+                  )
+                : null,
+            controller: _editing,
+            focusNode: widget.focusNode,
+            semanticLabel: widget.semanticLabel,
+            hintText: widget.placeholder,
+            autofocus: widget.autofocus,
+            enabled: widget.enabled,
+            onEmptyBackspace: widget.onEmptyBackspace,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.search,
+            suffix: borderless
+                ? null
+                : ExcludeSemantics(
+                    child: DIcon(
+                      DIcons.magnifyingGlass,
+                      size: 16,
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  ),
+          ),
+        );
+        if (menu) {
+          return DReferenceTextScale(
+            child: _DCommandInputWrap(
+              children: [
+                ...widget.tokens,
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 3,
+                  ),
+                  child: input,
+                ),
+              ],
+            ),
+          );
+        }
         return Padding(
           padding: widget.borderless
               ? const EdgeInsets.symmetric(
@@ -638,33 +710,7 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
                   vertical: DSpacing.sm,
                 )
               : const EdgeInsets.only(bottom: DSpacing.xs),
-          child: Focus(
-            canRequestFocus: false,
-            skipTraversal: true,
-            onKeyEvent: _onKey,
-            child: DInput(
-              borderless: widget.borderless,
-              controller: _editing,
-              focusNode: widget.focusNode,
-              semanticLabel: widget.semanticLabel,
-              hintText: widget.placeholder,
-              autofocus: widget.autofocus,
-              enabled: widget.enabled,
-              onEmptyBackspace: widget.onEmptyBackspace,
-              autocorrect: false,
-              enableSuggestions: false,
-              textInputAction: TextInputAction.search,
-              suffix: widget.borderless
-                  ? null
-                  : ExcludeSemantics(
-                      child: DIcon(
-                        DIcons.magnifyingGlass,
-                        size: 16,
-                        color: DTokens.of(context).mutedForeground,
-                      ),
-                    ),
-            ),
-          ),
+          child: input,
         );
       },
     );
@@ -677,6 +723,114 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
     _owned?.dispose();
     super.dispose();
   }
+}
+
+// CSS flex-wrap with an expanding final query: ordinary Wrap gives the
+// editor the whole available width and would always place it on another row.
+class _DCommandInputWrap extends MultiChildRenderObjectWidget {
+  const _DCommandInputWrap({required super.children});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderCommandInputWrap(Directionality.of(context));
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderCommandInputWrap renderObject,
+  ) {
+    renderObject.textDirection = Directionality.of(context);
+  }
+}
+
+class _CommandInputParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderCommandInputWrap extends RenderBox
+    with
+        ContainerRenderObjectMixin<
+          RenderBox,
+          ContainerBoxParentData<RenderBox>
+        >,
+        RenderBoxContainerDefaultsMixin<
+          RenderBox,
+          ContainerBoxParentData<RenderBox>
+        > {
+  _RenderCommandInputWrap(this._textDirection);
+  TextDirection _textDirection;
+  set textDirection(TextDirection value) {
+    if (value == _textDirection) return;
+    _textDirection = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! ContainerBoxParentData<RenderBox>) {
+      child.parentData = _CommandInputParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final width = constraints.maxWidth;
+    final runs = <List<RenderBox>>[];
+    var run = <RenderBox>[];
+    var used = 0.0;
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      final gap = run.isEmpty ? 0.0 : 5.0;
+      if (child == lastChild) {
+        if (run.isNotEmpty && width - used - gap < 90) {
+          runs.add(run);
+          run = [];
+          used = 0;
+        }
+        child.layout(
+          BoxConstraints.tightFor(
+            width: math.max(0, width - used - (run.isEmpty ? 0 : 5)),
+          ),
+          parentUsesSize: true,
+        );
+      } else {
+        child.layout(BoxConstraints(maxWidth: width), parentUsesSize: true);
+        if (run.isNotEmpty && used + gap + child.size.width > width) {
+          runs.add(run);
+          run = [];
+          used = 0;
+        }
+      }
+      used += (run.isEmpty ? 0 : 5) + child.size.width;
+      run.add(child);
+    }
+    if (run.isNotEmpty) runs.add(run);
+    var y = 0.0;
+    for (final row in runs) {
+      final height = row.fold(
+        0.0,
+        (height, child) => math.max(height, child.size.height),
+      );
+      var x = 0.0;
+      for (final child in row) {
+        final data = child.parentData! as ContainerBoxParentData<RenderBox>;
+        data.offset = Offset(
+          _textDirection == TextDirection.ltr
+              ? x
+              : width - x - child.size.width,
+          y + (height - child.size.height) / 2,
+        );
+        x += child.size.width + 5;
+      }
+      y += height + 5;
+    }
+    size = constraints.constrain(Size(width, math.max(0, y - 5)));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }
 
 /// Scrollable result composition. Children may be groups, items, separators,

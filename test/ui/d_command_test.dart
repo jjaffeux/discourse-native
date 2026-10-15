@@ -91,6 +91,98 @@ Widget _command({
 );
 
 void main() {
+  testWidgets('compact query fills remaining space and wraps at 90px', (
+    tester,
+  ) async {
+    for (final width in [250.0, 190.0]) {
+      await tester.pumpWidget(
+        _host(
+          Align(
+            child: SizedBox(
+              width: width,
+              child: const DCommand<String>(
+                child: DCommandInput<String>(
+                  autofocus: false,
+                  density: DCommandInputDensity.menuFilter,
+                  tokens: [
+                    SizedBox(key: ValueKey('token'), width: 100, height: 24),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final token = tester.getRect(find.byKey(const ValueKey('token')));
+      final field = tester.getRect(find.byType(DInput));
+      if (width == 250) {
+        expect(field.left, token.right + 5 + 4);
+        expect(field.center.dy, closeTo(token.center.dy, .01));
+      } else {
+        expect(field.left, token.left + 4);
+        expect(field.top, token.bottom + 5 + 3);
+      }
+      expect(tester.widget<DInput>(find.byType(DInput)).style!.fontSize, 13);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
+  testWidgets('filter token keyboard focus does not move command selection', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>(initialValue: 'first');
+    addTearDown(controller.dispose);
+    var edits = 0;
+    var selected = 0;
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          onSelected: (_) => selected++,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DCommandInput<String>(
+                autofocus: false,
+                density: DCommandInputDensity.menuFilter,
+                tokens: [
+                  DFilterToken(
+                    label: 'Category',
+                    value: 'baking',
+                    editLabel: 'Edit category',
+                    removeLabel: 'Remove category',
+                    onEdited: () => edits++,
+                    onRemoved: () {},
+                  ),
+                ],
+              ),
+              const DCommandList<String>(
+                children: [
+                  DCommandItem(value: 'first', child: Text('First')),
+                  DCommandItem(value: 'second', child: Text('Second')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Focus.of(tester.element(find.text('Category: baking'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    expect(controller.value, 'first');
+    // Native directional traversal may move focus to a result. Return to the
+    // token before checking its independent activation shortcut.
+    await tester.pump();
+    Focus.of(tester.element(find.text('Category: baking'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(edits, 1);
+    expect(selected, 0);
+  });
+
   testWidgets('long command results mount a bounded number of rows', (
     tester,
   ) async {

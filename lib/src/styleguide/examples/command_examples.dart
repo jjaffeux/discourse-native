@@ -11,6 +11,10 @@ final commandExamples = ComponentExamples(
       'This is the frozen base-nova/cmdk composition mapped to native Flutter '
       'editing, focus and semantics. DCommand owns query, filtering, highlight '
       'and keyboard navigation; DCommandDialog composes the shared DDialog owner. '
+      'DCommandInputDensity.menuFilter wraps DFilterToken pills beside a compact '
+      '13px query. DFilterToken keeps edit and remove as independent keyboard '
+      'actions inside one 12px accent-tinted pill. Reference text scaling '
+      'retains platform accessibility and app zoom without reading-text uplift. '
       'Use backgroundColor to match a containing sheet or page; the results '
       'scrollbar shares that color. '
       'Search uses case-insensitive ranked matching across value and keywords, '
@@ -69,6 +73,21 @@ final commandExamples = ComponentExamples(
       code: _scrollableCode,
       states: const ['Scrollable', 'Keyboard', 'Reduced motion'],
       builder: (_) => const SizedBox(width: 384, child: _ScrollableCommand()),
+    ),
+    StyleguideExample(
+      title: 'Filter tokens',
+      description:
+          'Compact query with independently editable and removable filters.',
+      code:
+          "DCommandInput<String>(density: DCommandInputDensity.menuFilter, tokens: [DFilterToken(label: 'Category', value: 'baking', editLabel: 'Change category', removeLabel: 'Remove category', onEdited: edit, onRemoved: remove)])",
+      states: const [
+        'Editable',
+        'Removable',
+        'Wrapping',
+        'RTL',
+        'Text scaling',
+      ],
+      builder: (_) => const SizedBox(width: 384, child: _FilterTokenCommand()),
     ),
     StyleguideExample(
       title: 'RTL',
@@ -424,3 +443,42 @@ const _rtlCode = '''Directionality(
     arabicResults,
   ])),
 )''';
+
+class _FilterTokenCommand extends StatefulWidget {
+  const _FilterTokenCommand();
+  @override
+  State<_FilterTokenCommand> createState() => _FilterTokenCommandState();
+}
+
+class _FilterTokenCommandState extends State<_FilterTokenCommand> {
+  String? _category = 'baking';
+  @override
+  Widget build(BuildContext context) => DCommand<String>(
+    onSelected: (value) => setState(() => _category = value),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DCommandInput<String>(
+          density: DCommandInputDensity.menuFilter,
+          tokens: [
+            if (_category case final category?)
+              DFilterToken(
+                label: 'Category',
+                value: category,
+                editLabel: 'Change category',
+                removeLabel: 'Remove category',
+                onEdited: () => setState(() => _category = null),
+                onRemoved: () => setState(() => _category = null),
+              ),
+          ],
+        ),
+        const DCommandList<String>(
+          children: [
+            DCommandItem(value: 'baking', child: Text('baking')),
+            DCommandItem(value: 'bread', child: Text('bread')),
+          ],
+        ),
+      ],
+    ),
+  );
+}

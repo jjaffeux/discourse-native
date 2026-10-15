@@ -676,33 +676,35 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
 
   Widget _buildTokens() => Wrap(
     key: const ValueKey('topic-filter-token-field'),
-    spacing: 4,
-    runSpacing: 4,
-    children: [
-      for (final group in _displayTokens())
-        _TopicFilterTokenChip(
-          raw: group.tokens.join(' '),
-          label: group.label,
-          index: group.indices.first,
-          categories: widget.categories,
-          enabled: widget.enabled,
-          onEdited: () => _editDisplayToken(group),
-          onDeleted: () {
-            if (group.indices.length == 1) {
-              _removeToken(group.indices.first);
-              return;
-            }
-            _changeSheet(
-              () => _tokens = [
-                for (var i = 0; i < _tokens.length; i++)
-                  if (!group.indices.contains(i)) _tokens[i],
-              ],
-            );
-            widget.onChanged?.call(_composeTokenQuery());
-          },
-        ),
-    ],
+    spacing: 5,
+    runSpacing: 5,
+    children: _buildTokenChips(),
   );
+
+  List<Widget> _buildTokenChips() => [
+    for (final group in _displayTokens())
+      _TopicFilterTokenChip(
+        raw: group.tokens.join(' '),
+        label: group.label,
+        index: group.indices.first,
+        categories: widget.categories,
+        enabled: widget.enabled,
+        onEdited: () => _editDisplayToken(group),
+        onDeleted: () {
+          if (group.indices.length == 1) {
+            _removeToken(group.indices.first);
+            return;
+          }
+          _changeSheet(
+            () => _tokens = [
+              for (var i = 0; i < _tokens.length; i++)
+                if (!group.indices.contains(i)) _tokens[i],
+            ],
+          );
+          widget.onChanged?.call(_composeTokenQuery());
+        },
+      ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -972,6 +974,7 @@ class _TopicFilterTokenChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = this.label ?? _topicFilterTokenLabel(raw, categories);
+    final separator = label.indexOf(':');
     return DTooltip(
       message: raw,
       child: Row(
@@ -979,47 +982,18 @@ class _TopicFilterTokenChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Flexible(
-            child: DButton(
-              key: ValueKey('topic-filter-token-edit-$index'),
-              label: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: label.contains(':')
-                          ? label.substring(0, label.indexOf(':') + 1)
-                          : '',
-                      style: TextStyle(color: DTokens.of(context).primary),
-                    ),
-                    TextSpan(
-                      text: label.contains(':')
-                          ? label.substring(label.indexOf(':') + 1)
-                          : label,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              backgroundColor: Color.lerp(
-                DTokens.of(context).background,
-                DTokens.of(context).primary,
-                .12,
-              ),
-              semanticLabel: context.l10n.editTopicFilterToken(label),
-              size: DButtonSize.small,
-              shape: DButtonShape.pill,
-              variant: DButtonVariant.secondary,
-              onPressed: enabled ? onEdited : null,
+            child: DFilterToken(
+              label: separator < 0 ? '' : label.substring(0, separator),
+              value: separator < 0
+                  ? label
+                  : label.substring(separator + 1).trimLeft(),
+              editKey: ValueKey('topic-filter-token-edit-$index'),
+              removeKey: ValueKey('topic-filter-token-remove-$index'),
+              editLabel: context.l10n.editTopicFilterToken(label),
+              removeLabel: context.l10n.removeTopicfilterinput(label),
+              onEdited: enabled ? onEdited : null,
+              onRemoved: enabled ? onDeleted : null,
             ),
-          ),
-          DButton.iconOnly(
-            key: ValueKey('topic-filter-token-remove-$index'),
-            icon: const DIcon(DIcons.xmark),
-            tooltip: context.l10n.removeTopicfilterinput(label),
-            size: DButtonSize.small,
-            variant: DButtonVariant.ghost,
-            onPressed: enabled ? onDeleted : null,
           ),
         ],
       ),

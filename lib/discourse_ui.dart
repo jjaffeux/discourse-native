@@ -47,6 +47,7 @@ export 'src/ui/components/d_dropdown_menu.dart';
 export 'src/ui/components/d_embed.dart';
 export 'src/ui/components/d_empty.dart';
 export 'src/ui/components/d_field.dart';
+export 'src/ui/components/d_filter_token.dart';
 export 'src/ui/components/d_floating_panel.dart';
 export 'src/ui/components/d_gradient_blur.dart';
 export 'src/ui/components/d_header_morph.dart';
