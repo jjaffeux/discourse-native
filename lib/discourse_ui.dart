@@ -75,6 +75,7 @@ export 'src/ui/components/d_notification_level_menu.dart';
 export 'src/ui/components/d_page_reading_lane.dart';
 export 'src/ui/components/d_page_surface.dart';
 export 'src/ui/components/d_pagination.dart';
+export 'src/ui/components/d_place_card.dart';
 export 'src/ui/components/d_popover.dart';
 export 'src/ui/components/d_position_control.dart';
 export 'src/ui/components/d_progress.dart';

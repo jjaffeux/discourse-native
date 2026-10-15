@@ -6,7 +6,6 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/category_directory.dart';
 import 'package:discourse_native/src/models/category_sidebar.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
-import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -20,6 +19,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -32,6 +32,7 @@ Future<ShellController> _loadCategories(
   FakeDiscourseApi api, {
   bool connected = false,
   bool waitForCategories = true,
+  bool mobileNavigation = false,
 }) async {
   final site = instance('meta.discourse.org', title: 'Discourse Meta').copyWith(
     user: connected ? const DiscourseUser(id: 7, username: 'joffreyj') : null,
@@ -47,6 +48,7 @@ Future<ShellController> _loadCategories(
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
     ownsApi: false,
+    mobileNavigationEnabled: mobileNavigation,
   );
   addTearDown(controller.dispose);
 
@@ -144,9 +146,6 @@ class _PendingCategoriesApi extends FakeDiscourseApi {
 
 Finder _row(int categoryId) => find.byKey(ValueKey('category-row-$categoryId'));
 
-Finder _featuredTopic(int topicId) =>
-    find.byKey(ValueKey('category-featured-topic-$topicId'));
-
 Future<void> _selectScope(WidgetTester tester, String label) async {
   await tester.tap(find.byType(DSelect<CategoryDirectoryScope>));
   await tester.pumpAndSettle();
@@ -190,7 +189,7 @@ void main() {
           expectSkeletonFillsViewport(
             tester,
             label: 'Loading categories',
-            bottom: size.height - 24,
+            bottom: size.height - 16,
           );
           expect(find.bySemanticsLabel('Loading categories'), findsOneWidget);
           final region = tester.getRect(find.byType(DSkeletonRegion));
@@ -301,7 +300,7 @@ void main() {
 
   group('category directory', () {
     testWidgets(
-      'shows full-width activity rows in server order and keeps private and muted categories',
+      'shows destination cards in server order and keeps private and muted categories',
       (tester) async {
         final api = FakeDiscourseApi(
           feeds: const {'/latest.json': []},
@@ -363,36 +362,26 @@ void main() {
         final controller = await _loadCategories(api);
         await _pumpPage(tester, controller);
         expect(_row(31), findsNothing);
-        expect(
-          find.byKey(const ValueKey('category-subcategory-31')),
-          findsOneWidget,
-        );
-        for (final id in [10, 20]) {
+        final cardRects = [
+          for (final id in [30, 10, 20]) tester.getRect(_row(id)),
+        ];
+        for (var i = 1; i < cardRects.length; i++) {
+          expect(cardRects[i].width, cardRects.first.width);
           expect(
-            tester.getTopLeft(_row(id)).dx,
-            tester.getTopLeft(_row(30)).dx,
-          );
-          expect(
-            tester.getSize(_row(id)).width,
-            tester.getSize(_row(30)).width,
+            cardRects[i].top > cardRects[i - 1].top ||
+                cardRects[i].left > cardRects[i - 1].left,
+            isTrue,
           );
         }
-        expect(
-          tester.getTopLeft(_row(30)).dy,
-          lessThan(tester.getTopLeft(_row(10)).dy),
-        );
-        expect(
-          tester.getTopLeft(_row(10)).dy,
-          lessThan(tester.getTopLeft(_row(20)).dy),
-        );
-        expect(_featuredTopic(102), findsOneWidget);
-        expect(_featuredTopic(101), findsNothing);
-        expect(_featuredTopic(104), findsNothing);
+        expect(find.text('Latest topic'), findsNothing);
+        expect(find.text('Old pinned topic'), findsNothing);
+        expect(find.text('Hidden muted topic'), findsNothing);
+        expect(find.byType(DPlaceCard), findsNWidgets(3));
         expect(find.text('2h'), findsOneWidget);
         expect(find.text('9 topics'), findsOneWidget);
         expect(find.text('Quiet & calm'), findsOneWidget);
         expect(find.byType(DAvatar), findsNWidgets(3));
-        expect(find.text('0 topics'), findsNothing);
+        expect(find.text('0 topics'), findsOneWidget);
         expect(
           find.descendant(
             of: find.byType(CategoriesPage),
@@ -436,7 +425,15 @@ void main() {
         expect(controller.currentContent?.feedPath, '/c/alerts/30.json');
         expect(controller.handleBack(canReturnToSidebar: false), isTrue);
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('category-subcategory-31')));
+        await tester.tap(
+          find.byKey(const ValueKey('categories-category-filter')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Alerts').last);
+        await tester.pumpAndSettle();
+        expect(_row(30), findsNothing);
+        expect(_row(31), findsOneWidget);
+        await tester.tap(_row(31));
         await tester.pumpAndSettle();
         expect(controller.currentContent?.feedPath, '/c/alerts/child/31.json');
         expect(controller.handleBack(canReturnToSidebar: false), isTrue);
@@ -446,71 +443,158 @@ void main() {
     );
 
     testWidgets(
-      'latest topic is a keyboard action and opens at its first unread post',
+      'category card is one keyboard action without a featured-topic target',
       (tester) async {
         final api = FakeDiscourseApi(
-          feeds: const {'/latest.json': []},
+          feeds: const {'/latest.json': [], '/c/alerts/30.json': []},
           categoryList: const [
             TopicCategory(
               id: 30,
               name: 'Alerts',
-              color: 'F15A24',
               slug: 'alerts',
+              color: 'F15A24',
               featuredTopics: [
                 CategoryFeaturedTopic(
                   id: 101,
                   title: 'Partly read topic',
                   slug: 'partly-read-topic',
-                  lastReadPostNumber: 3,
-                  highestPostNumber: 8,
                 ),
               ],
             ),
           ],
-          topics: {
-            101: topicPayload(
-              id: 101,
-              title: 'Partly read topic',
-              posts: const [
-                Post(
-                  id: 1004,
-                  postNumber: 4,
-                  username: 'sam',
-                  cooked: '<p>Fourth post</p>',
-                ),
-              ],
-            ),
-          },
         );
         final controller = await _loadCategories(api);
         final semantics = tester.ensureSemantics();
         try {
           await _pumpPage(tester, controller, width: 390);
+          final card = find.byType(DPlaceCard);
           expect(
-            tester.getSemantics(_featuredTopic(101)).getSemanticsData().label,
-            contains('Partly read topic'),
+            tester.getSemantics(card).getSemanticsData().label,
+            contains('Alerts'),
           );
-          final target = find
-              .descendant(
-                of: _featuredTopic(101),
-                matching: find.byType(MouseRegion),
-              )
-              .last;
-          Focus.of(tester.element(target)).requestFocus();
+          expect(find.text('Partly read topic'), findsNothing);
+          final target = find.descendant(
+            of: card,
+            matching: find.byType(FocusableActionDetector),
+          );
+          Focus.of(
+            tester.element(
+              find
+                  .descendant(
+                    of: target,
+                    matching: find.byType(GestureDetector),
+                  )
+                  .last,
+            ),
+          ).requestFocus();
           await tester.pump();
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
-          expect(controller.currentContent?.topicId, 101);
-          expect(controller.currentContent?.postNumber, 4);
-          expect(api.topicPostNumbersOpened.last, 4);
+          expect(controller.currentContent?.categoryId, 30);
           expect(controller.handleBack(canReturnToSidebar: false), isTrue);
           await tester.pumpAndSettle();
-          expect(_featuredTopic(101), findsOneWidget);
+          expect(find.byType(CategoriesPage), findsOneWidget);
         } finally {
           semantics.dispose();
         }
       },
     );
+
+    testWidgets(
+      'search words stay in the category controls and clear in place',
+      (tester) async {
+        final controller = await _loadCategories(
+          FakeDiscourseApi(
+            feeds: const {'/latest.json': []},
+            categoryList: const [
+              TopicCategory(id: 1, name: 'Parent', color: '111111'),
+              TopicCategory(
+                id: 2,
+                name: 'Child',
+                parentCategoryId: 1,
+                color: '222222',
+              ),
+            ],
+          ),
+        );
+        final site = controller.currentInstance!.url;
+        controller.search.setPageWords(
+          site,
+          controller.activeTabId,
+          'all-categories',
+          'Child',
+        );
+        await _pumpPage(tester, controller);
+        expect(_row(1), findsNothing);
+        expect(_row(2), findsOneWidget);
+        final chip = find.byKey(const ValueKey('categories-search-words'));
+        expect(
+          find.descendant(of: find.byType(CategoriesPage), matching: chip),
+          findsOneWidget,
+        );
+        await tester.tap(chip);
+        await tester.pumpAndSettle();
+        expect(chip, findsNothing);
+        expect(_row(1), findsOneWidget);
+        expect(_row(2), findsNothing);
+        expect(
+          controller.search.wordsFor(
+            site,
+            controller.activeTabId,
+            'all-categories',
+          ),
+          isEmpty,
+        );
+      },
+    );
+
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      testWidgets(
+        'owns its page heading on $platform without a duplicate shell header',
+        (tester) async {
+          final prior = debugDefaultTargetPlatformOverride;
+          debugDefaultTargetPlatformOverride = platform;
+          try {
+            final controller = await _loadCategories(
+              FakeDiscourseApi(
+                feeds: const {'/latest.json': []},
+                categoryList: const [
+                  TopicCategory(id: 1, name: 'General', color: '111111'),
+                ],
+              ),
+              mobileNavigation: platform == TargetPlatform.iOS,
+            );
+            await _pumpPage(
+              tester,
+              controller,
+              size: platform == TargetPlatform.iOS
+                  ? const Size(390, 844)
+                  : _viewport,
+              width: platform == TargetPlatform.iOS ? 390 : 1100,
+              layout: platform == TargetPlatform.iOS
+                  ? ShellLayout.compact
+                  : ShellLayout.expanded,
+            );
+            expect(
+              find.byWidgetPredicate(
+                (widget) =>
+                    widget is DText &&
+                    widget.variant == DTextVariant.h1 &&
+                    widget.data == 'Categories',
+              ),
+              findsOneWidget,
+            );
+            expect(
+              find.byKey(const ValueKey('content-header-separator')),
+              findsNothing,
+            );
+            expect(tester.takeException(), isNull);
+          } finally {
+            debugDefaultTargetPlatformOverride = prior;
+          }
+        },
+      );
+    }
 
     testWidgets('category context menu opens its actual route in a new tab', (
       tester,
@@ -684,7 +768,11 @@ void main() {
           {2: 1, 3: 1},
         );
         expect(
-          tester.widget<Text>(find.text('Unread parent')).style?.fontWeight,
+          tester
+              .renderObject<RenderParagraph>(find.text('Unread parent'))
+              .text
+              .style
+              ?.fontWeight,
           FontWeight.w700,
         );
         await _selectScope(tester, 'Unread');
@@ -703,7 +791,7 @@ void main() {
     );
 
     testWidgets(
-      'keeps full-width rows readable at phone widths and 200 percent text',
+      'reflows cards at phone and desktop widths and 200 percent text',
       (tester) async {
         final controller = await _loadCategories(
           FakeDiscourseApi(
@@ -729,11 +817,22 @@ void main() {
         );
         for (final width in [1100.0, 700.0, 390.0]) {
           await _pumpPage(tester, controller, width: width);
-          expect(
-            tester.getTopLeft(_row(1)).dy,
-            lessThan(tester.getTopLeft(_row(2)).dy),
-          );
           expect(tester.getSize(_row(1)).width, tester.getSize(_row(2)).width);
+          if (width == 390) {
+            expect(
+              tester.getTopLeft(_row(1)).dy,
+              lessThan(tester.getTopLeft(_row(2)).dy),
+            );
+          } else {
+            expect(
+              tester.getTopLeft(_row(1)).dy,
+              tester.getTopLeft(_row(2)).dy,
+            );
+            expect(
+              tester.getTopLeft(_row(2)).dx - tester.getRect(_row(1)).right,
+              closeTo(10, .01),
+            );
+          }
           expect(tester.takeException(), isNull);
         }
         final previousPlatform = debugDefaultTargetPlatformOverride;
@@ -919,15 +1018,18 @@ void main() {
 
           expect(_row(80), findsOneWidget);
           expect(
-            tester.getSemantics(_featuredTopic(800)),
-            isSemantics(
-              label: 'Lazy featured topic',
-              isButton: true,
-              isFocusable: true,
-              hasTapAction: true,
-              hasFocusAction: true,
-            ),
+            tester
+                .getSemantics(
+                  find.descendant(
+                    of: _row(80),
+                    matching: find.byType(DPlaceCard),
+                  ),
+                )
+                .getSemanticsData()
+                .label,
+            contains('Category 80'),
           );
+          expect(find.text('Lazy featured topic'), findsNothing);
           expect(api.categoryPagesRequested, [1, 2, 3]);
           expect(controller.categoryFeedFor(siteUrl).hasMore, isFalse);
         } finally {

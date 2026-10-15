@@ -10,18 +10,17 @@ import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
 import '../models/content_route.dart';
 import '../models/json.dart';
-import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'open_link.dart';
+import 'platform.dart';
 import 'relative_time.dart';
 import 'search_words.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'topic_title.dart';
 
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key, required this.siteUrl, required this.feed});
@@ -38,6 +37,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
   final ScrollController _scrollController = ScrollController();
   bool _endCheckScheduled = false;
   CategoryDirectoryScope _scope = CategoryDirectoryScope.all;
+  int? _parentCategoryId;
 
   @override
   void dispose() {
@@ -56,6 +56,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl) {
       _scope = CategoryDirectoryScope.all;
+      _parentCategoryId = null;
       _requestFirstPage();
     }
   }
@@ -117,55 +118,61 @@ class _CategoriesPageState extends State<CategoriesPage> {
     });
   }
 
+  void _resetScroll() {
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final feed = widget.feed;
-    if (feed.categoryIds.isEmpty && (!feed.loaded || feed.loading)) {
-      return ContentReadingLane(
-        basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        builder: (context, lane) => Padding(
-          padding: lane.padding,
-          child: const DirectorySkeleton(
-            kind: DirectorySkeletonKind.categories,
-          ),
-        ),
-      );
-    }
-    if (feed.error != null && feed.categoryIds.isEmpty) {
-      return _CategoryPageState(
-        icon: DIcons.triangleExclamation,
-        title: feed.error!,
-        actionLabel: context.l10n.tryAgain,
-        onAction: _retry,
-      );
-    }
-    if (feed.isEmpty) {
-      return _CategoryPageState(
-        icon: DIcons.list,
-        title: context.l10n.noCategoriesYet,
-      );
-    }
-
     final controller = ShellScope.of(context);
     final user = controller.currentUserFor(widget.siteUrl);
     final counts = controller.categoryUnreadTopicCountsFor(widget.siteUrl);
     final scope = user == null && _scope == CategoryDirectoryScope.unread
         ? CategoryDirectoryScope.all
         : _scope;
+    final categories = controller.filterCategoriesFor(widget.siteUrl);
+    final muted = {
+      ...?user?.mutedCategoryIds,
+      ...?user?.indirectlyMutedCategoryIds,
+    };
+    final roots = categoryDirectoryEntries(
+      rootCategoryIds: feed.categoryIds,
+      categories: categories,
+      unreadTopicCounts: counts ?? const {},
+      mutedCategoryIds: muted,
+    );
+    // Limit navigation/search to the server-listed directory and its accessible
+    // descendants. Sidebar-only cached categories are not directory entries.
+    final accessible = {
+      for (final entry in roots)
+        for (final category in [entry.category, ...entry.subcategories])
+          category.id: category,
+    };
+    final parentId = accessible.containsKey(_parentCategoryId)
+        ? _parentCategoryId
+        : null;
+    final words = SearchWords.of(context);
+    final searching = searchWords(words).isNotEmpty;
+    final visibleIds = searching
+        ? accessible.keys.toList()
+        : parentId == null
+        ? feed.categoryIds
+        : [
+            for (final category in accessible.values)
+              if (category.parentCategoryId == parentId) category.id,
+          ];
     final entries =
         categoryDirectoryEntries(
-              rootCategoryIds: feed.categoryIds,
-              categories: controller.filterCategoriesFor(widget.siteUrl),
+              rootCategoryIds: visibleIds,
+              categories: accessible.values,
               unreadTopicCounts: counts ?? const {},
-              mutedCategoryIds: {
-                ...?user?.mutedCategoryIds,
-                ...?user?.indirectlyMutedCategoryIds,
-              },
+              mutedCategoryIds: muted,
             )
             .where(
               (entry) =>
                   entry.matches(scope) &&
-                  searchWordsMatch(SearchWords.of(context), [
+                  searchWordsMatch(words, [
                     entry.category.name,
                     jsonHtmlText(entry.category.descriptionExcerpt) ?? '',
                   ]),
@@ -173,114 +180,230 @@ class _CategoriesPageState extends State<CategoriesPage> {
             .toList();
     _scheduleVisibleEndCheck();
 
-    final content = ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      builder: (context, lane) => NotificationListener<ScrollNotification>(
-        onNotification: _onScroll,
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: lane.padding.add(
-                EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
-              ),
-              sliver: SliverMainAxisGroup(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: DSelect<CategoryDirectoryScope>.controlled(
-                          size: DControlSize.filter,
-                          key: ValueKey(('category-scope', widget.siteUrl)),
-                          value: scope,
-                          semanticLabel: context.l10n.categoryDirectoryScope,
-                          entries: [
-                            for (final value in CategoryDirectoryScope.values)
-                              DSelectOption(
-                                value: value,
-                                label: _scopeLabel(context, value),
-                                enabled:
-                                    value != CategoryDirectoryScope.unread ||
-                                    user != null,
-                                child: Text(_scopeLabel(context, value)),
-                              ),
-                          ],
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setState(() => _scope = value);
-                            if (_scrollController.hasClients) {
-                              _scrollController.jumpTo(0);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SliverToBoxAdapter(child: DSeparator()),
-                  if (!feed.pageError && feed.error != null)
-                    SliverToBoxAdapter(
-                      child: _CategoryErrorBanner(
-                        message: feed.error!,
-                        onRetry: _retry,
-                      ),
-                    ),
-                  SliverList.builder(
-                    itemCount: entries.length,
-                    itemBuilder: (context, index) => Column(
-                      children: [
-                        _CategoryActivityRow(
-                          key: ValueKey(
-                            'category-row-${entries[index].category.id}',
-                          ),
-                          siteUrl: widget.siteUrl,
-                          entry: entries[index],
-                        ),
-                        if (index < entries.length - 1) const DSeparator(),
-                      ],
-                    ),
-                  ),
-                  if (entries.isEmpty && feed.error == null)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: _CategoryPageState(
-                          icon: DIcons.list,
-                          title:
-                              feed.loadingMore ||
-                                  feed.hasMore ||
-                                  (scope == CategoryDirectoryScope.unread &&
-                                      counts == null)
-                              ? context.l10n.loading
-                              : scope == CategoryDirectoryScope.unread
-                              ? context.l10n.noUnreadCategories
-                              : context.l10n.noCategoriesWithTopics,
-                        ),
-                      ),
-                    ),
-                  if (feed.pageError && feed.error != null)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: _CategoryErrorBanner(
-                          message: feed.error!,
-                          onRetry: _retry,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    final loading = feed.categoryIds.isEmpty && (!feed.loaded || feed.loading);
     return DScrollChromePagination(
       hasMore: feed.hasMore,
       loading: feed.loadingMore,
-      child: content,
+      child: DPageSurface.scrollable(
+        framed: false,
+        limitContentSize: false,
+        hideHeaderOnScroll: true,
+        header: ContentReadingLaneBox(
+          padding: EdgeInsets.fromLTRB(16, context.isTouch ? 12 : 20, 16, 0),
+          child: DText(
+            context.l10n.categories,
+            variant: DTextVariant.h1,
+            style: const TextStyle(
+              fontSize: 22,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        headerControls: ContentReadingLaneBox(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wrap =
+                  constraints.maxWidth < 600 &&
+                  MediaQuery.textScalerOf(context).scale(14) > 21;
+              final path = TopicCategoryPathSelector(
+                keyPrefix: 'categories',
+                siteUrl: widget.siteUrl,
+                categories: accessible.values.toList(),
+                selectedCategoryId: parentId,
+                maxCategoryNesting: controller
+                    .siteConfigFor(widget.siteUrl)
+                    .maxCategoryNesting,
+                onSelected: (category) {
+                  setState(() => _parentCategoryId = category?.id);
+                  _resetScroll();
+                },
+              );
+              return DControlWrap(
+                spacing: 8,
+                runSpacing: 8,
+                wrap: wrap,
+                children: [
+                  if (words.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 128),
+                      child: DButton(
+                        key: const ValueKey('categories-search-words'),
+                        variant: DButtonVariant.quietSelected,
+                        size: DButtonSize.filter,
+                        icon: const DIcon(DIcons.magnifyingGlass, size: 11),
+                        label: Text(
+                          '“$words”',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: const DIcon(DIcons.xmark, size: 10),
+                        tooltip: context.l10n.clearSearch,
+                        semanticLabel: '${context.l10n.clearSearch}: $words',
+                        onPressed: () {
+                          controller.search.setPageWords(
+                            widget.siteUrl,
+                            ForumTabScope.idOf(context) ??
+                                controller.activeTabId,
+                            'all-categories',
+                            '',
+                          );
+                          _resetScroll();
+                        },
+                      ),
+                    ),
+                  DSelect<CategoryDirectoryScope>.controlled(
+                    size: DControlSize.filter,
+                    width: 128,
+                    key: ValueKey(('category-scope', widget.siteUrl)),
+                    value: scope,
+                    semanticLabel: context.l10n.categoryDirectoryScope,
+                    triggerBuilder: (context, state, _) => DButton(
+                      size: DButtonSize.filter,
+                      variant: DButtonVariant.quiet,
+                      label: Text(
+                        _scopeLabel(context, scope),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      semanticLabel: context.l10n.categoryDirectoryScope,
+                      focusNode: state.focusNode,
+                      hasPopup: true,
+                      expanded: state.open,
+                      onPressed: state.toggle,
+                    ),
+                    entries: [
+                      for (final value in CategoryDirectoryScope.values)
+                        DSelectOption(
+                          value: value,
+                          label: _scopeLabel(context, value),
+                          enabled:
+                              value != CategoryDirectoryScope.unread ||
+                              user != null,
+                          child: Text(_scopeLabel(context, value)),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _scope = value);
+                      _resetScroll();
+                    },
+                  ),
+                  if (wrap) path else DControlExpanded(child: path),
+                ],
+              );
+            },
+          ),
+        ),
+        bodyBuilder: (context, header) => ContentReadingLane(
+          basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          builder: (context, lane) => NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(child: header.spacer),
+                SliverPadding(
+                  padding: lane.padding.add(
+                    EdgeInsets.only(
+                      bottom: DScrollChrome.bottomInsetOf(context),
+                    ),
+                  ),
+                  sliver: SliverMainAxisGroup(
+                    slivers: [
+                      if (loading)
+                        SliverLayoutBuilder(
+                          builder: (context, constraints) => SliverToBoxAdapter(
+                            child: SizedBox(
+                              height:
+                                  (constraints.viewportMainAxisExtent -
+                                          constraints.precedingScrollExtent -
+                                          lane.padding.bottom -
+                                          DScrollChrome.bottomInsetOf(context))
+                                      .clamp(0, double.infinity),
+                              child: const DirectorySkeleton(
+                                kind: DirectorySkeletonKind.categories,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (feed.error != null && feed.categoryIds.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _CategoryPageState(
+                            icon: DIcons.triangleExclamation,
+                            title: feed.error!,
+                            actionLabel: context.l10n.tryAgain,
+                            onAction: _retry,
+                          ),
+                        )
+                      else if (feed.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _CategoryPageState(
+                            icon: DIcons.list,
+                            title: context.l10n.noCategoriesYet,
+                          ),
+                        )
+                      else ...[
+                        if (!feed.pageError && feed.error != null)
+                          SliverToBoxAdapter(
+                            child: _CategoryErrorBanner(
+                              message: feed.error!,
+                              onRetry: _retry,
+                            ),
+                          ),
+                        DPlaceCardGrid(
+                          itemCount: entries.length,
+                          itemBuilder: (context, index) => _CategoryCard(
+                            key: ValueKey(
+                              'category-row-${entries[index].category.id}',
+                            ),
+                            siteUrl: widget.siteUrl,
+                            entry: entries[index],
+                          ),
+                        ),
+                        if (entries.isEmpty && feed.error == null)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              child: DText(
+                                feed.loadingMore ||
+                                        feed.hasMore ||
+                                        (scope ==
+                                                CategoryDirectoryScope.unread &&
+                                            counts == null)
+                                    ? context.l10n.loading
+                                    : scope == CategoryDirectoryScope.unread
+                                    ? context.l10n.noUnreadCategories
+                                    : scope == CategoryDirectoryScope.withTopics
+                                    ? context.l10n.noCategoriesWithTopics
+                                    : context.l10n.nothingHereYet,
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  color: DTokens.of(context).mutedForeground,
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (feed.pageError && feed.error != null)
+                          SliverToBoxAdapter(
+                            child: _CategoryErrorBanner(
+                              message: feed.error!,
+                              onRetry: _retry,
+                            ),
+                          ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -292,13 +415,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
       };
 }
 
-class _CategoryActivityRow extends StatelessWidget {
-  const _CategoryActivityRow({
-    super.key,
-    required this.siteUrl,
-    required this.entry,
-  });
-
+class _CategoryCard extends StatelessWidget {
+  const _CategoryCard({super.key, required this.siteUrl, required this.entry});
   final String siteUrl;
   final CategoryDirectoryEntry entry;
 
@@ -308,207 +426,86 @@ class _CategoryActivityRow extends StatelessWidget {
     final category = entry.category;
     final tokens = DTokens.of(context);
     final unread = entry.unreadTopicCount > 0;
-    final foreground = entry.muted ? tokens.mutedForeground : tokens.foreground;
-    final latest = entry.latestTopic;
-    final categoriesById = {
+    final latest = entry.latestTopic?.activityAt;
+    final description = jsonHtmlText(category.descriptionExcerpt);
+    final byId = {
       for (final category in controller.filterCategoriesFor(siteUrl))
         category.id: category,
     };
-    ContentRoute routeFor(TopicCategory category) =>
-        ContentRoute.fromDestination(
-          buildCategoryDestination(category, categoriesById: categoriesById),
-        );
-    final title = DItemTitle(
-      child: Row(
-        children: [
-          Expanded(
-            child: SearchText(
-              category.name,
-              style: TextStyle(
-                color: foreground,
-                fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
-          ),
-          if (category.readRestricted) ...[
-            const SizedBox(width: 6),
-            DIcon(
-              DIcons.lock,
-              size: 13,
-              color: tokens.mutedForeground,
-              semanticLabel: context.l10n.privateCategory,
-            ),
-          ],
-          if (entry.muted) ...[
-            const SizedBox(width: 6),
-            DIcon(
-              DIcons.discourseBellSlash,
-              size: 13,
-              color: tokens.mutedForeground,
-              semanticLabel: context.l10n.muted,
-            ),
-          ],
-        ],
-      ),
-    );
-    final activity = DItemDescription(
-      maxLines: 1,
-      child: latest?.activityAt != null
-          ? RelativeTimeText(latest!.activityAt!)
-          : Text(
-              latest != null && entry.topicCount == 0
-                  ? context.l10n.latest
-                  : countLabel(entry.topicCount, CountNoun.topic),
-            ),
+    final route = ContentRoute.fromDestination(
+      buildCategoryDestination(category, categoriesById: byId),
     );
     return LinkTarget.content(
-      content: routeFor(category),
+      content: route,
       siteUrl: siteUrl,
-      child: DItem(
-        shape: DItemShape.fullWidth,
-        selectionStyle: DItemSelectionStyle.leadingAccent,
-        showSelectionIndicator: false,
-        link: true,
+      child: DPlaceCard(
+        onPressed: () => controller.openCategory(category, siteUrl: siteUrl),
+        strong: unread,
+        muted: entry.muted,
+        unreadCount: unread ? entry.unreadTopicCount.toString() : null,
         semanticLabel: unread
             ? context.l10n.categoryUnreadTopics(entry.unreadTopicCount)
             : null,
-        onPressed: () => controller.openCategory(category, siteUrl: siteUrl),
-        children: [
-          DItemMedia(
-            variant: DItemMediaVariant.avatar,
-            child: DAvatar(
-              size: DAvatarSize.lg,
-              border: false,
-              decorative: true,
-              borderRadius: BorderRadius.circular(DRadius.popover),
-              fallback: DAvatarFallback(
-                backgroundColor: Color(
-                  category.colorValue,
-                ).withValues(alpha: .15),
-                child: CategoryIcon(
-                  category: category,
-                  siteUrl: siteUrl,
-                  size: 18,
-                  showLock: false,
-                ),
-              ),
-            ),
-          ),
-          DItemContent(
-            alignment: CrossAxisAlignment.stretch,
-            children: [
-              LayoutBuilder(
-                builder: (context, constraints) =>
-                    constraints.maxWidth < 240 ||
-                        MediaQuery.textScalerOf(context).scale(14) > 21
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [title, activity],
-                      )
-                    : Row(
-                        children: [
-                          Expanded(child: title),
-                          const SizedBox(width: 8),
-                          activity,
-                        ],
-                      ),
-              ),
-              if (latest != null)
-                _LatestTopicLink(
-                  siteUrl: siteUrl,
-                  topic: latest,
-                  unread: unread,
-                )
-              else if (jsonHtmlText(category.descriptionExcerpt)
-                  case final description?)
-                DItemDescription(maxLines: 1, child: SearchText(description)),
-              if (entry.subcategories.isNotEmpty)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    for (final child in entry.subcategories)
-                      LinkTarget.content(
-                        content: routeFor(child),
-                        siteUrl: siteUrl,
-                        child: DButton(
-                          key: ValueKey('category-subcategory-${child.id}'),
-                          variant: DButtonVariant.ghost,
-                          size: DButtonSize.small,
-                          icon: CategoryIcon(
-                            category: child,
-                            siteUrl: siteUrl,
-                            size: 12,
-                          ),
-                          label: Text(
-                            controller.topicCategoryPathLabel(
-                              child,
-                              siteUrl: siteUrl,
-                            ),
-                          ),
-                          onPressed: () =>
-                              controller.openCategory(child, siteUrl: siteUrl),
-                        ),
-                      ),
-                  ],
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LatestTopicLink extends StatelessWidget {
-  const _LatestTopicLink({
-    required this.siteUrl,
-    required this.topic,
-    required this.unread,
-  });
-  final String siteUrl;
-  final CategoryFeaturedTopic topic;
-  final bool unread;
-
-  @override
-  Widget build(BuildContext context) {
-    final status = topic.pinned
-        ? context.l10n.pinned
-        : topic.closed
-        ? context.l10n.closed
-        : topic.archived
-        ? context.l10n.archived
-        : null;
-    final icon = topic.pinned
-        ? DIcons.thumbtack
-        : topic.closed || topic.archived
-        ? DIcons.lock
-        : DIcons.farFileLines;
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: LinkTarget(
-        url: '/t/${topic.slug}/${topic.id}/${topic.firstUnreadPostNumber ?? 1}',
-        title: topic.title,
-        siteUrl: siteUrl,
-        child: DButton(
-          key: ValueKey('category-featured-topic-${topic.id}'),
-          variant: DButtonVariant.inline,
-          size: DButtonSize.small,
-          tooltip: status,
-          icon: DIcon(icon, size: 13, semanticLabel: status),
-          label: TopicTitle(
-            topic.title,
+        leading: DPlaceCardMark(
+          color: Color(category.colorValue),
+          child: CategoryIcon(
+            category: category,
             siteUrl: siteUrl,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: unread
-                  ? DTokens.of(context).foreground
-                  : DTokens.of(context).mutedForeground,
-              fontWeight: unread ? FontWeight.w600 : FontWeight.w400,
-            ),
+            size: 13,
+            showLock: false,
           ),
-          onPressed: () => ShellScope.read(context).openFeaturedTopic(topic),
+        ),
+        title: Row(
+          children: [
+            Flexible(
+              child: SearchText(
+                category.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (category.readRestricted) ...[
+              const SizedBox(width: 6),
+              DIcon(
+                DIcons.lock,
+                size: 13,
+                color: tokens.mutedForeground,
+                semanticLabel: context.l10n.privateCategory,
+              ),
+            ],
+            if (entry.muted) ...[
+              const SizedBox(width: 6),
+              DIcon(
+                DIcons.discourseBellSlash,
+                size: 13,
+                color: tokens.mutedForeground,
+                semanticLabel: context.l10n.muted,
+              ),
+            ],
+          ],
+        ),
+        description: description != null && description.isNotEmpty
+            ? SearchText(
+                description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              )
+            : null,
+        footer: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                countLabel(entry.topicCount, CountNoun.topic),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (latest != null) ...[
+              const Text(' · '),
+              RelativeTimeText(latest),
+            ],
+          ],
         ),
       ),
     );

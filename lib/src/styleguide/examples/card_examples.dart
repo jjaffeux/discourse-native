@@ -18,6 +18,28 @@ final cardExamples = ComponentExamples(
       'the header action moves below its text to keep both readable.',
   examples: [
     StyleguideExample(
+      title: 'Directory card',
+      description:
+          'A solid raised destination with a tinted mark, unread count, two-line description and aligned footer. The same card is used on phones and desktops in both materials.',
+      code:
+          "DPlaceCard(leading: DPlaceCardMark(color: Colors.blue, child: DIcon(DIcons.tag)), title: Text('Support'), unreadCount: '3', strong: true, description: Text('Get help from the community.'), footer: Text('42 topics · 2h'), onPressed: open)",
+      builder: (_) => SizedBox(
+        width: 320,
+        child: DPlaceCard(
+          leading: const DPlaceCardMark(
+            color: Colors.blue,
+            child: DIcon(DIcons.tag, size: 13),
+          ),
+          title: const Text('Support'),
+          unreadCount: '3',
+          strong: true,
+          description: const Text('Get help from the community.'),
+          footer: const Text('42 topics · 2h'),
+          onPressed: () {},
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Writing capsule',
       description:
           'Accent-colored writing actions share a raised glass capsule. '

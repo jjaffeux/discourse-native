@@ -39,6 +39,56 @@ class DirectorySkeleton extends StatelessWidget {
     expand: true,
     child: LayoutBuilder(
       builder: (context, constraints) {
+        if (kind == DirectorySkeletonKind.categories) {
+          final scale = math.max(
+            1.0,
+            MediaQuery.textScalerOf(context).scale(14) / 14,
+          );
+          final columns = math.max(
+            1,
+            ((constraints.maxWidth + 10) / (236 * scale + 10)).floor(),
+          );
+          final rows = constraints.hasBoundedHeight
+              ? (constraints.maxHeight / 100).ceil() + 1
+              : 6;
+          return CustomScrollView(
+            primary: false,
+            physics: const NeverScrollableScrollPhysics(),
+            slivers: [
+              DPlaceCardGrid(
+                itemCount: rows * columns,
+                itemBuilder: (context, index) => DPlaceCard(
+                  onPressed: null,
+                  leading: DSkeleton(
+                    width: 29,
+                    height: 29,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  title: const FractionallySizedBox(
+                    widthFactor: .65,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: DSkeleton(height: 14),
+                  ),
+                  description: const Column(
+                    spacing: 6,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DSkeleton(height: 12),
+                      FractionallySizedBox(
+                        widthFactor: .8,
+                        child: DSkeleton(height: 12),
+                      ),
+                    ],
+                  ),
+                  footer: const Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: DSkeleton(width: 90, height: 12),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
         final rows = constraints.hasBoundedHeight
             ? math.max(1, (constraints.maxHeight / _rowHeight).ceil())
             : 6;

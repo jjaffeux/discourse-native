@@ -9,9 +9,7 @@ import 'support/category_grid_fixture.dart';
 
 void main() {
   for (final width in [390.0, 700.0, 1100.0]) {
-    testWidgets('renders real category activity rows at $width', (
-      tester,
-    ) async {
+    testWidgets('renders a lazy category card grid at $width', (tester) async {
       tester.view.physicalSize = const Size(1200, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -47,14 +45,12 @@ void main() {
         capture();
       }
       expect(geometry.length, categories.length);
-      final first = geometry.values.first;
+      final laneWidth = math.min(width - 32, ContentReadingLane.maxWidth);
+      final columns = math.max(1, ((laneWidth + 10) / 246).floor());
+      final expectedWidth = (laneWidth - (columns - 1) * 10) / columns;
       for (final rect in geometry.values) {
-        expect(rect[0], first[0]);
-        expect(rect[1], first[1]);
-        expect(
-          rect[1],
-          greaterThan(math.min(width, ContentReadingLane.maxWidth) * .8),
-        );
+        expect(rect[0], greaterThanOrEqualTo(16));
+        expect(rect[1], closeTo(expectedWidth, .01));
         expect(rect[0] + rect[1], lessThanOrEqualTo(width));
         expect(rect[2], greaterThan(0));
       }

@@ -184,7 +184,7 @@ class _MainContentState extends State<MainContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (words.isNotEmpty)
+                  if (words.isNotEmpty && route?.id != 'all-categories')
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: Padding(
@@ -362,6 +362,7 @@ class _MainContentBody extends StatelessWidget {
         (pluginContent != null
             ? registry.ownsContentPageTitle(context, route)
             : route.isForumAbout ||
+                  route.id == 'all-categories' ||
                   route.isAppearance ||
                   route.isGroups ||
                   route.isUsers ||
@@ -443,6 +444,7 @@ class _MainContentBody extends StatelessWidget {
                   !route.isPreferences &&
                   !route.isBadges &&
                   !route.isGroups &&
+                  route.id != 'all-categories' &&
                   route.id != 'activity' &&
                   !(route.id == 'user-bookmarks' && state.isConnected) &&
                   !hideDirectoryHeader &&
