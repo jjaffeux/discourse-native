@@ -5121,22 +5121,42 @@ class _ComposerToolbarOverflowState extends State<_ComposerToolbarOverflow> {
   Widget build(BuildContext context) {
     _scheduleOverflowUpdate();
     final textDirection = DDirection.of(context);
+    final scroll = SingleChildScrollView(
+      key: const ValueKey('composer-toolbar-scroll'),
+      controller: _controller,
+      scrollDirection: Axis.horizontal,
+      padding: context.isTouch ? EdgeInsets.zero : const EdgeInsets.all(8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 2,
+        children: widget.children,
+      ),
+    );
+    final buttonHeight = DControlStyle.scaledHeight(
+      _composerToolbarSize(context),
+      MediaQuery.textScalerOf(context),
+      context: context,
+    );
 
     return Stack(
       alignment: context.isTouch
           ? AlignmentDirectional.centerStart
           : AlignmentDirectional.centerEnd,
       children: [
-        SingleChildScrollView(
-          key: const ValueKey('composer-toolbar-scroll'),
-          controller: _controller,
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 2,
-            children: widget.children,
+        if (context.isTouch)
+          scroll
+        else
+          // Paint the shadow in the footer's existing vertical padding while
+          // retaining the control height and horizontal viewport clipping.
+          SizedBox(
+            height: buttonHeight,
+            child: OverflowBox(
+              alignment: AlignmentDirectional.centerEnd,
+              minHeight: buttonHeight + 16,
+              maxHeight: buttonHeight + 16,
+              child: scroll,
+            ),
           ),
-        ),
         if (_canScrollBackward)
           PositionedDirectional(
             start: 0,

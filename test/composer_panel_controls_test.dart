@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
@@ -23,6 +26,7 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -37,6 +41,101 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('editor layout and controls', () {
+    for (final dark in [false, true]) {
+      for (final material in DAppearanceMaterial.values) {
+        testWidgets(
+          'desktop toolbar paints button shadows outside their targets: $dark $material',
+          (tester) async {
+            final shadowsDisabled = debugDisableShadows;
+            debugDisableShadows = false;
+            try {
+              final composer = ComposerController(_newTopicTarget);
+              final shell = await _shell();
+              addTearDown(composer.dispose);
+              addTearDown(shell.dispose);
+              final mouse = await tester.createGesture(
+                kind: PointerDeviceKind.mouse,
+              );
+              addTearDown(mouse.removePointer);
+              await mouse.addPointer(location: Offset.zero);
+              for (final width in [900.0, 340.0]) {
+                await _pumpPanel(
+                  tester,
+                  shell,
+                  composer,
+                  size: Size(width, 650),
+                  theme: DMaterialTheme.apply(
+                    dark ? AppTheme.dark : AppTheme.light,
+                    material,
+                  ),
+                );
+                final toolbar = find.byKey(
+                  const ValueKey('composer-toolbar-scroll'),
+                );
+                final position = tester
+                    .state<ScrollableState>(
+                      find.descendant(
+                        of: toolbar,
+                        matching: find.byType(Scrollable),
+                      ),
+                    )
+                    .position;
+                for (final key in ['composer-mention', 'composer-insert']) {
+                  position.jumpTo(
+                    key == 'composer-mention' ? 0 : position.maxScrollExtent,
+                  );
+                  await mouse.moveTo(Offset.zero);
+                  await tester.pumpAndSettle();
+                  final button = find.byKey(ValueKey(key));
+                  final bounds = tester.getRect(button);
+                  final before = await _toolbarPixels(tester);
+                  await mouse.moveTo(bounds.center);
+                  await tester.pumpAndSettle();
+                  final after = await _toolbarPixels(
+                    tester,
+                    name:
+                        '${dark ? 'dark' : 'light'}-${material.name}-$width-$key',
+                  );
+                  for (final point in [
+                    bounds.topCenter - const Offset(0, 2),
+                    bounds.bottomCenter + const Offset(0, 3),
+                    Offset(
+                      key == 'composer-mention'
+                          ? bounds.left - 2
+                          : bounds.right + 2,
+                      bounds.center.dy,
+                    ),
+                  ]) {
+                    final offset =
+                        (point.dy.floor() * width.toInt() + point.dx.floor()) *
+                        4;
+                    expect(
+                      [
+                        for (var c = 0; c < 3; c++)
+                          before.getUint8(offset + c) -
+                              after.getUint8(offset + c),
+                      ].reduce((a, b) => a + b),
+                      greaterThan(2),
+                      reason: 'The hovered button shadow must reach $point',
+                    );
+                  }
+                  final source = composer.raw;
+                  await tester.tapAt(bounds.bottomCenter + const Offset(0, 3));
+                  await tester.pumpAndSettle();
+                  expect(composer.raw, source);
+                  expect(find.byType(DDropdownMenuContent), findsNothing);
+                  expect(tester.getRect(button), bounds);
+                }
+                expect(tester.takeException(), isNull);
+              }
+            } finally {
+              debugDisableShadows = shadowsDisabled;
+            }
+          },
+        );
+      }
+    }
+
     for (final dark in [false, true]) {
       testWidgets(
         'mobile toolbar changes only icon colors during hover and press (dark: $dark)',
@@ -1954,13 +2053,16 @@ Future<void> _pumpPanel(
       ),
       home: ShellScope(
         controller: shell,
-        child: Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: ComposerPanel(
-              composer: composer,
-              height: height,
-              placement: placement,
+        child: RepaintBoundary(
+          key: const ValueKey('composer-controls-capture'),
+          child: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: ComposerPanel(
+                composer: composer,
+                height: height,
+                placement: placement,
+              ),
             ),
           ),
         ),
@@ -1968,6 +2070,26 @@ Future<void> _pumpPanel(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+Future<ByteData> _toolbarPixels(WidgetTester tester, {String? name}) async {
+  return (await tester.runAsync(() async {
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(const ValueKey('composer-controls-capture')),
+    );
+    final image = await boundary.toImage();
+    try {
+      final output = Platform.environment['COMPOSER_TOOLBAR_CAPTURE_DIR'];
+      if (output != null && name != null) {
+        await Directory(output).create(recursive: true);
+        final png = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File('$output/$name.png').writeAsBytes(png!.buffer.asUint8List());
+      }
+      return (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+    } finally {
+      image.dispose();
+    }
+  }))!;
 }
 
 final class _ComposerColorShell extends ShellController {
