@@ -457,6 +457,8 @@ class TopicFeedMenu extends StatelessWidget {
         ? newCount
         : 0;
     return DDropdownMenu(
+      sheetOnMobile: true,
+      mobileSheetVariant: DSheetVariant.adaptiveMenu,
       content: DDropdownMenuContent(
         width: 304,
         semanticLabel: context.l10n.chooseTopicFeed,

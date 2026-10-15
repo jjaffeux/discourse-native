@@ -2894,6 +2894,11 @@ Future<void> _selectFeed(WidgetTester tester, String key) async {
   final choice = find.byKey(
     ValueKey(key == 'topic-list-top' ? 'topic-list-top-period-yearly' : key),
   );
+  final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+  if (handle.evaluate().isNotEmpty) {
+    await tester.drag(handle, const Offset(0, -350));
+    await tester.pumpAndSettle();
+  }
   await tester.ensureVisible(choice);
   await tester.tap(choice);
   await tester.pumpAndSettle();
