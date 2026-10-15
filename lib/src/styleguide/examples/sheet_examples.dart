@@ -33,21 +33,25 @@ final sheetExamples = ComponentExamples(
       'Adaptive menu sheets open at 55% for tall content and can be pulled '
       'to their full height. They animate to 6px side margins and float above '
       'the home indicator at the end of their content, for short content, or '
-      'above the system keyboard. Other snap-point compositions use Drawer.',
+      'above the system keyboard. Set sizeToContent: false to keep a 55% '
+      'opening viewport through asynchronous loading and result changes. '
+      'Other snap-point compositions use Drawer.',
   examples: [
     StyleguideExample(
       title: 'Adaptive menu sheet',
       description:
           'Pull upward to expand; scroll to the end to reveal the rounded foot. '
+          'Reserve a stable opening height for asynchronous results. '
           'The same surface floats above a visible keyboard.',
       code:
-          'DSheetContent(variant: DSheetVariant.adaptiveMenu, side: DSheetSide.bottom, showCloseButton: false, scrollWholeSheet: false, children: [Flexible(child: menu)])',
+          'DSheetContent(variant: DSheetVariant.adaptiveMenu, sizeToContent: false, side: DSheetSide.bottom, showCloseButton: false, scrollWholeSheet: false, children: [Flexible(child: menu)])',
       builder: (_) => DSheet<void>(
         trigger: DSheetTrigger(
           builder: (context, open) => _trigger('Open adaptive menu', open),
         ),
         content: DSheetContent(
           variant: DSheetVariant.adaptiveMenu,
+          sizeToContent: false,
           side: DSheetSide.bottom,
           showCloseButton: false,
           scrollWholeSheet: false,

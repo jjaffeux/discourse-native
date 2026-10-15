@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,8 @@ Future<void> openMenu(
   required TargetPlatform platform,
   required ScrollController scroll,
   int count = 60,
+  ValueListenable<int>? counts,
+  bool sizeToContent = true,
   bool reducedMotion = false,
   bool settle = true,
   VoidCallback? onContentLayout,
@@ -19,7 +22,7 @@ Future<void> openMenu(
   tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
   tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
   addTearDown(tester.view.reset);
-  final contents = Column(
+  Widget menu(int rows) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
       DInput(hintText: 'Add a filter'),
@@ -28,13 +31,19 @@ Future<void> openMenu(
           controller: scroll,
           shrinkWrap: true,
           itemExtent: 40,
-          itemCount: count,
+          itemCount: rows,
           itemBuilder: (_, index) =>
               DButton(label: Text('Filter $index'), onPressed: () {}),
         ),
       ),
     ],
   );
+  final contents = counts == null
+      ? menu(count)
+      : ValueListenableBuilder<int>(
+          valueListenable: counts,
+          builder: (_, rows, _) => menu(rows),
+        );
   await tester.pumpWidget(
     MaterialApp(
       theme: ThemeData(platform: platform),
@@ -47,6 +56,7 @@ Future<void> openMenu(
             child: DPopover(
               sheetOnMobile: true,
               mobileSheetVariant: DSheetVariant.adaptiveMenu,
+              mobileSheetSizeToContent: sizeToContent,
               content: DPopoverContent(
                 semanticLabel: 'Filters',
                 child: onContentLayout == null
@@ -188,6 +198,91 @@ void main() {
   );
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'fixed menu reserves its height across async results on $platform',
+      (tester) async {
+        final scroll = ScrollController();
+        final counts = ValueNotifier(0);
+        var layouts = 0;
+        addTearDown(scroll.dispose);
+        addTearDown(counts.dispose);
+        await openMenu(
+          tester,
+          platform: platform,
+          scroll: scroll,
+          counts: counts,
+          sizeToContent: false,
+          onContentLayout: () => layouts++,
+        );
+        final sheet = find.byType(DSheetContent);
+        expect(tester.getRect(sheet).top, closeTo(844 * .45, 1));
+        expect(tester.getRect(sheet).left, 6);
+        counts.value = 60;
+        for (var frame = 0; frame < 20; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(sheet, findsOneWidget);
+          expect(tester.getRect(sheet).top, closeTo(844 * .45, 1));
+        }
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).height, closeTo(844 * .55, 1));
+        final drag = await tester.startGesture(
+          tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+        );
+        await drag.moveBy(const Offset(0, 40));
+        await tester.pump();
+        final before = tester.getRect(sheet);
+        final beforeLayouts = layouts;
+        for (var step = 0; step < 10; step++) {
+          await drag.moveBy(const Offset(0, 3));
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(
+            tester.getRect(sheet).top,
+            closeTo(before.top + (step + 1) * 3, .1),
+          );
+          expect(tester.getRect(sheet).size, before.size);
+          expect(layouts, beforeLayouts);
+        }
+        await drag.cancel();
+        await tester.pumpAndSettle();
+        await tester.fling(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          const Offset(0, 70),
+          6000,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).top, closeTo(844 * .45, 1));
+        await expand(tester);
+        expect(tester.getRect(sheet).top, closeTo(55, 1));
+        counts.value = 2;
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).top, closeTo(55, 1));
+        expect(tester.getRect(sheet).bottom, closeTo(804, 1));
+        await tester.tap(find.byType(EditableText));
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        final keyboard = tester.getRect(sheet);
+        expect(keyboard.top, closeTo(55, 1));
+        expect(keyboard.bottom, closeTo(538, 1));
+        counts.value = 0;
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet), keyboard);
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+        final beforeExit = tester.getRect(sheet);
+        await tester.tapAt(const Offset(8, 20));
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 60));
+        expect(tester.getRect(sheet).top, greaterThan(beforeExit.top));
+        expect(tester.getRect(sheet).height, beforeExit.height);
+        await tester.pumpAndSettle();
+        expect(sheet, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     for (final expanded in [false, true]) {
       for (final origin in ['handle', 'content']) {
         testWidgets(
@@ -583,35 +678,79 @@ void main() {
     },
   );
 
-  testWidgets('retained adaptive menus finish their swipe before dismissal', (
+  testWidgets('imperative adaptive menus can reserve their opening height', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    var dismissals = 0;
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(platform: TargetPlatform.iOS),
-        home: DSheetViewport(
-          onDismiss: () => dismissals++,
-          content: const DSheetContent(
-            variant: DSheetVariant.adaptiveMenu,
-            side: DSheetSide.bottom,
-            showCloseButton: false,
-            children: [SizedBox(height: 180, child: Text('Retained menu'))],
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => DButton(
+              label: const Text('Open'),
+              onPressed: () => showDSheet<void>(
+                context: context,
+                side: DSheetSide.bottom,
+                variant: DSheetVariant.adaptiveMenu,
+                sizeToContent: false,
+                builder: (_, _) => const DSheetContent(
+                  side: DSheetSide.bottom,
+                  variant: DSheetVariant.adaptiveMenu,
+                  showCloseButton: false,
+                  children: [Text('Loading menu')],
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
+    await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    await tester.drag(
-      find.byKey(const ValueKey('sheet-drag-handle')),
-      const Offset(0, 130),
+    expect(
+      tester.getRect(find.byType(DSheetContent)).top,
+      closeTo(844 * .45, 1),
     );
-    expect(dismissals, 0);
-    await tester.pumpAndSettle();
-    expect(dismissals, 1);
     expect(tester.takeException(), isNull);
   });
+
+  for (final sizeToContent in [true, false]) {
+    testWidgets(
+      'retained adaptive menu finishes its swipe (content: $sizeToContent)',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        var dismissals = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            home: DSheetViewport(
+              onDismiss: () => dismissals++,
+              content: DSheetContent(
+                variant: DSheetVariant.adaptiveMenu,
+                sizeToContent: sizeToContent,
+                side: DSheetSide.bottom,
+                showCloseButton: false,
+                children: const [
+                  SizedBox(height: 180, child: Text('Retained menu')),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          Offset(0, sizeToContent ? 130 : 200),
+        );
+        expect(dismissals, 0);
+        await tester.pumpAndSettle();
+        expect(dismissals, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }

@@ -152,6 +152,7 @@ class DPopover extends StatefulWidget {
     this.restoreFocus = true,
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
+    this.mobileSheetSizeToContent = true,
     this.fullScreenOnMobile = false,
     this.initialFocusNode,
     this.focusContentOnOpen = true,
@@ -175,6 +176,12 @@ class DPopover extends StatefulWidget {
 
   /// The shared sheet presentation used by [sheetOnMobile].
   final DSheetVariant mobileSheetVariant;
+
+  /// Whether an adaptive mobile sheet follows its content's height.
+  ///
+  /// False reserves a stable 55% opening viewport for asynchronous content.
+  /// Desktop popovers retain their normal content sizing.
+  final bool mobileSheetSizeToContent;
 
   /// Fills the available mobile viewport with an inset, keyboard-aware sheet.
   /// Desktop retains the anchored popup.
@@ -752,6 +759,7 @@ class _DPopoverState extends State<DPopover>
                 ? DSheetVariant.standard
                 : widget.mobileSheetVariant,
             showCloseButton: !adaptiveMenu,
+            sizeToContent: widget.mobileSheetSizeToContent,
             semanticLabel: widget.content.semanticLabel,
             topBottomMaxHeightFactor: adaptiveMenu
                 ? null

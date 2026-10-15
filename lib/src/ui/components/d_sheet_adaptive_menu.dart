@@ -168,12 +168,14 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     required this.presentation,
     required this.onDismiss,
     required this.retained,
+    required this.sizeToContent,
     this.onDismissRequested,
   });
 
   final DDialogPresentation presentation;
   final VoidCallback? onDismiss;
   final bool retained;
+  final bool sizeToContent;
   final VoidCallback? onDismissRequested;
 
   @override
@@ -193,6 +195,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     duration: _duration,
   );
   double _low = 0;
+  double _fixedLow = 0;
   double _room = 0;
   double _lift = 0;
   double _keyboard = 0;
@@ -222,6 +225,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   double _exitVelocity = 0;
   double? _exitKeyboard;
   double? _exitSafeBottom;
+  double? _exitHeightOffset;
   double _safeBottom = 0;
   DOverlayRoute<dynamic, Object>? _route;
   Simulation? Function()? _exitSimulation;
@@ -278,6 +282,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _dismissCurve = _curve.transform(widget.presentation.animation.value);
     _exitKeyboard = _keyboard * _keyboardPlacement.value;
     _exitSafeBottom = _safeBottom;
+    _exitHeightOffset = math.min(_travel.value, _fixedLow);
     return _DSheetDismissSimulation(
       math.max(1, _room - _travel.value),
       math.max(0, _exitVelocity),
@@ -291,6 +296,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     super.didUpdateWidget(oldWidget);
     if (_dismissOrigin == null &&
         !_interacted &&
+        widget.sizeToContent &&
         // The overlay can rebuild its content before build observes the first
         // keyboard inset. Keep the measured detent: remeasuring as an initial
         // layout would reset travel to zero and skip the keyboard animation.
@@ -392,7 +398,13 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     });
     final tall = box.size.height + _lift;
     final half = _room * .55;
-    final low = _keyboard == 0 && tall > half + 60 ? tall - half : 0.0;
+    final low = _keyboard > 0
+        ? 0.0
+        : !widget.sizeToContent
+        ? _fixedLow
+        : tall > half + 60
+        ? tall - half
+        : 0.0;
     final wasLow = _low;
     _low = low;
     if (!_measured || (!_interacted && (wasLow - low).abs() > 1)) {
@@ -411,7 +423,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
     _resizingInsets = false;
     final more =
-        _travel.value > 1 ||
+        (widget.sizeToContent && _travel.value > 1) ||
         _positions.any((p) => p.hasContentDimensions && p.extentAfter > 1);
     // Once the keyboard is ready, margins animate alongside its placement and
     // the sheet's rise. Direct drags retain their existing width and corners.
@@ -554,6 +566,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         return;
       }
       final destination = MediaQuery.sizeOf(context).height + _lift;
+      _exitHeightOffset = math.min(_travel.value, _fixedLow);
       unawaited(
         _travel
             .animateWith(
@@ -568,7 +581,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
               if (!mounted) return;
               dismiss();
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _settle(_low);
+                if (mounted) {
+                  _exitHeightOffset = null;
+                  _settle(_low);
+                }
               });
             }),
       );
@@ -582,6 +598,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         _dismissOrigin = null;
         _exitKeyboard = null;
         _exitSafeBottom = null;
+        _exitHeightOffset = null;
         _exitVelocity = 0;
         _settle(_low);
       }
@@ -682,6 +699,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       builder: (context, bounds) {
         _room = math.max(0, bounds.maxHeight - keyboard);
         final maximum = math.max(0.0, _room - safeTop - 8 - _lift);
+        _fixedLow = math.max(
+          0,
+          bounds.maxHeight - safeTop - 8 - bounds.maxHeight * .55,
+        );
         return AnimatedBuilder(
           animation: Listenable.merge([widget.presentation.animation, _travel]),
           builder: (context, child) {
@@ -691,6 +712,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
             final dim =
                 (1 - math.max(0, _offset - _low) / math.max(1, _room - _low))
                     .clamp(0.0, 1.0);
+            // Fixed menus lay out their actual visible viewport, so arriving
+            // results cannot resize the surface. Below the lower detent, keep
+            // that height and translate the whole sheet with the finger.
+            final heightOffset = widget.sizeToContent
+                ? 0.0
+                : _exitHeightOffset ?? math.min(_offset, _fixedLow);
             return Stack(
               clipBehavior: Clip.hardEdge,
               children: [
@@ -702,7 +729,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                   child: Transform.translate(
                     offset: Offset(
                       0,
-                      _offset +
+                      _offset -
+                          heightOffset +
                           40 *
                               (1 -
                                   (_dismissOrigin == null
@@ -713,7 +741,11 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                       offstage: !_measured,
                       child: ConstrainedBox(
                         key: _surface,
-                        constraints: BoxConstraints(maxHeight: maximum),
+                        constraints: widget.sizeToContent
+                            ? BoxConstraints(maxHeight: maximum)
+                            : BoxConstraints.tightFor(
+                                height: math.max(0, maximum - heightOffset),
+                              ),
                         child: child,
                       ),
                     ),

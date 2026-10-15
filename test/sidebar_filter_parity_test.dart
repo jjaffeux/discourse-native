@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -98,6 +99,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> fixture(
   Size size = desktop,
   List<SidebarTag> knownTags = tags,
   Map<String, List<TopicCategory>> categorySearches = const {},
+  Completer<void>? filterOptionsGate,
   List<TopicFilterOption> filterOptions = const [
     TopicFilterOption(name: 'status:open', priority: 1),
   ],
@@ -117,6 +119,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> fixture(
       '/tags/c/product/design/2/Alpha.json': [],
     },
     filterOptionsByPath: {'/filter.json': filterOptions},
+    feedGates: {'/filter.json': ?filterOptionsGate},
     categoryFilterTagSearches: const {
       (1, ''): [
         TopicFilterLookupValue(name: 'Alpha', description: '8'),
@@ -522,6 +525,36 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final material in DAppearanceMaterial.values) {
       testWidgets(
+        'async Filters keep their default height on $platform ($material)',
+        (tester) async {
+          final gate = Completer<void>();
+          final (shell: shell, api: _) = await fixture(
+            tester,
+            size: phone,
+            filterOptions: filterMenuOptions,
+            filterOptionsGate: gate,
+          );
+          await shell.forumSettings.setShared(
+            SharedAppearance(material: material),
+          );
+          await tester.pumpAndSettle();
+          await openFilters(tester);
+          final sheet = find.byType(DSheetContent);
+          expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
+          gate.complete();
+          for (var frame = 0; frame < 24; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(sheet, findsOneWidget);
+            expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
+          }
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).height, closeTo(phone.height * .55, 1));
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
+
+      testWidgets(
         'focusing Filters animates its bounds after the keyboard on $platform ($material)',
         (tester) async {
           const channel = MethodChannel('org.discourse.native/keyboard');
@@ -583,7 +616,11 @@ void main() {
             expect(current.left, inExclusiveRange(previous.left, 6));
             expect(current.top, lessThan(previous.top));
             expect(current.width, lessThan(previous.width));
-            expect(current.height, lessThan(previous.height));
+            expect(current.bottom, lessThan(previous.bottom));
+            expect(
+              current.height,
+              inInclusiveRange(opened.height - 40, phone.height - 355),
+            );
             expect(position.pixels, 0);
             expect(current.top, greaterThan(55));
             expect(current.bottom, greaterThan(phone.height - 300));

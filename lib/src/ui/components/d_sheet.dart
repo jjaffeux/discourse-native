@@ -129,6 +129,7 @@ class DSheet<T> extends StatelessWidget {
       content.extendBehindKeyboard,
       true,
       variant: content.variant,
+      sizeToContent: content.sizeToContent,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -187,6 +188,7 @@ class DSheetViewport extends StatelessWidget {
         content.extendBehindKeyboard,
         onDismiss != null || onSwipeDismissRequested != null,
         variant: content.variant,
+        sizeToContent: content.sizeToContent,
         retainKeyboardInsets: true,
         onRetainedDismiss: onDismiss,
         onRetainedSwipeDismissRequested: onSwipeDismissRequested,
@@ -355,6 +357,7 @@ Widget _sheetPresentation(
   bool extendBehindKeyboard,
   bool dismissOnSwipe, {
   DSheetVariant variant = DSheetVariant.standard,
+  bool sizeToContent = true,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
@@ -366,6 +369,7 @@ Widget _sheetPresentation(
       onDismiss: dismissOnSwipe ? close : null,
       retained: retainKeyboardInsets,
       onDismissRequested: onRetainedSwipeDismissRequested,
+      sizeToContent: sizeToContent,
     );
     return _DSheetKeyboardInsets(
       child: retainKeyboardInsets
@@ -1163,6 +1167,7 @@ class DSheetContent extends StatelessWidget {
     required this.children,
     this.side = DSheetSide.right,
     this.variant = DSheetVariant.standard,
+    this.sizeToContent = true,
     this.showCloseButton = true,
 
     this.semanticLabel,
@@ -1187,6 +1192,13 @@ class DSheetContent extends StatelessWidget {
 
   final List<Widget> children;
   final DSheetVariant variant;
+
+  /// Whether an adaptive menu follows the height of its content.
+  ///
+  /// False reserves a 55% opening viewport, including floating clearance,
+  /// across loading and result changes. Pulling upward expands it; a visible
+  /// keyboard uses the available viewport. Other sheet variants are unchanged.
+  final bool sizeToContent;
   final DSheetSide side;
   final bool showCloseButton;
 
@@ -1657,6 +1669,7 @@ Future<T?> showDSheet<T>({
 
   bool inset = false,
   DSheetVariant variant = DSheetVariant.standard,
+  bool sizeToContent = true,
 
   bool fillAvailableHeight = false,
 
@@ -1690,6 +1703,7 @@ Future<T?> showDSheet<T>({
       false,
       true,
       variant: variant,
+      sizeToContent: sizeToContent,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),

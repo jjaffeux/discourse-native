@@ -125,6 +125,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     controller: _popover,
     sheetOnMobile: true,
     mobileSheetVariant: DSheetVariant.adaptiveMenu,
+    mobileSheetSizeToContent: false,
     onOpenChange: (open, _) {
       if (open) {
         setState(() => _query = widget.query);
