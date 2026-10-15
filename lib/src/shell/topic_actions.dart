@@ -539,9 +539,12 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
         identical(ShellScope.maybeRead(context), shell) &&
         shell.activeTabId == tab &&
         identical(shell.currentContent, route);
+    Widget menuIcon(DIconData icon) =>
+        DIcon(icon, size: 13, color: DTokens.of(context).mutedForeground);
     final items = [
       DDropdownMenuItem(
-        leading: const DIcon(DIcons.upRightFromSquare),
+        leading: menuIcon(DNativeIcons.shareFromSquare),
+        leadingGap: 9,
         onPressed: () {
           if (!current()) return;
           TopicShareButton(
@@ -555,7 +558,8 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
       if (status.topicFlags.isNotEmpty)
         DDropdownMenuItem(
           key: const ValueKey('topic-flag-button'),
-          leading: const DIcon(DIcons.flag),
+          leading: menuIcon(DIcons.flag),
+          leadingGap: 9,
           onPressed: () {
             if (current()) status._flag(context);
           },
@@ -564,7 +568,8 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
       if (shell.instanceFor(status.siteUrl)?.isConnected == true)
         DDropdownMenuItem(
           key: const ValueKey('topic-mark-unread'),
-          leading: const DIcon(DIcons.envelope),
+          leading: menuIcon(DNativeIcons.envelopeOpen),
+          leadingGap: 9,
           onPressed:
               shell.topicUnreadWriteInFlight(status.siteUrl, status.topic.id)
               ? null
@@ -582,11 +587,17 @@ class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
         ),
     ];
     return DDropdownMenu(
+      sheetOnMobile: true,
+      mobileSheetVariant: DSheetVariant.adaptiveMenu,
       onOpenChange: (open, _) =>
           setState(() => _openItems = open ? items : null),
       content: DDropdownMenuContent(
         width: 224,
         semanticLabel: context.l10n.topicActionsMenu,
+        highlightInitialFocus: false,
+        padding: DControlStyle.isTouch(context)
+            ? const EdgeInsets.fromLTRB(8, 0, 8, 8)
+            : DInsets.menu,
         children: _openItems ?? items,
       ),
       child: DDropdownMenuTrigger(

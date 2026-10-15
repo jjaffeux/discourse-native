@@ -30,6 +30,7 @@ void main() {
       'Profile account',
       'Grouped guide',
       'Custom popup corners',
+      'Adaptive sheet on mobile',
       'Sheet on mobile',
     ]);
   });

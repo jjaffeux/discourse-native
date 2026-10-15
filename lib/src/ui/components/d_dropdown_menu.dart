@@ -14,6 +14,7 @@ import 'd_button.dart';
 import 'd_popover.dart';
 import 'd_scroll_area.dart';
 import 'd_separator.dart';
+import 'd_sheet.dart';
 
 typedef DDropdownMenuController = DPopoverController;
 typedef DDropdownMenuOpenChange = DPopoverOpenChange;
@@ -40,6 +41,7 @@ class DDropdownMenu extends StatelessWidget {
     this.onOpenChangeComplete,
     this.restoreFocus = true,
     this.sheetOnMobile = false,
+    this.mobileSheetVariant = DSheetVariant.standard,
   });
 
   final Widget child;
@@ -54,11 +56,15 @@ class DDropdownMenu extends StatelessWidget {
   /// Uses a bottom sheet on mobile platforms instead of an anchored menu.
   final bool sheetOnMobile;
 
+  /// The existing Native sheet style used when [sheetOnMobile] is enabled.
+  final DSheetVariant mobileSheetVariant;
+
   @override
   Widget build(BuildContext context) {
     final ancestor = _DropdownMenuRootScope.maybeOf(context);
     return DPopover(
       sheetOnMobile: sheetOnMobile,
+      mobileSheetVariant: mobileSheetVariant,
       open: open,
       defaultOpen: defaultOpen,
       controller: controller,

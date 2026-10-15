@@ -145,6 +145,27 @@ final dropdownMenuExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Adaptive sheet on mobile',
+      description:
+          'A compact menu floats above the home indicator with a grab handle '
+          'and no visible title or close button. Desktop keeps its anchored menu.',
+      code:
+          'DDropdownMenu(sheetOnMobile: true, mobileSheetVariant: DSheetVariant.adaptiveMenu, content: content, child: trigger)',
+      builder: (_) => DDropdownMenu(
+        sheetOnMobile: true,
+        mobileSheetVariant: DSheetVariant.adaptiveMenu,
+        content: DDropdownMenuContent(
+          semanticLabel: 'Topic actions',
+          highlightInitialFocus: false,
+          children: [
+            for (final label in ['Share topic', 'Flag topic', 'Mark unread'])
+              DDropdownMenuItem(onPressed: () {}, child: Text(label)),
+          ],
+        ),
+        child: DDropdownMenuTrigger.button(label: const Text('Topic actions')),
+      ),
+    ),
+    StyleguideExample(
       title: 'Sheet on mobile',
       description:
           'Uses a bottom sheet on mobile platforms and an anchored menu on desktop.',
