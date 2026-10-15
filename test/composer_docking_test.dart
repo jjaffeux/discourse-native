@@ -281,6 +281,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('mobile keyboard motion retains composer controls', (
+    tester,
+  ) async {
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+    );
+    addTearDown(tester.view.resetViewInsets);
+    final composer = harness.shell.visibleComposer!;
+    const source =
+        'Before\n\n| Name | Value |\n| --- | --- |\n| Tea | One |\n\n```dart\nvoid main() {}\n```\n\nAfter';
+    composer.text.value = const TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(offset: 4),
+    );
+    await tester.pumpAndSettle();
+    final category = tester.element(
+      find.byKey(const ValueKey('composer-category-action')),
+    );
+    final editor = tester.element(find.byType(ComposerEditor));
+    final rebuilt = <Element>[];
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (identical(element, category) || identical(element, editor)) {
+        rebuilt.add(element);
+      }
+    };
+    try {
+      for (final inset in [60.0, 180.0, 330.0, 180.0, 0.0]) {
+        tester.view.viewInsets = FakeViewPadding(
+          bottom: inset * tester.view.devicePixelRatio,
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+        await tester.pump();
+      }
+    } finally {
+      debugOnRebuildDirtyWidget = previous;
+    }
+    expect(rebuilt, isEmpty);
+    expect(composer.focus.hasFocus, isTrue);
+    expect(composer.raw, source);
+    expect(composer.text.selection, const TextSelection.collapsed(offset: 4));
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('opening and revealing the composer focuses its editor', (
     tester,
   ) async {
