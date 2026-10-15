@@ -258,6 +258,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   List<_TopicDayStart> _laidOutDayStarts = const [];
   Object? _dayJumpToken;
   bool _tickerEnabled = true;
+  ValueListenable<TickerModeData>? _tickerMode;
   TopicPostIndexProjection? _postIndexProjection;
   final Map<int, BuildContext> _postContexts = {};
   final _postRetention = TopicPostRetention();
@@ -568,7 +569,28 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     super.didChangeDependencies();
     _viewportLogicalSize = MediaQuery.sizeOf(context);
     _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _bindTickerMode();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _bindTickerMode();
+  }
+
+  void _bindTickerMode() {
+    final mode = TickerMode.getValuesNotifier(context);
+    if (!identical(mode, _tickerMode)) {
+      _tickerMode?.removeListener(_tickerModeChanged);
+      _tickerMode = mode..addListener(_tickerModeChanged);
+    }
+    _tickerModeChanged();
+  }
+
+  void _tickerModeChanged() {
+    // Muting a retained reader pauses its work without invalidating the post
+    // tree. Its rendered content does not depend on whether tickers run.
+    final tickerEnabled = _tickerMode!.value.enabled;
     if (_tickerEnabled == tickerEnabled) return;
     _tickerEnabled = tickerEnabled;
     _viewport.setTickerEnabled(tickerEnabled);
@@ -939,6 +961,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _tickerMode?.removeListener(_tickerModeChanged);
     _postRetention.dispose();
     _animatedPostIds.dispose();
     WidgetsBinding.instance.removeObserver(this);

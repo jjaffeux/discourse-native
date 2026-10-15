@@ -68,6 +68,8 @@ class TopicListView extends StatefulWidget {
 
 class _TopicListViewState extends State<TopicListView> {
   late final _prefetch = _TopicListPrefetch(this);
+  ValueListenable<TickerModeData>? _tickerMode;
+  bool _touch = true;
   ScrollController? _scroll;
   ListController? _list;
   _TopicListIdentity? _feedIdentity;
@@ -189,9 +191,29 @@ class _TopicListViewState extends State<TopicListView> {
     super.didChangeDependencies();
     _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
     _prefetch.geometryChanged();
-    _prefetch.setEnabled(
-      !context.isTouch && TickerMode.valuesOf(context).enabled,
-    );
+    _touch = context.isTouch;
+    _bindTickerMode();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _bindTickerMode();
+  }
+
+  void _bindTickerMode() {
+    final mode = TickerMode.getValuesNotifier(context);
+    if (!identical(mode, _tickerMode)) {
+      _tickerMode?.removeListener(_tickerModeChanged);
+      _tickerMode = mode..addListener(_tickerModeChanged);
+    }
+    _tickerModeChanged();
+  }
+
+  void _tickerModeChanged() {
+    // Availability gates prefetching, not the rows' appearance. Do not rebuild
+    // the whole list whenever its retained tab is hidden or shown.
+    _prefetch.setEnabled(!_touch && _tickerMode!.value.enabled);
   }
 
   void _recordScrollEvent(String name, Map<String, Object?> data) {
@@ -222,7 +244,7 @@ class _TopicListViewState extends State<TopicListView> {
       if (!_isCurrent(controller, identity) ||
           controller.readingTopicId != topicId ||
           _cursor?.value != cursor ||
-          !TickerMode.valuesOf(context).enabled) {
+          !(_tickerMode?.value.enabled ?? true)) {
         return;
       }
       final index = widget.feed.topicIds.indexOf(cursor.topicId);
@@ -385,6 +407,7 @@ class _TopicListViewState extends State<TopicListView> {
 
   @override
   void dispose() {
+    _tickerMode?.removeListener(_tickerModeChanged);
     unawaited(_topicListRevealSubscription?.cancel());
     // Rows are handed to the shell as they change, but the latest may still
     // be waiting out its debounce window. The torn-down list cannot move it

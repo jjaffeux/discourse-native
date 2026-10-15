@@ -79,9 +79,14 @@ class _DesktopPanelsState extends State<DesktopPanels>
   final _panelKeys = {
     for (final panel in ForumPanel.values) panel: GlobalKey(),
   };
-  // Tab-strip and focus changes must not rebuild an unchanged document.
-  final _tabContents = <(String, String), MainContent>{};
-  final _panelWidgets = <ForumPanel, ({Object key, Widget widget})>{};
+  // Keep recent element/render trees, not just widget configurations. Replacing
+  // the only child on selection disposes its reader and rebuilds every row on
+  // return. Bound retention to three visited documents in each panel.
+  static const _maximumRetainedTabsPerPanel = 3;
+  final _tabContents = <String, MainContent>{};
+  (String, String, Object)? _contentWorkspace;
+  final _panelWidgets =
+      <ForumPanel, ({Object key, List<_TabContent> contents, Widget widget})>{};
   late DesktopPanelsLayout _layout;
   DesktopPanelsLayout? _ownedLayout;
   late ValueListenable<Rect?> _windowFrame;
@@ -305,9 +310,37 @@ class _DesktopPanelsState extends State<DesktopPanels>
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.of(context);
-    _tabContents.removeWhere(
-      (owner, _) => shell.workspaceFor(owner.$1)?.tabById(owner.$2) == null,
-    );
+    final workspace = shell.currentWorkspace;
+    final identity = workspace == null
+        ? null
+        : (
+            workspace.siteUrl,
+            workspace.accountIdentity,
+            shell.lifecycle.capture(workspace.siteUrl).session,
+          );
+    if (_contentWorkspace != identity) {
+      _contentWorkspace = identity;
+      _tabContents.clear();
+      _panelWidgets.clear();
+    }
+    _tabContents.removeWhere((id, _) => workspace?.tabById(id) == null);
+    for (final panel in ForumPanel.values) {
+      final selected = workspace?.selectedTabIn(panel);
+      if (selected == null) continue;
+      // Map insertion order records recency without changing document order.
+      final content = _tabContents.remove(selected.id);
+      _tabContents[selected.id] =
+          content ??
+          MainContent(key: GlobalKey(), layout: ShellLayout.expanded);
+      final retained = _tabContents.keys
+          .where((id) => workspace!.tabById(id)?.panel == panel)
+          .toList();
+      for (final id in retained.take(
+        math.max(0, retained.length - _maximumRetainedTabsPerPanel),
+      )) {
+        _tabContents.remove(id);
+      }
+    }
     // Whatever becomes active in a minimized panel, whether a topic opened
     // from the list, a link or another forum's workspace, is what the reader
     // asked to see, so the panel comes back to show it.
@@ -387,22 +420,17 @@ class _DesktopPanelsState extends State<DesktopPanels>
         // `minimizable` is null where a panel offers no minimize action.
         Widget panel(ForumPanel target, {bool? minimizable}) {
           final tab = shell.selectedTabIn(target);
-          final content = tab == null
-              ? null
-              : _tabContents.putIfAbsent(
-                  (shell.currentInstance!.url, tab.id),
-                  () => MainContent(
-                    key: GlobalKey(),
-                    layout: ShellLayout.expanded,
-                  ),
-                );
+          final contents = <_TabContent>[
+            for (final tab in workspace?.tabsIn(target) ?? <ForumTab>[])
+              if (_tabContents[tab.id] case final content?)
+                (tabId: tab.id, content: content),
+          ];
           // This build runs on every shell change. While a panel's inputs are
           // unchanged it keeps the same widget, so a change elsewhere, such
           // as a tab settling while a panel folds, does not rebuild its frame
           // and header.
           final inputs = (
             tab?.id,
-            content,
             horizontal,
             minimizable,
             minimized,
@@ -410,13 +438,14 @@ class _DesktopPanelsState extends State<DesktopPanels>
           );
           if (_panelWidgets[target] case (
             :final key,
+            contents: final previousContents,
             :final widget,
-          ) when key == inputs) {
+          ) when key == inputs && listEquals(previousContents, contents)) {
             return widget;
           }
           final widget = _DesktopPanel(
             key: _panelKeys[target],
-            content: content,
+            contents: contents,
             panel: target,
             tabId: tab?.id,
             showHeader: horizontal,
@@ -448,7 +477,11 @@ class _DesktopPanelsState extends State<DesktopPanels>
                     ),
                   ),
           );
-          _panelWidgets[target] = (key: inputs, widget: widget);
+          _panelWidgets[target] = (
+            key: inputs,
+            contents: contents,
+            widget: widget,
+          );
           return widget;
         }
 
@@ -654,18 +687,20 @@ class _DesktopPanelsState extends State<DesktopPanels>
   }
 }
 
+typedef _TabContent = ({String tabId, MainContent content});
+
 class _DesktopPanel extends StatelessWidget {
   const _DesktopPanel({
     super.key,
     required this.panel,
     required this.tabId,
-    this.content,
+    required this.contents,
     this.showHeader = true,
     this.action,
   });
 
   final bool showHeader;
-  final MainContent? content;
+  final List<_TabContent> contents;
   final ForumPanel panel;
   final String? tabId;
   final Widget? action;
@@ -708,7 +743,27 @@ class _DesktopPanel extends StatelessWidget {
                   },
                   child: Listener(
                     onPointerDown: (_) => activate(),
-                    child: content ?? const SizedBox.shrink(),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        for (final page in contents)
+                          Offstage(
+                            key: ValueKey(page.tabId),
+                            offstage: page.tabId != tabId,
+                            child: TickerMode(
+                              enabled: page.tabId == tabId,
+                              child: ExcludeFocus(
+                                excluding: page.tabId != tabId,
+                                child: ForumTabScope(
+                                  tabId: page.tabId,
+                                  panel: panel,
+                                  child: RepaintBoundary(child: page.content),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
