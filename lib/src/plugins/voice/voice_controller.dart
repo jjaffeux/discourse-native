@@ -464,7 +464,10 @@ final class VoiceController extends ChangeNotifier {
       _startingCamera?.revision == _cameraRevision;
   String? get activeSiteUrl => _call?.siteUrl;
   bool get supportedPlatform =>
-      Platform.isIOS || Platform.isMacOS || Platform.isLinux;
+      Platform.isAndroid ||
+      Platform.isIOS ||
+      Platform.isMacOS ||
+      Platform.isLinux;
   String? get audioInputDeviceId => _audioInputDeviceId;
   String? get audioOutputDeviceId => _audioOutputDeviceId;
   String? get cameraDeviceId => _cameraFacing == null ? _cameraDeviceId : null;
