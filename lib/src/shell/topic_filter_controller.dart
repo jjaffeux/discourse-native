@@ -287,11 +287,13 @@ class TopicFilterController extends ChangeNotifier {
     required String initialQuery,
     required this.submitQuery,
     required this.engine,
+    this.onSuggestionsReady,
     this.debounce = const Duration(milliseconds: 300),
   }) : text = TextEditingController(text: initialQuery);
 
   final TextEditingController text;
   final Future<void> Function(String query) submitQuery;
+  final VoidCallback? onSuggestionsReady;
   final Duration debounce;
 
   TopicFilterSuggestions engine;
@@ -391,6 +393,7 @@ class TopicFilterController extends ChangeNotifier {
       _suggestions = result;
       _selectedIndex = result.isEmpty ? -1 : 0;
       notifyListeners();
+      onSuggestionsReady?.call();
     }
     queued.complete();
     if (identical(_activeSuggestions, queued)) {

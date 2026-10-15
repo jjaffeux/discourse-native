@@ -637,6 +637,7 @@ class FakeDiscourseApi
     this.userSearches = const {},
     this.mentionGroupSearches = const {},
     this.filterTagSearches = const {},
+    this.filterTagSearchGate,
     this.categoryFilterTagSearches = const {},
     this.filterGroupSearches = const {},
     this.hashtagSearches = const {},
@@ -1137,6 +1138,7 @@ class FakeDiscourseApi
   final List<({String term, int? topicId})> userSearchesRequested = [];
 
   final Map<String, List<TopicFilterLookupValue>> filterTagSearches;
+  final Completer<void>? filterTagSearchGate;
   final Map<(int, String), List<TopicFilterLookupValue>>
   categoryFilterTagSearches;
   final List<({String siteUrl, String term, int? categoryId})>
@@ -2467,6 +2469,7 @@ class FakeDiscourseApi
       term: term,
       categoryId: categoryId,
     ));
+    if (filterTagSearchGate case final gate?) await gate.future;
     return categoryFilterTagSearches[(categoryId, term)] ??
         filterTagSearches[term] ??
         const [];

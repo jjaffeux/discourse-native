@@ -51,6 +51,7 @@ class TopicFilterInput extends StatefulWidget {
     this.categoryContextId,
     this.onScopeChanged,
     this.controller,
+    this.onSuggestionsReady,
   });
 
   final String siteUrl;
@@ -77,6 +78,7 @@ class TopicFilterInput extends StatefulWidget {
   final int? categoryContextId;
   final ValueChanged<String>? onScopeChanged;
   final TopicFilterInputController? controller;
+  final VoidCallback? onSuggestionsReady;
 
   @override
   State<TopicFilterInput> createState() => _TopicFilterInputState();
@@ -194,6 +196,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         : (tag?.contains('+') == true ? 'all' : 'any');
     _categoryParentId = widget.categoryParentId;
     _filter = TopicFilterController(
+      onSuggestionsReady: () => widget.onSuggestionsReady?.call(),
       initialQuery: widget.tokenized
           ? (widget.onlyKey == null ? '' : '${widget.onlyKey}:')
           : widget.initialQuery,

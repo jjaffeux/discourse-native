@@ -372,9 +372,11 @@ void main() {
         final old = Completer<List<TopicFilterLookupValue>>();
         final current = Completer<List<TopicFilterLookupValue>>();
         final terms = <String>[];
+        var ready = 0;
         final controller = TopicFilterController(
           initialQuery: 'tag:a',
           submitQuery: (_) async {},
+          onSuggestionsReady: () => ready++,
           engine: engine(
             tags: (term) {
               terms.add(term);
@@ -393,10 +395,12 @@ void main() {
         old.complete(const [TopicFilterLookupValue(name: 'alpha')]);
         await oldRequest;
         expect(terms, ['a', 'b']);
+        expect(ready, 0);
         current.complete(const [TopicFilterLookupValue(name: 'beta')]);
         await currentRequest;
 
         expect(controller.suggestions.single.name, 'tag:beta');
+        expect(ready, 1);
       },
     );
 
@@ -432,9 +436,11 @@ void main() {
     test(
       'a failed lookup closes suggestions without failing the field',
       () async {
+        var ready = false;
         final controller = TopicFilterController(
           initialQuery: 'tag:bug',
           submitQuery: (_) async {},
+          onSuggestionsReady: () => ready = true,
           engine: engine(tags: (_) => Future.error(StateError('offline'))),
         );
         addTearDown(controller.dispose);
@@ -443,6 +449,7 @@ void main() {
 
         expect(controller.suggestions, isEmpty);
         expect(controller.isOpen, isFalse);
+        expect(ready, isTrue);
       },
     );
 

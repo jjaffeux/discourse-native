@@ -78,6 +78,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   final _input = TopicFilterInputController();
   List<TopicFilterOption>? _options;
   bool _loading = false;
+  bool _suggestionsReady = false;
   ShellController? _shell;
   String? _tabId;
   _TopicListMenuOwner? _owner;
@@ -216,10 +217,12 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     sheetOnMobile: true,
     mobileSheetVariant: DSheetVariant.adaptiveMenu,
     mobileSheetSizeToContent: false,
-    mobileSheetContentLoading: _options == null,
+    // Tag rows can arrive after the filter vocabulary.
+    mobileSheetContentLoading: _options == null || !_suggestionsReady,
     onOpenChange: (open, _) {
       widget.onOpenChanged?.call(open);
       if (open) {
+        setState(() => _suggestionsReady = false);
         _retired = false;
         _owner = _ownerOf(_shell!);
         _boundary = _panelBoundary();
@@ -243,6 +246,11 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
             Flexible(
               child: TopicFilterInput(
                 controller: _input,
+                onSuggestionsReady: () {
+                  if (mounted && !_retired && !_suggestionsReady) {
+                    setState(() => _suggestionsReady = true);
+                  }
+                },
                 siteUrl: widget.siteUrl,
                 initialQuery: _scopeQuery,
                 categoryParentId: widget.categoryParentId,

@@ -102,6 +102,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> fixture(
   List<SidebarTag> knownTags = tags,
   Map<String, List<TopicCategory>> categorySearches = const {},
   Completer<void>? filterOptionsGate,
+  Completer<void>? tagSearchGate,
   List<TopicFilterOption> filterOptions = const [
     TopicFilterOption(name: 'status:open', priority: 1),
   ],
@@ -122,6 +123,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> fixture(
     },
     filterOptionsByPath: {'/filter.json': filterOptions},
     feedGates: {'/filter.json': ?filterOptionsGate},
+    filterTagSearchGate: tagSearchGate,
     categoryFilterTagSearches: const {
       (1, ''): [
         TopicFilterLookupValue(name: 'Alpha', description: '8'),
@@ -536,6 +538,100 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final material in DAppearanceMaterial.values) {
+      for (final (scope, tagCount) in [
+        ('category', 30),
+        ('tag', 30),
+        ('tag', 0),
+        ('all', 30),
+      ]) {
+        testWidgets(
+          '$scope sheet opens without margins with $tagCount tags on $platform ($material)',
+          (tester) async {
+            final tagSearchGate = scope == 'tag' ? Completer<void>() : null;
+            tester.view.viewPadding = const FakeViewPadding(
+              top: 47,
+              bottom: 34,
+            );
+            tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+            final (shell: shell, api: _) = await fixture(
+              tester,
+              size: phone,
+              categories: [
+                for (var i = 1; i <= 30; i++)
+                  TopicCategory(
+                    id: i,
+                    name: 'Category $i',
+                    slug: 'category-$i',
+                    color: '3188CC',
+                  ),
+              ],
+              knownTags: [
+                for (var i = 1; i <= tagCount; i++)
+                  SidebarTag(id: i, name: 'Tag $i', slug: 'tag-$i', count: i),
+              ],
+              filterOptions: filterMenuOptions,
+              tagSearchGate: tagSearchGate,
+            );
+            await shell.forumSettings.setShared(
+              SharedAppearance(material: material),
+            );
+            await tester.pumpAndSettle();
+            final trigger = find.descendant(
+              of: primaryMainContent,
+              matching: find.byKey(
+                ValueKey(
+                  scope == 'all'
+                      ? 'topic-list-filter'
+                      : 'topic-list-$scope-filter',
+                ),
+              ),
+            );
+            await tester.tap(trigger);
+            final sheet = find.byType(DSheetContent);
+            for (var frame = 0; frame < 30; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              if (sheet.evaluate().isNotEmpty) {
+                expect(tester.getRect(sheet).left, 0, reason: 'frame $frame');
+                expect(tester.getRect(sheet).width, phone.width);
+              }
+            }
+            await capture(
+              tester,
+              '$scope-$tagCount-$platform-$material-loading',
+            );
+            if (tagSearchGate != null) {
+              // Reopening has cached vocabulary but still awaits its tag rows.
+              await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+              await tester.pumpAndSettle();
+              expect(sheet, findsNothing);
+              await tester.tap(trigger);
+              await tester.pumpAndSettle();
+              expect(tester.getRect(sheet).left, 0);
+              expect(tester.getRect(sheet).bottom, phone.height);
+            }
+            tagSearchGate?.complete();
+            await tester.pumpAndSettle();
+            await capture(
+              tester,
+              '$scope-$tagCount-$platform-$material-opening',
+            );
+            if (scope == 'tag' && tagCount == 0) {
+              expect(tester.getRect(sheet).left, 6);
+              expect(tester.getRect(sheet).bottom, phone.height - 40);
+            } else {
+              expect(tester.getRect(sheet).left, 0);
+              expect(tester.getRect(sheet).bottom, phone.height);
+              expect(
+                tester.getRect(sheet).height,
+                closeTo(phone.height * .55, 1),
+              );
+            }
+            expect(tester.takeException(), isNull);
+          },
+          variant: TargetPlatformVariant.only(platform),
+        );
+      }
+
       if (platform == TargetPlatform.iOS) {
         testWidgets('Filters move with native keyboard timing ($material)', (
           tester,
