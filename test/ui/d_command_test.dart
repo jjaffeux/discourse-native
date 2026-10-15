@@ -1115,6 +1115,7 @@ void main() {
     (tester) async {
       final trigger = FocusNode();
       final dialog = DDialogController<String>();
+      String? result;
       addTearDown(trigger.dispose);
       addTearDown(dialog.dispose);
       await tester.pumpWidget(
@@ -1122,6 +1123,9 @@ void main() {
           DCommandDialog<String>(
             controller: dialog,
             finalFocusNode: trigger,
+            onOpenChanged: (details) {
+              if (!details.open) result = details.result;
+            },
             trigger: DDialogTrigger(
               builder: (context, open) => DButton(
                 focusNode: trigger,
@@ -1161,6 +1165,48 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Profile'), findsNothing);
       expect(trigger.hasFocus, isTrue);
+      await tester.tap(find.text('Open Menu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+      expect(result, 'Profile');
+      expect(find.text('Profile'), findsNothing);
+      expect(trigger.hasFocus, isTrue);
     },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
+    'initially open command palette can close and reopen',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          DCommandDialog<String>(
+            initiallyOpen: true,
+            trigger: DDialogTrigger(
+              builder: (context, open) =>
+                  DButton(label: const Text('Open Menu'), onPressed: open),
+            ),
+            command: _command(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DCommandInput<String>), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DCommandInput<String>), findsNothing);
+      await tester.tap(find.text('Open Menu'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DCommandInput<String>), findsOneWidget);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+    }),
   );
 }

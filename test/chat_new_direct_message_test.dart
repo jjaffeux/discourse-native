@@ -361,26 +361,34 @@ void main() {
 
   for (final dark in [false, true]) {
     testWidgets(
-      'touch opens a unified ${dark ? 'dark' : 'light'} sheet above the keyboard',
+      'touch opens a unified ${dark ? 'dark' : 'light'} adaptive menu above the keyboard',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         await pump(tester, dark: dark);
         void expectUnifiedSurface() {
-          final background = DTokens.of(
-            tester.element(sheet),
-          ).background.withValues(alpha: 1);
-          for (final part in [search, find.byType(DSheetTitle)]) {
-            final surface = tester.widget<Material>(
-              find.ancestor(of: part, matching: find.byType(Material)).first,
-            );
-            expect(surface.color, background);
-          }
-          final scrollbar = tester.widget<DScrollBar>(
-            find.descendant(of: sheet, matching: find.byType(DScrollBar)),
+          final command = find.byKey(
+            const ValueKey('chat-destination-command'),
           );
-          expect(scrollbar.backgroundColor, background);
+          final surface = tester.widget<Material>(
+            find.descendant(of: command, matching: find.byType(Material)).first,
+          );
+          expect(surface.color, Colors.transparent);
+          final scrollbar = tester.widget<DScrollBar>(
+            find.descendant(of: command, matching: find.byType(DScrollBar)),
+          );
+          expect(scrollbar.backgroundColor, Colors.transparent);
+          final content = tester.widget<DSheetContent>(sheet);
+          expect(content.variant, DSheetVariant.adaptiveMenu);
+          expect(content.sizeToContent, isFalse);
+          expect(content.fillAvailableHeight, isFalse);
+          expect(find.byType(DSheetTitle), findsNothing);
+          expect(find.byTooltip('Close'), findsNothing);
+          expect(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            findsOneWidget,
+          );
         }
 
         expectUnifiedSurface();
@@ -393,15 +401,16 @@ void main() {
           matching: find.byType(EditableText),
         );
         expect(dialog, findsNothing);
-        expect(tester.getSize(sheet).height, greaterThan(700));
-        expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
-        expect(tester.getTopLeft(sheet).dx, DSpacing.md);
+        expect(tester.getTopLeft(sheet).dy, closeTo(844 * .45, 1));
+        expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(844));
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
         expect(tester.testTextInput.isVisible, isTrue);
 
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
-        expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
+        expect(tester.getTopLeft(sheet).dy, lessThan(844 * .55));
         expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(544));
         final list = find.byKey(
           const ValueKey('chat-new-direct-message-results'),
@@ -413,31 +422,23 @@ void main() {
           reason: 'results take the space the keyboard leaves',
         );
 
+        expect(tester.takeException(), isNull, reason: 'keyboard shown');
         await tester.tap(startGroup);
         await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'group form shown');
         await query(tester, 'maya');
         await tester.tap(user('maya'));
         await tester.pumpAndSettle();
         expect(tester.getBottomLeft(createGroup).dy, lessThanOrEqualTo(544));
         expectUnifiedSurface();
+        expect(tester.takeException(), isNull, reason: 'member added');
         expect(tester.widget<DButton>(createGroup).onPressed, isNotNull);
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
 
-        final bounds = tester.getRect(sheet);
-        final gesture = await tester.startGesture(
-          tester.getCenter(find.byType(DSheetTitle)),
+        await tester.drag(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          const Offset(0, 650),
         );
-        await gesture.moveBy(const Offset(0, 30));
-        await gesture.moveBy(const Offset(0, 150));
-        await tester.pump();
-        expect(tester.getTopLeft(sheet).dy, greaterThan(bounds.top + 72));
-        await gesture.up();
-        await tester.pumpAndSettle();
-        expect(tester.getRect(sheet), bounds);
-        expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
-        expect(tester.testTextInput.isVisible, isTrue);
-
-        await tester.drag(find.byType(DSheetTitle), const Offset(0, 300));
         await tester.pumpAndSettle();
         expect(sheet, findsNothing);
         expect(tester.takeException(), isNull);

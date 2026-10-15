@@ -19,6 +19,7 @@ import 'd_dialog.dart';
 import 'd_filter_token.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
+import 'd_sheet.dart';
 import 'd_toggle.dart';
 
 /// Returns a relevance score from zero (hidden) to one (best match).
@@ -252,7 +253,8 @@ class DCommand<T> extends StatefulWidget {
 
   /// The background of the command surface and its results scrollbar.
   ///
-  /// Defaults to [DTokens.surface].
+  /// Defaults to transparent inside [DCommandDialog], where the overlay owns
+  /// the surface, and [DTokens.surface] for an embedded command.
   final Color? backgroundColor;
 
   @override
@@ -402,7 +404,12 @@ class _DCommandState<T> extends State<DCommand<T>> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final radius = BorderRadius.circular(DRadius.panel);
-    final backgroundColor = widget.backgroundColor ?? tokens.surface;
+    final inOverlay =
+        context.dependOnInheritedWidgetOfExactType<_DCommandOverlayScope>() !=
+        null;
+    final backgroundColor =
+        widget.backgroundColor ??
+        (inOverlay ? Colors.transparent : tokens.surface);
     return _DCommandScope<T>(
       controller: _controller,
       filter: (_defaultCommandFilter),
@@ -1648,9 +1655,10 @@ class DCommandLoading extends StatelessWidget {
   );
 }
 
-/// The reference Command/Dialog composition. Dialog owns modality and focus
-/// restoration; the nested [DCommand] owns query, filtering, and selection.
-class DCommandDialog<T> extends StatelessWidget {
+/// An adaptive command palette: a Native menu sheet on touch platforms and a
+/// centered dialog on desktop. The overlay owns its surface and focus lifecycle;
+/// the nested [DCommand] owns query, filtering, and selection.
+class DCommandDialog<T> extends StatefulWidget {
   const DCommandDialog({
     super.key,
     required this.command,
@@ -1683,23 +1691,88 @@ class DCommandDialog<T> extends StatelessWidget {
   final FocusNode? finalFocusNode;
 
   @override
-  Widget build(BuildContext context) => DDialog<T>(
-    controller: controller,
-    open: open,
-    initiallyOpen: initiallyOpen,
-    onOpenChanged: onOpenChanged,
-    initialFocusNode: initialFocusNode,
-    finalFocusNode: finalFocusNode,
-    trigger:
-        trigger ?? DDialogTrigger(builder: (context, open) => const SizedBox()),
-    content: DDialogContent(
-      maxWidth: maxWidth,
-      showCloseButton: showCloseButton,
-      semanticLabel: '$title. $description',
-      contentPadding: EdgeInsets.zero,
-      verticalPadding: 0,
-      spacing: 0,
-      children: [command],
-    ),
-  );
+  State<DCommandDialog<T>> createState() => _DCommandDialogState<T>();
+}
+
+class _DCommandDialogState<T> extends State<DCommandDialog<T>> {
+  late DDialogController<T> _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        widget.controller ??
+        DDialogController<T>(initiallyOpen: widget.initiallyOpen);
+  }
+
+  @override
+  void didUpdateWidget(DCommandDialog<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      final wasOpen = _controller.isOpen;
+      if (oldWidget.controller == null) _controller.dispose();
+      _controller =
+          widget.controller ?? DDialogController<T>(initiallyOpen: wasOpen);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.controller == null) _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final command = _DCommandOverlayScope(child: widget.command);
+    final semanticLabel = '${widget.title}. ${widget.description}';
+    if (DControlStyle.isTouch(context)) {
+      return DSheet<T>(
+        controller: _controller,
+        open: widget.open,
+        onOpenChanged: widget.onOpenChanged,
+        initialFocusNode: widget.initialFocusNode,
+        finalFocusNode: widget.finalFocusNode,
+        trigger: DSheetTrigger(
+          builder:
+              widget.trigger?.builder ??
+              (context, open) => const SizedBox.shrink(),
+        ),
+        content: DSheetContent(
+          side: DSheetSide.bottom,
+          variant: DSheetVariant.adaptiveMenu,
+          showCloseButton: false,
+          semanticLabel: semanticLabel,
+          scrollWholeSheet: false,
+          children: [Flexible(child: command)],
+        ),
+      );
+    }
+    return DDialog<T>(
+      controller: _controller,
+      open: widget.open,
+      onOpenChanged: widget.onOpenChanged,
+      initialFocusNode: widget.initialFocusNode,
+      finalFocusNode: widget.finalFocusNode,
+      trigger:
+          widget.trigger ??
+          DDialogTrigger(builder: (context, open) => const SizedBox.shrink()),
+      content: DDialogContent(
+        maxWidth: widget.maxWidth,
+        showCloseButton: widget.showCloseButton,
+        semanticLabel: semanticLabel,
+        contentPadding: EdgeInsets.zero,
+        verticalPadding: 0,
+        spacing: 0,
+        children: [command],
+      ),
+    );
+  }
+}
+
+class _DCommandOverlayScope extends InheritedWidget {
+  const _DCommandOverlayScope({required super.child});
+
+  @override
+  bool updateShouldNotify(_DCommandOverlayScope oldWidget) => false;
 }

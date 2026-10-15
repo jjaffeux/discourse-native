@@ -10,12 +10,13 @@ final commandExamples = ComponentExamples(
   notes:
       'This is the frozen base-nova/cmdk composition mapped to native Flutter '
       'editing, focus and semantics. DCommand owns query, filtering, highlight '
-      'and keyboard navigation; DCommandDialog composes the shared DDialog owner. '
+      'and keyboard navigation; DCommandDialog uses the Native adaptive menu sheet '
+      'on touch platforms and a centered DDialog on desktop. '
       'DCommandInputDensity.menuFilter wraps DFilterToken pills beside a compact '
       '13px query. DFilterToken keeps edit and remove as independent keyboard '
       'actions inside one 12px accent-tinted pill. Reference text scaling '
       'retains platform accessibility and app zoom without reading-text uplift. '
-      'Use backgroundColor to match a containing sheet or page; the results '
+      'Use a transparent backgroundColor inside a containing sheet or menu; the results '
       'scrollbar shares that color. '
       'Search uses case-insensitive ranked matching across value and keywords, '
       'or accepts a custom score/filtering opt-out for server-owned results. '
@@ -47,7 +48,7 @@ final commandExamples = ComponentExamples(
     StyleguideExample(
       title: 'Basic dialog',
       description:
-          'Opens the reference command palette, focuses its native editor and restores trigger focus when closed.',
+          'Opens an adaptive menu sheet on mobile and a centered dialog on desktop, focuses its native editor and restores trigger focus when closed.',
       code: _dialogCode,
       states: const ['Dialog', 'Focus trap', 'Escape', 'Restoration'],
       builder: (_) => const _DialogCommand(),

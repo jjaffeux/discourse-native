@@ -31,21 +31,22 @@ Future<void> showChatNewDirectMessageDialog({
         searchFocus: searchFocus,
         sheet: sheet,
       );
-  // Touch keeps the search focused, so the picker takes the whole height above
-  // the keyboard the same way the emoji picker does.
+  // Use the same adaptive presentation as Native dropdown menus. Reserve the
+  // opening height so asynchronous search results cannot move the input.
   if (context.isTouch) {
     return showDSheet<void>(
       context: context,
       side: DSheetSide.bottom,
-      inset: true,
-      fillAvailableHeight: true,
+      variant: DSheetVariant.adaptiveMenu,
+      sizeToContent: false,
       initialFocusNode: searchFocus,
       barrierLabel: appL10n.dismissStartChatting,
       builder: (context, sheet) => DSheetContent(
         key: const ValueKey('chat-new-direct-message-sheet'),
         side: DSheetSide.bottom,
+        variant: DSheetVariant.adaptiveMenu,
+        sizeToContent: false,
         semanticLabel: appL10n.startChatting,
-        topBottomMaxHeightFactor: 1,
         scrollWholeSheet: false,
         showCloseButton: false,
         children: [Expanded(child: content(sheet, sheet: true))],
@@ -455,22 +456,12 @@ class _ChatNewDirectMessageDialogState
   Widget _buildSheet() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: DSpacing.lg,
-          vertical: DSpacing.xs,
-        ),
-        child: Row(
-          children: [
-            Expanded(child: DSheetTitle(child: Text(_title))),
-            _closeButton(),
-          ],
-        ),
-      ),
-      if (_composingGroup) _buildGroupFields(),
+      if (_composingGroup)
+        Flexible(child: DScrollArea(child: _buildGroupFields())),
       // Keyed so the group fields appearing above do not remount the command.
       Expanded(
         key: const ValueKey('chat-destination-command-slot'),
+        flex: 2,
         child: _buildCommand(fill: true),
       ),
       ?_buildError(),
@@ -612,9 +603,7 @@ class _ChatNewDirectMessageDialogState
     return DCommand<String>(
       key: const ValueKey('chat-destination-command'),
       controller: _command,
-      backgroundColor: widget.sheet
-          ? DTokens.of(context).background.withValues(alpha: 1)
-          : null,
+      backgroundColor: Colors.transparent,
       shouldFilter: false,
       loop: true,
       vimBindings: false,
@@ -798,7 +787,7 @@ class _ChatNewDirectMessageDialogState
       // Results are replaced on every keystroke; a fixed height keeps the
       // dialog, its input and its footer from moving while typing. A third of
       // the window keeps the group footer on screen in short windows. The
-      // sheet is already fixed by the keyboard, so its list takes what is left.
+      // adaptive sheet owns its viewport, so its list takes what is left.
       height: fill
           ? double.infinity
           : math.min(288, MediaQuery.sizeOf(context).height / 3),
