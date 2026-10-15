@@ -441,13 +441,15 @@ class _JoinedSurfaceShadow extends CustomPainter {
 }
 
 /// One shared read for the side-by-side controls inside a Native surface.
-/// Nesting cards creates a new batch after each solid card has been painted.
+/// Disable for page panels, whose lenses overlap other painted content.
 class DMaterialBatch extends StatelessWidget {
-  const DMaterialBatch({super.key, required this.child});
+  const DMaterialBatch({super.key, required this.child, this.enabled = true});
   final Widget child;
+  final bool enabled;
   @override
   Widget build(BuildContext context) => LiquidGlassBatch(
     enabled:
+        enabled &&
         DMaterialTheme.glassOf(context) &&
         ui.ImageFilter.isShaderFilterSupported,
     child: child,

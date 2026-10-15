@@ -20,8 +20,10 @@ control contracts remain in use.
   sidebar uses its existing Native sheet. Native controls retain their sizes,
   hit testing, focus/validation rings, disabled behavior and semantics.
 - Light and frost paint behind content. Changing material retains the editor
-  element, unsaved text and focus. Cards/choice groups batch their Impeller
-  controls; overlapping popovers take their own backdrop read.
+  element, unsaved text and focus. Compact cards/choice groups batch their
+  Impeller controls. Page panels and overlapping popovers take independent
+  backdrop reads, so fixed controls sample the surfaces painted beneath them
+  as the reader scrolls.
 - Opacity preserves the existing normalized stored preference. At its least
   opaque end, Standard panels are 70% opaque and the ground 62%; glass panels
   are 60% opaque and the ground 35%. The glass readout follows ground opacity,

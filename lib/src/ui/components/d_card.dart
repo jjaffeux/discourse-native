@@ -176,6 +176,10 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
           preserveColor: compactCapsule,
           insetEdges: compactCapsule,
           child: DMaterialBatch(
+            // Pages paint opaque content between overlapping lenses. Sharing
+            // an earlier read lets scrolling content tint fixed controls
+            // through that content. Keep compact cards on their shared read.
+            enabled: child is! Expanded,
             child: CustomPaint(
               foregroundPainter: border && dashedBorder
                   ? _DashedCardOutline(radius, borderColor ?? tokens.border)
