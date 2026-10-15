@@ -5,8 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../theme/discourse_typography.dart';
+import '../ui/foundation/app_text_scaler.dart';
 import 'app_settings_controller.dart';
 import 'platform.dart';
+
+export '../ui/foundation/app_text_scaler.dart' show AppTextScaler;
 
 /// Applies the mobile baseline and app text-size preference while preserving
 /// the platform's accessibility text scaler.
@@ -115,40 +118,4 @@ class _AppTextScaleRegionState extends State<AppTextScaleRegion> {
     },
     child: widget.child,
   );
-}
-
-@immutable
-final class AppTextScaler extends TextScaler {
-  const AppTextScaler({
-    required this.platformScaler,
-    required this.appScale,
-    this.baselineScale = 1,
-  }) : assert(appScale > 0),
-       assert(baselineScale > 0);
-
-  final TextScaler platformScaler;
-  final double appScale;
-  final double baselineScale;
-
-  @override
-  double scale(double fontSize) =>
-      platformScaler.scale(fontSize * baselineScale) * appScale;
-
-  @override
-  double get textScaleFactor {
-    // flutter_widget_from_html_core still reads this compatibility value when
-    // laying out cooked posts. Anchor its linear estimate to the 14px reference
-    // body, including the mobile baseline, until it consumes TextScaler directly.
-    return scale(DiscourseTypography.base) / DiscourseTypography.base;
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      other is AppTextScaler &&
-      other.platformScaler == platformScaler &&
-      other.appScale == appScale &&
-      other.baselineScale == baselineScale;
-
-  @override
-  int get hashCode => Object.hash(platformScaler, appScale, baselineScale);
 }

@@ -47,7 +47,7 @@ final composerDockExamples = ComponentExamples(
   description:
       'A retained composer above the open dock and beside its folded destination.',
   notes:
-      'DComposerDock shares the navigation motion and safe area. Compose its compact value with DInputGroup.compact and action. The primary action stays reachable while block tools fold away. Focusing the editor reveals the full layout. Reduced motion changes layout immediately.',
+      'DComposerDock shares the navigation motion and safe area. Use DInputGroupVariant.composer with compact and action for the reference 79px expanded and 48px folded layout. App zoom and accessibility scaling remain active. The primary action stays reachable while block tools fold away. Focus or a visible keyboard slides navigation away. Blurring restores the current scroll state. Reduced motion changes layout immediately.',
   examples: [
     StyleguideExample(
       title: 'Chat composer',
@@ -62,7 +62,7 @@ final composerDockExamples = ComponentExamples(
         'Large text',
       ],
       code:
-          'DComposerDock(builder: (context, compact) => DInputGroup(compact: compact, action: send, children: [editor, tools]))',
+          'DComposerDock(builder: (context, compact) => DInputGroup(variant: DInputGroupVariant.composer, compact: compact, action: send, children: [editor, tools]))',
       builder: (_) => const SizedBox(
         width: 390,
         height: 560,

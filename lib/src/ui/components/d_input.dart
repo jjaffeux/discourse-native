@@ -362,6 +362,7 @@ class _DInputState extends FormFieldState<String> {
     final fontSize = DControlStyle.fontSize(size, context: context);
     final style =
         input.style ??
+        _group?.editorStyle ??
         Theme.of(context).textTheme.bodyMedium!.copyWith(
           fontSize: fontSize,
           height: DControlStyle.lineHeight(size, context: context) / fontSize,

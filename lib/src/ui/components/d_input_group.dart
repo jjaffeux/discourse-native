@@ -14,9 +14,9 @@ import 'd_kbd.dart';
 import 'd_scroll_area.dart';
 import 'd_textarea.dart';
 
-/// Search uses the application chrome's recessed capsule and inline spacing.
-/// Combine it with [DInputGroup.borderless] inside an attached popover.
-enum DInputGroupVariant { standard, search }
+/// Search uses a recessed capsule; composer supplies the mobile chat reference's
+/// one-line editor, tool spacing and matching full/compact geometry.
+enum DInputGroupVariant { standard, search, composer }
 
 enum DInputGroupAddonAlignment { inlineStart, inlineEnd, blockStart, blockEnd }
 
@@ -70,6 +70,20 @@ class DInputGroup extends StatefulWidget {
 
   /// Primary composer action, at the footer's end or inline when compact.
   final Widget? action;
+
+  /// The chat reference's matching full and compact composer corners.
+  static const composerBorderRadius = BorderRadius.all(Radius.circular(24));
+
+  static TextStyle composerTextStyleOf(BuildContext context) =>
+      Theme.of(context).textTheme.bodyLarge!.copyWith(
+        fontSize: 13,
+        height: 20 / 13,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+      );
+
+  static double composerLineExtentOf(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(20);
 
   @override
   State<DInputGroup> createState() => _DInputGroupState();
@@ -129,6 +143,13 @@ class _DInputGroupState extends State<DInputGroup> {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final search = widget.variant == DInputGroupVariant.search;
+    final composer = widget.variant == DInputGroupVariant.composer;
+    final compactComposerExtent =
+        48 +
+        (MediaQuery.textScalerOf(context).scale(11) - 11).clamp(
+          0.0,
+          double.infinity,
+        );
     final dark = Theme.of(context).brightness == Brightness.dark;
     final focused =
         DFocusHighlight.visibleOf(context) &&
@@ -150,9 +171,11 @@ class _DInputGroupState extends State<DInputGroup> {
           )
         : tokens.focusRing.withValues(alpha: tokens.focusRing.a * .5);
     final joined = DJoinedControlScope.maybeOf(context);
-    final baseRadius = BorderRadius.circular(
-      search ? DRadius.pill : tokens.buttonTheme.radius,
-    );
+    final baseRadius = composer
+        ? DInputGroup.composerBorderRadius
+        : BorderRadius.circular(
+            search ? DRadius.pill : tokens.buttonTheme.radius,
+          );
     final radius =
         joined?.resolveRadius(baseRadius, Directionality.of(context)) ??
         baseRadius;
@@ -227,7 +250,7 @@ class _DInputGroupState extends State<DInputGroup> {
             ],
             if (widget.compact && widget.action != null)
               Padding(
-                padding: const EdgeInsetsDirectional.only(end: 6),
+                padding: EdgeInsetsDirectional.only(end: composer ? 7 : 6),
                 child: widget.action!,
               ),
           ],
@@ -256,25 +279,47 @@ class _DInputGroupState extends State<DInputGroup> {
               inline,
               Offstage(
                 offstage: widget.compact,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: blockEnd,
-                      ),
-                    ),
-                    if (!widget.compact && widget.action != null)
-                      Padding(
-                        padding: const EdgeInsetsDirectional.only(
-                          end: 6,
-                          bottom: 6,
+                child: composer
+                    ? Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          7,
+                          6,
+                          7,
+                          7,
                         ),
-                        child: widget.action!,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: blockEnd,
+                              ),
+                            ),
+                            if (!widget.compact && widget.action != null)
+                              widget.action!,
+                          ],
+                        ),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: blockEnd,
+                            ),
+                          ),
+                          if (!widget.compact && widget.action != null)
+                            Padding(
+                              padding: const EdgeInsetsDirectional.only(
+                                end: 6,
+                                bottom: 6,
+                              ),
+                              child: widget.action!,
+                            ),
+                        ],
                       ),
-                  ],
-                ),
               ),
             ],
           );
@@ -336,7 +381,9 @@ class _DInputGroupState extends State<DInputGroup> {
                   constraints: BoxConstraints(
                     minHeight:
                         widget.viewportHeight ??
-                        (widget.compact
+                        (composer
+                            ? (widget.compact ? compactComposerExtent : 0)
+                            : widget.compact
                             ? MediaQuery.textScalerOf(context).scale(48)
                             : multiline
                             ? 64
@@ -377,7 +424,22 @@ class _DInputGroupState extends State<DInputGroup> {
         ),
       ),
     );
-    final inputPadding = search
+    final compactComposerInset =
+        ((compactComposerExtent - DInputGroup.composerLineExtentOf(context)) /
+                2)
+            .clamp(0.0, double.infinity);
+    final inputPadding = composer
+        ? EdgeInsetsDirectional.fromSTEB(
+            17,
+            widget.compact
+                ? compactComposerInset
+                : blockStart.isEmpty
+                ? 12
+                : 0,
+            17,
+            widget.compact ? compactComposerInset : 0,
+          ).resolve(Directionality.of(context))
+        : search
         ? const EdgeInsets.symmetric(vertical: 1)
         : EdgeInsetsDirectional.only(
             start: inlineStart.isEmpty
@@ -404,6 +466,8 @@ class _DInputGroupState extends State<DInputGroup> {
       inputPadding: inputPadding,
       size: widget.size,
       search: search,
+      composer: composer,
+      editorStyle: composer ? DInputGroup.composerTextStyleOf(context) : null,
       enabled: widget.enabled,
       child: surface,
     );
@@ -454,7 +518,13 @@ class DInputGroupAddon extends StatelessWidget {
     final foreground = search
         ? Color.lerp(tokens.background, tokens.foreground, .5)!
         : tokens.mutedForeground;
-    final padding = search && !block
+    final composer =
+        DInputGroupControlScope.maybeOf(context)?.composer ?? false;
+    final padding = composer && block
+        ? alignment == DInputGroupAddonAlignment.blockEnd
+              ? EdgeInsets.zero
+              : const EdgeInsetsDirectional.fromSTEB(17, 12, 17, 6)
+        : search && !block
         ? EdgeInsets.zero
         : switch (alignment) {
             DInputGroupAddonAlignment.inlineStart => EdgeInsetsDirectional.only(

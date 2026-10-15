@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../foundation/app_text_scaler.dart';
 import 'd_mobile_dock.dart';
 import 'd_scroll_chrome.dart';
 
@@ -27,9 +28,16 @@ class _DComposerDockState extends State<DComposerDock> {
   }
 
   void _focusChanged() {
-    if (_focus.hasFocus) _chrome?.reveal();
-    _changed();
+    _syncFooterVisibility();
+    setState(() => _compact = _shouldCompact);
   }
+
+  void _syncFooterVisibility() => _chrome?.setFooterHidden(
+    this,
+    hidden:
+        TickerMode.valuesOf(context).enabled &&
+        (_focus.hasFocus || MediaQuery.viewInsetsOf(context).bottom > 0),
+  );
 
   bool get _shouldCompact =>
       !_focus.hasFocus &&
@@ -46,21 +54,27 @@ class _DComposerDockState extends State<DComposerDock> {
     super.didChangeDependencies();
     final chrome = DScrollChrome.maybeOf(context);
     if (!identical(chrome, _chrome)) {
+      _chrome?.setFooterHidden(this, hidden: false);
       _chrome?.removeListener(_changed);
       _chrome = chrome?..addListener(_changed);
     }
+    _syncFooterVisibility();
     _compact = _shouldCompact;
   }
 
   @override
   void dispose() {
+    _chrome?.setFooterHidden(this, hidden: false);
     _chrome?.removeListener(_changed);
     _focus.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DReferenceTextScale(child: Builder(builder: _buildComposer));
+
+  Widget _buildComposer(BuildContext context) {
     final chrome = _chrome;
     final room = DScrollChrome.bottomInsetOf(context);
     if (chrome == null) {
@@ -93,9 +107,11 @@ class _DComposerDockState extends State<DComposerDock> {
           6,
           keyboard
               ? 6
-              : compact
+              : compact || _focus.hasFocus
               ? safeBottom + 6
-              : (room > 0 ? room : safeBottom + 62) + 8,
+              // The shell's measured footer includes its 6px upper inset.
+              // The visible capsule and composer are separated by 8px.
+              : (room > 0 ? room : safeBottom + 74) + 2,
         ),
         child: reduced
             ? content

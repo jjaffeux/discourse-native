@@ -671,7 +671,7 @@ void main() {
       );
       // Sending refocuses the full composer. Resume reading before checking
       // the shared scroll reversal slack.
-      expect(start.hitTestable(), findsOneWidget);
+      expect(start.hitTestable(), findsNothing);
       tester
           .widget<ComposerEditor>(find.byType(ComposerEditor))
           .composer
@@ -2995,62 +2995,67 @@ void main() {
     },
   );
 
-  _mobileTest('chat focus keeps Send inside the composer above navigation', (
-    tester,
-  ) async {
-    final shell = await pumpMobileShellFixture(tester);
-    await _tapDockTab(tester, 'panel/chat');
-    await tester.pumpAndSettle();
-    await _selectChatKind(tester, 'Direct messages');
-    await tester.tap(find.text('sam').first);
-    await tester.pumpAndSettle();
-    final composer = tester
-        .widget<ComposerEditor>(find.byType(ComposerEditor))
-        .composer;
-    composer.focus.unfocus();
-    await tester.pumpAndSettle();
-    expect(_bar, findsOneWidget);
-    final panel = find.byKey(const ValueKey('mobile-content-panel'));
-    final initialHeight = tester.getSize(panel).height;
-    composer.focus.requestFocus();
-    await tester.pumpAndSettle();
-    expect(tester.getSize(panel).height, initialHeight);
-    expect(_bar, findsOneWidget);
-    final send = find.byKey(const ValueKey('chat-composer-send'));
-    expect(find.descendant(of: _bar, matching: send), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('chat-composer')),
-        matching: send,
-      ),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
-    expect(tester.widget<DButton>(send).onPressed, isNull);
-    await tester.enterText(
-      find.descendant(
-        of: find.byType(ComposerEditor),
-        matching: find.byType(TextField),
-      ),
-      'Hello from mobile',
-    );
-    await tester.pumpAndSettle();
-    expect(tester.widget<DButton>(send).onPressed, isNotNull);
-    await tester.tap(send);
-    await tester.pumpAndSettle();
-    expect(composer.text.text, isEmpty);
-    expect(composer.focus.hasFocus, isTrue);
-    composer.focus.unfocus();
-    await tester.pumpAndSettle();
-    expect(_bar, findsOneWidget);
-    expect(tester.getSize(panel).height, initialHeight);
-    composer.focus.requestFocus();
-    await tester.pumpAndSettle();
-    shell.handleBack();
-    await tester.pumpAndSettle();
-    expect(_bar, findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+  _mobileTest(
+    'chat focus hides navigation and keeps Send inside the composer',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      await _tapDockTab(tester, 'panel/chat');
+      await tester.pumpAndSettle();
+      await _selectChatKind(tester, 'Direct messages');
+      await tester.tap(find.text('sam').first);
+      await tester.pumpAndSettle();
+      final composer = tester
+          .widget<ComposerEditor>(find.byType(ComposerEditor))
+          .composer;
+      composer.focus.unfocus();
+      await tester.pumpAndSettle();
+      expect(_bar.hitTestable(), findsOneWidget);
+      final panel = find.byKey(const ValueKey('mobile-content-panel'));
+      final initialHeight = tester.getSize(panel).height;
+      composer.focus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(tester.getSize(panel).height, initialHeight);
+      expect(_bar.hitTestable(), findsNothing);
+      final send = find.byKey(const ValueKey('chat-composer-send'));
+      expect(find.descendant(of: _bar, matching: send), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('chat-composer')),
+          matching: send,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('mobile-new-topic')).hitTestable(),
+        findsNothing,
+      );
+      expect(tester.widget<DButton>(send).onPressed, isNull);
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(ComposerEditor),
+          matching: find.byType(TextField),
+        ),
+        'Hello from mobile',
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<DButton>(send).onPressed, isNotNull);
+      await tester.tap(send);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, isEmpty);
+      expect(composer.focus.hasFocus, isTrue);
+      expect(_bar.hitTestable(), findsNothing);
+      composer.focus.unfocus();
+      await tester.pumpAndSettle();
+      expect(_bar.hitTestable(), findsOneWidget);
+      expect(tester.getSize(panel).height, initialHeight);
+      composer.focus.requestFocus();
+      await tester.pumpAndSettle();
+      shell.handleBack();
+      await tester.pumpAndSettle();
+      expect(_bar.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _mobileTest(
     'chat mixes conversations and restores the selected type filter',

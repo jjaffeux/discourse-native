@@ -148,10 +148,30 @@ class DScrollChrome extends StatefulWidget {
 /// Shared animation and header geometry for [DScrollChrome] participants.
 class DScrollChromeController extends ChangeNotifier
     implements ValueListenable<double> {
-  DScrollChromeController._(this._animation, this._paginationChanged);
+  DScrollChromeController._(
+    this._animation,
+    this._paginationChanged,
+    this._footerVisibilityChanged,
+  );
 
   final HeaderMotion _animation;
   final void Function(Object owner) _paginationChanged;
+  final VoidCallback _footerVisibilityChanged;
+  final _footerHiders = <Object>{};
+
+  /// Hides the floating navigation footer while an owner needs its space.
+  /// Clear the owner's request when it loses focus or leaves the page. This
+  /// preserves the scroll policy so navigation resumes in its prior state.
+  void setFooterHidden(Object owner, {required bool hidden}) {
+    final wasHidden = _footerHiders.isNotEmpty;
+    if (hidden) {
+      _footerHiders.add(owner);
+    } else {
+      _footerHiders.remove(owner);
+    }
+    if (wasHidden != _footerHiders.isNotEmpty) _footerVisibilityChanged();
+  }
+
   final _headers =
       <
         Object,
@@ -220,6 +240,7 @@ class DScrollChromeController extends ChangeNotifier
       header.focus.removeListener(_focusChanged);
     }
     _headers.clear();
+    _footerHiders.clear();
     super.dispose();
   }
 }
@@ -230,6 +251,7 @@ class _DScrollChromeState extends State<DScrollChrome>
   late final _controller = DScrollChromeController._(
     _animation,
     _paginationChanged,
+    _requestRebuild,
   );
   final _footerFocus = FocusNode(canRequestFocus: false);
   final _footerKey = GlobalKey();
@@ -330,6 +352,11 @@ class _DScrollChromeState extends State<DScrollChrome>
     _hidden = hidden;
     _gone = gone;
     _footerContent = null;
+    _requestRebuild();
+  }
+
+  void _requestRebuild() {
+    if (!mounted) return;
     if (SchedulerBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
       if (_updateScheduled) return;
@@ -541,6 +568,7 @@ class _DScrollChromeState extends State<DScrollChrome>
   @override
   Widget build(BuildContext context) {
     if (widget.floatingFooter) {
+      final footerHidden = _controller._footerHiders.isNotEmpty;
       _measureDock();
       return _ChromeScope(
         controller: _controller,
@@ -568,17 +596,35 @@ class _DScrollChromeState extends State<DScrollChrome>
                 start: 0,
                 end: 0,
                 bottom: 0,
-                child: NotificationListener<SizeChangedLayoutNotification>(
-                  onNotification: (_) {
-                    _measureDock();
-                    return false;
-                  },
-                  child: SizeChangedLayoutNotifier(
-                    child: Focus(
-                      focusNode: _footerFocus,
-                      child: SizedBox(
-                        key: _footerContentKey,
-                        child: _footerContent ??= widget.footerBuilder(_hidden),
+                child: ExcludeSemantics(
+                  excluding: footerHidden,
+                  child: ExcludeFocus(
+                    excluding: footerHidden,
+                    child: IgnorePointer(
+                      ignoring: footerHidden,
+                      child: AnimatedSlide(
+                        offset: footerHidden ? const Offset(0, 1) : Offset.zero,
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 420),
+                        curve: const Cubic(.32, .72, 0, 1),
+                        child:
+                            NotificationListener<SizeChangedLayoutNotification>(
+                              onNotification: (_) {
+                                _measureDock();
+                                return false;
+                              },
+                              child: SizeChangedLayoutNotifier(
+                                child: Focus(
+                                  focusNode: _footerFocus,
+                                  child: SizedBox(
+                                    key: _footerContentKey,
+                                    child: _footerContent ??= widget
+                                        .footerBuilder(_hidden),
+                                  ),
+                                ),
+                              ),
+                            ),
                       ),
                     ),
                   ),

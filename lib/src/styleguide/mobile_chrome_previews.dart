@@ -90,6 +90,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
               padding: const EdgeInsets.all(6),
               child: Builder(
                 builder: (context) => DMobileDock(
+                  referenceTextScale: widget.chatComposer,
                   collapsed: hidden || _initialFold,
                   onOverflowChanged: (_) {},
                   destinations: [
@@ -135,13 +136,11 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                       DScrollChrome.maybeOf(context)?.reveal();
                     },
                   ),
-                  action: widget.chatComposer
-                      ? null
-                      : DMobileDockAction(
-                          icon: const DIcon(DIcons.penToSquare),
-                          label: 'New topic',
-                          onPressed: () {},
-                        ),
+                  action: DMobileDockAction(
+                    icon: const DIcon(DIcons.penToSquare),
+                    label: 'New topic',
+                    onPressed: () {},
+                  ),
                 ),
               ),
             ),
@@ -152,11 +151,14 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                   ? DComposerDock(
                       builder: (context, compact) => DCard(
                         spacing: 0,
+                        borderRadius: DInputGroup.composerBorderRadius,
                         child: DInputGroup(
+                          variant: DInputGroupVariant.composer,
                           compact: compact,
                           borderless: true,
                           action: DButton.iconOnly(
-                            icon: const DIcon(DIcons.paperPlane),
+                            icon: const DIcon(DIcons.paperPlane, size: 12),
+                            size: DButtonSize.toolbar,
                             tooltip: 'Send message',
                             onPressed: _draft.clear,
                           ),
@@ -164,7 +166,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                             DInputGroupTextarea(
                               controller: _draft,
                               hintText: 'Message #design',
-                              minLines: compact ? 1 : 2,
+                              minLines: 1,
                               maxLines: compact ? 1 : 4,
                             ),
                             DInputGroupAddon(
@@ -173,6 +175,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                                 icon: const DIcon(DIcons.plus),
                                 tooltip: 'Add to message',
                                 variant: DButtonVariant.ghost,
+                                size: DButtonSize.toolbar,
                                 onPressed: () {},
                               ),
                             ),

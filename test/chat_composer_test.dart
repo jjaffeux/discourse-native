@@ -475,8 +475,12 @@ void main() {
             final emoji = find.byKey(const ValueKey('chat-composer-emoji'));
             final addBounds = tester.getRect(add);
             final emojiBounds = tester.getRect(emoji);
+            final mobile = switch (defaultTargetPlatform) {
+              TargetPlatform.iOS || TargetPlatform.android => true,
+              _ => false,
+            };
             final minimumDimension = switch (defaultTargetPlatform) {
-              TargetPlatform.iOS || TargetPlatform.android => 48.0,
+              TargetPlatform.iOS || TargetPlatform.android => 34.0,
               _ => 40.0,
             };
             for (final action in [add, emoji]) {
@@ -496,7 +500,9 @@ void main() {
                 of: action,
                 matching: find.byType(DIcon),
               );
-              expect(tester.getSize(icon), const Size(16, 16));
+              final iconSize = tester.getSize(icon);
+              expect(iconSize.height, mobile ? 14 : 16);
+              expect(iconSize.width, lessThanOrEqualTo(iconSize.height));
               expect(
                 tester
                     .widget<TintedIconGlyph>(
@@ -513,7 +519,7 @@ void main() {
             final gap = direction == TextDirection.ltr
                 ? emojiBounds.left - addBounds.right
                 : addBounds.left - emojiBounds.right;
-            expect(gap, DSpacing.controlGap);
+            expect(gap, mobile ? 4 : DSpacing.controlGap);
             final bar = tester.getRect(
               find.byKey(const ValueKey('chat-composer')),
             );
@@ -1888,7 +1894,10 @@ void main() {
         await tester.enterText(_composerField(), 'Draft');
         await tester.pump();
         expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
-        expect(_field(tester).style!.fontSize, DiscourseTypography.base);
+        expect(_field(tester).style!.fontSize, switch (defaultTargetPlatform) {
+          TargetPlatform.iOS || TargetPlatform.android => 13,
+          _ => DiscourseTypography.base,
+        });
         final render = tester
             .state<EditableTextState>(
               find.descendant(

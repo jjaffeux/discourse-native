@@ -4,11 +4,47 @@ import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
+import 'package:discourse_native/src/ui/foundation/app_text_scaler.dart'
+    show DReferenceTextScale;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'reference chrome keeps nonlinear accessibility scaling and app zoom',
+    (tester) async {
+      const platform = _TestTextScaler();
+      for (final scaler in [
+        const AppTextScaler(
+          platformScaler: platform,
+          appScale: 1.25,
+          baselineScale: 17 / 14,
+        ),
+        platform,
+      ]) {
+        await tester.pumpWidget(
+          MediaQuery(
+            data: MediaQueryData(textScaler: scaler),
+            child: const DReferenceTextScale(
+              child: SizedBox(key: ValueKey('reference-chrome')),
+            ),
+          ),
+        );
+        final reference = MediaQuery.textScalerOf(
+          tester.element(find.byKey(const ValueKey('reference-chrome'))),
+        );
+        for (final size in [11.0, 13.0, 20.0, 34.0]) {
+          expect(
+            reference.scale(size),
+            platform.scale(size) *
+                (scaler is AppTextScaler ? scaler.appScale : 1),
+          );
+        }
+      }
+    },
+  );
+
   test(
     'AppTextScaler composes app zoom with platform accessibility scaling',
     () {

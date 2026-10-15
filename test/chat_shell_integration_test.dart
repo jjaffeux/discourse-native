@@ -786,6 +786,11 @@ void _registerChatShellTests() {
         testWidgets(
           'mobile ${thread ? 'thread' : 'channel'} folds with its composer and retains its draft',
           (tester) async {
+            tester.platformDispatcher.platformBrightnessTestValue =
+                Brightness.dark;
+            addTearDown(
+              tester.platformDispatcher.clearPlatformBrightnessTestValue,
+            );
             const notifications = MethodChannel(
               'org.discourse.native/notification_opens',
             );
@@ -805,10 +810,16 @@ void _registerChatShellTests() {
                   raw: 'Message $id',
                 ),
             ];
+            const writer = DiscourseUser(
+              id: 7,
+              username: 'joffreyj',
+              name: 'Joffrey',
+              canCreateTopic: true,
+            );
             final api = FakeDiscourseApi(
               feeds: const {'/latest.json': []},
               totals: withChat,
-              user: me,
+              user: writer,
               chatChannelsBySite: {
                 site: ChatChannels(
                   public: [channel(9, threadingEnabled: true)],
@@ -827,7 +838,7 @@ void _registerChatShellTests() {
                 ),
               },
             );
-            await pumpChat(tester, size: phone, api: api);
+            await pumpChat(tester, size: phone, api: api, user: writer);
             await selectChatSidebar(tester);
             final shell = ShellScope.read(
               tester.element(find.byKey(const ValueKey('mobile-root'))),
@@ -848,6 +859,79 @@ void _registerChatShellTests() {
               of: composer,
               matching: find.byType(TextField),
             );
+            // Capture actual Flutter pixels for the compact and expanded states.
+            Future<void> capture(String state) async {
+              const captureDirectory = String.fromEnvironment(
+                'CHAT_DOCK_CAPTURE_DIR',
+              );
+              if (captureDirectory.isEmpty) return;
+              final boundary = tester.renderObject<RenderRepaintBoundary>(
+                find
+                    .ancestor(
+                      of: composer,
+                      matching: find.byType(RepaintBoundary),
+                    )
+                    .last,
+              );
+              await tester.runAsync(() async {
+                final image = await boundary.toImage();
+                final bytes = await image.toByteData(
+                  format: ImageByteFormat.png,
+                );
+                await File(
+                  '$captureDirectory/db48-chat-${thread ? 'thread' : 'channel'}-$state-${defaultTargetPlatform.name}.png',
+                ).writeAsBytes(bytes!.buffer.asUint8List());
+                image.dispose();
+              });
+            }
+
+            // Source geometry: App.tsx chatBarFor/ComposerIcon/chatSendFor and
+            // app.css .chat-dock.has-bar / .is-compact (logical pixels).
+            final card = tester.getRect(composer);
+            final input = tester.getRect(field);
+            final send = find.byKey(const ValueKey('chat-composer-send'));
+            final sendRect = tester.getRect(send);
+            final add = tester.getRect(
+              find.byKey(const ValueKey('chat-composer-add')),
+            );
+            final emoji = tester.getRect(
+              find.byKey(const ValueKey('chat-composer-emoji')),
+            );
+            final dockSurface = find.byKey(
+              const ValueKey('mobile-dock-surface'),
+            );
+            final dockRect = tester.getRect(dockSurface);
+            expect(card.height, closeTo(79, .01));
+            expect(input.left - card.left, 17);
+            expect(input.top - card.top, 12);
+            expect(tester.widget<TextField>(field).style!.fontSize, 13);
+            expect(input.height, closeTo(20, .01));
+            expect(sendRect.size, const Size(34, 34));
+            expect(card.right - sendRect.right, 7);
+            expect(card.bottom - sendRect.bottom, 7);
+            expect(add.size, const Size(34, 34));
+            expect(emoji.size, add.size);
+            expect(add.left - card.left, 7);
+            expect(emoji.left - add.right, 4);
+            expect(add.center.dy, sendRect.center.dy);
+            expect(dockRect.top - card.bottom, 8);
+            expect(card.left, dockRect.left);
+            expect(card.right, dockRect.right);
+            expect(
+              tester
+                  .widget<DCard>(
+                    find
+                        .ancestor(of: composer, matching: find.byType(DCard))
+                        .first,
+                  )
+                  .borderRadius,
+              DInputGroup.composerBorderRadius,
+            );
+            expect(
+              find.byKey(const ValueKey('mobile-new-topic')).hitTestable(),
+              findsOneWidget,
+            );
+            await capture('empty-expanded');
             final original = tester.state<EditableTextState>(
               find.descendant(of: field, matching: find.byType(EditableText)),
             );
@@ -882,11 +966,11 @@ void _registerChatShellTests() {
             expect(tester.widget<DInputGroup>(composer).compact, isTrue);
             final compactRect = tester.getRect(composer);
             expect(compactRect.height, lessThan(openRect.height));
-            final reveal = tester.getRect(
-              find.byKey(const ValueKey('mobile-dock-reveal')),
-            );
-            expect(compactRect.left, greaterThan(reveal.right));
-            expect(compactRect.bottom, closeTo(reveal.bottom, 10));
+            final foldedDock = tester.getRect(dockSurface);
+            expect(compactRect.height, 48);
+            expect(compactRect.left - foldedDock.right, 8);
+            expect(compactRect.top, foldedDock.top);
+            expect(compactRect.bottom, foldedDock.bottom);
             expect(controller.text, draft);
             expect(controller.selection, selection);
             final editorScroll = tester
@@ -899,38 +983,11 @@ void _registerChatShellTests() {
               ),
               same(original),
             );
-            final send = find.byKey(const ValueKey('chat-composer-send'));
             expect(send.hitTestable(), findsOneWidget);
             expect(
-              find.byKey(const ValueKey('mobile-new-topic')),
+              find.byKey(const ValueKey('mobile-new-topic')).hitTestable(),
               findsNothing,
             );
-            // Capture actual Flutter pixels for the compact and expanded states.
-            Future<void> capture(String state) async {
-              const captureDirectory = String.fromEnvironment(
-                'CHAT_DOCK_CAPTURE_DIR',
-              );
-              if (captureDirectory.isEmpty) return;
-              final boundary = tester.renderObject<RenderRepaintBoundary>(
-                find
-                    .ancestor(
-                      of: composer,
-                      matching: find.byType(RepaintBoundary),
-                    )
-                    .last,
-              );
-              await tester.runAsync(() async {
-                final image = await boundary.toImage();
-                final bytes = await image.toByteData(
-                  format: ImageByteFormat.png,
-                );
-                await File(
-                  '$captureDirectory/db48-chat-${thread ? 'thread' : 'channel'}-$state-${defaultTargetPlatform.name}.png',
-                ).writeAsBytes(bytes!.buffer.asUint8List());
-                image.dispose();
-              });
-            }
-
             await capture('compact');
             await tester.sendEventToBinding(
               PointerScrollEvent(
@@ -974,9 +1031,26 @@ void _registerChatShellTests() {
                     .right,
               ),
             );
+            final composerFocus = tester.widget<TextField>(field).focusNode!;
+            final navigation = find.byKey(const ValueKey('mobile-bottom-bar'));
+            composerFocus.requestFocus();
+            await tester.pumpAndSettle();
+            expect(navigation.hitTestable(), findsNothing);
+            expect(tester.widget<DInputGroup>(composer).compact, isFalse);
+            expect(send.hitTestable(), findsOneWidget);
+            expect(controller.text, draft);
+            await capture('focused');
+            composerFocus.unfocus();
+            await tester.pumpAndSettle();
+            expect(
+              find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
+              findsOneWidget,
+            );
+            expect(tester.widget<DInputGroup>(composer).compact, isTrue);
             await tester.tap(send);
             await tester.pumpAndSettle();
             expect(controller.text, isEmpty);
+            expect(navigation.hitTestable(), findsNothing);
             expect(api.chatMessagesSent.last.message, draft);
             expect(api.chatMessagesSent.last.threadId, thread ? 3 : null);
             expect(tester.takeException(), isNull);

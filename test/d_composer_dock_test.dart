@@ -6,6 +6,140 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final compactBeforeFocus in [false, true]) {
+    for (final reduced in [false, true]) {
+      testWidgets(
+        'focus hides navigation without a keyboard inset and restores scroll state ($compactBeforeFocus, $reduced)',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(390, 844));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final focus = FocusNode();
+          final text = TextEditingController(text: 'Keep this draft');
+          final scroll = ScrollController(initialScrollOffset: 500);
+          addTearDown(focus.dispose);
+          addTearDown(text.dispose);
+          addTearDown(scroll.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
+              home: MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(390, 844),
+                  padding: const EdgeInsets.only(bottom: 34),
+                  disableAnimations: reduced,
+                ),
+                child: DScrollChrome(
+                  identity: 'chat',
+                  floatingFooter: true,
+                  footerBuilder: (_) => SizedBox(
+                    height: 96,
+                    child: DButton(
+                      key: const ValueKey('navigation'),
+                      onPressed: () {},
+                      label: const Text('Navigation'),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          key: const ValueKey('messages'),
+                          controller: scroll,
+                          itemCount: 100,
+                          itemExtent: 50,
+                          itemBuilder: (_, index) => Text('Message $index'),
+                        ),
+                      ),
+                      DComposerDock(
+                        builder: (_, compact) => DCard(
+                          spacing: 0,
+                          child: DInputGroup(
+                            key: const ValueKey('composer'),
+                            compact: compact,
+                            action: DButton.iconOnly(
+                              key: const ValueKey('send'),
+                              icon: const DIcon(DIcons.paperPlane),
+                              tooltip: 'Send',
+                              onPressed: () {},
+                            ),
+                            children: [
+                              DInputGroupTextarea(
+                                focusNode: focus,
+                                controller: text,
+                                minLines: compact ? 1 : 3,
+                                maxLines: compact ? 1 : 3,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (compactBeforeFocus) {
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: tester.getCenter(
+                  find.byKey(const ValueKey('messages')),
+                ),
+                scrollDelta: const Offset(0, 160),
+              ),
+            );
+            await tester.pumpAndSettle();
+          }
+          final composer = find.byKey(const ValueKey('composer'));
+          final navigation = find.byKey(const ValueKey('navigation'));
+          final chrome = DScrollChrome.maybeOf(tester.element(composer))!;
+          final fraction = chrome.hiddenFraction;
+          final navigationTop = tester.getTopLeft(navigation).dy;
+          expect(
+            tester.widget<DInputGroup>(composer).compact,
+            compactBeforeFocus,
+          );
+          expect(navigation.hitTestable(), findsOneWidget);
+          // Hardware-keyboard focus must hide chrome before any IME inset exists.
+          expect(MediaQuery.viewInsetsOf(tester.element(composer)).bottom, 0);
+          focus.requestFocus();
+          await tester.pump();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 150));
+          expect(navigation.hitTestable(), findsNothing);
+          if (!reduced) {
+            expect(
+              tester.getTopLeft(navigation).dy,
+              greaterThan(navigationTop),
+            );
+            expect(tester.getTopLeft(navigation).dy, lessThan(844));
+          }
+          await tester.pumpAndSettle();
+          expect(tester.getTopLeft(navigation).dy, 844);
+          expect(tester.widget<DInputGroup>(composer).compact, isFalse);
+          expect(
+            find.byKey(const ValueKey('send')).hitTestable(),
+            findsOneWidget,
+          );
+          expect(tester.getRect(composer).bottom, 844 - 34 - 6);
+          expect(chrome.hiddenFraction, fraction);
+          expect(text.text, 'Keep this draft');
+          focus.unfocus();
+          await tester.pumpAndSettle();
+          expect(navigation.hitTestable(), findsOneWidget);
+          expect(
+            tester.widget<DInputGroup>(composer).compact,
+            compactBeforeFocus,
+          );
+          expect(chrome.hiddenFraction, fraction);
+          expect(text.text, 'Keep this draft');
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
   for (final reduced in [false, true]) {
     for (final direction in TextDirection.values) {
       for (final scale in [1.0, 2.0]) {
@@ -34,7 +168,21 @@ void main() {
                   child: DScrollChrome(
                     identity: 'conversation',
                     floatingFooter: true,
-                    footerBuilder: (_) => const SizedBox(height: 96),
+                    footerBuilder: (_) => SizedBox(
+                      height: 96,
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: SizedBox(
+                          width: 48,
+                          height: 96,
+                          child: DButton(
+                            key: const ValueKey('navigation'),
+                            label: const Text('Navigation'),
+                            onPressed: () {},
+                          ),
+                        ),
+                      ),
+                    ),
                     child: Column(
                       children: [
                         Expanded(
@@ -131,6 +279,14 @@ void main() {
             // Keyboard appearance and editor focus both restore the full surface.
             await tester.pumpWidget(app(keyboard: 300));
             await tester.pumpAndSettle();
+            expect(
+              find.byKey(const ValueKey('navigation')).hitTestable(),
+              findsNothing,
+            );
+            expect(
+              tester.getTopLeft(find.byKey(const ValueKey('navigation'))).dy,
+              844,
+            );
             expect(tester.widget<DInputGroup>(composer).compact, isFalse);
             expect(
               find.byKey(const ValueKey('tool')).hitTestable(),

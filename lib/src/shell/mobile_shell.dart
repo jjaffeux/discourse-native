@@ -412,14 +412,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     shell.mobileNavigation.entryId,
                     widget.boundary,
                   ),
-                  visible:
-                      !sidebarOpen &&
-                      (shell.currentContent == null ||
-                          !registry.ownsContentChrome(
-                            context,
-                            shell.currentContent!,
-                          ) ||
-                          MediaQuery.viewInsetsOf(context).bottom == 0),
+                  visible: !sidebarOpen,
                   hideOnScroll: !keepDockVisible,
                   keepActionVisible: _footerAction.action != null,
                   body: content!,
@@ -565,13 +558,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         label: panelAction.label,
         onPressed: panelAction.onPressed,
       );
-    } else if (showNewTopic ||
-        (shell.canCreateTopicFromSidebar &&
-            (shell.currentContent == null ||
-                !PluginScope.of(context).registry.ownsContentChrome(
-                  context,
-                  shell.currentContent!,
-                )))) {
+    } else if (showNewTopic || shell.canCreateTopicFromSidebar) {
       primaryAction = _dockAction(
         key: const ValueKey('mobile-new-topic'),
         icon: DIcons.penToSquare,
@@ -586,6 +573,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         active == null || destinations.indexOf(active) >= _shownDockCount;
     return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
+      referenceTextScale:
+          shell.currentContent != null &&
+          PluginScope.of(
+            context,
+          ).registry.ownsContentChrome(context, shell.currentContent!),
       collapsed: hideDestinations && pageAction == null,
       destinationsHidden: hideDestinations && pageAction != null,
       onOverflowChanged: (shown) {

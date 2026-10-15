@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
+import '../foundation/app_text_scaler.dart';
 import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
@@ -22,6 +23,7 @@ class DMobileDock extends StatefulWidget {
     this.action,
     this.collapsed = false,
     this.destinationsHidden = false,
+    this.referenceTextScale = false,
   });
 
   final List<Widget> destinations;
@@ -30,6 +32,10 @@ class DMobileDock extends StatefulWidget {
   final Widget? action;
   final bool collapsed;
   final bool destinationsHidden;
+
+  /// Aligns with a composer's reference dimensions while retaining app zoom
+  /// and accessibility scaling. Other navigation keeps its mobile baseline.
+  final bool referenceTextScale;
   final ValueChanged<int> onOverflowChanged;
 
   /// Width of the folded destination, including its visible capsule insets.
@@ -143,7 +149,11 @@ class _DMobileDockState extends State<DMobileDock>
   );
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget build(BuildContext context) => widget.referenceTextScale
+      ? DReferenceTextScale(child: Builder(builder: _buildDock))
+      : _buildDock(context);
+
+  Widget _buildDock(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final reduced = MediaQuery.disableAnimationsOf(context);
       final growth = math.max(

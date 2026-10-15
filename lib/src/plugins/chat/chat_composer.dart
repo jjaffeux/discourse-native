@@ -1209,6 +1209,10 @@ class _ChatComposerState extends State<ChatComposer> {
         ? context.l10n.message((channel.title).toString())
         : context.l10n.messageChatcomposer((channel.title).toString());
     final mobile = context.isTouch;
+    final editorStyle = mobile
+        ? DInputGroup.composerTextStyleOf(context)
+        : theme.textTheme.bodyLarge;
+    final lineExtent = DInputGroup.composerLineExtentOf(context);
     void openLink() =>
         unawaited(showComposerLinkDialog(context: context, composer: composer));
 
@@ -1241,13 +1245,16 @@ class _ChatComposerState extends State<ChatComposer> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DCard(
-            border: !mobile,
+            borderRadius: mobile ? DInputGroup.composerBorderRadius : null,
             spacing: 0,
             backgroundColor: DTokens.of(context).footerBackground,
             child: DInputGroup(
               key: const ValueKey('chat-composer'),
               borderless: true,
               compact: compact,
+              variant: mobile
+                  ? DInputGroupVariant.composer
+                  : DInputGroupVariant.standard,
               action: mobile ? _sendButton(composer) : null,
               children: [
                 DInputGroupControl(
@@ -1258,11 +1265,13 @@ class _ChatComposerState extends State<ChatComposer> {
                     excludeFromSemantics: true,
                     onTap: focusNode.requestFocus,
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: compact ? 20 : 40),
+                      constraints: BoxConstraints(
+                        minHeight: mobile ? lineExtent : 40,
+                      ),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
                           maxHeight: compact
-                              ? MediaQuery.textScalerOf(context).scale(24)
+                              ? lineExtent
                               : MediaQuery.sizeOf(context).height * 0.25,
                         ),
                         child: Focus(
@@ -1362,8 +1371,8 @@ class _ChatComposerState extends State<ChatComposer> {
                                   );
                                 },
                             hintText: hint,
-                            textStyle: theme.textTheme.bodyLarge,
-                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                            textStyle: editorStyle,
+                            hintStyle: editorStyle?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
@@ -1381,7 +1390,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 DInputGroupAddon(
                   alignment: DInputGroupAddonAlignment.blockEnd,
                   child: Row(
-                    spacing: DSpacing.controlGap,
+                    spacing: mobile ? 4 : DSpacing.controlGap,
                     children: [
                       ValueListenableBuilder<SiteConfig>(
                         valueListenable: host.siteConfigListenableFor(
@@ -1484,7 +1493,9 @@ class _ChatComposerState extends State<ChatComposer> {
                                 child: DDropdownMenuTrigger(
                                   builder: (context, state) => DButton.iconOnly(
                                     key: const ValueKey('chat-composer-add'),
-                                    size: DButtonSize.large,
+                                    size: mobile
+                                        ? DButtonSize.toolbar
+                                        : DButtonSize.large,
                                     onPressed: enabled ? state.toggle : null,
                                     focusNode: state.focusNode,
                                     hasPopup: true,
@@ -1520,7 +1531,9 @@ class _ChatComposerState extends State<ChatComposer> {
                                             key: const ValueKey(
                                               'chat-composer-emoji',
                                             ),
-                                            size: DButtonSize.large,
+                                            size: mobile
+                                                ? DButtonSize.toolbar
+                                                : DButtonSize.large,
                                             onPressed:
                                                 _pickingGif ||
                                                     _pickingFiles ||
@@ -1538,8 +1551,10 @@ class _ChatComposerState extends State<ChatComposer> {
                                                           buttonContext,
                                                     ),
                                                   ),
-                                            icon: const DIcon(
-                                              DIcons.discourseEmojis,
+                                            icon: DIcon(
+                                              mobile
+                                                  ? DIcons.faceSmile
+                                                  : DIcons.discourseEmojis,
                                             ),
                                             tooltip: context.l10n.addEmoji,
                                             variant: DButtonVariant.ghost,
@@ -1583,10 +1598,11 @@ class _ChatComposerState extends State<ChatComposer> {
     final VoidCallback? onPressed = _canSend(composer)
         ? () => _send(composer)
         : null;
-    const icon = DIcon(DIcons.paperPlane, size: 16);
+    final icon = DIcon(DIcons.paperPlane, size: context.isTouch ? 12 : 16);
     return context.isTouch
         ? DButton.iconOnly(
             key: const ValueKey('chat-composer-send'),
+            size: DButtonSize.toolbar,
             icon: icon,
             tooltip: tooltip,
             semanticLabel: label,

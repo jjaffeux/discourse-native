@@ -215,13 +215,15 @@ class _DTextareaState extends FormFieldState<String> {
       _ => false,
     };
     final fontSize = touch ? DiscourseTypography.base : DiscourseTypography.sm;
-    final style = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: fontSize,
-      height: (touch ? 24 : 20) / fontSize,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0,
-      color: t.foreground,
-    );
+    final style =
+        _group?.editorStyle ??
+        Theme.of(context).textTheme.bodyMedium!.copyWith(
+          fontSize: fontSize,
+          height: (touch ? 24 : 20) / fontSize,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0,
+          color: t.foreground,
+        );
     final group = _group;
     final enabled = input.enabled && (group?.enabled ?? true);
     group?.report(_focus, enabled, isInvalid);
