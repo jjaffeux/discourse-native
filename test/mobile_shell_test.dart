@@ -1256,8 +1256,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
       expect(
-        tester.widget<DPageSurface>(mobileSurface).borderRadius,
-        BorderRadius.zero,
+        tester.widget<DPageSurface>(mobileSurface).backgroundColor,
+        Colors.transparent,
+      );
+      final sheetSurface = find
+          .descendant(
+            of: find.byType(DSheetContent),
+            matching: find.byType(DPageSurface),
+          )
+          .first;
+      expect(
+        tester.widget<DPageSurface>(sheetSurface).borderRadius,
+        BorderRadius.circular(22),
       );
       final reader = find.byType(TopicView);
       final element = tester.element(reader);
@@ -3412,7 +3422,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    // Topics must be pulled down before horizontal navigation is available.
     await swipe(false);
+    expect(shell.mobileNavigation.entryId, same(topic));
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(shell.handleBack(), isTrue);
+    await tester.pumpAndSettle();
     expect(shell.mobileNavigation.sidebarOpen, isFalse);
     expect(shell.mobileNavigation.entryId, same(root));
     expect(shell.currentContent?.id, 'latest');

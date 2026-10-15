@@ -31,6 +31,10 @@ final sheetExamples = ComponentExamples(
       'onSwipeDismissRequested instead restores the sheet as soon as the swipe '
       'reaches the dismissal threshold, then lets the host show close actions. '
       'DSheetDragRegion lets a pinned header drag independently of scrolling. '
+      'Retained page sheets use DSheetVariant.page to fill their host with '
+      '22px corners and a 36 by 5px overlaid handle. Their underlay is hidden '
+      'at rest and excluded from input, focus and semantics while revealed. '
+      'A pull beyond 120px or a downward flick dismisses the page. '
       'Adaptive menu sheets open at 55% for tall content and can be pulled '
       'to their full height. That upward gesture only expands the sheet; a '
       'subsequent gesture scrolls its content. Their 6px side margins, bottom '
@@ -45,6 +49,19 @@ final sheetExamples = ComponentExamples(
       'while waiting so placeholders do not trigger short-content margins. '
       'Other snap-point compositions use Drawer.',
   examples: [
+    StyleguideExample(
+      title: 'Retained reading page',
+      description:
+          'A page sheet below application chrome. Pull down from the handle '
+          'or the top of the reader to return to the previous page.',
+      code:
+          'DSheetViewport(onDismiss: closePage, underlay: previousPage, '
+          'content: DSheetContent(side: DSheetSide.bottom, '
+          'variant: DSheetVariant.page, showCloseButton: false, '
+          'children: [Expanded(child: reader)]))',
+      builder: (_) => const _PageSheetExample(),
+      states: const ['open', 'pull', 'cancel', 'dismissed'],
+    ),
     StyleguideExample(
       title: 'Adaptive menu sheet',
       description:
@@ -275,6 +292,66 @@ final sheetExamples = ComponentExamples(
     ),
   ],
 );
+
+class _PageSheetExample extends StatefulWidget {
+  const _PageSheetExample();
+
+  @override
+  State<_PageSheetExample> createState() => _PageSheetExampleState();
+}
+
+class _PageSheetExampleState extends State<_PageSheetExample> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final previous = DPageSurface(
+      child: Center(
+        child: DButton(
+          label: const Text('Open reading page'),
+          onPressed: () => setState(() => _open = true),
+        ),
+      ),
+    );
+    return SizedBox(
+      height: 420,
+      child: _open
+          ? DSheetViewport(
+              onDismiss: () => setState(() => _open = false),
+              underlay: previous,
+              content: DSheetContent(
+                side: DSheetSide.bottom,
+                variant: DSheetVariant.page,
+                semanticLabel: 'Reading page',
+                showCloseButton: false,
+                children: [
+                  Expanded(
+                    child: DScrollArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(DSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          spacing: DSpacing.lg,
+                          children: [
+                            const Text('A community discussion'),
+                            DButton(
+                              label: const Text('Close reading page'),
+                              onPressed: () => setState(() => _open = false),
+                            ),
+                            for (var i = 1; i <= 20; i++)
+                              Text('Post $i in the discussion.'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : previous,
+    );
+  }
+}
 
 class _NonModalSheet extends StatefulWidget {
   const _NonModalSheet();

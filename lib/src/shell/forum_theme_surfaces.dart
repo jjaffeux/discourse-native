@@ -331,13 +331,19 @@ class _PalettePools extends CustomPainter {
 /// Phone pages paint the mockup's panel below the floating window chrome.
 /// Pages have square corners; the inset sidebar has rounded corners.
 class ForumMobileSurface extends StatefulWidget {
-  const ForumMobileSurface({super.key, required this.child}) : _sidebar = false;
+  const ForumMobileSurface({
+    super.key,
+    required this.child,
+    this.coveredBySheet = false,
+  }) : _sidebar = false;
 
   /// The mockup's mobile SideNav is a rounded sheet on the window ground.
   const ForumMobileSurface.sidebar({super.key, required this.child})
-    : _sidebar = true;
+    : _sidebar = true,
+      coveredBySheet = false;
 
   final bool _sidebar;
+  final bool coveredBySheet;
   final Widget child;
   @override
   State<ForumMobileSurface> createState() => _ForumMobileSurfaceState();
@@ -354,7 +360,9 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
     borderRadius: widget._sidebar
         ? BorderRadius.circular(DRadius.panel)
         : BorderRadius.zero,
-    backgroundColor: ForumWindowBackground.panelColor(context),
+    backgroundColor: widget.coveredBySheet
+        ? Colors.transparent
+        : ForumWindowBackground.panelColor(context),
     child: _MobileSurfaceScope(key: _content, child: widget.child),
   );
 }

@@ -464,6 +464,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                       padding: const EdgeInsets.only(top: 6),
                       child: ForumMobileSurface(
                         key: const ValueKey('mobile-content-panel'),
+                        coveredBySheet:
+                            !widget.boundary &&
+                            shell.currentContent?.isTopic == true,
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -687,6 +690,7 @@ class MobileHistoryGestures extends StatelessWidget {
     final sidebarOpen = navigation.sidebarOpen;
     final sidebarEntry = (navigation.historyId, 'sidebar');
     final root = !navigation.canGoBack;
+    final topicOpen = !sidebarOpen && shell.currentContent?.isTopic == true;
     return DHistoryTransition(
       frameBuilder: frameBuilder,
       history: navigation.historyId,
@@ -702,7 +706,7 @@ class MobileHistoryGestures extends StatelessWidget {
           : navigation.previousEntryId,
       nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
       previousPreview: !sidebarOpen && root ? navigationPreview : null,
-      onBack: !sidebarOpen
+      onBack: !sidebarOpen && !topicOpen
           ? () {
               FocusManager.instance.primaryFocus?.unfocus();
               if (root) {
@@ -712,7 +716,7 @@ class MobileHistoryGestures extends StatelessWidget {
               }
             }
           : null,
-      onForward: sidebarOpen || navigation.canGoForward
+      onForward: !topicOpen && (sidebarOpen || navigation.canGoForward)
           ? () {
               FocusManager.instance.primaryFocus?.unfocus();
               if (sidebarOpen) {

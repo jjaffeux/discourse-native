@@ -501,6 +501,28 @@ class _MainContentBody extends StatelessWidget {
         ),
       ),
     );
+    if (route.isTopic &&
+        sourceRoute == null &&
+        ShellScope.read(context).mobileNavigationEnabled) {
+      final controller = ShellScope.read(context);
+      final entry = controller.mobileNavigation.entryId;
+      return DSheetViewport(
+        key: ValueKey(('mobile-topic-sheet', entry)),
+        onDismiss: () {
+          if (controller.mobileNavigation.entryId == entry) {
+            controller.handleBack();
+          }
+        },
+        content: DSheetContent(
+          side: DSheetSide.bottom,
+          variant: DSheetVariant.page,
+          showCloseButton: false,
+          semanticLabel: route.title,
+          backgroundColor: ForumWindowBackground.panelColor(context),
+          children: [Expanded(child: page)],
+        ),
+      );
+    }
     if (!route.isTopic || sourceRoute == null) return page;
     // A panel reader replaces its list on screen, but the tab still holds that
     // list, so the reader keeps its topic sequence. The shortcuts sit above
@@ -539,6 +561,7 @@ class _TopicInboxWorkspace extends StatefulWidget {
 }
 
 class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
+  final _listPaneKey = GlobalKey();
   final _listWidth = PanelWidthController(
     initialWidth: 325 + workspacePanelGap,
     // ResizablePane includes the gutter in its width.
@@ -587,6 +610,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ? 520.0
             : TopicPresentationController.minimumReaderWidth;
         final split =
+            !controller.mobileNavigationEnabled &&
             ForumTabScope.panelOf(context) == null &&
             topicOpen &&
             wantsSplit &&
@@ -597,6 +621,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
         if (ForumTabScope.panelOf(context) == null) {
           controller.topicPanelsVisible = split;
         }
+        final mobileSheet = controller.mobileNavigationEnabled && !split;
         final maximumListWidth = (constraints.maxWidth - minimumTopicWidth)
             .clamp(_listWidth.minimumWidth, _listWidth.maximumWidth);
         final listWidth = split
@@ -721,162 +746,169 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
           return toolbar;
         }
 
-        return Column(
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  PositionedDirectional(
-                    key: const ValueKey('inbox-topic-list-pane'),
-                    start: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: listWidth,
-                    child: ResizablePane(
-                      controller: _listWidth,
-                      resizeEnabled: split,
-                      edge: ResizablePaneEdge.trailing,
-                      resizeKey: 'inbox-list',
-                      semanticsLabel: messages
-                          ? context.l10n.resizeMessageList
-                          : context.l10n.resizeTopicList,
-                      maximumWidth: maximumListWidth,
-                      // The resize handle owns the list/reader boundary. When the
-                      // list fills the reader, the shell or composer owns its edge.
-                      dividerWidth: 1,
-                      gap: context.isTouch ? 0 : workspacePanelGap,
-                      child: _RetainedTopicListPane(
-                        key: ValueKey((
-                          state.siteUrl,
-                          controller.currentAccountIdentity,
-                          state.activeTabId,
-                        )),
-                        hidden: topicOpen && !split,
-                        child: DPageSurface(
-                          border: false,
-                          borderRadius: WorkspacePanelCorner.borderRadiusOf(
-                            context,
-                            atRightEdge:
-                                !split ||
-                                Directionality.of(context) == TextDirection.rtl,
-                          ),
-                          backgroundColor: ForumWindowBackground.panelColor(
-                            context,
-                          ),
-                          framed:
-                              !context.isTouch &&
-                              ForumTabScope.panelOf(context) == null,
-                          limitContentSize:
-                              ContentSettingsScope.limitContentSizeOf(context),
-                          tabs:
-                              ForumTabScope.panelOf(context) == null &&
-                                  (!topicOpen || split)
-                              ? const TopicPanelTabs()
-                              : null,
-                          footer:
-                              (controller.mobileNavigationEnabled ||
-                                  !context.isTouch)
-                              ? null
-                              : ShellSelector<bool>(
-                                  select: (shell) {
-                                    final instance = shell.currentInstance;
-                                    final canCreate = messages
-                                        ? instance?.isConnected == true &&
-                                              instance
-                                                      ?.user
-                                                      ?.canSendPrivateMessages ==
-                                                  true
-                                        : shell.canCreateTopicFromList;
-                                    final canWatchCategory =
-                                        context.isTouch &&
-                                        instance?.isConnected == true &&
-                                        state.siteUrl != null &&
-                                        sourceRoute.categoryId != null;
-                                    return canCreate || canWatchCategory;
-                                  },
-                                  builder: (context, hasLeading, _) =>
-                                      TopicListBottomBar(
-                                        leading: !hasLeading
-                                            ? null
-                                            : Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Flexible(child: createAction),
-                                                  if (context.isTouch &&
-                                                      state.isConnected &&
-                                                      state.siteUrl != null &&
-                                                      sourceRoute.categoryId !=
-                                                          null) ...[
-                                                    const SizedBox(
-                                                      width: DSpacing.sm,
-                                                    ),
-                                                    CategoryNotificationLevelButton(
-                                                      siteUrl: state.siteUrl!,
-                                                      categoryId: sourceRoute
-                                                          .categoryId!,
-                                                      showLabel:
-                                                          listWidth >=
-                                                          440 * buttonTextScale,
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                      ),
-                                ),
-                          child: _FeedBackedContent(
-                            route: sourceRoute,
-                            siteUrl: state.siteUrl,
-                            inbox: true,
-                            keepTopicOpen: split,
-                            topicListHeadingBuilder: buildHeading,
-                          ),
-                        ),
+        final listPane = ResizablePane(
+          key: _listPaneKey,
+          controller: _listWidth,
+          resizeEnabled: split,
+          edge: ResizablePaneEdge.trailing,
+          resizeKey: 'inbox-list',
+          semanticsLabel: messages
+              ? context.l10n.resizeMessageList
+              : context.l10n.resizeTopicList,
+          maximumWidth: maximumListWidth,
+          // The resize handle owns the list/reader boundary. When the
+          // list fills the reader, the shell or composer owns its edge.
+          dividerWidth: 1,
+          gap: context.isTouch ? 0 : workspacePanelGap,
+          child: _RetainedTopicListPane(
+            key: ValueKey((
+              state.siteUrl,
+              controller.currentAccountIdentity,
+              state.activeTabId,
+            )),
+            hidden: topicOpen && !split && !mobileSheet,
+            child: DPageSurface(
+              border: false,
+              borderRadius: WorkspacePanelCorner.borderRadiusOf(
+                context,
+                atRightEdge:
+                    !split || Directionality.of(context) == TextDirection.rtl,
+              ),
+              backgroundColor: ForumWindowBackground.panelColor(context),
+              framed:
+                  !context.isTouch && ForumTabScope.panelOf(context) == null,
+              limitContentSize: ContentSettingsScope.limitContentSizeOf(
+                context,
+              ),
+              tabs:
+                  ForumTabScope.panelOf(context) == null &&
+                      (!topicOpen || split)
+                  ? const TopicPanelTabs()
+                  : null,
+              footer: (controller.mobileNavigationEnabled || !context.isTouch)
+                  ? null
+                  : ShellSelector<bool>(
+                      select: (shell) {
+                        final instance = shell.currentInstance;
+                        final canCreate = messages
+                            ? instance?.isConnected == true &&
+                                  instance?.user?.canSendPrivateMessages == true
+                            : shell.canCreateTopicFromList;
+                        final canWatchCategory =
+                            context.isTouch &&
+                            instance?.isConnected == true &&
+                            state.siteUrl != null &&
+                            sourceRoute.categoryId != null;
+                        return canCreate || canWatchCategory;
+                      },
+                      builder: (context, hasLeading, _) => TopicListBottomBar(
+                        leading: !hasLeading
+                            ? null
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(child: createAction),
+                                  if (context.isTouch &&
+                                      state.isConnected &&
+                                      state.siteUrl != null &&
+                                      sourceRoute.categoryId != null) ...[
+                                    const SizedBox(width: DSpacing.sm),
+                                    CategoryNotificationLevelButton(
+                                      siteUrl: state.siteUrl!,
+                                      categoryId: sourceRoute.categoryId!,
+                                      showLabel:
+                                          listWidth >= 440 * buttonTextScale,
+                                    ),
+                                  ],
+                                ],
+                              ),
                       ),
                     ),
-                  ),
-                  if (topicOpen)
-                    PositionedDirectional(
-                      key: const ValueKey('inbox-topic-reader-pane'),
-                      start: split ? listWidth : 0,
-                      end: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: DPageSurface(
-                        border: false,
-                        borderRadius: WorkspacePanelCorner.borderRadiusOf(
-                          context,
-                          atRightEdge:
-                              !split ||
-                              Directionality.of(context) == TextDirection.ltr,
-                        ),
-                        backgroundColor: ForumWindowBackground.panelColor(
-                          context,
-                        ),
-                        framed:
-                            !context.isTouch &&
-                            ForumTabScope.panelOf(context) == null,
-                        limitContentSize:
-                            ContentSettingsScope.limitContentSizeOf(context),
-                        tabs: const TopicPanelTabs(),
-                        child: DesktopTopicPage(
-                          sourceListVisible: split,
-                          child: TopicView(
-                            key: ValueKey(state.route!.topicId),
-                            inbox: true,
-                            keepTopicListOpen: split,
-                            route: state.route!,
-                            canReturnToSidebar: layout.isCompact,
-                            canReply: state.canReply,
-                            bookmarkBusy: state.bookmarkBusy,
-                            isConnected: state.isConnected,
-                            registry: registry,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+              child: _FeedBackedContent(
+                route: sourceRoute,
+                siteUrl: state.siteUrl,
+                inbox: true,
+                keepTopicOpen: split,
+                topicListHeadingBuilder: buildHeading,
               ),
             ),
+          ),
+        );
+        final readerPane = topicOpen
+            ? DPageSurface(
+                border: false,
+                borderRadius: WorkspacePanelCorner.borderRadiusOf(
+                  context,
+                  atRightEdge:
+                      !split || Directionality.of(context) == TextDirection.ltr,
+                ),
+                backgroundColor: ForumWindowBackground.panelColor(context),
+                framed:
+                    !context.isTouch && ForumTabScope.panelOf(context) == null,
+                limitContentSize: ContentSettingsScope.limitContentSizeOf(
+                  context,
+                ),
+                tabs: const TopicPanelTabs(),
+                child: DesktopTopicPage(
+                  sourceListVisible: split,
+                  child: TopicView(
+                    key: ValueKey(state.route!.topicId),
+                    inbox: true,
+                    keepTopicListOpen: split,
+                    route: state.route!,
+                    canReturnToSidebar: layout.isCompact,
+                    canReply: state.canReply,
+                    bookmarkBusy: state.bookmarkBusy,
+                    isConnected: state.isConnected,
+                    registry: registry,
+                  ),
+                ),
+              )
+            : null;
+        if (mobileSheet && readerPane != null) {
+          final entry = controller.mobileNavigation.entryId;
+          return DSheetViewport(
+            key: ValueKey(('mobile-topic-sheet', entry)),
+            onDismiss: () {
+              if (controller.mobileNavigation.entryId == entry) {
+                controller.handleBack();
+              }
+            },
+            underlay: DPageSurface(
+              border: false,
+              borderRadius: BorderRadius.zero,
+              backgroundColor: ForumWindowBackground.panelColor(context),
+              child: listPane,
+            ),
+            content: DSheetContent(
+              side: DSheetSide.bottom,
+              variant: DSheetVariant.page,
+              showCloseButton: false,
+              semanticLabel: state.route!.title,
+              backgroundColor: ForumWindowBackground.panelColor(context),
+              children: [Expanded(child: readerPane)],
+            ),
+          );
+        }
+        return Stack(
+          children: [
+            PositionedDirectional(
+              key: const ValueKey('inbox-topic-list-pane'),
+              start: 0,
+              top: 0,
+              bottom: 0,
+              width: listWidth,
+              child: listPane,
+            ),
+            if (readerPane != null)
+              PositionedDirectional(
+                key: const ValueKey('inbox-topic-reader-pane'),
+                start: split ? listWidth : 0,
+                end: 0,
+                top: 0,
+                bottom: 0,
+                child: readerPane,
+              ),
           ],
         );
       },

@@ -89,12 +89,6 @@ class TopicInboxHeader extends StatelessWidget {
             topic: topic,
             keepTopicListOpen: keepTopicListOpen,
             registry: registry,
-            leading: ShellScope.read(context).mobileNavigationEnabled
-                ? TopicCloseButton(
-                    canReturnToSidebar: canReturnToSidebar,
-                    backToList: !keepTopicListOpen,
-                  )
-                : null,
           )
         : placeholders &&
               !(preview != null &&
@@ -440,13 +434,14 @@ class _TopicHeaderToolbar extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: TopicCloseButton(
-                    canReturnToSidebar: header.canReturnToSidebar,
-                    backToList: !header.keepTopicListOpen,
+                if (!ShellScope.read(context).mobileNavigationEnabled)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: TopicCloseButton(
+                      canReturnToSidebar: header.canReturnToSidebar,
+                      backToList: !header.keepTopicListOpen,
+                    ),
                   ),
-                ),
                 _TopicHeaderTitle(header: header),
               ],
             ),
@@ -792,9 +787,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.topic,
     required this.keepTopicListOpen,
     required this.registry,
-    this.leading,
   });
-  final Widget? leading;
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
@@ -857,7 +850,6 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  ?leading,
                   if (hasCategories)
                     ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: categoryWidth),

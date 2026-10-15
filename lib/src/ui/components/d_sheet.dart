@@ -15,6 +15,7 @@ import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
+import 'd_page_surface.dart';
 
 part 'd_sheet_adaptive_menu.dart';
 
@@ -23,6 +24,9 @@ part 'd_sheet_adaptive_menu.dart';
 enum DSheetVariant {
   standard,
   menu,
+
+  /// A bottom reading page filling [DSheetViewport], with an overlaid handle.
+  page,
 
   /// A mobile menu with a lower opening height, pull-to-expand, and animated
   /// clearance while expanding, when the keyboard is visible, or when there
@@ -153,9 +157,14 @@ class DSheetViewport extends StatelessWidget {
 
     this.onDismiss,
     this.onSwipeDismissRequested,
+    this.underlay,
   });
 
   final DSheetContent content;
+
+  /// The previous page, painted only while a page sheet is pulled down.
+  /// Focus, semantics and input stay excluded throughout the reveal.
+  final Widget? underlay;
 
   /// Called after a downward swipe finishes moving the sheet off-screen.
   ///
@@ -197,9 +206,20 @@ class DSheetViewport extends StatelessWidget {
         retainKeyboardInsets: true,
         onRetainedDismiss: onDismiss,
         onRetainedSwipeDismissRequested: onSwipeDismissRequested,
+        underlay: underlay,
       ),
     );
   }
+}
+
+class _DSheetPagePullScope extends InheritedWidget {
+  const _DSheetPagePullScope({required this.pulled, required super.child});
+
+  final bool pulled;
+
+  @override
+  bool updateShouldNotify(_DSheetPagePullScope oldWidget) =>
+      pulled != oldWidget.pulled;
 }
 
 // A retained sheet stays visible beneath picker routes. Its keyboard belongs
@@ -367,6 +387,7 @@ Widget _sheetPresentation(
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
+  Widget? underlay,
 }) {
   if (variant == DSheetVariant.adaptiveMenu &&
       requestedSide == DSheetSide.bottom) {
@@ -406,6 +427,7 @@ Widget _sheetPresentation(
           retainKeyboardInsets: retainKeyboardInsets,
           onRetainedDismiss: onRetainedDismiss,
           onRetainedSwipeDismissRequested: onRetainedSwipeDismissRequested,
+          underlay: underlay,
         ),
   );
 }
@@ -429,7 +451,9 @@ Widget _sheetLayout(
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
+  Widget? underlay,
 }) {
+  final page = variant == DSheetVariant.page;
   final animate = !MediaQuery.disableAnimationsOf(context);
   final side = requestedSide.resolve(Directionality.of(context));
   final background = DTokens.of(context).background.withValues(alpha: 1);
@@ -440,16 +464,28 @@ Widget _sheetLayout(
     Colors.black,
     Theme.of(context).brightness == Brightness.dark ? .32 : .12,
   )!;
-  Widget backdrop = fillAvailableHeight
+  Widget backdrop = page
+      ? (underlay == null
+            ? const SizedBox.expand()
+            : ExcludeFocus(
+                child: ExcludeSemantics(
+                  child: IgnorePointer(child: ClipRect(child: underlay)),
+                ),
+              ))
+      : fillAvailableHeight
       ? presentation.buildBackdrop(color: backdropColor, blurSigma: 0)
       : presentation.buildBackdrop(blurSigma: 2);
-  if (animate && !fillAvailableHeight) {
+  if (animate && !fillAvailableHeight && !page) {
     backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);
   }
   backdrop = ValueListenableBuilder<double>(
     valueListenable: swipeProgress,
-    builder: (context, progress, child) =>
-        Opacity(opacity: 1 - progress, child: child),
+    builder: (context, progress, child) => page
+        ? Offstage(
+            offstage: progress <= 0,
+            child: TickerMode(enabled: progress > 0, child: child!),
+          )
+        : Opacity(opacity: 1 - progress, child: child),
     child: backdrop,
   );
 
@@ -497,13 +533,21 @@ Widget _sheetLayout(
           )
         : content,
   );
+  if (page) {
+    popup = ValueListenableBuilder<double>(
+      valueListenable: swipeProgress,
+      builder: (context, progress, child) =>
+          _DSheetPagePullScope(pulled: progress > 0, child: child!),
+      child: popup,
+    );
+  }
   final mobile = switch (Theme.of(context).platform) {
     TargetPlatform.iOS ||
     TargetPlatform.android ||
     TargetPlatform.fuchsia => true,
     _ => false,
   };
-  if (dismissOnSwipe && mobile && side == DSheetSide.bottom) {
+  if (dismissOnSwipe && (mobile || page) && side == DSheetSide.bottom) {
     if (presentation.modal) {
       // The backdrop owns outside gestures; the sheet keeps its own bounds.
       // Forward to the same motion owner so threshold, cancellation and exit
@@ -540,6 +584,7 @@ Widget _sheetLayout(
           popupCurve: popupCurve,
           scale: fillAvailableHeight,
           swipeProgress: swipeProgress,
+          page: page,
           child: content,
         );
     popup = onRetainedDismiss != null || onRetainedSwipeDismissRequested != null
@@ -556,6 +601,9 @@ Widget _sheetLayout(
 
   final layout = LayoutBuilder(
     builder: (context, bounds) {
+      if (page) {
+        return Stack(fit: StackFit.expand, children: [backdrop, popup]);
+      }
       final margin = inset
           ? variant == DSheetVariant.menu
                 ? 6.0
@@ -765,7 +813,13 @@ class DSheetDragRegion extends StatelessWidget {
     if (swipe == null) return child;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      supportedDevices: const {PointerDeviceKind.touch},
+      supportedDevices: swipe.widget.page
+          ? const {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+            }
+          : const {PointerDeviceKind.touch},
       onVerticalDragStart: (_) => swipe._start(),
       onVerticalDragUpdate: (details) => swipe._update(details.delta.dy),
       onVerticalDragEnd: (details) =>
@@ -796,6 +850,7 @@ class _DSheetSwipeDismiss extends StatefulWidget {
     required this.popupCurve,
     required this.scale,
     required this.swipeProgress,
+    this.page = false,
     required this.child,
   });
 
@@ -806,6 +861,7 @@ class _DSheetSwipeDismiss extends StatefulWidget {
   final Animation<double> popupCurve;
   final bool scale;
   final ValueNotifier<double> swipeProgress;
+  final bool page;
   final Widget child;
 
   @override
@@ -827,6 +883,81 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   double _dismissOrigin = 0;
   double _dismissCurve = 1;
   double _swipeExtent = 1;
+  final _scrollPositions = <ScrollPosition, BuildContext>{};
+  Timer? _wheelEnd;
+  bool _wheeling = false;
+  DateTime? _wheelSpentUntil;
+
+  void _rememberScroll(BuildContext? origin) {
+    if (!widget.page || origin == null) return;
+    final scrollable = Scrollable.maybeOf(origin, axis: Axis.vertical);
+    if (scrollable != null) _scrollPositions[scrollable.position] = origin;
+  }
+
+  bool _atTop(Offset point) {
+    _scrollPositions.removeWhere((_, origin) => !origin.mounted);
+    for (final entry in _scrollPositions.entries) {
+      final box = entry.value.findRenderObject();
+      if (box is RenderBox &&
+          box.hasSize &&
+          box.size.contains(box.globalToLocal(point)) &&
+          entry.key.hasPixels &&
+          entry.key.pixels > entry.key.minScrollExtent) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (!widget.page ||
+        event is! PointerScrollEvent ||
+        event.scrollDelta.dy.abs() < event.scrollDelta.dx.abs() ||
+        _exiting ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
+    final spent = _wheelSpentUntil;
+    if (spent != null && DateTime.now().isBefore(spent)) return;
+    if (!_wheeling && (event.scrollDelta.dy >= 0 || !_atTop(event.position))) {
+      return;
+    }
+    GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+      if (!_wheeling) _start();
+      _wheeling = true;
+      _update(-event.scrollDelta.dy);
+      _wheelEnd?.cancel();
+      _wheelEnd = Timer(const Duration(milliseconds: 140), () {
+        _wheeling = false;
+        _wheelSpentUntil = DateTime.now().add(
+          const Duration(milliseconds: 300),
+        );
+        _finish(0);
+      });
+    });
+  }
+
+  void _onPanZoomStart(PointerPanZoomStartEvent event) {
+    if (_exiting || _pointer != null) return;
+    _pointer = event.pointer;
+    _velocity = VelocityTracker.withKind(PointerDeviceKind.trackpad)
+      ..addPosition(event.timeStamp, Offset.zero);
+  }
+
+  void _onPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    if (event.pointer == _pointer) {
+      _velocity?.addPosition(event.timeStamp, event.pan);
+    }
+  }
+
+  void _onPanZoomEnd(PointerPanZoomEndEvent event) {
+    if (event.pointer != _pointer) return;
+    if (_scrollOrigin != null) {
+      _finish(_velocity?.getVelocity().pixelsPerSecond.dy ?? 0);
+    }
+    _pointer = null;
+    _velocity = null;
+  }
 
   double get _offset {
     final dismissal = _dismissal;
@@ -927,7 +1058,10 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     _travel
         .animateTo(
           0,
-          duration: DMotion.duration(context, DMotion.change),
+          duration: DMotion.duration(
+            context,
+            widget.page ? const Duration(milliseconds: 280) : DMotion.change,
+          ),
           curve: Curves.easeOutCubic,
         )
         .whenCompleteOrCancel(() {
@@ -968,6 +1102,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
               math.max(0, velocity),
               _travel.value,
               endValue: _travel.value + distance,
+              duration: widget.page ? .2 : .32,
             ),
           )
           .then<void>((_) => complete()),
@@ -985,7 +1120,10 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
     // Require a deliberate pull regardless of release speed. Measure against
     // the distance off-screen so opening the keyboard does not make the sheet
     // easier to dismiss; velocity only determines how an accepted exit moves.
-    if (!cancelled && _travel.value >= _swipeExtent * _sheetDismissFraction) {
+    if (!cancelled &&
+        (widget.page
+            ? _travel.value > 120 || (_travel.value > 8 && velocity > 500)
+            : _travel.value >= _swipeExtent * _sheetDismissFraction)) {
       if (widget.retained && widget.onDismiss != null) {
         _dismissRetained(velocity);
         return;
@@ -1048,6 +1186,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   bool _onScroll(ScrollNotification notification) {
+    _rememberScroll(notification.context);
     if (_exiting ||
         _swipeIntercepted ||
         _pointer == null ||
@@ -1091,6 +1230,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   @override
   void dispose() {
+    _wheelEnd?.cancel();
     _clearPendingSimulation();
     widget.routeAnimation.removeListener(_syncBackdrop);
     widget.routeAnimation.removeStatusListener(_onRouteStatus);
@@ -1116,6 +1256,10 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       );
     },
     child: Listener(
+      onPointerSignal: widget.page ? _onPointerSignal : null,
+      onPointerPanZoomStart: widget.page ? _onPanZoomStart : null,
+      onPointerPanZoomUpdate: widget.page ? _onPanZoomUpdate : null,
+      onPointerPanZoomEnd: widget.page ? _onPanZoomEnd : null,
       onPointerDown: _onPointerDown,
       onPointerMove: _onPointerMove,
       onPointerUp: _onPointerUp,
@@ -1126,9 +1270,15 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
         onVerticalDragUpdate: (details) => _update(details.delta.dy),
         onVerticalDragEnd: (details) => _finish(details.primaryVelocity ?? 0),
         onVerticalDragCancel: () => _finish(0, cancelled: true),
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _onScroll,
-          child: _DSheetSwipeScope(swipe: this, child: widget.child),
+        child: NotificationListener<ScrollMetricsNotification>(
+          onNotification: (notification) {
+            _rememberScroll(notification.context);
+            return false;
+          },
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: _DSheetSwipeScope(swipe: this, child: widget.child),
+          ),
         ),
       ),
     ),
@@ -1284,9 +1434,11 @@ class DSheetContent extends StatelessWidget {
             (MediaQuery.textScalerOf(context).scale(1) > 1.5 ||
                 (topBottomMaxHeightFactor != null && !hasBody)));
     final overArtwork = headerImage != null;
-    final menu = variant != DSheetVariant.standard;
+    final page = variant == DSheetVariant.page;
+    final menu =
+        variant == DSheetVariant.menu || variant == DSheetVariant.adaptiveMenu;
     final handle = Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      padding: EdgeInsets.only(top: page ? 7 : 8, bottom: page ? 9 : 10),
       child: Center(
         child: DSheetDragRegion(
           child: ExcludeSemantics(
@@ -1321,6 +1473,37 @@ class DSheetContent extends StatelessWidget {
         ),
       ),
     );
+    if (page) {
+      final pulled =
+          context
+              .dependOnInheritedWidgetOfExactType<_DSheetPagePullScope>()
+              ?.pulled ??
+          false;
+      final color =
+          backgroundColor ??
+          Color.lerp(tokens.background, tokens.foreground, .03)!;
+      return Semantics(
+        container: true,
+        explicitChildNodes: true,
+        scopesRoute: true,
+        label: semanticLabel,
+        child: DPageSurface(
+          border: false,
+          borderRadius: BorderRadius.circular(22),
+          backgroundColor: pulled ? color.withValues(alpha: 1) : color,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: children,
+              ),
+              Positioned(top: 0, left: 0, right: 0, child: handle),
+            ],
+          ),
+        ),
+      );
+    }
     final parts = <Widget>[if (menu && !overArtwork) handle];
     for (var index = 0; index < children.length; index++) {
       final child = children[index];
