@@ -75,7 +75,7 @@ void main() {
     final api = _MenuApi();
     await _fixture(tester, api);
     await _open(tester);
-    await tester.tapAt(const Offset(700, 500));
+    await tester.tapAt(const Offset(700, 20));
     await tester.pumpAndSettle();
     expect(find.byType(DDropdownMenuContent), findsNothing);
     expect(tester.widget<DButton>(_trigger).expanded, isFalse);

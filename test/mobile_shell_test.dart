@@ -1451,11 +1451,11 @@ void main() {
       expect(tester.element(reader), same(element));
       expect(shell.currentContent?.topicId, 7);
       expect(
-        find.byKey(const ValueKey('topic-compact-more')).hitTestable(),
+        find.byKey(const ValueKey('topic-more-actions')).hitTestable(),
         findsOneWidget,
       );
       await capture('reader-compact');
-      await tester.tap(find.byKey(const ValueKey('topic-compact-more')));
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
       await tester.pumpAndSettle();
       final menuSheet = find
           .ancestor(
@@ -1477,10 +1477,11 @@ void main() {
         find.descendant(of: menuSheet, matching: find.byType(DSheetHeader)),
         findsNothing,
       );
-      expect(
-        find.byKey(const ValueKey('topic-close-reader')).hitTestable(),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);
+      expect(find.text('Share topic').hitTestable(), findsOneWidget);
+      expect(find.text('Mark unread').hitTestable(), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-header-taxonomy')), findsNothing);
+      expect(find.byKey(const ValueKey('topic-compact-more')), findsNothing);
       expect(controller.offset, offset);
       expect(shell.currentContent?.topicId, 7);
       await capture('reader-compact-menu-sheet');
@@ -1489,7 +1490,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(controller.offset, offset);
-      await tester.tap(find.byKey(const ValueKey('topic-compact-more')));
+      await tester.tap(find.byKey(const ValueKey('topic-more-actions')));
       await tester.pumpAndSettle();
       final menuHandle = find.descendant(
         of: menuSheet,

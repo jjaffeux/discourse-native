@@ -474,6 +474,8 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
         children: [
           _TopicMoreActionsButton(status: widget),
           DDropdownMenu(
+            sheetOnMobile: true,
+            mobileSheetVariant: DSheetVariant.adaptiveMenu,
             onOpenChange: (open, reason) {
               if (open) {
                 // Keep the displayed commands and their captured topic/account
@@ -483,8 +485,12 @@ class _TopicStatusButtonState extends State<TopicStatusButton> {
             },
             content: DDropdownMenuContent(
               semanticLabel: context.l10n.moreTopicActions,
+              highlightInitialFocus: false,
               align: DPopoverAlign.end,
               width: 224,
+              padding: DControlStyle.isTouch(context)
+                  ? const EdgeInsets.fromLTRB(8, 0, 8, 8)
+                  : DInsets.menu,
               children: _openItems,
             ),
             child: DDropdownMenuTrigger(

@@ -227,12 +227,21 @@ class TopicInboxHeader extends StatelessWidget {
                   ),
                 part(
                   'tools',
-                  DButton.iconOnly(
-                    key: const ValueKey('topic-compact-more'),
-                    icon: const DIcon(DIcons.ellipsisVertical),
-                    tooltip: context.l10n.more,
+                  DButtonGroup.spaced(
                     size: DButtonSize.filter,
-                    onPressed: null,
+                    children: [
+                      DButton.iconOnly(
+                        icon: const DIcon(DIcons.ellipsis),
+                        tooltip: context.l10n.topicActionsMenu,
+                        variant: DButtonVariant.outline,
+                        size: DButtonSize.filter,
+                        onPressed: null,
+                      ),
+                      const TopicStatusButtonPlaceholder(
+                        variant: DButtonVariant.outline,
+                        size: DButtonSize.filter,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -245,29 +254,6 @@ class TopicInboxHeader extends StatelessWidget {
         final parent = shell.categoryFor(
           category?.parentCategoryId,
           siteUrl: siteUrl,
-        );
-        Widget tools() => DButtonGroup(
-          children: [
-            TopicBookmarkButton(
-              siteUrl: siteUrl!,
-              topic: detail,
-              variant: DButtonVariant.outline,
-              size: DButtonSize.filter,
-              busy: shell.bookmarkWriteInFlight(
-                siteUrl: siteUrl!,
-                topicId: detail.id,
-                targetType: BookmarkTargetType.topic,
-                targetId: detail.id,
-              ),
-            ),
-            TopicNotificationLevelButton(
-              siteUrl: siteUrl!,
-              topic: detail,
-              showChevron: true,
-              variant: DButtonVariant.outline,
-              size: DButtonSize.filter,
-            ),
-          ],
         );
         if (!compact) {
           return Column(
@@ -287,93 +273,78 @@ class TopicInboxHeader extends StatelessWidget {
         }
         return ContentReadingLaneBox(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            key: const ValueKey('topic-header-compact-layout'),
-            spacing: 10,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 3,
-                  children: [
-                    part(
-                      'title',
-                      _TopicHeaderTitle(header: this, compact: true),
-                    ),
-                    part(
-                      'meta',
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final names = [
-                            if (parent != null) parent.name,
-                            if (category != null) category.name,
-                            for (final tag in detail.tags) '#${tag.name}',
-                          ];
-                          final style = Theme.of(
-                            context,
-                          ).textTheme.labelSmall!.copyWith(fontSize: 11);
-                          var shown = names.length;
-                          String line(int count) =>
-                              '${names.take(count).join('  ›  ')}${count < names.length ? '  +${names.length - count}' : ''}';
-                          while (shown > 0) {
-                            final painter = TextPainter(
-                              text: TextSpan(text: line(shown), style: style),
-                              textDirection: Directionality.of(context),
-                              textScaler: MediaQuery.textScalerOf(context),
-                            )..layout();
-                            final fits = painter.width <= constraints.maxWidth;
-                            painter.dispose();
-                            if (fits) break;
-                            shown--;
-                          }
-                          return Text(
-                            line(shown),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: style,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (shell.instanceFor(siteUrl!)?.user != null) tools(),
-              part(
-                'tools',
-                DDropdownMenu(
-                  sheetOnMobile: true,
-                  mobileSheetVariant: DSheetVariant.adaptiveMenu,
-                  content: DDropdownMenuContent(
-                    semanticLabel: context.l10n.more,
+          child: LayoutBuilder(
+            builder: (context, constraints) => Row(
+              key: const ValueKey('topic-header-compact-layout'),
+              spacing: 10,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 3,
                     children: [
-                      TopicCloseButton(
-                        canReturnToSidebar: canReturnToSidebar,
-                        backToList: !keepTopicListOpen,
+                      part(
+                        'title',
+                        _TopicHeaderTitle(header: this, compact: true),
                       ),
-                      _TopicHeaderTaxonomy(
-                        siteUrl: siteUrl!,
-                        topic: detail,
-                        keepTopicListOpen: keepTopicListOpen,
-                        registry: registry,
+                      part(
+                        'meta',
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final names = [
+                              if (parent != null) parent.name,
+                              if (category != null) category.name,
+                              for (final tag in detail.tags) '#${tag.name}',
+                            ];
+                            final style = Theme.of(
+                              context,
+                            ).textTheme.labelSmall!.copyWith(fontSize: 11);
+                            var shown = names.length;
+                            String line(int count) =>
+                                '${names.take(count).join('  ›  ')}${count < names.length ? '  +${names.length - count}' : ''}';
+                            while (shown > 0) {
+                              final painter = TextPainter(
+                                text: TextSpan(text: line(shown), style: style),
+                                textDirection: Directionality.of(context),
+                                textScaler: MediaQuery.textScalerOf(context),
+                              )..layout();
+                              final fits =
+                                  painter.width <= constraints.maxWidth;
+                              painter.dispose();
+                              if (fits) break;
+                              shown--;
+                            }
+                            return Text(
+                              line(shown),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: style,
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
-                  child: DDropdownMenuTrigger(
-                    builder: (context, state) => DButton.iconOnly(
-                      key: const ValueKey('topic-compact-more'),
-                      icon: const DIcon(DIcons.ellipsisVertical),
-                      tooltip: context.l10n.more,
-                      size: DButtonSize.filter,
-                      focusNode: state.focusNode,
-                      hasPopup: true,
-                      expanded: state.open,
-                      onPressed: state.toggle,
+                ),
+                part(
+                  'tools',
+                  ConstrainedBox(
+                    // Keep the mockup's tools beside the compact title. At
+                    // large text sizes, wrap groups within the available space.
+                    constraints: BoxConstraints(
+                      maxWidth: math.max(0, constraints.maxWidth - 90),
+                    ),
+                    child: _TopicHeaderTaxonomy(
+                      siteUrl: siteUrl!,
+                      topic: detail,
+                      keepTopicListOpen: keepTopicListOpen,
+                      registry: registry,
+                      showTaxonomy: false,
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -877,11 +848,13 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.topic,
     required this.keepTopicListOpen,
     required this.registry,
+    this.showTaxonomy = true,
   });
   final String siteUrl;
   final TopicDetail topic;
   final bool keepTopicListOpen;
   final PluginRegistry registry;
+  final bool showTaxonomy;
 
   @override
   Widget build(BuildContext context) => ShellSelector<Object>(
@@ -936,11 +909,13 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                 minHeight: _taxonomyRowHeight(context),
               ),
               child: DControlWrap(
-                key: const ValueKey('topic-header-taxonomy'),
+                key: ValueKey(
+                  showTaxonomy ? 'topic-header-taxonomy' : 'topic-header-tools',
+                ),
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (hasCategories)
+                  if (showTaxonomy && hasCategories)
                     ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: categoryWidth),
                       child: _TopicCategoryControl(
@@ -953,7 +928,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                         showBrowseButton: false,
                       ),
                     ),
-                  if (hasSubcategory)
+                  if (showTaxonomy && hasSubcategory)
                     ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: categoryWidth),
                       child: _TopicCategoryControl(
@@ -967,7 +942,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                         showBrowseButton: false,
                       ),
                     ),
-                  if (hasTags)
+                  if (showTaxonomy && hasTags)
                     ConstrainedBox(
                       constraints: BoxConstraints(
                         maxWidth: math.min(148 * scale, constraints.maxWidth),
