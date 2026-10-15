@@ -382,7 +382,7 @@ class _AccountMenuPopover extends StatelessWidget {
         controller: controller,
         sheetOnMobile: true,
         mobileSheetVariant: DSheetVariant.adaptiveMenu,
-        mobileSheetFloatOnContentEnd: false,
+        mobileSheetSizeToContent: false,
         content: DDropdownMenuContent(
           semanticLabel: tooltip,
           align: DPopoverAlign.end,

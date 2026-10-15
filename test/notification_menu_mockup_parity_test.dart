@@ -215,7 +215,9 @@ void main() {
             if (platform != TargetPlatform.macOS) {
               await tester.tap(_filter('replies'));
               await tester.pumpAndSettle();
-              expect(tester.getSize(find.byType(DSheetContent)).width, 390);
+              final shortTab = tester.getRect(find.byType(DSheetContent));
+              expect(shortTab.top, closeTo(844 * .45, 1));
+              expect(shortTab.height, greaterThan(844 * .5));
               await _captureImage(
                 tester,
                 '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}-short-tab',
@@ -249,7 +251,7 @@ void main() {
   ) async {
     final (shell, api) = await _mount(tester);
     final originalRoute = shell.currentContent;
-    final originalWidth = tester.getSize(find.byType(DSheetContent)).width;
+    final originalTop = tester.getRect(find.byType(DSheetContent)).top;
     await tester.ensureVisible(_filter('messages'));
     await tester.pumpAndSettle();
     await tester.tap(_filter('messages'));
@@ -258,8 +260,9 @@ void main() {
     expect(find.text('A private message'), findsOneWidget);
     expect(find.byType(UserMenuPanel), findsOneWidget);
     expect(tester.getSize(find.byType(UserMenuPanel)).height, lessThan(220));
-    expect(tester.getSize(find.byType(DSheetContent)).width, originalWidth);
-    await _captureImage(tester, 'iOS-messages-fixed-width');
+    expect(tester.getRect(find.byType(DSheetContent)).top, originalTop);
+    expect(tester.getSize(find.byType(DSheetContent)).height, greaterThan(400));
+    await _captureImage(tester, 'iOS-messages-fixed-height');
     expect(shell.currentContent, same(originalRoute));
     expect(api.notificationFilters.last, const [
       NotificationTypeName('private_message'),

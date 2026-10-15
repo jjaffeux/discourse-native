@@ -138,7 +138,6 @@ class DSheet<T> extends StatelessWidget {
       variant: content.variant,
       sizeToContent: content.sizeToContent,
       contentLoading: content.contentLoading,
-      floatOnContentEnd: content.floatOnContentEnd,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -204,7 +203,6 @@ class DSheetViewport extends StatelessWidget {
         variant: content.variant,
         sizeToContent: content.sizeToContent,
         contentLoading: content.contentLoading,
-        floatOnContentEnd: content.floatOnContentEnd,
         retainKeyboardInsets: true,
         onRetainedDismiss: onDismiss,
         onRetainedSwipeDismissRequested: onSwipeDismissRequested,
@@ -386,7 +384,6 @@ Widget _sheetPresentation(
   DSheetVariant variant = DSheetVariant.standard,
   bool sizeToContent = true,
   bool contentLoading = false,
-  bool floatOnContentEnd = true,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
@@ -401,7 +398,6 @@ Widget _sheetPresentation(
       onDismissRequested: onRetainedSwipeDismissRequested,
       sizeToContent: sizeToContent,
       contentLoading: contentLoading,
-      floatOnContentEnd: floatOnContentEnd,
     );
     return _DSheetKeyboardInsets(
       child: retainKeyboardInsets
@@ -1328,7 +1324,6 @@ class DSheetContent extends StatelessWidget {
     this.variant = DSheetVariant.standard,
     this.sizeToContent = true,
     this.contentLoading = false,
-    this.floatOnContentEnd = true,
     this.showCloseButton = true,
 
     this.semanticLabel,
@@ -1366,13 +1361,6 @@ class DSheetContent extends StatelessWidget {
   /// Existing margins remain until dismissal. This does not render a loading
   /// indicator or affect other sheet variants.
   final bool contentLoading;
-
-  /// Whether an adaptive menu floats when it reaches its content's end.
-  ///
-  /// When `false`, keeps its opening width across short or empty results.
-  /// Expansion and keyboard placement still add floating margins.
-  /// Other sheet variants are unchanged.
-  final bool floatOnContentEnd;
   final DSheetSide side;
   final bool showCloseButton;
 
@@ -1878,7 +1866,6 @@ Future<T?> showDSheet<T>({
   DSheetVariant variant = DSheetVariant.standard,
   bool sizeToContent = true,
   bool contentLoading = false,
-  bool floatOnContentEnd = true,
 
   bool fillAvailableHeight = false,
 
@@ -1914,7 +1901,6 @@ Future<T?> showDSheet<T>({
       variant: variant,
       sizeToContent: sizeToContent,
       contentLoading: contentLoading,
-      floatOnContentEnd: floatOnContentEnd,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),

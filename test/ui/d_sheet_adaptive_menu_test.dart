@@ -17,7 +17,6 @@ Future<void> openMenu(
   ValueListenable<int>? counts,
   ValueListenable<bool> loading = const AlwaysStoppedAnimation(false),
   bool sizeToContent = true,
-  bool floatOnContentEnd = true,
   bool reducedMotion = false,
   bool settle = true,
   VoidCallback? onContentLayout,
@@ -73,7 +72,6 @@ Future<void> openMenu(
                 mobileSheetVariant: DSheetVariant.adaptiveMenu,
                 mobileSheetSizeToContent: sizeToContent,
                 mobileSheetContentLoading: pending,
-                mobileSheetFloatOnContentEnd: floatOnContentEnd,
                 content: DPopoverContent(
                   semanticLabel: 'Filters',
                   child: onContentLayout == null
@@ -677,62 +675,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
-
-    for (final sizeToContent in [true, false]) {
-      testWidgets(
-        'content end can preserve width before expansion on $platform, content: $sizeToContent',
-        (tester) async {
-          final scroll = ScrollController();
-          final counts = ValueNotifier(60);
-          addTearDown(scroll.dispose);
-          addTearDown(counts.dispose);
-          await openMenu(
-            tester,
-            platform: platform,
-            scroll: scroll,
-            counts: counts,
-            sizeToContent: sizeToContent,
-            floatOnContentEnd: false,
-          );
-          final sheet = find.byType(DSheetContent);
-          for (final count in [2, 0, 60]) {
-            counts.value = count;
-            await tester.pumpAndSettle();
-            expect(tester.getRect(sheet).left, 0);
-            expect(tester.getRect(sheet).width, 390);
-          }
-          await expand(tester);
-          expect(tester.getRect(sheet).left, 6);
-          expect(tester.getRect(sheet).width, 378);
-          expect(tester.takeException(), isNull);
-        },
-      );
-    }
-
-    testWidgets(
-      'content end width option preserves keyboard clearance on $platform',
-      (tester) async {
-        final scroll = ScrollController();
-        addTearDown(scroll.dispose);
-        await openMenu(
-          tester,
-          platform: platform,
-          scroll: scroll,
-          count: 2,
-          floatOnContentEnd: false,
-        );
-        final sheet = find.byType(DSheetContent);
-        expect(tester.getRect(sheet).left, 0);
-        await tester.tap(find.byType(EditableText));
-        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 400));
-        await tester.pumpAndSettle();
-        expect(tester.getRect(sheet).left, 6);
-        expect(tester.getRect(sheet).bottom, closeTo(538, 1));
-        expect(tester.takeException(), isNull);
-      },
-    );
 
     testWidgets(
       'short async results add margins that survive later loading on $platform',

@@ -312,7 +312,6 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     required this.retained,
     required this.sizeToContent,
     required this.contentLoading,
-    required this.floatOnContentEnd,
     this.onDismissRequested,
   });
 
@@ -321,7 +320,6 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final bool retained;
   final bool sizeToContent;
   final bool contentLoading;
-  final bool floatOnContentEnd;
   final VoidCallback? onDismissRequested;
 
   @override
@@ -694,7 +692,6 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         _floating ||
         (_keyboard > 0 && _keyboardSettled) ||
         (_keyboard == 0 &&
-            widget.floatOnContentEnd &&
             !widget.contentLoading &&
             !_dragging &&
             !_travel.isAnimating &&

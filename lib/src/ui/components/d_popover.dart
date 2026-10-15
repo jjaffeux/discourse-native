@@ -155,7 +155,6 @@ class DPopover extends StatefulWidget {
     this.mobileSheetVariant = DSheetVariant.standard,
     this.mobileSheetSizeToContent = true,
     this.mobileSheetContentLoading = false,
-    this.mobileSheetFloatOnContentEnd = true,
     this.fullScreenOnMobile = false,
     this.initialFocusNode,
     this.focusContentOnOpen = true,
@@ -194,12 +193,6 @@ class DPopover extends StatefulWidget {
   /// Defers short-content margins while an adaptive mobile sheet is loading.
   /// Existing margins remain until dismissal; desktop popovers are unchanged.
   final bool mobileSheetContentLoading;
-
-  /// Whether short content or the end of a feed adds adaptive sheet margins.
-  ///
-  /// When `false`, preserves the opening width across content changes.
-  /// Expansion and keyboard placement still float; desktop popovers are unchanged.
-  final bool mobileSheetFloatOnContentEnd;
 
   /// Fills the available mobile viewport with an inset, keyboard-aware sheet.
   /// Desktop retains the anchored popup.
@@ -784,7 +777,6 @@ class _DPopoverState extends State<DPopover>
             showCloseButton: !adaptiveMenu,
             sizeToContent: widget.mobileSheetSizeToContent,
             contentLoading: widget.mobileSheetContentLoading,
-            floatOnContentEnd: widget.mobileSheetFloatOnContentEnd,
             semanticLabel: widget.content.semanticLabel,
             topBottomMaxHeightFactor: adaptiveMenu
                 ? null

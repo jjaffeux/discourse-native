@@ -116,41 +116,47 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    testWidgets('unexpanded sheet keeps its width across tabs on $platform', (
-      tester,
-    ) async {
-      await _mount(tester, platform: platform);
-      await tester.tap(find.byKey(UserMenuButton.bellKey));
-      await tester.pumpAndSettle();
-      final sheet = find.byType(DSheetContent);
-      final opened = tester.getRect(sheet);
-      for (final id in [
-        'replies',
-        'likes',
-        'messages',
-        'bookmarks',
-        'other',
-        'all',
-      ]) {
-        await tester.ensureVisible(_tab(id));
+    testWidgets(
+      'unexpanded sheet keeps its opening height across tabs on $platform',
+      (tester) async {
+        await _mount(tester, platform: platform);
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
-        await tester.tap(_tab(id));
+        final sheet = find.byType(DSheetContent);
+        final opened = tester.getRect(sheet);
+        expect(opened.height, closeTo(800 * .55, 1));
+        for (final id in [
+          'replies',
+          'likes',
+          'messages',
+          'bookmarks',
+          'other',
+          'all',
+        ]) {
+          await tester.ensureVisible(_tab(id));
+          await tester.pumpAndSettle();
+          await tester.tap(_tab(id));
+          await tester.pumpAndSettle();
+          // Native floating clearance stays inside the opening viewport.
+          // Short content must not move its upper edge toward the screen foot.
+          final bounds = tester.getRect(sheet);
+          expect(bounds.top, closeTo(opened.top, .01), reason: id);
+          expect(
+            bounds.height,
+            greaterThanOrEqualTo(opened.height - 6),
+            reason: id,
+          );
+        }
+        expect(tester.getRect(sheet).left, 6);
+        await tester.drag(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          const Offset(0, -400),
+        );
         await tester.pumpAndSettle();
-        final bounds = tester.getRect(sheet);
-        expect(bounds.left, opened.left, reason: id);
-        expect(bounds.width, opened.width, reason: id);
-      }
-      await tester.drag(
-        find.byKey(const ValueKey('sheet-drag-handle')),
-        const Offset(0, -400),
-      );
-      await tester.pumpAndSettle();
-      final expanded = tester.getRect(sheet);
-      expect(expanded.top, lessThan(opened.top));
-      expect(expanded.left, 6);
-      expect(expanded.width, opened.width - 12);
-      expect(tester.takeException(), isNull);
-    });
+        expect(tester.getRect(sheet).height, greaterThan(opened.height));
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final unread in [0, 3]) {
