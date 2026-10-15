@@ -733,13 +733,35 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
       label,
     );
   }
-  expect(find.byType(DDropdownMenuContent), findsOneWidget);
+  final channel = key == 'chat-threads-channel-filter';
+  expect(
+    channel
+        ? find.byType(DCommandList<int>)
+        : find.byType(DDropdownMenuContent),
+    findsOneWidget,
+  );
+  if (channel &&
+      find
+          .descendant(
+            of: find.byType(DCommandList<int>),
+            matching: find.text(value),
+          )
+          .evaluate()
+          .isEmpty) {
+    await tester.tap(
+      find.descendant(
+        of: find.byType(DCommandList<int>),
+        matching: find.text('Load more'),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
   await _capture(tester, key);
   await tester.tap(
     find.byWidgetPredicate(
       (widget) =>
           widget is Semantics &&
-          widget.properties.inMutuallyExclusiveGroup == true &&
+          (channel || widget.properties.inMutuallyExclusiveGroup == true) &&
           widget.properties.label == value,
     ),
   );

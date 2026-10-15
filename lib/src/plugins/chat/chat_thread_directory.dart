@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 
 import 'chat_channel.dart';
 import 'chat_controller.dart';
@@ -9,13 +10,20 @@ import 'chat_thread.dart';
 /// pages, revalidating their first, and load further pages only as the reader
 /// scrolls or requests them.
 final class ChatThreadDirectory extends FrameSafeNotifier {
-  ChatThreadDirectory(this.chat, this.siteUrl)
-    : _session = chat.captureSession(siteUrl) {
+  ChatThreadDirectory(
+    this.chat,
+    this.siteUrl, {
+    this.channelId,
+    ChatChannel? channel,
+  }) : _session = chat.captureSession(siteUrl) {
+    final selected = channel ?? chat.channel(siteUrl, channelId ?? 0);
+    if (selected != null) _channels[selected.id] = selected;
     chat.addListener(notifySafely);
   }
 
   final ChatController chat;
   final String siteUrl;
+  final int? channelId;
   final PluginSiteLease _session;
   bool get isCurrent => !isDisposed && !chat.isDisposed && _session.isCurrent;
   final Map<int, ChatChannel> _channels = {};
@@ -31,15 +39,7 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
       ...chat.channelThreads(siteUrl, channel.id),
   ];
 
-  List<ChatChannel> get channels => [
-    for (final channel in _channels.values)
-      if (chat.channelThreads(siteUrl, channel.id).isNotEmpty) channel,
-  ];
-
-  /// A view filtered to a channel the directory has reached shows only that
-  /// channel's threads, so its error, remaining pages and next load are that
-  /// channel's alone: further directory pages add no rows to it. Until the
-  /// directory reaches the channel, paging the directory is how it arrives.
+  /// A selected channel owns its requests independently of directory paging.
   ChatChannel? _selected(int? channelId) => _channels[channelId];
 
   String? error(int? channelId) {
@@ -66,6 +66,7 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
   }
 
   Future<void> load({bool reset = false, int? channelId}) async {
+    channelId ??= this.channelId;
     if (loading || !isCurrent) return;
     if (!reset && loaded && error(channelId) == null && !hasMore(channelId)) {
       return;
@@ -75,11 +76,20 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
     try {
       if (reset) {
         loaded = false;
-        _channels.clear();
+        if (channelId == null) _channels.clear();
         _offset = 0;
         _moreChannels = true;
         _nextChannel = 0;
         _directoryError = null;
+      }
+      if (channelId != null && !_channels.containsKey(channelId)) {
+        final channel = await chat.ensureChannel(siteUrl, channelId);
+        if (!isCurrent) return;
+        if (channel == null) {
+          _directoryError = appL10n.couldnTLoadChatChannels;
+          return;
+        }
+        _channels[channel.id] = channel;
       }
       final selected = _selected(channelId);
       final failed = [
@@ -87,11 +97,13 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
           if (chat.channelThreadsError(siteUrl, channel.id) != null) channel,
       ];
       if (selected != null) {
-        if (chat.channelThreadsError(siteUrl, selected.id) == null) {
+        if (reset || chat.channelThreadsError(siteUrl, selected.id) == null) {
           await chat.loadChannelThreads(
             siteUrl,
             selected.id,
-            more: true,
+            more: loaded && !reset,
+            force: reset,
+            revalidate: !loaded && !reset,
             directoryChannel: selected,
           );
         } else {

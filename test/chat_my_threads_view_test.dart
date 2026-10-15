@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
@@ -8,6 +10,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread_channel_filter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -21,6 +24,220 @@ const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
+  testWidgets(
+    'channel search loads an unvisited channel directly and retains it',
+    (tester) async {
+      const design = ChatChannel(
+        id: 10,
+        title: 'design',
+        kind: ChatChannelKind.category,
+        threadingEnabled: true,
+      );
+      const empty = ChatChannel(
+        id: 11,
+        title: 'empty channel',
+        kind: ChatChannelKind.category,
+        threadingEnabled: true,
+      );
+      final api = FakeDiscourseApi(
+        user: _user,
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): const ChatChannelBrowsePage(
+            channels: [_general],
+            hasMore: true,
+          ),
+          FakeDiscourseApi.chatBrowseKey(filter: 'design'):
+              const ChatChannelBrowsePage(channels: [design]),
+          FakeDiscourseApi.chatBrowseKey(filter: 'empty'):
+              const ChatChannelBrowsePage(channels: [empty]),
+        },
+        chatChannelThreadPagesByKey: {
+          ..._generalPages(),
+          FakeDiscourseApi.chatChannelThreadPageKey(
+            10,
+            0,
+          ): const ChatThreadPage(
+            threads: [
+              ChatThread(
+                id: 10,
+                channelId: 10,
+                status: 'open',
+                title: 'Design thread',
+                lastMessageId: 101,
+                replyCount: 1,
+              ),
+            ],
+          ),
+          FakeDiscourseApi.chatChannelThreadPageKey(11, 0):
+              const ChatThreadPage(threads: []),
+        },
+      );
+      final controller = await _pump(tester, api);
+      await tester.tap(
+        find.byKey(const ValueKey('chat-threads-channel-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EditableText), 'design');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(find.text('design'), findsWidgets);
+      expect(_threadPages(api), [(9, 0)]);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DCommandList<int>),
+          matching: find.text('design'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(_threadPages(api), [(9, 0), (10, 0)]);
+      expect(find.text('Design thread'), findsOneWidget);
+      expect(find.text('Thread 1'), findsNothing);
+      expect(
+        api.chatBrowseRequested.every((request) => request.offset == 0),
+        isTrue,
+      );
+
+      final reads = api.chatBrowseRequested.length;
+      await _mount(tester, controller, shown: false);
+      await _mount(tester, controller);
+      await tester.pumpAndSettle();
+      expect(api.chatBrowseRequested, hasLength(reads));
+      expect(find.text('Design thread'), findsOneWidget);
+      expect(
+        tester
+            .widget<ChatThreadChannelFilter>(
+              find.byType(ChatThreadChannelFilter),
+            )
+            .selected
+            ?.id,
+        10,
+      );
+      await controller.pluginSession
+          .require(chatShellService)
+          .hydratePluginRoute(_site, ChatPlugin.myThreadsRouteId, force: true);
+      await tester.pumpAndSettle();
+      expect(_threadPages(api), [(9, 0), (10, 0), (10, 0), (10, 0)]);
+      expect(api.chatBrowseRequested, hasLength(reads));
+
+      await tester.tap(
+        find.byKey(const ValueKey('chat-threads-channel-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EditableText), 'empty');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DCommandList<int>),
+          matching: find.text('empty channel'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('No threads in this channel.'), findsOneWidget);
+      expect(find.text('Design thread'), findsNothing);
+      expect(_threadPages(api), [(9, 0), (10, 0), (10, 0), (10, 0), (11, 0)]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('a late channel lookup cannot replace newer search results', (
+    tester,
+  ) async {
+    const design = ChatChannel(
+      id: 10,
+      title: 'design',
+      kind: ChatChannelKind.category,
+      threadingEnabled: true,
+    );
+    final api = _ChannelLookupApi(
+      user: _user,
+      chatBrowsePagesByKey: {
+        ..._browsePages,
+        FakeDiscourseApi.chatBrowseKey(filter: 'design'):
+            const ChatChannelBrowsePage(channels: [design]),
+      },
+      chatChannelThreadPagesByKey: _generalPages(),
+    );
+    await _pump(tester, api);
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    api.browseGate = gate;
+    await tester.tap(find.byKey(const ValueKey('chat-threads-channel-filter')));
+    await tester.pumpAndSettle();
+    api.browseGate = null;
+    await tester.enterText(find.byType(EditableText), 'design');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    Finder option(String text) => find.descendant(
+      of: find.byType(DCommandList<int>),
+      matching: find.text(text),
+    );
+    expect(option('design'), findsOneWidget);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(option('design'), findsOneWidget);
+    expect(option('general'), findsNothing);
+    expect(_threadPages(api), [(9, 0)]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('channel choices page and retry without loading their threads', (
+    tester,
+  ) async {
+    const design = ChatChannel(
+      id: 10,
+      title: 'design',
+      kind: ChatChannelKind.category,
+      threadingEnabled: true,
+    );
+    const archive = ChatChannel(
+      id: 11,
+      title: 'design archive',
+      kind: ChatChannelKind.category,
+      threadingEnabled: true,
+    );
+    final pages = {
+      ..._browsePages,
+      FakeDiscourseApi.chatBrowseKey(filter: 'design'):
+          const ChatChannelBrowsePage(channels: [design], hasMore: true),
+    };
+    final api = FakeDiscourseApi(
+      user: _user,
+      chatBrowsePagesByKey: pages,
+      chatChannelThreadPagesByKey: _generalPages(),
+    );
+    await _pump(tester, api);
+    await tester.tap(find.byKey(const ValueKey('chat-threads-channel-filter')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(EditableText), 'design');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    Finder option(String text) => find.descendant(
+      of: find.byType(DCommandList<int>),
+      matching: find.text(text),
+    );
+    await tester.tap(option('Load more'));
+    await tester.pumpAndSettle();
+    expect(option('Try again'), findsOneWidget);
+    pages[FakeDiscourseApi.chatBrowseKey(filter: 'design', offset: 1)] =
+        const ChatChannelBrowsePage(channels: [archive]);
+    await tester.tap(option('Try again'));
+    await tester.pumpAndSettle();
+    expect(option('design'), findsOneWidget);
+    expect(option('design archive'), findsOneWidget);
+    expect(option('Load more'), findsNothing);
+    expect(
+      api.chatBrowseRequested
+          .where((request) => request.filter == 'design')
+          .map((request) => request.offset),
+      [0, 1, 1],
+    );
+    expect(_threadPages(api), [(9, 0)]);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('thread badges show ordinary or urgent counts and cap at 99+', (
     tester,
   ) async {
@@ -199,8 +416,8 @@ void main() {
     await tester.tap(find.text('Load more'));
     await tester.pumpAndSettle();
 
-    expect(_threadPages(api), [(9, 0), (9, 1)]);
-    expect(api.chatBrowseRequested.map((request) => request.offset), [0]);
+    expect(_threadPages(api), [(9, 0), (9, 0), (9, 1)]);
+    expect(api.chatBrowseRequested.map((request) => request.offset), [0, 0]);
     expect(find.text('Thread 2'), findsOneWidget);
     expect(find.text('Load more'), findsNothing);
 
@@ -237,7 +454,7 @@ void main() {
     await tester.tap(find.text('Load more'));
     await tester.pumpAndSettle();
 
-    expect(_threadPages(api), [(9, 0), (10, 0), (9, 1)]);
+    expect(_threadPages(api), [(9, 0), (10, 0), (9, 0), (9, 1)]);
     expect(find.text('Thread 2'), findsOneWidget);
     expect(find.text('Load more'), findsNothing);
 
@@ -279,11 +496,9 @@ Future<void> _selectChannel(WidgetTester tester, String label) async {
   await tester.tap(find.byKey(const ValueKey('chat-threads-channel-filter')));
   await tester.pumpAndSettle();
   await tester.tap(
-    find.byWidgetPredicate(
-      (widget) =>
-          widget is Semantics &&
-          widget.properties.inMutuallyExclusiveGroup == true &&
-          widget.properties.label == label,
+    find.descendant(
+      of: find.byType(DCommandList<int>),
+      matching: find.text(label),
     ),
   );
   await tester.pumpAndSettle();
@@ -343,3 +558,34 @@ Future<void> _mount(
     ),
   ),
 );
+
+class _ChannelLookupApi extends FakeDiscourseApi {
+  _ChannelLookupApi({
+    super.user,
+    super.chatBrowsePagesByKey,
+    super.chatChannelThreadPagesByKey,
+  });
+  Completer<void>? browseGate;
+
+  @override
+  Future<ChatChannelBrowsePage> browseChatChannels({
+    required String siteUrl,
+    required String apiKey,
+    String filter = '',
+    ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
+    int offset = 0,
+    int limit = ChatChannelBrowsePage.pageSize,
+    String? clientId,
+  }) async {
+    await browseGate?.future;
+    return super.browseChatChannels(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      filter: filter,
+      status: status,
+      offset: offset,
+      limit: limit,
+      clientId: clientId,
+    );
+  }
+}

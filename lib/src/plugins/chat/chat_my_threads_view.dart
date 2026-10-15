@@ -13,6 +13,7 @@ import 'chat_plugin.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_thread.dart';
+import 'chat_thread_channel_filter.dart';
 import 'chat_thread_directory.dart';
 import 'chat_user_avatar.dart';
 
@@ -67,7 +68,11 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     _shell = shell;
     _channelId = _chat.inboxFilters.browseFor(widget.siteUrl).threadChannelId;
     _ready = true;
-    _directory = ChatThreadDirectory(_chat, widget.siteUrl);
+    _directory = ChatThreadDirectory(
+      _chat,
+      widget.siteUrl,
+      channelId: _channelId,
+    );
     _unregisterRefresher = shell.registerRouteRefresher(
       widget.siteUrl,
       ChatPlugin.myThreadsRouteId,
@@ -103,7 +108,6 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     listenable: _directory,
     builder: (context, _) {
       final all = _directory.threads;
-      final channels = _directory.channels;
       final threads = [
         for (final thread in all)
           if (_channelId == null || thread.channelId == _channelId) thread,
@@ -159,37 +163,28 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
                 siteUrl: widget.siteUrl,
                 page: ChatBrowsePage.threads,
               ),
-              ChatBrowseFilter<int>(
-                key: const ValueKey('chat-threads-channel-filter'),
-                label: _channelId == null
-                    ? context.l10n.channel
-                    : channels
-                              .where((c) => c.id == _channelId)
-                              .firstOrNull
-                              ?.title ??
-                          context.l10n.channel,
-                semanticLabel: context.l10n.channel,
-                icon: Text(
-                  '■',
-                  style: TextStyle(
-                    color:
-                        channels
-                            .where((c) => c.id == _channelId)
-                            .firstOrNull
-                            ?.categoryColor ??
-                        DTokens.of(context).mutedForeground,
-                  ),
-                ),
-                emphasized: _channelId != null,
-                value: _channelId ?? 0,
-                options: {
-                  0: context.l10n.allChannels,
-                  for (final channel in channels) channel.id: channel.title,
-                },
-                onChanged: (id) {
-                  setState(() => _channelId = id == 0 ? null : id);
-                  _chat.inboxFilters.browseFor(widget.siteUrl).threadChannelId =
-                      _channelId;
+              ChatThreadChannelFilter(
+                key: ObjectKey(_directory),
+                chat: _chat,
+                siteUrl: widget.siteUrl,
+                selected: _chat.channel(widget.siteUrl, _channelId ?? 0),
+                onSelected: (channel) {
+                  setState(() {
+                    _channelId = channel?.id;
+                    _chat.inboxFilters
+                            .browseFor(widget.siteUrl)
+                            .threadChannelId =
+                        _channelId;
+                    _directory.dispose();
+                    _directory = ChatThreadDirectory(
+                      _chat,
+                      widget.siteUrl,
+                      channelId: _channelId,
+                      channel: channel,
+                    );
+                    unawaited(_directory.load());
+                    if (_scroll.hasClients) _scroll.jumpTo(0);
+                  });
                 },
               ),
             ],
