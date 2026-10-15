@@ -1322,15 +1322,51 @@ void main() {
       await capture('reader-compact');
       await tester.tap(find.byKey(const ValueKey('topic-compact-more')));
       await tester.pumpAndSettle();
+      final menuSheet = find
+          .ancestor(
+            of: find.byType(DDropdownMenuContent),
+            matching: find.byType(DSheetContent),
+          )
+          .first;
+      expect(
+        tester.widget<DSheetContent>(menuSheet).variant,
+        DSheetVariant.adaptiveMenu,
+      );
+      final menuBounds = tester.getRect(menuSheet);
+      final screen = tester.view.physicalSize / tester.view.devicePixelRatio;
+      expect(menuBounds.left, 6);
+      expect(menuBounds.right, screen.width - 6);
+      expect(menuBounds.top, greaterThan(screen.height / 2));
+      expect(menuBounds.bottom, lessThanOrEqualTo(screen.height - 6));
+      expect(
+        find.descendant(of: menuSheet, matching: find.byType(DSheetHeader)),
+        findsNothing,
+      );
       expect(
         find.byKey(const ValueKey('topic-close-reader')).hitTestable(),
         findsOneWidget,
       );
+      expect(controller.offset, offset);
+      expect(shell.currentContent?.topicId, 7);
+      await capture('reader-compact-menu-sheet');
       expect(tester.takeException(), isNull);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(controller.offset, offset);
-      // Escape restores focus to More. Leave the header before restoring the
+      await tester.tap(find.byKey(const ValueKey('topic-compact-more')));
+      await tester.pumpAndSettle();
+      final menuHandle = find.descendant(
+        of: menuSheet,
+        matching: find.byKey(const ValueKey('sheet-drag-handle')),
+      );
+      expect(tester.getSize(menuHandle), const Size(36, 5));
+      await tester.drag(menuHandle, const Offset(0, 220));
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(controller.offset, offset);
+      expect(shell.currentContent?.topicId, 7);
+      // Dismissal restores focus to More. Leave the header before restoring the
       // full layout, so a keyboard user's focused control is not replaced.
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pump();

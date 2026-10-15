@@ -254,6 +254,8 @@ class TopicInboxHeader extends StatelessWidget {
               part(
                 'tools',
                 DDropdownMenu(
+                  sheetOnMobile: true,
+                  mobileSheetVariant: DSheetVariant.adaptiveMenu,
                   content: DDropdownMenuContent(
                     semanticLabel: context.l10n.more,
                     children: [
