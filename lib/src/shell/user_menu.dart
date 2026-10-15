@@ -803,6 +803,7 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
         return DDropdownMenu(
           controller: _menu,
           sheetOnMobile: true,
+          mobileSheetVariant: DSheetVariant.adaptiveMenu,
           content: DDropdownMenuContent(
             width: 208,
             align: DPopoverAlign.end,
