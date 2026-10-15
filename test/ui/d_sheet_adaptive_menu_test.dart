@@ -15,6 +15,7 @@ Future<void> openMenu(
   required ScrollController scroll,
   int count = 60,
   ValueListenable<int>? counts,
+  ValueListenable<bool> loading = const AlwaysStoppedAnimation(false),
   bool sizeToContent = true,
   bool reducedMotion = false,
   bool settle = true,
@@ -64,25 +65,29 @@ Future<void> openMenu(
         ).copyWith(disableAnimations: reducedMotion),
         child: Scaffold(
           body: Center(
-            child: DPopover(
-              sheetOnMobile: true,
-              mobileSheetVariant: DSheetVariant.adaptiveMenu,
-              mobileSheetSizeToContent: sizeToContent,
-              content: DPopoverContent(
-                semanticLabel: 'Filters',
-                child: onContentLayout == null
-                    ? contents
-                    : LayoutBuilder(
-                        builder: (_, _) {
-                          onContentLayout();
-                          return contents;
-                        },
-                      ),
-              ),
-              child: DPopoverTrigger(
-                builder: (_, trigger) => DButton(
-                  label: const Text('Open filters'),
-                  onPressed: trigger.toggle,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: loading,
+              builder: (_, pending, _) => DPopover(
+                sheetOnMobile: true,
+                mobileSheetVariant: DSheetVariant.adaptiveMenu,
+                mobileSheetSizeToContent: sizeToContent,
+                mobileSheetContentLoading: pending,
+                content: DPopoverContent(
+                  semanticLabel: 'Filters',
+                  child: onContentLayout == null
+                      ? contents
+                      : LayoutBuilder(
+                          builder: (_, _) {
+                            onContentLayout();
+                            return contents;
+                          },
+                        ),
+                ),
+                child: DPopoverTrigger(
+                  builder: (_, trigger) => DButton(
+                    label: const Text('Open filters'),
+                    onPressed: trigger.toggle,
+                  ),
                 ),
               ),
             ),
@@ -136,6 +141,7 @@ void main() {
           tester.getTopLeft(sheet).dy,
           greaterThanOrEqualTo(844 * .45 - 1),
         );
+        expect(tester.getRect(sheet).left, 0);
       }
     }
     await tester.pumpAndSettle();
@@ -294,12 +300,12 @@ void main() {
           await sendKeyboardFrame(tester, inset: 0, milliseconds: 300);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 150));
-          expect(tester.getRect(sheet).left, closeTo(3, .1));
-          expect(tester.getRect(sheet).bottom, inExclusiveRange(478, 844));
+          expect(tester.getRect(sheet).left, 6);
+          expect(tester.getRect(sheet).bottom, inExclusiveRange(478, 804));
           await tester.pump(const Duration(milliseconds: 151));
           final hidden = tester.getRect(sheet);
-          expect(hidden.bottom, closeTo(844, 1));
-          expect(hidden.left, 0);
+          expect(hidden.bottom, closeTo(804, 1));
+          expect(hidden.left, 6);
           tester.view.viewInsets = FakeViewPadding.zero;
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet), hidden);
@@ -384,8 +390,8 @@ void main() {
       await tester.tap(find.text('Close child'));
       await tester.pumpAndSettle();
       await closed;
-      expect(tester.getRect(sheet).bottom, closeTo(844, 1));
-      expect(tester.getRect(sheet).left, 0);
+      expect(tester.getRect(sheet).bottom, closeTo(804, 1));
+      expect(tester.getRect(sheet).left, 6);
       expect(tester.takeException(), isNull);
     },
   );
@@ -423,7 +429,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.getRect(find.byType(DSheetContent)).bottom,
-        closeTo(844, 1),
+        closeTo(804, 1),
       );
       expect(tester.takeException(), isNull);
     },
@@ -465,29 +471,80 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
-      'fixed menu reserves its height across async results on $platform',
+      'short async results add margins that survive later loading on $platform',
       (tester) async {
         final scroll = ScrollController();
         final counts = ValueNotifier(0);
-        var layouts = 0;
+        final loading = ValueNotifier(true);
         addTearDown(scroll.dispose);
         addTearDown(counts.dispose);
+        addTearDown(loading.dispose);
         await openMenu(
           tester,
           platform: platform,
           scroll: scroll,
           counts: counts,
+          loading: loading,
+          sizeToContent: false,
+        );
+        final sheet = find.byType(DSheetContent);
+        expect(tester.getRect(sheet).left, 0);
+        counts.value = 2;
+        loading.value = false;
+        var animated = false;
+        for (var frame = 0; frame < 24; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          final side = tester.getRect(sheet).left;
+          animated |= side > 0 && side < 6;
+        }
+        expect(animated, isTrue);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).left, 6);
+        loading.value = true;
+        counts.value = 60;
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).left, 6);
+        loading.value = false;
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).left, 6);
+        await tester.tapAt(const Offset(8, 20));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Open filters'));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(sheet).left, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'fixed menu reserves its height across async results on $platform',
+      (tester) async {
+        final scroll = ScrollController();
+        final counts = ValueNotifier(0);
+        final loading = ValueNotifier(true);
+        var layouts = 0;
+        addTearDown(scroll.dispose);
+        addTearDown(counts.dispose);
+        addTearDown(loading.dispose);
+        await openMenu(
+          tester,
+          platform: platform,
+          scroll: scroll,
+          counts: counts,
+          loading: loading,
           sizeToContent: false,
           onContentLayout: () => layouts++,
         );
         final sheet = find.byType(DSheetContent);
         expect(tester.getRect(sheet).top, closeTo(844 * .45, 1));
-        expect(tester.getRect(sheet).left, 6);
+        expect(tester.getRect(sheet).left, 0);
         counts.value = 60;
+        loading.value = false;
         for (var frame = 0; frame < 20; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
           expect(sheet, findsOneWidget);
           expect(tester.getRect(sheet).top, closeTo(844 * .45, 1));
+          expect(tester.getRect(sheet).left, 0);
         }
         await tester.pumpAndSettle();
         expect(tester.getRect(sheet).height, closeTo(844 * .55, 1));
@@ -671,7 +728,7 @@ void main() {
 
     for (final reduced in [false, true]) {
       testWidgets(
-        'adaptive menu expands, floats at its end, and returns on $platform (reduced: $reduced)',
+        'adaptive menu keeps margins after leaving its end on $platform (reduced: $reduced)',
         (tester) async {
           final scroll = ScrollController();
           addTearDown(scroll.dispose);
@@ -686,6 +743,11 @@ void main() {
           expect(opened.left, 0);
           expect(opened.width, 390);
           expect(opened.top, closeTo(844 * .45, 1));
+          expect(
+            tester.getRect(find.byType(ListView)).bottom,
+            closeTo(opened.bottom - 10, .1),
+            reason: 'the scroll viewport extends through the bottom safe area',
+          );
           expect(
             tester
                 .widget<EditableText>(find.byType(EditableText))
@@ -736,12 +798,18 @@ void main() {
           expect(
             scroll.position.extentAfter,
             greaterThan(distance),
-            reason: 'the same drag stays active while margins change',
+            reason: 'the same drag stays active after leaving the end',
           );
           await reverse.up();
           await tester.pumpAndSettle();
-          expect(tester.getRect(sheet).left, 0);
+          expect(tester.getRect(sheet).left, 6);
           scroll.jumpTo(scroll.offset - 200);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).left, 6);
+          await tester.tapAt(const Offset(8, 20));
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          await tester.tap(find.text('Open filters'));
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet).left, 0);
           expect(tester.takeException(), isNull);
@@ -774,7 +842,8 @@ void main() {
       expect(tester.getRect(sheet).top, closeTo(55, 1));
       tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pumpAndSettle();
-      expect(tester.getRect(sheet).left, 0);
+      expect(tester.getRect(sheet).left, 6);
+      expect(tester.getRect(sheet).bottom, closeTo(804, 1));
       expect(tester.getRect(sheet).top, closeTo(55, 1));
       expect(tester.takeException(), isNull);
     });

@@ -296,6 +296,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     required this.onDismiss,
     required this.retained,
     required this.sizeToContent,
+    required this.contentLoading,
     this.onDismissRequested,
   });
 
@@ -303,6 +304,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final VoidCallback? onDismiss;
   final bool retained;
   final bool sizeToContent;
+  final bool contentLoading;
   final VoidCallback? onDismissRequested;
 
   @override
@@ -338,13 +340,13 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _dragging = false;
   bool _scrollDrag = false;
   bool _scheduled = false;
+  bool _contentLayoutPending = false;
   bool _floating = false;
   bool _raiseForKeyboard = false;
   bool _expanded = true;
   bool _resizingInsets = false;
   double _previousInset = 0;
   bool _keyboardSettled = false;
-  bool _floatingBeforeKeyboard = false;
   bool _keyboardMinimumElapsed = false;
   bool _keyboardMetricsStable = false;
   Timer? _keyboardMinimum;
@@ -456,6 +458,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   @override
   void didUpdateWidget(_DSheetAdaptiveMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.contentLoading && !widget.contentLoading) {
+      _contentLayoutPending = true;
+    }
     if (_dismissOrigin == null &&
         !_interacted &&
         widget.sizeToContent &&
@@ -497,7 +502,6 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (current == 0 && frame.inset == 0 && _nativeKeyboardFrame == null) {
       return;
     }
-    if (frame.inset > 0 && _keyboard == 0) _floatingBeforeKeyboard = _floating;
     _nativeKeyboardFrame = frame;
     _keyboardMinimum?.cancel();
     _keyboardStability?.cancel();
@@ -507,9 +511,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _interacted = true;
     _nativeKeyboardInset.value = current;
     if (frame.inset == 0) _travel.stop();
-    _floating =
-        frame.inset > 0 ||
-        !_positions.any((p) => p.hasContentDimensions && p.extentAfter > 1);
+    _floating = _floating || frame.inset > 0;
     final duration = frame.remaining;
     final curve = frame.remainingCurve;
     if (_animate && duration > Duration.zero) {
@@ -558,7 +560,6 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _keyboardMetricsStable = false;
     } else {
       if (opening) {
-        _floatingBeforeKeyboard = _floating;
         _keyboardSettled = _DSheetKeyboardTransitions.ready.value == true;
         _raiseForKeyboard = _keyboardSettled;
         _keyboardMinimumElapsed = false;
@@ -635,6 +636,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _measured = true;
       _travel.value = low;
       setState(() {});
+      // The first offstage layout establishes the detent. Let the visible
+      // viewport and its scroll metrics settle before deciding it is short.
+      return;
     }
     if (_raiseForKeyboard) {
       _raiseForKeyboard = false;
@@ -652,18 +656,26 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         (_nativeKeyboardFrame!.inset > 0 || _nativeKeyboardInset.isAnimating)) {
       return;
     }
+    if (_contentLayoutPending) {
+      // Descendants may publish their loaded rows after this frame. Measure
+      // those rows on the next layout instead of latching placeholder margins.
+      _contentLayoutPending = false;
+      _scheduleMeasure();
+      return;
+    }
     final more =
         (widget.sizeToContent && _travel.value > 1) ||
         _positions.any((p) => p.hasContentDimensions && p.extentAfter > 1);
-    // Once the keyboard is ready, margins animate alongside its placement and
-    // the sheet's rise. Direct drags retain their existing width and corners.
-    final floating = _keyboard > 0 && _keyboardSettled
-        ? true
-        : _dragging || _travel.isAnimating
-        ? _floating
-        : _keyboard > 0
-        ? _floatingBeforeKeyboard
-        : !more;
+    // Margins latch for this opening. Loading placeholders must not count as
+    // short content, and direct drags keep their existing width and corners.
+    final floating =
+        _floating ||
+        (_keyboard > 0 && _keyboardSettled) ||
+        (_keyboard == 0 &&
+            !widget.contentLoading &&
+            !_dragging &&
+            !_travel.isAnimating &&
+            !more);
     if (floating != _floating) {
       _floating = floating;
       if (_animate) {
@@ -922,7 +934,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         extendBehindKeyboard: false,
         child: MediaQuery(
           data: media.copyWith(
-            padding: EdgeInsets.only(bottom: safeBottom * (1 - _inset.value)),
+            // The viewport reaches the sheet's foot. Floating clearance is
+            // already applied outside the surface, above the home indicator.
+            padding: EdgeInsets.zero,
             viewInsets: EdgeInsets.zero,
           ),
           child: widget.presentation.content,

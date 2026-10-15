@@ -33,8 +33,11 @@ final sheetExamples = ComponentExamples(
       'Adaptive menu sheets open at 55% for tall content and can be pulled '
       'to their full height. They animate to 6px side margins and float above '
       'the home indicator at the end of their content, for short content, or '
-      'above the system keyboard. Set sizeToContent: false to keep a 55% '
-      'opening viewport through asynchronous loading and result changes. '
+      'above the system keyboard. Margins remain until the sheet is closed. '
+      'The scroll viewport extends through the bottom safe area. '
+      'Set sizeToContent: false to keep a 55% opening viewport through '
+      'asynchronous loading and result changes, and contentLoading: true '
+      'while waiting so placeholders do not trigger short-content margins. '
       'Other snap-point compositions use Drawer.',
   examples: [
     StyleguideExample(

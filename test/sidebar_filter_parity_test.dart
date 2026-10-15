@@ -600,6 +600,13 @@ void main() {
           await tester.pumpAndSettle();
           tester.view.viewInsets = FakeViewPadding.zero;
           await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).left, 6);
+          expect(tester.getRect(sheet).bottom, closeTo(804, 1));
+          await tester.tapAt(const Offset(8, 20));
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          await openFilters(tester);
+          expect(tester.getRect(sheet).left, 0);
           expect(tester.takeException(), isNull);
         }, variant: TargetPlatformVariant.only(platform));
       }
@@ -618,14 +625,28 @@ void main() {
             SharedAppearance(material: material),
           );
           await tester.pumpAndSettle();
-          await openFilters(tester);
+          await tester.tap(
+            find.descendant(
+              of: primaryMainContent,
+              matching: find.byKey(const ValueKey('topic-list-filter')),
+            ),
+          );
           final sheet = find.byType(DSheetContent);
+          for (var frame = 0; frame < 24; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            if (sheet.evaluate().isNotEmpty) {
+              expect(tester.getRect(sheet).left, 0);
+            }
+          }
+          await tester.pumpAndSettle();
           expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
+          expect(tester.getRect(sheet).left, 0);
           gate.complete();
           for (var frame = 0; frame < 24; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(sheet, findsOneWidget);
             expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
+            expect(tester.getRect(sheet).left, 0);
           }
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet).height, closeTo(phone.height * .55, 1));
@@ -667,6 +688,11 @@ void main() {
           final position = tester
               .state<ScrollableState>(results.first)
               .position;
+          expect(
+            tester.getRect(results.first).bottom,
+            closeTo(tester.getRect(sheet).bottom - 10 - DSpacing.xs, .1),
+            reason: 'Filters can scroll through the bottom safe area',
+          );
           await tester.tap(field);
           await tester.pump();
           expect(tester.getRect(sheet), opened);
@@ -785,7 +811,7 @@ void main() {
           expect(position.extentAfter, greaterThan(distance));
           await reverse.up();
           await tester.pumpAndSettle();
-          expect(tester.getRect(sheet).left, 0);
+          expect(tester.getRect(sheet).left, 6);
           await tester.enterText(field, 'posted');
           tester.view.viewInsets = FakeViewPadding(
             bottom: 300 * tester.view.devicePixelRatio,
