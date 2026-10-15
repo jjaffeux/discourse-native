@@ -33,7 +33,9 @@ final sheetExamples = ComponentExamples(
       'DSheetDragRegion lets a pinned header drag independently of scrolling. '
       'Adaptive menu sheets open at 55% for tall content and can be pulled '
       'to their full height. That upward gesture only expands the sheet; a '
-      'subsequent gesture scrolls its content. They animate to 6px side margins '
+      'subsequent gesture scrolls its content. Their 6px side margins, bottom '
+      'clearance, and rounded foot follow the upward pull and settle together. '
+      'They also animate to 6px side margins '
       'and float above the home indicator at the end of their content, for short '
       'content, or above the system keyboard. Margins remain until the sheet '
       'is closed. '
@@ -46,7 +48,7 @@ final sheetExamples = ComponentExamples(
     StyleguideExample(
       title: 'Adaptive menu sheet',
       description:
-          'Pull upward to expand; scroll to the end to reveal the rounded foot. '
+          'Pull upward to expand with floating margins and a rounded foot. '
           'Reserve a stable opening height for asynchronous results. '
           'The same surface floats above a visible keyboard.',
       code:

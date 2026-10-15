@@ -774,15 +774,22 @@ void main() {
             matching: find.byType(Scrollable),
           );
           final position = tester.state<ScrollableState>(results).position;
+          final openedTop = tester.getRect(sheet).top;
           await tester.fling(results, const Offset(0, -180), 5000);
           for (var frame = 0; frame < 24; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(position.pixels, 0);
             expect(position.isScrollingNotifier.value, isFalse);
-            expect(tester.getRect(sheet).left, 0);
+            final rect = tester.getRect(sheet);
+            expect(rect.left, greaterThan(0));
+            expect(
+              rect.left / 6,
+              closeTo((openedTop - rect.top) / (openedTop - 55), .01),
+            );
           }
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet).top, closeTo(55, 1));
+          expect(tester.getRect(sheet).left, 6);
           expect(position.maxScrollExtent, greaterThan(100));
           await tester.fling(results, const Offset(0, -60), 800);
           await tester.pumpAndSettle();
@@ -814,6 +821,8 @@ void main() {
         (tester) async {
           debugDisableShadows = false;
           addTearDown(() => debugDisableShadows = true);
+          tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+          tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
           final (shell: shell, api: _) = await fixture(
             tester,
             size: phone,
@@ -834,13 +843,6 @@ void main() {
           expect(tester.getRect(sheet).top, closeTo(phone.height * .45, 1));
           expect(textField(tester).focusNode!.hasFocus, isFalse);
           await capture(tester, 'filter-$platform-$material-collapsed');
-          await tester.drag(
-            find.byKey(const ValueKey('sheet-drag-handle')),
-            const Offset(0, -350),
-          );
-          await tester.pumpAndSettle();
-          final expandedTop = tester.getRect(sheet).top;
-          await capture(tester, 'filter-$platform-$material-expanded');
           final results = find.descendant(
             of: find.byType(DCommandList<String>),
             matching: find.byType(Scrollable),
@@ -848,6 +850,37 @@ void main() {
           final position = tester
               .state<ScrollableState>(results.first)
               .position;
+          final opened = tester.getRect(sheet);
+          void expectExpansion() {
+            final rect = tester.getRect(sheet);
+            final progress = (opened.top - rect.top) / (opened.top - 55);
+            expect(rect.left, closeTo(6 * progress, .01));
+            expect(rect.bottom, closeTo(844 - 40 * progress, .01));
+            expect(position.pixels, 0);
+          }
+
+          final drag = await tester.startGesture(
+            tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+          );
+          await drag.moveBy(const Offset(0, -40));
+          await drag.moveBy(const Offset(0, -100));
+          await tester.pump();
+          expect(tester.getRect(sheet).left, inExclusiveRange(0, 6));
+          expectExpansion();
+          await capture(tester, 'filter-$platform-$material-pulling');
+          await drag.moveBy(const Offset(0, -100));
+          await tester.pump();
+          await drag.up();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 64));
+          expectExpansion();
+          await capture(tester, 'filter-$platform-$material-settling');
+          await tester.pumpAndSettle();
+          final expandedTop = tester.getRect(sheet).top;
+          expect(expandedTop, 55);
+          expect(tester.getRect(sheet).left, 6);
+          expect(tester.getRect(sheet).bottom, 804);
+          await capture(tester, 'filter-$platform-$material-expanded');
           position.jumpTo(position.maxScrollExtent);
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet).left, 6);

@@ -361,6 +361,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _raiseForKeyboard = false;
   bool _expanded = true;
   bool _resizingInsets = false;
+  bool _expandingInsets = false;
   double _previousInset = 0;
   bool _keyboardSettled = false;
   bool _keyboardMinimumElapsed = false;
@@ -666,6 +667,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       }
     }
     _resizingInsets = false;
+    if (!_dragging && !_travel.isAnimating && !_inset.isAnimating) {
+      _expandingInsets = false;
+    }
     // Native timing already owns all geometry until hiding completes. Metrics
     // notifications must not restart those animations with the menu duration.
     if (_nativeKeyboardFrame != null &&
@@ -683,7 +687,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         (widget.sizeToContent && _travel.value > 1) ||
         _positions.any((p) => p.hasContentDimensions && p.extentAfter > 1);
     // Margins latch for this opening. Loading placeholders must not count as
-    // short content, and direct drags keep their existing width and corners.
+    // short content; expansion gestures drive their own inset progress.
     final floating =
         _floating ||
         (_keyboard > 0 && _keyboardSettled) ||
@@ -702,9 +706,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
   }
 
-  // End anchoring belongs to scroll-triggered margins. A keyboard resize
-  // keeps the current rows in place as its viewport shrinks.
-  bool _isResizingInsets() => _resizingInsets && _keyboard == 0;
+  // End anchoring belongs to scroll-triggered margins. Keyboard and expansion
+  // resizing keep the current rows in place as the viewport changes.
+  bool _isResizingInsets() =>
+      _resizingInsets && _keyboard == 0 && !_expandingInsets;
 
   bool _metrics(ScrollMetricsNotification notification) {
     _remember(notification.context, notification.metrics);
@@ -735,6 +740,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
           (box is RenderBox ? box.localToGlobal(Offset.zero).dy : 0),
     );
     _travel.stop();
+    if (!_floating) _inset.stop();
   }
 
   void _update(double delta, {bool allowExpand = true}) {
@@ -743,6 +749,11 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       allowExpand ? 0 : _startOffset,
       _travel.value + delta,
     );
+    if (allowExpand && !_floating && _low > 0) {
+      final progress = (1 - _travel.value / _low).clamp(0.0, 1.0);
+      if (progress > 0) _expandingInsets = true;
+      if (_inset.value != progress) _inset.value = progress;
+    }
   }
 
   double _consume(ScrollMetrics metrics, double delta) {
@@ -770,6 +781,25 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _stopScrollMomentum() => _expansionGesture;
 
   void _settle(double to) {
+    if (_keyboard == 0 && !_floating && _low > 0) {
+      // Finish (or undo) floating clearance with the same curve as travel.
+      // Only a committed expansion latches it for the rest of this opening.
+      if (to == 0) {
+        _floating = true;
+        _expandingInsets = true;
+      }
+      if (_animate) {
+        unawaited(
+          _inset.animateTo(
+            _floating ? 1 : 0,
+            duration: _duration,
+            curve: _curve,
+          ),
+        );
+      } else {
+        _inset.value = _floating ? 1 : 0;
+      }
+    }
     if (_animate) {
       unawaited(_travel.animateTo(to, duration: _duration, curve: _curve));
     } else {

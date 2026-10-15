@@ -471,6 +471,114 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final sizeToContent in [true, false]) {
+      for (final origin in ['handle', 'content']) {
+        testWidgets(
+          'upward $origin pull floats with expansion on $platform (content: $sizeToContent)',
+          (tester) async {
+            final scroll = ScrollController();
+            addTearDown(scroll.dispose);
+            await openMenu(
+              tester,
+              platform: platform,
+              scroll: scroll,
+              sizeToContent: sizeToContent,
+            );
+            final sheet = find.byType(DSheetContent);
+            final opened = tester.getRect(sheet);
+            void expectProgress() {
+              final current = tester.getRect(sheet);
+              final progress = (opened.top - current.top) / (opened.top - 55);
+              expect(current.left, closeTo(6 * progress, .01));
+              expect(current.right, closeTo(390 - 6 * progress, .01));
+              expect(
+                current.bottom,
+                closeTo(opened.bottom + (804 - opened.bottom) * progress, .01),
+              );
+              final surface = tester.widget<Material>(
+                find
+                    .descendant(of: sheet, matching: find.byType(Material))
+                    .first,
+              );
+              expect(
+                (surface.borderRadius as BorderRadius).bottomLeft.x,
+                closeTo(24 * progress, .01),
+              );
+              expect(
+                scroll.offset,
+                0,
+                reason: 'expanding keeps the current row',
+              );
+            }
+
+            final drag = await tester.startGesture(
+              tester.getCenter(
+                origin == 'handle'
+                    ? find.byKey(const ValueKey('sheet-drag-handle'))
+                    : find.byType(ListView),
+              ),
+            );
+            await drag.moveBy(const Offset(0, -40));
+            await tester.pump();
+            for (var step = 0; step < 5; step++) {
+              await drag.moveBy(const Offset(0, -35));
+              await tester.pump(const Duration(milliseconds: 16));
+              expect(tester.getRect(sheet).left, inExclusiveRange(0, 6));
+              expectProgress();
+            }
+            await drag.up();
+            await tester.pump();
+            for (var frame = 0; frame < 4; frame++) {
+              await tester.pump(const Duration(milliseconds: 32));
+              expectProgress();
+            }
+            await tester.pumpAndSettle();
+            expect(tester.getRect(sheet), const Rect.fromLTRB(6, 55, 384, 804));
+            expect(scroll.offset, 0);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+
+      testWidgets(
+        'cancelled expansion restores its spacing on $platform (content: $sizeToContent)',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openMenu(
+            tester,
+            platform: platform,
+            scroll: scroll,
+            sizeToContent: sizeToContent,
+          );
+          final sheet = find.byType(DSheetContent);
+          final opened = tester.getRect(sheet);
+          final drag = await tester.startGesture(
+            tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+          );
+          await drag.moveBy(const Offset(0, -40));
+          await drag.moveBy(const Offset(0, -100));
+          await tester.pump();
+          final pulled = tester.getRect(sheet);
+          expect(pulled.left, inExclusiveRange(0, 6));
+          await drag.moveBy(const Offset(0, 35));
+          await tester.pump();
+          expect(tester.getRect(sheet).left, inExclusiveRange(0, pulled.left));
+          await drag.cancel();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 80));
+          final restoring = tester.getRect(sheet);
+          expect(restoring.left, inExclusiveRange(0, pulled.left));
+          expect(
+            restoring.left / 6,
+            closeTo((opened.top - restoring.top) / (opened.top - 55), .01),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), opened);
+          expect(scroll.offset, 0);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
       for (final reducedMotion in [false, true]) {
         testWidgets('backdrop swipes share the adaptive threshold on $platform '
             '(content: $sizeToContent, reduced: $reducedMotion)', (
@@ -553,7 +661,7 @@ void main() {
       for (var frame = 0; frame < 20; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
         expect(scroll.offset, 0);
-        expect(tester.getRect(sheet).left, 0);
+        expect(tester.getRect(sheet).left, greaterThan(0));
       }
       await tester.pumpAndSettle();
       expect(tester.getRect(sheet).top, closeTo(55, 1));
@@ -743,7 +851,11 @@ void main() {
           const Duration(milliseconds: 400),
         );
         await tester.pumpAndSettle();
-        expect(tester.getRect(sheet), lower);
+        expect(
+          tester.getRect(sheet),
+          Rect.fromLTRB(6, lower.top, 384, lower.bottom - 40),
+          reason: 'committed expansion keeps its floating clearance',
+        );
         await tester.timedDrag(
           handle,
           const Offset(0, 200),
@@ -826,7 +938,7 @@ void main() {
 
     for (final reduced in [false, true]) {
       testWidgets(
-        'adaptive menu keeps margins after leaving its end on $platform (reduced: $reduced)',
+        'expanded menu keeps margins while scrolling on $platform (reduced: $reduced)',
         (tester) async {
           final scroll = ScrollController();
           addTearDown(scroll.dispose);
@@ -856,14 +968,12 @@ void main() {
           await expand(tester);
           final expanded = tester.getRect(sheet);
           expect(expanded.top, closeTo(55, 1));
-          expect(expanded.left, 0);
+          expect(expanded.left, 6);
           scroll.jumpTo(scroll.position.maxScrollExtent);
           await tester.pump();
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 100));
-          if (!reduced) {
-            expect(tester.getRect(sheet).left, inExclusiveRange(0, 6));
-          }
+          expect(tester.getRect(sheet).left, 6);
           await tester.pumpAndSettle();
           final floating = tester.getRect(sheet);
           expect(floating.left, 6);
@@ -968,7 +1078,7 @@ void main() {
       await drag.up();
       await tester.pumpAndSettle();
       expect(scroll.offset, 0);
-      expect(tester.getRect(sheet).left, 0);
+      expect(tester.getRect(sheet).left, 6);
       await tester.fling(find.byType(ListView), const Offset(0, -120), 1800);
       await tester.pump();
       final released = scroll.offset;
@@ -991,35 +1101,60 @@ void main() {
       expect(tester.getRect(sheet), before);
       expect(tester.takeException(), isNull);
     });
-    testWidgets(
-      'handle offers expansion and a downward pull dismisses on $platform',
-      (tester) async {
-        final scroll = ScrollController();
-        addTearDown(scroll.dispose);
-        final semantics = tester.ensureSemantics();
-        try {
-          await openMenu(tester, platform: platform, scroll: scroll);
-          expect(find.bySemanticsLabel('Expand'), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('sheet-drag-handle')));
-          await tester.pumpAndSettle();
-          expect(
-            tester.getRect(find.byType(DSheetContent)).top,
-            closeTo(55, 1),
-          );
-          expect(find.bySemanticsLabel('Collapse'), findsOneWidget);
-          await tester.timedDrag(
-            find.byKey(const ValueKey('sheet-drag-handle')),
-            const Offset(0, 600),
-            const Duration(milliseconds: 500),
-          );
-          await tester.pumpAndSettle();
-          expect(find.byType(DSheetContent), findsNothing);
-          expect(tester.takeException(), isNull);
-        } finally {
-          semantics.dispose();
-        }
-      },
-    );
+    for (final reduced in [false, true]) {
+      testWidgets(
+        'handle expansion floats and a downward pull dismisses on $platform (reduced: $reduced)',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          final semantics = tester.ensureSemantics();
+          try {
+            await openMenu(
+              tester,
+              platform: platform,
+              scroll: scroll,
+              reducedMotion: reduced,
+            );
+            expect(find.bySemanticsLabel('Expand'), findsOneWidget);
+            final sheet = find.byType(DSheetContent);
+            final opened = tester.getRect(sheet);
+            await tester.tap(find.byKey(const ValueKey('sheet-drag-handle')));
+            await tester.pump();
+            if (!reduced) {
+              await tester.pump(const Duration(milliseconds: 64));
+              final moving = tester.getRect(sheet);
+              expect(moving.left, inExclusiveRange(0, 6));
+              expect(
+                moving.left / 6,
+                closeTo((opened.top - moving.top) / (opened.top - 55), .01),
+              );
+            }
+            expect(
+              tester.getRect(sheet).left,
+              reduced ? 6 : inExclusiveRange(0, 6),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              tester.getRect(find.byType(DSheetContent)).top,
+              closeTo(55, 1),
+            );
+            expect(tester.getRect(sheet).left, 6);
+            expect(tester.getRect(sheet).bottom, 804);
+            expect(find.bySemanticsLabel('Collapse'), findsOneWidget);
+            await tester.timedDrag(
+              find.byKey(const ValueKey('sheet-drag-handle')),
+              const Offset(0, 600),
+              const Duration(milliseconds: 500),
+            );
+            await tester.pumpAndSettle();
+            expect(find.byType(DSheetContent), findsNothing);
+            expect(tester.takeException(), isNull);
+          } finally {
+            semantics.dispose();
+          }
+        },
+      );
+    }
   }
 
   for (final height in [600.0, 1000.0]) {

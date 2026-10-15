@@ -25,7 +25,8 @@ enum DSheetVariant {
   menu,
 
   /// A mobile menu with a lower opening height, pull-to-expand, and animated
-  /// clearance when the keyboard is visible or there is no more content below.
+  /// clearance while expanding, when the keyboard is visible, or when there
+  /// is no more content below.
   adaptiveMenu,
 }
 
