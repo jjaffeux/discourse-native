@@ -1875,48 +1875,60 @@ void main() {
       );
     }
 
-    testWidgets('one-line drafts keep their height at every zoom', (
-      tester,
-    ) async {
-      final fixture = await _fixture(
-        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
-      );
-      addTearDown(fixture.shell.dispose);
-      await tester.pumpWidget(_TestView(shell: fixture.shell));
-      await tester.pumpAndSettle();
-      final bar = find.byKey(const ValueKey('chat-composer'));
-
-      for (final zoom in AppTextScale.values) {
-        await fixture.shell.appSettings.setTextScale(zoom);
-        await tester.pumpAndSettle();
-        final emptyHeight = tester.getSize(bar).height;
-
-        await tester.enterText(_composerField(), 'Draft');
-        await tester.pump();
-        expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
-        expect(_field(tester).style!.fontSize, switch (defaultTargetPlatform) {
-          TargetPlatform.iOS || TargetPlatform.android => 13,
-          _ => DiscourseTypography.base,
-        });
-        final render = tester
-            .state<EditableTextState>(
-              find.descendant(
-                of: _composerField(),
-                matching: find.byType(EditableText),
-              ),
-            )
-            .renderEditable;
-        expect(
-          tester.getSize(_composerField()).height,
-          closeTo(render.preferredLineHeight, 1),
+    testWidgets(
+      'one-line drafts keep their reading size and height at every zoom',
+      (tester) async {
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
         );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(_TestView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+        final bar = find.byKey(const ValueKey('chat-composer'));
 
-        await tester.enterText(_composerField(), '');
-        await tester.pump();
-        expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
-        expect(tester.takeException(), isNull, reason: zoom.name);
-      }
-    });
+        for (final zoom in AppTextScale.values) {
+          await fixture.shell.appSettings.setTextScale(zoom);
+          await tester.pumpAndSettle();
+          final emptyHeight = tester.getSize(bar).height;
+
+          await tester.enterText(_composerField(), 'Draft');
+          await tester.pump();
+          expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
+          final fontSize = switch (defaultTargetPlatform) {
+            TargetPlatform.iOS ||
+            TargetPlatform.android => DiscourseTypography.mobileBase,
+            _ => DiscourseTypography.base,
+          };
+          expect(_field(tester).style!.fontSize, fontSize);
+          final render = tester
+              .state<EditableTextState>(
+                find.descendant(
+                  of: _composerField(),
+                  matching: find.byType(EditableText),
+                ),
+              )
+              .renderEditable;
+          expect(
+            render.textScaler.scale(render.text!.style!.fontSize!),
+            closeTo(fontSize * zoom.factor, .001),
+          );
+          expect(
+            tester.getSize(_composerField()).height,
+            closeTo(render.preferredLineHeight, 1),
+          );
+
+          await tester.enterText(_composerField(), '');
+          await tester.pump();
+          expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
+          expect(tester.takeException(), isNull, reason: zoom.name);
+        }
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.macOS,
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
 
     testWidgets(
       'grows with the draft, scrolls at the core viewport limit, and collapses after sending',

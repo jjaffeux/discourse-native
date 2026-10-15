@@ -3,6 +3,7 @@ import 'dart:ui' show SemanticsValidationResult;
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
+import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
@@ -76,8 +77,10 @@ class DInputGroup extends StatefulWidget {
 
   static TextStyle composerTextStyleOf(BuildContext context) =>
       Theme.of(context).textTheme.bodyLarge!.copyWith(
-        fontSize: 13,
-        height: 20 / 13,
+        // The dock keeps chrome at reference scale, so use the mobile reading
+        // baseline here while retaining its one-line editor geometry.
+        fontSize: DiscourseTypography.mobileBase,
+        height: 20 / DiscourseTypography.mobileBase,
         fontWeight: FontWeight.w400,
         letterSpacing: 0,
       );
