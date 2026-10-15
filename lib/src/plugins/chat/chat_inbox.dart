@@ -103,6 +103,7 @@ class ChatInboxFilterBar extends StatelessWidget {
         ),
         ChatBrowseFilter<ChatInboxKind>(
           key: const ValueKey('chat-inbox-kind-filter'),
+          mobileSheetVariant: DSheetVariant.adaptiveMenu,
           label: switch (filter.kind) {
             ChatInboxKind.all => context.l10n.all,
             ChatInboxKind.channels => context.l10n.channels,

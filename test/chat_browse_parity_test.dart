@@ -639,10 +639,14 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
   };
   expect(find.byType(DSheetContent), mobile ? findsOneWidget : findsNothing);
   if (mobile) {
-    expect(
-      tester.widget<DSheetContent>(find.byType(DSheetContent)).side,
-      DSheetSide.bottom,
-    );
+    final sheet = tester.widget<DSheetContent>(find.byType(DSheetContent));
+    expect(sheet.side, DSheetSide.bottom);
+    if (key == 'chat-inbox-kind-filter') {
+      expect(find.text('Conversation type'), findsNothing);
+      expect(find.byType(DSheetHeader), findsNothing);
+      expect(sheet.showCloseButton, isFalse);
+      expect(sheet.semanticLabel, 'Conversation type');
+    }
   }
   expect(find.byType(DDropdownMenuContent), findsOneWidget);
   await _capture(tester, key);

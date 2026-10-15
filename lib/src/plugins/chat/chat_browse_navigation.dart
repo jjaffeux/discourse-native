@@ -74,6 +74,7 @@ class ChatBrowseFilter<T> extends StatelessWidget {
     required this.onChanged,
     this.icon,
     this.emphasized = false,
+    this.mobileSheetVariant = DSheetVariant.standard,
   });
 
   final String label;
@@ -83,10 +84,12 @@ class ChatBrowseFilter<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final Widget? icon;
   final bool emphasized;
+  final DSheetVariant mobileSheetVariant;
 
   @override
   Widget build(BuildContext context) => DDropdownMenu(
     sheetOnMobile: true,
+    mobileSheetVariant: mobileSheetVariant,
     content: DDropdownMenuContent(
       width: 220,
       align: DPopoverAlign.start,
