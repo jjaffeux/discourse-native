@@ -92,6 +92,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   TopicFilterController? _filter;
   List<String> _tokens = const [];
   bool _updatingTokenDraft = false;
+  bool _selectingSheetSuggestion = false;
   int? _categoryParentId;
   bool _visible = true;
   bool _visibilityDismissScheduled = false;
@@ -408,7 +409,19 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   void _onFilterChanged() {
+    // Native command rows own their highlight. Moving between them does not
+    // change the query, results, tokens, or other sheet content.
+    if (_selectingSheetSuggestion) return;
     if (mounted) setState(() {});
+  }
+
+  void _selectSheetSuggestion(int index) {
+    _selectingSheetSuggestion = true;
+    try {
+      filter.select(index);
+    } finally {
+      _selectingSheetSuggestion = false;
+    }
   }
 
   void _moveSelection(int delta) {
@@ -418,7 +431,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       filter.suggestions.length - 1,
     );
     if (widget.embedded) {
-      filter.select(index);
+      _selectSheetSuggestion(index);
       _sheetCommand.highlight(_commandValue(filter.suggestions[index]));
     } else {
       _combobox.highlight(filter.suggestions[index]);

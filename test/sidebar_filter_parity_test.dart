@@ -98,6 +98,7 @@ const filterMenuOptions = [
 Future<({ShellController shell, FakeDiscourseApi api})> fixture(
   WidgetTester tester, {
   Size size = desktop,
+  List<TopicCategory> categories = const [parent, child, sibling, other],
   List<SidebarTag> knownTags = tags,
   Map<String, List<TopicCategory>> categorySearches = const {},
   Completer<void>? filterOptionsGate,
@@ -107,7 +108,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> fixture(
 }) async {
   final api = FakeDiscourseApi(
     user: user,
-    categoryList: const [parent, child, sibling, other],
+    categoryList: categories,
     categorySiteTopTags: knownTags,
     categorySearches: categorySearches,
     siteConfigs: const {site: config},

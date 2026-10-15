@@ -30,9 +30,11 @@ typedef DCommandFilter =
 class DCommandController<T> extends ChangeNotifier {
   DCommandController({String initialQuery = '', T? initialValue})
     : _query = initialQuery,
+      _queryChanges = ValueNotifier(initialQuery),
       _value = initialValue;
 
   String _query;
+  final ValueNotifier<String> _queryChanges;
   T? _value;
   bool _disposed = false;
   Object? _attachment;
@@ -110,7 +112,10 @@ class DCommandController<T> extends ChangeNotifier {
   void _setQuery(String query) {
     if (_query == query) return;
     _query = query;
-    if (!_disposed) notifyListeners();
+    if (!_disposed) {
+      _queryChanges.value = query;
+      notifyListeners();
+    }
   }
 
   void _setValue(T? value) {
@@ -211,6 +216,7 @@ class DCommandController<T> extends ChangeNotifier {
     _handleKey = null;
     _entries = const [];
     _composingInputs.clear();
+    _queryChanges.dispose();
     super.dispose();
   }
 }
@@ -639,7 +645,7 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
   Widget build(BuildContext context) {
     final scope = _DCommandScope.of<T>(context);
     return AnimatedBuilder(
-      animation: scope.controller,
+      animation: scope.controller._queryChanges,
       builder: (context, _) {
         if (_editing.text != scope.controller.query) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -777,7 +783,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
   Widget build(BuildContext context) {
     final scope = _DCommandScope.of<T>(context);
     return AnimatedBuilder(
-      animation: scope.controller,
+      animation: scope.controller._queryChanges,
       builder: (context, _) {
         final resultNodes = <_DResultNode<T>>[];
         final emptyNodes = <DCommandEmpty>[];
@@ -1093,6 +1099,37 @@ class _DCommandItemSurface<T> extends StatefulWidget {
 
 class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
   bool _focused = false;
+  late final ValueNotifier<bool> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = ValueNotifier(
+      widget.scope.controller.value == widget.item.value,
+    );
+    widget.scope.controller.addListener(_syncHighlight);
+  }
+
+  void _syncHighlight() {
+    _selected.value = widget.scope.controller.value == widget.item.value;
+  }
+
+  @override
+  void didUpdateWidget(_DCommandItemSurface<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scope.controller != widget.scope.controller) {
+      oldWidget.scope.controller.removeListener(_syncHighlight);
+      widget.scope.controller.addListener(_syncHighlight);
+    }
+    _syncHighlight();
+  }
+
+  @override
+  void dispose() {
+    widget.scope.controller.removeListener(_syncHighlight);
+    _selected.dispose();
+    super.dispose();
+  }
 
   void _activate() {
     if (widget.item.enabled) {
@@ -1105,9 +1142,9 @@ class _DCommandItemSurfaceState<T> extends State<_DCommandItemSurface<T>> {
     final item = widget.item;
     final tokens = DTokens.of(context);
     return AnimatedBuilder(
-      animation: widget.scope.controller,
+      animation: _selected,
       builder: (context, _) {
-        final selected = widget.scope.controller.value == item.value;
+        final selected = _selected.value;
         final interactive = item.enabled && selected;
         final radius = BorderRadius.circular(DControlStyle.rowRadius);
         Widget row = interactiveRowSurface(

@@ -419,7 +419,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         final index = filter.suggestions.indexWhere(
           (item) => _commandValue(item) == value,
         );
-        if (index >= 0) filter.select(index);
+        if (index >= 0) _selectSheetSuggestion(index);
       },
       onQueryChanged: (value) {
         if (widget.onlyKey != null) _setTokenDraft('${widget.onlyKey}:$value');
@@ -439,36 +439,38 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              if (_tokens.isNotEmpty)
-                Flexible(
-                  flex: 2,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 90),
-                    child: DScrollArea(child: _buildTokens()),
+          RepaintBoundary(
+            child: Row(
+              children: [
+                if (_tokens.isNotEmpty)
+                  Flexible(
+                    flex: 2,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 90),
+                      child: DScrollArea(child: _buildTokens()),
+                    ),
+                  ),
+                Expanded(
+                  child: Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onKeyEvent: _onKey,
+                    child: DCommandInput<String>(
+                      borderless: true,
+                      autofocus: widget.focusOnOpen,
+                      key: widget.inputKey,
+                      controller: widget.onlyKey == null ? filter.text : null,
+                      onEmptyBackspace: widget.onlyKey == null
+                          ? null
+                          : _stepBackScope,
+                      focusNode: _focus,
+                      placeholder: widget.hintText,
+                      semanticLabel: context.l10n.topicFilterQuery,
+                    ),
                   ),
                 ),
-              Expanded(
-                child: Focus(
-                  canRequestFocus: false,
-                  skipTraversal: true,
-                  onKeyEvent: _onKey,
-                  child: DCommandInput<String>(
-                    borderless: true,
-                    autofocus: widget.focusOnOpen,
-                    key: widget.inputKey,
-                    controller: widget.onlyKey == null ? filter.text : null,
-                    onEmptyBackspace: widget.onlyKey == null
-                        ? null
-                        : _stepBackScope,
-                    focusNode: _focus,
-                    placeholder: widget.hintText,
-                    semanticLabel: context.l10n.topicFilterQuery,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           const DSeparator(),
           if (option?.type == 'date' &&

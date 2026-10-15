@@ -91,6 +91,63 @@ Widget _command({
 );
 
 void main() {
+  testWidgets('highlight work stays bounded in long command lists', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const DCommandInput<String>(),
+              DCommandList<String>(
+                children: [
+                  for (var i = 0; i < 500; i++)
+                    DCommandItem<String>(
+                      value: 'Row $i',
+                      child: Text('Row $i'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    var builds = 0;
+    var listBuilds = 0;
+    var inputBuilds = 0;
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      builds++;
+      if (element.widget is DCommandList<String>) listBuilds++;
+      if (element.widget is DCommandInput<String>) inputBuilds++;
+    };
+    try {
+      for (final value in ['Row 1', 'Row 2', 'Row 3']) {
+        builds = 0;
+        controller.highlight(value);
+        await tester.pump();
+        expect(controller.value, value);
+        expect(
+          builds,
+          lessThan(200),
+          reason: 'Only the old and new highlight should rebuild.',
+        );
+      }
+      expect(listBuilds, 0);
+      expect(inputBuilds, 0);
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugOnRebuildDirtyWidget = previous;
+    }
+  });
   testWidgets(
     'inline command input leaves focus idle and retains IME and selection',
     (tester) async {
