@@ -64,6 +64,7 @@ void main() {
                   body: DPageSurface.scrollable(
                     framed: false,
                     hideHeaderOnScroll: true,
+                    measureCompactHeader: true,
                     limitContentSize: true,
                     header: header(false),
                     compactHeader: header(true),

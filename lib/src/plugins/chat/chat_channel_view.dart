@@ -327,6 +327,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         builder: (context, constraints) => DPageSurface.scrollable(
           framed: false,
           hideHeaderOnScroll: true,
+          measureCompactHeader: true,
           identity: (widget.siteUrl, widget.channelId, widget.chat),
           // Large text can make the identity and metadata taller than the page
           // minus the composer. Keep the transcript reachable by letting the

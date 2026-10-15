@@ -530,7 +530,26 @@ void main() {
         threadPage: _workspaceMessagesPage(101, threadId: _threadId),
       );
       addTearDown(fixture.shell.dispose);
-      await _pumpWorkspace(tester, fixture.shell, width: width, render: true);
+      await _pumpWorkspace(
+        tester,
+        fixture.shell,
+        width: width,
+        render: true,
+        platform: width < 500 ? TargetPlatform.iOS : TargetPlatform.macOS,
+      );
+      expect(
+        find.byKey(const ValueKey('chat-thread-compact-header')),
+        findsOneWidget,
+      );
+      await _exportWorkspace(tester, '${width.toInt()}-latest');
+      for (final list in tester.widgetList<SuperListView>(
+        find.byType(SuperListView),
+      )) {
+        list.controller!.position.jumpTo(
+          list.controller!.position.maxScrollExtent,
+        );
+      }
+      await tester.pumpAndSettle();
       expect(
         find.text('Thread in #Support', findRichText: true),
         findsOneWidget,
@@ -542,7 +561,8 @@ void main() {
         of: find.byType(ChatThreadView),
         matching: find.byType(SuperListView),
       );
-      tester.widget<SuperListView>(list).controller!.position.jumpTo(700);
+      final position = tester.widget<SuperListView>(list).controller!.position;
+      position.jumpTo(position.maxScrollExtent - 700);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('chat-thread-compact-header')),

@@ -436,6 +436,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       child: DPageSurface.scrollable(
         framed: false,
         hideHeaderOnScroll: true,
+        measureCompactHeader: true,
         identity: (widget.siteUrl, widget.target, widget.chat),
         header: Column(
           mainAxisSize: MainAxisSize.min,

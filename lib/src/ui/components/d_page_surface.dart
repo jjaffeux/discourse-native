@@ -47,6 +47,7 @@ class DPageSurface extends StatefulWidget {
        header = _PageTitle(child: title),
        headerControls = _PageControls(child: controls),
        compactHeader = null,
+       measureCompactHeader = false,
        tabs = null,
        framed = false,
        border = false,
@@ -60,6 +61,7 @@ class DPageSurface extends StatefulWidget {
     super.key,
     this.header,
     this.compactHeader,
+    this.measureCompactHeader = false,
     this.headerControls,
     this.tabs,
     this.footer,
@@ -86,6 +88,7 @@ class DPageSurface extends StatefulWidget {
     super.key,
     this.header,
     this.compactHeader,
+    this.measureCompactHeader = false,
     this.headerControls,
     this.tabs,
     this.footer,
@@ -114,6 +117,13 @@ class DPageSurface extends StatefulWidget {
   /// Alternative reader layout after scrolling past the difference between
   /// its full and compact measured extents. The full spacer remains reserved.
   final Widget? compactHeader;
+
+  /// Measures an inert, offstage copy of [compactHeader] before its first use.
+  /// This makes the switch follow its actual width and text scaling instead of
+  /// the initial 76px estimate. Enable for headers that can mount an independent
+  /// copy; shared GlobalKeys or externally owned control state must not be used
+  /// in both layouts. The visible header retains its own element and state.
+  final bool measureCompactHeader;
 
   /// A control bar below the title that remains visible when [header] retracts.
   /// The title's original space remains reserved above the scrolling body, so
@@ -203,6 +213,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     with TickerProviderStateMixin {
   final _headerFocus = FocusNode(canRequestFocus: false);
   final _headerKey = GlobalKey();
+  final _compactMeasureKey = GlobalKey();
   final _headerGeometry = DPageHeaderGeometry._();
   Widget? _builtBody;
   late final HeaderMotion _motion = HeaderMotion(this)
@@ -409,6 +420,14 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    if (widget.measureCompactHeader) {
+      _updateCompact(
+        notification.metrics,
+        notification.depth,
+        notification.context,
+      );
+    }
+
     if (widget.adaptiveBodyBuilder != null &&
         notification.metrics.maxScrollExtent <=
             notification.metrics.minScrollExtent) {
@@ -482,21 +501,36 @@ class _DPageSurfaceState extends State<DPageSurface>
     _scrollChrome?.reveal();
   }
 
-  void _updateCompact(ScrollNotification notification) {
+  void _updateCompact(
+    ScrollMetrics metrics,
+    int depth,
+    BuildContext? scrollContext,
+  ) {
     if (_headerFocus.hasFocus ||
         widget.compactHeader == null ||
-        notification.metrics.axis != Axis.vertical ||
-        !_isPageScroll(notification.depth, notification.context)) {
+        metrics.axis != Axis.vertical ||
+        !_isPageScroll(depth, scrollContext)) {
       return;
     }
     final box =
         _headerKey.currentContext?.findRenderObject()
             as _RenderScrollHeaderExtent?;
-    if (_compact && box != null) _compactHeight = box.naturalHeight;
+    if (_compact && box != null) {
+      _compactHeight = box.naturalHeight;
+    } else if (widget.measureCompactHeader) {
+      final measurement =
+          _compactMeasureKey.currentContext?.findRenderObject() as RenderBox?;
+      if (measurement != null && measurement.hasSize) {
+        _compactHeight =
+            measurement.size.height +
+            (widget.headerControls == null ? 0 : box?.controlsHeight ?? 0);
+      }
+    }
     final floor = math.max(0.0, _headerGeometry.naturalExtent - _compactHeight);
-    final compact =
-        notification.metrics.pixels - notification.metrics.minScrollExtent >
-        floor;
+    final top = metrics.axisDirection == AxisDirection.up
+        ? metrics.maxScrollExtent - metrics.pixels
+        : metrics.pixels - metrics.minScrollExtent;
+    final compact = top > floor;
     if (compact == _compact) return;
     _compactTimer?.cancel();
     void change() {
@@ -529,7 +563,11 @@ class _DPageSurfaceState extends State<DPageSurface>
       notification.depth,
       notification.context,
     );
-    _updateCompact(notification);
+    _updateCompact(
+      notification.metrics,
+      notification.depth,
+      notification.context,
+    );
     if (widget.foldTitleAtTop ||
         _scrollChrome != null ||
         _header == null ||
@@ -628,34 +666,58 @@ class _DPageSurfaceState extends State<DPageSurface>
               ? null
               : fixedContent(widget.headerControls!)
         : fixedContent(
-            ClipRect(
-              child: _ScrollHeaderExtent(
-                key: _headerKey,
-                progress: _progress,
-                suppression: _suppression,
-                enabled: widget.hideHeaderOnScroll,
-                floating: (widget.bodyBuilder != null),
-                releaseSpace: widget.header is _PageTitle,
-                geometry: _headerGeometry,
-                controls: widget.headerControls,
-                child: ExcludeSemantics(
-                  excluding: _gone,
-                  child: ExcludeFocus(
-                    excluding: _gone,
-                    // The extent and clip restrict hits to the visible slice.
-                    child: TickerMode(
-                      enabled: !_gone,
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Focus(
-                          focusNode: _headerFocus,
-                          child: RepaintBoundary(child: _header!),
+            Stack(
+              fit: StackFit.passthrough,
+              children: [
+                if (widget.measureCompactHeader &&
+                    !_compact &&
+                    widget.compactHeader != null)
+                  Offstage(
+                    child: ExcludeSemantics(
+                      child: ExcludeFocus(
+                        child: IgnorePointer(
+                          child: TickerMode(
+                            enabled: false,
+                            child: SizedBox(
+                              key: _compactMeasureKey,
+                              width: double.infinity,
+                              child: widget.compactHeader,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ClipRect(
+                  child: _ScrollHeaderExtent(
+                    key: _headerKey,
+                    progress: _progress,
+                    suppression: _suppression,
+                    enabled: widget.hideHeaderOnScroll,
+                    floating: (widget.bodyBuilder != null),
+                    releaseSpace: widget.header is _PageTitle,
+                    geometry: _headerGeometry,
+                    controls: widget.headerControls,
+                    child: ExcludeSemantics(
+                      excluding: _gone,
+                      child: ExcludeFocus(
+                        excluding: _gone,
+                        // The extent and clip restrict hits to the visible slice.
+                        child: TickerMode(
+                          enabled: !_gone,
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: Focus(
+                              focusNode: _headerFocus,
+                              child: RepaintBoundary(child: _header!),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
           );
     final suppressed = widget.headerSuppressed?.value == true;
@@ -1094,6 +1156,7 @@ class _RenderScrollHeaderExtent extends RenderBox
   double visibleHeight = 0;
   double titleHeight = 0;
   double layoutHeight = 0;
+  double get controlsHeight => childCount > 1 ? lastChild!.size.height : 0;
 
   @override
   void setupParentData(RenderBox child) {
