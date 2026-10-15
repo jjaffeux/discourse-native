@@ -7,6 +7,7 @@ import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_dropdown_menu.dart';
+import 'd_sheet.dart';
 
 /// One notification level, with its explanation and bell artwork.
 @immutable
@@ -50,6 +51,8 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
     required this.semanticLabel,
     this.showLabel = false,
     this.showChevron = false,
+    this.sheetOnMobile = false,
+    this.mobileSheetVariant = DSheetVariant.standard,
     this.size = DButtonSize.small,
     this.density = DButtonDensity.standard,
     this.variant,
@@ -65,6 +68,10 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
   final String semanticLabel;
   final bool showLabel;
   final bool showChevron;
+
+  /// Delegates mobile presentation to Dropdown Menu's existing bottom sheet.
+  final bool sheetOnMobile;
+  final DSheetVariant mobileSheetVariant;
   final DButtonSize size;
   final DButtonDensity density;
 
@@ -89,6 +96,8 @@ class DNotificationLevelMenu<T> extends StatelessWidget {
     final selected = options.singleWhere((option) => option.value == value);
     final label = '$semanticLabel: ${selected.label}';
     return DDropdownMenu(
+      sheetOnMobile: sheetOnMobile,
+      mobileSheetVariant: mobileSheetVariant,
       content: DDropdownMenuContent(
         semanticLabel: semanticLabel,
         width: 336,

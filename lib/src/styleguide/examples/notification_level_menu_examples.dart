@@ -13,8 +13,9 @@ final notificationLevelMenuExamples = ComponentExamples(
       'account ownership stay with the caller. The selected level has a '
       'checkmark and checked semantics. Both trigger styles announce the current '
       'level. Enter or Space opens the menu; arrows, Home, End, and typeahead '
-      'navigate; Escape dismisses and returns focus. Touch uses the same '
-      'dropdown with scrolling and collision handling. Change the widget key '
+      'navigate; Escape dismisses and returns focus. sheetOnMobile delegates '
+      'to Dropdown Menu\'s existing sheet; mobileSheetVariant selects its '
+      'Native presentation. Change the widget key '
       'when its target or account changes. Use variant to match an outlined '
       'button group or another action surface. Tracking and Watching retain '
       'the chosen button variant; selection never adds a contextual tint. '
@@ -60,18 +61,22 @@ const DNotificationLevelOption(
     ),
     StyleguideExample(
       title: 'Bell with disclosure',
-      description: 'A compact outlined trigger for topic-list toolbars.',
+      description:
+          'A compact outlined trigger with an adaptive bottom sheet on mobile.',
       states: const ['Bell', 'Chevron', 'Outline', 'Selection'],
       code: '''DNotificationLevelMenu<int>(
   value: level, options: topicOptions,
   semanticLabel: 'Topic notifications',
   showChevron: true,
+  sheetOnMobile: true,
+  mobileSheetVariant: DSheetVariant.adaptiveMenu,
   size: DButtonSize.small,
   variant: DButtonVariant.outline,
   onChanged: (value) => setState(() => level = value),
 )''',
       builder: (_) => const _NotificationExample(
         showChevron: true,
+        sheetOnMobile: true,
         variant: DButtonVariant.outline,
       ),
     ),
@@ -142,6 +147,7 @@ class _NotificationExample extends StatefulWidget {
   const _NotificationExample({
     this.showLabel = false,
     this.showChevron = false,
+    this.sheetOnMobile = false,
     this.category = false,
     this.thread = false,
     this.disabled = false,
@@ -152,6 +158,7 @@ class _NotificationExample extends StatefulWidget {
 
   final bool showLabel;
   final bool showChevron;
+  final bool sheetOnMobile;
   final bool category;
   final bool thread;
   final bool disabled;
@@ -225,6 +232,8 @@ class _NotificationExampleState extends State<_NotificationExample> {
           : 'Topic notifications',
       showLabel: widget.showLabel,
       showChevron: widget.showChevron,
+      sheetOnMobile: widget.sheetOnMobile,
+      mobileSheetVariant: DSheetVariant.adaptiveMenu,
       variant: widget.customColors ? DButtonVariant.outline : widget.variant,
       backgroundColor: widget.customColors ? tokens.surface : null,
       borderColor: widget.customColors

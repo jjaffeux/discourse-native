@@ -6,6 +6,7 @@ import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/notification_level_menu_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,6 +41,61 @@ Finder _option(int value) => find.byWidgetPredicate(
 );
 
 void main() {
+  testWidgets(
+    'mobile presentation reuses the Native dropdown sheet and restores focus',
+    (tester) async {
+      final platform = defaultTargetPlatform;
+      final mobile = platform != TargetPlatform.macOS;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final changes = <int>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: Center(
+              child: DNotificationLevelMenu<int>(
+                value: 1,
+                options: _options,
+                semanticLabel: 'Topic notifications',
+                sheetOnMobile: true,
+                mobileSheetVariant: DSheetVariant.adaptiveMenu,
+                onChanged: changes.add,
+              ),
+            ),
+          ),
+        ),
+      );
+      final trigger = find.byType(DButton);
+      final focus = tester.widget<DButton>(trigger).focusNode!;
+      focus.requestFocus();
+      await tester.pump();
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(DSheetContent),
+        mobile ? findsOneWidget : findsNothing,
+      );
+      if (mobile) {
+        final sheet = tester.widget<DSheetContent>(find.byType(DSheetContent));
+        expect(sheet.side, DSheetSide.bottom);
+        expect(sheet.variant, DSheetVariant.adaptiveMenu);
+      }
+      expect(find.text('No notifications; hidden from Latest'), findsOneWidget);
+      await tester.tap(_option(0));
+      await tester.pumpAndSettle();
+      expect(changes, [0]);
+      expect(find.byType(DDropdownMenuContent), findsNothing);
+      expect(focus.hasFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+    }),
+  );
   for (final showLabel in [false, true]) {
     testWidgets(
       'notification variants use shared button paint (label: $showLabel)',
@@ -371,7 +427,18 @@ void main() {
             await tester.tap(find.byType(DButton));
             await tester.pumpAndSettle();
           }
-          final menuRect = tester.getRect(find.byType(DDropdownMenuContent));
+          if (find.byType(DSheetContent).evaluate().isNotEmpty) {
+            await tester.drag(
+              find.byKey(const ValueKey('sheet-drag-handle')),
+              const Offset(0, -600),
+            );
+            await tester.pumpAndSettle();
+          }
+          final menuRect = tester.getRect(
+            find.byType(DSheetContent).evaluate().isEmpty
+                ? find.byType(DDropdownMenuContent)
+                : find.byType(DSheetContent),
+          );
           expect(menuRect.left, greaterThanOrEqualTo(0));
           expect(menuRect.right, lessThanOrEqualTo(320));
           expect(menuRect.bottom, lessThanOrEqualTo(640));
@@ -380,7 +447,11 @@ void main() {
         if (example.title != 'Disabled') {
           await tester.sendKeyEvent(LogicalKeyboardKey.end);
           await tester.pumpAndSettle();
-          final popup = tester.getRect(find.byType(DDropdownMenuContent));
+          final popup = tester.getRect(
+            find.byType(DSheetContent).evaluate().isEmpty
+                ? find.byType(DDropdownMenuContent)
+                : find.byType(DSheetContent),
+          );
           final last = tester.getRect(
             _option(example.title == 'Thread notifications' ? 3 : 0),
           );

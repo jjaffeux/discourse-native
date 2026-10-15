@@ -734,6 +734,8 @@ class TopicNotificationLevelButton extends StatelessWidget {
         return DNotificationLevelMenu<TopicNotificationLevel>(
           key: ValueKey((controller, siteUrl, topic.id, lease.session)),
           semanticLabel: context.l10n.topicNotifications,
+          sheetOnMobile: true,
+          mobileSheetVariant: DSheetVariant.adaptiveMenu,
           buttonKey: buttonKey,
           showLabel: showLabel,
           showChevron: showChevron,

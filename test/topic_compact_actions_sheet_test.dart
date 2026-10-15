@@ -62,7 +62,7 @@ void topicCompactActionsSheetTests({
     (const Size(320, 740), 2.0),
   ]) {
     testWidgets(
-      'topic bookmark and assignment menus use mobile sheets at ${size.width} $scale',
+      'topic bookmark, bell and assignment menus use mobile sheets at ${size.width} $scale',
       (tester) async {
         tester.platformDispatcher.textScaleFactorTestValue = scale;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -99,6 +99,31 @@ void topicCompactActionsSheetTests({
         await tester.tap(find.byTooltip('Close').last);
         await tester.pumpAndSettle();
         expect(find.byType(DSheetContent), findsOneWidget);
+
+        final bell = find.byKey(
+          const ValueKey('topic-header-notification-button'),
+        );
+        await tester.tap(bell);
+        await tester.pumpAndSettle();
+        expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
+        expect(
+          tester.widget<DSheetContent>(sheet).variant,
+          DSheetVariant.adaptiveMenu,
+        );
+        expect(find.text('Watching').hitTestable(), findsOneWidget);
+        await _capture(tester, 'bell-${size.width.toInt()}-$scale', size);
+        await tester.tap(find.text('Watching'));
+        await tester.pumpAndSettle();
+        expect(api.topicNotificationLevelsUpdated, [
+          (topicId: 7, notificationLevel: TopicNotificationLevel.watching),
+        ]);
+        expect(find.byType(DDropdownMenuContent), findsNothing);
+        expect(find.byType(DSheetContent), findsOneWidget);
+        await tester.tap(bell);
+        await tester.pumpAndSettle();
+        await tester.tapAt(const Offset(20, 100));
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsNothing);
 
         await tester.tap(find.byKey(const Key('assign-topic-header')));
         await tester.pumpAndSettle();
