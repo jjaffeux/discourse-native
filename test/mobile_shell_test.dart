@@ -1964,7 +1964,8 @@ void main() {
   _mobileTest('root action changes preserve their live glass backdrop', (
     tester,
   ) async {
-    await pumpMobileShellFixture(tester);
+    // Keep destinations visible while inspecting each transition frame.
+    await pumpMobileShellFixture(tester, size: const Size(700, 844));
     final glass = DMaterialTheme.glassOf(tester.element(_bar));
     await _tapDockTab(tester, 'panel/chat');
     for (final (tab, key) in [
@@ -2097,7 +2098,10 @@ void main() {
   _mobileTest(
     'matching compose glyphs stay still and changed glyphs transition',
     (tester) async {
-      final shell = await pumpMobileShellFixture(tester);
+      final shell = await pumpMobileShellFixture(
+        tester,
+        size: const Size(700, 844),
+      );
       final scales = find.descendant(
         of: find.byType(DActionTransition),
         matching: find.byType(ScaleTransition),
@@ -2465,6 +2469,75 @@ void main() {
     },
   );
 
+  for (final material in DAppearanceMaterial.values) {
+    _mobileTest('More opens a bottom sheet in ${material.name}', (
+      tester,
+    ) async {
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      final shell = await pumpMobileShellFixture(tester);
+      await shell.forumSettings.setShared(
+        shell.forumSettings.shared.copyWith(material: material),
+      );
+      await tester.pumpAndSettle();
+      final more = find.byKey(const ValueKey('mobile-mode-more'));
+      final content = shell.currentContent;
+      final tab = shell.mobileNavigation.tab;
+      final menu = find.byType(DDropdownMenuContent);
+      final sheet = find.ancestor(
+        of: menu,
+        matching: find.byType(DSheetContent),
+      );
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+
+      expect(sheet, findsOneWidget);
+      expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
+      expect(
+        tester.widget<DSheetContent>(sheet).variant,
+        DSheetVariant.adaptiveMenu,
+      );
+      final bounds = tester.getRect(sheet);
+      expect(bounds.left, 6);
+      expect(bounds.right, phone.width - 6);
+      expect(bounds.bottom, phone.height - 34 - 6);
+      expect(tester.widget<DMobileDockItem>(more).expanded, isTrue);
+      expect(shell.currentContent, same(content));
+      expect(shell.mobileNavigation.tab, tab);
+      for (final label in [
+        'Messages',
+        'Users',
+        'Groups',
+        'Badges',
+        'Bookmarks',
+      ]) {
+        expect(
+          find.descendant(of: sheet, matching: find.text(label)).hitTestable(),
+          findsOneWidget,
+        );
+      }
+      final handle = find.descendant(
+        of: sheet,
+        matching: find.byKey(const ValueKey('sheet-drag-handle')),
+      );
+      expect(tester.getSize(handle), const Size(36, 5));
+
+      await tester.tapAt(Offset(phone.width / 2, bounds.top - 30));
+      await tester.pumpAndSettle();
+      expect(menu, findsNothing);
+      expect(tester.widget<DMobileDockItem>(more).expanded, isFalse);
+
+      await tester.tap(more);
+      await tester.pumpAndSettle();
+      await tester.drag(handle, const Offset(0, 400));
+      await tester.pumpAndSettle();
+      expect(menu, findsNothing);
+      expect(tester.widget<DMobileDockItem>(more).expanded, isFalse);
+      expect(shell.currentContent, same(content));
+      expect(shell.mobileNavigation.tab, tab);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   _mobileTest('More opens groups, badges and bookmarks using shared pages', (
     tester,
   ) async {
@@ -2492,6 +2565,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(shell.currentContent?.id, id);
       expect(shell.mobileNavigation.tab, MobileTab.destination(id));
       expect(
@@ -2719,7 +2793,11 @@ void main() {
   _mobileTest(
     'tab movement carries the panel in visual order and keeps chrome still',
     (tester) async {
-      await pumpMobileShellFixture(tester, events: true);
+      await pumpMobileShellFixture(
+        tester,
+        events: true,
+        size: const Size(1024, 844),
+      );
       final header = tester.getRect(_header);
       final bar = tester.getRect(_bar);
       final panel = find.byKey(const ValueKey('mobile-content-panel'));

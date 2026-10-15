@@ -615,6 +615,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ),
       ],
       more: DDropdownMenu(
+        sheetOnMobile: true,
+        mobileSheetVariant: DSheetVariant.adaptiveMenu,
         content: DDropdownMenuContent(
           semanticLabel: context.l10n.moreDestinations,
           side: DPopoverSide.top,
