@@ -90,6 +90,16 @@ void main() {
         addTearDown(provider.dispose);
         await tester.pumpAndSettle();
 
+        await _capture(tester, 'chat-filters');
+        final activity = tester.getRect(
+          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+        );
+        for (final key in ['chat-inbox-kind-filter', 'user-presence-menu']) {
+          final control = tester.getRect(find.byKey(ValueKey(key)));
+          expect(control.height, activity.height, reason: key);
+          expect(control.center.dy, activity.center.dy, reason: key);
+        }
+
         await tester.tap(
           find.byKey(const ValueKey('chat-inbox-activity-filter')),
         );

@@ -825,7 +825,7 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
               key: const ValueKey('user-presence-menu'),
               variant: DButtonVariant.secondary,
               shape: DButtonShape.pill,
-              size: DControlSize.chip,
+              size: DControlSize.filter,
               tooltip: context.l10n.statusAndNotifications,
               semanticLabel: context.l10n.statusAndNotificationsUsermenu(
                 (label).toString(),

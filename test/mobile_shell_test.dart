@@ -949,7 +949,7 @@ void main() {
     for (final (key, size) in [
       ('chat-inbox-activity-filter', DControlSize.filter),
       ('chat-inbox-kind-filter', DControlSize.filter),
-      ('user-presence-menu', DControlSize.chip),
+      ('user-presence-menu', DControlSize.filter),
     ]) {
       final control = find.byKey(ValueKey(key));
       final surface = find.descendant(
@@ -1126,7 +1126,7 @@ void main() {
       await _tapDockTab(tester, 'panel/chat');
       await tester.pumpAndSettle();
       final trigger = find.byKey(const ValueKey('user-presence-menu'));
-      expect(tester.widget<DButton>(trigger).size, DControlSize.chip);
+      expect(tester.widget<DButton>(trigger).size, DControlSize.filter);
       await tester.tap(trigger);
       await tester.pumpAndSettle();
       expect(find.text('Set a custom status'), findsOneWidget);
@@ -1136,8 +1136,12 @@ void main() {
       await tester.tap(find.text('Online'));
       await tester.pumpAndSettle();
       expect(shell.hidePresenceFor(_site), isTrue);
-      expect(find.text('Offline'), findsOneWidget);
-      await tester.tap(find.text('Offline'));
+      final presence = find.byKey(const ValueKey('user-menu-hide-presence'));
+      expect(
+        tester.widget<DDropdownMenuCheckboxItem>(presence).checked,
+        isFalse,
+      );
+      await tester.tap(presence);
       await tester.pumpAndSettle();
       expect(shell.hidePresenceFor(_site), isFalse);
       await tester.tap(find.text('Pause notifications'));
