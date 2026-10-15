@@ -19,6 +19,7 @@ class PostNewsCard extends StatelessWidget {
     required this.topicId,
     required this.post,
     required this.child,
+    this.topicBookmark,
     this.headers = const [],
     this.decorationTone,
   });
@@ -27,21 +28,27 @@ class PostNewsCard extends StatelessWidget {
   final int topicId;
   final Post post;
   final Widget child;
+  final Bookmark? topicBookmark;
   final List<Widget> headers;
   final Color? decorationTone;
 
-  static bool containsNews(Post post) =>
+  static bool containsNews(Post post, {Bookmark? topicBookmark}) =>
       post.isWhisper ||
       post.isDeleted ||
       post.hidden ||
       post.notice != null ||
       post.locked ||
-      post.bookmark != null;
+      post.bookmark != null ||
+      (post.postNumber == 1 && topicBookmark != null);
 
   @override
   Widget build(BuildContext context) {
+    final openingBookmark = post.postNumber == 1 ? topicBookmark : null;
+    final bookmark = openingBookmark ?? post.bookmark;
     final hasNews =
-        containsNews(post) || headers.isNotEmpty || decorationTone != null;
+        containsNews(post, topicBookmark: openingBookmark) ||
+        headers.isNotEmpty ||
+        decorationTone != null;
     final theme = Theme.of(context);
     final tone = post.isDeleted
         ? theme.colorScheme.error
@@ -52,53 +59,58 @@ class PostNewsCard extends StatelessWidget {
         : decorationTone ??
               (post.locked || headers.isNotEmpty
                   ? theme.colorScheme.onSurface
-                  : post.bookmark != null
+                  : bookmark != null
                   ? theme.colorScheme.primary
                   : theme.colorScheme.onSurface);
     return ShellSelector<bool>(
       select: (shell) =>
           shell.isTopicPostHighlighted(siteUrl, topicId, post.postNumber),
       builder: (context, highlighted, _) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: DCard(
-          key: ValueKey('post-news-card-${post.id}'),
-          duration: DMotion.duration(context, DMotion.change),
-          spacing: 0,
-          backgroundColor: !hasNews || post.isWhisper
-              ? Colors.transparent
-              : tone.withValues(alpha: .08),
-          borderColor: highlighted
-              ? theme.colorScheme.primary.withValues(alpha: .65)
-              : hasNews
-              ? tone.withValues(alpha: .26)
-              : Colors.transparent,
-          dashedBorder: post.isWhisper,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              DReveal(
-                visible:
-                    post.isDeleted ||
-                    post.hidden ||
-                    post.locked ||
-                    post.bookmark != null ||
-                    headers.isNotEmpty,
+        // The enclosing post highlight reserves its 1px outline. Leave one
+        // more pixel clear between this card and the topic's outer outline.
+        padding: const EdgeInsets.symmetric(horizontal: 1, vertical: 18),
+        child: !hasNews && !highlighted
+            ? child
+            : DCard(
+                key: ValueKey('post-news-card-${post.id}'),
+                duration: DMotion.duration(context, DMotion.change),
+                spacing: 0,
+                backgroundColor: !hasNews || post.isWhisper
+                    ? Colors.transparent
+                    : tone.withValues(alpha: .08),
+                borderColor: highlighted
+                    ? theme.colorScheme.primary.withValues(alpha: .65)
+                    : hasNews
+                    ? tone.withValues(alpha: .26)
+                    : Colors.transparent,
+                dashedBorder: post.isWhisper,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    PostNewsHeader(
-                      siteUrl: siteUrl,
-                      topicId: topicId,
-                      post: post,
+                    DReveal(
+                      visible:
+                          post.isDeleted ||
+                          post.hidden ||
+                          post.locked ||
+                          bookmark != null ||
+                          headers.isNotEmpty,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          PostNewsHeader(
+                            siteUrl: siteUrl,
+                            topicId: topicId,
+                            post: post,
+                            topicBookmark: openingBookmark,
+                          ),
+                          ...headers,
+                        ],
+                      ),
                     ),
-                    ...headers,
+                    child,
                   ],
                 ),
               ),
-              child,
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -110,13 +122,19 @@ class PostNewsHeader extends StatelessWidget {
     required this.siteUrl,
     required this.topicId,
     required this.post,
+    this.topicBookmark,
   });
   final String siteUrl;
   final int topicId;
   final Post post;
+  final Bookmark? topicBookmark;
 
   @override
   Widget build(BuildContext context) {
+    final bookmark = topicBookmark ?? post.bookmark;
+    final bookmarkLabel = topicBookmark != null
+        ? context.l10n.topicBookmarked
+        : context.l10n.postBookmarked;
     final shell = ShellScope.read(context);
     final owner = PostActionOwner.capture(
       context,
@@ -194,19 +212,23 @@ class PostNewsHeader extends StatelessWidget {
                       unawaited(report(() => shell.setPostLocked(post, false)))
                 : null,
           ),
-        if (post.bookmark case final bookmark?)
+        if (bookmark != null)
           row(
             const DIcon(DIcons.bookmark),
             bookmark.name?.isNotEmpty == true
-                ? '${context.l10n.postBookmarked} · ${bookmark.name}'
-                : context.l10n.postBookmarked,
+                ? '$bookmarkLabel · ${bookmark.name}'
+                : bookmarkLabel,
             action: context.l10n.editBookmark,
             onPressed: () {
               if (!current()) return;
               unawaited(
                 showBookmarkEditor(
                   context: context,
-                  controller: shell.bookmarkTarget(BookmarkTargetType.post),
+                  controller: shell.bookmarkTarget(
+                    topicBookmark != null
+                        ? BookmarkTargetType.topic
+                        : BookmarkTargetType.post,
+                  ),
                   siteUrl: siteUrl,
                   topicId: topicId,
                   bookmark: bookmark,

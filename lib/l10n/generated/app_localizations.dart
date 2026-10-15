@@ -23751,6 +23751,12 @@ abstract class AppLocalizations {
   /// **'You bookmarked this post'**
   String get postBookmarked;
 
+  /// Bookmark status shown above the opening post of a saved topic.
+  ///
+  /// In en, this message translates to:
+  /// **'You bookmarked this topic'**
+  String get topicBookmarked;
+
   /// Post status and solution action label.
   ///
   /// In en, this message translates to:

@@ -2617,7 +2617,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                       postIds[index],
                     );
                     return post != null &&
-                        (PostNewsCard.containsNews(post) ||
+                        (PostNewsCard.containsNews(
+                              post,
+                              topicBookmark: snapshot.topic!.topicBookmark,
+                            ) ||
                             (PluginScope.maybeOf(context)?.registry ??
                                         PluginRegistry.empty)
                                     .postCardTone(
@@ -5192,6 +5195,7 @@ class _PostTileState extends State<_PostTile> {
       siteUrl: widget.siteUrl,
       topicId: widget.topic.id,
       post: post,
+      topicBookmark: widget.topic.topicBookmark,
       decorationTone:
           (PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty)
               .postCardTone(context, widget.siteUrl, widget.topic, post),

@@ -112,11 +112,7 @@ void main() {
       tester.getBottomLeft(solution).dy,
       lessThan(tester.getTopLeft(body(3)).dy),
     );
-    final ordinary = tester.widget<DCard>(
-      find.byKey(const ValueKey('post-news-card-1')),
-    );
-    expect(ordinary.backgroundColor, Colors.transparent);
-    expect(ordinary.borderColor, Colors.transparent);
+    expect(find.byKey(const ValueKey('post-news-card-1')), findsNothing);
     expect(find.byKey(const ValueKey('post-news-card-2')), findsOneWidget);
     expect(find.byKey(const ValueKey('post-news-card-3')), findsOneWidget);
     expect(

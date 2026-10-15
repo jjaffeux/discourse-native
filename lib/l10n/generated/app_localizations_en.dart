@@ -15187,6 +15187,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get postBookmarked => 'You bookmarked this post';
 
   @override
+  String get topicBookmarked => 'You bookmarked this topic';
+
+  @override
   String get markAsSolution => 'Mark as solution';
 
   @override

@@ -20134,6 +20134,10 @@
   "@postBookmarked": {
     "description": "Post status and solution action label."
   },
+  "topicBookmarked": "You bookmarked this topic",
+  "@topicBookmarked": {
+    "description": "Bookmark status shown above the opening post of a saved topic."
+  },
   "markAsSolution": "Mark as solution",
   "@markAsSolution": {
     "description": "Post status and solution action label."
