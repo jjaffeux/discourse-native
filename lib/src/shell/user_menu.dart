@@ -1102,15 +1102,13 @@ class _HidePresenceTile extends StatelessWidget {
                     semanticLabel: semanticsLabel,
                     semanticHint: semanticsHint,
                     visualStyle: const DToggleVisualStyle(expandArtwork: true),
-                    icon: state.saving
-                        ? const DSpinner()
-                        : DIcon(
-                            loading
-                                ? DIcons.farClock
-                                : hidden == false
-                                ? DIcons.toggleOn
-                                : DIcons.toggleOff,
-                          ),
+                    icon: DIcon(
+                      loading
+                          ? DIcons.farClock
+                          : hidden == false
+                          ? DIcons.toggleOn
+                          : DIcons.toggleOff,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
