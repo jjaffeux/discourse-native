@@ -109,7 +109,7 @@ void main() {
   });
 
   testWidgets(
-    'iOS finishes keyboard, then raises the sheet, then adds margins',
+    'iOS finishes keyboard, then raises and resizes the sheet with margins',
     (tester) async {
       const channel = MethodChannel('org.discourse.native/keyboard');
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -158,17 +158,30 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(tester.getRect(sheet).left, 0, reason: 'raising precedes spacing');
-      expect(tester.getRect(sheet).top, inExclusiveRange(55, opened.top));
-      await tester.pump(const Duration(milliseconds: 181));
-      expect(tester.getRect(sheet).top, closeTo(55, 1));
-      expect(tester.getRect(sheet).left, 0);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(tester.getRect(sheet).left, inExclusiveRange(0, 6));
+      expect(tester.getRect(sheet), opened);
+      var previous = opened;
+      for (var frame = 0; frame < 4; frame++) {
+        await tester.pump(const Duration(milliseconds: 32));
+        final current = tester.getRect(sheet);
+        expect(current.left, inExclusiveRange(previous.left, 6));
+        expect(current.top, inExclusiveRange(55, previous.top));
+        expect(current.height, lessThan(previous.height));
+        expect(scroll.offset, 0, reason: 'focus keeps the list at its place');
+        expect(
+          current.left / 6,
+          closeTo((opened.top - current.top) / (opened.top - 55), .01),
+          reason: 'margins and position share the same animation progress',
+        );
+        previous = current;
+      }
+      await tester.pump(const Duration(milliseconds: 153));
+      final placed = tester.getRect(sheet);
+      expect(placed.left, 6);
+      expect(placed.top, closeTo(55, 1));
+      expect(placed.bottom, closeTo(538, 1));
+      expect(scroll.offset, 0);
       await tester.pumpAndSettle();
-      expect(tester.getRect(sheet).left, 6);
+      expect(tester.getRect(sheet), placed);
       tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pumpAndSettle();
     },

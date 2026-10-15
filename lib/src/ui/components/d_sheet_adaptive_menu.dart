@@ -413,16 +413,14 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final more =
         _travel.value > 1 ||
         _positions.any((p) => p.hasContentDimensions && p.extentAfter > 1);
-    // Keep the viewport's width and corner geometry stable while following a
-    // finger or returning to a detent. Insets can settle after the translation.
-    final floating = _dragging || _travel.isAnimating
+    // Once the keyboard is ready, margins animate alongside its placement and
+    // the sheet's rise. Direct drags retain their existing width and corners.
+    final floating = _keyboard > 0 && _keyboardSettled
+        ? true
+        : _dragging || _travel.isAnimating
         ? _floating
         : _keyboard > 0
-        ? _floatingBeforeKeyboard ||
-              (_keyboardSettled &&
-                  _travel.value <= 1 &&
-                  !_keyboardPlacement.isAnimating &&
-                  _keyboardPlacement.value == 1)
+        ? _floatingBeforeKeyboard
         : !more;
     if (floating != _floating) {
       _floating = floating;
@@ -434,7 +432,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     }
   }
 
-  bool _isResizingInsets() => _resizingInsets;
+  // End anchoring belongs to scroll-triggered margins. A keyboard resize
+  // keeps the current rows in place as its viewport shrinks.
+  bool _isResizingInsets() => _resizingInsets && _keyboard == 0;
 
   bool _metrics(ScrollMetricsNotification notification) {
     _remember(notification.context, notification.metrics);

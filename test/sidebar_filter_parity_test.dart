@@ -547,6 +547,13 @@ void main() {
           await openFilters(tester);
           final sheet = find.byType(DSheetContent);
           final opened = tester.getRect(sheet);
+          final results = find.descendant(
+            of: find.byType(DCommandList<String>),
+            matching: find.byType(Scrollable),
+          );
+          final position = tester
+              .state<ScrollableState>(results.first)
+              .position;
           await tester.tap(field);
           await tester.pump();
           expect(tester.getRect(sheet), opened);
@@ -573,17 +580,28 @@ void main() {
           for (var frame = 0; frame < 4; frame++) {
             await tester.pump(const Duration(milliseconds: 32));
             final current = tester.getRect(sheet);
-            expect(current.left, 0, reason: 'margins follow the rise');
+            expect(current.left, inExclusiveRange(previous.left, 6));
             expect(current.top, lessThan(previous.top));
+            expect(current.width, lessThan(previous.width));
             expect(current.height, lessThan(previous.height));
+            expect(position.pixels, 0);
             expect(current.top, greaterThan(55));
             expect(current.bottom, greaterThan(phone.height - 300));
+            expect(
+              current.left / 6,
+              closeTo((opened.top - current.top) / (opened.top - 55), .01),
+              reason: 'spacing animates alongside position and size',
+            );
             previous = current;
           }
-          await tester.pumpAndSettle();
+          await tester.pump(const Duration(milliseconds: 153));
           expect(tester.getRect(sheet).left, 6);
           expect(tester.getRect(sheet).top, closeTo(55, 1));
           expect(tester.getRect(sheet).bottom, closeTo(phone.height - 306, 1));
+          expect(position.pixels, 0);
+          final placed = tester.getRect(sheet);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), placed);
           tester.view.viewInsets = FakeViewPadding.zero;
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
