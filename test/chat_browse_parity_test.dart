@@ -73,7 +73,7 @@ void main() {
 
   for (final material in DAppearanceMaterial.values) {
     testWidgets(
-      'chat filters use menus and mobile bottom sheets with ${material.name}',
+      'chat inbox filters omit headings and close buttons with ${material.name}',
       (tester) async {
         final mobile = defaultTargetPlatform != TargetPlatform.macOS;
         final fixture = await _pump(
@@ -86,6 +86,16 @@ void main() {
         addTearDown(fixture.rooms.attach(provider));
         addTearDown(provider.dispose);
         await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsOneWidget);
+        expect(find.text('Chat activity'), findsNothing);
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsNothing);
 
         await _pick(tester, 'chat-inbox-activity-filter', 'Unread');
         expect(fixture.chat.inboxFilters.filterFor(_site).unreadOnly, isTrue);
@@ -641,11 +651,16 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
   if (mobile) {
     final sheet = tester.widget<DSheetContent>(find.byType(DSheetContent));
     expect(sheet.side, DSheetSide.bottom);
-    if (key == 'chat-inbox-kind-filter') {
-      expect(find.text('Conversation type'), findsNothing);
+    if (key == 'chat-inbox-kind-filter' ||
+        key == 'chat-inbox-activity-filter') {
+      final label = key == 'chat-inbox-kind-filter'
+          ? 'Conversation type'
+          : 'Chat activity';
+      expect(find.text(label), findsNothing);
       expect(find.byType(DSheetHeader), findsNothing);
+      expect(find.byTooltip('Close'), findsNothing);
       expect(sheet.showCloseButton, isFalse);
-      expect(sheet.semanticLabel, 'Conversation type');
+      expect(sheet.semanticLabel, label);
     }
   }
   expect(find.byType(DDropdownMenuContent), findsOneWidget);

@@ -96,6 +96,7 @@ class ChatInboxFilterBar extends StatelessWidget {
           label: filter.unreadOnly ? context.l10n.unread : context.l10n.recent,
           emphasized: true,
           semanticLabel: context.l10n.chatActivity,
+          mobileSheetVariant: DSheetVariant.adaptiveMenu,
           value: filter.unreadOnly,
           options: {false: context.l10n.recent, true: context.l10n.unread},
           onChanged: (value) =>
