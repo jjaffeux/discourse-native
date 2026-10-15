@@ -615,12 +615,15 @@ void main() {
         // Each pane installs the topic's Native edge fades even in a host
         // without an application-wide Native scroll behavior.
         expect(
-          find.ancestor(
-            of: list,
-            matching: find.byWidgetPredicate(
-              (widget) =>
-                  widget is ScrollConfiguration &&
-                  widget.behavior is DScrollBehavior,
+          find.descendant(
+            of: pane,
+            matching: find.ancestor(
+              of: list,
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is ScrollConfiguration &&
+                    widget.behavior is DScrollBehavior,
+              ),
             ),
           ),
           findsOneWidget,

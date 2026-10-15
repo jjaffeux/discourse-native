@@ -111,6 +111,70 @@ void main() {
     );
   }
 
+  testWidgets('the measurement copy cannot take focus, taps or semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    var presses = 0;
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DPageSurface.scrollable(
+              framed: false,
+              measureCompactHeader: true,
+              header: SizedBox(
+                height: 180,
+                child: DButton(
+                  autofocus: true,
+                  focusNode: focus,
+                  label: const Text('Full action'),
+                  onPressed: () => presses++,
+                ),
+              ),
+              compactHeader: SizedBox(
+                height: 47,
+                child: DButton(
+                  autofocus: true,
+                  label: const Text('Compact action'),
+                  onPressed: () => presses++,
+                ),
+              ),
+              bodyBuilder: (_, header) => ListView(
+                children: [header.spacer, const SizedBox(height: 4000)],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final hidden = find.text('Compact action', skipOffstage: false);
+      expect(hidden, findsOneWidget);
+      expect(hidden.hitTestable(), findsNothing);
+      expect(Focus.of(tester.element(hidden)).canRequestFocus, isFalse);
+      expect(focus.hasPrimaryFocus, isTrue);
+      expect(
+        tester
+            .binding
+            .renderViews
+            .single
+            .owner!
+            .semanticsOwner!
+            .rootSemanticsNode!
+            .toStringDeep(),
+        isNot(contains('Compact action')),
+      );
+      await tester.tap(find.text('Full action'));
+      await tester.pumpAndSettle();
+      expect(presses, 1);
+      expect(tester.takeException(), isNull);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
   testWidgets('remeasures compact layout after width and text scale change', (
     tester,
   ) async {

@@ -213,7 +213,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     with TickerProviderStateMixin {
   final _headerFocus = FocusNode(canRequestFocus: false);
   final _headerKey = GlobalKey();
-  final _compactMeasureKey = GlobalKey();
+  double? _measuredCompactHeight;
   final _headerGeometry = DPageHeaderGeometry._();
   Widget? _builtBody;
   late final HeaderMotion _motion = HeaderMotion(this)
@@ -341,6 +341,7 @@ class _DPageSurfaceState extends State<DPageSurface>
       _compactTimer?.cancel();
       _compact = false;
       _compactHeight = 76;
+      _measuredCompactHeight = null;
       _headerHeldAtEnd = false;
       _userScrolling = false;
       _direction = ScrollDirection.idle;
@@ -517,14 +518,8 @@ class _DPageSurfaceState extends State<DPageSurface>
             as _RenderScrollHeaderExtent?;
     if (_compact && box != null) {
       _compactHeight = box.naturalHeight;
-    } else if (widget.measureCompactHeader) {
-      final measurement =
-          _compactMeasureKey.currentContext?.findRenderObject() as RenderBox?;
-      if (measurement != null && measurement.hasSize) {
-        _compactHeight =
-            measurement.size.height +
-            (widget.headerControls == null ? 0 : box?.controlsHeight ?? 0);
-      }
+    } else if (widget.measureCompactHeader && _measuredCompactHeight != null) {
+      _compactHeight = _measuredCompactHeight! + (box?.controlsHeight ?? 0);
     }
     final floor = math.max(0.0, _headerGeometry.naturalExtent - _compactHeight);
     final top = metrics.axisDirection == AxisDirection.up
@@ -678,10 +673,13 @@ class _DPageSurfaceState extends State<DPageSurface>
                         child: IgnorePointer(
                           child: TickerMode(
                             enabled: false,
-                            child: SizedBox(
-                              key: _compactMeasureKey,
-                              width: double.infinity,
-                              child: widget.compactHeader,
+                            child: _CompactHeaderMeasure(
+                              onExtent: (height) =>
+                                  _measuredCompactHeight = height,
+                              child: SizedBox(
+                                width: double.infinity,
+                                child: widget.compactHeader,
+                              ),
                             ),
                           ),
                         ),
@@ -863,6 +861,38 @@ class _DPageSurfaceState extends State<DPageSurface>
             )
           : page,
     );
+  }
+}
+
+// Scroll notifications can arrive during viewport layout. Cache this extent
+// in the measuring box's own layout so no notification reads a sibling's size.
+class _CompactHeaderMeasure extends SingleChildRenderObjectWidget {
+  const _CompactHeaderMeasure({required this.onExtent, required super.child});
+  final ValueChanged<double> onExtent;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderCompactHeaderMeasure(onExtent);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderCompactHeaderMeasure renderObject,
+  ) {
+    renderObject
+      ..onExtent = onExtent
+      ..markNeedsLayout();
+  }
+}
+
+class _RenderCompactHeaderMeasure extends RenderProxyBox {
+  _RenderCompactHeaderMeasure(this.onExtent);
+  ValueChanged<double> onExtent;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    onExtent(size.height);
   }
 }
 
@@ -1156,7 +1186,7 @@ class _RenderScrollHeaderExtent extends RenderBox
   double visibleHeight = 0;
   double titleHeight = 0;
   double layoutHeight = 0;
-  double get controlsHeight => childCount > 1 ? lastChild!.size.height : 0;
+  double get controlsHeight => naturalHeight - titleHeight;
 
   @override
   void setupParentData(RenderBox child) {

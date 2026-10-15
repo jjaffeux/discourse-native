@@ -2272,6 +2272,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
+      // The full conversation header belongs at the oldest messages.
+      final transcript = tester
+          .widget<SuperListView>(find.byType(SuperListView))
+          .controller!
+          .position;
+      // The lazy list refines its extent as these scaled rows are laid out.
+      for (var attempt = 0; attempt < 4; attempt++) {
+        transcript.jumpTo(transcript.maxScrollExtent);
+        await tester.pumpAndSettle();
+        if (transcript.maxScrollExtent - transcript.pixels < .1) break;
+      }
       final header = find.byKey(const ValueKey('chat-channel-header'));
       final metadata = find.byKey(
         const ValueKey('chat-channel-header-metadata'),
