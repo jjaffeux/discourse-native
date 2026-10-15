@@ -84,6 +84,9 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
 
   Widget _buildCard(BuildContext context, {required bool compact}) {
     final topic = row.topic;
+    final siteUrl = row.siteUrl;
+    final shell = ShellScope.maybeRead(context);
+    final lease = shell?.lifecycle.capture(siteUrl);
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final compactMetadata = registry.compactTopicListMetadata(
@@ -125,6 +128,28 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
           ),
           title: topic.title,
           siteUrl: row.siteUrl,
+          contextMenuItems: [
+            if (!context.isTouch &&
+                shell?.instanceFor(siteUrl)?.isConnected == true &&
+                (!topic.visited || topic.hasUnseenActivity) &&
+                topic.highestPostNumber > 0)
+              DContextMenuItem(
+                onPressed: () {
+                  if (lease?.isCurrent != true) return;
+                  final latest = shell!.store.read<Topic>(siteUrl, topic.id);
+                  if (latest == null) return;
+                  unawaited(
+                    shell.markTopicRead(
+                      siteUrl,
+                      topic.id,
+                      latest.highestPostNumber,
+                      caughtUp: true,
+                    ),
+                  );
+                },
+                child: Text(context.l10n.markTopicRead),
+              ),
+          ],
           child: Semantics(
             key: row.inbox ? ValueKey('inbox-row-${topic.id}') : null,
             container: true,

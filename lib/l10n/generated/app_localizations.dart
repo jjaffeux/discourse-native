@@ -23769,6 +23769,12 @@ abstract class AppLocalizations {
   /// **'Remove solution'**
   String get removeSolution;
 
+  /// Desktop topic list context menu action to read through the latest post.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as read'**
+  String get markTopicRead;
+
   /// Leave the topic with its last post unread.
   ///
   /// In en, this message translates to:

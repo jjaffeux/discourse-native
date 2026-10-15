@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_indicators.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +33,110 @@ const _messenger = DiscourseUser(
 );
 
 void main() {
+  for (final mode in [
+    TopicListMode.latest,
+    TopicListMode.unread,
+    TopicListMode.newTopics,
+  ]) {
+    testWidgets('${mode.name} right-click marks only that topic as read', (
+      tester,
+    ) async {
+      final (shell, api, _) = await _setup(
+        tester,
+        mode: mode,
+        newIds: mode == TopicListMode.newTopics ? {1, 2, 3} : {},
+      );
+      final content = shell.currentContent;
+      final count = mode == TopicListMode.newTopics
+          ? shell.newTopicCount
+          : shell.newReplyCount;
+      await _openContextMenu(tester, 1);
+      expect(find.text('Open in main panel'), findsOneWidget);
+      expect(find.text('Mark as read'), findsOneWidget);
+      expect(shell.currentContent, same(content));
+      expect(api.topicReadsRecorded, isEmpty);
+
+      await tester.tap(find.text('Mark as read'));
+      await tester.pumpAndSettle();
+
+      final read = shell.store.read<Topic>(_site, 1)!;
+      expect(read.lastReadPostNumber, 10);
+      expect(read.hasUnseenActivity, isFalse);
+      expect(shell.store.read<Topic>(_site, 2)!.hasUnseenActivity, isTrue);
+      expect(api.topicReadsRecorded, [(topicId: 1, postNumber: 10)]);
+      expect(shell.currentContent, same(content));
+      expect(find.text('Mark as read'), findsNothing);
+      expect(
+        mode == TopicListMode.newTopics
+            ? shell.newTopicCount
+            : shell.newReplyCount,
+        count - 1,
+      );
+      if (mode != TopicListMode.unread) {
+        expect(shell.currentFeed!.topicIds, [1, 2, 3]);
+        await _openContextMenu(tester, 1);
+        expect(find.text('Mark as read'), findsNothing);
+      } else {
+        expect(shell.currentFeed!.topicIds, [2, 3]);
+        expect(_card(1), findsNothing);
+      }
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
+
+  testWidgets(
+    'a partially read topic without an unread badge can be marked read',
+    (tester) async {
+      final (shell, api, _) = await _setup(tester, mode: TopicListMode.latest);
+      shell.store.update<Topic>(
+        _site,
+        1,
+        (topic) => topic.copyWith(unreadPosts: 0, newPosts: 0, seen: true),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.store.read<Topic>(_site, 1)!.hasUnseenActivity, isFalse);
+      expect(shell.store.read<Topic>(_site, 1)!.visited, isFalse);
+      await _openContextMenu(tester, 1);
+      expect(find.text('Mark as read'), findsOneWidget);
+      await tester.tap(find.text('Mark as read'));
+      await tester.pumpAndSettle();
+      expect(shell.store.read<Topic>(_site, 1)!.visited, isTrue);
+      expect(api.topicReadsRecorded, [(topicId: 1, postNumber: 10)]);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  testWidgets('retired account cannot mark a topic from an open menu', (
+    tester,
+  ) async {
+    final (shell, api, _) = await _setup(tester, mode: TopicListMode.latest);
+    await _openContextMenu(tester, 1);
+    shell.lifecycle.invalidate(_site);
+    await tester.tap(find.text('Mark as read'));
+    await tester.pumpAndSettle();
+    expect(api.topicReadsRecorded, isEmpty);
+    expect(shell.store.read<Topic>(_site, 1)!.hasUnseenActivity, isTrue);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('anonymous desktop topic menus omit mark as read', (
+    tester,
+  ) async {
+    await _setup(tester, mode: TopicListMode.latest, signedIn: false);
+    await _openContextMenu(tester, 1);
+    expect(find.text('Open in main panel'), findsOneWidget);
+    expect(find.text('Mark as read'), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('mobile topic menus retain their existing actions', (
+    tester,
+  ) async {
+    await _setup(tester, mode: TopicListMode.latest, size: phone);
+    await tester.longPress(_card(1));
+    await tester.pumpAndSettle();
+    expect(find.text('Open in main panel'), findsOneWidget);
+    expect(find.text('Mark as read'), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   for (final mode in [
     TopicListMode.newActivity,
     TopicListMode.newTopics,
@@ -597,6 +702,7 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
   int count = 3,
   Set<int> newIds = const {},
   Size size = desktop,
+  bool signedIn = true,
   Completer<void>? nextPageGate,
 }) async {
   final rows = [
@@ -655,7 +761,9 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
   await pumpShell(
     tester,
     size,
-    instances: [instance('meta.discourse.org').copyWith(user: user)],
+    instances: [
+      instance('meta.discourse.org').copyWith(user: signedIn ? user : null),
+    ],
     api: api,
     authenticator: FakeAuthenticator()..keys[_site] = 'reader-key',
   );
@@ -682,6 +790,15 @@ Future<(ShellController, FakeDiscourseApi, List<Topic>)> _setup(
     await tester.pump();
   }
   return (shell, api, rows);
+}
+
+Future<void> _openContextMenu(WidgetTester tester, int topicId) async {
+  await tester.tap(
+    _card(topicId),
+    kind: PointerDeviceKind.mouse,
+    buttons: kSecondaryMouseButton,
+  );
+  await tester.pumpAndSettle();
 }
 
 String _folderPath(ContentRoute folder) => folder.messageListMode.feedPathFor(

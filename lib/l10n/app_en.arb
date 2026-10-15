@@ -20146,6 +20146,10 @@
   "@removeSolution": {
     "description": "Post status and solution action label."
   },
+  "markTopicRead": "Mark as read",
+  "@markTopicRead": {
+    "description": "Desktop topic list context menu action to read through the latest post."
+  },
   "markTopicUnread": "Mark unread",
   "@markTopicUnread": {
     "description": "Leave the topic with its last post unread."

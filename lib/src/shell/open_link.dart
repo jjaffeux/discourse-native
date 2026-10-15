@@ -142,6 +142,7 @@ class LinkTarget extends StatefulWidget {
     this.targetBookmark,
     this.siteUrl,
     this.longPressEnabled = true,
+    this.contextMenuItems = const [],
   }) : content = null,
        action = null;
 
@@ -151,6 +152,7 @@ class LinkTarget extends StatefulWidget {
     required this.child,
     this.siteUrl,
     this.longPressEnabled = true,
+    this.contextMenuItems = const [],
   }) : url = null,
        bookmarkUrl = null,
        targetBookmark = null,
@@ -162,6 +164,7 @@ class LinkTarget extends StatefulWidget {
     required this.action,
     required this.child,
     this.longPressEnabled = true,
+    this.contextMenuItems = const [],
   }) : url = null,
        bookmarkUrl = null,
        targetBookmark = null,
@@ -178,6 +181,9 @@ class LinkTarget extends StatefulWidget {
   final ContentRoute? content;
   final void Function({required bool newTab, ForumPanel? panel})? action;
   final Widget child;
+
+  /// Additional actions after the standard navigation and bookmark actions.
+  final List<Widget> contextMenuItems;
 
   /// False where a touch long press already means something else, such as
   /// starting a drag in a reorderable list; secondary clicks still open the
@@ -348,6 +354,10 @@ class _LinkTargetState extends State<LinkTarget> {
                         : context.l10n.removeBookmark,
                   ),
                 ),
+              ],
+              if (widget.contextMenuItems.isNotEmpty) ...[
+                const DContextMenuSeparator(),
+                ...widget.contextMenuItems,
               ],
             ],
           ),

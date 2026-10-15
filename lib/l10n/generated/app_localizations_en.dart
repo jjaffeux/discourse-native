@@ -15196,6 +15196,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeSolution => 'Remove solution';
 
   @override
+  String get markTopicRead => 'Mark as read';
+
+  @override
   String get markTopicUnread => 'Mark unread';
 
   @override
