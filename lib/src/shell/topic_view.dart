@@ -1973,11 +1973,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) => Focus(
-    focusNode: _entryFocus,
-    child: ShellSelector<TopicViewportSnapshot>(
-      select: TopicViewportSnapshot.from,
-      builder: (context, snapshot, child) => _build(context, snapshot, child),
+  Widget build(BuildContext context) => RepaintBoundary(
+    // Header clipping and floating reader chrome change during scrolling.
+    // Keep their paints inside the reader, clear of the enclosing sheet's
+    // material, rounded frame and stationary drag handle.
+    child: Focus(
+      focusNode: _entryFocus,
+      child: ShellSelector<TopicViewportSnapshot>(
+        select: TopicViewportSnapshot.from,
+        builder: (context, snapshot, child) => _build(context, snapshot, child),
+      ),
     ),
   );
 
@@ -2048,11 +2053,15 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             return ClipRect(
               child: Transform.translate(
                 offset: Offset(0, _floatingDayOffset),
-                child: StreamDaySeparator(
-                  key: ValueKey(('topic-floating-day', floatingDay)),
-                  day: floatingDay,
-                  floating: true,
-                  onTap: () => _jumpToDayStart(floatingDay),
+                child: RepaintBoundary(
+                  // Reuse the date artwork when only its position or the
+                  // surrounding header clip changes.
+                  child: StreamDaySeparator(
+                    key: ValueKey(('topic-floating-day', floatingDay)),
+                    day: floatingDay,
+                    floating: true,
+                    onTap: () => _jumpToDayStart(floatingDay),
+                  ),
                 ),
               ),
             );
@@ -2862,20 +2871,22 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 alignment: AlignmentDirectional.centerEnd,
                 child: TopicChromeVisibility(
                   covered: _moreTopicsCovered,
-                  child: ListenableBuilder(
-                    listenable: _viewportState.progressPositionListenable,
-                    builder: (context, _) {
-                      final position = _progressPosition;
-                      if (position == null || snapshot.progressTotal <= 1) {
-                        return const SizedBox.shrink();
-                      }
-                      return TopicProgressPopover(
-                        controller: controller,
-                        position: position,
-                        total: snapshot.progressTotal,
-                        floating: true,
-                      );
-                    },
+                  child: RepaintBoundary(
+                    child: ListenableBuilder(
+                      listenable: _viewportState.progressPositionListenable,
+                      builder: (context, _) {
+                        final position = _progressPosition;
+                        if (position == null || snapshot.progressTotal <= 1) {
+                          return const SizedBox.shrink();
+                        }
+                        return TopicProgressPopover(
+                          controller: controller,
+                          position: position,
+                          total: snapshot.progressTotal,
+                          floating: true,
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
