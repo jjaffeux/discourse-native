@@ -14,6 +14,69 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('timeline icon buttons preserve their glyph bounds', (
+    tester,
+  ) async {
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      for (final material in DAppearanceMaterial.values) {
+        for (final scale in [1.0, 2.0]) {
+          for (final density in [
+            DButtonDensity.floatingCall,
+            DButtonDensity.topicProgress,
+            DButtonDensity.timelineEnd,
+          ]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: DMaterialTheme.apply(
+                  AppTheme.light.copyWith(platform: platform),
+                  material,
+                ),
+                home: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                  child: Scaffold(
+                    body: Center(
+                      child: DButton.iconOnly(
+                        size: DControlSize.toolbar,
+                        density: density,
+                        variant: DButtonVariant.ghost,
+                        shape: DButtonShape.pill,
+                        icon: const DIcon(DIcons.chevronDown),
+                        tooltip: 'Jump to latest messages',
+                        onPressed: () {},
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final button = find.byType(DButton);
+            final icon = find.byType(DIcon);
+            expect(
+              tester.getSize(icon),
+              Size.square(density == DButtonDensity.timelineEnd ? 11 : 14),
+            );
+            expect(tester.getCenter(icon), tester.getCenter(button));
+            expect(
+              tester.getRect(button),
+              tester.getRect(
+                find.descendant(
+                  of: button,
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is AnimatedContainer &&
+                        widget.decoration is DButtonDecoration,
+                  ),
+                ),
+              ),
+            );
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    }
+  });
+
   testWidgets('timeline presets retain artwork, focus and exact targets', (
     tester,
   ) async {

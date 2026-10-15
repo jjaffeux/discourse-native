@@ -2322,8 +2322,9 @@ class _JumpToPresent extends StatelessWidget {
       children: [
         DButton.iconOnly(
           size: DControlSize.toolbar,
+          density: DButtonDensity.floatingCall,
           shape: DButtonShape.pill,
-          variant: DButtonVariant.secondary,
+          variant: DButtonVariant.ghost,
           icon: const DIcon(DIcons.chevronDown),
           semanticLabel: label,
           tooltip: label,

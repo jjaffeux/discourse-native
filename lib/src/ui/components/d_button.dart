@@ -1047,13 +1047,15 @@ class DButton extends StatelessWidget {
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
         (timeline
-            ? EdgeInsets.symmetric(
-                horizontal: floatingCall
-                    ? 11
-                    : topicProgress
-                    ? 8
-                    : 7,
-              )
+            ? (_iconOnly
+                  ? EdgeInsets.zero
+                  : EdgeInsets.symmetric(
+                      horizontal: floatingCall
+                          ? 11
+                          : topicProgress
+                          ? 8
+                          : 7,
+                    ))
             : menuAction
             ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
             : header
