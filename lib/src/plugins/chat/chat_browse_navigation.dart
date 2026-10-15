@@ -74,7 +74,7 @@ class ChatBrowseFilter<T> extends StatelessWidget {
     required this.onChanged,
     this.icon,
     this.emphasized = false,
-    this.mobileSheetVariant = DSheetVariant.standard,
+    this.mobileSheetVariant = DSheetVariant.adaptiveMenu,
   });
 
   final String label;

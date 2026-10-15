@@ -73,7 +73,7 @@ void main() {
 
   for (final material in DAppearanceMaterial.values) {
     testWidgets(
-      'chat inbox filters omit headings and close buttons with ${material.name}',
+      'chat directory filters omit headings and close buttons with ${material.name}',
       (tester) async {
         final mobile = defaultTargetPlatform != TargetPlatform.macOS;
         final fixture = await _pump(
@@ -668,14 +668,23 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
     TargetPlatform.iOS || TargetPlatform.android => true,
     _ => false,
   };
-  final inboxFilter =
-      key == 'chat-inbox-kind-filter' || key == 'chat-inbox-activity-filter';
-  _expectMenuPresentation(tester, mobile: mobile, inset: inboxFilter);
-  if (mobile && inboxFilter) {
-    final label = key == 'chat-inbox-kind-filter'
-        ? 'Conversation type'
-        : 'Chat activity';
-    expect(find.text(label), findsNothing);
+  _expectMenuPresentation(tester, mobile: mobile);
+  if (mobile) {
+    final label = switch (key) {
+      'chat-inbox-kind-filter' => 'Conversation type',
+      'chat-inbox-activity-filter' => 'Chat activity',
+      'chat-browse-status' => 'Status',
+      'chat-browse-joined' => 'Membership',
+      'chat-threads-channel-filter' => 'Channel',
+      _ => throw StateError('Unknown chat filter: $key'),
+    };
+    expect(
+      find.descendant(
+        of: find.byType(DSheetContent),
+        matching: find.text(label),
+      ),
+      findsNothing,
+    );
     expect(
       tester.widget<DSheetContent>(find.byType(DSheetContent)).semanticLabel,
       label,
@@ -696,17 +705,12 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
   expect(find.byType(DDropdownMenuContent), findsNothing);
 }
 
-void _expectMenuPresentation(
-  WidgetTester tester, {
-  required bool mobile,
-  bool inset = true,
-}) {
+void _expectMenuPresentation(WidgetTester tester, {required bool mobile}) {
   final sheet = find.byType(DSheetContent);
   expect(sheet, mobile ? findsOneWidget : findsNothing);
   if (!mobile) return;
 
   expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
-  if (!inset) return;
   expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
   expect(find.byType(DSheetHeader), findsNothing);
   expect(find.byTooltip('Close'), findsNothing);
