@@ -1,9 +1,13 @@
+import 'dart:math' as math;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/keyboard_test_harness.dart';
 
 Future<void> openMenu(
   WidgetTester tester, {
@@ -16,11 +20,18 @@ Future<void> openMenu(
   bool settle = true,
   VoidCallback? onContentLayout,
   Size size = const Size(390, 844),
+  double devicePixelRatio = 1,
 }) async {
-  tester.view.physicalSize = size;
-  tester.view.devicePixelRatio = 1;
-  tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
-  tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+  tester.view.physicalSize = size * devicePixelRatio;
+  tester.view.devicePixelRatio = devicePixelRatio;
+  tester.view.viewPadding = FakeViewPadding(
+    top: 47 * devicePixelRatio,
+    bottom: 34 * devicePixelRatio,
+  );
+  tester.view.padding = FakeViewPadding(
+    top: 47 * devicePixelRatio,
+    bottom: 34 * devicePixelRatio,
+  );
   addTearDown(tester.view.reset);
   Widget menu(int rows) => Column(
     mainAxisSize: MainAxisSize.min,
@@ -93,6 +104,19 @@ Future<void> expand(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() {
+    const channel = MethodChannel('org.discourse.native/keyboard');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          channel,
+          (_) async => throw MissingPluginException(),
+        );
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+  });
+
   testWidgets('opening frames never paint the expanded sheet at the top', (
     tester,
   ) async {
@@ -119,7 +143,7 @@ void main() {
   });
 
   testWidgets(
-    'iOS finishes keyboard, then raises and resizes the sheet with margins',
+    'legacy bridge waits for keyboard before raising and resizing with margins',
     (tester) async {
       const channel = MethodChannel('org.discourse.native/keyboard');
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -196,6 +220,248 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  for (final sizeToContent in [true, false]) {
+    for (final curve in [0, 3, 7]) {
+      testWidgets(
+        'native keyboard timing drives every sheet bound (content: $sizeToContent, curve: $curve)',
+        (tester) async {
+          const channel = MethodChannel('org.discourse.native/keyboard');
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            (_) async => false,
+          );
+          addTearDown(
+            () => tester.binding.defaultBinaryMessenger
+                .setMockMethodCallHandler(channel, null),
+          );
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openMenu(
+            tester,
+            platform: TargetPlatform.iOS,
+            scroll: scroll,
+            sizeToContent: sizeToContent,
+            devicePixelRatio: 3,
+          );
+          final sheet = find.byType(DSheetContent);
+          final opened = tester.getRect(sheet);
+          await tester.tap(find.byType(EditableText));
+          await tester.pump();
+          expect(tester.getRect(sheet), opened);
+          await sendKeyboardFrame(
+            tester,
+            curve: curve,
+            spring: curve == 7
+                ? {'mass': 1, 'stiffness': 100, 'damping': 20, 'velocity': 0}
+                : null,
+          );
+          await tester.pump();
+          expect(tester.getRect(sheet), opened);
+          for (var step = 1; step <= 4; step++) {
+            // The frame is known before metrics arrive. Later intermediate
+            // insets must not multiply or restart the native transition.
+            if (step > 1) {
+              tester.view.viewInsets = FakeViewPadding(bottom: step * 60 * 3);
+            }
+            await tester.pump(const Duration(milliseconds: 50));
+            final t = step / 8;
+            final p = curve == 0
+                ? Curves.easeInOut.transform(t)
+                : curve == 7
+                ? 1 - (1 + 4 * t) * math.exp(-4 * t)
+                : t;
+            final rect = tester.getRect(sheet);
+            expect(rect.left, closeTo(6 * p, .1));
+            expect(rect.top, closeTo(opened.top + (55 - opened.top) * p, .2));
+            expect(scroll.offset, 0);
+          }
+          tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+          await tester.pump(const Duration(milliseconds: 201));
+          final shown = tester.getRect(sheet);
+          expect(shown.top, closeTo(55, 1));
+          expect(shown.left, 6);
+          expect(shown.bottom, closeTo(538, 1));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), shown);
+          await sendKeyboardFrame(tester, inset: 360, milliseconds: 200);
+          await tester.pump();
+          expect(tester.getRect(sheet), shown);
+          await tester.pump(const Duration(milliseconds: 50));
+          expect(tester.getRect(sheet).bottom, closeTo(523, 1));
+          await tester.pump(const Duration(milliseconds: 151));
+          expect(tester.getRect(sheet).bottom, closeTo(478, 1));
+          await sendKeyboardFrame(tester, inset: 0, milliseconds: 300);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 150));
+          expect(tester.getRect(sheet).left, closeTo(3, .1));
+          expect(tester.getRect(sheet).bottom, inExclusiveRange(478, 844));
+          await tester.pump(const Duration(milliseconds: 151));
+          final hidden = tester.getRect(sheet);
+          expect(hidden.bottom, closeTo(844, 1));
+          expect(hidden.left, 0);
+          tester.view.viewInsets = FakeViewPadding.zero;
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), hidden);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('opening with an existing keyboard uses its cached final frame', (
+    tester,
+  ) async {
+    const channel = MethodChannel('org.discourse.native/keyboard');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (call) async => call.method == 'keyboardTransition'
+          ? keyboardFramePayload(elapsedMilliseconds: 400)
+          : true,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await openMenu(
+      tester,
+      platform: TargetPlatform.iOS,
+      scroll: scroll,
+      sizeToContent: false,
+    );
+    expect(tester.getRect(find.byType(DSheetContent)).bottom, closeTo(538, 1));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'a covered sheet refreshes its keyboard target after a child closes',
+    (tester) async {
+      const channel = MethodChannel('org.discourse.native/keyboard');
+      Map<String, Object>? snapshot;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        (call) async => call.method == 'keyboardTransition' ? snapshot : false,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await openMenu(
+        tester,
+        platform: TargetPlatform.iOS,
+        scroll: scroll,
+        sizeToContent: false,
+      );
+      snapshot = keyboardFramePayload(milliseconds: 0);
+      await sendKeyboardFrame(tester, milliseconds: 0);
+      await tester.pumpAndSettle();
+      final sheet = find.byType(DSheetContent, skipOffstage: false);
+      final shown = tester.getRect(sheet);
+      final closed = showDDialog<void>(
+        context: tester.element(sheet),
+        builder: (_, controller) => DDialogContent(
+          children: [
+            DButton(
+              label: const Text('Close child'),
+              onPressed: () => controller.close(),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      snapshot = keyboardFramePayload(inset: 0, milliseconds: 0);
+      await sendKeyboardFrame(tester, inset: 0, milliseconds: 0);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(sheet), shown);
+      await tester.tap(find.text('Close child'));
+      await tester.pumpAndSettle();
+      await closed;
+      expect(tester.getRect(sheet).bottom, closeTo(844, 1));
+      expect(tester.getRect(sheet).left, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'reduced motion applies the native keyboard frame without animating',
+    (tester) async {
+      const channel = MethodChannel('org.discourse.native/keyboard');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        (_) async => false,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await openMenu(
+        tester,
+        platform: TargetPlatform.iOS,
+        scroll: scroll,
+        sizeToContent: false,
+        reducedMotion: true,
+      );
+      await sendKeyboardFrame(tester);
+      await tester.pumpAndSettle();
+      final shown = tester.getRect(find.byType(DSheetContent));
+      expect(shown.bottom, closeTo(538, 1));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getRect(find.byType(DSheetContent)), shown);
+      await sendKeyboardFrame(tester, inset: 0);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(DSheetContent)).bottom,
+        closeTo(844, 1),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('an immediate keyboard cancellation stops the pending rise', (
+    tester,
+  ) async {
+    const channel = MethodChannel('org.discourse.native/keyboard');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (_) async => false,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    await openMenu(
+      tester,
+      platform: TargetPlatform.iOS,
+      scroll: scroll,
+      sizeToContent: false,
+    );
+    await sendKeyboardFrame(tester);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await sendKeyboardFrame(tester, inset: 0, milliseconds: 0);
+    await tester.pump();
+    final cancelled = tester.getRect(find.byType(DSheetContent));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(find.byType(DSheetContent)), cancelled);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(

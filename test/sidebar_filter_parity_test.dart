@@ -26,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/keyboard_test_harness.dart';
 import 'support/shell_test_harness.dart';
 
 const site = 'https://meta.discourse.org';
@@ -173,6 +174,16 @@ Future<void> openFilters(WidgetTester tester) async {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    const keyboard = MethodChannel('org.discourse.native/keyboard');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          keyboard,
+          (_) async => throw MissingPluginException(),
+        );
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(keyboard, null),
+    );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('org.discourse.native/notification_opens'),
@@ -524,6 +535,75 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final material in DAppearanceMaterial.values) {
+      if (platform == TargetPlatform.iOS) {
+        testWidgets('Filters move with native keyboard timing ($material)', (
+          tester,
+        ) async {
+          const channel = MethodChannel('org.discourse.native/keyboard');
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            (_) async => false,
+          );
+          addTearDown(
+            () => tester.binding.defaultBinaryMessenger
+                .setMockMethodCallHandler(channel, null),
+          );
+          tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+          tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+          final (shell: shell, api: _) = await fixture(
+            tester,
+            size: phone,
+            filterOptions: filterMenuOptions,
+          );
+          await shell.forumSettings.setShared(
+            SharedAppearance(material: material),
+          );
+          await tester.pumpAndSettle();
+          await openFilters(tester);
+          final sheet = find.byType(DSheetContent);
+          final opened = tester.getRect(sheet);
+          final results = find.descendant(
+            of: find.byType(DCommandList<String>),
+            matching: find.byType(Scrollable),
+          );
+          final position = tester
+              .state<ScrollableState>(results.first)
+              .position;
+          await tester.tap(field);
+          await tester.pump();
+          await sendKeyboardFrame(tester);
+          await tester.pump();
+          expect(tester.getRect(sheet), opened);
+          for (var step = 1; step <= 4; step++) {
+            if (step > 1) {
+              tester.view.viewInsets = FakeViewPadding(bottom: step * 60);
+            }
+            await tester.pump(const Duration(milliseconds: 50));
+            final rect = tester.getRect(sheet);
+            final progress = step / 8;
+            expect(rect.left, closeTo(6 * progress, .1));
+            expect(
+              rect.top,
+              closeTo(opened.top + (55 - opened.top) * progress, .2),
+            );
+            expect(position.pixels, 0);
+          }
+          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+          await tester.pump(const Duration(milliseconds: 201));
+          final shown = tester.getRect(sheet);
+          expect(shown.top, closeTo(55, 1));
+          expect(shown.left, 6);
+          expect(shown.bottom, closeTo(538, 1));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), shown);
+          await sendKeyboardFrame(tester, inset: 0);
+          await tester.pumpAndSettle();
+          tester.view.viewInsets = FakeViewPadding.zero;
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }, variant: TargetPlatformVariant.only(platform));
+      }
+
       testWidgets(
         'async Filters keep their default height on $platform ($material)',
         (tester) async {
