@@ -14,7 +14,7 @@ Pages with less than 120 px of scroll overflow keep their title.
 | --- | --- |
 | Latest, New, Unread, Top, Trending, category feeds, tag feeds | Title retracts. Feed selectors, filters, and actions remain. |
 | Messages, personal folders, group inboxes | Title retracts. Folder and inbox selectors remain. |
-| Bookmarks, Activity | Title retracts. Filters remain. |
+| Bookmarks, Activity, Drafts | Title retracts. Filters remain where present. |
 | Groups, Badges, Categories | Title retracts. Directory controls remain. |
 | Chats, Channels, Threads | Title retracts. Navigation and filters remain. The kit supplies the keyboard fallback. |
 | Open chat channels and direct messages | One compact line from the first loading frame. The complete header and mobile tab bar retract together, including on short transcripts. |

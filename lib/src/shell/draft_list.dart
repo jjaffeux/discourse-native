@@ -123,21 +123,25 @@ class _DraftListViewState extends State<DraftListView> {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
-    return ListenableBuilder(
-      listenable: controller.draftList,
-      builder: (context, _) {
-        final instance = _instance(controller);
-        if (instance?.isConnected != true) {
-          return _DraftState(
-            icon: DIcons.pencil,
-            title: context.l10n.connectThisAccountToSeeItsDrafts,
-          );
-        }
+    return DPageSurface.headed(
+      identity: widget.siteUrl,
+      title: Text(context.l10n.drafts),
+      bodyBuilder: (context, header) => ListenableBuilder(
+        listenable: controller.draftList,
+        builder: (context, _) {
+          final instance = _instance(controller);
+          if (instance?.isConnected != true) {
+            return _DraftState(
+              icon: DIcons.pencil,
+              title: context.l10n.connectThisAccountToSeeItsDrafts,
+            );
+          }
 
-        final feed = controller.draftList.feedFor(widget.siteUrl);
-        if (!feed.loading && !feed.loaded) _scheduleRequest();
-        return _body(controller, instance!, feed);
-      },
+          final feed = controller.draftList.feedFor(widget.siteUrl);
+          if (!feed.loading && !feed.loaded) _scheduleRequest();
+          return _body(controller, instance!, feed, header);
+        },
+      ),
     );
   }
 
@@ -145,10 +149,18 @@ class _DraftListViewState extends State<DraftListView> {
     ShellController controller,
     DiscourseInstance instance,
     DraftFeed feed,
+    DPageHeaderGeometry header,
   ) {
     if (!feed.loaded && feed.drafts.isEmpty) {
-      return const _DraftListLoadingSkeleton(
-        key: ValueKey('draft-list-loading-skeleton'),
+      return Column(
+        children: [
+          header.spacer,
+          const Expanded(
+            child: _DraftListLoadingSkeleton(
+              key: ValueKey('draft-list-loading-skeleton'),
+            ),
+          ),
+        ],
       );
     }
     if (feed.isEmpty) {
@@ -174,6 +186,7 @@ class _DraftListViewState extends State<DraftListView> {
       onRefresh: _refresh,
       onRemove: _remove,
       instance: instance,
+      headerSpacer: header.spacer,
     );
   }
 }
@@ -351,6 +364,7 @@ class _Drafts extends StatelessWidget {
     required this.onRefresh,
     required this.onRemove,
     required this.instance,
+    required this.headerSpacer,
   });
 
   final String siteUrl;
@@ -359,6 +373,7 @@ class _Drafts extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final ValueChanged<UserDraft> onRemove;
   final DiscourseInstance instance;
+  final Widget headerSpacer;
 
   @override
   Widget build(BuildContext context) {
@@ -371,6 +386,7 @@ class _Drafts extends StatelessWidget {
             padding: lane.padding,
             sliver: SliverMainAxisGroup(
               slivers: [
+                SliverToBoxAdapter(child: headerSpacer),
                 if (feed.error case final error?)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -669,37 +685,45 @@ class _DraftState extends StatelessWidget {
   final Future<void> Function()? onAction;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: constraints.maxHeight),
-        child: Center(
-          child: DEmpty(
-            children: [
-              DEmptyHeader(
-                children: [
-                  DEmptyMedia(
-                    variant: DEmptyMediaVariant.icon,
-                    child: DIcon(icon),
-                  ),
-                  DEmptyTitle(title),
-                  if (body case final body?) DEmptyDescription(body),
-                ],
-              ),
-              if (actionLabel case final label?)
-                DEmptyContent(
+  Widget build(BuildContext context) => DPageScrollInsets(
+    builder: (context, insets) => LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        padding: insets,
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: (constraints.maxHeight - insets.vertical).clamp(
+              0,
+              double.infinity,
+            ),
+          ),
+          child: Center(
+            child: DEmpty(
+              children: [
+                DEmptyHeader(
                   children: [
-                    DButton(
-                      label: Text(label),
-                      onPressed: onAction == null
-                          ? null
-                          : () => unawaited(onAction!()),
-                      variant: DButtonVariant.primary,
+                    DEmptyMedia(
+                      variant: DEmptyMediaVariant.icon,
+                      child: DIcon(icon),
                     ),
+                    DEmptyTitle(title),
+                    if (body case final body?) DEmptyDescription(body),
                   ],
                 ),
-            ],
+                if (actionLabel case final label?)
+                  DEmptyContent(
+                    children: [
+                      DButton(
+                        label: Text(label),
+                        onPressed: onAction == null
+                            ? null
+                            : () => unawaited(onAction!()),
+                        variant: DButtonVariant.primary,
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),

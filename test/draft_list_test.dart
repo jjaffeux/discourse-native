@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
@@ -29,10 +31,13 @@ import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/material.dart'
     show
         ConstrainedBox,
+        ColoredBox,
         Focus,
+        GlobalKey,
         InkWell,
         MaterialApp,
         MediaQuery,
@@ -40,12 +45,15 @@ import 'package:flutter/material.dart'
         Scrollable,
         MouseRegion,
         Offset,
+        RepaintBoundary,
         Size,
         TextScaler,
         ValueKey,
         ValueListenableBuilder;
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/semantics.dart' show SemanticsAction;
-import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter/services.dart'
+    show FontLoader, LogicalKeyboardKey, rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -67,12 +75,99 @@ const _draft = UserDraft(
 );
 
 void main() {
+  setUpAll(() async {
+    await (FontLoader(
+      'DraftHeaderReview',
+    )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final (size, textScale, dark) in [
+    (const Size(390, 844), 1.0, false),
+    (const Size(1100, 800), 1.0, false),
+    (const Size(390, 844), 2.0, true),
+    (const Size(1100, 800), 2.0, true),
+  ]) {
+    testWidgets(
+      'shared draft header retracts and returns at $size, scale $textScale',
+      (tester) async {
+        final capture = GlobalKey();
+        await _pumpList(
+          tester,
+          size: size,
+          textScale: textScale,
+          dark: dark,
+          captureKey: capture,
+          userDrafts: [
+            for (var index = 0; index < 30; index++)
+              UserDraft(
+                key: 'topic_$index',
+                sequence: 1,
+                topicId: index + 1,
+                title: 'Sailing draft $index',
+                data: const ComposerDraft(reply: 'An unfinished reply.'),
+              ),
+          ],
+        );
+        final title = find.text('Drafts');
+        final viewport = find.byType(Scrollable);
+        final bounds = tester.getRect(viewport);
+        expect(title.hitTestable(), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.text('Sailing draft 0')).dy,
+          greaterThan(tester.getBottomLeft(title).dy),
+        );
+        Future<void> export(String state) async {
+          final directory = Platform.environment['DRAFT_HEADER_EXPORT_DIR'];
+          if (directory == null) return;
+          await tester.runAsync(() async {
+            final image =
+                await (capture.currentContext!.findRenderObject()
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await Directory(directory).create(recursive: true);
+            await File(
+              '$directory/drafts-${size.width.toInt()}-${textScale.toInt()}-$state.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+
+        Future<void> wheel(double amount) async {
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: tester.getCenter(viewport),
+              scrollDelta: Offset(0, amount),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await export('top');
+        await wheel(400);
+        expect(title.hitTestable(), findsNothing);
+        expect(tester.getRect(viewport), bounds);
+        await export('down');
+        await tester.pump(const Duration(milliseconds: 500));
+        await wheel(-160);
+        expect(title.hitTestable(), findsOneWidget);
+        await export('up');
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(
+        size.width < 600 ? TargetPlatform.iOS : TargetPlatform.macOS,
+      ),
+    );
+  }
 
   for (final empty in [false, true]) {
     testWidgets('pull does not refresh drafts, empty: $empty', (tester) async {
       final api = _RefreshDraftsApi(empty ? [] : [_draft]);
       final fixture = await _pumpList(tester, api: api);
+      expect(find.text('Drafts').hitTestable(), findsOneWidget);
       expect(find.byType(DPullToRefresh), findsNothing);
       await tester.drag(find.byType(Scrollable).last, const Offset(0, 450));
       await tester.pumpAndSettle();
@@ -382,6 +477,26 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(DraftListView), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(DraftListView),
+          matching: find.text('Drafts'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<DPageSurface>(
+              find
+                  .ancestor(
+                    of: find.byType(DraftListView),
+                    matching: find.byType(DPageSurface),
+                  )
+                  .first,
+            )
+            .header,
+        isNull,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   });
 
@@ -739,6 +854,13 @@ void main() {
           ),
         );
         expect(skeletonRows, findsWidgets);
+        expect(
+          find.descendant(
+            of: find.byType(DraftListView),
+            matching: find.text('Drafts').hitTestable(),
+          ),
+          findsOneWidget,
+        );
 
         gate.complete();
         await tester.pumpAndSettle();
@@ -1322,6 +1444,8 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
   WidgetTester tester, {
   Size size = const Size(390, 600),
   double textScale = 1,
+  bool dark = false,
+  GlobalKey? captureKey,
   String categoryName = 'Support',
   List<UserDraft> userDrafts = const [_draft],
   ValueNotifier<String>? selectedSite,
@@ -1367,7 +1491,12 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
     ShellScope(
       controller: controller,
       child: MaterialApp(
-        theme: AppTheme.light,
+        theme: captureKey == null
+            ? (dark ? AppTheme.dark : AppTheme.light)
+            : (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme
+                    .apply(fontFamily: 'DraftHeaderReview'),
+              ),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -1375,13 +1504,20 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
           child: child!,
         ),
         home: Scaffold(
-          body: selectedSite == null
-              ? const DraftListView(siteUrl: _siteUrl)
-              : ValueListenableBuilder<String>(
-                  valueListenable: selectedSite,
-                  builder: (context, siteUrl, _) =>
-                      DraftListView(siteUrl: siteUrl),
-                ),
+          body: RepaintBoundary(
+            key: captureKey,
+            child: ColoredBox(
+              color:
+                  (dark ? AppTheme.dark : AppTheme.light).colorScheme.surface,
+              child: selectedSite == null
+                  ? const DraftListView(siteUrl: _siteUrl)
+                  : ValueListenableBuilder<String>(
+                      valueListenable: selectedSite,
+                      builder: (context, siteUrl, _) =>
+                          DraftListView(siteUrl: siteUrl),
+                    ),
+            ),
+          ),
         ),
       ),
     ),

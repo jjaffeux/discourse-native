@@ -366,6 +366,7 @@ class _MainContentBody extends StatelessWidget {
                   route.isAppearance ||
                   route.isGroups ||
                   route.isUsers ||
+                  route.id == 'drafts' ||
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
                   (route.id == 'user-bookmarks' && state.isConnected));
     final hideDirectoryHeader =
@@ -447,6 +448,7 @@ class _MainContentBody extends StatelessWidget {
                   route.id != 'all-categories' &&
                   route.id != 'all-tags' &&
                   route.id != 'activity' &&
+                  route.id != 'drafts' &&
                   !(route.id == 'user-bookmarks' && state.isConnected) &&
                   !hideDirectoryHeader &&
                   !(usesTopicToolbar && ShellTitleBar.isSupported)
