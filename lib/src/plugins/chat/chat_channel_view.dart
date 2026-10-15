@@ -135,7 +135,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   int? _projectedRevision;
   int? _projectedShowTimeGapDays;
   List<ChatStreamItem> _items = const [];
-  ChatChannelActivity _activity = const ChatChannelActivity();
   int? _highlightMessageId;
   int _highlightRequest = 0;
   bool _selectingMessages = false;
@@ -275,7 +274,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   Widget _buildContent(ChatStreamState stream) {
     final hasMessages =
         stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
-    if (!hasMessages) _activity = const ChatChannelActivity();
     if (hasMessages) {
       // Local sends remain visible while the first page loads or has failed.
       _syncProjection(stream);
@@ -348,8 +346,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                       siteUrl: widget.siteUrl,
                       channelId: widget.channelId,
                       channel: channel,
-                      stream: stream,
-                      activity: _activity,
                       onOpenDetails: () =>
                           PluginUiScope.require(
                             context,
@@ -557,7 +553,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         _extendProjectionIntoFuture(stream);
     if (!extended) {
       final messages = widget.chat.messages(widget.siteUrl, widget.channelId);
-      _activity = const ChatChannelActivity().adding(messages);
       // Use the opening snapshot so read receipts cannot move the divider.
       _items = buildChatStream(
         messages,
@@ -618,7 +613,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     );
     if (projected == null) return false;
     _items = projected;
-    _activity = _activity.adding(prepended);
     return true;
   }
 
@@ -672,7 +666,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     );
     if (projected == null) return false;
     _items = projected;
-    _activity = _activity.adding(appended);
     return true;
   }
 

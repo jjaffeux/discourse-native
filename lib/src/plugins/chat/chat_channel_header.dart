@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
-import 'chat_controller.dart';
 import 'chat_conversation_header.dart';
 import 'chat_message.dart';
 
@@ -50,20 +49,17 @@ class ChatChannelHeader extends StatelessWidget {
     required this.siteUrl,
     required this.channelId,
     required this.channel,
-    required this.stream,
-    required this.activity,
     required this.onOpenDetails,
   });
 
   final String siteUrl;
   final int channelId;
   final ChatChannel? channel;
-  final ChatStreamState stream;
-  final ChatChannelActivity activity;
   final VoidCallback onOpenDetails;
 
   @override
   Widget build(BuildContext context) {
+    final unreadCount = channel?.tracking.unreadCount ?? 0;
     return ChatConversationHeader(
       key: const ValueKey('chat-channel-header'),
       title: channel?.title ?? context.l10n.chat,
@@ -72,9 +68,9 @@ class ChatChannelHeader extends StatelessWidget {
       kindLabel: channel?.isDirectMessage == true
           ? context.l10n.directMessage
           : context.l10n.channel,
-      messageCount: activity.messageCount,
-      fetchedOnce: stream.fetchedOnce,
-      partial: stream.canLoadMorePast || stream.canLoadMoreFuture,
+      messageCount: unreadCount,
+      fetchedOnce: channel != null,
+      compactMessageCountLabel: context.l10n.unreadChatplugin(unreadCount),
       compact: true,
       titleBuilder: (title) => ChatChannelMenu(
         siteUrl: siteUrl,

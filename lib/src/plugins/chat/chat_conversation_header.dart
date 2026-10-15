@@ -19,6 +19,7 @@ class ChatConversationHeader extends StatelessWidget {
     this.partial = false,
     this.latest,
     this.compact = false,
+    this.compactMessageCountLabel,
     this.titleBuilder,
     this.now,
   });
@@ -33,6 +34,7 @@ class ChatConversationHeader extends StatelessWidget {
   final bool partial;
   final DateTime? latest;
   final bool compact;
+  final String? compactMessageCountLabel;
   final Widget Function(Widget title)? titleBuilder;
   final DateTime? now;
 
@@ -132,7 +134,8 @@ class ChatConversationHeader extends StatelessWidget {
                       maxWidth: constraints.maxWidth * .5,
                     ),
                     child: DText(
-                      '$messageCount$suffix$messageLabel',
+                      compactMessageCountLabel ??
+                          '$messageCount$suffix$messageLabel',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       key: const ValueKey('chat-compact-message-count'),

@@ -3,7 +3,6 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_header.dart';
-import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -24,6 +23,7 @@ const _channel = ChatChannel(
   kind: ChatChannelKind.category,
   categoryColor: Color(0xFF888888),
   membership: ChatMembership(following: true),
+  tracking: ChatTracking(unreadCount: 1),
 );
 
 ChatMessage _message(
@@ -49,12 +49,7 @@ void main() {
       tester,
     ) async {
       var details = 0;
-      await _pump(
-        tester,
-        platform: platform,
-        messages: [_message(1)],
-        onOpenDetails: () => details++,
-      );
+      await _pump(tester, platform: platform, onOpenDetails: () => details++);
       final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
       final title = find.text('general');
       final count = find.byKey(const ValueKey('chat-compact-message-count'));
@@ -64,7 +59,7 @@ void main() {
         tester.getRect(title).center.dy,
         closeTo(tester.getRect(count).center.dy, .01),
       );
-      expect(find.text('1 message'), findsOneWidget);
+      expect(find.text('1 unread message'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('chat-channel-header-metadata')),
         findsNothing,
@@ -80,35 +75,52 @@ void main() {
     });
   }
 
-  testWidgets('partial windows qualify counts and exclude deleted messages', (
-    tester,
-  ) async {
-    await _pump(
+  for (final unreadCount in [0, 1, 42]) {
+    testWidgets('header shows exactly $unreadCount unread messages', (
       tester,
-      stream: const ChatStreamState(fetchedOnce: true, canLoadMorePast: true),
-      messages: [
-        _message(1, thread: 3),
-        _message(2, thread: 3),
-        _message(3, deleted: true),
-      ],
-    );
-    expect(find.text('2+ messages'), findsOneWidget);
-    expect(find.textContaining('thread'), findsNothing);
-  });
+    ) async {
+      await _pump(
+        tester,
+        channel: _channel.withTrackingState(
+          tracking: ChatTracking(
+            unreadCount: unreadCount,
+            mentionCount: 3,
+            watchedThreadsUnreadCount: 5,
+          ),
+        ),
+      );
+      expect(
+        find.text(
+          unreadCount == 1
+              ? '1 unread message'
+              : '$unreadCount unread messages',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('+'), findsNothing);
+      expect(find.textContaining('thread'), findsNothing);
+    });
+  }
 
   testWidgets(
     'loading and empty channels keep the same compact header height',
     (tester) async {
-      await _pump(tester, stream: const ChatStreamState(loading: true));
+      await _pump(tester, channel: null);
       final header = find.byKey(const ValueKey('chat-channel-header'));
       final loadingHeight = tester.getSize(header).height;
-      expect(find.text('0 messages'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('chat-compact-message-count')),
+        findsNothing,
+      );
       expect(
         find.byKey(const ValueKey('chat-channel-header-metadata')),
         findsNothing,
       );
-      await _pump(tester);
-      expect(find.text('0 messages'), findsOneWidget);
+      await _pump(
+        tester,
+        channel: _channel.withTrackingState(tracking: ChatTracking.none),
+      );
+      expect(find.text('0 unread messages'), findsOneWidget);
       expect(tester.getSize(header).height, loadingHeight);
       expect(loadingHeight, 47);
     },
@@ -140,8 +152,8 @@ void main() {
         title: 'A very long direct message conversation name',
         kind: ChatChannelKind.directMessage,
         users: [ChatUser(id: 2, username: 'sam')],
+        tracking: ChatTracking(unreadCount: 23),
       ),
-      messages: [_message(1)],
       scale: 2,
       platform: TargetPlatform.iOS,
     );
@@ -160,9 +172,7 @@ void main() {
 
 Future<void> _pump(
   WidgetTester tester, {
-  ChatChannel channel = _channel,
-  ChatStreamState stream = const ChatStreamState(fetchedOnce: true),
-  List<ChatMessage> messages = const [],
+  ChatChannel? channel = _channel,
   VoidCallback? onOpenDetails,
   double scale = 1,
   bool use24HourClock = false,
@@ -182,7 +192,7 @@ Future<void> _pump(
   );
   addTearDown(shell.dispose);
   await shell.load();
-  shell.chatRecords.put(_site, channel);
+  if (channel != null) shell.chatRecords.put(_site, channel);
   await tester.pumpWidget(
     ShellScope(
       controller: shell,
@@ -200,10 +210,8 @@ Future<void> _pump(
                 alignment: Alignment.topCenter,
                 child: ChatChannelHeader(
                   siteUrl: _site,
-                  channelId: channel.id,
+                  channelId: channel?.id ?? 9,
                   channel: channel,
-                  stream: stream,
-                  activity: const ChatChannelActivity().adding(messages),
                   onOpenDetails: onOpenDetails ?? () {},
                 ),
               ),

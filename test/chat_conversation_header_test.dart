@@ -42,6 +42,7 @@ void main() {
             latest: DateTime(2026, 10, 15, 11, 14),
             now: DateTime(2026, 10, 15, 12),
             compact: compact,
+            compactMessageCountLabel: thread ? null : '19 unread messages',
           );
           late DPageHeaderGeometry geometry;
           await tester.pumpWidget(
@@ -120,7 +121,10 @@ void main() {
           final count = find.byKey(
             const ValueKey('chat-compact-message-count'),
           );
-          expect(find.text('19 messages'), findsOneWidget);
+          expect(
+            find.text(thread ? '19 messages' : '19 unread messages'),
+            findsOneWidget,
+          );
           final compactTitle = find
               .byType(DText)
               .evaluate()
