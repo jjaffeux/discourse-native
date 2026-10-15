@@ -405,7 +405,8 @@ final class _RecordingSiteActivator implements PluginSiteActivator {
 
 void main() {
   if (const bool.fromEnvironment('captureMobileChrome') ||
-      const bool.fromEnvironment('captureMobileSidebar')) {
+      const bool.fromEnvironment('captureMobileSidebar') ||
+      Platform.environment['CHAT_HEADER_EXPORT_DIR'] != null) {
     // Keep the channel alive through app disposal between capture variants.
     TestWidgetsFlutterBinding.ensureInitialized();
     final messenger =
@@ -478,7 +479,11 @@ void main() {
       final list = find.byType(TopicListView);
       final title = find.byKey(const ValueKey('topic-list-title'));
       expect(title.hitTestable(), findsOneWidget);
-      await tester.timedDrag(list, const Offset(0, -240), const Duration(milliseconds: 300));
+      await tester.timedDrag(
+        list,
+        const Offset(0, -240),
+        const Duration(milliseconds: 300),
+      );
       await tester.pumpAndSettle();
       expect(title.hitTestable(), findsNothing);
       expect(
@@ -612,6 +617,127 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _mobileTest('a short channel swipe hides both its header and the tab bar', (
+    tester,
+  ) async {
+    final exportDirectory = Platform.environment['CHAT_HEADER_EXPORT_DIR'];
+    if (exportDirectory != null) {
+      await (FontLoader(
+        'Open Sans',
+      )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+      await (FontLoader('Lato')
+            ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
+            ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
+          .load();
+    }
+    Future<void> capture(String state) async {
+      if (exportDirectory == null) return;
+      await tester.runAsync(() async {
+        final builder = ui.SceneBuilder();
+        tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+        final scene = builder.build();
+        final image = await scene.toImage(
+          tester.view.physicalSize.width.toInt(),
+          tester.view.physicalSize.height.toInt(),
+        );
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await Directory(exportDirectory).create(recursive: true);
+        await File(
+          '$exportDirectory/mobile-channel-${Theme.of(tester.element(_header)).platform.name}-$state.png',
+        ).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+        scene.dispose();
+      });
+    }
+
+    final shell = await pumpMobileShellFixture(
+      tester,
+      conversations: const ChatChannels(
+        public: [
+          ChatChannel(
+            id: 10,
+            title: 'Support',
+            kind: ChatChannelKind.category,
+            membership: ChatMembership(following: true),
+          ),
+        ],
+        direct: [],
+      ),
+      chatMessages: [
+        for (var id = 1; id <= 20; id++)
+          ChatMessage(
+            id: id,
+            channelId: 10,
+            cooked: '<p>Message $id</p>',
+            author: const ChatMessageAuthor(id: 2, username: 'sam'),
+            createdAt: DateTime(2026, 10, 1).add(Duration(minutes: id)),
+          ),
+      ],
+    );
+    if (exportDirectory != null) {
+      await shell.forumSettings.setShared(
+        shell.forumSettings.shared.copyWith(
+          font: ForumFont.openSans,
+          interfaceFont: ForumFont.openSans,
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+    await _tapDockTab(tester, 'panel/chat');
+    shell.openChatChannel(10);
+    await tester.pumpAndSettle();
+    final messages = find.byType(DMessageScrollerViewport);
+    final scroll = tester
+        .widget<DMessageScrollerViewport>(messages)
+        .scrollController!;
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(scroll.position.maxScrollExtent, greaterThan(180));
+    expect(
+      scroll.position.maxScrollExtent,
+      lessThan(scroll.position.viewportDimension),
+    );
+    // Exercise less overflow than an ordinary page's 120px cutoff as well as
+    // less than two screens. Only this active channel should set the policy.
+    tester.view.physicalSize = Size(
+      phone.width,
+      phone.height + scroll.position.maxScrollExtent - 100,
+    );
+    await tester.pumpAndSettle();
+    expect(scroll.position.maxScrollExtent, closeTo(100, .01));
+    scroll.jumpTo(scroll.position.maxScrollExtent - 10);
+    await tester.pumpAndSettle();
+    final title = find.byKey(const ValueKey('content-header-title-action'));
+    expect(title.hitTestable(), findsOneWidget);
+    await capture('shown');
+    await tester.timedDrag(
+      messages,
+      const Offset(0, -80),
+      const Duration(milliseconds: 1000),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      title.hitTestable(),
+      findsNothing,
+      reason:
+          'offset=${scroll.offset}, max=${scroll.position.maxScrollExtent}, chrome=${DScrollChrome.maybeOf(tester.element(messages))?.hiddenFraction}',
+    );
+    expect(
+      find.byKey(const ValueKey('mobile-mode-start')).hitTestable(),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('chat-composer-send')).hitTestable(),
+      findsOneWidget,
+    );
+    await capture('hidden');
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest(
     'channel scrolling retracts navigation and keeps Send available',
@@ -773,7 +899,12 @@ void main() {
           scroll.jumpTo(700);
           await tester.pumpAndSettle();
           expect(title.hitTestable(), findsOneWidget);
-          await _chatWheel(tester, messages, 160);
+          await tester.timedDrag(
+            messages,
+            const Offset(0, -160),
+            const Duration(milliseconds: 300),
+          );
+          await tester.pumpAndSettle();
           expect(start.hitTestable(), findsNothing);
           expect(title.hitTestable(), findsNothing);
           expect(send.hitTestable(), readOnly ? findsNothing : findsOneWidget);

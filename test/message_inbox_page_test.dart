@@ -36,6 +36,39 @@ const _groupUnread = '/topics/private-messages-group/reader/team/unread.json';
 const _groupArchive = '/topics/private-messages-group/reader/team/archive.json';
 
 void main() {
+  testWidgets(
+    'swiping the inbox hides its title and keeps the selectors',
+    (tester) async {
+      await _pumpInbox(tester, width: 390, inboxCount: 40);
+      final title = find.text('Messages');
+      final list = find.byType(TopicListView);
+      expect(title.hitTestable(), findsOneWidget);
+      await tester.timedDrag(
+        list,
+        const Offset(0, -300),
+        const Duration(milliseconds: 300),
+      );
+      await tester.pumpAndSettle();
+      expect(title.hitTestable(), findsNothing);
+      expect(
+        find.byKey(const ValueKey('message-list-menu')).hitTestable(),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.timedDrag(
+        list,
+        const Offset(0, 160),
+        const Duration(milliseconds: 300),
+      );
+      await tester.pumpAndSettle();
+      expect(title.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
   for (final group in [false, true]) {
     testWidgets(
       'archives ${group ? 'group' : 'personal'} PMs beside Reply and undoes',

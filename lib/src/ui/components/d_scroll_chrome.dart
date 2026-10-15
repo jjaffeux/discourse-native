@@ -412,9 +412,18 @@ class _DScrollChromeState extends State<DScrollChrome>
   }
 
   bool _shortContent(ScrollMetrics metrics) {
-    final natural = _footerContentKey.currentContext?.size?.height ?? 0;
+    // Ballistic updates can arrive before a rebuilt dock has been laid out.
+    // Use its last completed measurement, as we do for registered headers.
+    final natural =
+        (_footerContentKey.currentContext?.findRenderObject()
+                as _RenderChromeExtent?)
+            ?.extent ??
+        0;
     if (!_hidden && _animation.value == 0) _shownFooterHeight = natural;
-    final footerHeight = _footerKey.currentContext?.size?.height ?? 0;
+    final footerHeight =
+        (_footerKey.currentContext?.findRenderObject() as _RenderChromeExtent?)
+            ?.extent ??
+        0;
     final reduction =
         (widget.floatingFooter
             ? 0.0
@@ -632,7 +641,7 @@ class _DScrollChromeState extends State<DScrollChrome>
                               child: SizeChangedLayoutNotifier(
                                 child: Focus(
                                   focusNode: _footerFocus,
-                                  child: SizedBox(
+                                  child: _ChromeExtent(
                                     key: _footerContentKey,
                                     child: _footerContent ??= widget
                                         .footerBuilder(_hidden),
@@ -675,7 +684,7 @@ class _DScrollChromeState extends State<DScrollChrome>
                   ? 0.0
                   : _animation.value;
               final gone = !widget.visible || fraction == 1;
-              return SizedBox(
+              return _ChromeExtent(
                 key: _footerKey,
                 child: Offstage(
                   offstage: gone,
@@ -691,7 +700,7 @@ class _DScrollChromeState extends State<DScrollChrome>
                             alignment: Alignment.topCenter,
                             child: Focus(
                               focusNode: _footerFocus,
-                              child: SizedBox(
+                              child: _ChromeExtent(
                                 key: _footerContentKey,
                                 child: _footerContent ??= widget.footerBuilder(
                                   _hidden,
@@ -715,6 +724,24 @@ class _DScrollChromeState extends State<DScrollChrome>
 
 class _DockRoom extends InheritedNotifier<ValueNotifier<double>> {
   const _DockRoom({required super.notifier, required super.child});
+}
+
+class _ChromeExtent extends SingleChildRenderObjectWidget {
+  const _ChromeExtent({super.key, required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderChromeExtent();
+}
+
+class _RenderChromeExtent extends RenderProxyBox {
+  double extent = 0;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    extent = size.height;
+  }
 }
 
 // Correct inside viewport layout, before paint, so retracting a column header

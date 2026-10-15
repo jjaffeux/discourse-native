@@ -43,7 +43,7 @@ class ChatChannelActivity {
   }
 }
 
-/// Conversation identity and activity, aligned with the channel reading lane.
+/// The channel's single-line identity, aligned with the conversation reading lane.
 class ChatChannelHeader extends StatelessWidget {
   const ChatChannelHeader({
     super.key,
@@ -53,8 +53,6 @@ class ChatChannelHeader extends StatelessWidget {
     required this.stream,
     required this.activity,
     required this.onOpenDetails,
-    this.compact = false,
-    this.now,
   });
 
   final String siteUrl;
@@ -63,21 +61,11 @@ class ChatChannelHeader extends StatelessWidget {
   final ChatStreamState stream;
   final ChatChannelActivity activity;
   final VoidCallback onOpenDetails;
-  final bool compact;
-  final DateTime? now;
 
   @override
   Widget build(BuildContext context) {
-    var latest = channel?.lastMessageId == null ? null : channel?.lastMessageAt;
-    final loadedLatest = activity.latestAt;
-    if (loadedLatest != null &&
-        (latest == null || loadedLatest.isAfter(latest))) {
-      latest = loadedLatest;
-    }
     return ChatConversationHeader(
-      key: ValueKey(
-        compact ? 'chat-channel-compact-header' : 'chat-channel-header',
-      ),
+      key: const ValueKey('chat-channel-header'),
       title: channel?.title ?? context.l10n.chat,
       color: channel?.categoryColor,
       direct: channel?.isDirectMessage == true,
@@ -85,12 +73,9 @@ class ChatChannelHeader extends StatelessWidget {
           ? context.l10n.directMessage
           : context.l10n.channel,
       messageCount: activity.messageCount,
-      threadCount: activity.threadIds.length,
       fetchedOnce: stream.fetchedOnce,
       partial: stream.canLoadMorePast || stream.canLoadMoreFuture,
-      latest: latest,
-      compact: compact,
-      now: now,
+      compact: true,
       titleBuilder: (title) => ChatChannelMenu(
         siteUrl: siteUrl,
         channelId: channelId,

@@ -55,6 +55,7 @@ class DPageSurface extends StatefulWidget {
        backgroundColor = null,
        borderRadius = null,
        hideHeaderOnScroll = true,
+       minimumScrollExtent = 120,
        revealHeaderAtEnd = false,
        headerSuppressed = null;
 
@@ -72,6 +73,7 @@ class DPageSurface extends StatefulWidget {
     this.backgroundColor,
     this.borderRadius,
     this.hideHeaderOnScroll = false,
+    this.minimumScrollExtent,
     this.revealHeaderAtEnd = false,
     this.headerSuppressed,
 
@@ -100,6 +102,7 @@ class DPageSurface extends StatefulWidget {
     this.backgroundColor,
     this.borderRadius,
     this.hideHeaderOnScroll = false,
+    this.minimumScrollExtent,
     this.revealHeaderAtEnd = false,
     this.headerSuppressed,
     this.limitContentSize,
@@ -142,6 +145,11 @@ class DPageSurface extends StatefulWidget {
   /// top. Standard headings stay visible below 120px of scroll overflow.
   /// Custom reader headers stay visible below two viewport heights.
   final bool hideHeaderOnScroll;
+
+  /// Scroll overflow needed before the header can retract. Null preserves the
+  /// reader policy of two viewport heights. Standard page headings use 120px.
+  /// Zero lets short, scrollable conversations hide their header and shared dock.
+  final double? minimumScrollExtent;
 
   /// Whether reaching the physical bottom also reveals the retracting header.
   ///
@@ -248,6 +256,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   bool _gone = false;
   bool _updateScheduled = false;
   DScrollChromeController? _scrollChrome;
+  bool _chromeHeaderEnabled = true;
 
   double get _motionSpan {
     final header =
@@ -259,8 +268,9 @@ class _DPageSurfaceState extends State<DPageSurface>
         : header.naturalHeight;
   }
 
-  ValueListenable<double> get _progress =>
-      widget.foldTitleAtTop ? _titleFold : _scrollChrome ?? _motion;
+  ValueListenable<double> get _progress => widget.foldTitleAtTop
+      ? _titleFold
+      : (_chromeHeaderEnabled ? _scrollChrome : null) ?? _motion;
   double get _hiddenFraction => widget.hideHeaderOnScroll ? _progress.value : 0;
 
   @override
@@ -300,15 +310,29 @@ class _DPageSurfaceState extends State<DPageSurface>
       disableAnimations: MediaQuery.disableAnimationsOf(context),
     );
     final chrome = DScrollChrome.maybeOf(context);
-    if (identical(chrome, _scrollChrome)) return;
+    final enabled = TickerMode.valuesOf(context).enabled;
+    if (identical(chrome, _scrollChrome) && enabled == _chromeHeaderEnabled) {
+      return;
+    }
     _scrollChrome?.removeListener(_updateHeader);
     _scrollChrome?.unregisterHeader(this);
     _scrollChrome = chrome;
+    _chromeHeaderEnabled = enabled;
     chrome?.addListener(_updateHeader);
-    chrome?.registerHeader(
+    _registerHeader();
+  }
+
+  void _registerHeader() {
+    // Retained navigation previews must not set the active page's scroll
+    // threshold, motion distance, or focus policy.
+    if (!_chromeHeaderEnabled || widget.header == null) {
+      _scrollChrome?.unregisterHeader(this);
+      return;
+    }
+    _scrollChrome?.registerHeader(
       this,
       focus: _headerFocus,
-      minimumScrollExtent: widget.header is _PageTitle ? 120 : null,
+      minimumScrollExtent: widget.minimumScrollExtent,
       motionExtent: () => _motionSpan,
       layoutReduction: () {
         if ((!widget.hideHeaderOnScroll) ||
@@ -338,6 +362,10 @@ class _DPageSurfaceState extends State<DPageSurface>
   @override
   void didUpdateWidget(DPageSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.minimumScrollExtent != widget.minimumScrollExtent ||
+        (oldWidget.header == null) != (widget.header == null)) {
+      _registerHeader();
+    }
     _builtBody = null;
     if (oldWidget.headerSuppressed != widget.headerSuppressed) {
       oldWidget.headerSuppressed?.removeListener(_syncSuppression);
@@ -422,8 +450,8 @@ class _DPageSurfaceState extends State<DPageSurface>
         metrics.maxScrollExtent -
         metrics.minScrollExtent +
         metrics.viewportDimension;
-    if (widget.header is _PageTitle
-        ? contentHeight - viewport >= 120
+    if (widget.minimumScrollExtent != null
+        ? contentHeight - viewport >= widget.minimumScrollExtent!
         : viewport > 0 && contentHeight >= 2 * viewport) {
       return false;
     }
@@ -511,7 +539,7 @@ class _DPageSurfaceState extends State<DPageSurface>
       return;
     }
     _motion.reveal(fresh: true);
-    _scrollChrome?.reveal();
+    if (_chromeHeaderEnabled) _scrollChrome?.reveal();
   }
 
   void _updateCompact(

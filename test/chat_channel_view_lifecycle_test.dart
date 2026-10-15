@@ -1581,6 +1581,111 @@ void main() {
       );
     });
 
+    testWidgets('channel loading never builds the expanded header', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final controller = await _controller(
+        _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(1, 30)],
+          },
+          gatedOpen: (siteUrl: firstSite, number: 1, gate: gate),
+        ),
+        sites: const [firstSite],
+      );
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 30));
+      await tester.pumpWidget(_TestView(controller: controller));
+      final header = find.byKey(const ValueKey('chat-channel-header'));
+      final height = tester.getSize(header).height;
+      void compactOnly() {
+        expect(tester.getSize(header).height, height);
+        expect(height, 47);
+        expect(
+          find.byKey(
+            const ValueKey('chat-channel-header-metadata'),
+            skipOffstage: false,
+          ),
+          findsNothing,
+        );
+        expect(
+          find.byKey(
+            const ValueKey('content-header-separator'),
+            skipOffstage: false,
+          ),
+          findsNothing,
+        );
+      }
+
+      compactOnly();
+      await tester.pump();
+      compactOnly();
+      gate.complete();
+      await tester.pumpAndSettle();
+      compactOnly();
+      final position = tester
+          .state<ScrollableState>(_verticalChatScroll())
+          .position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      compactOnly();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'a short channel hides its entire header on an upward swipe',
+      (tester) async {
+        final api = _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(1, 14)],
+          },
+        );
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 14));
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpAndSettle();
+        final scroll = _verticalChatScroll();
+        final position = tester.state<ScrollableState>(scroll).position;
+        expect(position.maxScrollExtent, greaterThan(160));
+        expect(position.maxScrollExtent, lessThan(position.viewportDimension));
+        position.jumpTo(position.maxScrollExtent - 40);
+        await tester.pumpAndSettle();
+        final geometry = DPageSurface.headerGeometryOf(
+          tester.element(find.byType(ChatMessageStream)),
+        )!;
+        expect(geometry.visibleExtent, greaterThan(0));
+        final viewport = tester.getRect(scroll);
+        await tester.timedDragFrom(
+          Offset(viewport.center.dx, viewport.bottom - 16),
+          const Offset(0, -180),
+          const Duration(milliseconds: 300),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          geometry.visibleExtent,
+          0,
+          reason:
+              'offset=${position.pixels} max=${position.maxScrollExtent} viewport=${position.viewportDimension}',
+        );
+        expect(
+          find
+              .byKey(const ValueKey('content-header-title-action'))
+              .hitTestable(),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.macOS,
+      }),
+    );
+
     testWidgets(
       'pinned bar follows chat scroll direction and top edge',
       (tester) async {
@@ -1637,11 +1742,11 @@ void main() {
         expect(bar.hitTestable(), findsNothing);
         final hiddenBottom = tester.getBottomLeft(bar).dy;
         expect(
-          find.byKey(const ValueKey('chat-channel-compact-header')),
+          find.byKey(const ValueKey('chat-channel-header')),
           findsOneWidget,
         );
         final headerHeight = tester
-            .getSize(find.byKey(const ValueKey('chat-channel-compact-header')))
+            .getSize(find.byKey(const ValueKey('chat-channel-header')))
             .height;
         // The channel identity is revealed before the pinned row below it.
         await tester.pump(const Duration(milliseconds: 401));
@@ -2215,7 +2320,7 @@ void main() {
   });
 
   group('live updates and mounted presentation', () {
-    testWidgets('header thread counts follow live thread creation', (
+    testWidgets('live thread creation keeps the channel header on one line', (
       tester,
     ) async {
       final controller = await _controller(
@@ -2243,70 +2348,59 @@ void main() {
       });
       update(1);
       await tester.pump();
-      expect(find.text('1 thread', findRichText: true), findsOneWidget);
+      expect(find.text('1 thread', findRichText: true), findsNothing);
+      expect(find.text('2 messages'), findsOneWidget);
       final revision = controller.chat.stream(firstSite, 9).revision;
       update(2);
       await tester.pump();
-      expect(find.text('1 thread', findRichText: true), findsOneWidget);
+      expect(find.text('1 thread', findRichText: true), findsNothing);
       expect(controller.chat.stream(firstSite, 9).revision, revision);
     });
 
-    testWidgets('a large-text header scrolls instead of crowding the page', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(320, 560));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      tester.platformDispatcher.textScaleFactorTestValue = 3;
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      final controller = await _controller(
-        _ChatApi(
-          openPages: {
-            firstSite: [_messagesPage(1, 2)],
-          },
-        ),
-        sites: const [firstSite],
-      );
-      addTearDown(controller.dispose);
-      controller.chatRecords.put(firstSite, _channel(lastRead: 2));
-      await tester.pumpWidget(_TestView(controller: controller));
-      await tester.pumpAndSettle();
-
-      expect(tester.takeException(), isNull);
-      // The full conversation header belongs at the oldest messages.
-      final transcript = tester
-          .widget<SuperListView>(find.byType(SuperListView))
-          .controller!
-          .position;
-      // The lazy list refines its extent as these scaled rows are laid out.
-      for (var attempt = 0; attempt < 4; attempt++) {
-        transcript.jumpTo(transcript.maxScrollExtent);
+    testWidgets(
+      'a large-text channel keeps a single-line header and a reachable transcript',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 560));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        tester.platformDispatcher.textScaleFactorTestValue = 3;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final controller = await _controller(
+          _ChatApi(
+            openPages: {
+              firstSite: [_messagesPage(1, 2)],
+            },
+          ),
+          sites: const [firstSite],
+        );
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 2));
+        await tester.pumpWidget(_TestView(controller: controller));
         await tester.pumpAndSettle();
-        if (transcript.maxScrollExtent - transcript.pixels < .1) break;
-      }
-      final header = find.byKey(const ValueKey('chat-channel-header'));
-      final metadata = find.byKey(
-        const ValueKey('chat-channel-header-metadata'),
-      );
-      final page = tester.getRect(find.byType(DPageSurface));
-      final viewport = tester.getRect(
-        find.ancestor(of: header, matching: find.byType(Scrollable)).first,
-      );
-      expect(viewport.top, page.top);
-      expect(viewport.height, lessThanOrEqualTo(page.height * 0.4));
-      expect(tester.getSize(header).height, greaterThan(viewport.height));
-      expect(
-        tester.getSize(find.byType(ChatMessageStream)).height,
-        greaterThan(0),
-      );
 
-      await tester.dragFrom(viewport.center, const Offset(0, -2000));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getRect(metadata).bottom,
-        lessThanOrEqualTo(viewport.bottom),
-      );
-      expect(tester.takeException(), isNull);
-    });
+        expect(tester.takeException(), isNull);
+        final header = find.byKey(const ValueKey('chat-channel-header'));
+        final metadata = find.byKey(
+          const ValueKey('chat-channel-header-metadata'),
+        );
+        expect(metadata, findsNothing);
+        expect(
+          find.byKey(const ValueKey('content-header-separator')),
+          findsNothing,
+        );
+        final title = find.byKey(const ValueKey('content-header-title-action'));
+        final count = find.byKey(const ValueKey('chat-compact-message-count'));
+        expect(
+          tester.getRect(title).center.dy,
+          closeTo(tester.getRect(count).center.dy, .01),
+        );
+        expect(tester.getSize(header).height, lessThan(100));
+        expect(
+          tester.getSize(find.byType(ChatMessageStream)).height,
+          greaterThan(0),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     for (final deletedCount in [1, 2]) {
       testWidgets(

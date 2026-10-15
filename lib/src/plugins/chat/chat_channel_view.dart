@@ -327,11 +327,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         builder: (context, constraints) => DPageSurface.scrollable(
           framed: false,
           hideHeaderOnScroll: true,
-          measureCompactHeader: true,
+          minimumScrollExtent: 0,
           identity: (widget.siteUrl, widget.channelId, widget.chat),
-          // Large text can make the identity and metadata taller than the page
-          // minus the composer. Keep the transcript reachable by letting the
-          // header scroll within a share of the page instead of overflowing.
+          // Large text or pinned content can crowd a short page. Keep the
+          // transcript reachable by limiting the header's share of the page.
           header: ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: constraints.maxHeight.isFinite
@@ -371,36 +370,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
               ),
             ),
           ),
-          compactHeader: widget.showHeader
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ChatChannelHeader(
-                      siteUrl: widget.siteUrl,
-                      channelId: widget.channelId,
-                      channel: channel,
-                      stream: stream,
-                      activity: _activity,
-                      compact: true,
-                      onOpenDetails: () =>
-                          PluginUiScope.require(
-                            context,
-                            chatShellService,
-                          ).openChannelInfo(
-                            siteUrl: widget.siteUrl,
-                            channelId: widget.channelId,
-                          ),
-                    ),
-                    if (channel?.hasPinnedMessages == true)
-                      ChatPinnedBar(
-                        siteUrl: widget.siteUrl,
-                        channel: channel!,
-                        chat: widget.chat,
-                        onJumpToMessage: _jumpToMessage,
-                      ),
-                  ],
-                )
-              : null,
           footer: _selectingMessages
               ? ChatMessageSelectionBar(
                   siteUrl: widget.siteUrl,

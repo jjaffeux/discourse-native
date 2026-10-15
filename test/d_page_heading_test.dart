@@ -181,7 +181,10 @@ void main() {
           expect(scroll.offset, greaterThan(200));
           expect(find.byKey(_title).hitTestable(), findsNothing);
           expect(find.byKey(_controls).hitTestable(), findsOneWidget);
-          expect(tester.getTopLeft(find.byKey(_controls)).dy, lessThan(controlsTop));
+          expect(
+            tester.getTopLeft(find.byKey(_controls)).dy,
+            lessThan(controlsTop),
+          );
           await tester.pump(const Duration(milliseconds: 500));
           await tester.timedDrag(
             find.byKey(_body),
@@ -241,6 +244,75 @@ void main() {
   }
 
   for (final shared in [false, true]) {
+    testWidgets(
+      'custom header can opt into short transcripts (shared=$shared)',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        Future<void> mount(double? minimum) async {
+          final page = DPageSurface(
+            framed: false,
+            hideHeaderOnScroll: true,
+            minimumScrollExtent: minimum,
+            header: const SizedBox(
+              height: 47,
+              child: Text('Channel', key: _title),
+            ),
+            child: LayoutBuilder(
+              builder: (_, viewport) => ListView(
+                key: _body,
+                controller: scroll,
+                padding: EdgeInsets.zero,
+                children: [SizedBox(height: viewport.maxHeight + 100)],
+              ),
+            ),
+          );
+          await tester.pumpWidget(
+            MaterialApp(
+              home: shared
+                  ? DScrollChrome(
+                      identity: 'channel',
+                      floatingFooter: true,
+                      footerBuilder: (_) => const SizedBox(height: 40),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Offstage(
+                            offstage: true,
+                            child: TickerMode(
+                              enabled: false,
+                              child: DPageSurface.headed(
+                                title: const Text('Retained page'),
+                                controls: const SizedBox(height: 240),
+                                child: ListView(
+                                  children: const [SizedBox(height: 2000)],
+                                ),
+                              ),
+                            ),
+                          ),
+                          page,
+                        ],
+                      ),
+                    )
+                  : page,
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await mount(null);
+        await _wheel(tester, 80);
+        expect(find.byKey(_title).hitTestable(), findsOneWidget);
+        scroll.jumpTo(0);
+        await mount(0);
+        final retainedTitle = find.text('Retained page', skipOffstage: false);
+        final retainedTop = shared ? tester.getTopLeft(retainedTitle) : null;
+        await _wheel(tester, 80);
+        expect(find.byKey(_title).hitTestable(), findsNothing);
+        if (shared) expect(tester.getTopLeft(retainedTitle), retainedTop);
+        expect(tester.takeException(), isNull);
+      },
+    );
     for (final overflow in [119.0, 120.0, 121.0]) {
       testWidgets(
         'page threshold is 120px (overflow=$overflow shared=$shared)',
