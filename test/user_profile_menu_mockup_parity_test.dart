@@ -75,16 +75,62 @@ void main() {
 
                   final menu = find.byType(DDropdownMenuContent);
                   expect(menu, findsOneWidget);
-                  expect(find.byType(DSheetContent), findsNothing);
                   expect(find.byTooltip('Close'), findsNothing);
-                  final bounds = tester.getRect(menu);
+                  var bounds = tester.getRect(menu);
                   final screen = tester.view.physicalSize;
-                  expect(bounds.width, 216);
-                  expect(bounds.left, greaterThanOrEqualTo(5));
-                  expect(bounds.right, lessThanOrEqualTo(screen.width - 5));
+                  final mobile = platform != TargetPlatform.macOS;
+                  final sheet = find.ancestor(
+                    of: menu,
+                    matching: find.byType(DSheetContent),
+                  );
+                  if (mobile) {
+                    expect(sheet, findsOneWidget);
+                    final content = tester.widget<DSheetContent>(sheet);
+                    expect(content.side, DSheetSide.bottom);
+                    expect(content.variant, DSheetVariant.adaptiveMenu);
+                    expect(content.semanticLabel, 'Profile');
+                    expect(content.showCloseButton, isFalse);
+                    expect(find.byType(DSheetHeader), findsNothing);
+                    final sheetBounds = tester.getRect(sheet);
+                    if (scale == 1) {
+                      expect(sheetBounds.left, 6);
+                      expect(sheetBounds.right, screen.width - 6);
+                      expect(sheetBounds.bottom, screen.height - 40);
+                    }
+                    expect(bounds.width, greaterThan(216));
+                    expect(
+                      find.byKey(const ValueKey('sheet-drag-handle')),
+                      findsOneWidget,
+                    );
+                    if (scale == 2) {
+                      await tester.drag(
+                        find.byKey(const ValueKey('sheet-drag-handle')),
+                        const Offset(0, -500),
+                      );
+                      await tester.pumpAndSettle();
+                      bounds = tester.getRect(menu);
+                    }
+                  } else {
+                    expect(sheet, findsNothing);
+                    expect(bounds.width, 216);
+                    final popup = tester.widget<DPopoverContent>(
+                      find.byType(DPopoverContent),
+                    );
+                    expect(popup.variant, DPopoverVariant.timeline);
+                  }
+                  expect(bounds.left, greaterThanOrEqualTo(mobile ? 0 : 5));
+                  expect(
+                    bounds.right,
+                    lessThanOrEqualTo(screen.width - (mobile ? 0 : 5)),
+                  );
                   expect(bounds.top, greaterThanOrEqualTo(59));
-                  expect(bounds.bottom, lessThanOrEqualTo(screen.height - 34));
-                  if (scale == 1) {
+                  if (!mobile || scale == 1) {
+                    expect(
+                      bounds.bottom,
+                      lessThanOrEqualTo(screen.height - 34),
+                    );
+                  }
+                  if (!mobile && scale == 1) {
                     expect(bounds.top, closeTo(anchor.bottom + 8, .01));
                     expect(
                       direction == TextDirection.ltr
@@ -95,10 +141,6 @@ void main() {
                           : anchor.left,
                     );
                   }
-                  final popup = tester.widget<DPopoverContent>(
-                    find.byType(DPopoverContent),
-                  );
-                  expect(popup.variant, DPopoverVariant.timeline);
                   final tokens = DTokens.of(
                     tester.element(
                       find.byKey(const ValueKey('user-menu-own-card')),
@@ -210,7 +252,7 @@ void main() {
                       expect(count.center.dy, closeTo(textRect.center.dy, 1));
                     }
                   }
-                  expect(tester.getRect(menu), bounds);
+                  if (!mobile) expect(tester.getRect(menu), bounds);
                   expect(tester.takeException(), isNull);
 
                   if (scale == 1 && direction == TextDirection.ltr) {
@@ -223,10 +265,18 @@ void main() {
                   await tester.pumpAndSettle();
                   expect(menu, findsNothing);
                   final focus = tester.widget<DButton>(avatar).focusNode!;
-                  expect(focus.hasFocus, isTrue);
+                  if (!mobile) expect(focus.hasFocus, isTrue);
+                  expect(tester.widget<DButton>(avatar).expanded, isFalse);
                   await tester.tap(avatar);
                   await tester.pumpAndSettle();
-                  await tester.tapAt(Offset(20, screen.height - 50));
+                  await tester.tapAt(
+                    Offset(
+                      20,
+                      mobile
+                          ? tester.getRect(sheet).top - 20
+                          : screen.height - 50,
+                    ),
+                  );
                   await tester.pumpAndSettle();
                   expect(menu, findsNothing);
                   expect(controller.currentInstance!.user!.username, 'tynaut');
@@ -292,6 +342,14 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(avatar);
         await tester.pumpAndSettle();
+        if (platform != TargetPlatform.macOS) {
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            const Offset(0, 500),
+          );
+          await tester.pumpAndSettle();
+          expect(menu, findsNothing);
+        }
         await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('user-menu-own-card')), findsNothing);
@@ -312,6 +370,32 @@ void main() {
         semantics.dispose();
       }
     });
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'mobile profile closes on back and account retirement on ${platform.name}',
+      (tester) async {
+        final controller = await _pump(tester, platform: platform);
+        final avatar = find.byKey(UserMenuButton.avatarKey);
+        await tester.tap(avatar);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.widget<DButton>(avatar).expanded, isFalse);
+
+        await tester.tap(avatar);
+        await tester.pumpAndSettle();
+        await controller.disconnectInstance(_site);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(find.byKey(const ValueKey('user-menu-own-card')), findsNothing);
+        expect(find.byKey(UserMenuButton.signInKey), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets(

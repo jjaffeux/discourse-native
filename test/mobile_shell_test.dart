@@ -3076,6 +3076,28 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(UserMenuPanel), findsNothing);
+      await tester.tap(find.byKey(UserMenuButton.avatarKey));
+      await tester.pumpAndSettle();
+      final profileSheet = find.ancestor(
+        of: find.byKey(const ValueKey('user-menu-own-card')),
+        matching: find.byType(DSheetContent),
+      );
+      expect(profileSheet, findsOneWidget);
+      expect(
+        tester.widget<DSheetContent>(profileSheet).variant,
+        DSheetVariant.adaptiveMenu,
+      );
+      expect(find.text('Summary'), findsOneWidget);
+      expect(find.text('Preferences'), findsOneWidget);
+      await tester.drag(
+        find.descendant(
+          of: profileSheet,
+          matching: find.byKey(const ValueKey('sheet-drag-handle')),
+        ),
+        const Offset(0, 500),
+      );
+      await tester.pumpAndSettle();
+      expect(profileSheet, findsNothing);
       await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
       await tester.pumpAndSettle();
       expect(find.text('Open forum in browser'), findsNothing);

@@ -3,11 +3,14 @@
 Reference: `discourse-native-mockups/src/App.tsx`, `AvatarMenu` and
 `ToggleMenuRow`, and `src/app.css` menu and material rules.
 
-The header avatar now opens the existing Native dropdown on desktop, iOS and
-Android. It aligns with the avatar's trailing edge, sits 8px below it, and uses
-the reference 216px width and 10px popup corners. Large text gains a local
+The header avatar opens the existing Native dropdown on desktop and the Native
+adaptive bottom sheet on iOS and Android. The desktop menu aligns with the
+avatar's trailing edge, sits 8px below it, and uses the reference 216px width
+and 10px popup corners. Large text gains a local
 scroll viewport; placement respects the physical phone safe area even when
-the header's SafeArea has consumed local padding.
+the header's SafeArea has consumed local padding. The mobile sheet has a grab
+handle, floats above the home indicator, and supports downward swipe dismissal.
+Tall content can expand and scroll using the existing adaptive sheet behavior.
 
 The account header uses a 32px avatar, a 13.5px semibold display name and a
 12px muted handle. The three separators follow the account, presence and
@@ -29,8 +32,9 @@ The popup uses the 3% panel fill, 22% border, 12% rules, 50% muted text and
 
 Validation: `test/user_profile_menu_mockup_parity_test.dart` covers desktop,
 iOS and Android, light/dark, Standard/Liquid Glass, LTR/RTL, 100%/200% text,
-safe areas, toggles, dialog handoffs, dismissal, keyboard, hover and reduced
-motion. Set `NATIVE_PROFILE_CAPTURE_DIR` to save rendered preview PNGs using
+safe areas, toggles, dialog handoffs, backdrop and swipe dismissal, system back,
+account retirement, keyboard, hover and reduced motion. Set
+`NATIVE_PROFILE_CAPTURE_DIR` to save rendered preview PNGs using
 the bundled Lato font and a deterministic avatar fallback. These are widget
 renders, not physical-device or Impeller captures. Existing dropdown,
 material, account, layout and styleguide tests are also run by file path.
