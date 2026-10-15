@@ -336,63 +336,66 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
     ].where((group) => group.badges.isNotEmpty).toList();
     return DPageSurface.headed(
       title: Text(context.l10n.badges),
-      controls: LayoutBuilder(
-        builder: (context, constraints) {
-          final scale =
-              MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) /
-              DiscourseTypography.sm;
-          final stacked = constraints.maxWidth / scale < 300;
-          final filter = DSelect<_BadgeFilter>.controlled(
-            size: DControlSize.filter,
-            key: const ValueKey('badge-filter'),
-            value: _filter,
-            semanticLabel: context.l10n.filterBadges,
-            width: 128,
-            isExpanded: stacked,
-            entries: [
-              for (final filter in _BadgeFilter.values)
-                if (!filter.personal || catalog.hasPersonalState)
-                  DSelectItem(
-                    value: filter,
-                    textValue: filter.label,
-                    child: Text(filter.label),
-                  ),
-            ],
-            onChanged: (value) {
-              if (value != null) setState(() => _filter = value);
-            },
-          );
-          final summary = Text(
-            context.l10n.messageBadgespage(
-              catalog.total,
-              (catalog.hasPersonalState).toString(),
-              (_number(catalog.total)).toString(),
-              ((catalog.hasPersonalState) ? (_number(catalog.earned)) : '')
-                  .toString(),
-            ),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.shell.marker,
-            ),
-          );
-          if (stacked) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [filter, const SizedBox(height: 8), summary],
+      // Header motion should composite the unchanged filter and summary.
+      controls: RepaintBoundary(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final scale =
+                MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) /
+                DiscourseTypography.sm;
+            final stacked = constraints.maxWidth / scale < 300;
+            final filter = DSelect<_BadgeFilter>.controlled(
+              size: DControlSize.filter,
+              key: const ValueKey('badge-filter'),
+              value: _filter,
+              semanticLabel: context.l10n.filterBadges,
+              width: 128,
+              isExpanded: stacked,
+              entries: [
+                for (final filter in _BadgeFilter.values)
+                  if (!filter.personal || catalog.hasPersonalState)
+                    DSelectItem(
+                      value: filter,
+                      textValue: filter.label,
+                      child: Text(filter.label),
+                    ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _filter = value);
+              },
             );
-          }
-          return Row(
-            children: [
-              filter,
-              const SizedBox(width: 16),
-              Expanded(
-                child: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: summary,
-                ),
+            final summary = Text(
+              context.l10n.messageBadgespage(
+                catalog.total,
+                (catalog.hasPersonalState).toString(),
+                (_number(catalog.total)).toString(),
+                ((catalog.hasPersonalState) ? (_number(catalog.earned)) : '')
+                    .toString(),
               ),
-            ],
-          );
-        },
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.shell.marker,
+              ),
+            );
+            if (stacked) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [filter, const SizedBox(height: 8), summary],
+              );
+            }
+            return Row(
+              children: [
+                filter,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: summary,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       bodyBuilder: (context, header) => ContentReadingLane(
         builder: (context, lane) => CustomScrollView(
@@ -431,14 +434,16 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
                     ),
                   for (final group in groups) ...[
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                        child: Semantics(
-                          header: true,
-                          child: Text(
-                            group.name,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
+                      child: RepaintBoundary(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                          child: Semantics(
+                            header: true,
+                            child: Text(
+                              group.name,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
