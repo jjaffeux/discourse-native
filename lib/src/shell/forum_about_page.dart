@@ -75,24 +75,20 @@ class ForumAboutPageState extends State<ForumAboutPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return DPageSurface(
-      framed: false,
+    return DPageSurface.headed(
+      identity: widget.requestIdentity,
       limitContentSize: true,
-      header: Padding(
-        padding: const EdgeInsets.symmetric(vertical: DSpacing.lg),
-        child: DCardHeader(
-          title: DCardTitle(child: Text(l10n.forumAboutTitle)),
-          action: widget.loginRequired
-              ? null
-              : DCardAction(
-                  child: DButton.iconOnly(
-                    tooltip: l10n.refresh,
-                    icon: const DIcon(DIcons.arrowsRotate),
-                    onPressed: () => unawaited(_load()),
-                  ),
-                ),
-        ),
-      ),
+      title: Text(l10n.forumAboutTitle),
+      controls: widget.loginRequired
+          ? null
+          : Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: DButton.iconOnly(
+                tooltip: l10n.refresh,
+                icon: const DIcon(DIcons.arrowsRotate),
+                onPressed: () => unawaited(_load()),
+              ),
+            ),
       footer: DCardFooter(
         child: DButton(
           key: const ValueKey('forum-about-browser'),

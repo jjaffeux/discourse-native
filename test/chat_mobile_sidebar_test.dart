@@ -101,16 +101,16 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
 
 void main() {
   _mobileTest(
-    'normal height keeps peer navigation and filters above the scrolling chats',
+    'scrolling hides the chat title and keeps peer navigation and filters',
     (tester) async {
       await _pumpChatInbox(tester, phone);
-      final title = tester.getRect(_title);
       final navigation = tester.getRect(_navigation);
       final list = find.descendant(of: _inbox, matching: find.byType(ListView));
       await tester.drag(list, const Offset(0, -160));
       await tester.pumpAndSettle();
-      expect(tester.getRect(_title), title);
-      expect(tester.getRect(_navigation), navigation);
+      expect(_title.hitTestable(), findsNothing);
+      expect(_navigation.hitTestable(), findsOneWidget);
+      expect(tester.getRect(_navigation).top, lessThan(navigation.top));
       expect(find.text('Channels'), findsOneWidget);
       expect(find.text('Threads'), findsOneWidget);
       expect(find.byType(DCardFooter), findsNothing);
@@ -156,7 +156,7 @@ void main() {
     expect(list, findsOneWidget);
     final title = tester.getRect(_title);
     final navigation = tester.getRect(_navigation);
-    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 450);
     addTearDown(tester.view.resetViewInsets);
     await tester.pumpAndSettle();
     expect(list, findsNothing);
@@ -168,10 +168,12 @@ void main() {
     expect(list, findsOneWidget);
     expect(_title.hitTestable(), findsOneWidget);
     expect(_navigation.hitTestable(), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.drag(list, const Offset(0, -160));
     await tester.pumpAndSettle();
-    expect(tester.getRect(_title), title);
-    expect(tester.getRect(_navigation), navigation);
+    expect(_title.hitTestable(), findsNothing);
+    expect(_navigation.hitTestable(), findsOneWidget);
+    expect(tester.getRect(_navigation).top, lessThan(navigation.top));
     expect(tester.takeException(), isNull);
   });
 }

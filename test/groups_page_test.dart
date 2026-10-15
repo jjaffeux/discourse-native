@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/group.dart';
 import 'package:discourse_native/src/shell/groups_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -33,6 +37,107 @@ const _members = [
 ];
 
 void main() {
+  setUpAll(() async {
+    await (FontLoader(
+      'PageHeaderReview',
+    )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+  });
+  for (final size in [const Size(390, 844), const Size(1100, 800)]) {
+    testWidgets(
+      'shared group header keeps controls while the title yields at $size',
+      (tester) async {
+        final capture = GlobalKey();
+        await _pump(
+          tester,
+          RepaintBoundary(
+            key: capture,
+            child: ColoredBox(
+              color: AppTheme.light.colorScheme.surface,
+              child: GroupsPage(
+                siteUrl: 'https://example.invalid',
+                data: GroupsPageData(
+                  loaded: true,
+                  totalRows: 40,
+                  groups: [
+                    for (var i = 0; i < 40; i++)
+                      Group(
+                        id: i + 1,
+                        name: 'sailing_$i',
+                        fullName: 'Sailing community $i',
+                        userCount: 12,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          fontFamily: 'PageHeaderReview',
+          size: size,
+          platform: size.width < 600
+              ? TargetPlatform.iOS
+              : TargetPlatform.macOS,
+        );
+        await tester.pumpAndSettle();
+        final viewport = find.byKey(
+          const PageStorageKey('groups-directory-scroll'),
+        );
+        final title = find.text('Groups');
+        final filter = find.byKey(const ValueKey('groups-type-filter'));
+        final position = tester
+            .state<ScrollableState>(
+              find
+                  .descendant(of: viewport, matching: find.byType(Scrollable))
+                  .first,
+            )
+            .position;
+        final bounds = tester.getRect(viewport);
+        Future<void> export(String state) async {
+          final dir = Platform.environment['PAGE_HEADER_EXPORT_DIR'];
+          if (dir == null) return;
+          await tester.runAsync(() async {
+            final image =
+                await (capture.currentContext!.findRenderObject()
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await Directory(dir).create(recursive: true);
+            await File(
+              '$dir/groups-${size.width.toInt()}-$state.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+
+        Future<void> wheel(double amount) async {
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: tester.getCenter(viewport),
+              scrollDelta: Offset(0, amount),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await export('top');
+        expect(title.hitTestable(), findsOneWidget);
+        await wheel(400);
+        expect(title.hitTestable(), findsNothing);
+        expect(filter.hitTestable(), findsOneWidget);
+        expect(tester.getRect(viewport), bounds);
+        expect(position.pixels, 400);
+        await export('down');
+        await tester.pump(const Duration(milliseconds: 500));
+        await wheel(-160);
+        expect(title.hitTestable(), findsOneWidget);
+        expect(filter.hitTestable(), findsOneWidget);
+        await export('up');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
     testWidgets('group skeleton fills the page at $size', (tester) async {
       final semantics = tester.ensureSemantics();
@@ -433,13 +538,19 @@ Future<void> _pump(
   Widget child, {
   Size size = const Size(1000, 760),
   TargetPlatform platform = TargetPlatform.macOS,
+  String? fontFamily,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light.copyWith(platform: platform),
+      theme: AppTheme.light.copyWith(
+        platform: platform,
+        textTheme: fontFamily == null
+            ? null
+            : AppTheme.light.textTheme.apply(fontFamily: fontFamily),
+      ),
       home: Scaffold(body: child),
     ),
   );

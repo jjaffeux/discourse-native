@@ -5,36 +5,53 @@ import 'package:flutter/material.dart';
 import '../models/content_route.dart';
 import '../models/topic_feed.dart';
 import '../theme/d_icons.dart';
-import 'content_reading_lane.dart';
 import 'message_inbox_title.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
-import 'topic_list_layout.dart';
 import 'topic_list_view.dart';
 
 class MessageInboxPage extends StatelessWidget {
   const MessageInboxPage({
     super.key,
     required this.feed,
-    this.heading,
+    this.actions,
     this.keepTopicOpen = false,
   });
 
   final TopicFeed feed;
-  final Widget? heading;
+  final Widget? actions;
   final bool keepTopicOpen;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      ?heading,
-      if (ShellScope.read(context).currentContent?.isSearchList != true &&
-          ShellScope.read(context).topicListContent?.isSearchList != true)
-        _MessageListNavigation(keepTopicOpen: keepTopicOpen),
-      Expanded(
-        child: TopicListView(feed: feed, inbox: true, showHeader: false),
-      ),
-    ],
+  Widget build(BuildContext context) => DPageSurface.headed(
+    title: Row(
+      children: [
+        if (context.isTouch &&
+            (!ShellScope.read(context).mobileNavigationEnabled ||
+                ShellScope.read(context).canPopContent))
+          DButton.iconOnly(
+            icon: const DIcon(DIcons.arrowLeft),
+            tooltip: context.l10n.back,
+            variant: DButtonVariant.ghost,
+            onPressed: () =>
+                ShellScope.read(context).handleBack(canReturnToSidebar: true),
+          ),
+        Expanded(child: Text(context.l10n.messages)),
+      ],
+    ),
+    controls:
+        ShellScope.read(context).currentContent?.isSearchList != true &&
+            ShellScope.read(context).topicListContent?.isSearchList != true
+        ? Row(
+            children: [
+              Expanded(
+                child: _MessageListNavigation(keepTopicOpen: keepTopicOpen),
+              ),
+              ?actions,
+            ],
+          )
+        : null,
+    child: TopicListView(feed: feed, inbox: true, showHeader: false),
   );
 }
 
@@ -59,162 +76,108 @@ class _MessageListNavigation extends StatelessWidget {
         builder: (context, state, _) {
           if (context.isTouch) {
             final controller = ShellScope.read(context);
-            return ContentReadingLaneBox(
-              widthLimit: topicListContentWidth,
-              child: Padding(
-                padding: const EdgeInsets.all(DSpacing.lg),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        if (!controller.mobileNavigationEnabled ||
-                            controller.canPopContent)
-                          DButton.iconOnly(
-                            icon: const DIcon(DIcons.arrowLeft),
-                            tooltip: context.l10n.back,
-                            variant: DButtonVariant.ghost,
-                            onPressed: () =>
-                                controller.handleBack(canReturnToSidebar: true),
-                          ),
-                        Expanded(
-                          child: DText(
-                            context.l10n.messages,
-                            variant: DTextVariant.h3,
-                            headingLevel: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: DSpacing.lg),
-                    Row(
-                      key: const ValueKey('message-list-navigation'),
-                      spacing: DSpacing.controlGap,
-                      children: [
-                        Flexible(
-                          child: SizedBox(
-                            width: 120,
-                            child: DSelect<MessageListMode>.controlled(
-                              size: DControlSize.filter,
-                              key: const ValueKey('message-list-menu'),
-                              value: state.mode,
-                              semanticLabel: context.l10n.messageLists,
-                              width: 120,
-                              entries: [
-                                for (final mode in MessageListMode.values)
-                                  if (state.group == null || mode.supportsGroup)
-                                    DSelectItem(
-                                      value: mode,
-                                      textValue: mode.label,
-                                      child: Text(
-                                        mode.label,
-                                        key: ValueKey(
-                                          'message-list-${mode.name}',
-                                        ),
-                                      ),
-                                    ),
-                              ],
-                              onChanged: (mode) {
-                                if (mode != null) {
-                                  controller.selectMessageListMode(
-                                    mode,
-                                    keepTopicOpen: keepTopicOpen,
-                                  );
-                                }
-                              },
+            return Row(
+              key: const ValueKey('message-list-navigation'),
+              spacing: DSpacing.controlGap,
+              children: [
+                Flexible(
+                  child: SizedBox(
+                    width: 120,
+                    child: DSelect<MessageListMode>.controlled(
+                      size: DControlSize.filter,
+                      key: const ValueKey('message-list-menu'),
+                      value: state.mode,
+                      semanticLabel: context.l10n.messageLists,
+                      width: 120,
+                      entries: [
+                        for (final mode in MessageListMode.values)
+                          if (state.group == null || mode.supportsGroup)
+                            DSelectItem(
+                              value: mode,
+                              textValue: mode.label,
+                              child: Text(
+                                mode.label,
+                                key: ValueKey('message-list-${mode.name}'),
+                              ),
                             ),
-                          ),
-                        ),
-                        Flexible(
-                          child: SizedBox(
-                            width: 160,
-                            child: MessageInboxSelector(
-                              selectedGroup: state.group,
-                              keepTopicOpen: keepTopicOpen,
-                              useSelect: true,
-                            ),
-                          ),
-                        ),
                       ],
+                      onChanged: (mode) {
+                        if (mode != null) {
+                          controller.selectMessageListMode(
+                            mode,
+                            keepTopicOpen: keepTopicOpen,
+                          );
+                        }
+                      },
                     ),
-                    const SizedBox(height: DSpacing.lg),
-                    const DSeparator(key: ValueKey('message-header-separator')),
-                  ],
+                  ),
                 ),
-              ),
+                Flexible(
+                  child: SizedBox(
+                    width: 160,
+                    child: MessageInboxSelector(
+                      selectedGroup: state.group,
+                      keepTopicOpen: keepTopicOpen,
+                      useSelect: true,
+                    ),
+                  ),
+                ),
+              ],
             );
           }
-          return ContentReadingLaneBox(
-            widthLimit: topicListContentWidth,
-            child: Padding(
-              key: const ValueKey('message-list-navigation'),
-              padding: const EdgeInsets.fromLTRB(
-                DSpacing.lg,
-                0,
-                DSpacing.lg,
-                DSpacing.lg,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    spacing: DSpacing.sm,
+          return Row(
+            key: const ValueKey('message-list-navigation'),
+            spacing: DSpacing.sm,
+            children: [
+              Flexible(
+                child: DDropdownMenu(
+                  content: DDropdownMenuContent(
+                    width: 240,
+                    semanticLabel: context.l10n.messageLists,
                     children: [
-                      Flexible(
-                        child: DDropdownMenu(
-                          content: DDropdownMenuContent(
-                            width: 240,
-                            semanticLabel: context.l10n.messageLists,
-                            children: [
-                              for (final mode in MessageListMode.values)
-                                if (state.group == null || mode.supportsGroup)
-                                  DDropdownMenuItem(
-                                    key: ValueKey('message-list-${mode.name}'),
-                                    trailing: state.mode == mode
-                                        ? const DIcon(DIcons.check, size: 14)
-                                        : null,
-                                    onPressed: () => ShellScope.read(context)
-                                        .selectMessageListMode(
-                                          mode,
-                                          keepTopicOpen: keepTopicOpen,
-                                        ),
-                                    child: Text(mode.label),
-                                  ),
-                            ],
+                      for (final mode in MessageListMode.values)
+                        if (state.group == null || mode.supportsGroup)
+                          DDropdownMenuItem(
+                            key: ValueKey('message-list-${mode.name}'),
+                            trailing: state.mode == mode
+                                ? const DIcon(DIcons.check, size: 14)
+                                : null,
+                            onPressed: () =>
+                                ShellScope.read(context).selectMessageListMode(
+                                  mode,
+                                  keepTopicOpen: keepTopicOpen,
+                                ),
+                            child: Text(mode.label),
                           ),
-                          child: DDropdownMenuTrigger(
-                            builder: (context, trigger) => DButton(
-                              key: const ValueKey('message-list-menu'),
-                              label: Text(state.mode.label),
-                              icon: const DIcon(DIcons.chevronDown, size: 12),
-                              iconPosition: DButtonIconPosition.end,
-                              variant: DButtonVariant.secondary,
-                              size: DButtonSize.filter,
-                              focusNode: trigger.focusNode,
-                              hasPopup: true,
-                              expanded: trigger.open,
-                              onPressed: trigger.toggle,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Flexible(
-                        flex: 2,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 240),
-                          child: MessageInboxSelector(
-                            selectedGroup: state.group,
-                            keepTopicOpen: keepTopicOpen,
-                          ),
-                        ),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  const DSeparator(key: ValueKey('message-header-separator')),
-                ],
+                  child: DDropdownMenuTrigger(
+                    builder: (context, trigger) => DButton(
+                      key: const ValueKey('message-list-menu'),
+                      label: Text(state.mode.label),
+                      icon: const DIcon(DIcons.chevronDown, size: 12),
+                      iconPosition: DButtonIconPosition.end,
+                      variant: DButtonVariant.secondary,
+                      size: DButtonSize.filter,
+                      focusNode: trigger.focusNode,
+                      hasPopup: true,
+                      expanded: trigger.open,
+                      onPressed: trigger.toggle,
+                    ),
+                  ),
+                ),
               ),
-            ),
+              Flexible(
+                flex: 2,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 240),
+                  child: MessageInboxSelector(
+                    selectedGroup: state.group,
+                    keepTopicOpen: keepTopicOpen,
+                  ),
+                ),
+              ),
+            ],
           );
         },
       );

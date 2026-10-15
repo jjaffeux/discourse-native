@@ -255,9 +255,7 @@ void main() {
         final folder = tester.getRect(
           find.byKey(const ValueKey('message-list-menu')),
         );
-        final divider = tester.getRect(
-          find.byKey(const ValueKey('message-header-separator')),
-        );
+        final divider = find.byKey(const ValueKey('message-header-separator'));
         expect(title, findsOneWidget);
         expect(
           find.text('engineering-infrastructure-platform-team'),
@@ -267,18 +265,9 @@ void main() {
         expect(tester.getCenter(picker).dy, closeTo(folder.center.dy, 1));
         expect(tester.getRect(picker).left, folder.right + DSpacing.sm);
         expect(tester.getRect(picker).right, lessThanOrEqualTo(width));
-        expect(divider.top, greaterThan(tester.getRect(picker).bottom));
-        expect(divider.left, folder.left);
-        expect(
-          divider.width,
-          tester.getRect(navigation).width - DSpacing.lg * 2,
-        );
-        expect(folder.left - tester.getRect(navigation).left, DSpacing.lg);
-        final heading = tester.widget<DText>(
-          find.ancestor(of: title, matching: find.byType(DText)),
-        );
-        expect(heading.variant, DTextVariant.h3);
-        expect(heading.headingLevel, 1);
+        expect(divider, findsNothing);
+        expect(folder.left, tester.getRect(navigation).left);
+        expect(DefaultTextStyle.of(tester.element(title)).style.fontSize, 22);
         expect(
           tester.widget<DButton>(picker).variant,
           DButtonVariant.secondary,
@@ -337,16 +326,8 @@ void main() {
             tester.getRect(folderSurface).right + DSpacing.controlGap,
             tester.getRect(inboxSurface).left,
           );
-          expect(
-            tester.getRect(divider).top,
-            greaterThan(tester.getRect(inbox).bottom),
-          );
-          expect(tester.getRect(divider).width, width - DSpacing.lg * 2);
-          final heading = tester.widget<DText>(
-            find.ancestor(of: title, matching: find.byType(DText)),
-          );
-          expect(heading.variant, DTextVariant.h3);
-          expect(heading.headingLevel, 1);
+          expect(divider, findsNothing);
+          expect(DefaultTextStyle.of(tester.element(title)).style.fontSize, 22);
           expect(
             tester.widget<DSelect<MessageListMode>>(folder).size,
             tester.widget<DSelect<String>>(inbox).size,
@@ -1094,8 +1075,9 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpInbox(
       child: MaterialApp(
         theme: AppTheme.light,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(textScale)),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
         home: DToaster(

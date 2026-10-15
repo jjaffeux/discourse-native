@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'chat_browse_navigation.dart';
 import 'chat_browse_skeleton.dart';
 import 'chat_channel.dart';
-import 'chat_chrome_scroll_view.dart';
 import 'chat_inbox.dart';
 import 'chat_inbox_rooms.dart';
 import 'chat_services.dart';
@@ -46,9 +45,10 @@ class ChatMobileSidebar extends StatelessWidget {
             onPressed: () => shell.openChannel(channel.id),
           ),
         );
-        return ChatChromeScrollView(
-          header: ContentReadingLaneBox(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        return DPageSurface.headed(
+          title: Text(context.l10n.browseChats),
+          controls: ContentReadingLaneBox(
+            padding: EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -58,12 +58,10 @@ class ChatMobileSidebar extends StatelessWidget {
                 ),
                 const SizedBox(height: DSpacing.md),
                 ChatInboxFilterBar(siteUrl: siteUrl, filters: filters),
-                const SizedBox(height: DSpacing.sm),
-                DSeparator(color: colors.border),
               ],
             ),
           ),
-          list: (context, lazy) => ContentReadingLane(
+          adaptiveBodyBuilder: (context, lazy) => ContentReadingLane(
             basePadding: const EdgeInsets.symmetric(horizontal: 16),
             builder: (context, lane) => loading
                 ? ChatBrowseSkeleton(
@@ -109,7 +107,7 @@ class ChatMobileSidebar extends StatelessWidget {
                       final roomIndex = index - channels.length;
                       if (channels.isNotEmpty && roomIndex == 0) {
                         return Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.zero,
                           child: Text(context.l10n.voiceRooms),
                         );
                       }

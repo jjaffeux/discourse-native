@@ -267,20 +267,10 @@ class _SummaryLayout extends StatelessWidget {
   final Widget? controls;
 
   @override
-  Widget build(BuildContext context) => DPageSurface.scrollable(
-    framed: false,
+  Widget build(BuildContext context) => DPageSurface.headed(
     limitContentSize: false,
-    hideHeaderOnScroll: true,
-    header: ContentReadingLaneBox(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: profile,
-    ),
-    headerControls: controls == null
-        ? null
-        : ContentReadingLaneBox(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: controls!,
-          ),
+    title: ContentReadingLaneBox(child: profile),
+    controls: controls == null ? null : ContentReadingLaneBox(child: controls!),
     bodyBuilder: (context, header) => ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       builder: (context, lane) => DScrollArea(
@@ -327,7 +317,6 @@ class _ProfileCard extends StatelessWidget {
                   name == null || name.isEmpty ? user.username : name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
             ),

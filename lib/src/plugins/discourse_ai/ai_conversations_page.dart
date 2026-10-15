@@ -96,33 +96,19 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => ContentReadingLaneBox(
-    widthLimit: 820,
-    child: Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(DSpacing.lg),
-          child: Row(
-            children: [
-              Expanded(
-                child: DText(
-                  context.l10n.aiConversations,
-                  variant: DTextVariant.h3,
-                  headingLevel: 1,
-                ),
-              ),
-              DButton.iconOnly(
-                icon: const DIcon(DIcons.arrowsRotate),
-                tooltip: context.l10n.refresh,
-                variant: DButtonVariant.ghost,
-                onPressed: _loading ? null : () => _load(),
-              ),
-            ],
-          ),
-        ),
-        Expanded(child: _body(context)),
-      ],
+  Widget build(BuildContext context) => DPageSurface.headed(
+    identity: widget.siteUrl,
+    title: Text(context.l10n.aiConversations),
+    controls: Align(
+      alignment: AlignmentDirectional.centerEnd,
+      child: DButton.iconOnly(
+        icon: const DIcon(DIcons.arrowsRotate),
+        tooltip: context.l10n.refresh,
+        variant: DButtonVariant.ghost,
+        onPressed: _loading ? null : () => _load(),
+      ),
     ),
+    child: ContentReadingLaneBox(widthLimit: 820, child: _body(context)),
   );
 
   Widget _body(BuildContext context) {

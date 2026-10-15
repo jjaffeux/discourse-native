@@ -10,7 +10,6 @@ import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
-import '../theme/discourse_typography.dart';
 import 'content_reading_lane.dart';
 import 'header_preferences.dart';
 import 'preferences_controller.dart';
@@ -29,11 +28,6 @@ class PreferencesPage extends StatefulWidget {
 
 class _PreferencesPageState extends State<PreferencesPage> {
   static String get _forumDefaultTimezoneLabel => appL10n.forumDefault;
-  static const DIconData _preferencesIcon = DIconData(
-    'sliders',
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/></svg>',
-  );
-
   final TextEditingController _timezone = TextEditingController();
   final FocusNode _timezoneFocus = FocusNode();
   late final List<String> _timezoneNames;
@@ -179,94 +173,77 @@ class _PreferencesPageState extends State<PreferencesPage> {
     final canSave =
         instance?.isConnected == true && editable && dirty && !state.saving;
 
-    return _SectionScroller(
-      key: ValueKey((
-        shell.preferences,
-        siteUrl,
-        session.session,
-        accountIdentity,
-      )),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-      child: FocusTraversalGroup(
-        policy: ReadingOrderTraversalPolicy(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                DIcon(
-                  _preferencesIcon,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 9),
-                Text(
-                  context.l10n.preferences,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontSize: DiscourseTypography.xxl,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
-                ),
-              ],
+    return DPageSurface.headed(
+      title: Text(context.l10n.preferences),
+      controls: SettingsSectionTabs<PreferenceSection>(
+        value: selected,
+        sections: [
+          for (final section in sections)
+            (
+              value: section,
+              label: _sectionTitle(section, pluginSections),
+              key: ValueKey('preferences-section-${section.keyName}'),
             ),
-            const SizedBox(height: 22),
-            _StatusAnnouncement(state: state, pluginSections: pluginSections),
-            if (state.error != null ||
-                state.loading ||
-                state.saving ||
-                state.savedSection != null)
-              const SizedBox(height: 16),
-            SettingsSectionTabs<PreferenceSection>(
-              value: selected,
-              sections: [
-                for (final section in sections)
-                  (
-                    value: section,
-                    label: _sectionTitle(section, pluginSections),
-                    key: ValueKey('preferences-section-${section.keyName}'),
-                  ),
-              ],
-              onChanged: (section) =>
-                  setState(() => _selectedSection = section),
-            ),
-            const SizedBox(height: 22),
-            _buildSection(
-              draft,
-              selected,
-              editable,
-              pluginSections,
-              edit,
-              useDeviceTimezone,
-            ),
-            const SizedBox(height: 22),
-            if (selected == PreferenceSection.interface) ...[
-              const HeaderTuningPreferences(),
+        ],
+        onChanged: (section) => setState(() => _selectedSection = section),
+      ),
+      child: _SectionScroller(
+        key: ValueKey((
+          shell.preferences,
+          siteUrl,
+          session.session,
+          accountIdentity,
+        )),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+        child: FocusTraversalGroup(
+          policy: ReadingOrderTraversalPolicy(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _StatusAnnouncement(state: state, pluginSections: pluginSections),
+              if (state.error != null ||
+                  state.loading ||
+                  state.saving ||
+                  state.savedSection != null)
+                const SizedBox(height: 16),
               const SizedBox(height: 22),
-            ],
-            if (state.error != null && dirty)
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: DButton(
-                  key: const ValueKey('preferences-save'),
-                  label: Text(context.l10n.retry),
-                  semanticLabel: state.saving
-                      ? context.l10n.savingPreferences
-                      : context.l10n.savePreferences,
-                  onPressed: canSave
-                      ? () {
-                          if (ownsView()) {
-                            unawaited(_saveAll(shell, instance!, sections));
-                          }
-                        }
-                      : null,
-                  loading: state.saving,
-                  loadingLabel: Text(context.l10n.savingChanges),
-                  variant: DButtonVariant.primary,
-                  size: DButtonSize.regular,
-                ),
+              _buildSection(
+                draft,
+                selected,
+                editable,
+                pluginSections,
+                edit,
+                useDeviceTimezone,
               ),
-          ],
+              const SizedBox(height: 22),
+              if (selected == PreferenceSection.interface) ...[
+                const HeaderTuningPreferences(),
+                const SizedBox(height: 22),
+              ],
+              if (state.error != null && dirty)
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DButton(
+                    key: const ValueKey('preferences-save'),
+                    label: Text(context.l10n.retry),
+                    semanticLabel: state.saving
+                        ? context.l10n.savingPreferences
+                        : context.l10n.savePreferences,
+                    onPressed: canSave
+                        ? () {
+                            if (ownsView()) {
+                              unawaited(_saveAll(shell, instance!, sections));
+                            }
+                          }
+                        : null,
+                    loading: state.saving,
+                    loadingLabel: Text(context.l10n.savingChanges),
+                    variant: DButtonVariant.primary,
+                    size: DButtonSize.regular,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

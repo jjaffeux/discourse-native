@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Theme;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -19,6 +21,41 @@ import 'd_scroll_chrome.dart';
 /// leave it alone. Scroll distance moves a continuous target; one frame loop
 /// smooths all coupled chrome toward it, with reversal slack and endpoint holds.
 class DPageSurface extends StatefulWidget {
+  /// The standard page heading: a title that yields to persistent controls,
+  /// with the Native scroll fade in place of a divider or an opaque fill.
+  ///
+  /// Use [bodyBuilder] for an existing viewport and reserve [DPageHeaderGeometry.spacer]
+  /// in its scroll content. Use [child] for a bounded body such as a table or
+  /// calendar. The kit owns the heading typography, spacing and scroll motion.
+  DPageSurface.headed({
+    super.key,
+    required Widget title,
+    Widget? controls,
+    this.bodyBuilder,
+    this.adaptiveBodyBuilder,
+    this.child,
+    this.identity,
+    this.limitContentSize,
+    this.footer,
+    this.foldTitleAtTop = false,
+  }) : assert(
+         (bodyBuilder != null ? 1 : 0) +
+                 (adaptiveBodyBuilder != null ? 1 : 0) +
+                 (child != null ? 1 : 0) ==
+             1,
+       ),
+       header = _PageTitle(child: title),
+       headerControls = _PageControls(child: controls),
+       compactHeader = null,
+       tabs = null,
+       framed = false,
+       border = false,
+       backgroundColor = null,
+       borderRadius = null,
+       hideHeaderOnScroll = true,
+       revealHeaderAtEnd = false,
+       headerSuppressed = null;
+
   const DPageSurface({
     super.key,
     this.header,
@@ -38,6 +75,8 @@ class DPageSurface extends StatefulWidget {
     required this.child,
     this.identity,
   }) : assert(child != null),
+       foldTitleAtTop = false,
+       adaptiveBodyBuilder = null,
        bodyBuilder = null;
 
   /// Floats the header over an existing scrollable. Insert [DPageHeaderGeometry.spacer]
@@ -61,7 +100,13 @@ class DPageSurface extends StatefulWidget {
     this.identity,
     required this.bodyBuilder,
   }) : assert(bodyBuilder != null),
+       foldTitleAtTop = false,
+       adaptiveBodyBuilder = null,
        child = null;
+
+  /// Directory indexes keep a compact title away from the top, including
+  /// programmatic jumps; ordinary pages reveal their title on upward input.
+  final bool foldTitleAtTop;
 
   /// Optional header, fixed unless [hideHeaderOnScroll] is enabled.
   final Widget? header;
@@ -76,8 +121,8 @@ class DPageSurface extends StatefulWidget {
   final Widget? headerControls;
 
   /// Follow vertical scroll distance, or reveal when scrolling reaches the
-  /// top. Content shorter than
-  /// twice the viewport height keeps the header visible.
+  /// top. Standard headings stay visible below 120px of scroll overflow.
+  /// Custom reader headers stay visible below two viewport heights.
   final bool hideHeaderOnScroll;
 
   /// Whether reaching the physical bottom also reveals the retracting header.
@@ -117,6 +162,13 @@ class DPageSurface extends StatefulWidget {
   final Widget? child;
   final Widget Function(BuildContext context, DPageHeaderGeometry header)?
   bodyBuilder;
+
+  /// Keeps a directory lazy while the measured heading and footer fit. When
+  /// they leave less than 48px for rows, false asks for a natural-height body
+  /// and the whole page scrolls together. The same title and controls remain.
+  final Widget Function(BuildContext context, bool bounded)?
+  adaptiveBodyBuilder;
+
   final Object? identity;
 
   /// Reads the overlay geometry without rebuilding when the header moves.
@@ -159,6 +211,11 @@ class _DPageSurfaceState extends State<DPageSurface>
     vsync: this,
     duration: const Duration(milliseconds: 240),
   )..addListener(_updateHeader);
+  late final _titleFold = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 240),
+  )..addListener(_updateHeader);
+  double _titleFoldTarget = 0;
   bool _compact = false;
   double _compactHeight = 76;
   Timer? _compactTimer;
@@ -172,7 +229,18 @@ class _DPageSurfaceState extends State<DPageSurface>
   bool _updateScheduled = false;
   DScrollChromeController? _scrollChrome;
 
-  ValueListenable<double> get _progress => _scrollChrome ?? _motion;
+  double get _motionSpan {
+    final header =
+        _headerKey.currentContext?.findRenderObject()
+            as _RenderScrollHeaderExtent?;
+    if (header == null) return 64;
+    return widget.header is _PageTitle
+        ? header.titleHeight
+        : header.naturalHeight;
+  }
+
+  ValueListenable<double> get _progress =>
+      widget.foldTitleAtTop ? _titleFold : _scrollChrome ?? _motion;
   double get _hiddenFraction => widget.hideHeaderOnScroll ? _progress.value : 0;
 
   @override
@@ -218,26 +286,23 @@ class _DPageSurfaceState extends State<DPageSurface>
     chrome?.registerHeader(
       this,
       focus: _headerFocus,
-      motionExtent: () =>
-          (_headerKey.currentContext?.findRenderObject()
-                  as _RenderScrollHeaderExtent?)
-              ?.naturalHeight ??
-          64,
+      minimumScrollExtent: widget.header is _PageTitle ? 120 : null,
+      motionExtent: () => _motionSpan,
       layoutReduction: () {
         if ((!widget.hideHeaderOnScroll) ||
             widget.bodyBuilder != null ||
-            widget.headerControls != null) {
+            (widget.headerControls != null && widget.header is! _PageTitle)) {
           return 0;
         }
         final header =
             _headerKey.currentContext?.findRenderObject()
                 as _RenderScrollHeaderExtent?;
-        return header == null ? 0 : header.naturalHeight - header.size.height;
+        return header == null ? 0 : header.naturalHeight - header.layoutHeight;
       },
       layoutExtent: () {
         if ((!widget.hideHeaderOnScroll) ||
             widget.bodyBuilder != null ||
-            widget.headerControls != null) {
+            (widget.headerControls != null && widget.header is! _PageTitle)) {
           return 0;
         }
         return (_headerKey.currentContext?.findRenderObject()
@@ -270,6 +335,8 @@ class _DPageSurfaceState extends State<DPageSurface>
       _direction = ScrollDirection.idle;
       _headerGeometry._update(0, 0);
       _motion.reset();
+      _titleFold.value = 0;
+      _titleFoldTarget = 0;
     }
   }
 
@@ -324,20 +391,40 @@ class _DPageSurfaceState extends State<DPageSurface>
       // Column pages grow their viewport as the header retracts. Compare with
       // its fully shown size so the animation cannot cross its own cutoff.
       if (header != null) {
-        viewport -= header.naturalHeight - header.size.height;
+        viewport -= header.naturalHeight - header.layoutHeight;
       }
     }
     final contentHeight =
         metrics.maxScrollExtent -
         metrics.minScrollExtent +
         metrics.viewportDimension;
-    if (viewport > 0 && contentHeight >= 2 * viewport) return false;
+    if (widget.header is _PageTitle
+        ? contentHeight - viewport >= 120
+        : viewport > 0 && contentHeight >= 2 * viewport) {
+      return false;
+    }
     _headerHeldAtEnd = false;
     _motion.reveal(fresh: true);
     return true;
   }
 
   bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    if (widget.adaptiveBodyBuilder != null &&
+        notification.metrics.maxScrollExtent <=
+            notification.metrics.minScrollExtent) {
+      return false;
+    }
+    _revealStandardTitleAtTop(
+      notification.metrics,
+      notification.depth,
+      notification.context,
+    );
+    _updateTitleFold(
+      notification.metrics,
+      notification.depth,
+      notification.context,
+    );
+    if (widget.foldTitleAtTop) return false;
     if (_scrollChrome != null) return false;
     if (_header != null &&
         widget.hideHeaderOnScroll &&
@@ -346,6 +433,53 @@ class _DPageSurfaceState extends State<DPageSurface>
       _keepHeaderVisibleForShortContent(notification.metrics);
     }
     return false;
+  }
+
+  void _updateTitleFold(
+    ScrollMetrics metrics,
+    int depth,
+    BuildContext? origin,
+  ) {
+    if (!widget.foldTitleAtTop ||
+        metrics.axis != Axis.vertical ||
+        !_isPageScroll(depth, origin)) {
+      return;
+    }
+    final target = metrics.pixels - metrics.minScrollExtent > 2 ? 1.0 : 0.0;
+    if (_titleFoldTarget == target) return;
+    _titleFoldTarget = target;
+    void update() {
+      if (!mounted) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _titleFold.value = target;
+      } else {
+        _titleFold.animateTo(target, curve: Curves.easeOutCubic);
+      }
+    }
+
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => update());
+    } else {
+      update();
+    }
+  }
+
+  void _revealStandardTitleAtTop(
+    ScrollMetrics metrics,
+    int depth,
+    BuildContext? origin,
+  ) {
+    if (widget.header is! _PageTitle ||
+        widget.foldTitleAtTop ||
+        metrics.axis != Axis.vertical ||
+        !_isPageScroll(depth, origin) ||
+        metrics.pixels - metrics.minScrollExtent > 2 ||
+        metrics.maxScrollExtent <= metrics.minScrollExtent) {
+      return;
+    }
+    _motion.reveal(fresh: true);
+    _scrollChrome?.reveal();
   }
 
   void _updateCompact(ScrollNotification notification) {
@@ -385,8 +519,19 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   bool _onScroll(ScrollNotification notification) {
+    _revealStandardTitleAtTop(
+      notification.metrics,
+      notification.depth,
+      notification.context,
+    );
+    _updateTitleFold(
+      notification.metrics,
+      notification.depth,
+      notification.context,
+    );
     _updateCompact(notification);
-    if (_scrollChrome != null ||
+    if (widget.foldTitleAtTop ||
+        _scrollChrome != null ||
         _header == null ||
         !widget.hideHeaderOnScroll) {
       return false;
@@ -432,11 +577,7 @@ class _DPageSurfaceState extends State<DPageSurface>
       final down = reversed ? -delta : delta;
       if (_headerHeldAtEnd && down > 0) return false;
       if (down < 0) _headerHeldAtEnd = false;
-      final span =
-          (_headerKey.currentContext?.findRenderObject()
-                  as _RenderScrollHeaderExtent?)
-              ?.naturalHeight ??
-          64;
+      final span = _motionSpan;
       _motion.scroll(down > 0 && top - down < 48 ? top - 48 : down, span: span);
     }
     return false;
@@ -448,6 +589,7 @@ class _DPageSurfaceState extends State<DPageSurface>
     _scrollChrome?.unregisterHeader(this);
     widget.headerSuppressed?.removeListener(_syncSuppression);
     _suppression.dispose();
+    _titleFold.dispose();
     _compactTimer?.cancel();
     _motion.dispose();
     _headerFocus.dispose();
@@ -456,7 +598,19 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => widget.header is _PageTitle
+      ? LayoutBuilder(
+          builder: (context, viewport) =>
+              _buildPage(context, viewportExtent: viewport.maxHeight),
+        )
+      : _buildPage(context);
+
+  Widget _buildPage(BuildContext context, {double? viewportExtent}) {
+    final maxHeaderExtent =
+        viewportExtent != null && widget.adaptiveBodyBuilder == null
+        ? math.max(0.0, viewportExtent - 48)
+        : null;
+    _headerGeometry._maxExtent = maxHeaderExtent ?? double.infinity;
     _headerGeometry._retainNaturalExtent = _compact;
     final limited =
         widget.limitContentSize ?? DPageContentSettings.limitOf(context);
@@ -481,6 +635,7 @@ class _DPageSurfaceState extends State<DPageSurface>
                 suppression: _suppression,
                 enabled: widget.hideHeaderOnScroll,
                 floating: (widget.bodyBuilder != null),
+                releaseSpace: widget.header is _PageTitle,
                 geometry: _headerGeometry,
                 controls: widget.headerControls,
                 child: ExcludeSemantics(
@@ -510,9 +665,55 @@ class _DPageSurfaceState extends State<DPageSurface>
             ignoring: suppressed,
             child: ExcludeSemantics(
               excluding: suppressed,
-              child: ExcludeFocus(excluding: suppressed, child: headerContent),
+              child: ExcludeFocus(
+                excluding: suppressed,
+                child: maxHeaderExtent == null
+                    ? headerContent
+                    : ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: maxHeaderExtent),
+                        child: _HeaderOverflow(
+                          maxExtent: maxHeaderExtent,
+                          child: headerContent,
+                        ),
+                      ),
+              ),
             ),
           );
+    if (widget.adaptiveBodyBuilder case final builder?) {
+      return DPageContentSettings(
+        limitContentSize: limited,
+        child: NotificationListener<ScrollMetricsNotification>(
+          onNotification: _onScrollMetrics,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: ScrollConfiguration(
+              behavior: DScrollBehavior(
+                delegate: ScrollConfiguration.of(context),
+              ),
+              child: SingleChildScrollView(
+                primary: false,
+                child: _AdaptivePageLayout(
+                  viewportExtent: viewportExtent!,
+                  naturalHeaderExtent: () =>
+                      (_headerKey.currentContext?.findRenderObject()
+                              as _RenderScrollHeaderExtent?)
+                          ?.naturalHeight ??
+                      0,
+                  children: [
+                    ?header,
+                    LayoutBuilder(
+                      builder: (context, slot) =>
+                          builder(context, slot.hasBoundedHeight),
+                    ),
+                    if (widget.footer case final footer?) fixedContent(footer),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     _RenderScrollHeaderExtent? headerBox() =>
         _headerKey.currentContext?.findRenderObject()
             as _RenderScrollHeaderExtent?;
@@ -548,7 +749,12 @@ class _DPageSurfaceState extends State<DPageSurface>
                         ),
                 ),
               )
-            : widget.child!,
+            : ScrollConfiguration(
+                behavior: DScrollBehavior(
+                  delegate: ScrollConfiguration.of(context),
+                ),
+                child: widget.child!,
+              ),
       ),
     );
     final page = Column(
@@ -565,7 +771,10 @@ class _DPageSurfaceState extends State<DPageSurface>
                       headerBox()?.naturalHeight ?? 0,
                       headerBox()?.visibleHeight ?? 0,
                     ),
-                    header: header!,
+                    header: ClipRect(
+                      clipper: _HeaderHitClipper(_headerGeometry),
+                      child: header!,
+                    ),
                     body: ClipRect(
                       clipper: _HeaderBodyClipper(_headerGeometry),
                       child: _PageHeaderScope(
@@ -595,6 +804,165 @@ class _DPageSurfaceState extends State<DPageSurface>
   }
 }
 
+class _HeaderOverflow extends StatefulWidget {
+  const _HeaderOverflow({required this.maxExtent, required this.child});
+  final double maxExtent;
+  final Widget child;
+  @override
+  State<_HeaderOverflow> createState() => _HeaderOverflowState();
+}
+
+class _HeaderOverflowState extends State<_HeaderOverflow> {
+  bool _overflow = false;
+  bool _pending = false;
+  bool _scheduled = false;
+  void _measure(bool overflow) {
+    _pending = overflow;
+    if (overflow == _overflow || _scheduled) return;
+    _scheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scheduled = false;
+      if (mounted && _overflow != _pending) {
+        setState(() => _overflow = _pending);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final content = _HeaderMeasure(
+      maxExtent: widget.maxExtent,
+      scrolling: _overflow,
+      onOverflow: _measure,
+      child: widget.child,
+    );
+    if (!_overflow) return content;
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (_) => true,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (_) => true,
+        child: SingleChildScrollView(primary: false, child: content),
+      ),
+    );
+  }
+}
+
+class _HeaderMeasure extends SingleChildRenderObjectWidget {
+  const _HeaderMeasure({
+    required this.maxExtent,
+    required this.scrolling,
+    required this.onOverflow,
+    required super.child,
+  });
+  final double maxExtent;
+  final bool scrolling;
+  final ValueChanged<bool> onOverflow;
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderHeaderMeasure(maxExtent, scrolling, onOverflow);
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderHeaderMeasure renderObject,
+  ) {
+    renderObject
+      ..maxExtent = maxExtent
+      ..scrolling = scrolling
+      ..onOverflow = onOverflow
+      ..markNeedsLayout();
+  }
+}
+
+class _RenderHeaderMeasure extends RenderProxyBox {
+  _RenderHeaderMeasure(this.maxExtent, this.scrolling, this.onOverflow);
+  double maxExtent;
+  bool scrolling;
+  ValueChanged<bool> onOverflow;
+  @override
+  void performLayout() {
+    child!.layout(
+      constraints.copyWith(minHeight: 0, maxHeight: double.infinity),
+      parentUsesSize: true,
+    );
+    onOverflow(child!.size.height > maxExtent);
+    size = constraints.constrain(
+      Size(
+        child!.size.width,
+        scrolling
+            ? child!.size.height
+            : math.min(maxExtent, child!.size.height),
+      ),
+    );
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    context.pushClipRect(
+      needsCompositing,
+      offset,
+      Offset.zero & size,
+      (context, offset) => super.paint(context, offset),
+    );
+  }
+}
+
+class _HeaderHitClipper extends CustomClipper<Rect> {
+  _HeaderHitClipper(this.geometry) : super(reclip: geometry);
+  final DPageHeaderGeometry geometry;
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(
+    0,
+    0,
+    size.width,
+    math.min(size.height, geometry.visibleExtent),
+  );
+  @override
+  bool shouldReclip(_HeaderHitClipper oldClipper) =>
+      oldClipper.geometry != geometry;
+}
+
+class _PageTitle extends StatelessWidget {
+  const _PageTitle({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final touch =
+        theme.platform == TargetPlatform.iOS ||
+        theme.platform == TargetPlatform.android;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, touch ? 12 : 20, 16, 0),
+      child: Semantics(
+        header: true,
+        headingLevel: 1,
+        child: DefaultTextStyle.merge(
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontSize: 22,
+            height: 1.25,
+            fontWeight: FontWeight.w700,
+          ),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PageControls extends StatelessWidget {
+  const _PageControls({this.child});
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+    child: child ?? const SizedBox.shrink(),
+  );
+}
+
 // Keep the header at its natural height while animating the visible fraction.
 // Measuring here also handles header size changes during the transition.
 class _ScrollHeaderExtent extends MultiChildRenderObjectWidget {
@@ -604,6 +972,7 @@ class _ScrollHeaderExtent extends MultiChildRenderObjectWidget {
     required this.suppression,
     required this.enabled,
     required this.floating,
+    required this.releaseSpace,
     required this.geometry,
     required Widget child,
     Widget? controls,
@@ -612,6 +981,7 @@ class _ScrollHeaderExtent extends MultiChildRenderObjectWidget {
   final ValueListenable<double> suppression;
   final bool enabled;
   final bool floating;
+  final bool releaseSpace;
   final DPageHeaderGeometry geometry;
   @override
   RenderObject createRenderObject(BuildContext context) =>
@@ -620,13 +990,20 @@ class _ScrollHeaderExtent extends MultiChildRenderObjectWidget {
         suppression,
         enabled,
         floating,
+        releaseSpace,
         geometry,
       );
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderScrollHeaderExtent renderObject,
-  ) => renderObject.update(progress, suppression, enabled, floating);
+  ) => renderObject.update(
+    progress,
+    suppression,
+    enabled,
+    floating,
+    releaseSpace,
+  );
 }
 
 class _HeaderParentData extends ContainerBoxParentData<RenderBox> {}
@@ -640,12 +1017,14 @@ class _RenderScrollHeaderExtent extends RenderBox
     this._suppression,
     this._enabled,
     this._floating,
+    this._releaseSpace,
     this.geometry,
   );
   ValueListenable<double> _progress;
   ValueListenable<double> _suppression;
   bool _enabled;
   bool _floating;
+  bool _releaseSpace;
   final DPageHeaderGeometry geometry;
   double get _hiddenFraction => _enabled ? _progress.value : 0;
   double _hiddenHeight(double title, double total) =>
@@ -656,6 +1035,7 @@ class _RenderScrollHeaderExtent extends RenderBox
     ValueListenable<double> suppression,
     bool enabled,
     bool floating,
+    bool releaseSpace,
   ) {
     if (!identical(_suppression, suppression)) {
       if (attached) _suppression.removeListener(_move);
@@ -669,6 +1049,7 @@ class _RenderScrollHeaderExtent extends RenderBox
     }
     _enabled = enabled;
     _floating = floating;
+    _releaseSpace = releaseSpace;
     markNeedsLayout();
   }
 
@@ -711,6 +1092,8 @@ class _RenderScrollHeaderExtent extends RenderBox
 
   double naturalHeight = 0;
   double visibleHeight = 0;
+  double titleHeight = 0;
+  double layoutHeight = 0;
 
   @override
   void setupParentData(RenderBox child) {
@@ -730,10 +1113,14 @@ class _RenderScrollHeaderExtent extends RenderBox
     return constraints.constrain(
       Size(
         childSize.width,
-        controls == null && !_floating
-            ? childSize.height -
-                  _hiddenHeight(childSize.height, childSize.height)
-            : childSize.height + (controls?.height ?? 0),
+        childSize.height +
+            (controls?.height ?? 0) -
+            (_floating || (controls != null && !_releaseSpace)
+                ? 0
+                : _hiddenHeight(
+                    childSize.height,
+                    childSize.height + (controls?.height ?? 0),
+                  )),
       ),
     );
   }
@@ -745,6 +1132,7 @@ class _RenderScrollHeaderExtent extends RenderBox
       maxHeight: double.infinity,
     );
     firstChild!.layout(natural, parentUsesSize: true);
+    titleHeight = firstChild!.size.height;
     final controls = childCount > 1 ? lastChild : null;
     controls?.layout(natural, parentUsesSize: true);
     naturalHeight = firstChild!.size.height + (controls?.size.height ?? 0);
@@ -753,11 +1141,12 @@ class _RenderScrollHeaderExtent extends RenderBox
     size = constraints.constrain(
       Size(
         firstChild!.size.width,
-        controls == null && !_floating
-            ? firstChild!.size.height - hidden
-            : firstChild!.size.height + (controls?.size.height ?? 0),
+        !_floating && (controls == null || _releaseSpace)
+            ? visibleHeight
+            : naturalHeight,
       ),
     );
+    layoutHeight = size.height;
     (firstChild!.parentData! as BoxParentData).offset = Offset(0, -hidden);
     if (controls != null) {
       (controls.parentData! as BoxParentData).offset = Offset(
@@ -785,12 +1174,15 @@ class DPageHeaderGeometry extends ChangeNotifier {
 
   double _naturalExtent = 0;
   double _visibleExtent = 0;
+  double _maxExtent = double.infinity;
   bool _retainNaturalExtent = false;
   double get naturalExtent => _naturalExtent;
   double get visibleExtent => _visibleExtent;
   double _readVisibleExtent() => _visibleExtent;
 
   void _update(double natural, double visible) {
+    natural = math.min(natural, _maxExtent);
+    visible = math.min(visible, _maxExtent);
     final full = _retainNaturalExtent && natural > 0
         ? math.max(natural, _naturalExtent)
         : natural;
@@ -1036,4 +1428,103 @@ class _DPageScrollInsetsState extends State<DPageScrollInsets> {
     context,
     EdgeInsets.only(top: _top, bottom: DScrollChrome.bottomInsetOf(context)),
   );
+}
+
+/// Lays out the header, the list and an optional footer. The list reads the
+/// outcome from its constraints: a bounded height is a lazy list's own
+/// viewport, an unbounded one asks for every row.
+class _AdaptivePageLayout extends MultiChildRenderObjectWidget {
+  const _AdaptivePageLayout({
+    required this.viewportExtent,
+    required this.naturalHeaderExtent,
+    required super.children,
+  });
+
+  final double viewportExtent;
+  final ValueGetter<double> naturalHeaderExtent;
+
+  @override
+  _RenderAdaptivePageLayout createRenderObject(BuildContext context) =>
+      _RenderAdaptivePageLayout(viewportExtent, naturalHeaderExtent);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderAdaptivePageLayout renderObject,
+  ) {
+    renderObject
+      ..viewportExtent = viewportExtent
+      ..naturalHeaderExtent = naturalHeaderExtent
+      ..markNeedsLayout();
+  }
+}
+
+class _AdaptivePageParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderAdaptivePageLayout extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _AdaptivePageParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _AdaptivePageParentData> {
+  _RenderAdaptivePageLayout(this._viewportExtent, this.naturalHeaderExtent);
+
+  ValueGetter<double> naturalHeaderExtent;
+  double _viewportExtent;
+  set viewportExtent(double value) {
+    if (value == _viewportExtent) return;
+    _viewportExtent = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _AdaptivePageParentData) {
+      child.parentData = _AdaptivePageParentData();
+    }
+  }
+
+  @override
+  void performLayout() {
+    final header = firstChild!;
+    final list = childAfter(header)!;
+    final footer = childAfter(list);
+    final width = constraints.maxWidth;
+    final natural = BoxConstraints.tightFor(width: width);
+    header.layout(natural, parentUsesSize: true);
+    footer?.layout(natural, parentUsesSize: true);
+    final headerExtent = header.size.height;
+    final footerExtent = footer?.size.height ?? 0;
+    final room = _viewportExtent - headerExtent - footerExtent;
+    final double listExtent;
+    // Title motion must not switch the list between bounded and natural
+    // height, which would reset the outer scroll position during the gesture.
+    final fits = _viewportExtent - naturalHeaderExtent() - footerExtent >= 48;
+    if (fits) {
+      list.layout(BoxConstraints.tightFor(width: width, height: room));
+      listExtent = room;
+    } else {
+      list.layout(natural, parentUsesSize: true);
+      listExtent = math.max(room, list.size.height);
+    }
+    final height = headerExtent + listExtent + footerExtent;
+    (header.parentData! as _AdaptivePageParentData).offset = Offset.zero;
+    (list.parentData! as _AdaptivePageParentData).offset = Offset(
+      0,
+      headerExtent,
+    );
+    if (footer != null) {
+      (footer.parentData! as _AdaptivePageParentData).offset = Offset(
+        0,
+        height - footerExtent,
+      );
+    }
+    size = constraints.constrain(Size(width, height));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
 }

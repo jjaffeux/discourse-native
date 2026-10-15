@@ -348,23 +348,10 @@ final class _EventCalendarState extends State<EventCalendar> {
     );
     return Padding(
       key: const ValueKey('event-calendar-header'),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Semantics(
-            header: true,
-            child: Text(
-              context.l10n.events,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: tokens.foreground,
-                fontSize: DiscourseTypography.xxl,
-                height: DiscourseTypography.lineHeightHeading,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           DControlWrap(
             direction: Axis.vertical,
             wrap: false,
@@ -437,10 +424,6 @@ final class _EventCalendarState extends State<EventCalendar> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          DSeparator(
-            color: Color.lerp(tokens.background, tokens.foreground, .12),
-          ),
         ],
       ),
     );
@@ -450,38 +433,36 @@ final class _EventCalendarState extends State<EventCalendar> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final compact = constraints.maxWidth < 600;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _toolbar(context),
-          ?widget.status,
-          Expanded(
-            child: Padding(
-              // Mobile scroll fades reach the page edge beneath the dock.
-              padding: EdgeInsets.fromLTRB(16, 0, 16, _touch ? 0 : 16),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Retain Kalender's controllers and scroll position while
-                  // replacing stale content with the loading placeholders.
-                  ExcludeFocus(
-                    excluding: widget.loading,
-                    child: Visibility(
-                      visible: !widget.loading,
-                      maintainState: true,
-                      child: _buildCalendar(compact: compact),
-                    ),
-                  ),
-                  if (widget.loading)
-                    EventCalendarSkeleton(
-                      view: _view,
-                      dayCount: _days.duration.inDays,
-                    ),
-                ],
+      return DPageSurface.headed(
+        title: Text(context.l10n.events),
+        controls: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [_toolbar(context), ?widget.status],
+        ),
+        child: Padding(
+          // Mobile scroll fades reach the page edge beneath the dock.
+          padding: EdgeInsets.fromLTRB(16, 0, 16, _touch ? 0 : 16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Retain Kalender's controllers and scroll position while
+              // replacing stale content with the loading placeholders.
+              ExcludeFocus(
+                excluding: widget.loading,
+                child: Visibility(
+                  visible: !widget.loading,
+                  maintainState: true,
+                  child: _buildCalendar(compact: compact),
+                ),
               ),
-            ),
+              if (widget.loading)
+                EventCalendarSkeleton(
+                  view: _view,
+                  dayCount: _days.duration.inDays,
+                ),
+            ],
           ),
-        ],
+        ),
       );
     },
   );

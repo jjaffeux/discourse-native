@@ -9,7 +9,6 @@ import 'chat_browse_navigation.dart';
 import 'chat_browse_skeleton.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
-import 'chat_chrome_scroll_view.dart';
 import 'chat_controller.dart';
 import 'chat_inbox.dart';
 import 'chat_inbox_filters.dart';
@@ -193,13 +192,14 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     builder: (context, _) => DScrollChromePagination(
       hasMore: _hasMore,
       loading: _loading || _loadingMore,
-      child: ChatChromeScrollView(
+      child: DPageSurface.headed(
+        title: Text(context.l10n.browseChannels),
         // Scroll fades and mobile chrome must not repaint the fixed filters.
-        header: RepaintBoundary(
+        controls: RepaintBoundary(
           child: FocusTraversalGroup(
             policy: WidgetOrderTraversalPolicy(),
             child: ContentReadingLaneBox(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.zero,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 spacing: DSpacing.md,
@@ -298,7 +298,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
             ),
           ),
         ),
-        list: (context, lazy) =>
+        adaptiveBodyBuilder: (context, lazy) =>
             RepaintBoundary(child: _buildResults(context, lazy)),
       ),
     ),
@@ -307,7 +307,12 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   Widget _buildResults(BuildContext context, bool lazy) {
     if (_loading) {
       return ContentReadingLane(
-        basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        basePadding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          16 + DScrollChrome.bottomInsetOf(context),
+        ),
         builder: (context, lane) => ChatBrowseSkeleton(
           page: ChatBrowsePage.channels,
           scrollable: lazy,
@@ -371,7 +376,12 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     }
 
     return ContentReadingLane(
-      basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      basePadding: EdgeInsets.fromLTRB(
+        16,
+        0,
+        16,
+        16 + DScrollChrome.bottomInsetOf(context),
+      ),
       builder: (context, lane) => lazy
           ? ListView.builder(
               key: const PageStorageKey('chat-browse-channels'),

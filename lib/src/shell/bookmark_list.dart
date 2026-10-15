@@ -375,41 +375,47 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       }
     }
 
-    final content = NotificationListener<ScrollNotification>(
-      onNotification: _onScroll,
-      child: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          SliverToBoxAdapter(child: _heading(context, filters)),
-          if (state != null)
-            state
-          else ...[
-            SliverList.separated(
-              itemCount: visibleEntries.length,
-              separatorBuilder: (context, index) => const DSeparator(),
-              itemBuilder: (context, index) {
-                final entry = visibleEntries[index];
-                return BookmarkRow(
-                  bookmark: entry.bookmark,
-                  siteUrl: widget.siteUrl,
-                  presentation: entry.presentation,
-                  onTap: () => _openBookmark(entry.bookmark),
-                );
-              },
+    final content = DPageSurface.headed(
+      identity: widget.siteUrl,
+      title: Text(context.l10n.bookmarks),
+      controls: _heading(context, filters),
+      bodyBuilder: (context, header) =>
+          NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                SliverToBoxAdapter(child: header.spacer),
+                if (state != null)
+                  state
+                else ...[
+                  SliverList.separated(
+                    itemCount: visibleEntries.length,
+                    separatorBuilder: (context, index) => const DSeparator(),
+                    itemBuilder: (context, index) {
+                      final entry = visibleEntries[index];
+                      return BookmarkRow(
+                        bookmark: entry.bookmark,
+                        siteUrl: widget.siteUrl,
+                        presentation: entry.presentation,
+                        onTap: () => _openBookmark(entry.bookmark),
+                      );
+                    },
+                  ),
+                  if (feed.error case final error?)
+                    SliverToBoxAdapter(
+                      child: UserMenuMessage(text: error, onRetry: _retry),
+                    )
+                  else if (feed.loading)
+                    SliverToBoxAdapter(
+                      child: AccountActivityPagingSkeleton(
+                        semanticsLabel: context.l10n.loadingMoreBookmarks,
+                      ),
+                    ),
+                ],
+              ],
             ),
-            if (feed.error case final error?)
-              SliverToBoxAdapter(
-                child: UserMenuMessage(text: error, onRetry: _retry),
-              )
-            else if (feed.loading)
-              SliverToBoxAdapter(
-                child: AccountActivityPagingSkeleton(
-                  semanticsLabel: context.l10n.loadingMoreBookmarks,
-                ),
-              ),
-          ],
-        ],
-      ),
+          ),
     );
     return DScrollChromePagination(
       hasMore: feed.hasMore,
@@ -418,76 +424,52 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     );
   }
 
-  Widget _heading(BuildContext context, Set<String> filters) => Padding(
-    padding: const EdgeInsets.all(DSpacing.lg),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Semantics(
-          header: true,
-          child: Text(
-            context.l10n.bookmarks,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+  Widget _heading(BuildContext context, Set<String> filters) => Wrap(
+    spacing: DSpacing.sm,
+    runSpacing: DSpacing.sm,
+    children: [
+      DSelect<BookmarkReminderFilter>.controlled(
+        size: DControlSize.filter,
+        semanticLabel: context.l10n.filterBookmarks,
+        value: _reminderFilter,
+        entries: [
+          for (final filter in BookmarkReminderFilter.values)
+            DSelectOption(
+              value: filter,
+              child: Text(switch (filter) {
+                BookmarkReminderFilter.all => context.l10n.allBookmarks,
+                BookmarkReminderFilter.reminders =>
+                  context.l10n.bookmarkReminders,
+                BookmarkReminderFilter.expired => context.l10n.expired,
+              }),
+              label: switch (filter) {
+                BookmarkReminderFilter.all => context.l10n.allBookmarks,
+                BookmarkReminderFilter.reminders =>
+                  context.l10n.bookmarkReminders,
+                BookmarkReminderFilter.expired => context.l10n.expired,
+              },
+            ),
+        ],
+        onChanged: (value) => setState(
+          () => _reminderFilter = value ?? BookmarkReminderFilter.all,
+        ),
+      ),
+      DSelect<String>.controlled(
+        size: DControlSize.filter,
+        semanticLabel: context.l10n.filterBookmarkType,
+        value: _filter,
+        entries: [
+          DSelectOption(
+            value: null,
+            label: context.l10n.allBookmarkTypes,
+            child: Text(context.l10n.allBookmarkTypes),
           ),
-        ),
-        const SizedBox(height: DSpacing.lg),
-        Wrap(
-          spacing: DSpacing.sm,
-          runSpacing: DSpacing.sm,
-          children: [
-            DSelect<BookmarkReminderFilter>.controlled(
-              size: DControlSize.filter,
-              semanticLabel: context.l10n.filterBookmarks,
-              value: _reminderFilter,
-              entries: [
-                for (final filter in BookmarkReminderFilter.values)
-                  DSelectOption(
-                    value: filter,
-                    child: Text(switch (filter) {
-                      BookmarkReminderFilter.all => context.l10n.allBookmarks,
-                      BookmarkReminderFilter.reminders =>
-                        context.l10n.bookmarkReminders,
-                      BookmarkReminderFilter.expired => context.l10n.expired,
-                    }),
-                    label: switch (filter) {
-                      BookmarkReminderFilter.all => context.l10n.allBookmarks,
-                      BookmarkReminderFilter.reminders =>
-                        context.l10n.bookmarkReminders,
-                      BookmarkReminderFilter.expired => context.l10n.expired,
-                    },
-                  ),
-              ],
-              onChanged: (value) => setState(
-                () => _reminderFilter = value ?? BookmarkReminderFilter.all,
-              ),
-            ),
-            DSelect<String>.controlled(
-              size: DControlSize.filter,
-              semanticLabel: context.l10n.filterBookmarkType,
-              value: _filter,
-              entries: [
-                DSelectOption(
-                  value: null,
-                  label: context.l10n.allBookmarkTypes,
-                  child: Text(context.l10n.allBookmarkTypes),
-                ),
-                for (final filter in filters)
-                  DSelectOption(
-                    value: filter,
-                    label: filter,
-                    child: Text(filter),
-                  ),
-              ],
-              onChanged: (value) => setState(() => _filter = value),
-            ),
-          ],
-        ),
-        const SizedBox(height: DSpacing.lg),
-        const DSeparator(),
-      ],
-    ),
+          for (final filter in filters)
+            DSelectOption(value: filter, label: filter, child: Text(filter)),
+        ],
+        onChanged: (value) => setState(() => _filter = value),
+      ),
+    ],
   );
 }
 

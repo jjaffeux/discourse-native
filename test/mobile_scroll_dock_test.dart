@@ -1,5 +1,4 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/plugins/chat/chat_chrome_scroll_view.dart';
 import 'package:discourse_native/src/shell/mobile_scroll_dock.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -654,9 +653,10 @@ void main() {
       addTearDown(controller.dispose);
       await _mount(
         tester,
-        body: ChatChromeScrollView(
-          header: const SizedBox(height: 80),
-          list: (_, _) => _list(controller: controller),
+        body: DPageSurface.headed(
+          title: const Text('Chats'),
+          controls: const SizedBox(height: 80),
+          adaptiveBodyBuilder: (_, _) => _list(controller: controller),
         ),
       );
       await _wheel(tester, 40);

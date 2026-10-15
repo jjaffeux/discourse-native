@@ -602,7 +602,7 @@ void main() {
 
   group('ChatBrowseChannelsView on a phone', () {
     _mobileTest(
-      'a normal height keeps the filters fixed above the scrolling channels',
+      'a normal height keeps filters visible while the title retracts',
       (tester) async {
         final api = await _pumpMobileBrowse(tester, phone);
         final filter = tester.getRect(_filter);
@@ -615,12 +615,13 @@ void main() {
         await tester.drag(_list, const Offset(0, -200));
         await tester.pumpAndSettle();
         expect(tester.getRect(_card(3)).top, lessThan(card.top));
-        expect(tester.getRect(_filter), filter);
+        expect(tester.getRect(_filter).top, lessThan(filter.top));
+        expect(_filter.hitTestable(), findsOneWidget);
 
         await tester.fling(_list, const Offset(0, -6000), 6000);
         await tester.pumpAndSettle();
         expect(_offsets(api), [0, ChatChannelBrowsePage.pageSize]);
-        expect(tester.getRect(_filter), filter);
+        expect(_filter.hitTestable(), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
@@ -634,10 +635,13 @@ void main() {
         expect(_list, findsNothing);
         await tester.ensureVisible(_filter);
         await tester.pumpAndSettle();
-        expect(tester.getRect(_filter).top, greaterThanOrEqualTo(browse.top));
+        expect(
+          tester.getRect(_filter).top,
+          greaterThanOrEqualTo(browse.top - .001),
+        );
         expect(
           tester.getRect(_filter).bottom,
-          lessThanOrEqualTo(browse.bottom),
+          lessThanOrEqualTo(browse.bottom + .001),
         );
         expect(_filter.hitTestable(), findsOneWidget);
 
@@ -703,8 +707,8 @@ void main() {
           await Scrollable.ensureVisible(tester.element(target), alignment: .5);
           await tester.pumpAndSettle();
           final rect = tester.getRect(target);
-          expect(rect.top, greaterThanOrEqualTo(browse.top));
-          expect(rect.bottom, lessThanOrEqualTo(browse.bottom));
+          expect(rect.top, greaterThanOrEqualTo(browse.top - .001));
+          expect(rect.bottom, lessThanOrEqualTo(browse.bottom + .001));
           expect(target.hitTestable(), findsOneWidget);
         }
         expect(tester.getRect(_filter).bottom, lessThan(browse.top));

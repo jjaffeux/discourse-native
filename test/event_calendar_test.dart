@@ -147,11 +147,12 @@ void main() {
         final next = surface(find.byTooltip('Next month'));
         final title = tester.getRect(find.text('Events'));
         final period = tester.getRect(find.text('September 2026'));
-        final separator = tester.getRect(
+        expect(
           find.descendant(of: header, matching: find.byType(DSeparator)),
+          findsNothing,
         );
         expect(title.left, 16);
-        expect(title.top, 16);
+        expect(title.top, platform == TargetPlatform.iOS ? 12 : 20);
         expect(scope.left, 16);
         expect(scope.top - title.bottom, closeTo(16, .01));
         expect(view.left - scope.right, closeTo(8, .01));
@@ -163,15 +164,13 @@ void main() {
         expect(previous.top - scope.bottom, closeTo(10, .01));
         expect(period.center.dx, closeTo(width / 2, .01));
         expect(period.center.dy, previous.center.dy);
-        expect(separator.top - previous.bottom, closeTo(14, .01));
-        expect(separator.left, 16);
-        expect(separator.width, width - 32);
-        expect(tester.getRect(header).bottom - separator.bottom, 16);
         expect(
           tester.getRect(find.byType(kalender.KalenderView)).bottom,
           platform == TargetPlatform.iOS ? 844 : 844 - 16,
         );
-        final headingStyle = tester.widget<Text>(find.text('Events')).style!;
+        final headingStyle = DefaultTextStyle.of(
+          tester.element(find.text('Events')),
+        ).style;
         expect(headingStyle.fontSize, 22);
         expect(headingStyle.fontWeight, FontWeight.w700);
         final periodStyle = tester

@@ -62,67 +62,74 @@ class _TagsPageState extends State<TagsPage> {
   }
 
   @override
-  Widget build(BuildContext context) => ShellSelector<_TagPageSnapshot>(
-    select: (controller) => (
-      controller.lifecycle.capture(widget.siteUrl).session,
-      controller.tagDirectoryFeedFor(widget.siteUrl),
-    ),
-    builder: (context, data, _) {
-      final (session, feed) = data;
-      final tags = feed.tags
-          .where((tag) => searchWordsMatch(SearchWords.of(context), [tag.name]))
-          .toList();
-      _scheduleRequest(session);
-      if (feed.error != null && feed.tags.isEmpty) {
-        return _TagPageState(
-          icon: DIcons.triangleExclamation,
-          title: feed.error!,
-          actionLabel: context.l10n.tryAgain,
-          onAction: () => _request(force: true),
-        );
-      }
-      if (!feed.loaded && feed.tags.isEmpty) {
+  Widget build(BuildContext context) => DPageSurface.headed(
+    identity: widget.siteUrl,
+    title: Text(context.l10n.tags),
+    foldTitleAtTop: true,
+    child: ShellSelector<_TagPageSnapshot>(
+      select: (controller) => (
+        controller.lifecycle.capture(widget.siteUrl).session,
+        controller.tagDirectoryFeedFor(widget.siteUrl),
+      ),
+      builder: (context, data, _) {
+        final (session, feed) = data;
+        final tags = feed.tags
+            .where(
+              (tag) => searchWordsMatch(SearchWords.of(context), [tag.name]),
+            )
+            .toList();
+        _scheduleRequest(session);
+        if (feed.error != null && feed.tags.isEmpty) {
+          return _TagPageState(
+            icon: DIcons.triangleExclamation,
+            title: feed.error!,
+            actionLabel: context.l10n.tryAgain,
+            onAction: () => _request(force: true),
+          );
+        }
+        if (!feed.loaded && feed.tags.isEmpty) {
+          return ContentReadingLane(
+            basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            builder: (context, lane) => Padding(
+              padding: lane.padding,
+              child: const DirectorySkeleton(kind: DirectorySkeletonKind.tags),
+            ),
+          );
+        }
+        if (feed.isEmpty) {
+          return _TagPageState(icon: DIcons.tag, title: context.l10n.noTagsYet);
+        }
+
         return ContentReadingLane(
           basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          builder: (context, lane) => Padding(
-            padding: lane.padding,
-            child: const DirectorySkeleton(kind: DirectorySkeletonKind.tags),
+          builder: (context, lane) => ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: lane.padding.add(
+              EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+            ),
+            itemCount: tags.length + (feed.error == null ? 0 : 1),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              var tagIndex = index;
+              if (feed.error case final message?) {
+                if (tagIndex == 0) {
+                  return _TagErrorBanner(
+                    message: message,
+                    onRetry: () => _request(force: true),
+                  );
+                }
+                tagIndex--;
+              }
+              final tag = tags[tagIndex];
+              return TagDirectoryRow(
+                tag: tag,
+                onTap: () => ShellScope.read(context).openTag(tag),
+              );
+            },
           ),
         );
-      }
-      if (feed.isEmpty) {
-        return _TagPageState(icon: DIcons.tag, title: context.l10n.noTagsYet);
-      }
-
-      return ContentReadingLane(
-        basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        builder: (context, lane) => ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: lane.padding.add(
-            EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
-          ),
-          itemCount: tags.length + (feed.error == null ? 0 : 1),
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            var tagIndex = index;
-            if (feed.error case final message?) {
-              if (tagIndex == 0) {
-                return _TagErrorBanner(
-                  message: message,
-                  onRetry: () => _request(force: true),
-                );
-              }
-              tagIndex--;
-            }
-            final tag = tags[tagIndex];
-            return TagDirectoryRow(
-              tag: tag,
-              onTap: () => ShellScope.read(context).openTag(tag),
-            );
-          },
-        ),
-      );
-    },
+      },
+    ),
   );
 }
 

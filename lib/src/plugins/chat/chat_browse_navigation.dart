@@ -27,55 +27,38 @@ class ChatBrowseNavigation extends StatelessWidget {
       context,
       chatControllerService,
     ).siteConfigFor(siteUrl).chatSettings;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: DSpacing.md,
-      children: [
-        Text(
-          switch (page) {
-            ChatBrowsePage.chats => context.l10n.browseChats,
-            ChatBrowsePage.channels => context.l10n.browseChannels,
-            ChatBrowsePage.threads => context.l10n.browseThreads,
-          },
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontSize: DiscourseTypography.xxl,
-            fontWeight: FontWeight.w700,
+    return DToggleGroup<ChatBrowsePage>(
+      key: const ValueKey('chat-browse-navigation'),
+      inset: true,
+      size: DControlSize.segment,
+      scrollable: true,
+      allowEmptySelection: false,
+      values: [page],
+      semanticLabel: context.l10n.browseChat,
+      items: [
+        DToggleGroupItem(
+          value: ChatBrowsePage.chats,
+          icon: const DIcon(DIcons.comment),
+          child: Text(context.l10n.chats),
+        ),
+        if (settings.publicChannelsEnabled)
+          DToggleGroupItem(
+            value: ChatBrowsePage.channels,
+            icon: const Text('#'),
+            child: Text(context.l10n.channels),
           ),
-        ),
-        DToggleGroup<ChatBrowsePage>(
-          key: const ValueKey('chat-browse-navigation'),
-          inset: true,
-          size: DControlSize.segment,
-          scrollable: true,
-          allowEmptySelection: false,
-          values: [page],
-          semanticLabel: context.l10n.browseChat,
-          items: [
-            DToggleGroupItem(
-              value: ChatBrowsePage.chats,
-              icon: const DIcon(DIcons.comment),
-              child: Text(context.l10n.chats),
-            ),
-            if (settings.publicChannelsEnabled)
-              DToggleGroupItem(
-                value: ChatBrowsePage.channels,
-                icon: const Text('#'),
-                child: Text(context.l10n.channels),
-              ),
-            if (settings.threadsEnabled)
-              DToggleGroupItem(
-                value: ChatBrowsePage.threads,
-                icon: const DIcon(DIcons.comments),
-                child: Text(context.l10n.threads),
-              ),
-          ],
-          onChanged: (values) => switch (values.single) {
-            ChatBrowsePage.chats => shell.openChats(newTab: true),
-            ChatBrowsePage.channels => shell.openBrowseChannels(newTab: true),
-            ChatBrowsePage.threads => shell.openMyThreads(newTab: true),
-          },
-        ),
+        if (settings.threadsEnabled)
+          DToggleGroupItem(
+            value: ChatBrowsePage.threads,
+            icon: const DIcon(DIcons.comments),
+            child: Text(context.l10n.threads),
+          ),
       ],
+      onChanged: (values) => switch (values.single) {
+        ChatBrowsePage.chats => shell.openChats(newTab: true),
+        ChatBrowsePage.channels => shell.openBrowseChannels(newTab: true),
+        ChatBrowsePage.threads => shell.openMyThreads(newTab: true),
+      },
     );
   }
 }

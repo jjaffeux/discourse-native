@@ -56,7 +56,6 @@ import 'title_bar.dart';
 import 'topic_create_button.dart';
 import 'topic_list_actions.dart';
 import 'topic_list_bottom_bar.dart';
-import 'topic_list_layout.dart';
 import 'topic_list_navigation.dart';
 import 'topic_list_view.dart';
 import 'topic_presentation.dart';
@@ -363,6 +362,7 @@ class _MainContentBody extends StatelessWidget {
             ? registry.ownsContentPageTitle(context, route)
             : route.isForumAbout ||
                   route.id == 'all-categories' ||
+                  route.id == 'all-tags' ||
                   route.isAppearance ||
                   route.isGroups ||
                   route.isUsers ||
@@ -445,38 +445,25 @@ class _MainContentBody extends StatelessWidget {
                   !route.isBadges &&
                   !route.isGroups &&
                   route.id != 'all-categories' &&
+                  route.id != 'all-tags' &&
                   route.id != 'activity' &&
                   !(route.id == 'user-bookmarks' && state.isConnected) &&
                   !hideDirectoryHeader &&
                   !(usesTopicToolbar && ShellTitleBar.isSupported)
-              ? Stack(
-                  children: [
-                    _ContentHeader(
-                      layout: layout,
-                      route: route,
-                      siteUrl: state.siteUrl,
-                      canPop: state.canPop,
-                      showCreateTopicAction:
-                          context.isTouch &&
-                          pluginContent == null &&
-                          !usesTopicToolbar &&
-                          !ShellScope.read(context).mobileNavigationEnabled,
-                      searchOnly: usesTopicToolbar || pageOwnsTitle,
-                      isConnected: state.isConnected,
-                      registry: registry,
-                      groupPages: groupPages,
-                    ),
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 0,
-                      child: DSeparator(
-                        key: const ValueKey('content-header-separator'),
-                        color: theme.shell.divider,
-                        space: 1,
-                      ),
-                    ),
-                  ],
+              ? _ContentHeader(
+                  layout: layout,
+                  route: route,
+                  siteUrl: state.siteUrl,
+                  canPop: state.canPop,
+                  showCreateTopicAction:
+                      context.isTouch &&
+                      pluginContent == null &&
+                      !usesTopicToolbar &&
+                      !ShellScope.read(context).mobileNavigationEnabled,
+                  searchOnly: usesTopicToolbar || pageOwnsTitle,
+                  isConnected: state.isConnected,
+                  registry: registry,
+                  groupPages: groupPages,
                 )
               : null,
           child: KeyedSubtree(
@@ -640,111 +627,35 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 fromList: true,
                 leadingPadding: false,
               );
-        Widget heading(Widget? navigation) => LayoutBuilder(
-          builder: (context, constraints) => Row(
-            key: const ValueKey('topic-list-heading'),
-            children: [
-              if (messages &&
-                  layout.isCompact &&
-                  (!controller.mobileNavigationEnabled ||
-                      controller.canPopContent))
-                DButton.iconOnly(
-                  icon: const DIcon(DIcons.arrowLeft),
-                  tooltip: context.l10n.back,
-                  variant: DButtonVariant.ghost,
-                  onPressed: () =>
-                      controller.handleBack(canReturnToSidebar: true),
-                ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      flex: 1,
-                      fit: navigation == null ? FlexFit.tight : FlexFit.loose,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: navigation == null ? double.infinity : 220,
-                        ),
-                        child: messages
-                            ? const MessageInboxTitle()
-                            : _TopicListHeadingTitle(
-                                siteUrl: state.siteUrl,
-                                categoryId: sourceRoute.categoryId,
-                                pageTitle: sourceRoute.title,
-                              ),
-                      ),
-                    ),
-                    if (navigation != null) ...[
-                      const SizedBox(width: DSpacing.sm),
-                      Flexible(flex: 3, child: navigation),
-                    ],
-                  ],
-                ),
-              ),
-              ...registry.contentHeaderActions(context, sourceRoute),
-              if (state.siteUrl != null &&
-                  !messages &&
-                  !controller.mobileNavigationEnabled)
-                // Reserve space for the title when the filter label grows.
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: constraints.maxWidth / 2,
-                  ),
-                  child: TopicListFilterMenu(
-                    key: ValueKey((state.siteUrl, sourceRoute.id)),
-                    siteUrl: state.siteUrl!,
-                    query: controller.topicListFilterEditorQuery(sourceRoute),
-                  ),
-                ),
-            ],
-          ),
-        );
-        // The heading follows the full width of the topic list.
-        Widget buildHeading(BuildContext context, Widget? navigation) {
-          final toolbar = ContentReadingLane(
-            widthLimit: topicListContentWidth,
-            builder: (context, lane) => ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: sourceRoute.isTopicListFilter
-                    ? 0
-                    : shellHeaderHeight,
-              ),
-              child: Padding(
-                padding: messages
-                    ? const EdgeInsets.symmetric(vertical: DSpacing.lg)
-                    : context.isTouch
-                    ? const EdgeInsets.only(top: 16)
-                    : const EdgeInsets.only(top: 24),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsetsDirectional.only(
-                          start: DDirection.of(context) == TextDirection.ltr
-                              ? lane.leftInset
-                              : lane.rightInset,
-                        ),
-                        child: Align(
-                          alignment: AlignmentDirectional.centerStart,
-                          child: SizedBox(
-                            width: lane.width,
-                            child: Padding(
-                              padding: const EdgeInsetsDirectional.symmetric(
-                                horizontal: 16,
-                              ),
-                              child: heading(navigation),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+        Widget buildHeading(BuildContext context, Widget? navigation) => Row(
+          key: const ValueKey('topic-list-heading'),
+          children: [
+            Expanded(
+              child: _TopicListHeadingTitle(
+                siteUrl: state.siteUrl,
+                categoryId: sourceRoute.categoryId,
+                pageTitle: sourceRoute.title,
               ),
             ),
-          );
-          return toolbar;
-        }
+          ],
+        );
+        final headingActions = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...registry.contentHeaderActions(context, sourceRoute),
+            if (state.siteUrl != null &&
+                !messages &&
+                !controller.mobileNavigationEnabled)
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: listWidth / 2),
+                child: TopicListFilterMenu(
+                  key: ValueKey((state.siteUrl, sourceRoute.id)),
+                  siteUrl: state.siteUrl!,
+                  query: controller.topicListFilterEditorQuery(sourceRoute),
+                ),
+              ),
+          ],
+        );
 
         final listPane = ResizablePane(
           key: _listPaneKey,
@@ -829,6 +740,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 siteUrl: state.siteUrl,
                 inbox: true,
                 keepTopicOpen: split,
+                topicListActions: headingActions,
                 topicListHeadingBuilder: buildHeading,
               ),
             ),
@@ -1120,9 +1032,7 @@ class _FeedBackedContent extends StatelessWidget {
         if (route.isMessages) {
           content = MessageInboxPage(
             feed: feed ?? const TopicFeed(),
-            heading: context.isTouch
-                ? null
-                : topicListHeadingBuilder?.call(context, null),
+            actions: topicListActions,
             keepTopicOpen: keepTopicOpen,
           );
         } else if (feed == null &&
@@ -1464,7 +1374,6 @@ class _TopicListHeadingTitle extends StatelessWidget {
       key: const ValueKey('topic-list-title'),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.headlineSmall,
     );
 
     final categoryId = this.categoryId;

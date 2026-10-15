@@ -40,53 +40,59 @@ class BadgesPage extends StatelessWidget {
   final ValueChanged<String> onOpenUrl;
 
   @override
-  Widget build(BuildContext context) => DScrollChromePagination(
-    hasMore: state.hasMore,
-    loading: state.loading || state.loadingMore,
-    child: ContentReadingLane(
-      basePadding: route.isDirectory
-          ? const EdgeInsets.symmetric(vertical: 16)
-          : const EdgeInsets.all(16),
-      builder: (context, lane) => CustomScrollView(
-        key: PageStorageKey('badges-$siteUrl-${route.id}'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: lane.padding.add(
-              EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
-            ),
-            sliver: SliverMainAxisGroup(
-              slivers: [
-                if (state.error != null)
-                  SliverToBoxAdapter(
-                    child: _BadgeError(
-                      message: state.error!,
-                      onRetry: onRefresh,
+  Widget build(BuildContext context) {
+    if (route.isDirectory && state.catalog != null) {
+      return _BadgeDirectory(
+        key: ValueKey((siteUrl, currentUsername)),
+        catalog: state.catalog!,
+        siteUrl: siteUrl,
+        onOpenBadge: onOpenBadge,
+      );
+    }
+    final content = DScrollChromePagination(
+      hasMore: state.hasMore,
+      loading: state.loading || state.loadingMore,
+      child: ContentReadingLane(
+        basePadding: route.isDirectory
+            ? const EdgeInsets.symmetric(vertical: 16)
+            : const EdgeInsets.all(16),
+        builder: (context, lane) => CustomScrollView(
+          key: PageStorageKey('badges-$siteUrl-${route.id}'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: lane.padding.add(
+                EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+              ),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  if (state.error != null)
+                    SliverToBoxAdapter(
+                      child: _BadgeError(
+                        message: state.error!,
+                        onRetry: onRefresh,
+                      ),
                     ),
-                  ),
-                if (state.loading &&
-                    state.catalog == null &&
-                    state.badge == null)
-                  const SliverDirectorySkeleton(
-                    key: ValueKey('badges-loading'),
-                    kind: DirectorySkeletonKind.badges,
-                  )
-                else if (route.isDirectory && state.catalog != null)
-                  _BadgeDirectory(
-                    key: ValueKey((siteUrl, currentUsername)),
-                    catalog: state.catalog!,
-                    siteUrl: siteUrl,
-                    onOpenBadge: onOpenBadge,
-                  )
-                else if (state.badge != null)
-                  ..._detail(context, state.badge!),
-              ],
+                  if (state.loading &&
+                      state.catalog == null &&
+                      state.badge == null)
+                    const SliverDirectorySkeleton(
+                      key: ValueKey('badges-loading'),
+                      kind: DirectorySkeletonKind.badges,
+                    )
+                  else if (state.badge != null)
+                    ..._detail(context, state.badge!),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+    return route.isDirectory
+        ? DPageSurface.headed(title: Text(context.l10n.badges), child: content)
+        : content;
+  }
 
   List<Widget> _detail(BuildContext context, DiscourseBadge badge) {
     final theme = Theme.of(context);
@@ -328,146 +334,144 @@ class _BadgeDirectoryState extends State<_BadgeDirectory> {
           badges: group.badges.where(_filter.includes).toList(),
         ),
     ].where((group) => group.badges.isNotEmpty).toList();
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  header: true,
-                  child: Text(
-                    context.l10n.badges,
-                    style: theme.textTheme.headlineSmall,
+    return DPageSurface.headed(
+      title: Text(context.l10n.badges),
+      controls: LayoutBuilder(
+        builder: (context, constraints) {
+          final scale =
+              MediaQuery.textScalerOf(context).scale(DiscourseTypography.sm) /
+              DiscourseTypography.sm;
+          final stacked = constraints.maxWidth / scale < 300;
+          final filter = DSelect<_BadgeFilter>.controlled(
+            size: DControlSize.filter,
+            key: const ValueKey('badge-filter'),
+            value: _filter,
+            semanticLabel: context.l10n.filterBadges,
+            width: 128,
+            isExpanded: stacked,
+            entries: [
+              for (final filter in _BadgeFilter.values)
+                if (!filter.personal || catalog.hasPersonalState)
+                  DSelectItem(
+                    value: filter,
+                    textValue: filter.label,
+                    child: Text(filter.label),
                   ),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => _filter = value);
+            },
+          );
+          final summary = Text(
+            context.l10n.messageBadgespage(
+              catalog.total,
+              (catalog.hasPersonalState).toString(),
+              (_number(catalog.total)).toString(),
+              ((catalog.hasPersonalState) ? (_number(catalog.earned)) : '')
+                  .toString(),
+            ),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.shell.marker,
+            ),
+          );
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [filter, const SizedBox(height: 8), summary],
+            );
+          }
+          return Row(
+            children: [
+              filter,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: summary,
                 ),
-                const SizedBox(height: 16),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final scale =
-                        MediaQuery.textScalerOf(
-                          context,
-                        ).scale(DiscourseTypography.sm) /
-                        DiscourseTypography.sm;
-                    final stacked = constraints.maxWidth / scale < 300;
-                    final filter = DSelect<_BadgeFilter>.controlled(
-                      size: DControlSize.filter,
-                      key: const ValueKey('badge-filter'),
-                      value: _filter,
-                      semanticLabel: context.l10n.filterBadges,
-                      width: 128,
-                      isExpanded: stacked,
-                      entries: [
-                        for (final filter in _BadgeFilter.values)
-                          if (!filter.personal || catalog.hasPersonalState)
-                            DSelectItem(
-                              value: filter,
-                              textValue: filter.label,
-                              child: Text(filter.label),
-                            ),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) setState(() => _filter = value);
-                      },
-                    );
-                    final summary = Text(
-                      context.l10n.messageBadgespage(
-                        catalog.total,
-                        (catalog.hasPersonalState).toString(),
-                        (_number(catalog.total)).toString(),
-                        ((catalog.hasPersonalState)
-                                ? (_number(catalog.earned))
-                                : '')
-                            .toString(),
-                      ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.shell.marker,
-                      ),
-                    );
-                    if (stacked) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [filter, const SizedBox(height: 8), summary],
-                      );
-                    }
-                    return Row(
-                      children: [
-                        filter,
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: summary,
+              ),
+            ],
+          );
+        },
+      ),
+      bodyBuilder: (context, header) => ContentReadingLane(
+        builder: (context, lane) => CustomScrollView(
+          key: PageStorageKey('badges-${widget.siteUrl}'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: header.spacer),
+            SliverPadding(
+              padding: EdgeInsets.only(
+                left: lane.leftInset,
+                right: lane.rightInset,
+                bottom: DScrollChrome.bottomInsetOf(context),
+              ),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  if (groups.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: SingleChildScrollView(
+                          child: DEmpty(
+                            children: [
+                              DEmptyHeader(
+                                children: [
+                                  DEmptyTitle(
+                                    catalog.total == 0
+                                        ? context.l10n.noBadgesToDisplay
+                                        : context.l10n.noBadgesMatchThisFilter,
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                DSeparator(color: theme.shell.divider),
-              ],
-            ),
-          ),
-        ),
-        if (groups.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: SingleChildScrollView(
-                child: DEmpty(
-                  children: [
-                    DEmptyHeader(
-                      children: [
-                        DEmptyTitle(
-                          catalog.total == 0
-                              ? context.l10n.noBadgesToDisplay
-                              : context.l10n.noBadgesMatchThisFilter,
+                      ),
+                    ),
+                  for (final group in groups) ...[
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            group.name,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ],
+                      ),
+                    ),
+                    SliverList.separated(
+                      itemCount: group.badges.length,
+                      separatorBuilder: (context, index) =>
+                          DSeparator(color: theme.shell.divider),
+                      itemBuilder: (context, index) {
+                        final badge = group.badges[index];
+                        return LinkTarget.content(
+                          content: ContentRoute.badges(
+                            badge.route,
+                            title: badge.name,
+                          ),
+                          siteUrl: widget.siteUrl,
+                          child: BadgeRow(
+                            key: ValueKey('badge-row-${badge.id}'),
+                            badge: badge,
+                            siteUrl: widget.siteUrl,
+                            onTap: () => widget.onOpenBadge(badge),
+                          ),
+                        );
+                      },
                     ),
                   ],
-                ),
+                ],
               ),
             ),
-          ),
-        for (final group in groups) ...[
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-              child: Semantics(
-                header: true,
-                child: Text(
-                  group.name,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SliverList.separated(
-            itemCount: group.badges.length,
-            separatorBuilder: (context, index) =>
-                DSeparator(color: theme.shell.divider),
-            itemBuilder: (context, index) {
-              final badge = group.badges[index];
-              return LinkTarget.content(
-                content: ContentRoute.badges(badge.route, title: badge.name),
-                siteUrl: widget.siteUrl,
-                child: BadgeRow(
-                  key: ValueKey('badge-row-${badge.id}'),
-                  badge: badge,
-                  siteUrl: widget.siteUrl,
-                  onTap: () => widget.onOpenBadge(badge),
-                ),
-              );
-            },
-          ),
-        ],
-      ],
+          ],
+        ),
+      ),
     );
   }
 }

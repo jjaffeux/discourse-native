@@ -10,7 +10,6 @@ import '../models/sidebar_tag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
-import '../theme/discourse_typography.dart';
 import 'category_notifications.dart';
 import 'content_reading_lane.dart';
 import 'platform.dart';
@@ -66,10 +65,8 @@ _TopicListFilterOwner _filterOwner(ShellController controller) {
   );
 }
 
-typedef TopicListHeadingBuilder = Widget Function(
-  BuildContext context,
-  Widget? navigation,
-);
+typedef TopicListHeadingBuilder =
+    Widget Function(BuildContext context, Widget? navigation);
 
 class TopicListNavigation extends StatelessWidget {
   const TopicListNavigation({
@@ -86,9 +83,6 @@ class TopicListNavigation extends StatelessWidget {
   final TopicListHeadingBuilder? headingBuilder;
   final bool stacked;
   final bool keepTopicOpen;
-
-  bool controllerMobile(BuildContext context) =>
-      ShellScope.read(context).mobileNavigationEnabled;
 
   @override
   Widget build(
@@ -135,47 +129,26 @@ class TopicListNavigation extends StatelessWidget {
       if (!showsTabs && !showsFilters && trailing == null) {
         return child;
       }
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final controls = _TopicListNavigationControls(
-            state: state,
-            showsTabs: showsTabs,
-            showsFilters: showsFilters,
-            trailing: trailing,
-            headingBuilder: headingBuilder,
-            stacked: stacked,
-            keepTopicOpen: keepTopicOpen,
-            includeHeading: !controllerMobile(context),
-          );
-          if (controllerMobile(context) && headingBuilder != null) {
-            return DPageSurface.scrollable(
-              framed: false,
-              identity: state.filterOwner,
-              hideHeaderOnScroll: true,
-              header: headingBuilder!(context, null),
-              headerControls: controls,
-              bodyBuilder: (_, _) => child,
-            );
-          }
-          return DPageSurface(
-            framed: false,
-            identity: state.filterOwner,
-            header:
-                constraints.maxHeight <
-                    320 *
-                        MediaQuery.textScalerOf(context)
-                            .scale(DiscourseTypography.base) /
-                        DiscourseTypography.base
-                ? ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: constraints.maxHeight / 2,
-                    ),
-                    child: DScrollArea(child: controls),
-                  )
-                : controls,
-            child: child,
-          );
-        },
+      final controls = _TopicListNavigationControls(
+        state: state,
+        showsTabs: showsTabs,
+        showsFilters: showsFilters,
+        trailing: trailing,
+        headingBuilder: headingBuilder,
+        stacked: stacked,
+        keepTopicOpen: keepTopicOpen,
+      );
+      if (headingBuilder == null) {
+        return DPageSurface(framed: false, header: controls, child: child);
+      }
+      return DPageSurface.headed(
+        identity: state.filterOwner,
+        title: KeyedSubtree(
+          key: const ValueKey('topic-list-primary-row'),
+          child: headingBuilder!(context, null),
+        ),
+        controls: controls,
+        child: child,
       );
     },
   );
@@ -190,10 +163,8 @@ class _TopicListNavigationControls extends StatelessWidget {
     required this.headingBuilder,
     required this.stacked,
     required this.keepTopicOpen,
-    this.includeHeading = true,
   });
 
-  final bool includeHeading;
   final _TopicListNavigationSnapshot state;
   final bool showsTabs;
   final bool showsFilters;
@@ -291,23 +262,16 @@ class _TopicListNavigationControls extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (includeHeading && headingBuilder != null)
-            KeyedSubtree(
-              key: const ValueKey('topic-list-primary-row'),
-              child: headingBuilder!(context, null),
-            ),
           ContentReadingLaneBox(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                controller.mobileNavigationEnabled
-                    ? 16
-                    : context.isTouch && headingBuilder != null
-                    ? 0
-                    : 8,
-                16,
-                controller.mobileNavigationEnabled ? 14 : 16,
-              ),
+              padding: headingBuilder == null
+                  ? EdgeInsets.fromLTRB(
+                      16,
+                      controller.mobileNavigationEnabled ? 16 : 8,
+                      16,
+                      controller.mobileNavigationEnabled ? 14 : 16,
+                    )
+                  : EdgeInsets.zero,
               child: Row(
                 key: const ValueKey('topic-list-feed-row'),
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,11 +332,6 @@ class _TopicListNavigationControls extends StatelessWidget {
               ),
             ),
           ),
-          if (includeHeading && headingBuilder != null)
-            const ContentReadingLaneBox(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: DSeparator(key: ValueKey('topic-list-heading-separator')),
-            ),
         ],
       ),
     );

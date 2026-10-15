@@ -180,6 +180,7 @@ class DScrollChromeController extends ChangeNotifier
           double Function() reduction,
           double Function() extent,
           double Function() motionExtent,
+          double? minimumScrollExtent,
         })
       >{};
 
@@ -198,6 +199,7 @@ class DScrollChromeController extends ChangeNotifier
     required double Function() layoutReduction,
     required double Function() layoutExtent,
     required double Function() motionExtent,
+    double? minimumScrollExtent,
   }) {
     unregisterHeader(owner);
     focus.addListener(_focusChanged);
@@ -206,6 +208,7 @@ class DScrollChromeController extends ChangeNotifier
       reduction: layoutReduction,
       extent: layoutExtent,
       motionExtent: motionExtent,
+      minimumScrollExtent: minimumScrollExtent,
     );
   }
 
@@ -224,6 +227,13 @@ class DScrollChromeController extends ChangeNotifier
       _headers.values.fold(0.0, (sum, header) => sum + header.reduction());
   double get _layoutExtent =>
       _headers.values.fold(0.0, (sum, header) => sum + header.extent());
+
+  double? get _minimumScrollExtent {
+    final extents = _headers.values
+        .map((header) => header.minimumScrollExtent)
+        .whereType<double>();
+    return extents.isEmpty ? null : extents.reduce(math.max);
+  }
 
   double get _motionExtent {
     final span = _headers.values.fold(
@@ -410,6 +420,11 @@ class _DScrollChromeState extends State<DScrollChrome>
             ? 0.0
             : math.max(0.0, _shownFooterHeight - footerHeight)) +
         _controller._layoutReduction;
+    final minimum = _controller._minimumScrollExtent;
+    if (minimum != null) {
+      return metrics.maxScrollExtent - metrics.minScrollExtent + reduction <
+          minimum;
+    }
     final shownViewport = metrics.viewportDimension - reduction;
     final content =
         metrics.maxScrollExtent -

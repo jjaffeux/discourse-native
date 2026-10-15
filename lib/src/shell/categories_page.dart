@@ -16,7 +16,6 @@ import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'open_link.dart';
-import 'platform.dart';
 import 'relative_time.dart';
 import 'search_words.dart';
 import 'shell_controller.dart';
@@ -184,24 +183,10 @@ class _CategoriesPageState extends State<CategoriesPage> {
     return DScrollChromePagination(
       hasMore: feed.hasMore,
       loading: feed.loadingMore,
-      child: DPageSurface.scrollable(
-        framed: false,
+      child: DPageSurface.headed(
         limitContentSize: false,
-        hideHeaderOnScroll: true,
-        header: ContentReadingLaneBox(
-          padding: EdgeInsets.fromLTRB(16, context.isTouch ? 12 : 20, 16, 0),
-          child: DText(
-            context.l10n.categories,
-            variant: DTextVariant.h1,
-            style: const TextStyle(
-              fontSize: 22,
-              height: 1.25,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        headerControls: ContentReadingLaneBox(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        title: Text(context.l10n.categories),
+        controls: ContentReadingLaneBox(
           child: LayoutBuilder(
             builder: (context, constraints) {
               final wrap =

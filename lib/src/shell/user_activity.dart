@@ -27,33 +27,10 @@ class UserActivityView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AccountActivityLoader.userActivity(
     siteUrl: siteUrl,
-    builder: (context, controller) => Column(
-      children: [
-        ContentReadingLaneBox(
-          child: Padding(
-            padding: const EdgeInsets.all(DSpacing.lg),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Semantics(
-                header: true,
-                child: Text(
-                  context.l10n.activity,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: ListenableBuilder(
-            listenable: controller.accountActivity.userActivityListenable,
-            builder: (context, _) =>
-                _UserActivityBody(controller: controller, siteUrl: siteUrl),
-          ),
-        ),
-      ],
+    builder: (context, controller) => ListenableBuilder(
+      listenable: controller.accountActivity.userActivityListenable,
+      builder: (context, _) =>
+          _UserActivityBody(controller: controller, siteUrl: siteUrl),
     ),
   );
 }
@@ -92,14 +69,20 @@ class _UserActivityBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final instance = _instance;
     if (instance?.isConnected != true) {
-      return _ActivityState(
-        icon: DIcons.list,
-        title: context.l10n.connectThisAccountToSeeItsActivity,
+      return DPageSurface.headed(
+        title: Text(context.l10n.activity),
+        child: _ActivityState(
+          icon: DIcons.list,
+          title: context.l10n.connectThisAccountToSeeItsActivity,
+        ),
       );
     }
 
     final feed = controller.accountActivity.userActivityFor(siteUrl);
-    return _body(feed);
+    final body = _body(feed);
+    return body is _ActivityList
+        ? body
+        : DPageSurface.headed(title: Text(context.l10n.activity), child: body);
   }
 
   Widget _body(UserActivityFeed feed) {
@@ -192,108 +175,99 @@ class _ActivityListState extends State<_ActivityList> {
         )
         .toList();
     final hasFooter = feed.loading || feed.error != null || feed.hasMore;
-    final content = Column(
-      children: [
-        ContentReadingLaneBox(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: DSelect<_ActivityKind>.controlled(
-                size: DControlSize.filter,
-                key: const ValueKey('activity-kind-filter'),
-                value: _kind,
-                semanticLabel: context.l10n.activity,
-                onChanged: (value) {
-                  if (value != null) setState(() => _kind = value);
-                },
-                entries: [
-                  for (final (value, label) in [
-                    (_ActivityKind.all, context.l10n.allActivity),
-                    (_ActivityKind.topics, context.l10n.topics),
-                    (_ActivityKind.replies, context.l10n.replies),
-                  ])
-                    DSelectOption(
-                      value: value,
-                      label: label,
-                      child: Text(label),
-                    ),
-                ],
-              ),
+    final content = DPageSurface.headed(
+      title: Text(context.l10n.activity),
+      controls: ContentReadingLaneBox(
+        child: Padding(
+          padding: EdgeInsets.zero,
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: DSelect<_ActivityKind>.controlled(
+              size: DControlSize.filter,
+              key: const ValueKey('activity-kind-filter'),
+              value: _kind,
+              semanticLabel: context.l10n.activity,
+              onChanged: (value) {
+                if (value != null) setState(() => _kind = value);
+              },
+              entries: [
+                for (final (value, label) in [
+                  (_ActivityKind.all, context.l10n.allActivity),
+                  (_ActivityKind.topics, context.l10n.topics),
+                  (_ActivityKind.replies, context.l10n.replies),
+                ])
+                  DSelectOption(value: value, label: label, child: Text(label)),
+              ],
             ),
           ),
         ),
-        Expanded(
-          child: ContentReadingLane(
-            basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            builder: (context, lane) =>
-                NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (_nearEnd(notification)) unawaited(onLoadMore());
-                    return false;
-                  },
-                  child: ListView.separated(
-                    key: const PageStorageKey('user-activity-list'),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: lane.padding,
-                    itemCount:
-                        items.length +
-                        (hasFooter ? 1 : 0) +
-                        (items.isEmpty ? 1 : 0),
-                    separatorBuilder: (context, index) =>
-                        index < items.length - 1
-                        ? const Center(
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: DSeparator(space: 1),
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                    itemBuilder: (context, index) {
-                      if (items.isEmpty && index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(context.l10n.noActivityYet),
-                        );
-                      }
-                      if (index < items.length) {
-                        final item = items[index];
-                        return Center(
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: UserActivityRow(
-                              siteUrl: siteUrl,
-                              item: item,
-                              category: feed.categoryFor(item.categoryId),
-                              onTap: () => onOpen(item),
-                            ),
-                          ),
-                        );
-                      }
-                      if (feed.error case final error?) {
-                        return _LoadMoreError(
-                          message: error,
-                          onRetry: () => unawaited(
-                            feed.retryFromStart ? onRefresh() : onLoadMore(),
-                          ),
-                        );
-                      }
-                      return feed.loading
-                          ? AccountActivityPagingSkeleton(
-                              semanticsLabel: context.l10n.loadingMoreActivity,
-                            )
-                          : Align(
-                              child: DButton(
-                                label: Text(context.l10n.loadMore),
-                                onPressed: () => unawaited(onLoadMore()),
-                              ),
-                            );
-                    },
-                  ),
-                ),
+      ),
+      bodyBuilder: (context, header) => ContentReadingLane(
+        basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        builder: (context, lane) => NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (_nearEnd(notification)) unawaited(onLoadMore());
+            return false;
+          },
+          child: DPageScrollInsets(
+            builder: (context, insets) => ListView.separated(
+              key: const PageStorageKey('user-activity-list'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: lane.padding.add(insets),
+              itemCount:
+                  items.length + (hasFooter ? 1 : 0) + (items.isEmpty ? 1 : 0),
+              separatorBuilder: (context, index) => index < items.length - 1
+                  ? const Center(
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: DSeparator(space: 1),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+              itemBuilder: (context, index) {
+                if (items.isEmpty && index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(context.l10n.noActivityYet),
+                  );
+                }
+                if (index < items.length) {
+                  final item = items[index];
+                  return Center(
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: UserActivityRow(
+                        siteUrl: siteUrl,
+                        item: item,
+                        category: feed.categoryFor(item.categoryId),
+                        onTap: () => onOpen(item),
+                      ),
+                    ),
+                  );
+                }
+                if (feed.error case final error?) {
+                  return _LoadMoreError(
+                    message: error,
+                    onRetry: () => unawaited(
+                      feed.retryFromStart ? onRefresh() : onLoadMore(),
+                    ),
+                  );
+                }
+                return feed.loading
+                    ? AccountActivityPagingSkeleton(
+                        semanticsLabel: context.l10n.loadingMoreActivity,
+                      )
+                    : Align(
+                        child: DButton(
+                          label: Text(context.l10n.loadMore),
+                          onPressed: () => unawaited(onLoadMore()),
+                        ),
+                      );
+              },
+            ),
           ),
         ),
-      ],
+      ),
     );
     return DScrollChromePagination(
       hasMore: feed.hasMore,

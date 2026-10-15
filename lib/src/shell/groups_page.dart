@@ -168,103 +168,103 @@ class _GroupsPageState extends State<GroupsPage> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    final content = ContentReadingLane(
-      basePadding: const EdgeInsets.symmetric(horizontal: 16),
-      builder: (context, lane) => NotificationListener<ScrollNotification>(
-        onNotification: _onScroll,
-        child: DScrollBar(
-          controller: _scrollController,
-          child: CustomScrollView(
-            key: const PageStorageKey('groups-directory-scroll'),
+    final content = DPageSurface.headed(
+      identity: widget.siteUrl,
+      title: Text(context.l10n.groups),
+      controls: _DirectoryControls(
+        data: data,
+        searchController: _searchController,
+        searchFocus: _searchFocus,
+        onSearchChanged: _search,
+        onSearchSubmitted: _submitSearch,
+        onTypeChanged: widget.onTypeChanged,
+        onCreateGroup: widget.onCreateGroup,
+        searchVisible: _searchVisible,
+        onShowSearch: _showSearch,
+      ),
+      bodyBuilder: (context, header) => ContentReadingLane(
+        basePadding: const EdgeInsets.symmetric(horizontal: 16),
+        builder: (context, lane) => NotificationListener<ScrollNotification>(
+          onNotification: _onScroll,
+          child: DScrollBar(
             controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              SliverPadding(
-                padding: EdgeInsets.only(
-                  left: lane.leftInset,
-                  right: lane.rightInset,
-                  bottom: DScrollChrome.bottomInsetOf(context),
-                ),
-                sliver: SliverMainAxisGroup(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                        child: _DirectoryControls(
-                          data: data,
-                          searchController: _searchController,
-                          searchFocus: _searchFocus,
-                          onSearchChanged: _search,
-                          onSearchSubmitted: _submitSearch,
-                          onTypeChanged: widget.onTypeChanged,
-                          onCreateGroup: widget.onCreateGroup,
-                          searchVisible: _searchVisible,
-                          onShowSearch: _showSearch,
+            child: CustomScrollView(
+              key: const PageStorageKey('groups-directory-scroll'),
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                SliverPadding(
+                  padding: EdgeInsets.only(
+                    left: lane.leftInset,
+                    right: lane.rightInset,
+                    bottom: DScrollChrome.bottomInsetOf(context),
+                  ),
+                  sliver: SliverMainAxisGroup(
+                    slivers: [
+                      SliverToBoxAdapter(child: header.spacer),
+                      if (data.error != null &&
+                          (!data.pageError || data.groups.isEmpty))
+                        SliverToBoxAdapter(
+                          child: _DirectoryError(
+                            message: data.error!,
+                            onRetry: widget.onRefresh,
+                          ),
                         ),
-                      ),
-                    ),
-                    if (data.error != null &&
-                        (!data.pageError || data.groups.isEmpty))
-                      SliverToBoxAdapter(
-                        child: _DirectoryError(
-                          message: data.error!,
-                          onRetry: widget.onRefresh,
+                      if (!data.loaded && data.groups.isEmpty && data.loading)
+                        const SliverDirectorySkeleton(
+                          key: ValueKey('groups-loading'),
+                          kind: DirectorySkeletonKind.groups,
+                        )
+                      else if (data.groups.isEmpty &&
+                          data.loaded &&
+                          data.error == null)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptyDirectory(),
+                        )
+                      else
+                        SliverList.separated(
+                          itemCount: data.groups.length,
+                          separatorBuilder: (context, index) =>
+                              const DSeparator(),
+                          itemBuilder: (context, index) {
+                            final group = data.groups[index];
+                            return _GroupDirectoryRow(
+                              key: ValueKey('group-row-${group.name}'),
+                              siteUrl: widget.siteUrl,
+                              group: group,
+                              memberPreview: _memberPreview(group),
+                              onTap: () => _openGroup(group),
+                            );
+                          },
                         ),
-                      ),
-                    if (!data.loaded && data.groups.isEmpty && data.loading)
-                      const SliverDirectorySkeleton(
-                        key: ValueKey('groups-loading'),
-                        kind: DirectorySkeletonKind.groups,
-                      )
-                    else if (data.groups.isEmpty &&
-                        data.loaded &&
-                        data.error == null)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _EmptyDirectory(),
-                      )
-                    else
-                      SliverList.separated(
-                        itemCount: data.groups.length,
-                        separatorBuilder: (context, index) =>
-                            const DSeparator(),
-                        itemBuilder: (context, index) {
-                          final group = data.groups[index];
-                          return _GroupDirectoryRow(
-                            key: ValueKey('group-row-${group.name}'),
-                            siteUrl: widget.siteUrl,
-                            group: group,
-                            memberPreview: _memberPreview(group),
-                            onTap: () => _openGroup(group),
-                          );
-                        },
-                      ),
-                    if (data.pageError && data.error != null)
-                      SliverToBoxAdapter(
-                        child: _DirectoryError(
-                          message: data.error!,
-                          onRetry: widget.onLoadMore,
+                      if (data.pageError && data.error != null)
+                        SliverToBoxAdapter(
+                          child: _DirectoryError(
+                            message: data.error!,
+                            onRetry: widget.onLoadMore,
+                          ),
                         ),
-                      ),
-                    if (data.hasMore &&
-                        !data.loadingMore &&
-                        data.groups.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 32),
-                          child: Center(
-                            child: DButton(
-                              key: const ValueKey('groups-load-more'),
-                              label: Text(context.l10n.loadMore),
-                              onPressed: widget.onLoadMore,
+                      if (data.hasMore &&
+                          !data.loadingMore &&
+                          data.groups.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 32),
+                            child: Center(
+                              child: DButton(
+                                key: const ValueKey('groups-load-more'),
+                                label: Text(context.l10n.loadMore),
+                                onPressed: widget.onLoadMore,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -309,41 +309,6 @@ class _DirectoryControls extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: DSpacing.md,
-            runSpacing: DSpacing.sm,
-            children: [
-              DText(
-                context.l10n.groups,
-                variant: DTextVariant.h3,
-                headingLevel: 1,
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                spacing: DSpacing.controlGap,
-                children: [
-                  DButton.iconOnly(
-                    key: const ValueKey('groups-show-search'),
-                    icon: const DIcon(DIcons.magnifyingGlass),
-                    tooltip: context.l10n.searchGroups,
-                    variant: DButtonVariant.quiet,
-                    onPressed: onShowSearch,
-                  ),
-                  if (data.canCreateGroup)
-                    DButton.iconOnly(
-                      key: const ValueKey('create-group'),
-                      icon: const DIcon(DIcons.plus),
-                      tooltip: context.l10n.newGroup,
-                      variant: DButtonVariant.quiet,
-                      onPressed: onCreateGroup,
-                    ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: DSpacing.lg),
           if (searchVisible) ...[
             ValueListenableBuilder<TextEditingValue>(
               valueListenable: searchController,
@@ -403,6 +368,27 @@ class _DirectoryControls extends StatelessWidget {
                   onChanged: onTypeChanged,
                 ),
               ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: DSpacing.controlGap,
+                children: [
+                  DButton.iconOnly(
+                    key: const ValueKey('groups-show-search'),
+                    icon: const DIcon(DIcons.magnifyingGlass),
+                    tooltip: context.l10n.searchGroups,
+                    variant: DButtonVariant.quiet,
+                    onPressed: onShowSearch,
+                  ),
+                  if (data.canCreateGroup)
+                    DButton.iconOnly(
+                      key: const ValueKey('create-group'),
+                      icon: const DIcon(DIcons.plus),
+                      tooltip: context.l10n.newGroup,
+                      variant: DButtonVariant.quiet,
+                      onPressed: onCreateGroup,
+                    ),
+                ],
+              ),
               if (data.loaded || data.groups.isNotEmpty)
                 Text(
                   context.l10n.messageGroupspage(data.totalRows),
@@ -413,8 +399,6 @@ class _DirectoryControls extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: DSpacing.lg),
-          const DSeparator(),
         ],
       ),
     );

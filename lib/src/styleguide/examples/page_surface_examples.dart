@@ -7,42 +7,26 @@ final pageSurfaceExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'The shared page frame, tabs, reading width and scroll header.',
   notes:
-      'DPageSurface owns the Card border and clipping, persistent tabs and footer, '
-      'and the retracting header. Scroll distance moves one continuous target; '
-      '40ms smoothing follows it once per frame. Reversals consume 40px slack. '
-      'Pages shorter than twice the viewport keep the header visible. '
-      'This also works in reversed chat lists. Reaching the top reveals it. '
-      'revealHeaderAtEnd also reveals it at the physical bottom and keeps it '
-      'visible through viewport changes until scrolling back up. '
-      'Focused header controls remain visible. '
-      'Inside DScrollChrome, mobile headers share the footer’s visibility and '
-      'progress. Wrap paginated viewports in DScrollChromePagination with their '
-      'hasMore and loading state. Temporary bottom boundaries keep the chrome '
-      'compact through requests and appended rows; upward scrolling still reveals '
-      'it. Only a completed feed reveals at the bottom. For reversed chat lists, '
-      'report newer paging at the visual bottom. Fully shown or hidden chrome '
-      'holds for 400ms; after a 120ms '
-      'pause a partial header settles in the last accepted direction. '
-      'DHeaderMotionSettings selects the settling rule, threshold and timing. '
-      'The first 48px and content shorter than two screens stay visible. '
-      'headerControls places a persistent bar below a retracting title and '
-      'reserves the full header space so the body does not move. '
-      'scrollBody owns the scroll view and lets rows pass through the title’s '
-      'former space below the control bar. Give it non-scrolling content. '
-      'DPageSurface.scrollable keeps an existing virtualized viewport fixed; '
-      'insert header.spacer at the start of its scroll content. '
-      'headerSuppressed accepts a caller-owned boolean listenable: it yields the '
-      'title, controls and obstruction over 240ms while retaining the spacer, '
-      'and restores the scroll position on release. Reduced motion is immediate. '
-      'Programmatic restoration and '
-      'nested or horizontal scrolling do not retract it. Changing identity resets '
-      'the header. Use framed: false inside an existing page frame or touch shell. '
-      'Use border: false to retain the rounded surface without an outer outline. '
-      'backgroundColor changes the frame fill without changing descendant tokens. '
-      'The width setting centers the header, scroll body, and footer together; '
-      'tabs and the outer frame stay full width. DPageReadingLane adds optional '
-      'padding inside that shared column. This app composition is separate from the '
-      'frozen upstream catalogue.',
+      'Use DPageSurface.headed for route titles and persistent controls. '
+      'The kit owns 22px title typography, platform spacing and the 14px soft scroll edge. '
+      'Titles retract on downward input and return on upward input or at the top. '
+      'The first 48px and pages with less than 120px of overflow keep their title. '
+      'foldTitleAtTop keeps indexed directories compact away from the top. '
+      'bodyBuilder retains a fixed viewport. Reserve header.spacer in its content, '
+      'or use DPageScrollInsets for list padding. child retains a bounded body. '
+      'adaptiveBodyBuilder keeps directories lazy while the full heading fits and '
+      'scrolls the whole page when the keyboard leaves too little room. '
+      'DScrollChrome couples mobile headers and navigation. DScrollChromePagination '
+      'keeps temporary page boundaries compact while another page loads. '
+      'Motion uses 40ms smoothing, 40px reversal slack, a 400ms endpoint hold and '
+      'a 120ms settling pause. DHeaderMotionSettings supplies account preferences. '
+      'Nested and horizontal scrolling do not retract the heading. Identity changes '
+      'reset it. Hidden titles leave focus, semantics and pointer hit testing together. '
+      'Specialized readers use DPageSurface.scrollable for custom compact headers '
+      'or headerSuppressed. Their full spacer stays reserved and their existing '
+      'two-viewport short-content policy remains. '
+      'DPageSurface also supplies the outer frame, tabs and footer. Its width policy '
+      'centers the heading and content together. Tabs and the viewport stay full width.',
   examples: [
     StyleguideExample(
       title: 'Yield the header',
@@ -71,9 +55,8 @@ final pageSurfaceExamples = ComponentExamples(
   child: DScrollChromePagination(
     hasMore: feed.hasMore,
     loading: feed.loadingMore,
-    child: DPageSurface.scrollable(
-      hideHeaderOnScroll: true,
-      header: title,
+    child: DPageSurface.headed(
+      title: title,
       bodyBuilder: (_, header) => CustomScrollView(
         slivers: [SliverToBoxAdapter(child: header.spacer), rows],
       ),
@@ -88,13 +71,8 @@ final pageSurfaceExamples = ComponentExamples(
             padding: const EdgeInsets.all(DSpacing.sm),
             child: DButton(label: const Text('Navigation'), onPressed: () {}),
           ),
-          child: DPageSurface.scrollable(
-            framed: false,
-            hideHeaderOnScroll: true,
-            header: const Padding(
-              padding: EdgeInsets.all(DSpacing.lg),
-              child: Text('Reading a topic'),
-            ),
+          child: DPageSurface.headed(
+            title: const Text('Reading a topic'),
             bodyBuilder: (_, header) => CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(child: header.spacer),
@@ -117,9 +95,8 @@ final pageSurfaceExamples = ComponentExamples(
           'The header slides over a fixed viewport. Its leading spacer keeps '
           'the first row below the header without moving rows during animation.',
       states: const ['Scroll', 'Keyboard', 'RTL'],
-      code: '''DPageSurface.scrollable(
-  hideHeaderOnScroll: true,
-  header: header,
+      code: '''DPageSurface.headed(
+  title: title,
   bodyBuilder: (context, header) => CustomScrollView(
     slivers: [
       SliverToBoxAdapter(child: header.spacer),
@@ -129,12 +106,8 @@ final pageSurfaceExamples = ComponentExamples(
 )''',
       builder: (_) => SizedBox(
         height: 460,
-        child: DPageSurface.scrollable(
-          hideHeaderOnScroll: true,
-          header: const Padding(
-            padding: EdgeInsets.all(DSpacing.lg),
-            child: Text('Topic'),
-          ),
+        child: DPageSurface.headed(
+          title: const Text('Topic'),
           bodyBuilder: (_, header) => CustomScrollView(
             slivers: [
               SliverToBoxAdapter(child: header.spacer),
@@ -165,8 +138,14 @@ final pageSurfaceExamples = ComponentExamples(
         'Keyboard',
         'RTL',
       ],
-      code:
-          "DPageSurface(\n  hideHeaderOnScroll: true,\n  revealHeaderAtEnd: true,\n  \n  identity: selectedPage,\n  limitContentSize: limited,\n  tabs: tabs,\n  header: header,\n  headerControls: controls,\n  footer: footer,\n  child: DPageReadingLaneBox(\n    child: Column(children: rows),\n  ),\n)",
+      code: """DPageSurface.headed(
+  identity: selectedPage,
+  limitContentSize: limited,
+  title: Text(selectedPage),
+  controls: controls,
+  footer: footer,
+  child: scrollingBody,
+)""",
       builder: (_) => const SizedBox(height: 460, child: _PageExample()),
     ),
   ],
@@ -183,46 +162,23 @@ class _PageExampleState extends State<_PageExample> {
   String _page = 'Topics';
 
   @override
-  Widget build(BuildContext context) => DPageSurface(
-    hideHeaderOnScroll: true,
-    revealHeaderAtEnd: true,
-
+  Widget build(BuildContext context) => DPageSurface.headed(
     identity: _page,
     limitContentSize: _limited,
-    tabs: DTabs<String>.controlled(
-      value: _page,
-      onChanged: (page) {
-        if (page != null) setState(() => _page = page);
-      },
-      children: const [
-        DTabList<String>(
-          children: [
-            DTabTrigger(value: 'Topics', child: Text('Topics')),
-            DTabTrigger(value: 'Topic', child: Text('Topic')),
-          ],
+    title: Text(_page),
+    controls: DControlWrap(
+      children: [
+        DButton(
+          size: DButtonSize.filter,
+          label: const Text('Browse topics'),
+          onPressed: () => setState(() => _page = 'Topics'),
+        ),
+        DButton(
+          size: DButtonSize.filter,
+          label: const Text('Open topic'),
+          onPressed: () => setState(() => _page = 'Topic'),
         ),
       ],
-    ),
-    header: Padding(
-      padding: const EdgeInsets.all(DSpacing.lg),
-      child: Text(_page, style: Theme.of(context).textTheme.titleLarge),
-    ),
-    headerControls: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: DSpacing.lg),
-      child: DControlWrap(
-        children: [
-          DButton(
-            size: DButtonSize.filter,
-            label: const Text('Browse topics'),
-            onPressed: () => setState(() => _page = 'Topics'),
-          ),
-          DButton(
-            size: DButtonSize.filter,
-            label: const Text('Open topic'),
-            onPressed: () => setState(() => _page = 'Topic'),
-          ),
-        ],
-      ),
     ),
     footer: DCardFooter(
       rounded: true,

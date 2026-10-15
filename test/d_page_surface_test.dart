@@ -479,7 +479,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Topic'));
+      await tester.tap(find.text('Open topic'));
       await tester.pumpAndSettle();
       expect(find.text('Topic · 1'), findsOneWidget);
       await tester.tap(find.text('Limit content width'));

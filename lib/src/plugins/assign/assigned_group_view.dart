@@ -165,107 +165,90 @@ class AssignedGroupPresentationView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _build(context);
 
-  Widget _build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.l10n.topics,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            DPopover(
-              content: DPopoverContent(
-                align: DPopoverAlign.end,
-                width: 320,
-                child: DInput(
-                  key: const ValueKey('assigned-topic-search'),
-                  initialValue: state.query.search,
-                  labelText: context.l10n.filterAssignments,
-                  hintText: context.l10n.wordsInTheTopicTitle,
-                  onSubmitted: (search) => onQueryChanged(
-                    AssignedGroupTopicQuery(
-                      order: state.query.order,
-                      ascending: state.query.ascending,
-                      search: search,
-                    ),
-                  ),
-                ),
-              ),
-              child: DPopoverTrigger(
-                builder: (context, trigger) => DButton.iconOnly(
-                  icon: const DIcon(DIcons.filter),
-                  key: const ValueKey('assigned-query-menu'),
-                  tooltip: context.l10n.filterAssignments,
-                  variant: DButtonVariant.secondary,
-                  focusNode: trigger.focusNode,
-                  hasPopup: true,
-                  expanded: trigger.open,
-                  onPressed: trigger.toggle,
-                ),
-              ),
-            ),
-          ],
+  Widget _build(BuildContext context) => DPageSurface.headed(
+    identity: (siteUrl, state.groupName),
+    title: Text(context.l10n.topics),
+    controls: Row(
+      children: [
+        DBadge(
+          variant: DBadgeVariant.secondary,
+          child: Text(context.l10n.assigned),
         ),
-      ),
-      const DSeparator(key: ValueKey('topic-list-heading-separator')),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            DBadge(
-              variant: DBadgeVariant.secondary,
-              child: Text(context.l10n.assigned),
-            ),
-            const Spacer(),
-            DPopover(
-              content: DPopoverContent(
-                width: 320,
-                align: DPopoverAlign.end,
-                child: SizedBox(
-                  height: 420,
-                  child: _AssignedPeoplePanel(
-                    key: const ValueKey('assigned-people-rail'),
-                    groupName: state.groupName,
-                    filter: state.filter,
-                    members: state.members,
-                    onSelect: onSelect,
-                    onMemberSearch: onMemberSearch,
-                    onLoadMoreMembers: onLoadMoreMembers,
-                  ),
-                ),
-              ),
-              child: DPopoverTrigger(
-                builder: (context, trigger) => DButton(
-                  key: const ValueKey('assigned-person-menu'),
-                  label: Text(switch (state.filter) {
-                    AssignedGroupEveryoneFilter() => context.l10n.everyone,
-                    AssignedGroupDirectFilter() => '@${state.groupName}',
-                    AssignedGroupMemberFilter(:final usernameLower) =>
-                      '@$usernameLower',
-                  }),
-                  icon: const DIcon(DIcons.users),
-                  variant: DButtonVariant.ghost,
-                  focusNode: trigger.focusNode,
-                  hasPopup: true,
-                  expanded: trigger.open,
-                  onPressed: trigger.toggle,
+        const Spacer(),
+        DPopover(
+          content: DPopoverContent(
+            align: DPopoverAlign.end,
+            width: 320,
+            child: DInput(
+              key: const ValueKey('assigned-topic-search'),
+              initialValue: state.query.search,
+              labelText: context.l10n.filterAssignments,
+              hintText: context.l10n.wordsInTheTopicTitle,
+              onSubmitted: (search) => onQueryChanged(
+                AssignedGroupTopicQuery(
+                  order: state.query.order,
+                  ascending: state.query.ascending,
+                  search: search,
                 ),
               ),
             ),
-          ],
+          ),
+          child: DPopoverTrigger(
+            builder: (context, trigger) => DButton.iconOnly(
+              icon: const DIcon(DIcons.filter),
+              key: const ValueKey('assigned-query-menu'),
+              tooltip: context.l10n.filterAssignments,
+              variant: DButtonVariant.secondary,
+              focusNode: trigger.focusNode,
+              hasPopup: true,
+              expanded: trigger.open,
+              onPressed: trigger.toggle,
+            ),
+          ),
         ),
-      ),
-      Expanded(child: _buildFeed(horizontalPadding: 0)),
-      TopicSourceFooter(
-        onNext: state.topics.isEmpty
-            ? null
-            : () => onOpenTopic(state.topics.first),
-      ),
-    ],
+        DPopover(
+          content: DPopoverContent(
+            width: 320,
+            align: DPopoverAlign.end,
+            child: SizedBox(
+              height: 420,
+              child: _AssignedPeoplePanel(
+                key: const ValueKey('assigned-people-rail'),
+                groupName: state.groupName,
+                filter: state.filter,
+                members: state.members,
+                onSelect: onSelect,
+                onMemberSearch: onMemberSearch,
+                onLoadMoreMembers: onLoadMoreMembers,
+              ),
+            ),
+          ),
+          child: DPopoverTrigger(
+            builder: (context, trigger) => DButton(
+              key: const ValueKey('assigned-person-menu'),
+              label: Text(switch (state.filter) {
+                AssignedGroupEveryoneFilter() => context.l10n.everyone,
+                AssignedGroupDirectFilter() => '@${state.groupName}',
+                AssignedGroupMemberFilter(:final usernameLower) =>
+                  '@$usernameLower',
+              }),
+              icon: const DIcon(DIcons.users),
+              variant: DButtonVariant.ghost,
+              focusNode: trigger.focusNode,
+              hasPopup: true,
+              expanded: trigger.open,
+              onPressed: trigger.toggle,
+            ),
+          ),
+        ),
+      ],
+    ),
+    footer: TopicSourceFooter(
+      onNext: state.topics.isEmpty
+          ? null
+          : () => onOpenTopic(state.topics.first),
+    ),
+    child: _buildFeed(horizontalPadding: 0),
   );
 
   void _sortTopics(String column) {

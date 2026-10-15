@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
 import 'chat_browse_skeleton.dart';
-import 'chat_chrome_scroll_view.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_plugin.dart';
@@ -148,9 +147,10 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
         );
       }
 
-      final content = ChatChromeScrollView(
-        header: ContentReadingLaneBox(
-          padding: const EdgeInsets.all(16),
+      final content = DPageSurface.headed(
+        title: Text(context.l10n.browseThreads),
+        controls: ContentReadingLaneBox(
+          padding: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: DSpacing.md,
@@ -204,10 +204,15 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
             ],
           ),
         ),
-        list: (context, lazy) {
+        adaptiveBodyBuilder: (context, lazy) {
           if (_directory.loading && !_directory.loaded) {
             return ContentReadingLane(
-              basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              basePadding: EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                16 + DScrollChrome.bottomInsetOf(context),
+              ),
               builder: (context, lane) => ChatBrowseSkeleton(
                 page: ChatBrowsePage.threads,
                 scrollable: lazy,
@@ -225,7 +230,12 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
           }
           final count = threads.length + (hasFooter ? 1 : 0);
           return ContentReadingLane(
-            basePadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            basePadding: EdgeInsets.fromLTRB(
+              16,
+              0,
+              16,
+              16 + DScrollChrome.bottomInsetOf(context),
+            ),
             builder: (context, lane) => lazy
                 ? ListView.builder(
                     key: const PageStorageKey('chat-my-threads'),
