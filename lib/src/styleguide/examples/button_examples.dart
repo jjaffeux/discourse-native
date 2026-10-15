@@ -162,7 +162,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Topic timeline actions',
       description:
-          'A blurred floating pill, clear footer progress, and compact endpoints. Hit bounds follow each surface on desktop and touch.',
+          'A blurred floating pill, footer progress, and compact endpoints. Both progress triggers retain their raised surface in Liquid Glass. Hit bounds follow each surface on desktop and touch.',
       code:
           "DButton(density: DButtonDensity.floatingCall, variant: DButtonVariant.ghost, label: Text('25 / 120'), onPressed: openTimeline)",
       builder: (_) => Wrap(

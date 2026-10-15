@@ -1,14 +1,110 @@
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('phone and desktop progress retain the selected material', (
+    tester,
+  ) async {
+    await (FontLoader('Lato')
+          ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
+        .load();
+    final shadowsDisabled = debugDisableShadows;
+    debugDisableShadows = false;
+    try {
+      for (final floating in [false, true]) {
+        for (final dark in [false, true]) {
+          for (final material in DAppearanceMaterial.values) {
+            const capture = ValueKey('progress-button-capture');
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: DMaterialTheme.apply(
+                  (dark ? AppTheme.dark : AppTheme.light).copyWith(
+                    platform: floating
+                        ? TargetPlatform.macOS
+                        : TargetPlatform.iOS,
+                    textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme
+                        .apply(fontFamily: 'Lato'),
+                  ),
+                  material,
+                ),
+                home: Scaffold(
+                  body: Center(
+                    child: RepaintBoundary(
+                      key: capture,
+                      child: Builder(
+                        builder: (context) => ColoredBox(
+                          color: DTokens.of(context).background,
+                          child: Padding(
+                            padding: const EdgeInsets.all(28),
+                            child: TopicProgressButton(
+                              position: 1,
+                              total: 16,
+                              floating: floating,
+                              onPressed: () {},
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final trigger = find.byKey(const ValueKey('topic-progress-button'));
+            expect(tester.getSize(trigger).height, floating ? 26 : 30);
+            final glass = find.descendant(
+              of: trigger,
+              matching: find.byType(DMaterialSurface),
+            );
+            if (material == DAppearanceMaterial.liquidGlass) {
+              expect(glass, findsOneWidget);
+              final surface = tester.widget<DMaterialSurface>(glass);
+              expect(surface.preserveColor, isTrue);
+              expect(surface.color.a, closeTo(dark ? .42 : .5, .001));
+            } else {
+              expect(glass, findsNothing);
+            }
+            final output =
+                Platform.environment['TOPIC_PROGRESS_BUTTON_CAPTURE_DIR'];
+            if (output != null) {
+              await tester.runAsync(() async {
+                final image = await tester
+                    .renderObject<RenderRepaintBoundary>(find.byKey(capture))
+                    .toImage(pixelRatio: 3);
+                try {
+                  final bytes = await image.toByteData(
+                    format: ui.ImageByteFormat.png,
+                  );
+                  await Directory(output).create(recursive: true);
+                  await File(
+                    '$output/${floating ? 'desktop' : 'phone'}-${dark ? 'dark' : 'light'}-${material.name}.png',
+                  ).writeAsBytes(bytes!.buffer.asUint8List());
+                } finally {
+                  image.dispose();
+                }
+              });
+            }
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    } finally {
+      debugDisableShadows = shadowsDisabled;
+    }
+  });
+
   testWidgets('one-post timeline disables its ends and stays bounded', (
     tester,
   ) async {

@@ -3,6 +3,12 @@
 Reference: `discourse-native-mockups` at `070b91a`, `TimelineMenu`,
 `.timeline-scrub`, and `.menu-sheet`, plus the October 14 desktop/phone captures.
 
+The progress trigger uses the 26px floating preset on desktop and the 30px
+footer preset on phones. Both retain the shared raised tint, rim, blur and
+shadow in Liquid Glass, matching the mockup's `menu-row glass` trigger.
+Standard keeps the desktop's thin blurred well and the phone's clear surface.
+The Native preset owns the artwork and matching hit bounds.
+
 Desktop uses the Native timeline popover at 300px wide with a 16px radius and
 14px padding. Its selected post shows a 32px Native avatar, username, creation
 date and tabular position count. The timeline has a 6px accent track and a white

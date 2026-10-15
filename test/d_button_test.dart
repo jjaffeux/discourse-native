@@ -89,8 +89,11 @@ void main() {
                 of: button,
                 matching: find.byType(DMaterialSurface),
               );
-              expect(raised, floating && glass ? findsOneWidget : findsNothing);
-              if (floating && glass) {
+              expect(
+                raised,
+                (floating || footer) && glass ? findsOneWidget : findsNothing,
+              );
+              if ((floating || footer) && glass) {
                 final materialSurface = tester.widget<DMaterialSurface>(raised);
                 expect(materialSurface.preserveColor, isTrue);
                 expect(materialSurface.color.a, closeTo(dark ? .42 : .5, .001));

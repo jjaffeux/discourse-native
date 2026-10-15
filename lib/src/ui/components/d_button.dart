@@ -78,7 +78,8 @@ enum DButtonDensity {
   /// backdrop blur. Liquid Glass uses the shared raised surface treatment.
   floatingCall,
 
-  /// A clear 30px footer progress pill, with 12.5px text and 8px insets.
+  /// A 30px footer progress pill, with 12.5px text and 8px insets. Clear in
+  /// Standard; Liquid Glass retains the shared raised surface treatment.
   topicProgress,
 
   /// Compact timeline endpoints: 12.5px text, 5px vertical / 7px horizontal
@@ -610,8 +611,9 @@ class DButton extends StatelessWidget {
     final glass = DMaterialTheme.glassOf(context);
     final floatingCall = density == DButtonDensity.floatingCall;
     final topicProgress = density == DButtonDensity.topicProgress;
+    final progressTrigger = floatingCall || topicProgress;
     final timelineEnd = density == DButtonDensity.timelineEnd;
-    final timeline = floatingCall || topicProgress || timelineEnd;
+    final timeline = progressTrigger || timelineEnd;
     final postReaction = density == DButtonDensity.postReaction;
     final chrome =
         density == DButtonDensity.chrome ||
@@ -918,14 +920,14 @@ class DButton extends StatelessWidget {
         return DButtonStateStyle(
           foregroundColor: foreground,
           iconColor: foreground,
-          backgroundColor: floatingCall
-              ? glass
-                    ? Color.lerp(
-                        tokens.background,
-                        tokens.foreground,
-                        .10,
-                      )!.withValues(alpha: dark ? .42 : .50)
-                    : _floatingCallFill(tokens)
+          backgroundColor: progressTrigger && glass
+              ? Color.lerp(
+                  tokens.background,
+                  tokens.foreground,
+                  .10,
+                )!.withValues(alpha: dark ? .42 : .50)
+              : floatingCall
+              ? _floatingCallFill(tokens)
               : timelineEnd
               ? Color.lerp(
                   tokens.background,
@@ -1193,7 +1195,7 @@ class DButton extends StatelessWidget {
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
             // Launcher cells use a flat interaction tint in both materials.
-            color: expandedChrome || ((postAction || floatingCall) && glass)
+            color: expandedChrome || ((postAction || progressTrigger) && glass)
                 ? Colors.transparent
                 : postAction ||
                       timeline ||
@@ -1231,30 +1233,30 @@ class DButton extends StatelessWidget {
                           states.contains(WidgetState.pressed)),
                   child: surface,
                 )
+              : progressTrigger && glass
+              ? DMaterialSurface(
+                  radius: radius,
+                  color: materialColor(state.backgroundColor),
+                  preserveColor: true,
+                  child: surface,
+                )
               : floatingCall
-              ? glass
-                    ? DMaterialSurface(
-                        radius: radius,
-                        color: materialColor(state.backgroundColor),
-                        preserveColor: true,
-                        child: surface,
-                      )
-                    : Stack(
-                        fit: StackFit.passthrough,
-                        clipBehavior: Clip.none,
-                        children: [
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: radius,
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-                                child: const SizedBox.expand(),
-                              ),
-                            ),
-                          ),
-                          surface,
-                        ],
-                      )
+              ? Stack(
+                  fit: StackFit.passthrough,
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: ClipRRect(
+                        borderRadius: radius,
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ),
+                    surface,
+                  ],
+                )
               : expandedChrome
               ? DMaterialSurface(
                   radius: radius,
