@@ -47,6 +47,8 @@ final sheetExamples = ComponentExamples(
       'Set sizeToContent: false to keep a 55% opening viewport through '
       'asynchronous loading and result changes, and contentLoading: true '
       'while waiting so placeholders do not trigger short-content margins. '
+      'Set floatOnContentEnd: false to keep the opening width through short '
+      'or empty results; expansion and keyboard placement still float. '
       'Other snap-point compositions use Drawer.',
   examples: [
     StyleguideExample(

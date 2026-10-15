@@ -42,6 +42,7 @@ class DDropdownMenu extends StatelessWidget {
     this.restoreFocus = true,
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
+    this.mobileSheetFloatOnContentEnd = true,
   });
 
   final Widget child;
@@ -59,12 +60,19 @@ class DDropdownMenu extends StatelessWidget {
   /// The existing Native sheet style used when [sheetOnMobile] is enabled.
   final DSheetVariant mobileSheetVariant;
 
+  /// Whether short content or the end of a feed adds adaptive sheet margins.
+  ///
+  /// When `false`, preserves the opening width across content changes.
+  /// Expansion and keyboard placement still float; desktop menus are unchanged.
+  final bool mobileSheetFloatOnContentEnd;
+
   @override
   Widget build(BuildContext context) {
     final ancestor = _DropdownMenuRootScope.maybeOf(context);
     return DPopover(
       sheetOnMobile: sheetOnMobile,
       mobileSheetVariant: mobileSheetVariant,
+      mobileSheetFloatOnContentEnd: mobileSheetFloatOnContentEnd,
       open: open,
       defaultOpen: defaultOpen,
       controller: controller,

@@ -13,6 +13,9 @@ On mobile platforms, the header bell opens the Native adaptive bottom sheet.
 Long feeds open at 55% of the screen height and expand with an upward pull;
 the title and filters stay fixed while the feed scrolls. The sheet owns safe
 areas, keyboard placement, backdrop dismissal, and downward swipe dismissal.
+The unexpanded sheet keeps its opening width when filters change, including
+short and empty feeds. It disables the Native sheet's `floatOnContentEnd`
+option; explicit expansion and keyboard placement still add floating margins.
 
 The Native kit owns the new `DToggleDensity.menuFilter`,
 `DButtonDensity.menuAction`, and `DMenuFeedRow` artwork and interaction.

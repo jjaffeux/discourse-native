@@ -213,6 +213,15 @@ void main() {
               '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}',
             );
             if (platform != TargetPlatform.macOS) {
+              await tester.tap(_filter('replies'));
+              await tester.pumpAndSettle();
+              expect(tester.getSize(find.byType(DSheetContent)).width, 390);
+              await _captureImage(
+                tester,
+                '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}-short-tab',
+              );
+              await tester.tap(_filter('all'));
+              await tester.pumpAndSettle();
               await _expandSheet(tester);
             }
             final filtersRect = tester.getRect(filters);
@@ -240,6 +249,7 @@ void main() {
   ) async {
     final (shell, api) = await _mount(tester);
     final originalRoute = shell.currentContent;
+    final originalWidth = tester.getSize(find.byType(DSheetContent)).width;
     await tester.ensureVisible(_filter('messages'));
     await tester.pumpAndSettle();
     await tester.tap(_filter('messages'));
@@ -248,6 +258,8 @@ void main() {
     expect(find.text('A private message'), findsOneWidget);
     expect(find.byType(UserMenuPanel), findsOneWidget);
     expect(tester.getSize(find.byType(UserMenuPanel)).height, lessThan(220));
+    expect(tester.getSize(find.byType(DSheetContent)).width, originalWidth);
+    await _captureImage(tester, 'iOS-messages-fixed-width');
     expect(shell.currentContent, same(originalRoute));
     expect(api.notificationFilters.last, const [
       NotificationTypeName('private_message'),
@@ -401,6 +413,7 @@ class _MenuApi extends FakeDiscourseApi {
   _MenuApi(DiscourseUser user)
     : super(
         user: user,
+        replyNotificationList: const [],
         totals: NotificationTotals(
           groupedUnreadNotifications: NotificationTypeCounts.fromWire(const {
             '2': 3,
