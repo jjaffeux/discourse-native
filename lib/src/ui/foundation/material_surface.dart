@@ -129,6 +129,7 @@ class DMaterialSurface extends StatelessWidget {
         color: paintedColor,
         radius: radius,
         blur: menu ? 26 : 5,
+        joined: joined,
         child: const SizedBox.expand(),
       );
     } else {
@@ -426,6 +427,14 @@ class _JoinedSurfaceShadow extends CustomPainter {
         joinsBottom ? rect.bottom : bounds.bottom,
       ),
     );
+    // Keep the shadow outside the joined silhouette. A translucent glass fill
+    // otherwise reads its own shadow as a rectangular backing at the joins.
+    canvas.clipPath(
+      Path()
+        ..fillType = PathFillType.evenOdd
+        ..addRect(bounds)
+        ..addRRect(shape),
+    );
     canvas.drawRRect(shape.shift(shadow.offset), shadow.toPaint());
     canvas.restore();
   }
@@ -462,11 +471,13 @@ class _GlassPaint extends StatefulWidget {
     required this.radius,
     required this.blur,
     required this.child,
+    this.joined,
   });
   final Color color;
   final BorderRadius radius;
   final double blur;
   final Widget child;
+  final DJoinedControlScope? joined;
   @override
   State<_GlassPaint> createState() => _GlassPaintState();
 }
@@ -497,9 +508,13 @@ class _GlassPaintState extends State<_GlassPaint> {
 
   @override
   Widget build(BuildContext context) {
-    final shape = LiquidGlassShape.roundedRectangle(
-      cornerRadius: widget.radius.topLeft.x,
-    );
+    final radius = [
+      widget.radius.topLeft.x,
+      widget.radius.topRight.x,
+      widget.radius.bottomLeft.x,
+      widget.radius.bottomRight.x,
+    ].reduce((a, b) => a > b ? a : b);
+    final shape = LiquidGlassShape.roundedRectangle(cornerRadius: radius);
     // Version 5 expresses rim thickness in logical pixels. A half-sharp band
     // gives the subdued rim depth instead of reducing it to a hairline.
     const specular = LiquidGlassLight.specular(
@@ -510,7 +525,7 @@ class _GlassPaintState extends State<_GlassPaint> {
       spread: .5,
     );
     const glow = LiquidGlassLight.glow(thickness: 14.7, angle: 90);
-    final Widget glass = !ready || !ui.ImageFilter.isShaderFilterSupported
+    Widget glass = !ready || !ui.ImageFilter.isShaderFilterSupported
         ? LiquidGlassLite(
             shape: shape,
             specular: specular,
@@ -533,6 +548,29 @@ class _GlassPaintState extends State<_GlassPaint> {
             ),
             child: const SizedBox.expand(),
           );
+    if (widget.joined case final joined?) {
+      // The lens has one radius for all corners. Continue it beyond joined
+      // edges, including its rim, then clip to the actual segment silhouette.
+      // This leaves square joins filled without rounding or lighting them.
+      final extent = radius + glow.thickness;
+      final horizontal = joined.axis == Axis.horizontal;
+      final ltr = Directionality.of(context) == TextDirection.ltr;
+      glass = Stack(
+        children: [
+          Positioned.fill(
+            left: horizontal && !(ltr ? joined.first : joined.last)
+                ? -extent
+                : 0,
+            right: horizontal && !(ltr ? joined.last : joined.first)
+                ? -extent
+                : 0,
+            top: !horizontal && !joined.first ? -extent : 0,
+            bottom: !horizontal && !joined.last ? -extent : 0,
+            child: glass,
+          ),
+        ],
+      );
+    }
     // Only paint the material here. The Native child is a stable sibling at
     // the outer surface, preserving focus and unsaved input on style changes.
     return ClipRRect(borderRadius: widget.radius, child: glass);
