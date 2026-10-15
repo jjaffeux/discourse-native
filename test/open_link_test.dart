@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -7,11 +9,15 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -19,6 +25,148 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' show watchBrowser;
 
 void main() {
+  setUpAll(() async {
+    if (Platform.environment['LINK_BOOKMARK_CAPTURE_DIR'] == null) return;
+    await (FontLoader('BookmarkMenuReview')
+          ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
+        .load();
+  });
+
+  testWidgets('topic list bookmark is actionable in the first menu frame', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final api = _LinkBookmarkApi(topicGate: gate);
+    final controller = await _pumpLink(
+      tester,
+      signedIn: true,
+      api: api,
+      listTopic: const Topic(
+        id: 42,
+        title: 'Instant topic bookmark',
+        slug: 'clicked',
+        lastReadPostNumber: 2,
+        highestPostNumber: 3,
+      ),
+    );
+    final before = controller.currentContent;
+    await tester.tap(
+      find.text('Instant topic bookmark'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pump();
+    expect(find.text('Bookmark'), findsOneWidget);
+    expect(tester.getSize(find.text('Bookmark')).height, greaterThan(0));
+    expect(api.topicsOpened, isEmpty);
+    await tester.pumpAndSettle();
+    await _captureBookmarkMenu(tester);
+    await tester.tap(find.text('Bookmark'));
+    await tester.pumpAndSettle();
+    expect(api.createdBookmarks.single.targetType, BookmarkTargetType.topic);
+    expect(api.createdBookmarks.single.targetId, 42);
+    expect(controller.currentContent, before);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final postBookmark in [false, true]) {
+    testWidgets('topic list shows an immediate action while resolving a '
+        '${postBookmark ? 'post' : 'topic'} bookmark', (tester) async {
+      final gate = Completer<void>();
+      final api = _LinkBookmarkApi(
+        topicGate: gate,
+        bookmark: Bookmark(
+          id: 73,
+          bookmarkableId: postBookmark ? 99 : 42,
+          bookmarkableType: postBookmark ? 'Post' : 'Topic',
+          postNumber: postBookmark ? 3 : null,
+        ),
+      );
+      final controller = await _pumpLink(
+        tester,
+        signedIn: true,
+        api: api,
+        listTopic: const Topic(
+          id: 42,
+          title: 'Bookmarked topic',
+          slug: 'clicked',
+          bookmarked: true,
+        ),
+      );
+      final before = controller.currentContent;
+      await tester.tap(
+        find.text('Bookmarked topic'),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pump();
+      expect(find.text('Bookmarks'), findsOneWidget);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bookmarks'));
+      await tester.pumpAndSettle();
+      expect(api.createdBookmarks, isEmpty);
+      expect(api.deletedBookmarks, isEmpty);
+      expect(api.topicsOpened, [42]);
+      gate.complete();
+      await tester.pumpAndSettle();
+      if (postBookmark) {
+        expect(
+          api.createdBookmarks.single.targetType,
+          BookmarkTargetType.topic,
+        );
+        expect(api.createdBookmarks.single.targetId, 42);
+        expect(api.deletedBookmarks, isEmpty);
+      } else {
+        expect(api.createdBookmarks, isEmpty);
+        expect(api.deletedBookmarks, [73]);
+      }
+      expect(controller.currentContent, before);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('cached topic bookmark removal needs no menu lookup', (
+    tester,
+  ) async {
+    const bookmark = Bookmark(
+      id: 73,
+      bookmarkableId: 42,
+      bookmarkableType: 'Topic',
+    );
+    final api = _LinkBookmarkApi(bookmark: bookmark);
+    final controller = await _pumpLink(
+      tester,
+      signedIn: true,
+      api: api,
+      listTopic: const Topic(
+        id: 42,
+        title: 'Bookmarked topic',
+        slug: 'clicked',
+        bookmarked: true,
+      ),
+    );
+    controller.store.put(
+      'https://one.example',
+      _LinkBookmarkApi._payload(bookmark).detail,
+    );
+    await tester.tap(
+      find.text('Bookmarked topic'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pump();
+    expect(find.text('Remove bookmark'), findsOneWidget);
+    expect(api.topicsOpened, isEmpty);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove bookmark'));
+    await tester.pumpAndSettle();
+    expect(api.deletedBookmarks, [73]);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final post in [false, true]) {
     testWidgets(
       'shared menu bookmarks and removes the clicked ${post ? 'post' : 'topic'}',
@@ -91,13 +239,24 @@ void main() {
       topics: {42: topicPayload(id: 42)},
       topicGate: gate,
     );
-    await _pumpLink(tester, signedIn: true, api: api);
+    await _pumpLink(
+      tester,
+      signedIn: true,
+      api: api,
+      listTopic: const Topic(
+        id: 42,
+        title: 'Open link',
+        slug: 'clicked',
+        bookmarked: true,
+      ),
+    );
     await tester.tap(
       find.text('Open link'),
       kind: PointerDeviceKind.mouse,
       buttons: kSecondaryMouseButton,
     );
     await tester.pumpAndSettle();
+    expect(find.text('Bookmarks'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     gate.complete();
@@ -710,6 +869,7 @@ Future<ShellController> _pumpLink(
   bool signedIn = false,
   List<String> messageGroupNames = const [],
   FakeDiscourseApi? api,
+  Topic? listTopic,
 }) async {
   final instances = [
     instance('one.example').copyWith(
@@ -733,25 +893,43 @@ Future<ShellController> _pumpLink(
   );
   addTearDown(controller.dispose);
   await controller.load();
+  if (listTopic != null) controller.store.put('https://one.example', listTopic);
   controller.desktopTopicTabs = desktopPanels;
   await tester.pumpWidget(
     ShellScope(
       controller: controller,
       child: MaterialApp(
-        builder: (context, child) => DToaster(child: child!),
+        theme: listTopic == null
+            ? null
+            : AppTheme.forBrightness(
+                Brightness.light,
+                fontFamily:
+                    Platform.environment['LINK_BOOKMARK_CAPTURE_DIR'] == null
+                    ? null
+                    : 'BookmarkMenuReview',
+              ).copyWith(platform: TargetPlatform.macOS),
+        builder: (context, child) => RepaintBoundary(
+          key: const ValueKey('link-bookmark-capture'),
+          child: DToaster(child: child!),
+        ),
         home: Scaffold(
-          body: Builder(
-            builder: (context) => Center(
-              child: LinkTarget(
-                url: url,
-                bookmarkUrl: bookmarkUrl,
-                child: TextButton(
-                  onPressed: () => openLink(context, url),
-                  child: const Text('Open link'),
+          body: listTopic != null
+              ? TopicListView(
+                  feed: TopicFeed(topicIds: [listTopic.id], loaded: true),
+                  showHeader: false,
+                )
+              : Builder(
+                  builder: (context) => Center(
+                    child: LinkTarget(
+                      url: url,
+                      bookmarkUrl: bookmarkUrl,
+                      child: TextButton(
+                        onPressed: () => openLink(context, url),
+                        child: const Text('Open link'),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
         ),
       ),
     ),
@@ -761,7 +939,8 @@ Future<ShellController> _pumpLink(
 }
 
 final class _LinkBookmarkApi extends FakeDiscourseApi {
-  _LinkBookmarkApi() : super(topics: {42: _payload()});
+  _LinkBookmarkApi({super.topicGate, Bookmark? bookmark})
+    : super(topics: {42: _payload(bookmark)});
 
   static TopicPayload _payload([Bookmark? bookmark]) => topicPayload(
     id: 42,
@@ -829,4 +1008,24 @@ final class _LinkBookmarkApi extends FakeDiscourseApi {
     topics[42] = _payload();
     return false;
   }
+}
+
+Future<void> _captureBookmarkMenu(WidgetTester tester) async {
+  final directory = Platform.environment['LINK_BOOKMARK_CAPTURE_DIR'];
+  if (directory == null) return;
+  await tester.runAsync(() async {
+    final image = await tester
+        .renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('link-bookmark-capture')),
+        )
+        .toImage(pixelRatio: 2);
+    try {
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      final file = File('$directory/instant-topic-bookmark-menu.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(data!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
 }

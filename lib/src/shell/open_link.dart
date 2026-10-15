@@ -211,12 +211,18 @@ class _LinkTargetState extends State<LinkTarget> {
                 siteUrl: widget.siteUrl,
               ));
     if (url == null) return;
+    final absoluteUrl = controller.absoluteUrl(url, siteUrl: widget.siteUrl);
+    final cached = widget.targetBookmark == null
+        ? controller.cachedTopicBookmarkLink(absoluteUrl)
+        : null;
+    setState(() => _bookmarkAction = cached);
+    if (cached != null && cached.resolution == null) return;
     unawaited(
-      controller
-          .resolveBookmarkLink(
-            controller.absoluteUrl(url, siteUrl: widget.siteUrl),
-            targetBookmark: widget.targetBookmark,
-          )
+      (cached?.resolution ??
+              controller.resolveBookmarkLink(
+                absoluteUrl,
+                targetBookmark: widget.targetBookmark,
+              ))
           .then((action) {
             if (mounted && generation == _bookmarkGeneration) {
               setState(() => _bookmarkAction = action);
@@ -335,7 +341,9 @@ class _LinkTargetState extends State<LinkTarget> {
                 DContextMenuItem(
                   onPressed: () => unawaited(_invokeBookmark(action)),
                   child: Text(
-                    action.bookmark == null
+                    action.resolution != null
+                        ? context.l10n.bookmarks
+                        : action.bookmark == null
                         ? context.l10n.bookmark
                         : context.l10n.removeBookmark,
                   ),

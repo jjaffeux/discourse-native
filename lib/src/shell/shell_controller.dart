@@ -7534,6 +7534,89 @@ class ShellController extends FrameSafeNotifier
     return site == null ? path : resolveSiteRootPath(site, path);
   }
 
+  /// Builds a topic-list action without waiting for the topic request.
+  BookmarkLinkAction? cachedTopicBookmarkLink(String url) {
+    final target = Uri.tryParse(url);
+    if (target == null || !{'http', 'https'}.contains(target.scheme)) {
+      return null;
+    }
+    final instance = _instances
+        .where((site) => site.serves(target))
+        .firstOrNull;
+    if (instance == null || !instance.isConnected || instance.user == null) {
+      return null;
+    }
+    final siteUrl = instance.url;
+    final link = TopicLink.parse(url, siteUrl: siteUrl);
+    if (link == null || link.postNumber != null) return null;
+    final topic = store.read<Topic>(siteUrl, link.topicId);
+    if (topic == null ||
+        bookmarkWriteInFlight(
+          siteUrl: siteUrl,
+          topicId: link.topicId,
+          targetType: BookmarkTargetType.topic,
+          targetId: link.topicId,
+        )) {
+      return null;
+    }
+    final detail = store.read<TopicDetail>(siteUrl, link.topicId);
+    if (topic.bookmarked && detail == null) {
+      // The list's flag also includes post bookmarks, so it cannot tell us
+      // whether this topic bookmark exists or supply its deletion ID.
+      final resolution = resolveBookmarkLink(url);
+      return BookmarkLinkAction(
+        bookmark: null,
+        resolution: resolution,
+        invoke: () async {
+          final action = await resolution;
+          return action == null
+              ? BookmarkWriteResult.refused(appL10n.bookmarkChangedRefreshMenu)
+              : action.invoke();
+        },
+      );
+    }
+    return _bookmarkLinkAction(
+      siteUrl: siteUrl,
+      topicId: link.topicId,
+      type: BookmarkTargetType.topic,
+      targetId: link.topicId,
+      bookmark: topic.bookmarked ? detail?.topicBookmark : null,
+    );
+  }
+
+  BookmarkLinkAction _bookmarkLinkAction({
+    required String siteUrl,
+    required int topicId,
+    required BookmarkTargetType type,
+    required int targetId,
+    required Bookmark? bookmark,
+  }) {
+    final lease = lifecycle.capture(siteUrl);
+    final version = _bookmarkVersion(siteUrl, topicId);
+    return BookmarkLinkAction(
+      bookmark: bookmark,
+      invoke: () async {
+        if (!lease.isCurrent || version != _bookmarkVersion(siteUrl, topicId)) {
+          return BookmarkWriteResult.refused(
+            appL10n.bookmarkChangedRefreshMenu,
+          );
+        }
+        final host = bookmarkTarget(type);
+        return bookmark == null
+            ? host.createBookmark(
+                siteUrl: siteUrl,
+                topicId: topicId,
+                targetId: targetId,
+              )
+            : host.deleteBookmark(
+                siteUrl: siteUrl,
+                topicId: topicId,
+                bookmark: bookmark,
+              );
+      },
+    );
+  }
+
   /// Resolves the clicked link without selecting its forum, tab, or topic.
   Future<BookmarkLinkAction?> resolveBookmarkLink(
     String url, {
@@ -7618,28 +7701,12 @@ class ShellController extends FrameSafeNotifier
       )) {
         return null;
       }
-      return BookmarkLinkAction(
+      return _bookmarkLinkAction(
+        siteUrl: siteUrl,
+        topicId: link.topicId,
+        type: type,
+        targetId: targetId,
         bookmark: bookmark,
-        invoke: () async {
-          if (!lease.isCurrent ||
-              version != _bookmarkVersion(siteUrl, link.topicId)) {
-            return BookmarkWriteResult.refused(
-              appL10n.bookmarkChangedRefreshMenu,
-            );
-          }
-          final host = bookmarkTarget(type);
-          return bookmark == null
-              ? host.createBookmark(
-                  siteUrl: siteUrl,
-                  topicId: link.topicId,
-                  targetId: targetId,
-                )
-              : host.deleteBookmark(
-                  siteUrl: siteUrl,
-                  topicId: link.topicId,
-                  bookmark: bookmark,
-                );
-        },
       );
     } catch (error, stackTrace) {
       if (lease.isCurrent) {
