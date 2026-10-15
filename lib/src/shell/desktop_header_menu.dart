@@ -57,160 +57,174 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => ConstrainedBox(
-      constraints: BoxConstraints(
-        minHeight: notificationStyle
-            ? 0
-            : math.min(
-                460,
-                constraints.hasBoundedHeight
-                    ? constraints.maxHeight
-                    : math.max(120, MediaQuery.sizeOf(context).height - 130),
-              ),
-        maxHeight: math.min(
-          notificationStyle ? 640 : 460,
-          constraints.hasBoundedHeight
+    builder: (context, constraints) {
+      final fillSheet =
+          notificationStyle &&
+          constraints.hasBoundedHeight &&
+          context.findAncestorWidgetOfExactType<DSheetContent>() != null;
+      return ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: fillSheet
               ? constraints.maxHeight
-              : math.max(120, MediaQuery.sizeOf(context).height - 130),
+              : notificationStyle
+              ? 0
+              : math.min(
+                  460,
+                  constraints.hasBoundedHeight
+                      ? constraints.maxHeight
+                      : math.max(120, MediaQuery.sizeOf(context).height - 130),
+                ),
+          maxHeight: fillSheet
+              ? constraints.maxHeight
+              : math.min(
+                  notificationStyle ? 640 : 460,
+                  constraints.hasBoundedHeight
+                      ? constraints.maxHeight
+                      : math.max(120, MediaQuery.sizeOf(context).height - 130),
+                ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: notificationStyle ? MainAxisSize.min : MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: notificationStyle
-                ? const EdgeInsetsDirectional.fromSTEB(15, 10, 10, 0)
-                : const EdgeInsets.fromLTRB(11, 6, 6, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: notificationStyle
-                        ? Theme.of(context).textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          )
-                        : Theme.of(context).textTheme.titleSmall,
-                  ),
-                ),
-                Flexible(
-                  child: Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: DButton(
-                      key: controlsKey,
-                      label: Text(action, softWrap: true),
-                      variant: DButtonVariant.ghost,
-                      size: DButtonSize.small,
-                      density: notificationStyle
-                          ? DButtonDensity.menuAction
-                          : DButtonDensity.standard,
-                      loading: busy,
-                      onPressed: onAction,
+        child: Column(
+          mainAxisSize: notificationStyle && !fillSheet
+              ? MainAxisSize.min
+              : MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: notificationStyle
+                  ? const EdgeInsetsDirectional.fromSTEB(15, 10, 10, 0)
+                  : const EdgeInsets.fromLTRB(11, 6, 6, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: notificationStyle
+                          ? Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            )
+                          : Theme.of(context).textTheme.titleSmall,
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            key: filtersKey,
-            padding: notificationStyle
-                ? EdgeInsets.zero
-                : const EdgeInsets.fromLTRB(8, 8, 8, 10),
-            child: DToggleGroup<T>(
-              key: controlsKey,
-              values: [value],
-              onChanged: (values) => onChanged(values.single),
-              onItemActivated: (activated) {
-                if (activated == value) onChanged(activated);
-              },
-              allowEmptySelection: false,
-              scrollable: true,
-              size: DToggleSize.small,
-              density: notificationStyle
-                  ? DToggleDensity.menuFilter
-                  : DToggleDensity.standard,
-              variant: DToggleVariant.outline,
-              spacing: 1.5,
-              semanticLabel: title,
-              items: [
-                for (final filter in filters)
-                  DToggleGroupItem(
-                    value: filter.value,
-                    semanticLabel: filter.unread > 0
-                        ? context.l10n.unreadUsermenu(
-                            filter.label,
-                            '${filter.unread}',
-                          )
-                        : filter.label,
-                    visualStyle: const DToggleVisualStyle(
-                      borderRadius: BorderRadius.all(Radius.circular(999)),
-                    ),
-                    child: KeyedSubtree(
-                      key: filter.key,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 6,
-                        children: [
-                          Text(filter.label),
-                          if (filter.unread > 0)
-                            Text(
-                              filter.unread > 99 ? '99+' : '${filter.unread}',
-                              style: notificationStyle
-                                  ? TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      fontFeatures: const [
-                                        FontFeature.tabularFigures(),
-                                      ],
-                                      color:
-                                          (filter.value == value
-                                                  ? DTokens.of(context)
-                                                        .buttonTheme
-                                                        .primary
-                                                        .foreground
-                                                  : Color.lerp(
-                                                      DTokens.of(
-                                                        context,
-                                                      ).colors.surface,
-                                                      DTokens.of(
-                                                        context,
-                                                      ).foreground,
-                                                      .62,
-                                                    )!)
-                                              .withValues(
-                                                alpha: filter.value == value
-                                                    ? .85
-                                                    : .7,
-                                              ),
-                                    )
-                                  : null,
-                            ),
-                        ],
+                  Flexible(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: DButton(
+                        key: controlsKey,
+                        label: Text(action, softWrap: true),
+                        variant: DButtonVariant.ghost,
+                        size: DButtonSize.small,
+                        density: notificationStyle
+                            ? DButtonDensity.menuAction
+                            : DButtonDensity.standard,
+                        loading: busy,
+                        onPressed: onAction,
                       ),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-          DSeparator(
-            space: 1,
-            color: notificationStyle
-                ? Color.lerp(
-                    DTokens.of(context).background,
-                    DTokens.of(context).foreground,
-                    .12,
-                  )
-                : null,
-          ),
-          Flexible(
-            fit: notificationStyle ? FlexFit.loose : FlexFit.tight,
-            child: _DesktopHeaderMenuScope(child: child),
-          ),
-        ],
-      ),
-    ),
+            Padding(
+              key: filtersKey,
+              padding: notificationStyle
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.fromLTRB(8, 8, 8, 10),
+              child: DToggleGroup<T>(
+                key: controlsKey,
+                values: [value],
+                onChanged: (values) => onChanged(values.single),
+                onItemActivated: (activated) {
+                  if (activated == value) onChanged(activated);
+                },
+                allowEmptySelection: false,
+                scrollable: true,
+                size: DToggleSize.small,
+                density: notificationStyle
+                    ? DToggleDensity.menuFilter
+                    : DToggleDensity.standard,
+                variant: DToggleVariant.outline,
+                spacing: 1.5,
+                semanticLabel: title,
+                items: [
+                  for (final filter in filters)
+                    DToggleGroupItem(
+                      value: filter.value,
+                      semanticLabel: filter.unread > 0
+                          ? context.l10n.unreadUsermenu(
+                              filter.label,
+                              '${filter.unread}',
+                            )
+                          : filter.label,
+                      visualStyle: const DToggleVisualStyle(
+                        borderRadius: BorderRadius.all(Radius.circular(999)),
+                      ),
+                      child: KeyedSubtree(
+                        key: filter.key,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 6,
+                          children: [
+                            Text(filter.label),
+                            if (filter.unread > 0)
+                              Text(
+                                filter.unread > 99 ? '99+' : '${filter.unread}',
+                                style: notificationStyle
+                                    ? TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                        color:
+                                            (filter.value == value
+                                                    ? DTokens.of(context)
+                                                          .buttonTheme
+                                                          .primary
+                                                          .foreground
+                                                    : Color.lerp(
+                                                        DTokens.of(
+                                                          context,
+                                                        ).colors.surface,
+                                                        DTokens.of(
+                                                          context,
+                                                        ).foreground,
+                                                        .62,
+                                                      )!)
+                                                .withValues(
+                                                  alpha: filter.value == value
+                                                      ? .85
+                                                      : .7,
+                                                ),
+                                      )
+                                    : null,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            DSeparator(
+              space: 1,
+              color: notificationStyle
+                  ? Color.lerp(
+                      DTokens.of(context).background,
+                      DTokens.of(context).foreground,
+                      .12,
+                    )
+                  : null,
+            ),
+            Flexible(
+              fit: notificationStyle && !fillSheet
+                  ? FlexFit.loose
+                  : FlexFit.tight,
+              child: _DesktopHeaderMenuScope(child: child),
+            ),
+          ],
+        ),
+      );
+    },
   );
 }
 

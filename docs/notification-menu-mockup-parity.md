@@ -12,8 +12,10 @@ trigger offset. Physical safe areas and keyboard insets constrain the viewport.
 On mobile platforms, the header bell opens the Native adaptive bottom sheet.
 All notification tabs reserve a 55% opening viewport, including the Native
 floating clearance, across loading, short, and empty feeds. The sheet uses
-`mobileSheetSizeToContent: false` and expands with an upward pull;
-the title and filters stay fixed while the feed scrolls. The sheet owns safe
+`mobileSheetSizeToContent: false` and expands with an upward pull. The menu
+and its feed fill the available sheet height, including on tall screens;
+the 640px desktop cap applies only to the anchored dropdown. The title and
+filters stay fixed while the feed scrolls. The sheet owns safe
 areas, keyboard placement, backdrop dismissal, and downward swipe dismissal.
 
 The Native kit owns the new `DToggleDensity.menuFilter`,

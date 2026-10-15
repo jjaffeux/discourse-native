@@ -117,6 +117,46 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
+      'expanded notification feed fills the Native sheet on $platform',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+        await _mount(tester, platform: platform, height: 1000);
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        await tester.drag(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        final sheet = tester.getRect(find.byType(DSheetContent));
+        final panel = tester.getRect(find.byType(UserMenuPanel));
+        expect(sheet.top, closeTo(47 + 8, 1));
+        expect(sheet.bottom, closeTo(1000 - 34 - 6, 1));
+        expect(panel.bottom, closeTo(sheet.bottom, 1));
+        expect(panel.height, greaterThan(640));
+        final feed = find.descendant(
+          of: find.byType(UserMenuPanel),
+          matching: find.byType(ListView),
+        );
+        expect(tester.getRect(feed).bottom, closeTo(sheet.bottom, 1));
+        final tabs = find.byKey(const ValueKey('user-menu-mobile-tabs'));
+        final tabsRect = tester.getRect(tabs);
+        await tester.drag(feed, const Offset(0, -180));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(tabs), tabsRect);
+
+        await tester.tap(_tab('replies'));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(find.byType(UserMenuPanel)), panel);
+        expect(tester.getRect(feed).bottom, closeTo(sheet.bottom, 1));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
       'unexpanded sheet keeps its opening height across tabs on $platform',
       (tester) async {
         await _mount(tester, platform: platform);
@@ -400,11 +440,12 @@ Future<ShellController> _mount(
   WidgetTester tester, {
   TargetPlatform platform = TargetPlatform.iOS,
   double width = 390,
+  double height = 800,
   double scale = 1,
   bool rtl = false,
   bool dark = false,
 }) async {
-  tester.view.physicalSize = Size(width, 800);
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   const user = DiscourseUser(id: 7, username: 'reader');

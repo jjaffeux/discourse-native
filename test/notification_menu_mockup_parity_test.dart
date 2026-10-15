@@ -225,6 +225,15 @@ void main() {
               await tester.tap(_filter('all'));
               await tester.pumpAndSettle();
               await _expandSheet(tester);
+              final expanded = tester.getRect(find.byType(DSheetContent));
+              expect(
+                tester.getRect(find.byType(UserMenuPanel)).bottom,
+                closeTo(expanded.bottom, 1),
+              );
+              await _captureImage(
+                tester,
+                '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}-expanded',
+              );
             }
             final filtersRect = tester.getRect(filters);
             await tester.drag(
@@ -259,10 +268,16 @@ void main() {
     expect(find.byType(MessageNotificationsSection), findsOneWidget);
     expect(find.text('A private message'), findsOneWidget);
     expect(find.byType(UserMenuPanel), findsOneWidget);
-    expect(tester.getSize(find.byType(UserMenuPanel)).height, lessThan(220));
+    expect(
+      tester.getRect(find.byType(UserMenuPanel)).bottom,
+      closeTo(tester.getRect(find.byType(DSheetContent)).bottom, 1),
+    );
     expect(tester.getRect(find.byType(DSheetContent)).top, originalTop);
     expect(tester.getSize(find.byType(DSheetContent)).height, greaterThan(400));
     await _captureImage(tester, 'iOS-messages-fixed-height');
+    await _expandSheet(tester);
+    expect(tester.getSize(find.byType(UserMenuPanel)).height, greaterThan(700));
+    await _captureImage(tester, 'iOS-messages-expanded');
     expect(shell.currentContent, same(originalRoute));
     expect(api.notificationFilters.last, const [
       NotificationTypeName('private_message'),

@@ -478,6 +478,9 @@ class _SectionBody extends StatelessWidget {
     final theme = Theme.of(context);
     final siteUrl = this.siteUrl;
     final controller = ShellScope.read(context);
+    final fillSheet =
+        DesktopHeaderMenu.isActiveOf(context) &&
+        context.findAncestorWidgetOfExactType<DSheetContent>() != null;
 
     List<Widget> rows() => [
       if (section.isProfile && siteUrl != null)
@@ -570,14 +573,15 @@ class _SectionBody extends StatelessWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: fillSheet ? MainAxisSize.max : MainAxisSize.min,
       children: [
         if (showHeader) _SectionHeader(section: section),
         Flexible(
+          fit: fillSheet ? FlexFit.tight : FlexFit.loose,
           child: ListenableBuilder(
             listenable: controller.draftList,
             builder: (context, _) => ListView(
-              shrinkWrap: true,
+              shrinkWrap: !fillSheet,
               padding: DesktopHeaderMenu.isActiveOf(context)
                   ? const EdgeInsets.all(6)
                   : const EdgeInsets.symmetric(vertical: 6),
