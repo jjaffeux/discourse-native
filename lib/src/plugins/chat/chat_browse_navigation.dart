@@ -70,7 +70,7 @@ class ChatBrowseFilter<T> extends StatelessWidget {
     required this.label,
     required this.semanticLabel,
     required this.value,
-    required this.entries,
+    required this.options,
     required this.onChanged,
     this.icon,
     this.emphasized = false,
@@ -79,40 +79,54 @@ class ChatBrowseFilter<T> extends StatelessWidget {
   final String label;
   final String semanticLabel;
   final T value;
-  final List<DSelectEntry<T>> entries;
+  final Map<T, String> options;
   final ValueChanged<T> onChanged;
   final Widget? icon;
   final bool emphasized;
 
   @override
-  Widget build(BuildContext context) => DSelect<T>.controlled(
-    size: DControlSize.filter,
-    value: value,
-    semanticLabel: semanticLabel,
-    entries: entries,
-    width: 220,
-    align: DPopoverAlign.start,
-    alignItemWithTrigger: false,
-    onChanged: (value) {
-      if (value != null) onChanged(value);
-    },
-    triggerBuilder: (context, state, _) => DButton(
-      size: DControlSize.filter,
-      variant: emphasized ? DButtonVariant.quietSelected : DButtonVariant.quiet,
-      semanticLabel: '$semanticLabel, $label',
-      focusNode: state.focusNode,
-      hasPopup: true,
-      expanded: state.open,
-      onPressed: state.toggle,
-      icon: icon,
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        spacing: DSpacing.controlGap,
-        children: [
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-        ],
+  Widget build(BuildContext context) => DDropdownMenu(
+    sheetOnMobile: true,
+    content: DDropdownMenuContent(
+      width: 220,
+      align: DPopoverAlign.start,
+      semanticLabel: semanticLabel,
+      children: [
+        DDropdownMenuRadioGroup<T>(
+          value: value,
+          onChanged: onChanged,
+          children: [
+            for (final option in options.entries)
+              DDropdownMenuRadioItem<T>(
+                value: option.key,
+                closeOnSelect: true,
+                child: Text(option.value),
+              ),
+          ],
+        ),
+      ],
+    ),
+    child: DDropdownMenuTrigger(
+      builder: (context, state) => DButton(
+        size: DControlSize.filter,
+        variant: emphasized
+            ? DButtonVariant.quietSelected
+            : DButtonVariant.quiet,
+        semanticLabel: '$semanticLabel, $label',
+        focusNode: state.focusNode,
+        hasPopup: true,
+        expanded: state.open,
+        onPressed: state.toggle,
+        icon: icon,
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: DSpacing.controlGap,
+          children: [
+            Flexible(
+              child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
       ),
     ),
   );

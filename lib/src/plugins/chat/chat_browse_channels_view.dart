@@ -231,15 +231,11 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                                 : _statusLabel(_status),
                             semanticLabel: context.l10n.status,
                             emphasized: _status != ChatChannelBrowseStatus.all,
-                            entries: [
+                            options: {
                               for (final status
                                   in ChatChannelBrowseStatus.values)
-                                DSelectOption(
-                                  value: status,
-                                  label: _statusLabel(status),
-                                  child: Text(_statusLabel(status)),
-                                ),
-                            ],
+                                status: _statusLabel(status),
+                            },
                             onChanged: (status) {
                               if (status == _status) return;
                               setState(() => _status = status);
@@ -258,15 +254,11 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                                 : _joinedLabel(_joined),
                             semanticLabel: context.l10n.membership,
                             emphasized: _joined != ChatChannelJoinedFilter.all,
-                            entries: [
+                            options: {
                               for (final joined
                                   in ChatChannelJoinedFilter.values)
-                                DSelectOption(
-                                  value: joined,
-                                  label: _joinedLabel(joined),
-                                  child: Text(_joinedLabel(joined)),
-                                ),
-                            ],
+                                joined: _joinedLabel(joined),
+                            },
                             onChanged: (joined) {
                               setState(() => _joined = joined);
                               _chat.inboxFilters

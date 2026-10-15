@@ -802,6 +802,7 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
             : context.l10n.presenceUnavailable;
         return DDropdownMenu(
           controller: _menu,
+          sheetOnMobile: true,
           content: DDropdownMenuContent(
             width: 208,
             align: DPopoverAlign.end,

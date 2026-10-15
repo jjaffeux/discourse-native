@@ -182,19 +182,10 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
                 ),
                 emphasized: _channelId != null,
                 value: _channelId ?? 0,
-                entries: [
-                  DSelectOption(
-                    value: 0,
-                    label: context.l10n.allChannels,
-                    child: Text(context.l10n.allChannels),
-                  ),
-                  for (final channel in channels)
-                    DSelectOption(
-                      value: channel.id,
-                      label: channel.title,
-                      child: Text(channel.title),
-                    ),
-                ],
+                options: {
+                  0: context.l10n.allChannels,
+                  for (final channel in channels) channel.id: channel.title,
+                },
                 onChanged: (id) {
                   setState(() => _channelId = id == 0 ? null : id);
                   _chat.inboxFilters.browseFor(widget.siteUrl).threadChannelId =

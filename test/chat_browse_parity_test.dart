@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -28,6 +29,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -63,6 +65,102 @@ ChatChannel _channel(int id, String name, {int unread = 0}) => ChatChannel(
 );
 
 void main() {
+  setUpAll(() async {
+    await (FontLoader(
+      'Open Sans',
+    )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+  });
+
+  for (final material in DAppearanceMaterial.values) {
+    testWidgets(
+      'chat filters use menus and mobile bottom sheets with ${material.name}',
+      (tester) async {
+        final mobile = defaultTargetPlatform != TargetPlatform.macOS;
+        final fixture = await _pump(
+          tester,
+          size: mobile ? const Size(430, 932) : const Size(900, 650),
+          platform: defaultTargetPlatform,
+          material: material,
+        );
+        final provider = _Rooms();
+        addTearDown(fixture.rooms.attach(provider));
+        addTearDown(provider.dispose);
+        await tester.pumpAndSettle();
+
+        await _pick(tester, 'chat-inbox-activity-filter', 'Unread');
+        expect(fixture.chat.inboxFilters.filterFor(_site).unreadOnly, isTrue);
+        await _pick(tester, 'chat-inbox-activity-filter', 'Recent');
+        expect(fixture.chat.inboxFilters.filterFor(_site).unreadOnly, isFalse);
+        for (final (kind, label) in [
+          (ChatInboxKind.channels, 'Channels'),
+          (ChatInboxKind.directMessages, 'Direct messages'),
+          (ChatInboxKind.voiceRooms, 'Voice rooms'),
+          (ChatInboxKind.all, 'All'),
+        ]) {
+          await _pick(tester, 'chat-inbox-kind-filter', label);
+          expect(fixture.chat.inboxFilters.filterFor(_site).kind, kind);
+        }
+
+        await _tab(tester, ChatBrowsePage.channels);
+        await _pick(tester, 'chat-browse-status', 'Closed');
+        expect(
+          fixture.api.chatBrowseRequested.last.status,
+          ChatChannelBrowseStatus.closed,
+        );
+        await _pick(tester, 'chat-browse-joined', 'Joined');
+        expect(
+          fixture.chat.inboxFilters.browseFor(_site).membership,
+          ChatChannelJoinedFilter.joined,
+        );
+        await _tab(tester, ChatBrowsePage.threads);
+        await _pick(tester, 'chat-threads-channel-filter', 'general');
+        expect(fixture.chat.inboxFilters.browseFor(_site).threadChannelId, 1);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+  }
+
+  testWidgets(
+    'chat status opens a bottom sheet on mobile and an anchored menu on desktop',
+    (tester) async {
+      final mobile = defaultTargetPlatform != TargetPlatform.macOS;
+      await _pump(
+        tester,
+        size: mobile ? const Size(430, 932) : const Size(900, 650),
+        platform: defaultTargetPlatform,
+      );
+      await tester.tap(find.byKey(const ValueKey('user-presence-menu')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('pause-notifications-row')),
+        findsOneWidget,
+      );
+      expect(
+        find.byType(DSheetContent),
+        mobile ? findsOneWidget : findsNothing,
+      );
+      if (mobile) {
+        expect(
+          tester.widget<DSheetContent>(find.byType(DSheetContent)).side,
+          DSheetSide.bottom,
+        );
+      }
+      await _capture(tester, 'status');
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+    }),
+  );
+
   for (final width in [320.0, 430.0, 900.0]) {
     for (final page in ChatBrowsePage.values) {
       testWidgets(
@@ -372,15 +470,12 @@ void main() {
   ) async {
     final fixture = await _pump(tester);
     await fixture.show(_sidebarInbox());
-    List<ChatInboxKind?> kinds() => [
-      for (final entry
-          in tester
-              .widget<ChatBrowseFilter<ChatInboxKind>>(
-                find.byKey(const ValueKey('chat-inbox-kind-filter')),
-              )
-              .entries)
-        if (entry case DSelectItem(:final value)) value,
-    ];
+    Iterable<ChatInboxKind> kinds() => tester
+        .widget<ChatBrowseFilter<ChatInboxKind>>(
+          find.byKey(const ValueKey('chat-inbox-kind-filter')),
+        )
+        .options
+        .keys;
     expect(kinds(), isNot(contains(ChatInboxKind.voiceRooms)));
 
     // The conversations it lists are unchanged, so only the filters redraw.
@@ -536,6 +631,21 @@ Future<void> _tab(WidgetTester tester, ChatBrowsePage page) async {
 Future<void> _pick(WidgetTester tester, String key, String value) async {
   await tester.tap(find.byKey(ValueKey(key)));
   await tester.pumpAndSettle();
+  final mobile = switch (Theme.of(
+    tester.element(find.byKey(ValueKey(key))),
+  ).platform) {
+    TargetPlatform.iOS || TargetPlatform.android => true,
+    _ => false,
+  };
+  expect(find.byType(DSheetContent), mobile ? findsOneWidget : findsNothing);
+  if (mobile) {
+    expect(
+      tester.widget<DSheetContent>(find.byType(DSheetContent)).side,
+      DSheetSide.bottom,
+    );
+  }
+  expect(find.byType(DDropdownMenuContent), findsOneWidget);
+  await _capture(tester, key);
   await tester.tap(
     find.byWidgetPredicate(
       (widget) =>
@@ -545,6 +655,32 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
     ),
   );
   await tester.pumpAndSettle();
+  expect(find.byType(DSheetContent), findsNothing);
+  expect(find.byType(DDropdownMenuContent), findsNothing);
+}
+
+Future<void> _capture(WidgetTester tester, String name) async {
+  const directory = String.fromEnvironment('CHAT_HEADER_CAPTURE_DIR');
+  if (directory.isEmpty) return;
+  final context = tester.element(
+    find.byKey(const ValueKey('chat-browse-render')),
+  );
+  final platform = Theme.of(
+    tester.element(find.byType(Scaffold).first),
+  ).platform;
+  final material = DMaterialTheme.of(
+    tester.element(find.byType(Scaffold).first),
+  )!.material;
+  await tester.runAsync(() async {
+    final image = await (context.findRenderObject()! as RenderRepaintBoundary)
+        .toImage();
+    final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
+    await Directory(directory).create(recursive: true);
+    await File(
+      '$directory/$name-${platform.name}-${material.name}.png',
+    ).writeAsBytes(bytes.buffer.asUint8List());
+    image.dispose();
+  });
 }
 
 class _Fixture {
@@ -560,6 +696,7 @@ Future<_Fixture> _pump(
   WidgetTester tester, {
   Size size = const Size(900, 650),
   TargetPlatform platform = TargetPlatform.macOS,
+  DAppearanceMaterial material = DAppearanceMaterial.standard,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -620,24 +757,34 @@ Future<_Fixture> _pump(
         controller: shell,
         child: PluginUiScope.own(
           chatPluginId,
-          MaterialApp(
-            theme: AppTheme.dark.copyWith(platform: platform),
-            home: Scaffold(
-              body: Builder(
-                builder: (context) {
-                  scope = context;
-                  return child ??
-                      ListenableBuilder(
-                        listenable: shell,
-                        builder: (context, _) => shell.currentContent == null
-                            ? const ChatMobileSidebar(siteUrl: _site)
-                            : const ChatPlugin().content(
-                                    context,
-                                    shell.currentContent!,
-                                  ) ??
-                                  const ChatMobileSidebar(siteUrl: _site),
-                      );
-                },
+          RepaintBoundary(
+            key: const ValueKey('chat-browse-render'),
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: DMaterialTheme.apply(
+                AppTheme.forBrightness(
+                  Brightness.dark,
+                  fontFamily: 'Open Sans',
+                ).copyWith(platform: platform),
+                material,
+              ),
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) {
+                    scope = context;
+                    return child ??
+                        ListenableBuilder(
+                          listenable: shell,
+                          builder: (context, _) => shell.currentContent == null
+                              ? const ChatMobileSidebar(siteUrl: _site)
+                              : const ChatPlugin().content(
+                                      context,
+                                      shell.currentContent!,
+                                    ) ??
+                                    const ChatMobileSidebar(siteUrl: _site),
+                        );
+                  },
+                ),
               ),
             ),
           ),

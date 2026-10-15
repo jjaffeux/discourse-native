@@ -97,18 +97,7 @@ class ChatInboxFilterBar extends StatelessWidget {
           emphasized: true,
           semanticLabel: context.l10n.chatActivity,
           value: filter.unreadOnly,
-          entries: [
-            DSelectOption(
-              value: false,
-              label: context.l10n.recent,
-              child: Text(context.l10n.recent),
-            ),
-            DSelectOption(
-              value: true,
-              label: context.l10n.unread,
-              child: Text(context.l10n.unread),
-            ),
-          ],
+          options: {false: context.l10n.recent, true: context.l10n.unread},
           onChanged: (value) =>
               filters.update(siteUrl, filter.copyWith(unreadOnly: value)),
         ),
@@ -128,33 +117,17 @@ class ChatInboxFilterBar extends StatelessWidget {
           },
           semanticLabel: context.l10n.conversationType,
           value: filter.kind,
-          entries: [
-            DSelectOption(
-              value: ChatInboxKind.all,
-              label: context.l10n.all,
-              child: Text(context.l10n.all),
-            ),
-            DSelectOption(
-              value: ChatInboxKind.channels,
-              label: context.l10n.channels,
-              child: Text(context.l10n.channels),
-            ),
-            DSelectOption(
-              value: ChatInboxKind.directMessages,
-              label: context.l10n.directMessages,
-              child: Text(context.l10n.directMessages),
-            ),
+          options: {
+            ChatInboxKind.all: context.l10n.all,
+            ChatInboxKind.channels: context.l10n.channels,
+            ChatInboxKind.directMessages: context.l10n.directMessages,
             if (PluginUiScope.optional(
                   context,
                   chatInboxRoomsService,
                 )?.available(siteUrl) ==
                 true)
-              DSelectOption(
-                value: ChatInboxKind.voiceRooms,
-                label: context.l10n.voiceRooms,
-                child: Text(context.l10n.voiceRooms),
-              ),
-          ],
+              ChatInboxKind.voiceRooms: context.l10n.voiceRooms,
+          },
           onChanged: (value) =>
               filters.update(siteUrl, filter.copyWith(kind: value)),
         ),
