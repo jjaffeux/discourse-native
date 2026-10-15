@@ -998,11 +998,18 @@ class _ChatComposerState extends State<ChatComposer> {
           if (_chat case final chat?
               when channel.isCategoryChannel && !channel.membership.following) {
             return _composerLane(
-              _ChatJoinChannelPrompt(
-                key: ValueKey((widget.siteUrl, channel.id)),
-                siteUrl: widget.siteUrl,
-                channel: channel,
-                chat: chat,
+              Padding(
+                // Item paints its .5px outline outside its layout bounds.
+                // Align that visible edge with the mobile navigation capsule.
+                padding: EdgeInsets.symmetric(
+                  horizontal: context.isTouch ? .5 : 0,
+                ),
+                child: _ChatJoinChannelPrompt(
+                  key: ValueKey((widget.siteUrl, channel.id)),
+                  siteUrl: widget.siteUrl,
+                  channel: channel,
+                  chat: chat,
+                ),
               ),
             );
           }
