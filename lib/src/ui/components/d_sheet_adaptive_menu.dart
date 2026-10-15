@@ -1006,26 +1006,37 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         ),
       ),
     );
-    Widget backdrop = widget.presentation.buildBackdrop(blurSigma: 2);
-    if (widget.presentation.modal &&
-        (widget.onDismiss != null || widget.onDismissRequested != null)) {
-      backdrop = Listener(
-        onPointerDown: _down,
-        onPointerMove: _move,
-        onPointerUp: _up,
-        onPointerCancel: _cancel,
-        child: GestureDetector(
-          excludeFromSemantics: true,
-          supportedDevices: const {PointerDeviceKind.touch},
-          onVerticalDragStart: (_) => _start(),
-          onVerticalDragUpdate: (details) =>
-              _update(details.delta.dy, allowExpand: false),
-          onVerticalDragEnd: (details) => _finish(details.primaryVelocity ?? 0),
-          onVerticalDragCancel: () => _finish(0, cancelled: true),
-          child: backdrop,
-        ),
+    Widget backdrop(double progress) {
+      const color = Color(0x1A000000);
+      // Keep the blur in the application's painted stack. Fading the whole
+      // filter creates an offscreen layer and can flash the live backdrop.
+      Widget result = widget.presentation.buildBackdrop(
+        color: color.withValues(alpha: color.a * progress),
+        blurSigma: 2 * progress,
       );
+      if (widget.presentation.modal &&
+          (widget.onDismiss != null || widget.onDismissRequested != null)) {
+        result = Listener(
+          onPointerDown: _down,
+          onPointerMove: _move,
+          onPointerUp: _up,
+          onPointerCancel: _cancel,
+          child: GestureDetector(
+            excludeFromSemantics: true,
+            supportedDevices: const {PointerDeviceKind.touch},
+            onVerticalDragStart: (_) => _start(),
+            onVerticalDragUpdate: (details) =>
+                _update(details.delta.dy, allowExpand: false),
+            onVerticalDragEnd: (details) =>
+                _finish(details.primaryVelocity ?? 0),
+            onVerticalDragCancel: () => _finish(0, cancelled: true),
+            child: result,
+          ),
+        );
+      }
+      return result;
     }
+
     return LayoutBuilder(
       builder: (context, bounds) {
         _room = math.max(0, bounds.maxHeight - keyboard);
@@ -1052,7 +1063,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
             return Stack(
               clipBehavior: Clip.hardEdge,
               children: [
-                Opacity(opacity: curve * dim, child: backdrop),
+                backdrop(curve * dim),
                 Positioned(
                   left: side,
                   right: side,
