@@ -107,6 +107,8 @@ void main() {
       testWidgets('topic sheet geometry ${mode.name} ${material.name}', (
         tester,
       ) async {
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
         final shell = await _openTopic(tester);
         await shell.forumSettings.setThemeMode(_site, mode);
         await shell.forumSettings.setThemes(
@@ -127,7 +129,7 @@ void main() {
         final bounds = tester.getRect(_sheet);
         expect(bounds.left, 0);
         expect(bounds.right, 390);
-        expect(bounds.bottom, 844);
+        expect(bounds.bottom, 810);
         expect(bounds.top, tester.getRect(_header).bottom + 6);
         expect(tester.getSize(_handle), const Size(36, 5));
         expect(tester.getRect(_handle).top, bounds.top + 7);
@@ -240,6 +242,7 @@ void main() {
         .first;
     final controller = tester.widget<CustomScrollView>(scroll).controller!;
     final origin = tester.getRect(_sheet);
+    expect(origin.bottom, 844);
     await tester.drag(scroll, const Offset(0, -500));
     await tester.pumpAndSettle();
     expect(controller.offset, greaterThan(0));
@@ -298,6 +301,8 @@ void main() {
   testWidgets('topics opened from Start use the sheet and return to Start', (
     tester,
   ) async {
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
     final shell = await pumpMobileShellFixture(tester);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
     await tester.pumpAndSettle();
@@ -307,10 +312,15 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(_handle, findsOneWidget);
+    expect(tester.getRect(_sheet).bottom, 810);
     await tester.drag(_handle, const Offset(0, 180));
     await tester.pumpAndSettle();
     expect(shell.currentContent, origin);
     expect(_sheet, findsNothing);
+    expect(
+      tester.getRect(find.byKey(const ValueKey('mobile-content-panel'))).bottom,
+      844,
+    );
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
@@ -326,7 +336,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.getRect(_sheet).width, width);
         expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
-        expect(tester.getRect(_sheet).bottom, 844);
+        expect(tester.getRect(_sheet).bottom, 810);
         expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
         expect(tester.getSize(_handle), const Size(36, 5));
         await tester.drag(_handle, const Offset(0, 180));

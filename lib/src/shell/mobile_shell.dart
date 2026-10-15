@@ -202,6 +202,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             !widget.boundary &&
             shell.mobileNavigation.atRoot &&
             panelOwner != null;
+        final topicSheetOpen =
+            !widget.boundary && shell.currentContent?.isTopic == true;
         final keepDockVisible =
             !widget.boundary &&
             !panelRoot &&
@@ -461,12 +463,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   child: ExcludeFocus(
                     excluding: sidebarOpen,
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      // Keep the sheet's rounded foot above the home indicator
+                      // and the device's bottom corners.
+                      padding: EdgeInsets.only(
+                        top: 6,
+                        bottom: topicSheetOpen
+                            ? MediaQuery.paddingOf(context).bottom
+                            : 0,
+                      ),
                       child: ForumMobileSurface(
                         key: const ValueKey('mobile-content-panel'),
-                        coveredBySheet:
-                            !widget.boundary &&
-                            shell.currentContent?.isTopic == true,
+                        coveredBySheet: topicSheetOpen,
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
