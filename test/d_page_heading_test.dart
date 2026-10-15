@@ -160,6 +160,41 @@ void main() {
   for (final floating in [false, true]) {
     for (final shared in [false, true]) {
       testWidgets(
+        'touch swipes retract and reveal the title (floating=$floating shared=$shared)',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await _mount(
+            tester,
+            scroll,
+            floating: floating,
+            shared: shared,
+            size: const Size(390, 844),
+          );
+          final controlsTop = tester.getTopLeft(find.byKey(_controls)).dy;
+          await tester.timedDrag(
+            find.byKey(_body),
+            const Offset(0, -300),
+            const Duration(milliseconds: 300),
+          );
+          await tester.pumpAndSettle();
+          expect(scroll.offset, greaterThan(200));
+          expect(find.byKey(_title).hitTestable(), findsNothing);
+          expect(find.byKey(_controls).hitTestable(), findsOneWidget);
+          expect(tester.getTopLeft(find.byKey(_controls)).dy, lessThan(controlsTop));
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.timedDrag(
+            find.byKey(_body),
+            const Offset(0, 160),
+            const Duration(milliseconds: 300),
+          );
+          await tester.pumpAndSettle();
+          expect(scroll.offset, greaterThan(0));
+          expect(find.byKey(_title).hitTestable(), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+      testWidgets(
         'title yields to controls (floating=$floating shared=$shared)',
         (tester) async {
           final scroll = ScrollController();

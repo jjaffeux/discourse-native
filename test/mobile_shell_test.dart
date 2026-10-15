@@ -476,8 +476,11 @@ void main() {
       final originalPanel = tester.getRect(panel);
       final originalHeader = tester.getRect(_header);
       final list = find.byType(TopicListView);
-      await tester.drag(list, const Offset(0, -240));
+      final title = find.byKey(const ValueKey('topic-list-title'));
+      expect(title.hitTestable(), findsOneWidget);
+      await tester.timedDrag(list, const Offset(0, -240), const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
+      expect(title.hitTestable(), findsNothing);
       expect(
         find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
         findsOneWidget,
@@ -488,6 +491,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 450));
       await tester.drag(list, const Offset(0, 80));
       await tester.pumpAndSettle();
+      expect(title.hitTestable(), findsOneWidget);
       expect(_bar.hitTestable(), findsOneWidget);
       expect(tester.getRect(panel), originalPanel);
       await tester.pump(const Duration(milliseconds: 450));
