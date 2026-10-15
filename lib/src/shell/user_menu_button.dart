@@ -380,6 +380,8 @@ class _AccountMenuPopover extends StatelessWidget {
       final media = MediaQueryData.fromView(View.of(context));
       return DDropdownMenu(
         controller: controller,
+        sheetOnMobile: true,
+        mobileSheetVariant: DSheetVariant.adaptiveMenu,
         content: DDropdownMenuContent(
           semanticLabel: tooltip,
           align: DPopoverAlign.end,

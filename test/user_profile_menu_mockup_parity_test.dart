@@ -353,6 +353,12 @@ void main() {
         await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
         expect(find.byKey(const ValueKey('user-menu-own-card')), findsNothing);
+        if (platform != TargetPlatform.macOS) {
+          expect(find.byType(DSheetContent), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(menu, findsNothing);
+        }
         await tester.tap(avatar);
         await tester.pumpAndSettle();
         expect(

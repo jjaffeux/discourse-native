@@ -20,7 +20,7 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final rtl in [false, true]) {
       testWidgets(
-        'mobile tabs scroll and switch feeds on $platform, RTL $rtl',
+        'mobile sheet tabs scroll and switch feeds on $platform, RTL $rtl',
         (tester) async {
           await _mount(tester, platform: platform, rtl: rtl);
           final semantics = tester.ensureSemantics();
@@ -28,21 +28,23 @@ void main() {
             await tester.tap(find.byKey(UserMenuButton.bellKey));
             await tester.pumpAndSettle();
 
-            expect(find.byType(DSheetContent), findsNothing);
+            final sheet = find.byType(DSheetContent);
+            expect(sheet, findsOneWidget);
+            expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
+            expect(
+              tester.widget<DSheetContent>(sheet).variant,
+              DSheetVariant.adaptiveMenu,
+            );
+            expect(find.byType(DSheetHeader), findsNothing);
             expect(find.byType(NotificationSection), findsOneWidget);
             final panel = find.byType(UserMenuPanel);
             final tabs = find.byKey(const ValueKey('user-menu-mobile-tabs'));
-            final panelRect = tester.getRect(panel);
-            final tabsRect = tester.getRect(tabs);
+            final sheetRect = tester.getRect(sheet);
+            expect(sheetRect.width, 390);
+            expect(sheetRect.top, closeTo(800 * .45, 1));
+            expect(sheetRect.bottom, greaterThanOrEqualTo(800));
             expect(
-              panelRect.top,
-              greaterThan(
-                tester.getRect(find.byKey(UserMenuButton.bellKey)).bottom,
-              ),
-            );
-            expect(panelRect.width, UserMenuPanel.mobileWidth);
-            expect(
-              tabsRect.top,
+              tester.getRect(tabs).top,
               lessThan(tester.getRect(find.byType(NotificationSection)).top),
             );
             expect(
@@ -50,7 +52,15 @@ void main() {
               isSemantics(label: 'All, 3 unread', isToggled: true),
             );
 
-            // Scrolling the feed must leave navigation fixed at the top.
+            // The first upward pull expands the Native sheet. Subsequent
+            // scrolling leaves the notification navigation fixed at the top.
+            await tester.drag(
+              find.byKey(const ValueKey('sheet-drag-handle')),
+              const Offset(0, -400),
+            );
+            await tester.pumpAndSettle();
+            expect(tester.getRect(sheet).top, lessThan(sheetRect.top));
+            final tabsRect = tester.getRect(tabs);
             await tester.drag(
               find.descendant(of: panel, matching: find.byType(ListView)),
               const Offset(0, -180),
@@ -83,9 +93,19 @@ void main() {
             expect(find.byType(OtherNotificationsSection), findsOneWidget);
             expect(find.byType(UserMenuPanel), findsOneWidget);
 
-            await tester.tapAt(const Offset(5, 740));
+            await tester.drag(
+              find.byKey(const ValueKey('sheet-drag-handle')),
+              const Offset(0, 650),
+            );
             await tester.pumpAndSettle();
             expect(find.byType(UserMenuPanel), findsNothing);
+            expect(find.byType(DSheetContent), findsNothing);
+            expect(
+              tester
+                  .widget<DButton>(find.byKey(UserMenuButton.bellKey))
+                  .expanded,
+              isFalse,
+            );
             expect(tester.takeException(), isNull);
           } finally {
             semantics.dispose();
@@ -95,17 +115,47 @@ void main() {
     }
   }
 
+  for (final unread in [0, 3]) {
+    testWidgets(
+      'sheet dismisses through backdrop and reopens with $unread unread',
+      (tester) async {
+        final controller = await _mount(tester);
+        controller.accountActivity.applyLiveNotificationState(
+          'https://meta.example',
+          {'all_unread_notifications_count': unread},
+        );
+        await tester.pumpAndSettle();
+        final bell = find.byKey(UserMenuButton.bellKey);
+        await tester.tap(bell);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        expect(tester.widget<DButton>(bell).expanded, isTrue);
+
+        await tester.tapAt(const Offset(100, 100));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.widget<DButton>(bell).expanded, isFalse);
+
+        await tester.tap(bell);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        expect(find.byType(NotificationSection), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final dark in [false, true]) {
-    testWidgets('320px popup supports 200% text and keyboard, dark $dark', (
+    testWidgets('320px sheet supports 200% text and keyboard, dark $dark', (
       tester,
     ) async {
       await _mount(tester, width: 320, scale: 2, dark: dark);
       await tester.tap(find.byKey(UserMenuButton.bellKey));
       await tester.pumpAndSettle();
       final rect = tester.getRect(find.byType(UserMenuPanel));
-      expect(rect.left, greaterThanOrEqualTo(UserMenuPanel.margin));
-      expect(rect.right, lessThanOrEqualTo(320 - UserMenuPanel.margin));
-      expect(rect.bottom, lessThanOrEqualTo(800 - UserMenuPanel.margin));
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
+      expect(rect.top, inInclusiveRange(0, 800));
       // Each tab answers exactly where its pill is painted, and the pill
       // grows to hold its label at 200% text.
       for (final tab in find.byType(DToggle).evaluate()) {
@@ -256,9 +306,7 @@ void main() {
     tester,
   ) async {
     final controller = await _mount(tester);
-    await tester.tap(find.byKey(UserMenuButton.bellKey));
-    await tester.pumpAndSettle();
-    unawaited(showUserMenuSheet(tester.element(find.byType(UserMenuPanel))));
+    unawaited(showUserMenuSheet(tester.element(find.byType(UserMenuButton))));
     await tester.pumpAndSettle();
     controller.accountActivity.applyLiveNotificationState(
       'https://meta.example',

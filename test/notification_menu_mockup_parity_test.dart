@@ -51,29 +51,47 @@ void main() {
             );
             final originalRoute = shell.currentContent;
             final panel = tester.getRect(find.byType(UserMenuPanel));
-            final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
-            expect(panel.width, platform == TargetPlatform.macOS ? 400 : 320);
-            expect(panel.height, 640);
-            expect(panel.top - bell.bottom, 8);
+            if (platform == TargetPlatform.macOS) {
+              final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
+              expect(panel.width, 400);
+              expect(panel.height, 640);
+              expect(panel.top - bell.bottom, 8);
+              expect(find.byType(DSheetContent), findsNothing);
+            } else {
+              final sheet = find.byType(DSheetContent);
+              expect(
+                tester.widget<DSheetContent>(sheet).side,
+                DSheetSide.bottom,
+              );
+              expect(
+                tester.widget<DSheetContent>(sheet).variant,
+                DSheetVariant.adaptiveMenu,
+              );
+              final bounds = tester.getRect(sheet);
+              expect(bounds.width, 390);
+              expect(bounds.top, closeTo(844 * .45, 1));
+              expect(bounds.bottom, greaterThanOrEqualTo(844));
+            }
             expect(find.text('Notifications'), findsOneWidget);
             expect(find.text('Mark all read'), findsOneWidget);
-            expect(find.byType(DSheetContent), findsNothing);
-            final menuSurface = tester.widget<DMaterialSurface>(
-              find.byWidgetPredicate(
-                (widget) =>
-                    widget is DMaterialSurface &&
-                    widget.depth == DSurfaceDepth.menu,
-              ),
-            );
             final filters = find.byKey(const ValueKey('user-menu-mobile-tabs'));
             final all = _filter('all');
             expect(tester.getSize(all).height, 26);
             final inactive = _filter('replies');
             final tokens = DTokens.of(tester.element(inactive));
-            expect(
-              menuSurface.color,
-              Color.lerp(tokens.colors.surface, tokens.foreground, .03),
-            );
+            if (platform == TargetPlatform.macOS) {
+              final menuSurface = tester.widget<DMaterialSurface>(
+                find.byWidgetPredicate(
+                  (widget) =>
+                      widget is DMaterialSurface &&
+                      widget.depth == DSurfaceDepth.menu,
+                ),
+              );
+              expect(
+                menuSurface.color,
+                Color.lerp(tokens.colors.surface, tokens.foreground, .03),
+              );
+            }
             final well = tester.widget<DMaterialSurface>(
               find.descendant(
                 of: inactive,
@@ -190,11 +208,14 @@ void main() {
               ),
               findsOneWidget,
             );
-            final filtersRect = tester.getRect(filters);
             await _captureImage(
               tester,
               '${platform.name}-${dark ? 'dark' : 'light'}-${material.name}',
             );
+            if (platform != TargetPlatform.macOS) {
+              await _expandSheet(tester);
+            }
+            final filtersRect = tester.getRect(filters);
             await tester.drag(
               find.descendant(
                 of: find.byType(UserMenuPanel),
@@ -260,8 +281,9 @@ void main() {
       tester,
     ) async {
       await _mount(tester, height: height);
+      await _expandSheet(tester);
       final panel = tester.getRect(find.byType(UserMenuPanel));
-      expect(panel.bottom, lessThanOrEqualTo(height - 6));
+      expect(panel.bottom, lessThanOrEqualTo(height));
       final header = tester.getRect(find.text('Mark all read'));
       await tester.drag(
         find.descendant(
@@ -283,11 +305,19 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await _mount(tester);
     final panel = tester.getRect(find.byType(UserMenuPanel));
-    expect(panel.left, greaterThanOrEqualTo(12));
-    expect(panel.bottom, lessThanOrEqualTo(844 - 34 - 300 - 6));
+    expect(panel.left, greaterThanOrEqualTo(6));
+    expect(panel.bottom, lessThanOrEqualTo(844 - 300 - 6));
     expect(find.text('Mark all read').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+Future<void> _expandSheet(WidgetTester tester) async {
+  await tester.drag(
+    find.byKey(const ValueKey('sheet-drag-handle')),
+    const Offset(0, -400),
+  );
+  await tester.pumpAndSettle();
 }
 
 Finder _filter(String id) => find.ancestor(

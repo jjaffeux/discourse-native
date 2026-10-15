@@ -4,11 +4,15 @@ Reference: `discourse-native-mockups/src/App.tsx`, `NotificationsMenu`,
 `BarMenu`, `MenuTab`, `BarMenuRow`, and `BarMenuMark`; `src/app.css`,
 the `glass-inset` rules. The 2026-10-14 screenshot shows the same composition.
 
-Desktop and mobile share an anchored dropdown with a fixed title/action and
-horizontal filter strip above an independently scrolling feed. Desktop uses
-400px, narrow windows use 320px, and the popup respects the viewport with a
+Desktop and mobile share a fixed title/action and horizontal filter strip
+above an independently scrolling feed. Desktop uses an anchored dropdown:
+400px, or 320px in narrow windows. The popup respects the viewport with a
 640px height cap, 12px side margin, 6px bottom margin, 12px corners, and 8px
 trigger offset. Physical safe areas and keyboard insets constrain the viewport.
+On mobile platforms, the header bell opens the Native adaptive bottom sheet.
+Long feeds open at 55% of the screen height and expand with an upward pull;
+the title and filters stay fixed while the feed scrolls. The sheet owns safe
+areas, keyboard placement, backdrop dismissal, and downward swipe dismissal.
 
 The Native kit owns the new `DToggleDensity.menuFilter`,
 `DButtonDensity.menuAction`, and `DMenuFeedRow` artwork and interaction.
@@ -38,7 +42,7 @@ notification description or their navigation routes.
 
 The All count uses grouped unread counts when available, so marking the bell
 seen does not clear it. Messages filters its typed notification feed in the
-popup, using the existing session-owned cache and reconciliation machinery.
+menu, using the existing session-owned cache and reconciliation machinery.
 Bookmarks shows reminder notifications in this menu; the bookmarks page and
 standalone bookmark section retain their own content. Bulk-read failure leaves
 the menu and unread state available for retry. Contributed notification types
@@ -49,7 +53,8 @@ row, and time/dot geometry, checks the recessed fill/rim/text recipe across
 desktop/mobile, light/dark and Standard/Liquid Glass, verifies a message filter
 and bulk-read retry, and checks fixed headers in short viewports. Set
 `NOTIFICATION_PARITY_CAPTURES` to export rendered PNGs. Mobile tests also check
-iOS/Android, RTL, 200% text, horizontal navigation, live counts, and dismissal.
+iOS/Android, RTL, 200% text, horizontal navigation, live counts, sheet
+expansion, swipe/backdrop dismissal, and reopening.
 Focused notification navigation, account-session, bookmark, profile-menu, and
 Native control suites cover the affected integration contracts.
 
