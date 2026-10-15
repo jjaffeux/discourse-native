@@ -29,3 +29,25 @@ through `discourse://auth_redirect`. The app declares microphone and camera
 permissions for Voice and attachments; access is requested by the media plugins
 when used. Android remote push registration and the iOS-specific system call UI
 and picture-in-picture bridge are not implemented.
+
+## Launcher icon
+
+The Android icon uses the [Discourse team’s original artwork](https://commons.wikimedia.org/wiki/File:Discourse_icon.svg)
+(GPL-2.0; see `artwork/LICENSE`), kept unchanged in `artwork/discourse_icon.svg`.
+The source download is
+https://upload.wikimedia.org/wikipedia/commons/1/17/Discourse_icon.svg.
+
+Regenerate the Android resources from the repository root with Python 3 and
+`rsvg-convert` (librsvg):
+
+```sh
+python3 tool/generate_android_icons.py
+```
+
+Android 8+ uses a full-bleed black background and the colored speech bubble as
+the vector foreground on a 108dp canvas, matching Meta's launcher icon. The dark
+outer D is replaced by the background; the bubble is optically centered to
+balance its tail and color weight, filling about 72% of the launcher's 72dp
+viewport. The launcher supplies the outer shape
+and effects. A solid speech-bubble silhouette supports Android 13+ themed icons.
+Android 7 uses rounded legacy PNGs at the standard 48/72/96/144/192px density sizes.
