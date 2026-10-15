@@ -3,11 +3,24 @@ part of 'topic_filter_input.dart';
 /// The list sheet keeps its editor and results in one Native command surface.
 /// Its vocabulary and comparison operators still come from the forum.
 extension _TopicFilterSheet on _TopicFilterInputState {
+  int _categoryCount(TopicCategory category, {bool exact = false}) {
+    if (exact) return category.topicCount;
+    final visited = <int>{};
+    int count(TopicCategory item) {
+      if (!visited.add(item.id)) return 0;
+      return item.topicCount +
+          widget.categories
+              .where((child) => child.parentCategoryId == item.id)
+              .fold<int>(0, (total, child) => total + count(child));
+    }
+
+    return count(category);
+  }
+
   bool get _canFinishTags =>
       _sheetTags.isNotEmpty ||
-      splitTopicFilterQuery(
-        widget.initialQuery,
-      ).any((t) => RegExp(r'^-?tags?:').hasMatch(t));
+      _tokens.any(_isTagScopeToken) ||
+      splitTopicFilterQuery(widget.initialQuery).any(_isTagScopeToken);
   List<({List<int> indices, List<String> tokens, String? label})>
   _displayTokens() {
     final result =
@@ -133,27 +146,40 @@ extension _TopicFilterSheet on _TopicFilterInputState {
     _changeSheet(() {
       _tokens = [
         for (final token in _tokens)
-          if (!RegExp(r'^-?tags?:').hasMatch(token)) token,
+          if (!_isTagScopeToken(token)) token,
         if (tags.isNotEmpty)
           '${_tagMode == 'none' || _tagMode == 'notAll' ? '-' : ''}tag:${topicFilterScopeValue(tags.join(_tagMode == 'all' || _tagMode == 'notAll' ? '+' : ','))}',
       ];
     });
     widget.onChanged?.call(_tokens.join(' '));
+    widget.onScopeChanged?.call(_tokens.join(' '));
   }
 
-  void _toggleSheetTag(String tag) {
+  Future<void> _toggleSheetTag(String tag) async {
     final tags = _sheetTags;
     if (!tags.remove(tag)) tags.add(tag);
     _setSheetTags(tags);
     _setTokenDraft('tag:');
     _focus.requestFocus();
-    unawaited(filter.openSuggestions());
+    await filter.openSuggestions();
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final selected = filter.suggestions
+          .where(
+            (item) =>
+                item.term != null &&
+                _unquoteTopicFilterValue(item.term!) == tag,
+          )
+          .firstOrNull;
+      if (selected != null) _sheetCommand.highlight(_commandValue(selected));
+    });
   }
 
   void _stepBackScope() {
     if (widget.onlyKey == 'tag') {
       final tags = _sheetTags;
-      if (tags.isNotEmpty) _setSheetTags(tags..removeLast());
+      _setSheetTags(tags.isEmpty ? [] : (tags..removeLast()));
       return;
     }
     final index = _tokens.lastIndexWhere(
@@ -172,7 +198,6 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       final next = _tokens.toList();
       if (token.startsWith('=')) {
         next[index] = token.substring(1);
-        _categoryExact = false;
       } else if (category?.parentCategoryId case final parent?) {
         next[index] = 'category:$parent';
       } else {
@@ -181,6 +206,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       _tokens = next;
     });
     widget.onChanged?.call(_tokens.join(' '));
+    widget.onScopeChanged?.call(_tokens.join(' '));
   }
 
   String _sheetGroup(TopicFilterSuggestion item) {
@@ -222,6 +248,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
           IgnorePointer(
             child: ExcludeSemantics(
               child: DCheckbox(
+                size: DCheckboxSize.compact,
                 value: _sheetTags.contains(
                   _unquoteTopicFilterValue(suggestion.term!),
                 ),
@@ -235,11 +262,18 @@ extension _TopicFilterSheet on _TopicFilterInputState {
             DIcons.byName[icon] ?? DNativeIcons.byName[icon] ?? DIcons.filter,
             size: 14,
           )
+        else if (suggestion.categoryUp)
+          DIcon(
+            Directionality.of(context) == TextDirection.rtl
+                ? DIcons.chevronRight
+                : DIcons.chevronLeft,
+            size: 12,
+          )
         else if (suggestion.category case final category?)
           CategoryIcon(
             category: category,
-            parentCategory: suggestion.parentCategory,
-            size: 16,
+            size: 14,
+            squareSize: 9,
             siteUrl: widget.siteUrl,
           )
         else if (suggestion.term != null &&
@@ -260,10 +294,11 @@ extension _TopicFilterSheet on _TopicFilterInputState {
               children: [
                 TextSpan(
                   text:
-                      suggestion.displayName ??
-                      (suggestion.category != null
-                          ? suggestion.description
+                      (suggestion.name.startsWith('=category:')
+                          ? suggestion.category?.name
                           : null) ??
+                      suggestion.displayName ??
+                      suggestion.category?.name ??
                       (suggestion.term != null
                           ? _unquoteTopicFilterValue(suggestion.term!)
                           : _sentenceCaseTopicFilterValue(
@@ -272,7 +307,30 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                                   .replaceAll(RegExp(r':$'), '')
                                   .replaceAll(':', ': '),
                             )),
+                  style: suggestion.categoryUp
+                      ? TextStyle(color: DTokens.of(context).mutedForeground)
+                      : null,
                 ),
+                if (suggestion.name.startsWith('=category:'))
+                  TextSpan(
+                    text: context.l10n
+                        .filterCategoryOnly(suggestion.category!.name)
+                        .substring(suggestion.category!.name.length),
+                    style: TextStyle(
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  ),
+                if (suggestion.category != null &&
+                    !suggestion.categoryUp &&
+                    (suggestion.description?.contains(' › ') ?? false))
+                  TextSpan(
+                    text:
+                        '  ${context.l10n.filterCategoryIn(suggestion.description!.split(' › ').reversed.skip(1).toList().reversed.join(' › '))}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  ),
                 if (suggestion.term == null &&
                     suggestion.category == null &&
                     suggestion.description != null)
@@ -288,12 +346,26 @@ extension _TopicFilterSheet on _TopicFilterInputState {
             overflow: TextOverflow.ellipsis,
           ),
         ),
+        if (suggestion.category case final category?
+            when !suggestion.categoryUp)
+          Text(
+            '${_categoryCount(category, exact: suggestion.name.startsWith('='))}',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: DTokens.of(context).mutedForeground,
+            ),
+          ),
         if (suggestion.hasChildren)
           DButton.iconOnly(
             key: ValueKey(
               'topic-filter-category-into-${suggestion.category!.id}',
             ),
-            icon: const DIcon(DIcons.chevronRight, size: 12),
+            icon: DIcon(
+              Directionality.of(context) == TextDirection.rtl
+                  ? DIcons.chevronLeft
+                  : DIcons.chevronRight,
+              size: 12,
+            ),
             tooltip: context.l10n.subcategoriesOf(suggestion.category!.name),
             size: DButtonSize.small,
             variant: DButtonVariant.ghost,
@@ -305,6 +377,8 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         DToggleGroup<String>(
+          wrap: true,
+          spacing: 1,
           values: [_tagMode],
           allowEmptySelection: false,
           density: DToggleDensity.menuFilter,
@@ -337,7 +411,9 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       key: _sheetCommandKey,
       backgroundColor: Colors.transparent,
       controller: _sheetCommand,
-      query: filter.text.text,
+      query: widget.onlyKey == null
+          ? filter.text.text
+          : filter.text.text.replaceFirst('${widget.onlyKey}:', ''),
       shouldFilter: false,
       onValueChanged: (value) {
         final index = filter.suggestions.indexWhere(
@@ -345,7 +421,10 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         );
         if (index >= 0) filter.select(index);
       },
-      onQueryChanged: filter.inputChanged,
+      onQueryChanged: (value) {
+        if (widget.onlyKey != null) _setTokenDraft('${widget.onlyKey}:$value');
+        filter.inputChanged(filter.text.text);
+      },
       onSelected: (value) {
         if (value.startsWith('@')) {
           unawaited(_sheetAction(value));
@@ -379,7 +458,10 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                     borderless: true,
                     autofocus: widget.focusOnOpen,
                     key: widget.inputKey,
-                    controller: filter.text,
+                    controller: widget.onlyKey == null ? filter.text : null,
+                    onEmptyBackspace: widget.onlyKey == null
+                        ? null
+                        : _stepBackScope,
                     focusNode: _focus,
                     placeholder: widget.hintText,
                     semanticLabel: context.l10n.topicFilterQuery,

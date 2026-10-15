@@ -20,6 +20,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
     this.sheetOnMobile = false,
     this.maxCategoryNesting = SiteConfig.defaultMaxCategoryNesting,
     this.segmentBuilder,
+    this.exact = false,
   }) : assert(maxCategoryNesting > 0);
 
   final String siteUrl;
@@ -28,6 +29,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
   final ValueChanged<TopicCategory?>? onSelected;
   final String keyPrefix;
   final bool sheetOnMobile;
+  final bool exact;
 
   /// The site's maximum depth, counting the root as level one.
   /// An existing deeper selection remains visible if cached settings change.
@@ -73,6 +75,8 @@ class TopicCategoryPathSelector extends StatelessWidget {
           category?.name ??
           (level == 0
               ? context.l10n.categories
+              : exact
+              ? context.l10n.filterNoSubcategories
               : context.l10n.subcategoryTopiccategoryselector);
       if (segmentBuilder case final builder?) {
         return ConstrainedBox(

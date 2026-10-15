@@ -10,9 +10,40 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
 import 'topic_filter_input.dart';
+import 'topic_filter_scope.dart';
+
+typedef _TopicListMenuOwner = ({Object context, Object feed});
+
+bool _scopeToken(String token, String key) => key == 'category'
+    ? RegExp(r'^=?category:').hasMatch(token)
+    : RegExp(r'^-?(?:tags?|tag-group|tag_group):').hasMatch(token) ||
+          const {'in:tagged', 'in:untagged'}.contains(token);
+
+String topicListTagFilterLabel(String query, String placeholder) {
+  final token = splitTopicFilterQuery(
+    query,
+  ).where((token) => _scopeToken(token, 'tag')).lastOrNull;
+  if (token == null) return placeholder;
+  if (token == 'in:untagged') return appL10n.filterTagScopeNone;
+  if (token == 'in:tagged') return appL10n.filterTagScopeAny;
+  var value = token.substring(token.indexOf(':') + 1);
+  if (value.startsWith('"') && value.endsWith('"')) {
+    value = value.substring(1, value.length - 1);
+  }
+  if (token.startsWith('tag-group:') || token.startsWith('tag_group:')) {
+    return appL10n.filterTagScopeGroup(value);
+  }
+  final tags = value.split(RegExp('[,+]'));
+  return tags.length == 1
+      ? token.startsWith('-')
+            ? appL10n.filterTagScopeNoneOf(tags.single)
+            : tags.single
+      : appL10n.tagsTopictagselectorValue('${tags.length}');
+}
 
 /// Loads the server's autocomplete vocabulary only when the menu is opened.
-/// A route/account change disposes this menu before a late lookup can apply.
+/// External navigation retires the editor before a late lookup can apply.
+/// Scoped choices can update the owning feed while keeping its menu open.
 class TopicListFilterMenu extends StatefulWidget {
   const TopicListFilterMenu({
     super.key,
@@ -24,6 +55,8 @@ class TopicListFilterMenu extends StatefulWidget {
     this.triggerKey,
     this.icon = const DIcon(DIcons.filter, size: 11),
     this.dimLabel = false,
+    this.categoryParentId,
+    this.onOpenChanged,
   });
   final String siteUrl;
   final String query;
@@ -33,6 +66,8 @@ class TopicListFilterMenu extends StatefulWidget {
   final Key? triggerKey;
   final Widget? icon;
   final bool dimLabel;
+  final int? categoryParentId;
+  final ValueChanged<bool>? onOpenChanged;
 
   @override
   State<TopicListFilterMenu> createState() => _TopicListFilterMenuState();
@@ -40,24 +75,58 @@ class TopicListFilterMenu extends StatefulWidget {
 
 class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   final _popover = DPopoverController();
-  late String _query = widget.query;
+  final _input = TopicFilterInputController();
   List<TopicFilterOption>? _options;
   bool _loading = false;
   ShellController? _shell;
   String? _tabId;
-  Object? _owner;
+  _TopicListMenuOwner? _owner;
   bool _retired = false;
+  bool _publishingScope = false;
+  int _loadEpoch = 0;
+  Rect? _boundary;
 
-  Object _ownerOf(ShellController shell) => shell.readTab(
+  Rect? _panelBoundary() {
+    Rect? boundary;
+    context.visitAncestorElements((element) {
+      if (element.widget is! DPageSurface) return true;
+      final box = element.findRenderObject();
+      if (box is RenderBox && box.hasSize) {
+        boundary = box.localToGlobal(Offset.zero) & box.size;
+      }
+      return false;
+    });
+    return boundary;
+  }
+
+  String get _scopeQuery => widget.filterKey == null
+      ? widget.query
+      : splitTopicFilterQuery(
+          widget.query,
+        ).where((token) => _scopeToken(token, widget.filterKey!)).join(' ');
+
+  String _withScope(String query) => widget.filterKey == null
+      ? query
+      : [
+          ...splitTopicFilterQuery(
+            widget.query,
+          ).where((token) => !_scopeToken(token, widget.filterKey!)),
+          ...splitTopicFilterQuery(
+            query,
+          ).where((token) => _scopeToken(token, widget.filterKey!)),
+        ].join(' ');
+
+  _TopicListMenuOwner _ownerOf(ShellController shell) => shell.readTab(
     _tabId,
     () => (
-      shell.currentInstance?.url,
-      shell.currentAccountIdentity,
-      shell.lifecycle.capture(widget.siteUrl).session,
-      shell.rootMode,
-      shell.activeTabId,
-      shell.topicListContent?.id,
-      shell.topicListContent?.feedPath,
+      context: (
+        shell.currentInstance?.url,
+        shell.currentAccountIdentity,
+        shell.lifecycle.capture(widget.siteUrl).session,
+        shell.rootMode,
+        shell.activeTabId,
+      ),
+      feed: (shell.topicListContent?.id, shell.topicListContent?.feedPath),
     ),
   );
 
@@ -76,8 +145,18 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   }
 
   void _checkOwner() {
-    if (_ownerOf(_shell!) == _owner) return;
+    final owner = _ownerOf(_shell!);
+    if (owner == _owner) return;
+    if (_publishingScope && owner.context == _owner?.context) {
+      // Applying a scope synchronously replaces the feed before loadFeed's
+      // first await. Only that replacement belongs to this open editor.
+      _owner = owner;
+      return;
+    }
     _retired = true;
+    _loadEpoch++;
+    _loading = false;
+    _options = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _popover.close();
     });
@@ -85,11 +164,12 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
 
   Future<void> _load() async {
     if (_retired || _loading || _options != null) return;
+    final epoch = _loadEpoch;
     setState(() => _loading = true);
     final options = await ShellScope.read(
       context,
     ).loadTopicFilterOptions(widget.siteUrl);
-    if (mounted && !_retired) {
+    if (mounted && !_retired && epoch == _loadEpoch) {
       setState(() {
         _options = options;
         _loading = false;
@@ -97,20 +177,29 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     }
   }
 
-  Future<void> _apply(String query) async {
+  Future<void> _apply(String query, {bool close = true}) async {
     if (!mounted || _retired) return;
     final shell = ShellScope.read(context);
     if (_retired || !identical(shell, _shell) || _ownerOf(shell) != _owner) {
       return;
     }
-    _popover.close();
+    if (close) _popover.close();
     if (_tabId case final tabId? when shell.activeTabId != tabId) {
       shell.selectTab(tabId);
     }
     final complete = splitTopicFilterQuery(
-      query,
+      _withScope(query),
     ).where((token) => topicFilterClauseKey(token) != token).join(' ');
-    await (widget.onSubmitted ?? shell.applyTopicListFilterQuery)(complete);
+    late Future<void> applied;
+    _publishingScope = true;
+    try {
+      applied = (widget.onSubmitted ?? shell.applyTopicListFilterQuery)(
+        complete,
+      );
+    } finally {
+      _publishingScope = false;
+    }
+    await applied;
   }
 
   @override
@@ -123,18 +212,26 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   @override
   Widget build(BuildContext context) => DPopover(
     controller: _popover,
+    onEscape: _input.handleEscape,
     sheetOnMobile: true,
     mobileSheetVariant: DSheetVariant.adaptiveMenu,
     mobileSheetSizeToContent: false,
     mobileSheetContentLoading: _options == null,
     onOpenChange: (open, _) {
+      widget.onOpenChanged?.call(open);
       if (open) {
-        setState(() => _query = widget.query);
+        _retired = false;
+        _owner = _ownerOf(_shell!);
+        _boundary = _panelBoundary();
         unawaited(_load());
       }
     },
     content: DPopoverContent(
       width: 320,
+      collisionBoundary: _boundary,
+      sideOffset: widget.filterKey == null ? DSpacing.controlGap : 6,
+      padding: EdgeInsets.all(widget.filterKey == null ? 10 : 4),
+      scrollable: widget.filterKey == null,
       align: DPopoverAlign.start,
       semanticLabel: context.l10n.filterTopics,
       child: Column(
@@ -142,80 +239,76 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         spacing: 12,
         children: [
-          Flexible(
-            child: TopicFilterInput(
-              siteUrl: widget.siteUrl,
-              initialQuery: widget.query,
-              options: _options ?? const [],
-              categories: ShellScope.read(
-                context,
-              ).filterCategoriesFor(widget.siteUrl),
-              hintText: context.l10n.addAFilter,
-              tokenized: true,
-              embedded: true,
-              focusOnOpen: !const {
-                TargetPlatform.iOS,
-                TargetPlatform.android,
-                TargetPlatform.fuchsia,
-              }.contains(Theme.of(context).platform),
-              onlyKey: widget.filterKey,
-              multiline: false,
-              padding: EdgeInsets.zero,
-              onChanged: (query) => setState(() => _query = query),
-              onSubmitted: _apply,
-              onDismiss: _popover.close,
+          if (!_retired)
+            Flexible(
+              child: TopicFilterInput(
+                controller: _input,
+                siteUrl: widget.siteUrl,
+                initialQuery: _scopeQuery,
+                categoryParentId: widget.categoryParentId,
+                categoryContextId: parseTopicFilterScope(
+                  widget.query.replaceAll('=category:', 'category:'),
+                  ShellScope.read(context).filterCategoriesFor(widget.siteUrl),
+                ).categoryId,
+                options: _options ?? const [],
+                categories: ShellScope.read(
+                  context,
+                ).filterCategoriesFor(widget.siteUrl),
+                hintText: switch (widget.filterKey) {
+                  'category' => context.l10n.filterSearchCategories,
+                  'tag' => context.l10n.searchTags,
+                  _ => context.l10n.addAFilter,
+                },
+                tokenized: true,
+                embedded: true,
+                focusOnOpen: !const {
+                  TargetPlatform.iOS,
+                  TargetPlatform.android,
+                  TargetPlatform.fuchsia,
+                }.contains(Theme.of(context).platform),
+                onlyKey: widget.filterKey,
+                multiline: false,
+                padding: EdgeInsets.zero,
+                onScopeChanged: widget.filterKey == null
+                    ? null
+                    : (query) => unawaited(_apply(query, close: false)),
+                onSubmitted: _apply,
+                onDismiss: _popover.close,
+              ),
             ),
-          ),
-          if (widget.filterKey == 'category') ...[
-            const DSeparator(),
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: DSpacing.sm,
-              runSpacing: DSpacing.sm,
-              children: [
-                if (widget.query.isNotEmpty) ...[
-                  DButton(
-                    label: Text(context.l10n.clearFilter),
-                    variant: DButtonVariant.ghost,
-                    onPressed: () => _apply(''),
-                  ),
-                ],
-                DButton(
-                  label: Text(
-                    widget.filterKey == null
-                        ? context.l10n.apply
-                        : context.l10n.done,
-                  ),
-                  size: DButtonSize.small,
-                  onPressed: () => _apply(_query),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     ),
     child: DPopoverTrigger(
       builder: (context, trigger) => DButton(
         key: widget.triggerKey ?? const ValueKey('topic-list-filter'),
-        label: Text(
-          '${widget.label ?? context.l10n.startPageFilters}${widget.filterKey != null || widget.query.isEmpty ? '' : ' · ${topicFilterMenuCount(widget.query)}'}',
-          style: widget.dimLabel
-              ? TextStyle(
-                  color: Color.lerp(
-                    DTokens.of(context).background,
-                    DTokens.of(context).foreground,
-                    .40,
-                  ),
-                )
-              : null,
+        label: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: widget.filterKey == 'tag'
+                ? MediaQuery.textScalerOf(context).scale(88)
+                : double.infinity,
+          ),
+          child: Text(
+            '${widget.label ?? context.l10n.startPageFilters}${widget.filterKey != null || widget.query.isEmpty ? '' : ' · ${topicFilterMenuCount(widget.query)}'}',
+            style: widget.dimLabel
+                ? TextStyle(
+                    color: Color.lerp(
+                      DTokens.of(context).background,
+                      DTokens.of(context).foreground,
+                      .40,
+                    ),
+                  )
+                : null,
+          ),
         ),
         tooltip: widget.query.isEmpty
             ? context.l10n.filterTopics
             : context.l10n.editActiveFilter,
         icon: widget.icon,
         size: DButtonSize.filter,
-        variant: DButtonVariant.quiet,
+        variant: widget.filterKey == 'tag' && _scopeQuery.isNotEmpty
+            ? DButtonVariant.quietSelected
+            : DButtonVariant.quiet,
         focusNode: trigger.focusNode,
         expanded: trigger.open,
         hasPopup: true,

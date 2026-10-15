@@ -8,7 +8,7 @@ import '../foundation/tokens.dart';
 import 'd_label.dart';
 
 /// Checkbox artwork sizes with matching hit areas, in logical pixels.
-enum DCheckboxSize { standard, large }
+enum DCheckboxSize { standard, large, compact }
 
 /// A shadcn checkbox with native focus, keyboard and semantic ownership.
 ///
@@ -23,6 +23,7 @@ enum DCheckboxSize { standard, large }
 /// remains outside the control's semantics and focus owner. Borrowed [focusNode]
 /// is never disposed. The unlabelled control and its hit area are 16×16 logical
 /// pixels for [DCheckboxSize.standard] and 24×24 for [DCheckboxSize.large].
+/// [DCheckboxSize.compact] uses 14×14 artwork and matching bounds for menu rows.
 /// Inline spacing stays outside the hit area.
 class DCheckbox extends StatefulWidget {
   const DCheckbox({
@@ -151,8 +152,12 @@ class _DCheckboxState extends State<DCheckbox> {
     final dimension = switch (widget.size) {
       DCheckboxSize.standard => 16.0,
       DCheckboxSize.large => 24.0,
+      DCheckboxSize.compact => 14.0,
     };
     final artworkScale = dimension / 16;
+    final radius = widget.size == DCheckboxSize.compact
+        ? 4.0
+        : 4 * artworkScale;
     final border = checked
         ? tokens.primary
         : widget.invalid
@@ -181,11 +186,14 @@ class _DCheckboxState extends State<DCheckbox> {
                 alpha: tokens.colors.outlineVariant.a * .3,
               )
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(4 * artworkScale),
-        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: border,
+          width: widget.size == DCheckboxSize.compact && !checked ? 1.5 : 1,
+        ),
       ),
       foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4 * artworkScale),
+        borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: ring ?? Colors.transparent,
           width: 3,

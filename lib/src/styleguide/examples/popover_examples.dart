@@ -16,6 +16,8 @@ final popoverExamples = ComponentExamples(
       'trigger unless DPopoverAnchor marks another descendant. The form '
       'example composes the merged DInput owner; richer Field layouts remain '
       'with the separate in-progress Field owner. '
+      'An editor may return true from onEscape to consume a draft-clearing '
+      'press before anchored or mobile-sheet dismissal. '
       'Menus, Select, Combobox, Hover Card, dialogs and Tooltip retain their '
       'specialized interaction owners.',
   examples: [

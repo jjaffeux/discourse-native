@@ -13,6 +13,29 @@ final toggleGroupExamples = ComponentExamples(
       'Accepted after independent rendered and native review. The frozen 2026-05-17 behavior uses 8px default spacing; spacing 0 joins edges, collapses inner outline borders and uses 8px horizontal padding. Inset standard groups have a recessed frame, muted inactive labels and a full-width active segment. DToggle remains the visual and activation owner. Values may be parent-controlled, borrowed from a DToggleGroupController, or internally owned. Arrow keys follow orientation and RTL, Home/End move to edges, disabled items are skipped, and loopFocus controls wrapping. The documented 64px font-weight tiles compose the accepted DField label and description around the group without transferring control ownership.',
   examples: [
     StyleguideExample(
+      title: 'Wrapping menu choices',
+      description:
+          'Independent 26px choices wrap at narrow widths and large text sizes while retaining group keyboard navigation.',
+      code:
+          'DToggleGroup<String>(wrap: true, density: DToggleDensity.menuFilter, spacing: 1, allowEmptySelection: false, items: filters)',
+      states: const ['Wrapped', 'Selected', 'Keyboard', 'Large text', 'RTL'],
+      builder: (_) => const SizedBox(
+        width: 240,
+        child: DToggleGroup<String>(
+          wrap: true,
+          density: DToggleDensity.menuFilter,
+          spacing: 1,
+          allowEmptySelection: false,
+          items: [
+            DToggleGroupItem(value: 'any', child: Text('Any')),
+            DToggleGroupItem(value: 'all', child: Text('All')),
+            DToggleGroupItem(value: 'none', child: Text('None')),
+            DToggleGroupItem(value: 'notAll', child: Text('Not all')),
+          ],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Header menu filters',
       description:
           '26px pills with accent selection, recessed inactive surfaces, a 28px overflow fade and keyboard navigation. Artwork grows with text.',

@@ -94,6 +94,60 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Category breadcrumb for an exact category filter.
+  ///
+  /// In en, this message translates to:
+  /// **'No subcategories'**
+  String get filterNoSubcategories;
+
+  /// Scoped category filter search placeholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search category…'**
+  String get filterSearchCategories;
+
+  /// Ancestry of a matching category.
+  ///
+  /// In en, this message translates to:
+  /// **'in {path}'**
+  String filterCategoryIn(String path);
+
+  /// Topic filter for any tagged topics.
+  ///
+  /// In en, this message translates to:
+  /// **'Tagged'**
+  String get filterTagged;
+
+  /// Topic filter for topics without tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Untagged'**
+  String get filterUntagged;
+
+  /// Tag filter pill for tagged topics.
+  ///
+  /// In en, this message translates to:
+  /// **'any tag'**
+  String get filterTagScopeAny;
+
+  /// Tag filter pill for untagged topics.
+  ///
+  /// In en, this message translates to:
+  /// **'no tags'**
+  String get filterTagScopeNone;
+
+  /// Tag filter pill for a tag group.
+  ///
+  /// In en, this message translates to:
+  /// **'group {name}'**
+  String filterTagScopeGroup(String name);
+
+  /// Excluded tags in a tag filter pill.
+  ///
+  /// In en, this message translates to:
+  /// **'none of {tags}'**
+  String filterTagScopeNoneOf(String tags);
+
   /// Topic vote count filter title.
   ///
   /// In en, this message translates to:

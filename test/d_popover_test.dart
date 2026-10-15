@@ -110,6 +110,56 @@ void popoverBackdropTests() {
 void main() {
   popoverBackdropTests();
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('editor can consume Escape before dismissal on $platform', (
+      tester,
+    ) async {
+      final controller = DPopoverController();
+      addTearDown(controller.dispose);
+      var draft = 'search';
+      final reasons = <DPopoverChangeReason>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: DPopover(
+              controller: controller,
+              sheetOnMobile: true,
+              onEscape: () {
+                if (draft.isEmpty) return false;
+                draft = '';
+                return true;
+              },
+              onOpenChange: (open, reason) {
+                if (!open) reasons.add(reason);
+              },
+              content: const DPopoverContent(child: Text('Editor content')),
+              child: DPopoverTrigger(
+                builder: (context, trigger) => DButton(
+                  label: const Text('Open editor'),
+                  onPressed: trigger.toggle,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(draft, isEmpty);
+      expect(controller.isOpen, isTrue);
+      expect(reasons, isEmpty);
+      expect(find.text('Editor content'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(reasons, [DPopoverChangeReason.escape]);
+      expect(find.text('Editor content'), findsNothing);
+    }, variant: TargetPlatformVariant.only(platform));
+  }
+
   for (final material in DAppearanceMaterial.values) {
     testWidgets('popup animation avoids content build and layout ($material)', (
       tester,

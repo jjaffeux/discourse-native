@@ -9,6 +9,39 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get filterNoSubcategories => 'No subcategories';
+
+  @override
+  String get filterSearchCategories => 'Search category…';
+
+  @override
+  String filterCategoryIn(String path) {
+    return 'in $path';
+  }
+
+  @override
+  String get filterTagged => 'Tagged';
+
+  @override
+  String get filterUntagged => 'Untagged';
+
+  @override
+  String get filterTagScopeAny => 'any tag';
+
+  @override
+  String get filterTagScopeNone => 'no tags';
+
+  @override
+  String filterTagScopeGroup(String name) {
+    return 'group $name';
+  }
+
+  @override
+  String filterTagScopeNoneOf(String tags) {
+    return 'none of $tags';
+  }
+
+  @override
   String get filterVotesTitle => 'Votes';
 
   @override

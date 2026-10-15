@@ -96,8 +96,13 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
     this.slidingIndicator = false,
     this.semanticLabel,
     this.scrollable = true,
+    this.wrap = false,
   }) : assert(values == null || controller == null),
        assert(spacing >= 0),
+       assert(
+         !wrap || (!expanded && !inset && !slidingIndicator),
+         'Wrapping groups require independent, non-expanded choices.',
+       ),
        assert(
          density != DToggleDensity.compactInset || ((inset) && !expanded),
          'Compact inset groups require two horizontal icon choices.',
@@ -141,6 +146,11 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
 
   /// Scroll along the group axis instead of overflowing a narrow viewport.
   final bool scrollable;
+
+  /// Flows independent choices onto additional rows within the available width.
+  /// Retains the group's selection, roving focus, and keyboard order.
+  /// Overrides [scrollable]; incompatible with inset and expanded groups.
+  final bool wrap;
 
   @override
   State<DToggleGroup<T>> createState() => _DToggleGroupState<T>();
@@ -392,7 +402,10 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
       final renderObject = itemContext?.findRenderObject();
       final scrollable = itemContext == null
           ? null
-          : Scrollable.maybeOf(itemContext, axis: Axis.horizontal);
+          : Scrollable.maybeOf(
+              itemContext,
+              axis: widget.wrap ? Axis.vertical : Axis.horizontal,
+            );
       if (renderObject == null ||
           !renderObject.attached ||
           scrollable == null) {
@@ -409,7 +422,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         renderObject,
         alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
       );
-      if (widget.density == DToggleDensity.menuFilter) {
+      if (!widget.wrap && widget.density == DToggleDensity.menuFilter) {
         // Keep a keyboard-selected pill clear of the menu's overflow fade.
         scrollable.position.ensureVisible(renderObject, alignment: .5);
       }
@@ -441,7 +454,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         : widget.inset
         ? 2.0
         : widget.spacing * 4;
-    final connected = gap == 0;
+    final connected = gap == 0 && !widget.wrap;
     final children = <Widget>[];
     for (var index = 0; index < widget.items.length; index++) {
       final item = widget.items[index];
@@ -539,18 +552,25 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         );
       }
       children.add(widget.expanded ? Expanded(child: toggle) : toggle);
-      if (index != widget.items.length - 1 && gap > 0) {
+      if (!widget.wrap && index != widget.items.length - 1 && gap > 0) {
         children.add(SizedBox(width: (gap), height: 0));
       }
     }
 
-    Widget group = _FocusOrderedFlex(
-      direction: Axis.horizontal,
-      mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      focusedChildIndex: connected ? _rovingIndex : null,
-      children: children,
-    );
+    Widget group = widget.wrap
+        ? Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: children,
+          )
+        : _FocusOrderedFlex(
+            direction: Axis.horizontal,
+            mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            focusedChildIndex: connected ? _rovingIndex : null,
+            children: children,
+          );
     if (widget.slidingIndicator) {
       final rect = _indicatorRect;
       group = Stack(
@@ -581,7 +601,13 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         ],
       );
     }
-    if (widget.scrollable && !widget.expanded) {
+    if (widget.wrap && widget.density == DToggleDensity.menuFilter) {
+      group = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: group,
+      );
+    }
+    if (widget.scrollable && !widget.expanded && !widget.wrap) {
       group = SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         // The mockup pads the scroll viewport itself. Padding outside it

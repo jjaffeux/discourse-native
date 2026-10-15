@@ -193,7 +193,15 @@ extension _TopicFilterMenuSuggestions on TopicFilterSuggestions {
           .where((o) => o.type == 'tag_group')
           .firstOrNull;
       final result = <TopicFilterSuggestion>[
-        for (final tag in await tags(value))
+        for (final tag
+            in (await tags(value)).toList()..sort((a, b) {
+              final usage = (int.tryParse(b.description ?? '') ?? 0).compareTo(
+                int.tryParse(a.description ?? '') ?? 0,
+              );
+              return usage != 0
+                  ? usage
+                  : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+            }))
           TopicFilterSuggestion(
             name: '$key:${_ValueSuggester._quoteIfNeeded(tag.name)}',
             displayName: tag.name,
@@ -211,10 +219,17 @@ extension _TopicFilterMenuSuggestions on TopicFilterSuggestions {
               menuGroup: appL10n.filterTagGroups,
               menuIcon: 'tags',
             ),
+        if (value.isEmpty && options.any((o) => o.name == 'in:tagged'))
+          TopicFilterSuggestion(
+            name: 'in:tagged',
+            displayName: appL10n.filterTagged,
+            term: 'tagged',
+            menuGroup: appL10n.other,
+          ),
         if (value.isEmpty && options.any((o) => o.name == 'in:untagged'))
           TopicFilterSuggestion(
             name: 'in:untagged',
-            displayName: appL10n.noTags,
+            displayName: appL10n.filterUntagged,
             term: 'untagged',
             menuGroup: appL10n.other,
           ),

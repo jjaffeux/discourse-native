@@ -11,6 +11,7 @@ import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'forum_theme_surfaces.dart';
+import 'topic_category_path.dart';
 import 'topic_filter_controller.dart';
 import 'topic_filter_scope.dart';
 import 'topic_list_actions.dart';
@@ -19,7 +20,7 @@ import 'topic_list_layout.dart';
 typedef TopicListTagSearch =
     Future<List<TopicFilterLookupValue>> Function(String term);
 
-class TopicListFilterBar extends StatelessWidget {
+class TopicListFilterBar extends StatefulWidget {
   const TopicListFilterBar({
     super.key,
     required this.siteUrl,
@@ -60,49 +61,89 @@ class TopicListFilterBar extends StatelessWidget {
   final String? filterQuery;
 
   @override
+  State<TopicListFilterBar> createState() => _TopicListFilterBarState();
+}
+
+class _TopicListFilterBarState extends State<TopicListFilterBar> {
+  // A menu keeps its editor when Backspace removes the segment it opened
+  // from; its key moves to the last remaining segment of the shortened path.
+  final _categoryMenuKeys = <int, GlobalKey>{};
+  int? _openCategoryLevel;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final selectedTags = [
-      for (final value in selectedTagNames ?? [?selectedTagName])
-        _selectedTag(knownTags, value),
+      for (final value in widget.selectedTagNames ?? [?widget.selectedTagName])
+        _selectedTag(widget.knownTags, value),
     ];
 
     final displayedCategoryId =
-        selectedCategoryId ??
+        widget.selectedCategoryId ??
         parseTopicFilterScope(
-          splitTopicFilterQuery(filterQuery ?? '')
+          splitTopicFilterQuery(widget.filterQuery ?? '')
               .map(
                 (token) =>
                     token.startsWith('=category:') ? token.substring(1) : token,
               )
               .join(' '),
-          categories,
+          widget.categories,
         ).categoryId;
+    final byId = {
+      for (final category in widget.categories) category.id: category,
+    };
+    final selected = byId[displayedCategoryId];
+    final path = selected == null
+        ? <TopicCategory>[]
+        : topicCategoryPath(selected, categoryFor: (id) => byId[id]);
+    final hasDeeper = widget.categories.any(
+      (category) => category.parentCategoryId == selected?.id,
+    );
+    final lastLevel = path.isEmpty
+        ? 0
+        : hasDeeper && path.length < widget.maxCategoryNesting
+        ? path.length
+        : path.length - 1;
+    final activeLevel = _openCategoryLevel?.clamp(0, lastLevel);
+    final exact = splitTopicFilterQuery(
+      widget.filterQuery ?? '',
+    ).any((token) => token.startsWith('=category:'));
     final controlChildren = <Widget>[
-      if (filterQuery != null) ...[
+      if (widget.filterQuery != null) ...[
         TopicCategoryPathSelector(
           keyPrefix: 'topic-list',
-          siteUrl: siteUrl,
-          categories: categories,
+          siteUrl: widget.siteUrl,
+          categories: widget.categories,
           selectedCategoryId: displayedCategoryId,
-          onSelected: onCategorySelected,
-          maxCategoryNesting: maxCategoryNesting,
+          exact: exact,
+          onSelected: widget.onCategorySelected,
+          maxCategoryNesting: widget.maxCategoryNesting,
           segmentBuilder: (context, level, category, label) =>
               TopicListFilterMenu(
-                siteUrl: siteUrl,
-                query: filterQuery!,
+                key: _categoryMenuKeys.putIfAbsent(
+                  level == activeLevel ? _openCategoryLevel! : level,
+                  GlobalKey.new,
+                ),
+                onOpenChanged: (open) {
+                  if (mounted) {
+                    setState(() => _openCategoryLevel = open ? level : null);
+                  }
+                },
+                siteUrl: widget.siteUrl,
+                query: widget.filterQuery!,
                 filterKey: 'category',
+                categoryParentId: level == 0 ? null : path[level - 1].id,
                 triggerKey: ValueKey(
                   level == 0
                       ? 'topic-list-category-filter'
                       : 'topic-list-subcategory-filter-$level',
                 ),
                 label: label,
-                dimLabel: category == null && level > 0,
+                dimLabel: category == null && level > 0 && !exact,
                 icon: category != null
                     ? CategoryIcon(
                         category: category,
-                        siteUrl: siteUrl,
+                        siteUrl: widget.siteUrl,
                         size: 12,
                         squareSize: 10,
                       )
@@ -111,29 +152,30 @@ class TopicListFilterBar extends StatelessWidget {
                     : null,
               ),
         ),
-        if (taggingEnabled)
+        if (widget.taggingEnabled)
           TopicListFilterMenu(
-            siteUrl: siteUrl,
-            query: filterQuery!,
+            siteUrl: widget.siteUrl,
+            query: widget.filterQuery!,
             filterKey: 'tag',
             triggerKey: const ValueKey('topic-list-tag-filter'),
-            label: selectedTags.isEmpty
-                ? context.l10n.tags
-                : selectedTags.map((tag) => tag.name).join(', '),
+            label: topicListTagFilterLabel(
+              widget.filterQuery!,
+              context.l10n.tags,
+            ),
             icon: const DIcon(DIcons.tag, size: 12),
           ),
       ],
-      if (filterQuery == null)
+      if (widget.filterQuery == null)
         TopicCategoryPathSelector(
           keyPrefix: 'topic-list',
-          siteUrl: siteUrl,
-          categories: categories,
-          selectedCategoryId: selectedCategoryId,
-          onSelected: onCategorySelected,
+          siteUrl: widget.siteUrl,
+          categories: widget.categories,
+          selectedCategoryId: widget.selectedCategoryId,
+          onSelected: widget.onCategorySelected,
           sheetOnMobile: true,
-          maxCategoryNesting: maxCategoryNesting,
+          maxCategoryNesting: widget.maxCategoryNesting,
         ),
-      if (taggingEnabled && filterQuery == null)
+      if (widget.taggingEnabled && widget.filterQuery == null)
         TopicTagSelector(
           key: const ValueKey('topic-list-tag-filter'),
           keyPrefix: 'topic-list-tag-filter',
@@ -141,9 +183,9 @@ class TopicListFilterBar extends StatelessWidget {
           quiet: true,
           sheetOnMobile: true,
           size: DButtonSize.filter,
-          multiple: onTagsSelected != null,
+          multiple: widget.onTagsSelected != null,
           knownTags: [
-            for (final tag in knownTags)
+            for (final tag in widget.knownTags)
               TopicTag(
                 id: tag.id,
                 name: tag.name,
@@ -163,7 +205,7 @@ class TopicListFilterBar extends StatelessWidget {
                 ),
           search: (query) async => TopicTagSearch(
             tags: [
-              for (final tag in await searchTags(query))
+              for (final tag in await widget.searchTags(query))
                 TopicTag(
                   name: tag.name,
                   count: int.tryParse(tag.description ?? '') ?? 0,
@@ -171,20 +213,20 @@ class TopicListFilterBar extends StatelessWidget {
             ],
           ),
           onChanged: (tags) {
-            if (onTagsSelected case final onSelected?) {
+            if (widget.onTagsSelected case final onSelected?) {
               onSelected(tags.map((tag) => tag.name).toList());
             } else {
               final tag = tags.firstOrNull;
-              onTagSelected(tag?.slug ?? tag?.name);
+              widget.onTagSelected(tag?.slug ?? tag?.name);
             }
           },
         ),
     ];
-    final controls = compact
+    final controls = widget.compact
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ?leading,
+              ?widget.leading,
               Row(
                 children: [
                   Expanded(child: controlChildren.first),
@@ -200,23 +242,23 @@ class TopicListFilterBar extends StatelessWidget {
               ],
             ],
           )
-        : wrap
+        : widget.wrap
         ? Wrap(
             spacing: DSpacing.sm,
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
-            children: [?leading, ...controlChildren],
+            children: [?widget.leading, ...controlChildren],
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (leading != null) ...[
-                leading!,
+              if (widget.leading != null) ...[
+                widget.leading!,
                 const SizedBox(width: DSpacing.sm),
               ],
               for (var index = 0; index < controlChildren.length; index++) ...[
                 if (index > 0) const SizedBox(width: DSpacing.sm),
-                if (inline)
+                if (widget.inline)
                   Flexible(child: controlChildren[index])
                 else
                   controlChildren[index],
@@ -227,15 +269,15 @@ class TopicListFilterBar extends StatelessWidget {
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
       color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
-      child: compact
+      child: widget.compact
           ? controls
-          : wrap
+          : widget.wrap
           ? Align(
               widthFactor: 1,
               alignment: AlignmentDirectional.centerStart,
               child: controls,
             )
-          : inline
+          : widget.inline
           ? controls
           : ContentReadingLaneBox(
               widthLimit: topicListContentWidth,

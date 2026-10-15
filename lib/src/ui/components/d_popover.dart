@@ -149,6 +149,7 @@ class DPopover extends StatefulWidget {
     this.controller,
     this.onOpenChange,
     this.onOpenChangeComplete,
+    this.onEscape,
     this.restoreFocus = true,
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
@@ -169,6 +170,11 @@ class DPopover extends StatefulWidget {
   final DPopoverController? controller;
   final DPopoverOpenChange? onOpenChange;
   final ValueChanged<bool>? onOpenChangeComplete;
+
+  /// Lets an editor consume Escape before the popover dismisses.
+  /// Return true after clearing a draft; false allows ordinary dismissal.
+  /// Applies to both anchored popovers and their mobile sheets.
+  final bool Function()? onEscape;
   final bool restoreFocus;
 
   /// Presents a modal bottom sheet on iOS, Android and Fuchsia.
@@ -340,6 +346,11 @@ class _DPopoverState extends State<DPopover>
     if (!mounted ||
         value == _open ||
         (value && (_suspended || !_tickersEnabled))) {
+      return;
+    }
+    if (!value &&
+        reason == DPopoverChangeReason.escape &&
+        (widget.onEscape?.call() ?? false)) {
       return;
     }
     _interaction = interaction;

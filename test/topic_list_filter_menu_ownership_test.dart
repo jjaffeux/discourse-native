@@ -67,11 +67,17 @@ void main() {
           // The real inbox workspace retains this navigation within a tab.
           expect(tester.element(find.byType(TopicListNavigation)), navigation);
           final replacement = shell.topicListContent;
-          expect(fixture.observer.pops, 0);
+          expect(
+            fixture.observer.pops,
+            platform == TargetPlatform.android ? 1 : 0,
+          );
           expect(find.byType(DCommandList<String>), findsNothing);
           expect(shell.topicListContent, replacement);
           expect(tester.takeException(), isNull);
-          expect(fixture.observer.pops, 0);
+          expect(
+            fixture.observer.pops,
+            platform == TargetPlatform.android ? 1 : 0,
+          );
 
           await _open(tester, menu);
           await _choose(tester, menu);
@@ -84,7 +90,10 @@ void main() {
               menu == 'category' ? 1 : 2,
             );
           }
-          expect(fixture.observer.pops, 0);
+          expect(
+            fixture.observer.pops,
+            platform == TargetPlatform.android ? 2 : 0,
+          );
         },
       );
     }
@@ -126,16 +135,7 @@ void main() {
                   : item.value == 'category:${menu == 'category' ? 1 : 2}',
             )
             .value;
-        final done = menu == 'tag'
-            ? () => command.onSelected!('@done-tags')
-            : tester
-                  .widget<DButton>(
-                    find.ancestor(
-                      of: find.text('Done'),
-                      matching: find.byType(DButton),
-                    ),
-                  )
-                  .onPressed!;
+        void done() => command.onSelected!('@done-tags');
         shell.selectInstance(1);
         final replacement = shell.topicListContent;
         // Deliver both old callbacks before Flutter rebuilds the anchor.
@@ -370,7 +370,7 @@ Future<void> _choose(
 Future<void> _query(WidgetTester tester, String text) async {
   await tester.enterText(
     find.byKey(const ValueKey('topic-filter-input')),
-    'tag:$text',
+    text,
   );
   await tester.pump(const Duration(milliseconds: 250));
   await tester.pump();

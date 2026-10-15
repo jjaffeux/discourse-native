@@ -10,6 +10,74 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'wrapped menu choices retain bounds and keyboard order in $direction',
+      (tester) async {
+        final changes = <List<String>>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(2)),
+              child: Directionality(textDirection: direction, child: child!),
+            ),
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 220,
+                  child: DToggleGroup<String>(
+                    wrap: true,
+                    density: DToggleDensity.menuFilter,
+                    spacing: 1,
+                    allowEmptySelection: false,
+                    onChanged: changes.add,
+                    items: const [
+                      DToggleGroupItem(value: 'any', child: Text('Any')),
+                      DToggleGroupItem(value: 'all', child: Text('All')),
+                      DToggleGroupItem(value: 'none', child: Text('None')),
+                      DToggleGroupItem(value: 'notAll', child: Text('Not all')),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final group = find.byType(DToggleGroup<String>);
+        final bounds = tester.getRect(group);
+        final toggles = find.descendant(
+          of: group,
+          matching: find.byType(DToggle),
+        );
+        final rects = [
+          for (var i = 0; i < 4; i++) tester.getRect(toggles.at(i)),
+        ];
+        expect(rects.map((rect) => rect.top).toSet().length, greaterThan(1));
+        for (final rect in rects) {
+          expect(rect.left, greaterThanOrEqualTo(bounds.left));
+          expect(rect.right, lessThanOrEqualTo(bounds.right));
+        }
+        await tester.tap(find.text('Any'));
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<DToggle>(toggles.last).focusNode!.hasFocus,
+          isTrue,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(changes.last, ['notAll']);
+        expect(tester.widget<DToggle>(toggles.last).pressed, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('compact inset keeps mockup artwork and mobile tap targets', (
     tester,
   ) async {
@@ -309,6 +377,7 @@ void main() {
     (tester) async {
       expect(componentExamples['toggle-group'], same(toggleGroupExamples));
       expect(toggleGroupExamples.examples.map((example) => example.title), [
+        'Wrapping menu choices',
         'Header menu filters',
         'Compact inset icon choices',
         'Appearance mode segments',

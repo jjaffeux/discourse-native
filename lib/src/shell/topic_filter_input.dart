@@ -17,6 +17,15 @@ import 'topic_filter_scope.dart';
 
 part 'topic_filter_sheet.dart';
 
+bool _isTagScopeToken(String token) =>
+    RegExp(r'^-?(?:tags?|tag-group|tag_group):').hasMatch(token) ||
+    const {'in:tagged', 'in:untagged'}.contains(token);
+
+class TopicFilterInputController {
+  bool Function()? _handleEscape;
+  bool handleEscape() => _handleEscape?.call() ?? false;
+}
+
 class TopicFilterInput extends StatefulWidget {
   const TopicFilterInput({
     super.key,
@@ -38,6 +47,10 @@ class TopicFilterInput extends StatefulWidget {
     this.embedded = false,
     this.focusOnOpen = true,
     this.onlyKey,
+    this.categoryParentId,
+    this.categoryContextId,
+    this.onScopeChanged,
+    this.controller,
   });
 
   final String siteUrl;
@@ -60,6 +73,10 @@ class TopicFilterInput extends StatefulWidget {
   final bool embedded;
   final bool focusOnOpen;
   final String? onlyKey;
+  final int? categoryParentId;
+  final int? categoryContextId;
+  final ValueChanged<String>? onScopeChanged;
+  final TopicFilterInputController? controller;
 
   @override
   State<TopicFilterInput> createState() => _TopicFilterInputState();
@@ -79,7 +96,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   bool _visible = true;
   bool _visibilityDismissScheduled = false;
   String _tagMode = 'any';
-  bool _categoryExact = false;
   String? _activeMenuField;
   bool _menuDateSelected = false;
   void _changeSheet(VoidCallback update) => setState(update);
@@ -91,6 +107,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     super.initState();
     _focus.addListener(_onFocusChanged);
     _focus.onKeyEvent = _onKey;
+    widget.controller?._handleEscape = _handleMenuEscape;
   }
 
   void _onFocusChanged() {
@@ -122,10 +139,17 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   @override
   void didUpdateWidget(TopicFilterInput oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?._handleEscape = null;
+      widget.controller?._handleEscape = _handleMenuEscape;
+    }
     if (oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.tokenized != widget.tokenized) {
       _replaceController(_shell!);
       return;
+    }
+    if (oldWidget.categoryParentId != widget.categoryParentId) {
+      _categoryParentId = widget.categoryParentId;
     }
     filter.updateEngine(_engine(_shell!));
     if (oldWidget.enabled && !widget.enabled) {
@@ -167,7 +191,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     _tagMode = tag?.startsWith('-') == true
         ? (tag!.contains('+') ? 'notAll' : 'none')
         : (tag?.contains('+') == true ? 'all' : 'any');
-    _categoryExact = _tokens.any((value) => value.startsWith('=category:'));
+    _categoryParentId = widget.categoryParentId;
     _filter = TopicFilterController(
       initialQuery: widget.tokenized
           ? (widget.onlyKey == null ? '' : '${widget.onlyKey}:')
@@ -220,14 +244,17 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                 ? 'category'
                 : null),
         menuDateSelected: _menuDateSelected,
+        scopedKey: widget.onlyKey,
         categories: widget.categories,
         categoryLookup: (term) =>
             shell.searchFilterCategories(siteUrl: widget.siteUrl, term: term),
         tags: (term) async {
-          final categoryId = parseTopicFilterScope(
-            _tokens.join(' '),
-            widget.categories,
-          ).categoryId;
+          final categoryId =
+              parseTopicFilterScope(
+                _tokens.join(' '),
+                widget.categories,
+              ).categoryId ??
+              widget.categoryContextId;
           final remote = await shell.searchFilterTags(
             siteUrl: widget.siteUrl,
             term: term,
@@ -334,6 +361,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     if (!widget.enabled || index < 0 || index >= _tokens.length) return;
     setState(() => _tokens = [..._tokens]..removeAt(index));
     widget.onChanged?.call(_composeTokenQuery());
+    widget.onScopeChanged?.call(_tokens.join(' '));
     filter.updateEngine(_engine(_shell!));
     _focus.requestFocus();
     unawaited(filter.openSuggestions());
@@ -351,9 +379,14 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     }
     setState(() => _tokens = [..._tokens]..removeAt(index));
     _categoryParentId = null;
-    _setTokenDraft(topicFilterClauseKey(token) ?? token);
+    _setTokenDraft(
+      widget.onlyKey == null
+          ? topicFilterClauseKey(token) ?? token
+          : '${widget.onlyKey}:',
+    );
     filter.updateEngine(_engine(_shell!));
     widget.onChanged?.call(_composeTokenQuery());
+    widget.onScopeChanged?.call(_tokens.join(' '));
     filter.dismiss();
     _focus.requestFocus();
     final staged = filter.text.text;
@@ -433,9 +466,10 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         );
         return KeyEventResult.handled;
       case LogicalKeyboardKey.escape when filter.isOpen:
-        if (widget.tokenized && filter.text.text.isNotEmpty) {
-          _setTokenDraft('');
-          _categoryParentId = null;
+        if (widget.controller != null) return KeyEventResult.ignored;
+        final lead = widget.onlyKey == null ? '' : '${widget.onlyKey}:';
+        if (widget.tokenized && filter.text.text != lead) {
+          _setTokenDraft(lead);
           filter.updateEngine(_engine(_shell!));
           widget.onChanged?.call(_composeTokenQuery());
         } else {
@@ -445,17 +479,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         return KeyEventResult.handled;
       case LogicalKeyboardKey.tab when filter.isOpen:
         unawaited(_acceptSelectedOrFallback(allowFallback: false));
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.backspace
-          when widget.embedded &&
-              _categoryParentId != null &&
-              filter.text.text == 'category:':
-        _browseCategory(
-          widget.categories
-              .where((item) => item.id == _categoryParentId)
-              .firstOrNull,
-          up: true,
-        );
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace
           when widget.embedded &&
@@ -510,6 +533,16 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     }
   }
 
+  bool _handleMenuEscape() {
+    final lead = widget.onlyKey == null ? '' : '${widget.onlyKey}:';
+    if (filter.text.text == lead) return false;
+    _setTokenDraft(lead);
+    filter.updateEngine(_engine(_shell!));
+    widget.onChanged?.call(_composeTokenQuery());
+    setState(() {});
+    return true;
+  }
+
   Future<void> _acceptSelectedOrFallback({bool allowFallback = true}) async {
     if (widget.embedded && await _sheetAction(_sheetCommand.value)) return;
     final controller = filter;
@@ -561,8 +594,11 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         _isTagStage &&
         suggestion.term != null &&
         RegExp(r'^tags?:').hasMatch(suggestion.name)) {
-      _toggleSheetTag(_unquoteTopicFilterValue(suggestion.term!));
+      await _toggleSheetTag(_unquoteTopicFilterValue(suggestion.term!));
       return;
+    }
+    if (widget.embedded && _isTagStage && _isTagScopeToken(suggestion.name)) {
+      _tokens = _tokens.where((token) => !_isTagScopeToken(token)).toList();
     }
     if (widget.embedded && suggestion.replaceKeys.isNotEmpty) {
       _tokens = _tokens
@@ -572,19 +608,18 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           )
           .toList();
     }
-    if (widget.embedded && suggestion.category != null && _categoryExact) {
-      suggestion = TopicFilterSuggestion(
-        name: '=${suggestion.name}',
-        category: suggestion.category,
-        isSuggestion: true,
-      );
+    if (widget.embedded && suggestion.category != null) {
       _tokens = _tokens
           .where((token) => !RegExp(r'^=?category:').hasMatch(token))
           .toList();
-    } else if (widget.embedded && suggestion.category != null) {
-      _tokens = _tokens
-          .where((token) => !token.startsWith('=category:'))
-          .toList();
+    }
+    if (widget.embedded &&
+        widget.onlyKey != null &&
+        _completesClause(suggestion)) {
+      _setTokenDraft(suggestion.name);
+      _commitTokenDraft();
+      await widget.onSubmitted(_tokens.join(' '));
+      return;
     }
     final acceptance = filter.accept(suggestion);
     if (widget.tokenized && _completesClause(suggestion)) {
@@ -615,6 +650,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
 
   @override
   void dispose() {
+    widget.controller?._handleEscape = null;
     _filter?.removeListener(_onFilterChanged);
     _filter?.text.removeListener(_onTextChanged);
     _filter?.dispose();

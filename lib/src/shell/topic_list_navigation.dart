@@ -66,8 +66,10 @@ _TopicListFilterOwner _filterOwner(ShellController controller) {
   );
 }
 
-typedef TopicListHeadingBuilder =
-    Widget Function(BuildContext context, Widget? navigation);
+typedef TopicListHeadingBuilder = Widget Function(
+  BuildContext context,
+  Widget? navigation,
+);
 
 class TopicListNavigation extends StatelessWidget {
   const TopicListNavigation({
@@ -161,9 +163,8 @@ class TopicListNavigation extends StatelessWidget {
             header:
                 constraints.maxHeight <
                     320 *
-                        MediaQuery.textScalerOf(
-                          context,
-                        ).scale(DiscourseTypography.base) /
+                        MediaQuery.textScalerOf(context)
+                            .scale(DiscourseTypography.base) /
                         DiscourseTypography.base
                 ? ConstrainedBox(
                     constraints: BoxConstraints(
@@ -230,7 +231,14 @@ class _TopicListNavigationControls extends StatelessWidget {
     final filters = !showsFilters
         ? null
         : TopicListFilterBar(
-            key: ValueKey(owner),
+            key: ValueKey((
+              owner.controller,
+              owner.siteUrl,
+              owner.accountIdentity,
+              owner.session,
+              owner.tabId,
+              owner.rootMode,
+            )),
             inline: true,
             wrap: true,
             leading: showsTabs ? navigation : null,

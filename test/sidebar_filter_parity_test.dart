@@ -384,7 +384,7 @@ void main() {
       await tester.enterText(field, 'category:remote');
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Knowledge › Remote leaf'));
+      await tester.tap(find.text('Remote leaf  in Knowledge'));
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
@@ -500,7 +500,7 @@ void main() {
     await tester.enterText(field, 'category:design');
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Product › Design'));
+    await tester.tap(find.text('Design  in Product'));
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();

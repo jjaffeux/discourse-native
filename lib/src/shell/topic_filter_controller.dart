@@ -62,6 +62,7 @@ class TopicFilterSuggestions {
     this.allOptions = false,
     this.menuField,
     this.menuDateSelected = false,
+    this.scopedKey,
   });
 
   static const int maxResults = 20;
@@ -71,6 +72,7 @@ class TopicFilterSuggestions {
   final bool allOptions;
   final String? menuField;
   final bool menuDateSelected;
+  final String? scopedKey;
   final List<TopicFilterOption> options;
   final List<TopicCategory> categories;
   final TopicFilterCategoryLookup categoryLookup;
@@ -80,7 +82,17 @@ class TopicFilterSuggestions {
   final TopicFilterLookup groups;
 
   Future<List<TopicFilterSuggestion>> suggestions(String text) async {
-    final segment = _FilterInput(text).lastSegment;
+    final segment = scopedKey == null
+        ? _FilterInput(text).lastSegment
+        : _FilterSegment(
+            word: text,
+            prefix: '',
+            filterName: scopedKey,
+            value: text.startsWith('$scopedKey:')
+                ? text.substring(scopedKey!.length + 1)
+                : '',
+            hasColon: true,
+          );
     if (allOptions) {
       final menu = await _menuSuggestions(segment);
       if (menu != null) return menu;
@@ -150,7 +162,7 @@ class TopicFilterSuggestions {
               ),
           ];
         }
-        return _ValueSuggester(
+        final values = await _ValueSuggester(
           option: option!,
           segment: segment,
           categories: categories,
@@ -160,6 +172,29 @@ class TopicFilterSuggestions {
           users: users,
           groups: groups,
         ).suggestions();
+        if (allOptions &&
+            hierarchicalCategories &&
+            option.type == 'category' &&
+            segment.prefix.isEmpty) {
+          return [
+            for (final value in values) ...[
+              value,
+              if (value.category case final category?
+                  when category.topicCount > 0 &&
+                      categories.any(
+                        (child) => child.parentCategoryId == category.id,
+                      ))
+                TopicFilterSuggestion(
+                  name: '=${value.name}',
+                  displayName: appL10n.filterCategoryOnly(category.name),
+                  description: value.description,
+                  category: category,
+                  isSuggestion: true,
+                ),
+            ],
+          ];
+        }
+        return values;
       }
     }
 

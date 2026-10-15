@@ -14,15 +14,23 @@ final checkboxExamples = ComponentExamples(
       'tristate enabled. DCheckboxFormField integrates validation, save and reset. '
       'Independent actions belong outside title/subtitle. Reference control is '
       '16px with 14px Lucide artwork; DCheckboxSize.large is 24px with 21px '
-      'artwork. Both sizes have matching hit areas. '
+      'artwork. DCheckboxSize.compact is 14px for menu rows. '
+      'All sizes have matching hit areas. '
       'Use the shared preview controls for live light/dark/custom palettes, '
       '360px width, 200% text, RTL and reduced motion.',
   examples: [
     StyleguideExample(
       title: 'Sizes',
       description:
-          'Standard 16px and large 24px checkboxes. Mobile todos use the large size; inline spacing stays outside the hit area.',
-      states: const ['Standard', 'Large', 'Unchecked', 'Checked', 'Mixed'],
+          'Standard 16px, large 24px and compact 14px checkboxes. Mobile todos use the large size; inline spacing stays outside the hit area.',
+      states: const [
+        'Standard',
+        'Large',
+        'Compact',
+        'Unchecked',
+        'Checked',
+        'Mixed',
+      ],
       code:
           "DCheckbox.defaultValue(size: DCheckboxSize.large)\nDCheckbox.defaultValue(size: DCheckboxSize.large, )\nDCheckbox.defaultValue(size: DCheckboxSize.large, tristate: true, )",
       builder: (_) => Column(
@@ -45,7 +53,11 @@ final checkboxExamples = ComponentExamples(
 
                       semanticLabel: '${size.name} checkbox',
                     ),
-                  Text(size == DCheckboxSize.large ? '24px' : '16px'),
+                  Text(switch (size) {
+                    DCheckboxSize.compact => '14px',
+                    DCheckboxSize.standard => '16px',
+                    DCheckboxSize.large => '24px',
+                  }),
                 ],
               ),
             ),

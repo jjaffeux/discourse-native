@@ -50,7 +50,11 @@ void main() {
           ),
         );
         final artwork = tester.getRect(find.byType(AnimatedContainer));
-        final dimension = size == DCheckboxSize.large ? 24.0 : 16.0;
+        final dimension = switch (size) {
+          DCheckboxSize.compact => 14.0,
+          DCheckboxSize.standard => 16.0,
+          DCheckboxSize.large => 24.0,
+        };
         expect(artwork.size, Size.square(dimension));
         expect(tester.getRect(find.byType(GestureDetector)), artwork);
         expect(
