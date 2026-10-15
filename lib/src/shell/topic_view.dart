@@ -2859,14 +2859,30 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         overlays: [
           _buildFloatingDayOverlay(readingLane.padding, header),
           if (controller.mobileNavigationEnabled || !context.isTouch)
-            PositionedDirectional(
-              start: DSpacing.sm,
-              end: DSpacing.sm,
-              bottom:
-                  DSpacing.sm +
-                  (controller.mobileNavigationEnabled
-                      ? DScrollChrome.bottomInsetOf(context)
-                      : 0),
+            ValueListenableBuilder<double>(
+              valueListenable: controller.mobileNavigationEnabled
+                  ? DScrollChrome.maybeOf(context) ??
+                        const AlwaysStoppedAnimation<double>(0)
+                  : const AlwaysStoppedAnimation<double>(0),
+              builder: (context, hiddenFraction, child) =>
+                  AnimatedPositionedDirectional(
+                    start: DSpacing.sm,
+                    end: DSpacing.sm,
+                    // Content keeps the open dock's clearance; the floating
+                    // progress control follows its expanded/compact state.
+                    bottom:
+                        DSpacing.sm +
+                        (controller.mobileNavigationEnabled &&
+                                hiddenFraction < .5
+                            ? DScrollChrome.bottomInsetOf(context)
+                            : 0),
+                    duration: DMotion.duration(
+                      context,
+                      const Duration(milliseconds: 420),
+                    ),
+                    curve: const Cubic(.32, .72, 0, 1),
+                    child: child!,
+                  ),
               child: Align(
                 alignment: AlignmentDirectional.centerEnd,
                 child: TopicChromeVisibility(
