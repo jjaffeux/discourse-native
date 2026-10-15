@@ -24,11 +24,35 @@ choices to Liquid Glass, so the widget regression checks both saved choices
 but the native timing benchmark measures each resolved material only once.
 
 These counts establish less CPU paint work, not an FPS or raster-time gain.
-Physical iPhone profiling at 1290 by 2796 pixels, 3x density and a reported
-120 Hz identified additional raster cost in live glass. Shader batching,
-filter composition, clip changes and fade removal did not provide a reliable
-improvement and were discarded. The phone locked before the final physical
-comparison; no physical-device frame-time improvement is claimed.
+
+Physical iPhone comparison completed in profile mode at 1290 by 2796 pixels,
+3x density and a reported 120 Hz, with actual Liquid Glass. Each capture warms
+one round trip, then records three frame-aligned round trips over 12 seconds.
+The sequence alternates unchanged `e2cf504fb` and fixed `3ef4fa104`, reusing
+the same two compiled app bundles for repeats. The final pair each followed
+at least 60 seconds idle.
+
+| Capture | Frames | Build mean ms | Raster mean ms | Raster p95 ms | Raster frames above 16.67 ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Baseline 1 | 773 | 0.750 | 15.029 | 24.434 | 351 |
+| Fixed 1 | 1,379 | 0.457 | 5.416 | 9.933 | 0 |
+| Baseline 2 | 950 | 0.600 | 11.946 | 19.267 | 207 |
+| Fixed 2 | 685 | 0.848 | 17.058 | 28.787 | 416 |
+| Baseline after idle | 679 | 0.906 | 17.029 | 28.525 | 441 |
+| Fixed after idle | 718 | 0.780 | 15.312 | 33.562 | 318 |
+
+All six runs passed the workload assertions. The initially fast fixed capture
+did not repeat; the idle interval did not stabilize timings. These captures
+do not establish a reproducible physical-device frame-time improvement.
+Device thermal and power states were not recorded, so the timing variation
+cannot be attributed to a particular cause. Frame counts are timing samples
+within the measurement window, not an independent display FPS measurement.
+
+Raster cost remains substantially higher than build cost with live glass.
+Shader batching, filter composition, clip changes and fade removal did not
+provide a reliable improvement and were discarded. The shipped change
+reduces the verified repaint work while preserving the existing appearance;
+the remaining live-glass raster bottleneck is unresolved.
 
 Validation includes 124 focused widget tests, four repaint regressions on a
 native iPhone simulator, and the native frame-aligned timing harness. All 16
