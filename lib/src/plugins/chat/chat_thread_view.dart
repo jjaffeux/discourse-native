@@ -5,12 +5,13 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import 'chat_channel_star_button.dart';
+import 'chat_channel_header.dart';
 import 'chat_channel_view.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
-import 'chat_header_button.dart';
+import 'chat_conversation_header.dart';
 import 'chat_message.dart';
+import 'chat_message_summary.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
@@ -63,11 +64,6 @@ class ChatThreadWorkspace extends StatelessWidget {
                 target: target,
                 chat: chat,
                 showTimeGapDays: pane.showTimeGapDays,
-                header: _ThreadHeader(
-                  siteUrl: siteUrl,
-                  target: target,
-                  leading: _HeaderAction.back,
-                ),
               );
             }
             return _ChatThreadSplit(
@@ -155,13 +151,8 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
                   key: const ValueKey('chat-channel-pane'),
                   child: ChatChannelView(
                     channelId: widget.target.channelId,
-                    showHeader: false,
                     autofocusMessageStream: false,
                     autofocusComposer: false,
-                    header: _ChannelPaneHeader(
-                      siteUrl: widget.siteUrl,
-                      channelId: widget.target.channelId,
-                    ),
                   ),
                 ),
                 const SizedBox(width: _ChatThreadSplit.dividerWidth),
@@ -173,12 +164,7 @@ class _ChatThreadSplitState extends State<_ChatThreadSplit> {
                     target: widget.target,
                     chat: widget.chat,
                     showTimeGapDays: widget.showTimeGapDays,
-                    header: _ThreadHeader(
-                      siteUrl: widget.siteUrl,
-                      target: widget.target,
-                      leading: _HeaderAction.none,
-                      showClose: true,
-                    ),
+                    showClose: true,
                   ),
                 ),
               ],
@@ -251,14 +237,14 @@ class ChatThreadView extends StatefulWidget {
     required this.target,
     required this.chat,
     required this.showTimeGapDays,
-    this.header,
+    this.showClose = false,
   });
 
   final String siteUrl;
   final ChatThreadTarget target;
   final ChatController chat;
   final int showTimeGapDays;
-  final Widget? header;
+  final bool showClose;
 
   @override
   State<ChatThreadView> createState() => _ChatThreadViewState();
@@ -277,6 +263,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   int? _projectedRevision;
   int? _projectedShowTimeGapDays;
   List<ChatMessage> _messages = const [];
+  ChatChannelActivity _activity = const ChatChannelActivity();
   List<ChatStreamItem> _items = const [];
   int _focusComposerRequest = 0;
   int? _highlightMessageId;
@@ -400,9 +387,9 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     _handleUnavailable(stream);
     final hasMessages =
         stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
+    _syncProjection(stream);
     final Widget content;
     if (hasMessages) {
-      _syncProjection(stream);
       content = ChatMessageStream(
         siteUrl: widget.siteUrl,
         target: widget.target,
@@ -435,6 +422,14 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       content = const SizedBox.shrink();
     }
 
+    Widget conversationHeader({bool compact = false}) => _ThreadHeader(
+      siteUrl: widget.siteUrl,
+      target: widget.target,
+      showClose: widget.showClose,
+      stream: stream,
+      activity: _activity,
+      compact: compact,
+    );
     return ChatUploadDropRegion(
       controller: _uploadDropController,
       title: appL10n.dropFilesToUploadToThisThread,
@@ -445,7 +440,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         header: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ?widget.header,
+            conversationHeader(),
             if (stream.notice case final notice?)
               Semantics(
                 liveRegion: true,
@@ -467,6 +462,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
               ),
           ],
         ),
+        compactHeader: conversationHeader(compact: true),
         footer: _selectingMessages
             ? ChatMessageSelectionBar(
                 siteUrl: widget.siteUrl,
@@ -597,6 +593,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     _projectedRevision = stream.revision;
     _projectedShowTimeGapDays = showTimeGapDays;
     _messages = widget.chat.messagesFor(widget.siteUrl, widget.target);
+    _activity = const ChatChannelActivity().adding(_messages);
     _items = buildChatStream(
       _messages,
       threadContext: true,
@@ -606,136 +603,101 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   }
 }
 
-enum _HeaderAction { none, back }
-
-class _ChannelPaneHeader extends StatelessWidget {
-  const _ChannelPaneHeader({required this.siteUrl, required this.channelId});
-
-  final String siteUrl;
-  final int channelId;
-
-  @override
-  Widget build(BuildContext context) {
-    final chat = PluginUiScope.require(context, chatControllerService);
-    return ValueListenableBuilder(
-      valueListenable: chat.channelRef(siteUrl, channelId),
-      builder: (context, channel, _) => _PaneHeaderShell(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final theme = Theme.of(context);
-            final carriesSearch = !ShellTitleBar.isSupported;
-            final showIdentity = !carriesSearch || constraints.maxWidth >= 620;
-            final searchWidth = constraints.maxWidth >= 800 ? 360.0 : 260.0;
-            return Row(
-              children: [
-                const SizedBox(width: 12),
-                if (showIdentity) ...[
-                  const DIcon(DIcons.comment, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: Text(
-                            channel?.title ?? context.l10n.chat,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        ChatChannelStarButton(
-                          siteUrl: siteUrl,
-                          channelId: channelId,
-                          size: DButtonSize.small,
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (carriesSearch)
-                  const Expanded(child: ForumSearch(dense: true)),
-                if (carriesSearch && showIdentity) ...[
-                  SizedBox(
-                    width: searchWidth,
-                    child: const ForumSearch(dense: true),
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                if (ShellTitleBar.columnsCarryUserMenu) ...[
-                  ChatHeaderButton(ringColor: theme.shell.content),
-                  UserMenuButton(ringColor: theme.shell.content),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
 class _ThreadHeader extends StatelessWidget {
   const _ThreadHeader({
     required this.siteUrl,
     required this.target,
-    required this.leading,
     this.showClose = false,
+    this.stream = const ChatStreamState(),
+    this.activity = const ChatChannelActivity(),
+    this.compact = false,
   });
 
   final String siteUrl;
   final ChatThreadTarget target;
-  final _HeaderAction leading;
   final bool showClose;
+  final ChatStreamState stream;
+  final ChatChannelActivity activity;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final shell = PluginUiScope.require(context, chatShellService);
     final chat = PluginUiScope.require(context, chatControllerService);
-    return ValueListenableBuilder<ChatThread?>(
-      valueListenable: chat.threadRef(siteUrl, target.threadId),
-      builder: (context, thread, _) => _PaneHeaderShell(
-        child: Row(
-          children: [
-            if (leading == _HeaderAction.back)
-              DButton.iconOnly(
-                tooltip: context.l10n.back,
-                onPressed: () => shell.returnToChannel(target.channelId),
-                icon: const DIcon(DIcons.arrowLeft),
-                variant: DButtonVariant.ghost,
-              )
-            else
-              const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                thread?.title?.trim().isNotEmpty == true
-                    ? thread!.title!
-                    : context.l10n.thread,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        chat.threadRef(siteUrl, target.threadId),
+        chat.channelRef(siteUrl, target.channelId),
+      ]),
+      builder: (context, _) {
+        final thread = chat.thread(siteUrl, target.threadId);
+        final channel = chat.channel(siteUrl, target.channelId);
+        final title = thread?.title?.trim();
+        final root = thread?.originalMessage;
+        final original = chatMessageSummary(
+          excerpt: root?.excerpt,
+          cooked: root?.cooked,
+          raw: root?.message?.split('\n').first,
+          deleted: root?.deletedAt != null,
+        );
+        return ChatConversationHeader(
+          key: ValueKey(
+            compact ? 'chat-thread-compact-header' : 'chat-thread-header',
+          ),
+          title: title?.isNotEmpty == true
+              ? title!
+              : original?.isNotEmpty == true
+              ? original!
+              : context.l10n.thread,
+          kindLabel: context.l10n.threadInChannel(
+            channel?.title ?? context.l10n.channel,
+          ),
+          color: channel?.categoryColor,
+          direct: channel?.isDirectMessage == true,
+          messageCount: activity.messageCount,
+          threadCount: activity.threadIds.length,
+          fetchedOnce: stream.fetchedOnce,
+          partial: stream.canLoadMorePast || stream.canLoadMoreFuture,
+          latest: activity.latestAt,
+          compact: compact,
+          titleBuilder: (title) => DPopover(
+            content: DPopoverContent(
+              width: null,
+              align: DPopoverAlign.start,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DButton.iconOnly(
+                    tooltip: showClose
+                        ? context.l10n.closeThread
+                        : context.l10n.back,
+                    onPressed: () => shell.returnToChannel(target.channelId),
+                    icon: DIcon(showClose ? DIcons.xmark : DIcons.arrowLeft),
+                    variant: DButtonVariant.ghost,
+                  ),
+                  _NotificationLevelButton(
+                    siteUrl: siteUrl,
+                    target: target,
+                    thread: thread,
+                  ),
+                  ChatThreadSettingsButton(siteUrl: siteUrl, target: target),
+                ],
               ),
             ),
-            _NotificationLevelButton(
-              siteUrl: siteUrl,
-              target: target,
-              thread: thread,
-            ),
-            ChatThreadSettingsButton(siteUrl: siteUrl, target: target),
-            if (showClose)
-              DButton.iconOnly(
-                tooltip: context.l10n.closeThread,
-                onPressed: () => shell.returnToChannel(target.channelId),
-                icon: const DIcon(DIcons.xmark),
-                variant: DButtonVariant.ghost,
+            child: DPopoverTrigger(
+              builder: (context, state) => DButton(
+                key: const ValueKey('chat-thread-title-action'),
+                variant: DButtonVariant.inline,
+                density: DButtonDensity.inlineMetadata,
+                semanticLabel: context.l10n.threadActions,
+                focusNode: state.focusNode,
+                onPressed: state.toggle,
+                label: title,
               ),
-            const SizedBox(width: 4),
-          ],
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -864,25 +826,6 @@ class ChatThreadSettingsButton extends StatelessWidget {
           variant: DButtonVariant.ghost,
         );
       },
-    );
-  }
-}
-
-class _PaneHeaderShell extends StatelessWidget {
-  const _PaneHeaderShell({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: shellHeaderHeight,
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).shell.divider),
-        ),
-      ),
-      child: child,
     );
   }
 }

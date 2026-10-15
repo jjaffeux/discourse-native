@@ -14,7 +14,6 @@ import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
-import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
@@ -51,7 +50,6 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -64,7 +62,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/chat_shell.dart';
@@ -3064,105 +3061,36 @@ void _registerChatShellTests() {
       });
 
       testWidgets(
-        'shows a direct-message status after the channel star and its text on hover',
+        'direct-message reading header matches the conversation marker',
         (tester) async {
           await pumpChat(
             tester,
-            direct: [
-              dm(
-                12,
-                users: const [
-                  ChatUser(
-                    id: 2,
-                    username: 'hawk',
-                    avatarUrl: '$site/user_avatar/h/90.png',
-                    status: UserStatus(
-                      description: 'Working today',
-                      emoji: 'computer',
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            direct: [dm(12)],
+            presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
             messages: {key(12): page(const [])},
-            mediaClient: MockClient(
-              (_) async => http.Response.bytes(emojiPng, 200),
-            ),
           );
           await tester.tap(sidebarDestination('hawk'));
           await tester.pumpAndSettle();
-
-          final titleAction = find.byKey(
-            const ValueKey('content-header-title-action'),
+          final marker = find.byKey(
+            const ValueKey('chat-channel-header-marker'),
           );
-          final status = find.byKey(
-            const ValueKey('chat-channel-header-status'),
-          );
-          final star = find.byKey(const ValueKey('chat-channel-star-button'));
-          final emoji = find.descendant(
-            of: status,
-            matching: find.byType(SiteEmojiImage),
-          );
-
-          expect(star, findsOneWidget);
-          expect(status, findsOneWidget);
-          expect(emoji, findsOneWidget);
+          expect(tester.getSize(marker), const Size.square(12));
           expect(
-            tester.getRect(star).left - tester.getRect(titleAction).right,
-            closeTo(0, 0.01),
+            tester.widget<DAvatar>(marker).borderRadius,
+            BorderRadius.circular(6),
           );
           expect(
-            tester.getRect(emoji).left,
-            greaterThan(tester.getRect(star).right),
-          );
-          expect(
-            find.descendant(
-              of: titleAction,
-              matching: find.text('Working today'),
-            ),
+            find.byKey(const ValueKey('chat-channel-star-button')),
             findsNothing,
           );
-
-          final mouse = await tester.createGesture(
-            kind: PointerDeviceKind.mouse,
+          expect(
+            find.text('Direct message', findRichText: true),
+            findsOneWidget,
           );
-          await mouse.addPointer(location: Offset.zero);
-          addTearDown(mouse.removePointer);
-          await mouse.moveTo(tester.getCenter(emoji));
-          await tester.pump(const Duration(milliseconds: 500));
-          await tester.pumpAndSettle();
-
-          expect(find.text('Working today'), findsOneWidget);
+          expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
-
-      testWidgets('shows the direct-message user avatar and online ring', (
-        tester,
-      ) async {
-        await pumpChat(
-          tester,
-          direct: [dm(12)],
-          presence: const ChatPresence(userIds: {2}, lastMessageId: 47),
-          messages: {key(12): page(const [])},
-        );
-        await tester.tap(sidebarDestination('hawk'));
-        await tester.pumpAndSettle();
-
-        final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
-        expect(
-          tester.getSize(marker),
-          Size.square(DAvatarSize.standard.dimension),
-        );
-        expect(tester.widget<ChatUserAvatar>(marker).userId, 2);
-        final avatar = find.descendant(
-          of: marker,
-          matching: find.byKey(ChatUserAvatar.onlineRingKey(2)),
-        );
-        expect(avatar, findsOneWidget);
-        expect(tester.widget<DAvatar>(avatar).ring, isTrue);
-        expect(find.text('Direct message', findRichText: true), findsOneWidget);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('the channel title opens routed settings and Back returns', (
         tester,
@@ -5165,7 +5093,9 @@ void _registerChatShellTests() {
 
         expect(api.chatReadsMarked, isEmpty);
 
-        await tester.tap(find.byKey(const ValueKey('chat-channel-back')));
+        ShellScope.read(
+          tester.element(find.byType(ChatChannelView)),
+        ).pluginSession.require(chatShellService).openChats();
         await tester.pumpAndSettle();
 
         expect(api.chatReadsMarked, isEmpty);
@@ -5210,7 +5140,9 @@ void _registerChatShellTests() {
         expect(find.byType(InstanceSidebar), findsNothing);
         expect(renderedText('Hello there'), findsOneWidget);
 
-        await tester.tap(find.byKey(const ValueKey('chat-channel-back')));
+        ShellScope.read(
+          tester.element(find.byType(ChatChannelView)),
+        ).pluginSession.require(chatShellService).openChats();
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsNothing);

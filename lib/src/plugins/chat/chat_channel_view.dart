@@ -350,10 +350,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                       channel: channel,
                       stream: stream,
                       activity: _activity,
-                      onBack: () => PluginUiScope.require(
-                        context,
-                        chatShellService,
-                      ).openChats(),
                       onOpenDetails: () =>
                           PluginUiScope.require(
                             context,
@@ -374,6 +370,36 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
               ),
             ),
           ),
+          compactHeader: widget.showHeader
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ChatChannelHeader(
+                      siteUrl: widget.siteUrl,
+                      channelId: widget.channelId,
+                      channel: channel,
+                      stream: stream,
+                      activity: _activity,
+                      compact: true,
+                      onOpenDetails: () =>
+                          PluginUiScope.require(
+                            context,
+                            chatShellService,
+                          ).openChannelInfo(
+                            siteUrl: widget.siteUrl,
+                            channelId: widget.channelId,
+                          ),
+                    ),
+                    if (channel?.hasPinnedMessages == true)
+                      ChatPinnedBar(
+                        siteUrl: widget.siteUrl,
+                        channel: channel!,
+                        chat: widget.chat,
+                        onJumpToMessage: _jumpToMessage,
+                      ),
+                  ],
+                )
+              : null,
           footer: _selectingMessages
               ? ChatMessageSelectionBar(
                   siteUrl: widget.siteUrl,

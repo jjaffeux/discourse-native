@@ -1327,6 +1327,15 @@
   "@thread": {
     "description": "English UI message used by plugins/chat/chat_thread_view.dart. Keep placeholders intact."
   },
+  "threadInChannel": "Thread in #{channel}",
+  "@threadInChannel": {
+    "description": "Identifies the parent channel in a conversation header.",
+    "placeholders": {"channel": {"type": "String"}}
+  },
+  "threadActions": "Thread actions",
+  "@threadActions": {
+    "description": "Accessible label for the thread title action menu."
+  },
   "closeThread": "Close thread",
   "@closeThread": {
     "description": "English UI message used by plugins/chat/chat_thread_view.dart. Keep placeholders intact."

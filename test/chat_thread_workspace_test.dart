@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'dart:ui' show CheckedState;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -29,7 +31,7 @@ import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -205,8 +207,14 @@ void main() {
         expect(fixture.shell.currentContent?.id, 'chat-c-9-t-3');
         expect(find.byType(ChatThreadWorkspace), findsOneWidget);
         expect(find.byType(ChatChannelView), findsNothing);
+        expect(find.byTooltip('Back'), findsNothing);
+        await _openThreadActions(tester);
         expect(find.byTooltip('Back'), findsOneWidget);
         expect(find.text(_threadTitle), findsOneWidget);
+        if (find.byTooltip('Close thread').evaluate().isEmpty &&
+            find.byTooltip('Back').evaluate().isEmpty) {
+          await _openThreadActions(tester);
+        }
         expect(
           find.byWidgetPredicate(
             (widget) =>
@@ -228,6 +236,37 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'untitled threads use the original message as their conversation title',
+    (tester) async {
+      final fixture = await _fixture(
+        thread: _thread.copyWith(
+          clearTitle: true,
+          originalMessage: const ChatThreadOriginalMessage(
+            id: 10,
+            channelId: _channelId,
+            author: ChatMessageAuthor(id: 2, username: 'sam'),
+            cooked: '<p>A title &amp; details</p>',
+          ),
+        ),
+      );
+      addTearDown(fixture.shell.dispose);
+      await _pumpWorkspace(tester, fixture.shell, width: 390);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('chat-thread-title-action')),
+          matching: find.text('A title & details'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Thread in #Support', findRichText: true),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'the Settings modal releases and restores the active thread view',
@@ -271,6 +310,10 @@ void main() {
         expect(find.byTooltip('Back'), findsNothing);
         expect(find.text(_channelTitle), findsOneWidget);
         expect(find.text(_threadTitle), findsOneWidget);
+        if (find.byTooltip('Close thread').evaluate().isEmpty &&
+            find.byTooltip('Back').evaluate().isEmpty) {
+          await _openThreadActions(tester);
+        }
         expect(
           find.byWidgetPredicate(
             (widget) =>
@@ -280,6 +323,10 @@ void main() {
           findsOneWidget,
         );
         expect(find.byTooltip('Close thread'), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('chat-thread-title-action')),
+        );
+        await tester.pumpAndSettle();
         final channelPane = find.byKey(const ValueKey('chat-channel-pane'));
         final threadPane = find.byKey(const ValueKey('chat-thread-pane'));
         expect(
@@ -393,6 +440,7 @@ void main() {
           504,
         );
 
+        await _openThreadActions(tester);
         await tester.tap(find.byTooltip('Close thread'));
         await tester.pumpAndSettle();
 
@@ -469,6 +517,44 @@ void main() {
     expect(channelScroll.pixels, greaterThan(0));
     expect(threadScroll.pixels, 0);
   });
+
+  for (final width in [390.0, 1440.0]) {
+    testWidgets('rendered conversation headers in the workspace at $width', (
+      tester,
+    ) async {
+      await (FontLoader(
+        'HeaderReview',
+      )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+      final fixture = await _fixture(
+        channelPage: _workspaceMessagesPage(1),
+        threadPage: _workspaceMessagesPage(101, threadId: _threadId),
+      );
+      addTearDown(fixture.shell.dispose);
+      await _pumpWorkspace(tester, fixture.shell, width: width, render: true);
+      expect(
+        find.text('Thread in #Support', findRichText: true),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('chat-thread-header')), findsOneWidget);
+      expect(find.byTooltip('Thread notifications: Tracking'), findsNothing);
+      await _exportWorkspace(tester, '${width.toInt()}-full');
+      final list = find.descendant(
+        of: find.byType(ChatThreadView),
+        matching: find.byType(SuperListView),
+      );
+      tester.widget<SuperListView>(list).controller!.position.jumpTo(700);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('chat-thread-compact-header')),
+        findsOneWidget,
+      );
+      await _exportWorkspace(tester, '${width.toInt()}-compact');
+      await _openThreadActions(tester);
+      expect(find.byTooltip('Thread notifications: Tracking'), findsOneWidget);
+      await _exportWorkspace(tester, '${width.toInt()}-actions');
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final width in [1000.0, 1440.0]) {
     testWidgets('chat pane headers follow their transcript at $width pixels', (
@@ -719,6 +805,7 @@ void main() {
         expect(actionsOf(202), contains('Copy link'));
         expect(actionsOf(202), isNot(contains('Rebuild HTML')));
         if (split) expect(actionsOf(10), isNot(contains('Rebuild HTML')));
+        await _openThreadActions(tester);
         expect(find.byTooltip('Thread settings'), findsNothing);
 
         // The site's settings arrive after the restored thread has drawn
@@ -739,6 +826,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(actionsOf(202), contains('Rebuild HTML'));
         if (split) expect(actionsOf(10), contains('Rebuild HTML'));
+        await _openThreadActions(tester);
         expect(find.byTooltip('Thread settings'), findsOneWidget);
       },
     );
@@ -762,6 +850,7 @@ void main() {
             userSilenced: value,
           ),
         );
+        await _openThreadActions(tester);
         final openSettings = tester
             .widget<DButton>(
               find.byWidgetPredicate(
@@ -777,6 +866,7 @@ void main() {
         expect(find.byTooltip('Thread settings'), findsNothing);
         silence(false);
         await tester.pumpAndSettle();
+        await _openThreadActions(tester);
         await tester.tap(find.byTooltip('Thread settings'));
         await tester.pumpAndSettle();
         final field = find.byKey(const ValueKey('chat-thread-title-field'));
@@ -810,6 +900,7 @@ void main() {
       final fixture = await _fixture(editableThread: true);
       addTearDown(fixture.shell.dispose);
       await _pumpWorkspace(tester, fixture.shell, width: 1000);
+      await _openThreadActions(tester);
       await tester.tap(find.byTooltip('Thread settings'));
       await tester.pumpAndSettle();
       final field = find.byKey(const ValueKey('chat-thread-title-field'));
@@ -857,6 +948,7 @@ void main() {
     try {
       await _pumpWorkspace(tester, fixture.shell, width: 1000);
 
+      await _openThreadActions(tester);
       final trigger = find.byWidgetPredicate(
         (widget) =>
             widget is DButton &&
@@ -953,6 +1045,7 @@ void main() {
       addTearDown(fixture.shell.dispose);
 
       await _pumpWorkspace(tester, fixture.shell, width: 1000);
+      await _openThreadActions(tester);
       await tester.tap(
         find.byWidgetPredicate(
           (widget) =>
@@ -991,6 +1084,7 @@ void main() {
     );
     addTearDown(fixture.shell.dispose);
     await _pumpWorkspace(tester, fixture.shell, width: 1000);
+    await _openThreadActions(tester);
     await tester.tap(find.byTooltip('Thread notifications: Normal'));
     await tester.pumpAndSettle();
     expect(find.text('Muted'), findsNothing);
@@ -1008,6 +1102,7 @@ void main() {
     final fixture = await _fixture();
     addTearDown(fixture.shell.dispose);
     await _pumpWorkspace(tester, fixture.shell, width: 1000);
+    await _openThreadActions(tester);
     await tester.tap(find.byTooltip('Thread notifications: Tracking'));
     await tester.pumpAndSettle();
     fixture.shell.lifecycle.invalidate(_siteUrl);
@@ -1286,6 +1381,7 @@ void main() {
             width: width,
             platform: platform,
           );
+          await _openThreadActions(tester);
           await tester.tap(find.byTooltip('Thread settings'));
           await tester.pumpAndSettle();
           final field = find.byKey(const ValueKey('chat-thread-title-field'));
@@ -1350,6 +1446,7 @@ void main() {
 
     await _pumpWorkspace(tester, fixture.shell, width: 1000);
 
+    await _openThreadActions(tester);
     expect(find.byTooltip('Thread settings'), findsOneWidget);
     await tester.tap(find.byTooltip('Thread settings'));
     await tester.pumpAndSettle();
@@ -1385,6 +1482,7 @@ void main() {
         width: width,
         platform: platform,
       );
+      await _openThreadActions(tester);
       await tester.tap(find.byTooltip('Thread settings'));
       await tester.pumpAndSettle();
 
@@ -1410,6 +1508,7 @@ void main() {
     final fixture = await _fixture(editableThread: true);
     addTearDown(fixture.shell.dispose);
     await _pumpWorkspace(tester, fixture.shell, width: 1000);
+    await _openThreadActions(tester);
     await tester.tap(find.byTooltip('Thread settings'));
     await tester.pumpAndSettle();
     final title = 'e\u0301' * 51;
@@ -1441,6 +1540,7 @@ void main() {
       platform: TargetPlatform.iOS,
     );
 
+    await _openThreadActions(tester);
     await tester.tap(
       find.byWidgetPredicate(
         (widget) =>
@@ -1613,6 +1713,7 @@ Future<void> _pumpWorkspace(
   ShellController shell, {
   required double width,
   TargetPlatform? platform,
+  bool render = false,
 }) async {
   tester.view.physicalSize = Size(width, width < 600 ? 844 : 900);
   tester.view.devicePixelRatio = 1;
@@ -1624,8 +1725,16 @@ Future<void> _pumpWorkspace(
       child: MaterialApp(
         theme: AppTheme.light.copyWith(
           platform: platform ?? TargetPlatform.macOS,
+          textTheme: render
+              ? AppTheme.light.textTheme.apply(fontFamily: 'HeaderReview')
+              : null,
         ),
-        home: Scaffold(body: MainContent(layout: ShellLayout.forWidth(width))),
+        home: Scaffold(
+          body: RepaintBoundary(
+            key: const ValueKey('chat-workspace-render'),
+            child: MainContent(layout: ShellLayout.forWidth(width)),
+          ),
+        ),
       ),
     ),
   );
@@ -1770,4 +1879,33 @@ final class _ThreadSettingsAuthenticator extends FakeAuthenticator {
     if (failPersistence) throw StateError('Keychain write failed');
     await super.persistCredentials(siteUrl, credentials);
   }
+}
+
+Future<void> _openThreadActions(WidgetTester tester) async {
+  if (find.byTooltip('Back').evaluate().isNotEmpty ||
+      find.byTooltip('Close thread').evaluate().isNotEmpty) {
+    return;
+  }
+  await tester.tap(find.byKey(const ValueKey('chat-thread-title-action')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _exportWorkspace(WidgetTester tester, String name) async {
+  final directory = Platform.environment['CHAT_HEADER_EXPORT_DIR'];
+  if (directory == null) return;
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const ValueKey('chat-workspace-render')),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
+      await Directory(directory).create(recursive: true);
+      await File(
+        '$directory/workspace-$name.png',
+      ).writeAsBytes(bytes.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
 }

@@ -1636,8 +1636,12 @@ void main() {
         await wheel(200);
         expect(bar.hitTestable(), findsNothing);
         final hiddenBottom = tester.getBottomLeft(bar).dy;
+        expect(
+          find.byKey(const ValueKey('chat-channel-compact-header')),
+          findsOneWidget,
+        );
         final headerHeight = tester
-            .getSize(find.byKey(const ValueKey('chat-channel-header')))
+            .getSize(find.byKey(const ValueKey('chat-channel-compact-header')))
             .height;
         // The channel identity is revealed before the pinned row below it.
         await tester.pump(const Duration(milliseconds: 401));

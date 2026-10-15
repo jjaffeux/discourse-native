@@ -42,6 +42,7 @@ import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -2169,63 +2170,68 @@ void main() {
         },
       );
 
-      testWidgets('star and unstar the current channel from its header', (
-        tester,
-      ) async {
-        await shell.chat.loadChannels(_site);
-        expect(shell.openChatChannel(9), isTrue);
+      testWidgets(
+        'star and unstar the current channel from its header context menu',
+        (tester) async {
+          await shell.chat.loadChannels(_site);
+          expect(shell.openChatChannel(9), isTrue);
 
-        await tester.pumpWidget(
-          ShellScope(
-            controller: shell,
-            child: MaterialApp(
-              theme: AppTheme.light,
-              home: Scaffold(
-                body: MainContent(layout: ShellLayout.forWidth(900)),
+          await tester.pumpWidget(
+            ShellScope(
+              controller: shell,
+              child: MaterialApp(
+                theme: AppTheme.light,
+                home: Scaffold(
+                  body: MainContent(layout: ShellLayout.forWidth(900)),
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pump();
+          );
+          await tester.pump();
 
-        final titleAction = find.byKey(
-          const ValueKey('content-header-title-action'),
-        );
-        final button = tester.widget<DButton>(titleAction);
-        expect(button.variant, DButtonVariant.inline);
-        expect(
-          find.byKey(const ValueKey('chat-channel-header-marker')),
-          findsOneWidget,
-        );
-        expect(tester.getSize(titleAction).width, lessThan(200));
-        final star = find.byKey(const ValueKey('chat-channel-star-button'));
-        expect(star, findsOneWidget);
-        expect(
-          tester.getRect(star).left - tester.getRect(titleAction).right,
-          closeTo(0, 0.01),
-        );
-        expect(
-          find.byKey(const ValueKey('chat-channel-threads-button')),
-          findsNothing,
-        );
-        expect(find.byTooltip('Add to starred channels'), findsOneWidget);
-        await tester.tap(find.byTooltip('Add to starred channels'));
-        await tester.pumpAndSettle();
+          final titleAction = find.byKey(
+            const ValueKey('content-header-title-action'),
+          );
+          final button = tester.widget<DButton>(titleAction);
+          expect(button.variant, DButtonVariant.inline);
+          expect(
+            find.byKey(const ValueKey('chat-channel-header-marker')),
+            findsOneWidget,
+          );
+          expect(tester.getSize(titleAction).width, lessThan(200));
+          expect(
+            find.byKey(const ValueKey('chat-channel-star-button')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('chat-channel-threads-button')),
+            findsNothing,
+          );
+          await tester.tap(titleAction, buttons: kSecondaryMouseButton);
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-menu-star-9')),
+          );
+          await tester.pumpAndSettle();
 
-        expect(api.chatChannelStarsUpdated, const [
-          (channelId: 9, starred: true),
-        ]);
-        expect(shell.chat.channel(_site, 9)?.membership.starred, isTrue);
-        expect(find.byTooltip('Remove from starred channels'), findsOneWidget);
-
-        await tester.tap(find.byTooltip('Remove from starred channels'));
-        await tester.pumpAndSettle();
-        expect(api.chatChannelStarsUpdated, const [
-          (channelId: 9, starred: true),
-          (channelId: 9, starred: false),
-        ]);
-        expect(shell.chat.channel(_site, 9)?.membership.starred, isFalse);
-      });
+          expect(api.chatChannelStarsUpdated, const [
+            (channelId: 9, starred: true),
+          ]);
+          expect(shell.chat.channel(_site, 9)?.membership.starred, isTrue);
+          await tester.tap(titleAction, buttons: kSecondaryMouseButton);
+          await tester.pumpAndSettle();
+          expect(find.text('Remove from starred channels'), findsOneWidget);
+          await tester.tap(
+            find.byKey(const ValueKey('chat-channel-menu-star-9')),
+          );
+          await tester.pumpAndSettle();
+          expect(api.chatChannelStarsUpdated, const [
+            (channelId: 9, starred: true),
+            (channelId: 9, starred: false),
+          ]);
+          expect(shell.chat.channel(_site, 9)?.membership.starred, isFalse);
+        },
+      );
 
       test('select the owning site for imperative thread opening', () async {
         await shell.chat.loadChannels(_otherSite);

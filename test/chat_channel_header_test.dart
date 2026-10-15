@@ -6,21 +6,15 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_header.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
-import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
-import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-import 'package:http/testing.dart';
 
-import 'support/blank_png.dart';
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
-import 'support/media_pipeline.dart';
 
 const _site = 'https://meta.discourse.org';
 final _now = DateTime(2026, 9, 27, 12);
@@ -52,92 +46,66 @@ ChatMessage _message(
 void main() {
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets(
-      'one-to-one header displays the participant avatar on $platform',
+      'direct-message header uses the mockup color marker on $platform',
       (tester) async {
-        const avatarUrl = '$_site/user_avatar/sam/96/1.png';
-        final requests = <Uri>[];
-        installTestMediaPipeline(
-          client: MockClient((request) async {
-            requests.add(request.url);
-            return http.Response.bytes(blankPng(width: 32, height: 32), 200);
-          }),
-        );
         await _pump(
           tester,
           channel: const ChatChannel(
             id: 9,
             title: 'sam',
             kind: ChatChannelKind.directMessage,
-            users: [ChatUser(id: 2, username: 'sam', avatarUrl: avatarUrl)],
+            users: [ChatUser(id: 2, username: 'sam')],
           ),
           platform: platform,
         );
-
-        final avatar = find.byType(ChatUserAvatar);
-        expect(avatar, findsOneWidget);
-        expect(tester.getSize(avatar), const Size.square(32));
-        expect(requests, [Uri.parse(avatarUrl)]);
-        expect(
-          tester.widget<AvatarImage>(find.byType(AvatarImage)).url,
-          avatarUrl,
+        final marker = tester.widget<DAvatar>(
+          find.byKey(const ValueKey('chat-channel-header-marker')),
         );
-        expect(
-          find.descendant(of: avatar, matching: find.byType(Image)),
-          findsOneWidget,
-        );
+        expect(marker.dimension, 12);
+        expect(marker.borderRadius, BorderRadius.circular(6));
+        expect(find.text('Direct message', findRichText: true), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );
   }
 
-  testWidgets(
-    'mockup identity, metadata, back and details with retained star',
-    (tester) async {
-      var backs = 0;
-      var details = 0;
-      await _pump(
-        tester,
-        messages: [
-          for (var id = 1; id <= 8; id++)
-            _message(id, thread: id == 1 ? 3 : null),
-        ],
-        onBack: () => backs++,
-        onOpenDetails: () => details++,
-      );
+  testWidgets('mockup identity and metadata retain the details action', (
+    tester,
+  ) async {
+    var details = 0;
+    await _pump(
+      tester,
+      messages: [
+        for (var id = 1; id <= 8; id++)
+          _message(id, thread: id == 1 ? 3 : null),
+      ],
+      onOpenDetails: () => details++,
+    );
 
-      expect(find.text('Channel', findRichText: true), findsOneWidget);
-      expect(find.text('8 messages', findRichText: true), findsOneWidget);
-      expect(find.text('1 thread', findRichText: true), findsOneWidget);
-      expect(
-        find.text('last today at 10:25 am', findRichText: true),
-        findsOneWidget,
-      );
-      expect(find.byTooltip('Add to starred channels'), findsOneWidget);
-      final title = find.text('general');
-      final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
-      final back = find.byKey(const ValueKey('chat-channel-back'));
-      final metadata = find.byKey(
-        const ValueKey('chat-channel-header-metadata'),
-      );
-      final divider = find.byKey(const ValueKey('content-header-separator'));
-      expect(tester.getSize(marker), const Size.square(12));
-      expect(tester.getTopLeft(marker).dx, tester.getTopLeft(metadata).dx);
-      expect(tester.getTopLeft(divider).dx, tester.getTopLeft(metadata).dx);
-      expect(tester.getTopLeft(title).dx - tester.getTopRight(marker).dx, 10);
-      expect(
-        tester.getBottomLeft(back).dy,
-        lessThan(tester.getTopLeft(title).dy),
-      );
-      expect(
-        tester.getBottomLeft(title).dy,
-        lessThan(tester.getTopLeft(metadata).dy),
-      );
-      await tester.tap(back);
-      await tester.tap(title);
-      expect(backs, 1);
-      expect(details, 1);
-    },
-  );
+    expect(find.text('Channel', findRichText: true), findsOneWidget);
+    expect(find.text('8 messages', findRichText: true), findsOneWidget);
+    expect(find.text('1 thread', findRichText: true), findsOneWidget);
+    expect(
+      find.text('last today at 10:25 am', findRichText: true),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Add to starred channels'), findsNothing);
+    final title = find.text('general');
+    final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
+    expect(find.byKey(const ValueKey('chat-channel-back')), findsNothing);
+    final metadata = find.byKey(const ValueKey('chat-channel-header-metadata'));
+    final divider = find.byKey(const ValueKey('content-header-separator'));
+    expect(tester.getSize(marker), const Size.square(12));
+    expect(tester.getTopLeft(marker).dx, tester.getTopLeft(metadata).dx);
+    expect(tester.getTopLeft(divider).dx, tester.getTopLeft(metadata).dx);
+    expect(tester.getTopLeft(title).dx - tester.getTopRight(marker).dx, 10);
+    expect(
+      tester.getBottomLeft(title).dy,
+      lessThan(tester.getTopLeft(metadata).dy),
+    );
+    await tester.tap(title);
+    expect(details, 1);
+  });
 
   testWidgets('partial windows qualify counts and deduplicate threads', (
     tester,
@@ -239,13 +207,13 @@ void main() {
         platform: TargetPlatform.iOS,
       );
       expect(find.text('Direct message', findRichText: true), findsOneWidget);
-      final avatar = find.byType(ChatUserAvatar);
-      expect(tester.getSize(avatar), const Size.square(32));
       expect(
-        find.descendant(of: avatar, matching: find.byType(DAvatarFallback)),
-        findsOneWidget,
+        tester.getSize(
+          find.byKey(const ValueKey('chat-channel-header-marker')),
+        ),
+        const Size.square(12),
       );
-      expect(find.byTooltip('Add to starred channels'), findsOneWidget);
+      expect(find.byTooltip('Add to starred channels'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -256,7 +224,6 @@ Future<void> _pump(
   ChatChannel channel = _channel,
   ChatStreamState stream = const ChatStreamState(fetchedOnce: true),
   List<ChatMessage> messages = const [],
-  VoidCallback? onBack,
   VoidCallback? onOpenDetails,
   double scale = 1,
   bool use24HourClock = false,
@@ -298,7 +265,6 @@ Future<void> _pump(
                   channel: channel,
                   stream: stream,
                   activity: const ChatChannelActivity().adding(messages),
-                  onBack: onBack ?? () {},
                   onOpenDetails: onOpenDetails ?? () {},
                   now: _now,
                 ),

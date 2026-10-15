@@ -1,14 +1,12 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import 'chat_channel.dart';
-import 'chat_channel_star_button.dart';
+import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
+import 'chat_conversation_header.dart';
 import 'chat_message.dart';
-import 'chat_user_avatar.dart';
 
 /// Metadata accumulated alongside the transcript without rereading its window
 /// for read receipts, paging flags, or newly appended messages.
@@ -54,8 +52,8 @@ class ChatChannelHeader extends StatelessWidget {
     required this.channel,
     required this.stream,
     required this.activity,
-    required this.onBack,
     required this.onOpenDetails,
+    this.compact = false,
     this.now,
   });
 
@@ -64,189 +62,49 @@ class ChatChannelHeader extends StatelessWidget {
   final ChatChannel? channel;
   final ChatStreamState stream;
   final ChatChannelActivity activity;
-  final VoidCallback onBack;
   final VoidCallback onOpenDetails;
+  final bool compact;
   final DateTime? now;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = DTokens.of(context);
-    final title = channel?.title ?? context.l10n.chat;
-    final direct = channel?.isDirectMessage == true;
-    final user = direct && channel!.users.length == 1
-        ? channel!.users.single
-        : null;
-    final threadCount = activity.threadIds.length;
-    // The API supplies a window, not a channel-wide message/thread total.
-    final partial = stream.canLoadMorePast || stream.canLoadMoreFuture;
-    final suffix = partial ? '+' : '';
     var latest = channel?.lastMessageId == null ? null : channel?.lastMessageAt;
     final loadedLatest = activity.latestAt;
     if (loadedLatest != null &&
         (latest == null || loadedLatest.isAfter(latest))) {
       latest = loadedLatest;
     }
-    final secondary = theme.discourse.primaryHigh;
-    final emphasis = TextStyle(color: secondary, fontWeight: FontWeight.w600);
-    final metadata = <InlineSpan>[
-      TextSpan(
-        text: direct ? context.l10n.directMessage : context.l10n.channel,
+    return ChatConversationHeader(
+      key: ValueKey(
+        compact ? 'chat-channel-compact-header' : 'chat-channel-header',
       ),
-      if (stream.fetchedOnce || activity.messageCount > 0)
-        TextSpan(
-          children: [
-            TextSpan(text: '${activity.messageCount}$suffix', style: emphasis),
-            TextSpan(
-              text: activity.messageCount == 1 && !partial
-                  ? context.l10n.messageChatchannelheader
-                  : context.l10n.messagesChatchannelheader,
-            ),
-          ],
+      title: channel?.title ?? context.l10n.chat,
+      color: channel?.categoryColor,
+      direct: channel?.isDirectMessage == true,
+      kindLabel: channel?.isDirectMessage == true
+          ? context.l10n.directMessage
+          : context.l10n.channel,
+      messageCount: activity.messageCount,
+      threadCount: activity.threadIds.length,
+      fetchedOnce: stream.fetchedOnce,
+      partial: stream.canLoadMorePast || stream.canLoadMoreFuture,
+      latest: latest,
+      compact: compact,
+      now: now,
+      titleBuilder: (title) => ChatChannelMenu(
+        siteUrl: siteUrl,
+        channelId: channelId,
+        child: DButton(
+          key: const ValueKey('content-header-title-action'),
+          variant: DButtonVariant.inline,
+          density: DButtonDensity.inlineMetadata,
+          semanticLabel: context.l10n.openDetails(
+            channel?.title ?? context.l10n.chat,
+          ),
+          onPressed: onOpenDetails,
+          label: title,
         ),
-      if (threadCount > 0)
-        TextSpan(
-          children: [
-            TextSpan(text: '$threadCount$suffix', style: emphasis),
-            TextSpan(
-              text: threadCount == 1 && !partial
-                  ? context.l10n.threadChatchannelheader
-                  : context.l10n.threadsChatchannelheader,
-            ),
-          ],
-        ),
-      if (latest != null)
-        TextSpan(
-          children: [
-            TextSpan(
-              text: context.l10n.lastAt(
-                (_dayLabel(latest, now ?? DateTime.now())).toString(),
-              ),
-            ),
-            TextSpan(
-              text: clockTimeLabel(context, latest.toLocal()).toLowerCase(),
-              style: emphasis,
-            ),
-          ],
-        ),
-    ];
-
-    return Padding(
-      key: const ValueKey('chat-channel-header'),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DButton(
-            key: const ValueKey('chat-channel-back'),
-            variant: DButtonVariant.inline,
-            density: DButtonDensity.backLink,
-            icon: const DIcon(DIcons.chevronLeft),
-            label: Text(context.l10n.chat),
-            onPressed: onBack,
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              if (user != null && !channel!.isGroup)
-                ChatUserAvatar(
-                  key: const ValueKey('chat-channel-header-marker'),
-                  siteUrl: siteUrl,
-                  userId: user.id,
-                  url: user.avatarUrl,
-                  size: DAvatarSize.standard.dimension,
-                  fallback: const DAvatarFallback(child: DIcon(DIcons.user)),
-                )
-              else
-                DAvatar(
-                  key: const ValueKey('chat-channel-header-marker'),
-                  dimension: 12,
-                  border: false,
-                  decorative: true,
-                  borderRadius: BorderRadius.circular(direct ? 6 : 3),
-                  fallback: DAvatarFallback(
-                    backgroundColor:
-                        channel?.categoryColor ?? tokens.mutedForeground,
-                    child: const SizedBox.shrink(),
-                  ),
-                ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: DButton(
-                  key: const ValueKey('content-header-title-action'),
-                  variant: DButtonVariant.inline,
-                  semanticLabel: context.l10n.openDetails((title).toString()),
-                  onPressed: onOpenDetails,
-                  label: DText(
-                    title,
-                    variant: DTextVariant.h3,
-                    headingLevel: 1,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-              ChatChannelStarButton(siteUrl: siteUrl, channelId: channelId),
-              UserStatusMessage(
-                key: const ValueKey('chat-channel-header-status'),
-                siteUrl: siteUrl,
-                userId: user?.id,
-                status: user?.status,
-                size: 16,
-                leadingGap: 5,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            key: const ValueKey('chat-channel-header-metadata'),
-            spacing: 7,
-            runSpacing: 7,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (var index = 0; index < metadata.length; index++) ...[
-                if (index > 0)
-                  DText(
-                    '·',
-                    style: TextStyle(
-                      fontSize: DiscourseTypography.preview,
-                      height: DiscourseTypography.lineHeightSmall,
-                      color: theme.discourse.primaryLowMid,
-                    ),
-                  ),
-                DText.rich(
-                  metadata[index],
-                  style: TextStyle(
-                    fontSize: DiscourseTypography.preview,
-                    height: DiscourseTypography.lineHeightSmall,
-                    color: tokens.mutedForeground,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 16),
-          DSeparator(
-            key: const ValueKey('content-header-separator'),
-            color: theme.shell.divider,
-            space: 1,
-          ),
-        ],
       ),
     );
-  }
-
-  String _dayLabel(DateTime date, DateTime now) {
-    final local = date.toLocal();
-    final today = now.toLocal();
-    final day = DateTime(local.year, local.month, local.day);
-    if (day == DateTime(today.year, today.month, today.day)) return 'today';
-    if (day == DateTime(today.year, today.month, today.day - 1)) {
-      return 'yesterday';
-    }
-    return DateFormat(
-      local.year == today.year ? 'MMM d' : 'MMM d, y',
-    ).format(local);
   }
 }

@@ -1999,6 +1999,18 @@ abstract class AppLocalizations {
   /// **'Thread'**
   String get thread;
 
+  /// Identifies the parent channel in a conversation header.
+  ///
+  /// In en, this message translates to:
+  /// **'Thread in #{channel}'**
+  String threadInChannel(String channel);
+
+  /// Accessible label for the thread title action menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Thread actions'**
+  String get threadActions;
+
   /// English UI message used by plugins/chat/chat_thread_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
