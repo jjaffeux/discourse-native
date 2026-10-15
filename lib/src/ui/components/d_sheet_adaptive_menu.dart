@@ -177,31 +177,33 @@ class _DSheetAdaptiveMenuScope extends InheritedWidget {
       canCollapse != oldWidget.canCollapse;
 }
 
-// Consume only the part of a finger movement needed to raise the sheet. The
-// remainder scrolls the original viewport in the same gesture, with its native
-// physics. A downward pull transfers back at the top of that viewport.
 // SingleChildScrollView can retain its old metrics after a layout correction.
 // Each physics chain keeps the actual previous extent independently.
 class _DSheetMenuDimensions {
   double? maximum;
 }
 
+// An expansion gesture belongs to the sheet until release. The next gesture
+// scrolls with native physics; downward pulls transfer back at the list's top.
 class _DSheetMenuPhysics extends ScrollPhysics {
   _DSheetMenuPhysics({
     required this.consume,
     required this.resizingInsets,
+    required this.stopMomentum,
     _DSheetMenuDimensions? dimensions,
     super.parent,
   }) : _dimensions = dimensions ?? _DSheetMenuDimensions();
 
   final double Function(ScrollMetrics, double) consume;
   final bool Function() resizingInsets;
+  final bool Function() stopMomentum;
   final _DSheetMenuDimensions _dimensions;
 
   @override
   _DSheetMenuPhysics applyTo(ScrollPhysics? ancestor) => _DSheetMenuPhysics(
     consume: consume,
     resizingInsets: resizingInsets,
+    stopMomentum: stopMomentum,
     dimensions: _dimensions,
     parent: buildParent(ancestor),
   );
@@ -215,6 +217,15 @@ class _DSheetMenuPhysics extends ScrollPhysics {
         ? 0
         : super.applyPhysicsToUserOffset(position, remaining);
   }
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) => super.createBallisticSimulation(
+    position,
+    position.axis == Axis.vertical && stopMomentum() ? 0 : velocity,
+  );
 
   @override
   double adjustPositionForNewDimensions({
@@ -249,16 +260,19 @@ class _DSheetMenuScrollBehavior extends ScrollBehavior {
     this.delegate,
     this.consume,
     this.resizingInsets,
+    this.stopMomentum,
   );
 
   final ScrollBehavior delegate;
   final double Function(ScrollMetrics, double) consume;
   final bool Function() resizingInsets;
+  final bool Function() stopMomentum;
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) => _DSheetMenuPhysics(
     consume: consume,
     resizingInsets: resizingInsets,
+    stopMomentum: stopMomentum,
     parent: delegate.getScrollPhysics(context),
   );
 
@@ -287,7 +301,8 @@ class _DSheetMenuScrollBehavior extends ScrollBehavior {
   bool shouldNotify(_DSheetMenuScrollBehavior oldDelegate) =>
       delegate != oldDelegate.delegate ||
       consume != oldDelegate.consume ||
-      resizingInsets != oldDelegate.resizingInsets;
+      resizingInsets != oldDelegate.resizingInsets ||
+      stopMomentum != oldDelegate.stopMomentum;
 }
 
 class _DSheetAdaptiveMenu extends StatefulWidget {
@@ -339,6 +354,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _interacted = false;
   bool _dragging = false;
   bool _scrollDrag = false;
+  bool _expansionGesture = false;
   bool _scheduled = false;
   bool _contentLayoutPending = false;
   bool _floating = false;
@@ -721,9 +737,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _travel.stop();
   }
 
-  void _update(double delta) {
+  void _update(double delta, {bool allowExpand = true}) {
     if (_dismissOrigin != null) return;
-    _travel.value = math.max(0, _travel.value + delta);
+    _travel.value = math.max(
+      allowExpand ? 0 : _startOffset,
+      _travel.value + delta,
+    );
   }
 
   double _consume(ScrollMetrics metrics, double delta) {
@@ -732,16 +751,23 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         _dismissOrigin != null) {
       return delta;
     }
+    if (_expansionGesture) {
+      _update(delta);
+      return 0;
+    }
     if (_travel.value <= 0 &&
         !(delta > 0 && metrics.pixels <= metrics.minScrollExtent)) {
       return delta;
     }
     if (!_dragging) _start();
     _scrollDrag = true;
+    _expansionGesture = delta < 0 && _startOffset > 1;
     final before = _travel.value;
     _update(delta);
-    return delta - (_travel.value - before);
+    return _expansionGesture ? 0 : delta - (_travel.value - before);
   }
+
+  bool _stopScrollMomentum() => _expansionGesture;
 
   void _settle(double to) {
     if (_animate) {
@@ -765,6 +791,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       return;
     }
     final pulled = _travel.value - _startOffset;
+    if (_expansionGesture && pulled < 0) {
+      _settle(0);
+      return;
+    }
     if (pulled >= 0) {
       // Match standard sheets: velocity shapes an accepted exit, but never
       // turns a short pull into a dismissal. A deliberate expanded pull can
@@ -850,6 +880,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   void _down(PointerDownEvent event) {
     if (_pointer != null || event.kind != PointerDeviceKind.touch) return;
     _pointer = event.pointer;
+    // A gesture that raises the sheet owns all of its motion, including the
+    // release velocity. Only a new touch may start scrolling the content.
+    _expansionGesture = false;
     _velocity = VelocityTracker.withKind(event.kind)
       ..addPosition(event.timeStamp, event.position);
   }
@@ -943,7 +976,26 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
         ),
       ),
     );
-    final backdrop = widget.presentation.buildBackdrop(blurSigma: 2);
+    Widget backdrop = widget.presentation.buildBackdrop(blurSigma: 2);
+    if (widget.presentation.modal &&
+        (widget.onDismiss != null || widget.onDismissRequested != null)) {
+      backdrop = Listener(
+        onPointerDown: _down,
+        onPointerMove: _move,
+        onPointerUp: _up,
+        onPointerCancel: _cancel,
+        child: GestureDetector(
+          excludeFromSemantics: true,
+          supportedDevices: const {PointerDeviceKind.touch},
+          onVerticalDragStart: (_) => _start(),
+          onVerticalDragUpdate: (details) =>
+              _update(details.delta.dy, allowExpand: false),
+          onVerticalDragEnd: (details) => _finish(details.primaryVelocity ?? 0),
+          onVerticalDragCancel: () => _finish(0, cancelled: true),
+          child: backdrop,
+        ),
+      );
+    }
     return LayoutBuilder(
       builder: (context, bounds) {
         _room = math.max(0, bounds.maxHeight - keyboard);
@@ -1024,6 +1076,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                       ScrollConfiguration.of(context),
                       _consume,
                       _isResizingInsets,
+                      _stopScrollMomentum,
                     ),
                     child: content,
                   ),

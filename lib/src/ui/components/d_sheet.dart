@@ -503,9 +503,7 @@ Widget _sheetLayout(
     _ => false,
   };
   if (dismissOnSwipe && mobile && side == DSheetSide.bottom) {
-    if (variant == DSheetVariant.menu &&
-        presentation.modal &&
-        presentation.dismissOnBarrier) {
+    if (presentation.modal) {
       // The backdrop owns outside gestures; the sheet keeps its own bounds.
       // Forward to the same motion owner so threshold, cancellation and exit
       // velocity agree with a drag begun on the sheet itself. Pointer cancel

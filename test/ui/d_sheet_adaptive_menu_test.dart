@@ -470,6 +470,104 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final sizeToContent in [true, false]) {
+      for (final reducedMotion in [false, true]) {
+        testWidgets('backdrop swipes share the adaptive threshold on $platform '
+            '(content: $sizeToContent, reduced: $reducedMotion)', (
+          tester,
+        ) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await openMenu(
+            tester,
+            platform: platform,
+            scroll: scroll,
+            sizeToContent: sizeToContent,
+            reducedMotion: reducedMotion,
+          );
+          final sheet = find.byType(DSheetContent);
+          final opened = tester.getRect(sheet);
+          final above = Offset(opened.center.dx, opened.top - 50);
+          final threshold = (844 - opened.top) * .3;
+          Future<TestGesture> pull(double distance) async {
+            final gesture = await tester.startGesture(above);
+            await gesture.moveBy(const Offset(0, 40));
+            await tester.pump();
+            final moved = tester.getRect(sheet).top - opened.top;
+            await gesture.moveBy(Offset(0, distance - moved));
+            await tester.pump();
+            expect(
+              tester.getRect(sheet).top,
+              closeTo(opened.top + distance, .1),
+            );
+            expect(scroll.offset, 0);
+            return gesture;
+          }
+
+          final short = await pull(threshold - 1);
+          await short.up();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), opened);
+          final cancelled = await pull(threshold + 20);
+          await cancelled.cancel();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), opened);
+          await tester.dragFrom(above, const Offset(0, -100));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), opened);
+          await tester.dragFrom(above, const Offset(100, 0));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), opened);
+          final dismiss = await pull(threshold + 1);
+          await dismiss.up();
+          if (!reducedMotion) {
+            await tester.pump();
+            await tester.pump();
+            final released = tester.getRect(sheet);
+            await tester.pump(const Duration(milliseconds: 60));
+            expect(tester.getRect(sheet).top, greaterThan(released.top));
+          }
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+
+    testWidgets('an expansion fling cannot start list momentum on $platform', (
+      tester,
+    ) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await openMenu(
+        tester,
+        platform: platform,
+        scroll: scroll,
+        sizeToContent: false,
+      );
+      final sheet = find.byType(DSheetContent);
+      await tester.fling(find.byType(ListView), const Offset(0, -120), 5000);
+      await tester.pump();
+      expect(scroll.offset, 0);
+      expect(scroll.position.isScrollingNotifier.value, isFalse);
+      for (var frame = 0; frame < 20; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(scroll.offset, 0);
+        expect(tester.getRect(sheet).left, 0);
+      }
+      await tester.pumpAndSettle();
+      expect(tester.getRect(sheet).top, closeTo(55, 1));
+      await tester.fling(find.byType(ListView), const Offset(0, -120), 1800);
+      await tester.pump();
+      final released = scroll.offset;
+      expect(released, greaterThan(0));
+      expect(scroll.position.isScrollingNotifier.value, isTrue);
+      await tester.pump(const Duration(milliseconds: 64));
+      expect(scroll.offset, greaterThan(released));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets(
       'short async results add margins that survive later loading on $platform',
       (tester) async {
@@ -848,42 +946,51 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets(
-      'one content drag expands then scrolls; a cancelled pull restores on $platform',
-      (tester) async {
-        final scroll = ScrollController();
-        addTearDown(scroll.dispose);
-        await openMenu(tester, platform: platform, scroll: scroll);
-        final sheet = find.byType(DSheetContent);
-        final drag = await tester.startGesture(
-          const Offset(195, 600),
-          kind: PointerDeviceKind.touch,
-        );
-        await drag.moveBy(const Offset(0, -100));
-        await tester.pump();
-        expect(tester.getRect(sheet).top, lessThan(844 * .45));
-        expect(scroll.offset, 0);
-        await drag.moveBy(const Offset(0, -350));
-        await tester.pump();
-        expect(scroll.offset, greaterThan(0));
-        await drag.up();
-        await tester.pumpAndSettle();
-        scroll.jumpTo(0);
-        await tester.pumpAndSettle();
-        final before = tester.getRect(sheet);
-        final pull = await tester.startGesture(
-          tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
-        );
-        await pull.moveBy(const Offset(0, 20));
-        await pull.moveBy(const Offset(0, 90));
-        await tester.pump();
-        expect(tester.getRect(sheet).top, greaterThan(before.top));
-        await pull.cancel();
-        await tester.pumpAndSettle();
-        expect(tester.getRect(sheet), before);
-        expect(tester.takeException(), isNull);
-      },
-    );
+    testWidgets('expansion leaves scrolling to the next gesture on $platform', (
+      tester,
+    ) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await openMenu(tester, platform: platform, scroll: scroll);
+      final sheet = find.byType(DSheetContent);
+      final drag = await tester.startGesture(
+        const Offset(195, 600),
+        kind: PointerDeviceKind.touch,
+      );
+      await drag.moveBy(const Offset(0, -100));
+      await tester.pump();
+      expect(tester.getRect(sheet).top, lessThan(844 * .45));
+      expect(scroll.offset, 0);
+      await drag.moveBy(const Offset(0, -350));
+      await tester.pump();
+      expect(tester.getRect(sheet).top, closeTo(55, 1));
+      expect(scroll.offset, 0);
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(scroll.offset, 0);
+      expect(tester.getRect(sheet).left, 0);
+      await tester.fling(find.byType(ListView), const Offset(0, -120), 1800);
+      await tester.pump();
+      final released = scroll.offset;
+      expect(released, greaterThan(0));
+      await tester.pump(const Duration(milliseconds: 64));
+      expect(scroll.offset, greaterThan(released));
+      await tester.pumpAndSettle();
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      final before = tester.getRect(sheet);
+      final pull = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      );
+      await pull.moveBy(const Offset(0, 20));
+      await pull.moveBy(const Offset(0, 90));
+      await tester.pump();
+      expect(tester.getRect(sheet).top, greaterThan(before.top));
+      await pull.cancel();
+      await tester.pumpAndSettle();
+      expect(tester.getRect(sheet), before);
+      expect(tester.takeException(), isNull);
+    });
     testWidgets(
       'handle offers expansion and a downward pull dismisses on $platform',
       (tester) async {
@@ -1052,40 +1159,57 @@ void main() {
   });
 
   for (final sizeToContent in [true, false]) {
-    testWidgets(
-      'retained adaptive menu finishes its swipe (content: $sizeToContent)',
-      (tester) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        var dismissals = 0;
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(platform: TargetPlatform.iOS),
-            home: DSheetViewport(
-              onDismiss: () => dismissals++,
-              content: DSheetContent(
-                variant: DSheetVariant.adaptiveMenu,
-                sizeToContent: sizeToContent,
-                side: DSheetSide.bottom,
-                showCloseButton: false,
-                children: const [
-                  SizedBox(height: 180, child: Text('Retained menu')),
-                ],
+    for (final backdrop in [false, true]) {
+      testWidgets(
+        'retained adaptive menu finishes its swipe (content: $sizeToContent, backdrop: $backdrop)',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+          var dismissals = 0;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.iOS),
+              home: DSheetViewport(
+                onDismiss: () => dismissals++,
+                content: DSheetContent(
+                  variant: DSheetVariant.adaptiveMenu,
+                  sizeToContent: sizeToContent,
+                  side: DSheetSide.bottom,
+                  showCloseButton: false,
+                  children: const [
+                    SizedBox(height: 180, child: Text('Retained menu')),
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        await tester.drag(
-          find.byKey(const ValueKey('sheet-drag-handle')),
-          Offset(0, sizeToContent ? 130 : 200),
-        );
-        expect(dismissals, 0);
-        await tester.pumpAndSettle();
-        expect(dismissals, 1);
-        expect(tester.takeException(), isNull);
-      },
-    );
+          );
+          await tester.pumpAndSettle();
+          final sheet = find.byType(DSheetContent);
+          final above = Offset(195, tester.getRect(sheet).top - 40);
+          if (backdrop) {
+            await tester.tapAt(above);
+            await tester.pumpAndSettle();
+            expect(
+              dismissals,
+              0,
+              reason: 'a retained backdrop tap stays inert',
+            );
+          }
+          await tester.dragFrom(
+            backdrop
+                ? above
+                : tester.getCenter(
+                    find.byKey(const ValueKey('sheet-drag-handle')),
+                  ),
+            Offset(0, sizeToContent ? 130 : 200),
+          );
+          expect(dismissals, 0);
+          await tester.pumpAndSettle();
+          expect(dismissals, 1);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
 }

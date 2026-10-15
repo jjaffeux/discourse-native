@@ -753,6 +753,62 @@ void main() {
       );
 
       testWidgets(
+        'Filters reserve the expansion gesture and accept backdrop swipes on $platform ($material)',
+        (tester) async {
+          tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+          tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+          final (shell: shell, api: _) = await fixture(
+            tester,
+            size: const Size(390, 700),
+            filterOptions: filterMenuOptions,
+          );
+          await shell.forumSettings.setShared(
+            SharedAppearance(material: material),
+          );
+          await tester.pumpAndSettle();
+          await openFilters(tester);
+          final sheet = find.byType(DSheetContent);
+          final results = find.descendant(
+            of: find.byType(DCommandList<String>),
+            matching: find.byType(Scrollable),
+          );
+          final position = tester.state<ScrollableState>(results).position;
+          await tester.fling(results, const Offset(0, -180), 5000);
+          for (var frame = 0; frame < 24; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(position.pixels, 0);
+            expect(position.isScrollingNotifier.value, isFalse);
+            expect(tester.getRect(sheet).left, 0);
+          }
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet).top, closeTo(55, 1));
+          expect(position.maxScrollExtent, greaterThan(100));
+          await tester.fling(results, const Offset(0, -60), 800);
+          await tester.pumpAndSettle();
+          expect(position.pixels, greaterThan(0));
+          await tester.tapAt(const Offset(8, 20));
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          await openFilters(tester);
+          final opened = tester.getRect(sheet);
+          final above = Offset(opened.center.dx, opened.top - 60);
+          final short = await tester.startGesture(above);
+          await short.moveBy(const Offset(0, 40));
+          await short.moveBy(const Offset(0, 50));
+          await tester.pump();
+          expect(tester.getRect(sheet).top, greaterThan(opened.top));
+          await short.up();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(sheet), opened);
+          await tester.dragFrom(above, const Offset(0, 220));
+          await tester.pumpAndSettle();
+          expect(sheet, findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
+
+      testWidgets(
         'filter sheet expands, floats, and preserves its query on $platform ($material)',
         (tester) async {
           debugDisableShadows = false;
