@@ -14,7 +14,6 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import 'anchored_picker.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
@@ -1291,11 +1290,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
       )) {
         return;
       }
-      if (context.isTouch) {
-        _showTouch(context);
-      } else {
-        _controller.open();
-      }
+      _controller.open();
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }
@@ -1343,39 +1338,12 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
         );
   }
 
-  void _showTouch(BuildContext anchorContext) => unawaited(
-    showAnchoredPicker<void>(
-      context: context,
-      anchorContext: anchorContext,
-      title: widget.section.label,
-      barrierLabel: appL10n.dismissTopicinboxheader(
-        (widget.section.label).toString(),
-      ),
-      popoverHeight: null,
-      popoverKey: ValueKey(('topic-header-property', widget.section.label)),
-      builder: (pickerContext) => _TopicPropertyDetails(
-        siteUrl: widget.siteUrl,
-        topicId: widget.topicId,
-        label: widget.section.label,
-        registry: widget.registry,
-        navigationRevision: widget.navigationRevision,
-        onDismiss: () => Navigator.of(pickerContext).pop(),
-      ),
-    ),
-  );
-
   @override
   Widget build(BuildContext context) {
-    if (context.isTouch) {
-      return Builder(
-        builder: (anchorContext) {
-          _openRequestedProperty();
-          return _trigger(anchorContext, () => _showTouch(anchorContext));
-        },
-      );
-    }
     return DPopover(
       controller: _controller,
+      sheetOnMobile: true,
+      mobileSheetVariant: DSheetVariant.adaptiveMenu,
       content: DPopoverContent(
         width: 252,
         padding: EdgeInsets.zero,

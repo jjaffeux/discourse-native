@@ -57,6 +57,77 @@ void topicCompactActionsSheetTests({
       await loader.load();
     }
   });
+  for (final (size, scale) in [
+    (const Size(390, 844), 1.0),
+    (const Size(320, 740), 2.0),
+  ]) {
+    testWidgets(
+      'topic bookmark and assignment menus use mobile sheets at ${size.width} $scale',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final (shell, api) = await _openCompact(
+          tester,
+          size: size,
+          assigned: true,
+        );
+        final reader = shell.currentContent;
+        final bookmark = find.byKey(
+          const ValueKey('topic-header-bookmark-button'),
+        );
+        await tester.tap(bookmark);
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent).last;
+        expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
+        expect(
+          tester.widget<DSheetContent>(sheet).variant,
+          DSheetVariant.adaptiveMenu,
+        );
+        await tester.drag(
+          find.byType(DSheetContent).last,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('More options'));
+        await tester.pumpAndSettle();
+        await _capture(tester, 'bookmark-${size.width.toInt()}-$scale', size);
+        expect(find.text('More options').hitTestable(), findsOneWidget);
+        expect(api.createdBookmarks, hasLength(1));
+        await tester.tap(find.text('More options'));
+        await tester.pumpAndSettle();
+        expect(find.text('Edit bookmark'), findsOneWidget);
+        await tester.tap(find.byTooltip('Close').last);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('assign-topic-header')));
+        await tester.pumpAndSettle();
+        expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
+        expect(
+          tester.widget<DSheetContent>(sheet).variant,
+          DSheetVariant.adaptiveMenu,
+        );
+        expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
+        expect(find.text('@sam').hitTestable(), findsOneWidget);
+        await _capture(tester, 'assign-${size.width.toInt()}-$scale', size);
+        await tester.tapAt(const Offset(20, 100));
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsOneWidget);
+        expect(shell.currentContent, reader);
+
+        // The same trigger can reopen, and its sheet belongs to the reader.
+        await tester.tap(find.byKey(const Key('assign-topic-header')));
+        await tester.pumpAndSettle();
+        shell.closeTopic();
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: native
+          ? TargetPlatformVariant.only(TargetPlatform.iOS)
+          : _mobile,
+    );
+  }
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     for (final (size, scale) in [
       (const Size(390, 844), 1.0),
@@ -223,6 +294,7 @@ Future<(ShellController, FakeDiscourseApi)> _openCompact(
   WidgetTester tester, {
   Size size = phone,
   AppThemeMode mode = AppThemeMode.dark,
+  bool assigned = false,
 }) async {
   const user = DiscourseUser(id: 9, username: 'moderator', staff: true);
   final api = FakeDiscourseApi(
@@ -258,7 +330,14 @@ Future<(ShellController, FakeDiscourseApi)> _openCompact(
         ],
         plugins: PluginData.none.withValue(
           assignmentsDataKey,
-          Assignments(canAssign: true),
+          Assignments(
+            canAssign: true,
+            direct: assigned
+                ? const Assignment(
+                    assignee: AssignmentUser(username: 'sam', name: 'Sam'),
+                  )
+                : null,
+          ),
         ),
         posts: [
           for (var id = 1; id <= 50; id++)
@@ -316,7 +395,7 @@ Future<List<int>> captureTopicCompactSheet(
   Size size,
 ) async {
   return (await tester.runAsync(() async {
-    RenderObject root = tester.renderObject(_menu);
+    RenderObject root = tester.renderObject(find.byType(DSheetContent).last);
     while (root.parent != null) {
       root = root.parent!;
     }

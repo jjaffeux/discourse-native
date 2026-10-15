@@ -151,6 +151,37 @@ final class _PluginBookmarkUiHost implements _BookmarkUiHost {
   }) => _host.deleteBookmark(siteUrl: siteUrl, bookmark: bookmark);
 }
 
+Future<T?> _showBookmarkSheet<T>({
+  required BuildContext context,
+  required String title,
+  required WidgetBuilder builder,
+  bool dialogOnDesktop = true,
+}) {
+  if (!context.isTouch) {
+    return showShellSheet<T>(
+      context: context,
+      title: title,
+      dialogOnDesktop: dialogOnDesktop,
+      builder: builder,
+    );
+  }
+  return showDSheet<T>(
+    context: context,
+    side: DSheetSide.bottom,
+    variant: DSheetVariant.adaptiveMenu,
+    builder: (context, _) => DSheetContent(
+      side: DSheetSide.bottom,
+      variant: DSheetVariant.adaptiveMenu,
+      semanticLabel: title,
+      scrollWholeSheet: false,
+      children: [
+        DSheetHeader(children: [DSheetTitle(child: Text(title))]),
+        Flexible(child: DSheetBody(child: builder(context))),
+      ],
+    ),
+  );
+}
+
 Future<void> showPostBookmarkMenu({
   required BuildContext context,
   required BookmarkHost controller,
@@ -173,7 +204,7 @@ Future<void> showPostBookmarkMenu({
     menu: menu,
   );
   final result = anchor == null || context.isTouch
-      ? await showShellSheet<_QuickMenuResult>(
+      ? await _showBookmarkSheet<_QuickMenuResult>(
           context: context,
           title: title,
           dialogOnDesktop: true,
@@ -231,7 +262,7 @@ Future<void> showPluginBookmarkMenu({
 }) async {
   final session = controller.captureSession(siteUrl);
   final uiActions = _PluginBookmarkUiHost(controller, session);
-  final result = await showShellSheet<_QuickMenuResult>(
+  final result = await _showBookmarkSheet<_QuickMenuResult>(
     context: context,
     title: bookmark == null ? createTitle : existingTitle,
     dialogOnDesktop: true,
@@ -264,7 +295,7 @@ Future<void> showTopicBookmarkMenu({
   final topicUiActions = _CoreBookmarkUiHost(topicActions, topic.id, session);
   final postUiActions = _CoreBookmarkUiHost(postActions, topic.id, session);
   if (topic.postBookmarks.isEmpty) {
-    final result = await showShellSheet<_QuickMenuResult>(
+    final result = await _showBookmarkSheet<_QuickMenuResult>(
       context: context,
       title: topic.topicBookmark == null
           ? appL10n.bookmarkTopic
@@ -289,7 +320,7 @@ Future<void> showTopicBookmarkMenu({
     return;
   }
 
-  final result = await showShellSheet<_TopicBookmarksAction>(
+  final result = await _showBookmarkSheet<_TopicBookmarksAction>(
     context: context,
     title: appL10n.topicBookmarks,
     dialogOnDesktop: true,
@@ -310,7 +341,7 @@ Future<void> showTopicBookmarkMenu({
     case _TopicBookmarksActionKind.topic:
       final current =
           controller.store.read<TopicDetail>(siteUrl, topic.id) ?? topic;
-      final quick = await showShellSheet<_QuickMenuResult>(
+      final quick = await _showBookmarkSheet<_QuickMenuResult>(
         context: context,
         title: current.topicBookmark == null
             ? appL10n.bookmarkTopic
