@@ -42,6 +42,8 @@ Set<String> _appliedTags(ShellController shell) {
 }
 
 void main() {
+  const touchOnly = bool.fromEnvironment('TAXONOMY_TOUCH_ONLY');
+  const tagCount = int.fromEnvironment('TAXONOMY_TAG_COUNT', defaultValue: 500);
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
 
@@ -87,12 +89,12 @@ void main() {
       ),
     );
     final tags = List.generate(
-      500,
+      tagCount,
       (i) => SidebarTag(
         id: i + 1,
         name: 'tag-${i.toString().padLeft(3, '0')}',
         slug: 'tag-$i',
-        count: 500 - i,
+        count: tagCount - i,
       ),
     );
     final api = FakeDiscourseApi(
@@ -131,6 +133,7 @@ void main() {
     final shell = ShellScope.read(tester.element(primaryMainContent));
     await Future<void>.delayed(const Duration(seconds: 2));
 
+    var details = <String, Object>{};
     Future<void> measure(
       String component,
       DAppearanceMaterial material,
@@ -138,6 +141,7 @@ void main() {
       Future<void> Function() action,
     ) async {
       final frames = <ui.FrameTiming>[];
+      details = {};
       void collect(List<ui.FrameTiming> batch) => frames.addAll(batch);
       binding.addTimingsCallback(collect);
       final startUs = Timeline.now;
@@ -184,14 +188,22 @@ void main() {
             tester.view.physicalSize.height / tester.view.devicePixelRatio,
         'pixelRatio': tester.view.devicePixelRatio,
         'component': component,
-        'material': material.name,
+        'material': shell.forumSettings.shared
+            .materialFor(defaultTargetPlatform)
+            .name,
+        'requestedMaterial': material.name,
         'phase': phase,
         'categories': categories.length,
         'tags': tags.length,
+        'mountedTagCheckboxes': find
+            .descendant(of: _list, matching: find.byType(DCheckbox))
+            .evaluate()
+            .length,
         'elapsedMs': (endUs - startUs) / 1000,
         'frames': frames.length,
         'build': summary((f) => f.buildDuration),
         'raster': summary((f) => f.rasterDuration),
+        ...details,
       };
       debugPrint('TAXONOMY_PROFILE ${jsonEncode(report)}', wrapWidth: 4096);
       binding.reportData ??= {};
@@ -203,7 +215,7 @@ void main() {
       await tester.tap(find.byKey(ValueKey('topic-list-$component-filter')));
       await tester.pumpAndSettle();
       expect(_list, findsOneWidget);
-      if (defaultTargetPlatform == TargetPlatform.iOS) {
+      if (defaultTargetPlatform == TargetPlatform.iOS && !touchOnly) {
         await tester.drag(
           find.byKey(const ValueKey('sheet-drag-handle')),
           const Offset(0, -350),
@@ -230,7 +242,7 @@ void main() {
     for (final material in DAppearanceMaterial.values) {
       await shell.forumSettings.setShared(SharedAppearance(material: material));
       await tester.pumpAndSettle();
-      for (final component in ['category', 'tag']) {
+      for (final component in touchOnly ? ['tag'] : ['category', 'tag']) {
         await measure(component, material, 'open', () => open(component));
         final initialResults = _resultCount(tester);
         expect(
@@ -246,6 +258,102 @@ void main() {
         expect(results, findsOneWidget);
         final position = tester.state<ScrollableState>(results).position;
         expect(position.maxScrollExtent, greaterThan(3000));
+        if (touchOnly) {
+          await measure(component, material, 'touch-expand', () async {
+            await tester.timedDrag(
+              results,
+              const Offset(0, -300),
+              const Duration(milliseconds: 600),
+              frequency: 120,
+            );
+            await tester.pumpAndSettle();
+          });
+          // Measure content movement after the sheet's expansion gesture.
+          position.jumpTo(1000);
+          await tester.pumpAndSettle();
+          final point = tester.getCenter(results);
+          final records = <PointerEventRecord>[
+            PointerEventRecord(Duration.zero, [
+              PointerAddedEvent(position: point, viewId: tester.view.viewId),
+              PointerDownEvent(
+                position: point,
+                pointer: 31,
+                viewId: tester.view.viewId,
+              ),
+            ]),
+          ];
+          var previous = point;
+          for (var frame = 1; frame <= 360; frame++) {
+            final step = frame % 120;
+            final y = step < 30
+                ? -step * 4.0
+                : step < 90
+                ? (step - 60) * 4.0
+                : (120 - step) * 4.0;
+            final next = point + Offset(0, y);
+            final time = Duration(microseconds: frame * 1000000 ~/ 120);
+            records.add(
+              PointerEventRecord(time, [
+                PointerMoveEvent(
+                  position: next,
+                  delta: next - previous,
+                  timeStamp: time,
+                  pointer: 31,
+                  viewId: tester.view.viewId,
+                ),
+              ]),
+            );
+            previous = next;
+          }
+          records.add(
+            PointerEventRecord(const Duration(seconds: 3), [
+              PointerCancelEvent(
+                position: previous,
+                pointer: 31,
+                viewId: tester.view.viewId,
+              ),
+            ]),
+          );
+          await measure(component, material, 'touch-drag', () async {
+            var minimum = position.pixels;
+            var maximum = minimum;
+            void moved() {
+              if (position.pixels < minimum) minimum = position.pixels;
+              if (position.pixels > maximum) maximum = position.pixels;
+            }
+
+            position.addListener(moved);
+            late final List<Duration> lateEvents;
+            try {
+              lateEvents = await tester.handlePointerEventRecord(records);
+            } finally {
+              position.removeListener(moved);
+            }
+            expect(maximum - minimum, greaterThan(200));
+            final lateness =
+                lateEvents.map((d) => d.inMicroseconds / 1000).toList()..sort();
+            details = {
+              'inputLatenessP95Ms': lateness[(lateness.length * .95).floor()],
+              'inputLatenessMaxMs': lateness.last,
+              'scrollTravel': maximum - minimum,
+            };
+            await tester.pumpAndSettle();
+          });
+          await measure(component, material, 'touch-fling', () async {
+            for (var repeat = 0; repeat < 3; repeat++) {
+              final before = position.pixels;
+              await tester.fling(results, const Offset(0, -250), 2000);
+              await tester.pumpAndSettle();
+              expect(position.pixels, greaterThan(before + 250));
+            }
+          });
+          position.jumpTo(0);
+          await tester.pumpAndSettle();
+          await tester.tap(_choice('tag-000'));
+          await tester.pumpAndSettle();
+          await close(component);
+          continue;
+        }
         Future<void> sweep() async {
           await position.animateTo(
             1500,

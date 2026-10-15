@@ -73,17 +73,22 @@ The scroll header is a repaint boundary. Highlight-only notifications preserve
 the editor and command list, and only rows whose selected state changes rebuild.
 The command controller's public notifications and selection behavior are retained.
 
-The results list still mounts all matching rows. Opening/restoring a long list
-or changing tag selections can therefore exceed a frame budget even when its
-steady scrolling is cheap. The stress workload is intended to expose this
-limit; passing its interaction assertions is not a claim of hitch-free rendering.
+Long command lists now mount a lazy viewport with individual row repaint
+boundaries. Short menus retain their shrink-wrapped geometry. Keyboard navigation
+reveals unmounted variable-height rows, including Home/End and filtered results.
+The long viewport fills its bounded menu: shrink wrapping caused a fractional
+iOS scroll-offset correction loop during sheet expansion in the native run.
+Regression checks bound resident artwork and preserve cached visible text; rows
+entering the viewport paint once. Filtering still scores the full vocabulary,
+so these changes do not establish constant-time search or selection.
 
-Native macOS profile capture on 2026-10-15: 1280x860 logical pixels, DPR 2,
+Historical macOS profile capture at `72ccf56ac` on 2026-10-15: 1280x860 logical pixels, DPR 2,
 250 categories and 500 tags. The macOS engine reported shader filters unsupported,
-so the Liquid Glass setting used its fallback. No physical iPhone timing claim
+so both saved material settings used Liquid Glass fallback. Apple platforms
+force Liquid Glass; the saved Standard setting did not exercise Standard rendering. No physical iPhone timing claim
 is established by this run.
 
-| Menu | Material setting | Scroll build p95 | Scroll raster p95 | Hover build p95 |
+| Menu | Saved setting (both effective Glass fallback) | Scroll build p95 | Scroll raster p95 | Hover build p95 |
 | --- | --- | ---: | ---: | ---: |
 | Category | Standard | 0.622 ms | 1.887 ms | 0.703 ms |
 | Category | Liquid Glass fallback | 0.757 ms | 2.141 ms | 0.762 ms |
@@ -93,6 +98,46 @@ is established by this run.
 Each scroll capture recorded 726 frames; none exceeded 8.33 ms of build or
 raster work. Peak tag search builds reached 105 ms, selection/matching-mode
 builds reached 41 ms, and opening the 500-tag menu reached 96 ms of build work.
-The first category opening also recorded a 186 ms raster spike. These remaining
-list-construction costs require separate optimization. The native fixture's 24
-phases and all 114 directly related widget tests passed.
+The first category opening also recorded a 186 ms raster spike. These were the
+eager renderer's construction costs before the lazy-list fix. The historical
+fixture's 24 phases and 114 directly related widget tests passed.
+
+
+### Long-list iPhone touch comparison
+
+The native iPhone 18 Pro simulator (iOS 27, 402x874 logical pixels, DPR 3)
+exercised 2,000 tags with the real Impeller Liquid Glass shader path. Debug-mode
+before/after captures used the same workload: sheet expansion by touch, a
+three-second bidirectional pointer stream at 120 Hz, and three ballistic flings.
+Both saved material settings resolve to Liquid Glass on iOS. Cases are repeated
+workloads, not comparisons between materials.
+
+| Workload | Eager renderer | Lazy renderer |
+| --- | ---: | ---: |
+| Mounted tag rows | 2,000 | 7 opening; 18-23 expanded/scrolling |
+| Opening peak build, first / second case | 1,441 / 1,048 ms | 129 / 39 ms |
+| Touch drag raster p95, first / second case | 6.69 / 6.39 ms | 5.10 / 3.93 ms |
+| Fling raster p95, first / second case | 6.57 / 6.36 ms | 4.98 / 4.03 ms |
+| Touch-event scheduling lateness p95, first / second case | 47.3 / 49.7 ms | 16.2 / 16.9 ms |
+
+Touch-event lateness measures the test driver's injection backlog, not physical
+end-to-end touch latency. Debug simulator timings vary with host load; they do
+not establish physical iPhone frame rates. Both eight-phase captures passed
+movement and interaction assertions. The optimized run still recorded a 41 ms
+opening raster frame and a 52 ms sheet-expansion raster frame, so opening and
+sheet animation are not claimed hitch-free. Physical-device profiling was
+attempted with an isolated benchmark app ID but blocked by missing local Xcode
+account/provisioning; the user's installed phone app was not replaced.
+
+```sh
+flutter drive --no-pub --no-start-paused --debug -d <simulator-id> \
+  --driver integration_test/performance_driver.dart \
+  --target integration_test/topic_taxonomy_performance_test.dart \
+  --dart-define=TAXONOMY_TOUCH_ONLY=true \
+  --dart-define=TAXONOMY_TAG_COUNT=2000 \
+  --dart-define=PROFILE_LABEL=touch-current
+```
+
+For an isolated iOS bundle, point `XCODE_XCCONFIG_FILE` at a temporary file with
+`PRODUCT_BUNDLE_IDENTIFIER = org.discourse.native.taxonomy-performance`.
+Use `--profile` and a provisioned physical-device ID for actual iPhone timings.

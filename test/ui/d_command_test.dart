@@ -91,6 +91,141 @@ Widget _command({
 );
 
 void main() {
+  testWidgets('long command results mount a bounded number of rows', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          child: DCommandList<String>(
+            children: [
+              DCommandGroup<String>(
+                heading: const Text('Tags'),
+                items: [
+                  for (var i = 0; i < 1000; i++)
+                    DCommandItem<String>(
+                      value: 'tag-$i',
+                      child: Text('tag-$i'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    int mountedRows() => find
+        .byWidgetPredicate(
+          (widget) =>
+              widget is Text && (widget.data?.startsWith('tag-') ?? false),
+        )
+        .evaluate()
+        .length;
+    expect(mountedRows(), lessThan(60));
+    final scrollable = find.descendant(
+      of: find.byType(DCommandList<String>),
+      matching: find.byType(Scrollable),
+    );
+    await tester.drag(scrollable, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(
+      tester.state<ScrollableState>(scrollable).position.pixels,
+      greaterThan(400),
+    );
+    expect(mountedRows(), lessThan(60));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('keyboard reveals unmounted variable-height command results', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const DCommandInput<String>(),
+              DCommandList<String>(
+                children: [
+                  DCommandGroup<String>(
+                    heading: const Text('Results'),
+                    items: [
+                      for (var i = 0; i < 500; i++)
+                        DCommandItem<String>(
+                          value: 'Row $i',
+                          child: Text(
+                            i.isEven
+                                ? 'Row $i'
+                                : 'Row $i\nSecond line\nThird line',
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final results = find.descendant(
+      of: find.byType(DCommandList<String>),
+      matching: find.byType(Scrollable),
+    );
+    expect(find.text('Row 499\nSecond line\nThird line'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.pumpAndSettle();
+    expect(controller.value, 'Row 499');
+    expect(
+      tester
+          .getRect(results)
+          .contains(
+            tester.getCenter(find.text('Row 499\nSecond line\nThird line')),
+          ),
+      isTrue,
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pumpAndSettle();
+    expect(controller.value, 'Row 0');
+    expect(
+      tester.getRect(results).contains(tester.getCenter(find.text('Row 0'))),
+      isTrue,
+    );
+    controller.highlight('Row 250');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(controller.value, 'Row 251');
+    expect(
+      tester
+          .getRect(results)
+          .contains(
+            tester.getCenter(find.text('Row 251\nSecond line\nThird line')),
+          ),
+      isTrue,
+    );
+    controller.updateQuery('Row 499');
+    await tester.pumpAndSettle();
+    expect(find.text('Row 499\nSecond line\nThird line'), findsOneWidget);
+    controller.updateQuery('');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.home);
+    await tester.pumpAndSettle();
+    expect(controller.value, 'Row 0');
+    expect(
+      tester.getRect(results).contains(tester.getCenter(find.text('Row 0'))),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('highlight work stays bounded in long command lists', (
     tester,
   ) async {

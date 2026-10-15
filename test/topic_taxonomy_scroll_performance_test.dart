@@ -155,7 +155,21 @@ void main() {
           final viewport = tester.getRect(results);
           final input = _artwork(fixture.field);
           final page = _artwork(primaryMainContent);
-          final rows = _artwork(list).whereType<RenderParagraph>().toSet();
+          final paragraphs = _artwork(
+            list,
+          ).whereType<RenderParagraph>().toList();
+          expect(
+            paragraphs.length,
+            lessThan(160),
+            reason: 'Long menus must keep mounted row artwork bounded.',
+          );
+          // Lazy rows in the cache have not painted yet. Only artwork already
+          // visible is expected to remain cached while new rows enter view.
+          final rows = paragraphs.where((paragraph) {
+            final rect = paragraph.localToGlobal(Offset.zero) & paragraph.size;
+            return viewport.contains(rect.topLeft) &&
+                viewport.contains(rect.bottomRight);
+          }).toSet();
           var inputPaints = 0, pagePaints = 0, rowPaints = 0, totalPaints = 0;
           final previous = debugOnProfilePaint;
           debugOnProfilePaint = (object) {

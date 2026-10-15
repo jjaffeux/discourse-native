@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
@@ -140,31 +141,7 @@ class DCommandController<T> extends ChangeNotifier {
 
   void _selectEntry(_DCommandEntry<T> entry) {
     _valueRequest?.call(entry.value);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final context = entry.key.currentContext;
-      if (context != null) {
-        final list = context.findAncestorStateOfType<_DCommandListState<T>>();
-        if (list == null || !list._scroll.hasClients) return;
-        final target = context.findRenderObject()!;
-        final viewport = RenderAbstractViewport.of(target);
-        final position = list._scroll.position;
-        final top = viewport.getOffsetToReveal(target, 0).offset;
-        final bottom = viewport.getOffsetToReveal(target, 1).offset;
-        // Leave visible rows in place so keyboard selection does not move a
-        // different row beneath a stationary pointer.
-        if (position.pixels <= top && position.pixels >= bottom) return;
-        list._scroll.position.ensureVisible(
-          target,
-          alignmentPolicy: position.pixels > top
-              ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
-              : ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : DMotion.change,
-          curve: Curves.easeOutCubic,
-        );
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => entry.reveal());
   }
 
   void _move(int delta, {required bool loop}) {
@@ -734,6 +711,8 @@ class DCommandList<T> extends StatefulWidget {
 class _DCommandListState<T> extends State<DCommandList<T>> {
   ScrollController? _owned;
   final Map<Object, GlobalKey> _itemKeys = {};
+  final Map<Object, int> _lazyIndices = {};
+  int _revealGeneration = 0;
   ScrollController get _scroll => (_owned!);
 
   @override
@@ -745,6 +724,133 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
   @override
   void didUpdateWidget(DCommandList<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+  }
+
+  Future<void> _revealItem(Object identity) async {
+    final generation = ++_revealGeneration;
+    for (var attempt = 0; attempt < 8; attempt++) {
+      if (!mounted || generation != _revealGeneration || !_scroll.hasClients) {
+        return;
+      }
+      final targetContext = _itemKeys[identity]?.currentContext;
+      final position = _scroll.position;
+      if (targetContext != null && targetContext.mounted) {
+        final target = targetContext.findRenderObject()!;
+        final viewport = RenderAbstractViewport.of(target);
+        final top = viewport.getOffsetToReveal(target, 0).offset;
+        final bottom = viewport.getOffsetToReveal(target, 1).offset;
+        if (position.pixels <= top && position.pixels >= bottom) return;
+        await position.ensureVisible(
+          target,
+          alignmentPolicy: position.pixels > top
+              ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
+              : ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          duration: MediaQuery.disableAnimationsOf(targetContext)
+              ? Duration.zero
+              : DMotion.change,
+          curve: Curves.easeOutCubic,
+        );
+        return;
+      }
+      final index = _lazyIndices[identity];
+      if (index == null) return;
+      // Estimate from laid-out rows, then reveal the exact variable-height
+      // target once the lazy viewport has mounted it.
+      final visible = <({int index, double offset, double height})>[];
+      for (final item in _itemKeys.entries) {
+        final context = item.value.currentContext;
+        final itemIndex = _lazyIndices[item.key];
+        if (context == null || !context.mounted || itemIndex == null) continue;
+        final box = context.findRenderObject();
+        if (box is! RenderBox || !box.hasSize) continue;
+        visible.add((
+          index: itemIndex,
+          offset: RenderAbstractViewport.of(
+            box,
+          ).getOffsetToReveal(box, 0).offset,
+          height: box.size.height,
+        ));
+      }
+      if (visible.isEmpty) return;
+      visible.sort((a, b) => a.index.compareTo(b.index));
+      final first = visible.first;
+      final last = visible.last;
+      final height = last.index == first.index
+          ? first.height
+          : (last.offset - first.offset) / (last.index - first.index);
+      final nearest = index < first.index ? first : last;
+      position.jumpTo(
+        (nearest.offset + (index - nearest.index) * height).clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+    }
+  }
+
+  List<_DCommandLazyRow> _lazyRows(
+    List<_DResultNode<T>> nodes,
+    _DCommandScope<T> scope,
+    List<DCommandLoading> loading,
+  ) {
+    final rows = <_DCommandLazyRow>[
+      for (var i = 0; i < loading.length; i++)
+        _DCommandLazyRow(ValueKey((#loading, i)), loading[i]),
+    ];
+    for (var i = 0; i < nodes.length; i++) {
+      final node = nodes[i];
+      if (node is _DGroupNode<T>) {
+        if (node.group.heading case final heading?) {
+          rows.add(
+            _DCommandLazyRow(
+              ValueKey((#heading, i)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+                child: _commandGroupHeading(context, heading),
+              ),
+            ),
+          );
+        }
+        for (var j = 0; j < node.scored.length; j++) {
+          final item = node.scored[j].item;
+          rows.add(
+            _DCommandLazyRow(
+              ValueKey((#item, item.identity)),
+              KeyedSubtree(
+                key: item.key,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    4,
+                    j == 0 && node.group.heading == null ? 4 : 0,
+                    4,
+                    j == node.scored.length - 1 ? 4 : 0,
+                  ),
+                  child: _DCommandItemSurface<T>(
+                    key: _itemKeys[item.identity],
+                    item: item,
+                    scope: scope,
+                  ),
+                ),
+              ),
+              identity: item.identity,
+            ),
+          );
+        }
+      } else {
+        final identity = node is _DItemNode<T>
+            ? node.scored.item.identity
+            : null;
+        rows.add(
+          _DCommandLazyRow(
+            ValueKey((identity == null ? #separator : #item, identity ?? i)),
+            node.build(context, scope, _itemKeys),
+            identity: identity,
+          ),
+        );
+      }
+    }
+    return rows;
   }
 
   List<_DScoredItem<T>> _score(
@@ -839,6 +945,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
                 onSelected: scored.item.onSelected,
                 key: key,
                 group: group,
+                reveal: () => unawaited(_revealItem(identity)),
               ),
             );
           }
@@ -863,35 +970,69 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
         if (scope.loading) rendered.addAll(loadingNodes);
         if (entries.isEmpty && !scope.loading) rendered.addAll(emptyNodes);
         final showsResults = !scope.loading || entries.isNotEmpty;
-        if (showsResults) {
+        final lazy = entries.length > 64
+            ? _lazyRows(
+                resultNodes,
+                scope,
+                scope.loading ? loadingNodes : const [],
+              )
+            : null;
+        _lazyIndices.clear();
+        if (lazy != null) {
+          for (var i = 0; i < lazy.length; i++) {
+            if (lazy[i].identity case final identity?) {
+              _lazyIndices[identity] = i;
+            }
+          }
+        }
+        if (showsResults && lazy == null) {
           for (final node in resultNodes) {
             rendered.add(node.build(context, scope, _itemKeys));
           }
         }
         const padding = EdgeInsets.symmetric(vertical: DSpacing.xs);
+        final rowIndices = lazy == null
+            ? null
+            : {for (var i = 0; i < lazy.length; i++) lazy[i].key: i};
         Widget scroll({double minHeight = 0}) => DScrollBar(
           backgroundColor: scope.backgroundColor,
           controller: _scroll,
           thumbVisibility: false,
-          child: SingleChildScrollView(
-            controller: _scroll,
-            padding: padding,
-            // Scrolling and edge fades only move/composite these rows. Keep
-            // their text and icons cached until a row or the results change.
-            child: RepaintBoundary(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: minHeight),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: showsResults && resultNodes.isNotEmpty
-                      ? MainAxisAlignment.start
-                      : MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: rendered,
+          child: lazy != null
+              ? ListView.builder(
+                  controller: _scroll,
+                  primary: false,
+                  // Long results fill the bounded menu viewport. Shrink
+                  // wrapping can repeatedly correct fractional iOS offsets
+                  // while an adaptive sheet changes its height.
+                  padding: padding,
+                  itemCount: lazy.length,
+                  findChildIndexCallback: (key) => rowIndices![key],
+                  itemBuilder: (context, index) => KeyedSubtree(
+                    key: lazy[index].key,
+                    child: lazy[index].child,
+                  ),
+                )
+              : SingleChildScrollView(
+                  controller: _scroll,
+                  padding: padding,
+                  // Scrolling and edge fades only move/composite these rows. Keep
+                  // their text and icons cached until a row or the results change.
+                  child: RepaintBoundary(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: minHeight),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment:
+                            showsResults && resultNodes.isNotEmpty
+                            ? MainAxisAlignment.start
+                            : MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: rendered,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
         );
         return Semantics(
           container: true,
@@ -926,6 +1067,25 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
   }
 }
 
+class _DCommandLazyRow {
+  const _DCommandLazyRow(this.key, this.child, {this.identity});
+  final Key key;
+  final Widget child;
+  final Object? identity;
+}
+
+Widget _commandGroupHeading(BuildContext context, Widget heading) => Padding(
+  padding: const EdgeInsetsDirectional.fromSTEB(8, 6, 8, 6),
+  child: DefaultTextStyle(
+    style: Theme.of(context).textTheme.bodySmall!.copyWith(
+      fontSize: DiscourseTypography.xs,
+      fontWeight: FontWeight.w500,
+      color: DTokens.of(context).mutedForeground,
+    ),
+    child: heading,
+  ),
+);
+
 sealed class _DResultNode<T> {
   const _DResultNode();
   Iterable<_DScoredItem<T>> get items;
@@ -954,17 +1114,7 @@ class _DGroupNode<T> extends _DResultNode<T> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (group.heading != null)
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(8, 6, 8, 6),
-            child: DefaultTextStyle(
-              style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                fontSize: DiscourseTypography.xs,
-                fontWeight: FontWeight.w500,
-                color: DTokens.of(context).mutedForeground,
-              ),
-              child: group.heading!,
-            ),
-          ),
+          _commandGroupHeading(context, group.heading!),
         for (final item in scored)
           KeyedSubtree(
             key: item.item.key,
@@ -1029,12 +1179,14 @@ class _DCommandEntry<T> {
     required this.onSelected,
     required this.key,
     required this.group,
+    required this.reveal,
   });
   final T value;
   final bool enabled;
   final ValueChanged<T>? onSelected;
   final GlobalKey key;
   final Object? group;
+  final VoidCallback reveal;
 }
 
 /// A labelled result group. Filtering hides empty groups unless [forceMount].
