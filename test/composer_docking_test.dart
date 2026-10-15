@@ -802,9 +802,25 @@ void main() {
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
       final frame = tester.getRect(find.byType(ComposerPanel));
+      final sheet = tester.getRect(
+        find.byKey(const ValueKey('composer-mobile-sheet')),
+      );
+      final handle = tester.getRect(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+      );
       expect(
-        frame,
+        sheet,
         const Rect.fromLTWH(0, DSpacing.sm, 390, 800 - DSpacing.sm),
+      );
+      expect(handle.size, const Size(36, 5));
+      expect(handle.center.dx, sheet.center.dx);
+      expect(handle.top, sheet.top + 8);
+      expect(frame.top, greaterThan(handle.bottom));
+      expect(frame.bottom, sheet.bottom);
+      expect(frame.width, sheet.width);
+      expect(
+        find.byKey(const ValueKey('composer-minimize-header')),
+        findsNothing,
       );
       final submit = tester.getRect(
         find.byKey(const ValueKey('composer-submit')),
@@ -939,16 +955,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.widget<DButton>(submit).onPressed, isNotNull);
+    final frame = tester.getRect(find.byType(ComposerPanel));
     addTearDown(tester.view.resetViewInsets);
     for (final inset in [330.0, 0.0]) {
       tester.view.viewInsets = FakeViewPadding(
         bottom: inset * tester.view.devicePixelRatio,
       );
       await tester.pumpAndSettle();
-      expect(
-        tester.getSize(find.byType(ComposerPanel)).height,
-        800 - DSpacing.sm,
-      );
+      expect(tester.getRect(find.byType(ComposerPanel)), frame);
       expect(tester.state(find.byType(ComposerEditor)), same(editor));
       expect(composer.text.selection.extentOffset, 7);
     }
@@ -969,7 +983,7 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    for (final origin in ['header', 'body', 'bottom']) {
+    for (final origin in ['handle', 'header', 'body', 'bottom']) {
       for (final keyboard in [0.0, 300.0]) {
         testWidgets(
           '$platform composer ${origin == 'bottom' ? 'keeps bottom overscroll open then swipes from the top' : 'swipes from $origin'} and minimizes (keyboard: $keyboard)',
@@ -1009,7 +1023,7 @@ void main() {
             scroll.jumpTo(
               origin == 'bottom'
                   ? scroll.position.maxScrollExtent
-                  : origin == 'header'
+                  : origin == 'header' || origin == 'handle'
                   ? 400
                   : 0,
             );
@@ -1020,14 +1034,23 @@ void main() {
             final api =
                 harness.shell.api.composerPersistence as FakeDiscourseApi;
             final savesBeforeSwipe = api.draftsSaved.length;
-            final start = origin == 'header'
+            final start = origin == 'handle'
+                ? tester.getCenter(
+                    find.byKey(const ValueKey('sheet-drag-handle')),
+                  )
+                : origin == 'header'
                 ? tester.getCenter(
                     find.byKey(const ValueKey('composer-header')),
                   )
                 : origin == 'bottom'
                 ? tester.getBottomLeft(viewport) + const Offset(80, -24)
                 : tester.getTopLeft(viewport) + const Offset(80, 180);
-            expect(tester.getRect(viewport).contains(start), isTrue);
+            expect(
+              tester
+                  .getRect(origin == 'handle' ? sheet : viewport)
+                  .contains(start),
+              isTrue,
+            );
             expect(start.dy, lessThan(800 - keyboard));
             var gesture = await tester.startGesture(start);
             if (origin == 'bottom') {
@@ -1052,7 +1075,9 @@ void main() {
             await gesture.moveBy(Offset(0, origin == 'header' ? 300 : 600));
             await tester.pump();
             expect(tester.getTopLeft(sheet).dy, greaterThan(top));
-            if (origin == 'header') expect(scroll.offset, 400);
+            if (origin == 'header' || origin == 'handle') {
+              expect(scroll.offset, 400);
+            }
             expect(find.text('Discard'), findsNothing);
             expect(find.text('Minimize'), findsNothing);
             expect(
@@ -1158,7 +1183,7 @@ void main() {
     );
   }
 
-  for (final action in ['close', 'minimize-header', 'swipe']) {
+  for (final action in ['close', 'handle', 'swipe']) {
     for (final cleared in [false, true]) {
       testWidgets(
         'mobile $action closes ${cleared ? 'cleared saved' : 'whitespace-only'} drafts',
@@ -1183,9 +1208,17 @@ void main() {
           composer.title.text = '  ';
           composer.text.text = ' \n\t ';
           await tester.pump();
-          if (action == 'swipe') {
+          if (action == 'swipe' || action == 'handle') {
             await tester.dragFrom(
-              tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+              tester.getCenter(
+                find.byKey(
+                  ValueKey(
+                    action == 'handle'
+                        ? 'sheet-drag-handle'
+                        : 'composer-header',
+                  ),
+                ),
+              ),
               const Offset(0, 300),
             );
           } else {
@@ -1220,7 +1253,10 @@ void main() {
     composer.title.text = 'Keep this title';
     await tester.runAsync(composer.flushDraft);
     await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('composer-minimize-header')));
+    await tester.dragFrom(
+      tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      const Offset(0, 300),
+    );
     await tester.pumpAndSettle();
     expect(harness.shell.visibleComposer, same(composer));
     await tester.tap(find.byKey(const ValueKey('composer-restore')));

@@ -177,11 +177,7 @@ void main() {
           find.byType(ComposerEditor).hitTestable(),
         );
         next.text.selection = const TextSelection.collapsed(offset: 5);
-        await tester.tap(
-          find.byKey(
-            ValueKey(mobile ? 'composer-minimize-header' : 'composer-minimize'),
-          ),
-        );
+        await _minimize(tester, mobile: mobile);
         await tester.pumpAndSettle();
         await h.shell.openNewTopicFromSidebar();
         final last = h.shell.visibleComposer!;
@@ -264,11 +260,7 @@ void main() {
           selection: TextSelection.collapsed(offset: 6),
         );
         await tester.pumpAndSettle();
-        await tester.tap(
-          find.byKey(
-            ValueKey(mobile ? 'composer-minimize-header' : 'composer-minimize'),
-          ),
-        );
+        await _minimize(tester, mobile: mobile);
         await tester.pumpAndSettle();
         expect(find.byType(ComposerEditor).hitTestable(), findsNothing);
         await h.shell.resumeDraft(
@@ -574,11 +566,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         await _render(tester, '$name-${dark ? 'dark' : 'light'}-open');
-        await tester.tap(
-          find.byKey(
-            ValueKey(mobile ? 'composer-minimize-header' : 'composer-minimize'),
-          ),
-        );
+        await _minimize(tester, mobile: mobile);
         await tester.pumpAndSettle();
         final card = find
             .byKey(const ValueKey('composer-restore'))
@@ -598,6 +586,43 @@ void main() {
         expect(find.byType(ComposerEditor).hitTestable(), findsOneWidget);
         await tester.runAsync(composer.finishDraftSaves);
         await tester.pump();
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  for (final material in DAppearanceMaterial.values) {
+    for (final dark in [false, true]) {
+      testWidgets('mobile sheet handle uses $material dark=$dark', (
+        tester,
+      ) async {
+        await _Harness.create(
+          tester,
+          mobile: true,
+          size: const Size(390, 844),
+          theme: DMaterialTheme.apply(
+            dark ? AppTheme.dark : AppTheme.light,
+            material,
+          ),
+        );
+        final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+        expect(handle.hitTestable(), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('composer-minimize-header')),
+          findsNothing,
+        );
+        final bounds = tester.getRect(handle);
+        expect(bounds.center.dx, 195);
+        for (final action in ['composer-close', 'composer-submit']) {
+          expect(
+            tester.getRect(find.byKey(ValueKey(action))).top,
+            greaterThan(bounds.bottom),
+          );
+        }
+        await _render(
+          tester,
+          'phone-sheet-handle-${material.name}-${dark ? 'dark' : 'light'}',
+        );
         expect(tester.takeException(), isNull);
       });
     }
@@ -653,6 +678,17 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  }
+}
+
+Future<void> _minimize(WidgetTester tester, {required bool mobile}) async {
+  if (mobile) {
+    await tester.dragFrom(
+      tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      const Offset(0, 350),
+    );
+  } else {
+    await tester.tap(find.byKey(const ValueKey('composer-minimize')));
   }
 }
 

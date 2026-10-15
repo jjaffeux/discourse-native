@@ -305,15 +305,6 @@ class ComposerHeader extends StatelessWidget {
                 ),
               ),
             ),
-            if (onMinimize != null)
-              DButton.iconOnly(
-                key: const ValueKey('composer-minimize-header'),
-                tooltip: context.l10n.minimizeComposer,
-                onPressed: onMinimize,
-                variant: DButtonVariant.ghost,
-                size: DButtonSize.toolbar,
-                icon: const DIcon(DIcons.chevronDown),
-              ),
             mobileSubmit!,
           ],
         ),

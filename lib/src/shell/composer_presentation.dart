@@ -412,6 +412,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                   content: DSheetContent(
                     key: const ValueKey('composer-mobile-sheet'),
                     side: DSheetSide.bottom,
+                    variant: DSheetVariant.menu,
                     fillAvailableHeight: true,
                     extendBehindKeyboard: true,
                     scrollWholeSheet: false,

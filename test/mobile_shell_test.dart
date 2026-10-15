@@ -2200,7 +2200,14 @@ void main() {
     expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('composer-minimize-header')));
+    await tester.enterText(
+      find.byKey(const ValueKey('composer-topic-title')),
+      'Keep this draft above the dock',
+    );
+    await tester.dragFrom(
+      tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      const Offset(0, 400),
+    );
     await tester.pumpAndSettle();
     final restore = find.byKey(const ValueKey('composer-restore'));
     expect(tester.getRect(restore).bottom, closeTo(phone.height - 34, .01));
