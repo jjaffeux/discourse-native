@@ -70,7 +70,7 @@ class _TopicListViewState extends State<TopicListView> {
   late final _prefetch = _TopicListPrefetch(this);
   ValueListenable<TickerModeData>? _tickerMode;
   bool _touch = true;
-  ScrollController? _scroll;
+  PaginationScrollController? _scroll;
   ListController? _list;
   _TopicListIdentity? _feedIdentity;
   final ReadingFocusNode _keyboardFocus = ReadingFocusNode(
@@ -82,6 +82,20 @@ class _TopicListViewState extends State<TopicListView> {
   bool _restored = false;
   int? _readingTopicId;
   int _boundaryJumpRevision = 0;
+  List<int>? _indexedTopicIds;
+  Map<int, int> _topicIndexes = const {};
+
+  Map<int, int> _indexesFor(List<int> ids) {
+    if (!identical(_indexedTopicIds, ids)) {
+      _indexedTopicIds = ids;
+      final indexes = <int, int>{};
+      for (var index = 0; index < ids.length; index++) {
+        indexes.putIfAbsent(ids[index], () => index);
+      }
+      _topicIndexes = indexes;
+    }
+    return _topicIndexes;
+  }
 
   ShellController? _controller;
   StreamSubscription<int>? _topicListRevealSubscription;
@@ -107,6 +121,7 @@ class _TopicListViewState extends State<TopicListView> {
     }
     final previous = oldWidget.feed.topicIds;
     final next = widget.feed.topicIds;
+    if (identical(previous, next)) return;
     final remaining = next.toSet();
     if (next.isEmpty || !previous.any((id) => !remaining.contains(id))) return;
     final range = list!.visibleRange;
@@ -286,7 +301,7 @@ class _TopicListViewState extends State<TopicListView> {
     _loadMoreToken = null;
     _restored = false;
     _readingTopicId = null;
-    _scroll = ScrollController();
+    _scroll = PaginationScrollController();
     _list = ListController();
     _keyboardMoveToken = null;
     final saved = PageStorage.maybeOf(
@@ -698,6 +713,7 @@ class _TopicListViewState extends State<TopicListView> {
     }
 
     _restore(controller, destination, feedIdentity);
+    final topicIndexes = _indexesFor(feed.topicIds);
     if (_recording) {
       _recordScrollEvent('topicList.view.built', {
         'topicCount': feed.topicIds.length,
@@ -750,7 +766,10 @@ class _TopicListViewState extends State<TopicListView> {
                   }
                 }
                 if (notification.metrics.extentAfter <
-                    paginationPrefetchDistance(notification.metrics)) {
+                    paginationPrefetchDistance(
+                      notification.metrics,
+                      velocity: _scroll?.velocity ?? 0,
+                    )) {
                   _scheduleLoadMore(
                     controller,
                     destination,
@@ -814,9 +833,9 @@ class _TopicListViewState extends State<TopicListView> {
                           (feed.loadingMore || feed.pageError ? 1 : 0),
                       findChildIndexCallback: (key) {
                         if (key is! ValueKey<int>) return null;
-                        final index = feed.topicIds.indexOf(key.value);
+                        final index = topicIndexes[key.value];
                         // The separated delegate addresses topics and gaps.
-                        return index < 0 ? null : index * 2;
+                        return index == null ? null : index * 2;
                       },
                       separatorBuilder: (context, index) =>
                           ValueListenableBuilder<_TopicListCursor?>(

@@ -8,8 +8,10 @@ import 'package:super_sliver_list/src/element.dart';
 import 'package:super_sliver_list/src/render_object.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../utils/pagination.dart';
+
 /// Positions the reader before paint, including while its anchor changes size.
-class TopicPostScrollController extends ScrollController {
+class TopicPostScrollController extends PaginationScrollController {
   TopicPostScrollController(
     this._initialOffset, {
     required this.anchorOffset,
@@ -35,7 +37,7 @@ class TopicPostScrollController extends ScrollController {
   );
 }
 
-class _TopicPostScrollPosition extends ScrollPositionWithSingleContext {
+class _TopicPostScrollPosition extends PaginationScrollPosition {
   _TopicPostScrollPosition({
     required super.physics,
     required super.context,

@@ -6970,14 +6970,21 @@ class ShellController extends FrameSafeNotifier
     return (first, last);
   }
 
-  List<int> _pendingPostIds(String siteUrl, TopicDetail detail) {
-    final stream = _topicStream(siteUrl, detail);
-    final range = _loadedPostRange(siteUrl, detail, stream: stream);
+  List<int> _pendingPostIds(String siteUrl, _PostWindow window, int limit) {
+    final stream = window.stream;
+    final range = window.range;
     final start = range == null ? 0 : range.$2 + 1;
-    return [
-      for (final id in stream.skip(start))
-        if (store.read<Post>(siteUrl, id) == null) id,
-    ];
+    final pending = <int>[];
+    // One page plus a lookahead tells the caller whether to resolve the
+    // final recommendations. Do not scan and allocate the entire unread tail
+    // on the UI isolate every time the reader approaches a page boundary.
+    for (var index = start; index < stream.length; index++) {
+      final id = stream[index];
+      if (store.containsRecord<Post>(siteUrl, id)) continue;
+      pending.add(id);
+      if (pending.length == limit) break;
+    }
+    return pending;
   }
 
   List<int> _pendingEarlierPostIds(
@@ -10195,7 +10202,11 @@ class ShellController extends FrameSafeNotifier
     if (_postsLoading.contains(key)) return;
 
     final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
-    final pending = readTab(tabId, () => _pendingPostIds(instance.url, detail));
+    final pending = readTab(
+      tabId,
+      () =>
+          _pendingPostIds(instance.url, _currentPostWindow(), boundedBatch + 1),
+    );
     if (pending.isEmpty) {
       final edge = readTab(tabId, () => _currentMegaTopicEdge(newer: true));
       if (edge != null) {

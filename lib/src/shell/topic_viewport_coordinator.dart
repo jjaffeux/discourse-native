@@ -423,7 +423,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   ) => _DartTopicViewportTimer(duration, callback);
 
   static TopicViewportControllers _defaultControllersFactory() =>
-      (scroll: ScrollController(), list: ListController());
+      (scroll: PaginationScrollController(), list: ListController());
 
   static void _defaultControllersDisposer(
     TopicViewportControllers controllers,
@@ -969,17 +969,31 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     });
   }
 
-  double thresholdFor(ScrollMetrics metrics) =>
-      math.max(pagingThreshold, paginationPrefetchDistance(metrics));
+  double thresholdFor(ScrollMetrics metrics, {bool earlier = false}) {
+    final scroll = scrollController;
+    final velocity = scroll is PaginationScrollController
+        ? scroll.velocity
+        : 0.0;
+    return math.max(
+      pagingThreshold,
+      paginationPrefetchDistance(
+        metrics,
+        velocity: earlier ? -velocity : velocity,
+      ),
+    );
+  }
 
   void schedulePagingForViewport(TopicViewportSnapshot snapshot) {
     final scroll = scrollController;
     if (_restoring || scroll == null || !scroll.hasClients) return;
     final position = scroll.position;
     if (!position.hasContentDimensions) return;
-    final threshold = thresholdFor(position);
-    if (position.extentBefore < threshold) scheduleLoadEarlier(snapshot);
-    if (position.extentAfter < threshold) scheduleLoadMore(snapshot);
+    if (position.extentBefore < thresholdFor(position, earlier: true)) {
+      scheduleLoadEarlier(snapshot);
+    }
+    if (position.extentAfter < thresholdFor(position)) {
+      scheduleLoadMore(snapshot);
+    }
   }
 
   void handleScroll(
@@ -1011,11 +1025,11 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       allowLoadEarlierRetry(snapshot);
       allowLoadMoreRetry(snapshot);
     }
-    final threshold = thresholdFor(notification.metrics);
-    if (notification.metrics.extentBefore < threshold) {
+    if (notification.metrics.extentBefore <
+        thresholdFor(notification.metrics, earlier: true)) {
       scheduleLoadEarlier(snapshot);
     }
-    if (notification.metrics.extentAfter < threshold) {
+    if (notification.metrics.extentAfter < thresholdFor(notification.metrics)) {
       scheduleLoadMore(snapshot);
     }
   }
