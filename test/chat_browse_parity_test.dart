@@ -148,6 +148,49 @@ void main() {
     );
   }
 
+  testWidgets(
+    'channel membership sheet floats above the safe area and dismisses on touch',
+    (tester) async {
+      await _pump(
+        tester,
+        size: const Size(430, 932),
+        platform: defaultTargetPlatform,
+        safeArea: const EdgeInsets.only(top: 47, bottom: 34),
+      );
+      await _tab(tester, ChatBrowsePage.channels);
+
+      Future<void> open() async {
+        await tester.tap(find.byKey(const ValueKey('chat-browse-joined')));
+        await tester.pumpAndSettle();
+        _expectMenuPresentation(tester, mobile: true);
+        expect(
+          tester
+              .widget<DSheetContent>(find.byType(DSheetContent))
+              .semanticLabel,
+          'Membership',
+        );
+      }
+
+      await open();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsNothing);
+      await open();
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, 300),
+        kind: ui.PointerDeviceKind.touch,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
   for (final material in DAppearanceMaterial.values) {
     testWidgets(
       'chat status uses an inset mobile sheet with ${material.name}',
