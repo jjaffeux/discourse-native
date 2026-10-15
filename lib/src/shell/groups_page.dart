@@ -345,33 +345,34 @@ class _DirectoryControls extends StatelessWidget {
             spacing: DSpacing.md,
             runSpacing: DSpacing.sm,
             children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 180),
-                child: DSelect<String>.controlled(
-                  key: const ValueKey('groups-type-filter'),
-                  size: DControlSize.filter,
-                  value: data.type,
-                  semanticLabel: context.l10n.filterByGroupType,
-                  entries: [
-                    DSelectOption(
-                      value: null,
-                      label: context.l10n.allGroups,
-                      child: Text(context.l10n.allGroups),
-                    ),
-                    for (final type in types)
-                      DSelectOption(
-                        value: type,
-                        label: _groupTypeLabel(type),
-                        child: Text(_groupTypeLabel(type)),
-                      ),
-                  ],
-                  onChanged: onTypeChanged,
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
                 spacing: DSpacing.controlGap,
+                runSpacing: DSpacing.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: DSelect<String>.controlled(
+                      key: const ValueKey('groups-type-filter'),
+                      size: DControlSize.filter,
+                      value: data.type,
+                      semanticLabel: context.l10n.filterByGroupType,
+                      entries: [
+                        DSelectOption(
+                          value: null,
+                          label: context.l10n.allGroups,
+                          child: Text(context.l10n.allGroups),
+                        ),
+                        for (final type in types)
+                          DSelectOption(
+                            value: type,
+                            label: _groupTypeLabel(type),
+                            child: Text(_groupTypeLabel(type)),
+                          ),
+                      ],
+                      onChanged: onTypeChanged,
+                    ),
+                  ),
                   DButton.iconOnly(
                     key: const ValueKey('groups-show-search'),
                     icon: const DIcon(DIcons.magnifyingGlass),
