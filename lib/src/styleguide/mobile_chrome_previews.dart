@@ -31,23 +31,46 @@ Widget mobileDockNarrowPreview() => _preview(AppTheme.light);
 )
 Widget mobileDockFoldedPreview() => _preview(AppTheme.light, collapsed: true);
 
-Widget _preview(ThemeData theme, {bool collapsed = false}) => MaterialApp(
-  theme: theme.copyWith(platform: TargetPlatform.iOS),
-  home: MobileChromeExample(initiallyCollapsed: collapsed),
-);
+@Preview(
+  name: 'Chat composer dock',
+  group: 'Mobile chrome',
+  size: Size(390, 720),
+)
+Widget mobileChatComposerPreview() => _preview(AppTheme.light, chat: true);
+
+Widget _preview(ThemeData theme, {bool collapsed = false, bool chat = false}) =>
+    MaterialApp(
+      theme: theme.copyWith(platform: TargetPlatform.iOS),
+      home: MobileChromeExample(
+        initiallyCollapsed: collapsed,
+        chatComposer: chat,
+      ),
+    );
 
 /// Native preview entry point; scrolling and pressing the folded dock are live.
 void main() => runApp(mobileDockLightPreview());
 
 class MobileChromeExample extends StatefulWidget {
-  const MobileChromeExample({super.key, this.initiallyCollapsed = false});
+  const MobileChromeExample({
+    super.key,
+    this.initiallyCollapsed = false,
+    this.chatComposer = false,
+  });
   final bool initiallyCollapsed;
+  final bool chatComposer;
   @override
   State<MobileChromeExample> createState() => _MobileChromePreviewState();
 }
 
 class _MobileChromePreviewState extends State<MobileChromeExample> {
-  int _selected = 1;
+  late int _selected = widget.chatComposer ? 2 : 1;
+  final _draft = TextEditingController();
+  @override
+  void dispose() {
+    _draft.dispose();
+    super.dispose();
+  }
+
   late bool _initialFold = widget.initiallyCollapsed;
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -112,17 +135,52 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                       DScrollChrome.maybeOf(context)?.reveal();
                     },
                   ),
-                  action: DMobileDockAction(
-                    icon: const DIcon(DIcons.penToSquare),
-                    label: 'New topic',
-                    onPressed: () {},
-                  ),
+                  action: widget.chatComposer
+                      ? null
+                      : DMobileDockAction(
+                          icon: const DIcon(DIcons.penToSquare),
+                          label: 'New topic',
+                          onPressed: () {},
+                        ),
                 ),
               ),
             ),
             child: DPageSurface.scrollable(
               framed: false,
               hideHeaderOnScroll: true,
+              footer: widget.chatComposer
+                  ? DComposerDock(
+                      builder: (context, compact) => DCard(
+                        spacing: 0,
+                        child: DInputGroup(
+                          compact: compact,
+                          borderless: true,
+                          action: DButton.iconOnly(
+                            icon: const DIcon(DIcons.paperPlane),
+                            tooltip: 'Send message',
+                            onPressed: _draft.clear,
+                          ),
+                          children: [
+                            DInputGroupTextarea(
+                              controller: _draft,
+                              hintText: 'Message #design',
+                              minLines: compact ? 1 : 2,
+                              maxLines: compact ? 1 : 4,
+                            ),
+                            DInputGroupAddon(
+                              alignment: DInputGroupAddonAlignment.blockEnd,
+                              child: DButton.iconOnly(
+                                icon: const DIcon(DIcons.plus),
+                                tooltip: 'Add to message',
+                                variant: DButtonVariant.ghost,
+                                onPressed: () {},
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : null,
               header: const Padding(
                 padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
                 child: Text(

@@ -93,6 +93,7 @@ import 'styleguide_example.dart';
 /// Each component task replaces its baseline or adds its own example file.
 final componentExamples = <String, ComponentExamples>{
   'mobile-dock': mobileDockExamples,
+  'composer-dock': composerDockExamples,
   'header-morph': headerMorphExamples,
   'action-transition': actionTransitionExamples,
   'gradient-blur': gradientBlurExamples,

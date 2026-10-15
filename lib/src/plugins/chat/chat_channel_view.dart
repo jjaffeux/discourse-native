@@ -1655,9 +1655,7 @@ class _StreamState extends State<ChatMessageStream>
               cacheExtent: 0,
               preserveScrollOnPrepend: false,
               preserveReaderPositionOnResize: false,
-              contentPadding: lane.padding.add(
-                EdgeInsets.only(top: DScrollChrome.bottomInsetOf(context)),
-              ),
+              contentPadding: lane.padding,
               // Reversal puts the final spacer at the physical top. Its full
               // header extent stays fixed while the visible header retracts.
               itemCount: contentRows + (header == null ? 0 : 1),
@@ -1870,6 +1868,8 @@ class _StreamState extends State<ChatMessageStream>
     return DScrollChromePagination(
       hasMore: stream.canLoadMoreFuture,
       loading: stream.loadingNewer,
+      hasMoreBefore: stream.canLoadMorePast,
+      loadingBefore: stream.loadingOlder,
       child: content,
     );
   }

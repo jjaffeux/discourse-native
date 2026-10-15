@@ -200,9 +200,6 @@ class _ChatComposerState extends State<ChatComposer> {
   bool _savingEdit = false;
   final Object _editCookingOwner = Object();
   final _replyChanges = FrameSafeValueNotifier<ChatReplyTo?>(null);
-  final Object _mobileActionOwner = Object();
-  MobileFooterActionController? _mobileActionController;
-  late final VoidCallback _mobileSubmit = _sendFromMobileFooter;
 
   ChatReplyTo? get _replyTo =>
       widget.threadId == null ? _retainedDraft?.value?.replyTo : null;
@@ -563,10 +560,6 @@ class _ChatComposerState extends State<ChatComposer> {
 
   @override
   void dispose() {
-    final mobileActionController = _mobileActionController;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      mobileActionController?.clear(_mobileActionOwner);
-    });
     _cancelEditCooking();
     if (_chatAccountListener case final listener?) {
       _chat?.removeListener(listener);
@@ -650,36 +643,6 @@ class _ChatComposerState extends State<ChatComposer> {
   bool get _sending =>
       _savingEdit ||
       (_chat?.hasSendingMessage(widget.siteUrl, _target) ?? false);
-
-  void _sendFromMobileFooter() {
-    final composer = _composer;
-    if (composer != null && _canSend(composer)) _send(composer);
-  }
-
-  void _publishMobileAction(BuildContext context, ComposerController composer) {
-    final controller = MobileFooterActionScope.maybeOf(context);
-    if (controller == null && _mobileActionController == null) return;
-    final visible = context.isTouch && TickerMode.valuesOf(context).enabled;
-    final action = MobileFooterAction(
-      key: const ValueKey('chat-composer-send'),
-      label: widget.editingMessage == null ? appL10n.send : appL10n.save,
-      icon: DIcons.paperPlane,
-      onPressed: _canSend(composer) ? _mobileSubmit : null,
-      loading: _sending,
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !identical(_composer, composer)) return;
-      if (!identical(_mobileActionController, controller)) {
-        _mobileActionController?.clear(_mobileActionOwner);
-        _mobileActionController = controller;
-      }
-      if (visible) {
-        controller?.publish(_mobileActionOwner, action);
-      } else {
-        controller?.clear(_mobileActionOwner);
-      }
-    });
-  }
 
   void _replaceWithMessage(
     ComposerController composer,
@@ -1032,9 +995,6 @@ class _ChatComposerState extends State<ChatComposer> {
       builder: (context, channel, _) {
         if (channel != null &&
             !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _mobileActionController?.clear(_mobileActionOwner);
-          });
           if (_chat case final chat?
               when channel.isCategoryChannel && !channel.membership.following) {
             return _composerLane(
@@ -1076,8 +1036,8 @@ class _ChatComposerState extends State<ChatComposer> {
                 in _chat!.streamFor(widget.siteUrl, _target).localMessageIds)
               _chat!.messageRef(widget.siteUrl, id),
           ]),
-          builder: (context, _) => _composerLane(
-            Column(
+          builder: (context, _) => _composerLaneBuilder(
+            (context, compact) => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (composer.uploads.isNotEmpty)
@@ -1102,7 +1062,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       ),
                     ),
                   ),
-                _bar(context, composer, host),
+                _bar(context, composer, host, compact: compact),
               ],
             ),
           ),
@@ -1111,11 +1071,16 @@ class _ChatComposerState extends State<ChatComposer> {
     );
   }
 
-  Widget _composerLane(Widget child) => SafeArea(
-    top: false,
-    minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-    child: ContentReadingLaneBox(child: child),
-  );
+  Widget _composerLane(Widget child) => _composerLaneBuilder((_, _) => child);
+
+  Widget _composerLaneBuilder(Widget Function(BuildContext, bool) builder) =>
+      context.isTouch
+      ? DComposerDock(builder: builder)
+      : SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+          child: ContentReadingLaneBox(child: builder(context, false)),
+        );
 
   Widget _replyPreview(BuildContext context, ChatReplyTo reply) {
     final theme = Theme.of(context);
@@ -1233,8 +1198,9 @@ class _ChatComposerState extends State<ChatComposer> {
   Widget _bar(
     BuildContext context,
     ComposerController composer,
-    PluginComposerHost host,
-  ) {
+    PluginComposerHost host, {
+    bool compact = false,
+  }) {
     final theme = Theme.of(context);
     final channel = _chat?.channel(widget.siteUrl, widget.channelId);
     final hint = channel == null
@@ -1243,9 +1209,6 @@ class _ChatComposerState extends State<ChatComposer> {
         ? context.l10n.message((channel.title).toString())
         : context.l10n.messageChatcomposer((channel.title).toString());
     final mobile = context.isTouch;
-    final actionInShell =
-        mobile && MobileFooterActionScope.maybeOf(context) != null;
-    _publishMobileAction(context, composer);
     void openLink() =>
         unawaited(showComposerLinkDialog(context: context, composer: composer));
 
@@ -1284,6 +1247,8 @@ class _ChatComposerState extends State<ChatComposer> {
             child: DInputGroup(
               key: const ValueKey('chat-composer'),
               borderless: true,
+              compact: compact,
+              action: mobile ? _sendButton(composer) : null,
               children: [
                 DInputGroupControl(
                   focusNode: composer.focus,
@@ -1293,10 +1258,12 @@ class _ChatComposerState extends State<ChatComposer> {
                     excludeFromSemantics: true,
                     onTap: focusNode.requestFocus,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 40),
+                      constraints: BoxConstraints(minHeight: compact ? 20 : 40),
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxHeight: MediaQuery.sizeOf(context).height * 0.25,
+                          maxHeight: compact
+                              ? MediaQuery.textScalerOf(context).scale(24)
+                              : MediaQuery.sizeOf(context).height * 0.25,
                         ),
                         child: Focus(
                           canRequestFocus: false,
@@ -1371,6 +1338,7 @@ class _ChatComposerState extends State<ChatComposer> {
                               ];
                             },
                             expands: false,
+                            showLatestLine: compact,
                             enableDropTarget:
                                 widget.uploadDropController == null,
                             onSuggestionAction:
@@ -1595,33 +1563,13 @@ class _ChatComposerState extends State<ChatComposer> {
                           ),
                         ),
                       if (!mobile)
-                        Center(
-                          heightFactor: 1,
-                          child: ListenableBuilder(
-                            listenable: Listenable.merge([
-                              for (final id
-                                  in _chat!
-                                      .streamFor(widget.siteUrl, _target)
-                                      .localMessageIds)
-                                _chat!.messageRef(widget.siteUrl, id),
-                            ]),
-                            builder: (context, _) => _sendButton(composer),
-                          ),
-                        ),
+                        Center(heightFactor: 1, child: _sendButton(composer)),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          if (mobile && !actionInShell)
-            Padding(
-              padding: const EdgeInsets.only(top: DSpacing.xs),
-              child: Align(
-                alignment: AlignmentDirectional.centerEnd,
-                child: _sendButton(composer),
-              ),
-            ),
         ],
       ),
     );

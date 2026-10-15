@@ -9,6 +9,11 @@ const applicationComponentCatalogue = <ComponentReference>[
     sections: ['Floating capsule', 'Collapsed destination'],
   ),
   ComponentReference(
+    id: 'composer-dock',
+    name: 'Composer dock',
+    sections: ['Chat composer'],
+  ),
+  ComponentReference(
     id: 'header-morph',
     name: 'Header morph',
     sections: ['Full and compact'],

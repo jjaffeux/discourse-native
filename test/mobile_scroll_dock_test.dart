@@ -33,6 +33,8 @@ Future<void> _mount(
   bool keepVisible = false,
   bool hasMore = false,
   bool loading = false,
+  bool hasMoreBefore = false,
+  bool loadingBefore = false,
   Object identity = 'topics',
   int count = 100,
   VoidCallback? onPressed,
@@ -51,6 +53,8 @@ Future<void> _mount(
             body: DScrollChromePagination(
               hasMore: hasMore,
               loading: loading,
+              hasMoreBefore: hasMoreBefore,
+              loadingBefore: loadingBefore,
               child:
                   body ??
                   _list(controller: controller, reverse: reverse, count: count),
@@ -309,6 +313,45 @@ void main() {
         );
       }
     }
+  }
+
+  for (final reverse in [false, true]) {
+    testWidgets(
+      'temporary top does not reveal while scrolling down (reverse: $reverse)',
+      (tester) async {
+        final controller = ScrollController(
+          initialScrollOffset: reverse ? 4300 : 200,
+        );
+        addTearDown(controller.dispose);
+        Future<void> mount({bool more = true, bool loading = false}) => _mount(
+          tester,
+          controller: controller,
+          reverse: reverse,
+          hasMoreBefore: more,
+          loadingBefore: loading,
+        );
+        double fraction() => DScrollChrome.maybeOf(
+          tester.element(find.byKey(_body)),
+        )!.hiddenFraction;
+        await mount();
+        await _wheel(tester, 100);
+        expect(fraction(), 1);
+        // Paging may move the loaded top under a reader. That layout correction
+        // is not an instruction to reveal, nor is a downward drag at that edge.
+        controller.jumpTo(
+          reverse ? controller.position.maxScrollExtent - 2 : 2,
+        );
+        await tester.pumpAndSettle();
+        await mount(loading: true);
+        await _wheel(tester, 20);
+        expect(fraction(), 1);
+        await mount(more: false, loading: true);
+        expect(fraction(), 1); // Still loading.
+        await mount(more: false, loading: false);
+        expect(fraction(), 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('an empty final page reveals the dock at the confirmed end', (

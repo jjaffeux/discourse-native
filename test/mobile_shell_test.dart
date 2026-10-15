@@ -669,6 +669,16 @@ void main() {
             .text,
         isEmpty,
       );
+      // Sending refocuses the full composer. Resume reading before checking
+      // the shared scroll reversal slack.
+      expect(start.hitTestable(), findsOneWidget);
+      tester
+          .widget<ComposerEditor>(find.byType(ComposerEditor))
+          .composer
+          .focus
+          .unfocus();
+      await tester.pumpAndSettle();
+      await _chatWheel(tester, messages, 160);
       await _chatWheel(tester, messages, -20);
       expect(start.hitTestable(), findsNothing);
       expect(send.hitTestable(), findsOneWidget);
@@ -679,7 +689,11 @@ void main() {
         find.byKey(const ValueKey('content-header-title-action')).hitTestable(),
         findsOneWidget,
       );
-      expect(tester.getRect(send), originalSend);
+      final restoredSend = tester.getRect(send);
+      expect(restoredSend.size, originalSend.size);
+      expect(restoredSend.left, originalSend.left);
+      // Floating-dock clearance is measured to half a logical pixel.
+      expect(restoredSend.top, closeTo(originalSend.top, .5));
       expect(tester.getRect(_bar), originalBar);
       expect(tester.takeException(), isNull);
     },
@@ -2981,7 +2995,7 @@ void main() {
     },
   );
 
-  _mobileTest('chat focus keeps navigation and Send in the bottom bar', (
+  _mobileTest('chat focus keeps Send inside the composer above navigation', (
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
@@ -3003,7 +3017,15 @@ void main() {
     expect(tester.getSize(panel).height, initialHeight);
     expect(_bar, findsOneWidget);
     final send = find.byKey(const ValueKey('chat-composer-send'));
-    expect(find.descendant(of: _bar, matching: send), findsOneWidget);
+    expect(find.descendant(of: _bar, matching: send), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-composer')),
+        matching: send,
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
     expect(tester.widget<DButton>(send).onPressed, isNull);
     await tester.enterText(
       find.descendant(
@@ -3047,7 +3069,7 @@ void main() {
       _expectPage();
       expect(
         find.descendant(
-          of: _bar,
+          of: find.byKey(const ValueKey('chat-composer')),
           matching: find.byKey(const ValueKey('chat-composer-send')),
         ),
         findsOneWidget,
@@ -3068,7 +3090,7 @@ void main() {
       _expectPage();
       expect(
         find.descendant(
-          of: _bar,
+          of: find.byKey(const ValueKey('chat-composer')),
           matching: find.byKey(const ValueKey('chat-composer-send')),
         ),
         findsOneWidget,

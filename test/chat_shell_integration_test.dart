@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' show ImageByteFormat, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/app_settings.dart'
+    show AppTextScale;
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -33,6 +37,7 @@ import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
@@ -52,7 +57,8 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
+import 'package:flutter/gestures.dart'
+    show kSecondaryMouseButton, PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -67,6 +73,11 @@ import 'support/finders.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  setUpAll(() async {
+    await (FontLoader(
+      'Lato',
+    )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+  });
   _registerChatShellTests();
 }
 
@@ -771,6 +782,212 @@ void _registerChatShellTests() {
         expect(shell.chat.channel(site, 9)?.membership.lastViewedAt, isNotNull);
       }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
+      for (final thread in [false, true]) {
+        testWidgets(
+          'mobile ${thread ? 'thread' : 'channel'} folds with its composer and retains its draft',
+          (tester) async {
+            const notifications = MethodChannel(
+              'org.discourse.native/notification_opens',
+            );
+            final messenger = tester.binding.defaultBinaryMessenger;
+            messenger.setMockMethodCallHandler(
+              notifications,
+              (_) async => null,
+            );
+            addTearDown(
+              () => messenger.setMockMethodCallHandler(notifications, null),
+            );
+            final history = [
+              for (var id = 1; id <= 100; id++)
+                msg(
+                  id,
+                  cooked: '<p>Message $id in the conversation</p>',
+                  raw: 'Message $id',
+                ),
+            ];
+            final api = FakeDiscourseApi(
+              feeds: const {'/latest.json': []},
+              totals: withChat,
+              user: me,
+              chatChannelsBySite: {
+                site: ChatChannels(
+                  public: [channel(9, threadingEnabled: true)],
+                ),
+              },
+              chatMessagesByKey: {
+                key(9): page(history),
+                'thread-9-3': page(history),
+              },
+              chatThreadsByKey: {
+                FakeDiscourseApi.chatThreadKey(9, 3): const ChatThread(
+                  id: 3,
+                  channelId: 9,
+                  status: 'open',
+                  replyCount: 100,
+                ),
+              },
+            );
+            await pumpChat(tester, size: phone, api: api);
+            await selectChatSidebar(tester);
+            final shell = ShellScope.read(
+              tester.element(find.byKey(const ValueKey('mobile-root'))),
+            );
+            await shell.forumSettings.setShared(
+              shell.forumSettings.shared.copyWith(
+                interfaceFont: ForumFont.lato,
+              ),
+            );
+            if (thread) {
+              shell.openChatThread(siteUrl: site, channelId: 9, threadId: 3);
+            } else {
+              shell.openChatChannel(9);
+            }
+            await tester.pumpAndSettle();
+            final composer = find.byKey(const ValueKey('chat-composer'));
+            final field = find.descendant(
+              of: composer,
+              matching: find.byType(TextField),
+            );
+            final original = tester.state<EditableTextState>(
+              find.descendant(of: field, matching: find.byType(EditableText)),
+            );
+            const draft = 'Keep this first line\nAnd this latest line';
+            await tester.enterText(field, draft);
+            FocusManager.instance.primaryFocus?.unfocus();
+            await tester.pumpAndSettle();
+            final controller = tester.widget<TextField>(field).controller!;
+            final selection = controller.selection;
+            final viewport = find.byType(DMessageScrollerViewport);
+            final scrollable = find
+                .descendant(of: viewport, matching: find.byType(Scrollable))
+                .first;
+            final scroll = tester.state<ScrollableState>(scrollable).position;
+            // Leave the confirmed end without interpreting restoration as input.
+            scroll.jumpTo(scroll.maxScrollExtent / 2);
+            await tester.pumpAndSettle();
+            final openRect = tester.getRect(composer);
+            final location = tester.getCenter(viewport);
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: location,
+                scrollDelta: const Offset(0, 160),
+              ),
+            );
+            await tester.pump(const Duration(milliseconds: 180));
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
+              isTrue,
+            );
+            expect(tester.widget<DInputGroup>(composer).compact, isTrue);
+            final compactRect = tester.getRect(composer);
+            expect(compactRect.height, lessThan(openRect.height));
+            final reveal = tester.getRect(
+              find.byKey(const ValueKey('mobile-dock-reveal')),
+            );
+            expect(compactRect.left, greaterThan(reveal.right));
+            expect(compactRect.bottom, closeTo(reveal.bottom, 10));
+            expect(controller.text, draft);
+            expect(controller.selection, selection);
+            final editorScroll = tester
+                .widget<TextField>(field)
+                .scrollController!;
+            expect(editorScroll.offset, editorScroll.position.maxScrollExtent);
+            expect(
+              tester.state<EditableTextState>(
+                find.descendant(of: field, matching: find.byType(EditableText)),
+              ),
+              same(original),
+            );
+            final send = find.byKey(const ValueKey('chat-composer-send'));
+            expect(send.hitTestable(), findsOneWidget);
+            expect(
+              find.byKey(const ValueKey('mobile-new-topic')),
+              findsNothing,
+            );
+            // Capture actual Flutter pixels for the compact and expanded states.
+            Future<void> capture(String state) async {
+              const captureDirectory = String.fromEnvironment(
+                'CHAT_DOCK_CAPTURE_DIR',
+              );
+              if (captureDirectory.isEmpty) return;
+              final boundary = tester.renderObject<RenderRepaintBoundary>(
+                find
+                    .ancestor(
+                      of: composer,
+                      matching: find.byType(RepaintBoundary),
+                    )
+                    .last,
+              );
+              await tester.runAsync(() async {
+                final image = await boundary.toImage();
+                final bytes = await image.toByteData(
+                  format: ImageByteFormat.png,
+                );
+                await File(
+                  '$captureDirectory/db48-chat-${thread ? 'thread' : 'channel'}-$state-${defaultTargetPlatform.name}.png',
+                ).writeAsBytes(bytes!.buffer.asUint8List());
+                image.dispose();
+              });
+            }
+
+            await capture('compact');
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position: location,
+                scrollDelta: const Offset(0, -160),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(tester.widget<DInputGroup>(composer).compact, isFalse);
+            expect(
+              tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
+              isFalse,
+            );
+            expect(controller.text, draft);
+            await capture('expanded');
+            // Large text must keep the folded navigation and Send apart.
+            await shell.appSettings.setTextScale(AppTextScale.percent200);
+            await tester.pumpAndSettle();
+            final enlargedScroll = tester
+                .state<ScrollableState>(scrollable)
+                .position;
+            enlargedScroll.jumpTo(enlargedScroll.maxScrollExtent / 2);
+            await tester.pumpAndSettle();
+            await capture('large-expanded');
+            // The enlarged channel identity needs more travel to retract.
+            // Send input below its overlay into the transcript's new bounds.
+            await tester.sendEventToBinding(
+              PointerScrollEvent(
+                position:
+                    tester.getRect(viewport).bottomLeft + const Offset(50, -2),
+                scrollDelta: const Offset(0, 800),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(tester.widget<DInputGroup>(composer).compact, isTrue);
+            expect(
+              tester.getRect(composer).left,
+              greaterThan(
+                tester
+                    .getRect(find.byKey(const ValueKey('mobile-dock-reveal')))
+                    .right,
+              ),
+            );
+            await tester.tap(send);
+            await tester.pumpAndSettle();
+            expect(controller.text, isEmpty);
+            expect(api.chatMessagesSent.last.message, draft);
+            expect(api.chatMessagesSent.last.threadId, thread ? 3 : null);
+            expect(tester.takeException(), isNull);
+          },
+          variant: const TargetPlatformVariant({
+            TargetPlatform.iOS,
+            TargetPlatform.android,
+          }),
+        );
+      }
+
       testWidgets('keeps the mobile Chat mode beside an open channel', (
         tester,
       ) async {
@@ -800,8 +1017,24 @@ void _registerChatShellTests() {
             of: find.byKey(const ValueKey('mobile-bottom-bar')),
             matching: find.byKey(const ValueKey('chat-composer-send')),
           ),
-          findsOneWidget,
+          findsNothing,
         );
+        expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
+        final composer = find.byKey(const ValueKey('chat-composer'));
+        final send = find.byKey(const ValueKey('chat-composer-send'));
+        expect(find.descendant(of: composer, matching: send), findsOneWidget);
+        expect(
+          tester.getRect(send).right,
+          lessThanOrEqualTo(tester.getRect(composer).right),
+        );
+        expect(
+          tester.getRect(send).bottom,
+          lessThanOrEqualTo(tester.getRect(composer).bottom),
+        );
+        final dock = tester.getRect(
+          find.byKey(const ValueKey('mobile-bottom-bar')),
+        );
+        expect(tester.getRect(composer).bottom, lessThan(dock.top));
       });
     });
 

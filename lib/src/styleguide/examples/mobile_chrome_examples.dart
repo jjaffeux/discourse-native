@@ -41,6 +41,36 @@ final mobileDockExamples = ComponentExamples(
       ),
   ],
 );
+
+final composerDockExamples = ComponentExamples(
+  status: ComponentStatus.implemented,
+  description:
+      'A retained composer above the open dock and beside its folded destination.',
+  notes:
+      'DComposerDock shares the navigation motion and safe area. Compose its compact value with DInputGroup.compact and action. The primary action stays reachable while block tools fold away. Focusing the editor reveals the full layout. Reduced motion changes layout immediately.',
+  examples: [
+    StyleguideExample(
+      title: 'Chat composer',
+      description:
+          'Write a draft, then scroll down and back up to fold and reveal the dock.',
+      states: const [
+        'Expanded',
+        'Compact',
+        'Draft retained',
+        'Reduced motion',
+        'RTL',
+        'Large text',
+      ],
+      code:
+          'DComposerDock(builder: (context, compact) => DInputGroup(compact: compact, action: send, children: [editor, tools]))',
+      builder: (_) => const SizedBox(
+        width: 390,
+        height: 560,
+        child: MobileChromeExample(chatComposer: true),
+      ),
+    ),
+  ],
+);
 final headerMorphExamples = ComponentExamples(
   status: ComponentStatus.implemented,
   description: 'Shared header parts move and resize between reader layouts.',

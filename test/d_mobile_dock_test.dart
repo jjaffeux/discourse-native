@@ -10,6 +10,7 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 Widget fixture({
   double width = 390,
   bool collapsed = false,
+  bool withAction = true,
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
   ValueChanged<int>? onOverflow,
@@ -77,11 +78,13 @@ Widget fixture({
                     label: 'Reveal navigation',
                     onPressed: onReveal ?? () {},
                   ),
-                  action: DMobileDockAction(
-                    icon: const Icon(Icons.add),
-                    label: 'New topic',
-                    onPressed: () {},
-                  ),
+                  action: withAction
+                      ? DMobileDockAction(
+                          icon: const Icon(Icons.add),
+                          label: 'New topic',
+                          onPressed: () {},
+                        )
+                      : null,
                 ),
               ),
             ),
@@ -93,6 +96,31 @@ Widget fixture({
 );
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'actionless dock fills the capsule with navigation ($direction)',
+      (tester) async {
+        for (final scale in [1.0, 2.0]) {
+          await tester.pumpWidget(
+            fixture(withAction: false, direction: direction, scale: scale),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(DMobileDockAction), findsNothing);
+          final surface = tester.getRect(
+            find.byKey(const ValueKey('mobile-dock-surface')),
+          );
+          final more = tester.getRect(find.byKey(const ValueKey('more')));
+          if (direction == TextDirection.ltr) {
+            expect(more.right, closeTo(surface.right - 6, .01));
+          } else {
+            expect(more.left, closeTo(surface.left + 6, .01));
+          }
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
+
   for (final brightness in Brightness.values) {
     for (final material in DAppearanceMaterial.values) {
       testWidgets(

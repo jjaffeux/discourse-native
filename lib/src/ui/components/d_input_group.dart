@@ -39,6 +39,8 @@ class DInputGroup extends StatefulWidget {
     this.borderless = false,
     this.semanticLabel,
     this.viewportHeight,
+    this.compact = false,
+    this.action,
   }) : assert(children.length > 0),
        assert(
          viewportHeight == null ||
@@ -61,6 +63,13 @@ class DInputGroup extends StatefulWidget {
   /// textarea [DTextarea.maxLines] so the group owns vertical scrolling.
   /// The viewport owns its scroll controller and disposes it with the group.
   final double? viewportHeight;
+
+  /// Folds block addons away and keeps [action] beside the editor. The editor
+  /// stays mounted in the same slot so selection, drafts and IME survive.
+  final bool compact;
+
+  /// Primary composer action, at the footer's end or inline when compact.
+  final Widget? action;
 
   @override
   State<DInputGroup> createState() => _DInputGroupState();
@@ -203,7 +212,7 @@ class _DInputGroupState extends State<DInputGroup> {
               ),
             );
         return Row(
-          crossAxisAlignment: multiline
+          crossAxisAlignment: multiline && !widget.compact
               ? CrossAxisAlignment.start
               : CrossAxisAlignment.center,
           children: [
@@ -216,16 +225,58 @@ class _DInputGroupState extends State<DInputGroup> {
               if (search) const SizedBox(width: 8),
               side(inlineEnd),
             ],
+            if (widget.compact && widget.action != null)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(end: 6),
+                child: widget.action!,
+              ),
           ],
         );
       },
     );
-    Widget content = blockStart.isEmpty && blockEnd.isEmpty
-        ? inline
+    Widget content = widget.action == null
+        ? (blockStart.isEmpty && blockEnd.isEmpty
+              ? inline
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [...blockStart, inline, ...blockEnd],
+                ))
         : Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [...blockStart, inline, ...blockEnd],
+            children: [
+              Offstage(
+                offstage: widget.compact,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: blockStart,
+                ),
+              ),
+              inline,
+              Offstage(
+                offstage: widget.compact,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: blockEnd,
+                      ),
+                    ),
+                    if (!widget.compact && widget.action != null)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.only(
+                          end: 6,
+                          bottom: 6,
+                        ),
+                        child: widget.action!,
+                      ),
+                  ],
+                ),
+              ),
+            ],
           );
     if (search) {
       content = Padding(
@@ -285,7 +336,9 @@ class _DInputGroupState extends State<DInputGroup> {
                   constraints: BoxConstraints(
                     minHeight:
                         widget.viewportHeight ??
-                        (multiline
+                        (widget.compact
+                            ? MediaQuery.textScalerOf(context).scale(48)
+                            : multiline
                             ? 64
                             : DControlStyle.scaledHeight(
                                     widget.size,
@@ -330,11 +383,19 @@ class _DInputGroupState extends State<DInputGroup> {
             start: inlineStart.isEmpty
                 ? DControlStyle.horizontalInset(widget.size)
                 : 6,
-            top: blockEnd.isEmpty ? 1 : 12,
+            top: widget.compact
+                ? 6
+                : blockEnd.isEmpty
+                ? 1
+                : 12,
             end: inlineEnd.isEmpty
                 ? DControlStyle.horizontalInset(widget.size)
                 : 6,
-            bottom: blockStart.isEmpty ? 1 : 12,
+            bottom: widget.compact
+                ? 6
+                : blockStart.isEmpty
+                ? 1
+                : 12,
           ).resolve(Directionality.of(context));
     return DInputGroupControlScope(
       report: _report,

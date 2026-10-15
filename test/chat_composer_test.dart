@@ -585,7 +585,7 @@ void main() {
   }
 
   testWidgets(
-    'mobile composer keeps insertion actions in its card and Send below it',
+    'mobile composer keeps insertion actions and Send in its card',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -609,10 +609,10 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.descendant(of: card, matching: send), findsNothing);
+      expect(find.descendant(of: card, matching: send), findsOneWidget);
       expect(
-        tester.getRect(send).top,
-        greaterThan(tester.getRect(card).bottom),
+        tester.getRect(send).bottom,
+        lessThanOrEqualTo(tester.getRect(card).bottom),
       );
       await tester.enterText(_composerField(), 'A mobile message');
       await tester.pumpAndSettle();

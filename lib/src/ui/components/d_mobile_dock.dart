@@ -32,6 +32,10 @@ class DMobileDock extends StatefulWidget {
   final bool destinationsHidden;
   final ValueChanged<int> onOverflowChanged;
 
+  /// Width of the folded destination, including its visible capsule insets.
+  static double collapsedExtentOf(BuildContext context) =>
+      48 + math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11);
+
   @override
   State<DMobileDock> createState() => _DMobileDockState();
 }
@@ -146,7 +150,7 @@ class _DMobileDockState extends State<DMobileDock>
         0.0,
         MediaQuery.textScalerOf(context).scale(11) - 11,
       );
-      final round = 48 + growth;
+      final round = DMobileDock.collapsedExtentOf(context);
       final phase = _spring ? _phase.clamp(0.0, 1.0) : (collapsed ? 1.0 : 0.0);
       final inset = 6 - 2 * phase;
       final navOpacity = _spring
@@ -227,7 +231,7 @@ class _DMobileDockState extends State<DMobileDock>
                                 ),
                                 onAnchorChanged: _anchorChanged,
                                 count: destinations.length,
-                                actionExtent: 50 + growth,
+                                actionExtent: action == null ? 0 : 50 + growth,
                                 children: [
                                   for (final (index, item)
                                       in destinations.indexed)
@@ -412,7 +416,7 @@ class _RenderDockRow extends RenderBox
         .toList();
     final actionMin = actionExtent;
     // The mockup's nav margin is 14px and its capsule row gap adds 4px.
-    const gap = 18.0;
+    final gap = actionExtent > 0 ? 18.0 : 0.0;
     var shown = count;
     double widest(int n) => n == 0 ? 0 : natural.take(n).reduce(math.max);
     while (shown > 0 &&
@@ -426,7 +430,9 @@ class _RenderDockRow extends RenderBox
     final availableActionWidth = (width - navNatural - gap)
         .clamp(math.min(actionMin, math.max(0, width - moreWidth - gap)), 220.0)
         .toDouble();
-    final actionWidth = availableActionWidth >= 116
+    final actionWidth = actionExtent == 0
+        ? 0.0
+        : availableActionWidth >= 116
         ? availableActionWidth
         : math.min(actionMin, math.max(0.0, width - moreWidth - gap));
     final navWidth = math.max(0.0, width - actionWidth - gap);
@@ -463,7 +469,7 @@ class _RenderDockRow extends RenderBox
     }
     place(more, shown < count ? moreWidth : 40, shown < count);
     x = width - actionWidth;
-    place(action, actionWidth, true);
+    place(action, actionWidth, actionExtent > 0);
     for (final box in boxes) {
       final data = box.parentData! as _DockParentData;
       data.offset = Offset(data.offset.dx, (height - box.size.height) / 2);

@@ -1427,6 +1427,7 @@ class ComposerEditor extends StatefulWidget {
     this.enableBlockReordering = true,
     this.showSelectionToolbar = true,
     this.expands = true,
+    this.showLatestLine = false,
     this.pickFiles = pickComposerFiles,
     this.pickImages,
     this.readClipboardFiles = readComposerClipboardFiles,
@@ -1455,6 +1456,9 @@ class ComposerEditor extends StatefulWidget {
   final ComposerClipboardFileReader readClipboardFiles;
 
   final bool expands;
+
+  /// Keeps a folded chat editor on the latest line without moving its caret.
+  final bool showLatestLine;
   final ComposerSuggestionActionHandler? onSuggestionAction;
   final ComposerSlashActions? slashActions;
 
@@ -1647,6 +1651,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void didUpdateWidget(ComposerEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.showLatestLine) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.showLatestLine && _scroll.hasClients) {
+          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+        }
+      });
+    }
     if (identical(oldWidget.composer, widget.composer)) return;
     oldWidget.composer.text.removeListener(_observeBlockquoteValue);
     _blockquoteInputFormatter.reset();

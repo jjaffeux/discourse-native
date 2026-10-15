@@ -412,7 +412,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     shell.mobileNavigation.entryId,
                     widget.boundary,
                   ),
-                  visible: !sidebarOpen,
+                  visible:
+                      !sidebarOpen &&
+                      (shell.currentContent == null ||
+                          !registry.ownsContentChrome(
+                            context,
+                            shell.currentContent!,
+                          ) ||
+                          MediaQuery.viewInsetsOf(context).bottom == 0),
                   hideOnScroll: !keepDockVisible,
                   keepActionVisible: _footerAction.action != null,
                   body: content!,
@@ -558,7 +565,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         label: panelAction.label,
         onPressed: panelAction.onPressed,
       );
-    } else if (showNewTopic || shell.canCreateTopicFromSidebar) {
+    } else if (showNewTopic ||
+        (shell.canCreateTopicFromSidebar &&
+            (shell.currentContent == null ||
+                !PluginScope.of(context).registry.ownsContentChrome(
+                  context,
+                  shell.currentContent!,
+                )))) {
       primaryAction = _dockAction(
         key: const ValueKey('mobile-new-topic'),
         icon: DIcons.penToSquare,
@@ -631,15 +644,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ),
         ),
       ),
-      action: DActionTransition(
-        key: ValueKey((
-          shell.currentInstance?.url,
-          shell.currentAccountIdentity,
-        )),
-        child: primaryAction == null
-            ? null
-            : KeyedSubtree(key: ValueKey(actionIcon), child: primaryAction),
-      ),
+      action: primaryAction == null
+          ? null
+          : DActionTransition(
+              key: ValueKey((
+                shell.currentInstance?.url,
+                shell.currentAccountIdentity,
+              )),
+              child: KeyedSubtree(
+                key: ValueKey(actionIcon),
+                child: primaryAction,
+              ),
+            ),
     );
   }
 
