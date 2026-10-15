@@ -81,6 +81,9 @@ void main() {
           size: mobile ? const Size(430, 932) : const Size(900, 650),
           platform: defaultTargetPlatform,
           material: material,
+          safeArea: mobile
+              ? const EdgeInsets.only(top: 47, bottom: 34)
+              : EdgeInsets.zero,
         );
         final provider = _Rooms();
         addTearDown(fixture.rooms.attach(provider));
@@ -135,41 +138,49 @@ void main() {
     );
   }
 
-  testWidgets(
-    'chat status opens a bottom sheet on mobile and an anchored menu on desktop',
-    (tester) async {
-      final mobile = defaultTargetPlatform != TargetPlatform.macOS;
-      await _pump(
-        tester,
-        size: mobile ? const Size(430, 932) : const Size(900, 650),
-        platform: defaultTargetPlatform,
-      );
-      await tester.tap(find.byKey(const ValueKey('user-presence-menu')));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const ValueKey('pause-notifications-row')),
-        findsOneWidget,
-      );
-      expect(
-        find.byType(DSheetContent),
-        mobile ? findsOneWidget : findsNothing,
-      );
-      if (mobile) {
-        expect(
-          tester.widget<DSheetContent>(find.byType(DSheetContent)).side,
-          DSheetSide.bottom,
+  for (final material in DAppearanceMaterial.values) {
+    testWidgets(
+      'chat status uses an inset mobile sheet with ${material.name}',
+      (tester) async {
+        final mobile = defaultTargetPlatform != TargetPlatform.macOS;
+        await _pump(
+          tester,
+          size: mobile ? const Size(430, 932) : const Size(900, 650),
+          platform: defaultTargetPlatform,
+          material: material,
+          safeArea: mobile
+              ? const EdgeInsets.only(top: 47, bottom: 34)
+              : EdgeInsets.zero,
         );
-      }
-      await _capture(tester, 'status');
-      expect(tester.takeException(), isNull);
-    },
-    variant: const TargetPlatformVariant({
-      TargetPlatform.iOS,
-      TargetPlatform.android,
-      TargetPlatform.macOS,
-    }),
-  );
+        await tester.tap(find.byKey(const ValueKey('user-presence-menu')));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('pause-notifications-row')),
+          findsOneWidget,
+        );
+        _expectMenuPresentation(tester, mobile: mobile);
+        await _capture(tester, 'status');
+        if (mobile) {
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            const Offset(0, 400),
+          );
+        } else {
+          await tester.tapAt(const Offset(10, 300));
+        }
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(find.byType(DDropdownMenuContent), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+        TargetPlatform.macOS,
+      }),
+    );
+  }
 
   for (final width in [320.0, 430.0, 900.0]) {
     for (final page in ChatBrowsePage.values) {
@@ -647,21 +658,18 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
     TargetPlatform.iOS || TargetPlatform.android => true,
     _ => false,
   };
-  expect(find.byType(DSheetContent), mobile ? findsOneWidget : findsNothing);
-  if (mobile) {
-    final sheet = tester.widget<DSheetContent>(find.byType(DSheetContent));
-    expect(sheet.side, DSheetSide.bottom);
-    if (key == 'chat-inbox-kind-filter' ||
-        key == 'chat-inbox-activity-filter') {
-      final label = key == 'chat-inbox-kind-filter'
-          ? 'Conversation type'
-          : 'Chat activity';
-      expect(find.text(label), findsNothing);
-      expect(find.byType(DSheetHeader), findsNothing);
-      expect(find.byTooltip('Close'), findsNothing);
-      expect(sheet.showCloseButton, isFalse);
-      expect(sheet.semanticLabel, label);
-    }
+  final inboxFilter =
+      key == 'chat-inbox-kind-filter' || key == 'chat-inbox-activity-filter';
+  _expectMenuPresentation(tester, mobile: mobile, inset: inboxFilter);
+  if (mobile && inboxFilter) {
+    final label = key == 'chat-inbox-kind-filter'
+        ? 'Conversation type'
+        : 'Chat activity';
+    expect(find.text(label), findsNothing);
+    expect(
+      tester.widget<DSheetContent>(find.byType(DSheetContent)).semanticLabel,
+      label,
+    );
   }
   expect(find.byType(DDropdownMenuContent), findsOneWidget);
   await _capture(tester, key);
@@ -676,6 +684,34 @@ Future<void> _pick(WidgetTester tester, String key, String value) async {
   await tester.pumpAndSettle();
   expect(find.byType(DSheetContent), findsNothing);
   expect(find.byType(DDropdownMenuContent), findsNothing);
+}
+
+void _expectMenuPresentation(
+  WidgetTester tester, {
+  required bool mobile,
+  bool inset = true,
+}) {
+  final sheet = find.byType(DSheetContent);
+  expect(sheet, mobile ? findsOneWidget : findsNothing);
+  if (!mobile) return;
+
+  expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
+  if (!inset) return;
+  expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
+  expect(find.byType(DSheetHeader), findsNothing);
+  expect(find.byTooltip('Close'), findsNothing);
+  expect(tester.widget<DSheetContent>(sheet).showCloseButton, isFalse);
+  final viewport = tester.getRect(
+    find.byKey(const ValueKey('chat-browse-render')),
+  );
+  final bounds = tester.getRect(sheet);
+  final media = MediaQuery.of(tester.element(sheet));
+  final safeBottom =
+      tester.view.viewPadding.bottom / tester.view.devicePixelRatio;
+  expect(bounds.left - viewport.left, closeTo(6, .01));
+  expect(viewport.right - bounds.right, closeTo(6, .01));
+  expect(viewport.bottom - bounds.bottom, closeTo(safeBottom + 6, .01));
+  expect(bounds.top, greaterThanOrEqualTo(viewport.top + media.padding.top));
 }
 
 Future<void> _capture(WidgetTester tester, String name) async {
@@ -716,9 +752,21 @@ Future<_Fixture> _pump(
   Size size = const Size(900, 650),
   TargetPlatform platform = TargetPlatform.macOS,
   DAppearanceMaterial material = DAppearanceMaterial.standard,
+  EdgeInsets safeArea = EdgeInsets.zero,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
+  final pixelRatio = tester.view.devicePixelRatio;
+  tester.view.viewPadding = FakeViewPadding(
+    top: safeArea.top * pixelRatio,
+    bottom: safeArea.bottom * pixelRatio,
+  );
+  tester.view.padding = FakeViewPadding(
+    top: safeArea.top * pixelRatio,
+    bottom: safeArea.bottom * pixelRatio,
+  );
+  addTearDown(tester.view.resetViewPadding);
+  addTearDown(tester.view.resetPadding);
   final channels = [
     _channel(1, 'general', unread: 1),
     _channel(2, 'workshop', unread: 3),
