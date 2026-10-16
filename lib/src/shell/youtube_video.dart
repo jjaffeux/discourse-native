@@ -333,6 +333,7 @@ class _YoutubeVideoState extends State<YoutubeVideo> {
       YoutubePlayerSurface(
         data: widget.data,
         forumOrigin: youtubeForumOrigin(widget.siteUrl),
+        viewportAnchor: _usesRootPlayerOverlay ? _playerAnchorKey : null,
       );
 
   void _schedulePlayerGeometrySync({bool rebuildPlayer = false}) {
@@ -619,10 +620,12 @@ class YoutubePlayerSurface extends StatefulWidget {
     super.key,
     required this.data,
     required this.forumOrigin,
+    this.viewportAnchor,
   });
 
   final YoutubeVideoData data;
   final Uri? forumOrigin;
+  final GlobalKey? viewportAnchor;
 
   @override
   State<YoutubePlayerSurface> createState() => _YoutubePlayerSurfaceState();
@@ -684,7 +687,8 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _viewportCheckScheduled = false;
       if (!mounted) return;
-      final surface = _surfaceKey.currentContext?.findRenderObject();
+      final surface = (widget.viewportAnchor ?? _surfaceKey).currentContext
+          ?.findRenderObject();
       if (surface is! RenderBox || !surface.attached || !surface.hasSize) {
         return;
       }
@@ -698,8 +702,13 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
           scrollViewport.localToGlobal(Offset.zero) & scrollViewport.size,
         );
       }
-      final bounds = surface.localToGlobal(Offset.zero) & surface.size;
-      final visible = !viewport.isEmpty && bounds.overlaps(viewport);
+      final origin = surface.localToGlobal(Offset.zero);
+      final bounds = origin & surface.size;
+      final visible =
+          origin.dx.isFinite &&
+          origin.dy.isFinite &&
+          !viewport.isEmpty &&
+          bounds.overlaps(viewport);
       if (_viewportVisible == visible) return;
       _viewportVisible = visible;
       _syncPlaybackVisibility();
