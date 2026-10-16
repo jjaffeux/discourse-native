@@ -382,6 +382,44 @@ void main() {
   );
 
   testWidgets(
+    'a retained lazy row pauses before its player is evicted',
+    (tester) async {
+      final scroll = ScrollController();
+      final retention = TopicPostRetention(maxPosts: 8);
+      addTearDown(scroll.dispose);
+      addTearDown(retention.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ListView.builder(
+            controller: scroll,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+            itemExtent: 500,
+            itemCount: 40,
+            itemBuilder: (_, index) =>
+                _RetainedPlayerRow(key: ValueKey(index), retention: retention),
+          ),
+        ),
+      );
+      await tester.tap(find.bySemanticsLabel('Play video: First video').first);
+      await tester.pumpAndSettle();
+      final controller = platform.controllers.single;
+      scroll.jumpTo(1500);
+      await tester.pumpAndSettle();
+      expect(controller.documents, hasLength(1));
+      expect(controller.scripts.last, contains('false'));
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(platform.controllers.single, same(controller));
+      expect(controller.documents, hasLength(1));
+      expect(controller.scripts.last, contains('true'));
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }),
+  );
+
+  testWidgets(
     'activated players obey the outer post retention budget',
     (tester) async {
       final scroll = ScrollController();
