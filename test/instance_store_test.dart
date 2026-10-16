@@ -494,6 +494,54 @@ void main() {
       expect((await controlledStore.load()).single.title, 'revision-100');
     });
 
+    for (final jsonFailure in [false, true]) {
+      test(
+        'a ${jsonFailure ? 'JSON encoding' : 'model conversion'} failure rejects save and allows recovery',
+        () async {
+          const durable = DiscourseInstance(
+            url: 'https://one.example.com',
+            title: 'Durable',
+          );
+          const recovered = DiscourseInstance(
+            url: 'https://one.example.com',
+            title: 'Recovered',
+          );
+          final failure = StateError('model conversion failed');
+          final serializedTitles = <String>[];
+          final persistence = ControlledInstancePersistence();
+          final controlledStore = InstanceStore(persistence: persistence);
+          await controlledStore.save([durable]);
+
+          final failingSave = controlledStore.save([
+            _SerializationProbeInstance(
+              serializedTitles,
+              'Invalid',
+              serialize: () {
+                if (!jsonFailure) throw failure;
+                return {'unsupported': Object()};
+              },
+            ),
+          ]);
+          final failedSave = expectLater(
+            failingSave,
+            throwsA(
+              jsonFailure ? isA<JsonUnsupportedObjectError>() : same(failure),
+            ),
+          );
+          final loading = InstanceStore(persistence: persistence).load();
+
+          await failedSave;
+          expect((await loading).single.title, durable.title);
+          expect(persistence.writeCount, 1);
+
+          await controlledStore.save([recovered]);
+
+          expect((await controlledStore.load()).single.title, recovered.title);
+          expect(persistence.writeCount, 2);
+        },
+      );
+    }
+
     test('a failed write does not strand a newer snapshot', () async {
       const first = DiscourseInstance(
         url: 'https://one.example.com',
@@ -624,10 +672,14 @@ void main() {
 }
 
 final class _SerializationProbeInstance extends DiscourseInstance {
-  _SerializationProbeInstance(this.serializedTitles, String title)
-    : super(url: 'https://one.example.com', title: title);
+  const _SerializationProbeInstance(
+    this.serializedTitles,
+    String title, {
+    this.serialize,
+  }) : super(url: 'https://one.example.com', title: title);
 
   final List<String> serializedTitles;
+  final Map<String, dynamic> Function()? serialize;
 
   @override
   Map<String, dynamic> toJson({
@@ -636,7 +688,8 @@ final class _SerializationProbeInstance extends DiscourseInstance {
         const EmptyPluginNotificationCounterCodec(),
   }) {
     serializedTitles.add(title);
-    return super.toJson(extensions: extensions, counterCodec: counterCodec);
+    return serialize?.call() ??
+        super.toJson(extensions: extensions, counterCodec: counterCodec);
   }
 }
 

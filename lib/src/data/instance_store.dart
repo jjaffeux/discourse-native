@@ -43,7 +43,7 @@ class InstanceStore {
 
   final InstancePersistence _persistence;
   final DiscourseModelCodec _models;
-  late final CoalescingSnapshotWriter<String> _snapshots =
+  late final CoalescingSnapshotWriter<List<DiscourseInstance>> _snapshots =
       CoalescingSnapshotWriter(
         owner: _persistence,
         key: SharedPreferencesInstancePersistence.storageKey,
@@ -85,12 +85,12 @@ class InstanceStore {
   }
 
   Future<void> save(List<DiscourseInstance> instances) {
-    final encoded = jsonEncode(instances.map(_models.storeInstance).toList());
-    return _snapshots.save(encoded);
+    return _snapshots.save(List<DiscourseInstance>.unmodifiable(instances));
   }
 
-  Future<void> _persistSnapshot(String encoded) async {
+  Future<void> _persistSnapshot(List<DiscourseInstance> instances) async {
     try {
+      final encoded = jsonEncode(instances.map(_models.storeInstance).toList());
       await _persistence.write(encoded);
     } catch (error, stackTrace) {
       reportStorageFailure(
