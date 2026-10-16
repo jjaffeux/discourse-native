@@ -25,6 +25,17 @@ Files:
 
 - `darwin/video_player_avfoundation/Sources/video_player_avfoundation_objc/include/video_player_avfoundation_objc/FVPAVFactory.h`
 
+## macOS platform-view codec nullability
+
+Flutter's macOS `FlutterPlatformViewFactory` protocol declares a nullable
+`createArgsCodec` result. The local factory matches that declaration with an
+optional Swift return type on macOS. The iOS return type remains nonoptional,
+as required by its Flutter protocol. Both platforms return the same codec.
+
+Files:
+
+- `darwin/video_player_avfoundation/Sources/video_player_avfoundation/NativeVideoViewFactory.swift`
+
 ## Initialization metadata lifetime
 
 Pending AVAsset callbacks used to retain `FVPVideoPlayer`, and the tracks and

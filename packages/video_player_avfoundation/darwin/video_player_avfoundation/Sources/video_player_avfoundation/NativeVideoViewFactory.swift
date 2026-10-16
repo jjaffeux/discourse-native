@@ -40,6 +40,10 @@ final class NativeVideoViewFactory: NSObject, FlutterPlatformViewFactory {
     ) -> NSView {
       return createNativeVideoView(arguments: arguments as! PlatformVideoViewCreationParams)
     }
+
+    func createArgsCodec() -> (FlutterMessageCodec & NSObjectProtocol)? {
+      return VideoPlayerPluginMessagesPigeonCodec.shared
+    }
   #elseif os(iOS)
     func create(
       withFrame frame: CGRect,
@@ -48,11 +52,11 @@ final class NativeVideoViewFactory: NSObject, FlutterPlatformViewFactory {
     ) -> FlutterPlatformView {
       return createNativeVideoView(arguments: arguments as! PlatformVideoViewCreationParams)
     }
-  #endif
 
-  func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
-    return VideoPlayerPluginMessagesPigeonCodec.shared
-  }
+    func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
+      return VideoPlayerPluginMessagesPigeonCodec.shared
+    }
+  #endif
 
   /// Creates a native video view for the given arguments.
   private func createNativeVideoView(
