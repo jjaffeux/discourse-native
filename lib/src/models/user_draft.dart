@@ -1,5 +1,6 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show StringCharacters;
 
 import 'composer_draft.dart';
 import 'json.dart';
@@ -111,21 +112,30 @@ class UserDraft {
 
   static String _normalizeExcerpt(String source) {
     final excerpt = StringBuffer();
-    var pendingSpace = false;
+    final pendingWhitespace = StringBuffer();
     for (final token in _excerptTokens.allMatches(source)) {
       final scalar = token.group(1);
-      if (scalar == null) {
-        pendingSpace = excerpt.isNotEmpty;
+      if (scalar == null || scalar.trim().isEmpty) {
+        if (excerpt.isNotEmpty &&
+            excerpt.length + pendingWhitespace.length <=
+                _maximumExcerptCodeUnits) {
+          pendingWhitespace.write(scalar ?? ' ');
+        }
         continue;
       }
-      if (excerpt.isEmpty && scalar.trim().isEmpty) continue;
-      final nextLength = scalar.length + (pendingSpace ? 1 : 0);
-      if (excerpt.length + nextLength > _maximumExcerptCodeUnits) break;
-      if (pendingSpace) excerpt.write(' ');
+      excerpt.write(pendingWhitespace);
+      pendingWhitespace.clear();
       excerpt.write(scalar);
-      pendingSpace = false;
-      if (excerpt.length == _maximumExcerptCodeUnits) break;
+      if (excerpt.length > _maximumExcerptCodeUnits) break;
     }
-    return excerpt.toString().trim();
+    final normalized = excerpt.toString();
+    var length = 0;
+    var visibleLength = 0;
+    for (final character in normalized.characters) {
+      if (length + character.length > _maximumExcerptCodeUnits) break;
+      length += character.length;
+      if (character.trimRight() == character) visibleLength = length;
+    }
+    return normalized.substring(0, visibleLength);
   }
 }
