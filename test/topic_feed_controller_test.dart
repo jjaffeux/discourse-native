@@ -358,6 +358,57 @@ void main() {
   });
 
   group('pagination', () {
+    test('bounds retained identities past the production Store budget', () async {
+      final site = instance('one.example');
+      controller.dispose();
+      store = Store(
+        policy: const StorePolicy(
+          maxEntries: 4096,
+          maxEntriesPerSite: 2048,
+          maxEntriesPerSiteAndType: 1024,
+        ),
+      );
+      controller = TopicFeedController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        store: store,
+      );
+      for (var page = 0; page < 35; page++) {
+        final loading = page == 0
+            ? controller.load(
+                instance: site,
+                destinationId: 'latest',
+                path: '/latest.json',
+                incoming: null,
+              )
+            : controller.loadMore(instance: site, destinationId: 'latest');
+        await pumpEventQueue();
+        api.requests.last.response.complete(
+          TopicList(
+            topics: [
+              for (var row = 0; row < 30; row++)
+                Topic(
+                  id: page * 30 + row + 1,
+                  title: 'Topic ${page * 30 + row + 1}',
+                  slug: 'topic',
+                ),
+            ],
+            moreTopicsUrl: '/latest.json?page=${page + 1}',
+          ),
+        );
+        await loading;
+      }
+      final feed = controller.feedFor(site.url, 'latest')!;
+      expect(api.requests, hasLength(35));
+      expect(feed.topicIds.length, lessThanOrEqualTo(300));
+      expect(
+        feed.topicIds.every((id) => store.containsRecord<Topic>(site.url, id)),
+        isTrue,
+      );
+      expect(store.statisticsForTesting.entriesFor<Topic>(site.url), 1024);
+    });
+
     test('keeps the cursor and coalesces retry after a page failure', () async {
       final site = instance('one.example');
       final initial = controller.load(
