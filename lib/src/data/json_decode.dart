@@ -33,6 +33,29 @@ Future<Object?> decodeJsonHttpResponse(
   backgroundThreshold: backgroundThreshold,
 );
 
+/// Decodes and projects together so only the resulting model leaves the worker.
+Future<T> decodeAndProjectJsonHttpResponse<T>(
+  http.Response response, {
+  required T Function(Object?) project,
+  int backgroundThreshold = backgroundJsonDecodeThreshold,
+}) {
+  final input = (
+    input: (
+      bytes: response.bodyBytes,
+      encodingName: _responseEncodingName(response.headers),
+    ),
+    project: project,
+  );
+  if (response.bodyBytes.length < backgroundThreshold) {
+    return Future<T>.value(_decodeAndProjectEncodedJson(input));
+  }
+  return compute<_ProjectedEncodedJson<T>, T>(
+    _decodeAndProjectEncodedJson<T>,
+    input,
+    debugLabel: 'Discourse JSON projection',
+  );
+}
+
 Future<Object?> decodeJsonResponseBytes(
   Uint8List bytes, {
   String encodingName = 'utf-8',
@@ -50,6 +73,14 @@ Future<Object?> decodeJsonResponseBytes(
 }
 
 typedef _EncodedJson = ({Uint8List bytes, String encodingName});
+
+typedef _ProjectedEncodedJson<T> = ({
+  _EncodedJson input,
+  T Function(Object?) project,
+});
+
+T _decodeAndProjectEncodedJson<T>(_ProjectedEncodedJson<T> input) =>
+    input.project(_decodeEncodedJson(input.input));
 
 Object? _decodeEncodedJson(_EncodedJson input) =>
     jsonDecode(_encoding(input.encodingName).decode(input.bytes));

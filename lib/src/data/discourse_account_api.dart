@@ -635,23 +635,29 @@ final class DiscourseAccountApi {
     final url = Uri.parse(
       '$siteUrl/drafts.json',
     ).replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
-    final body = await _getObject(
+    final response = await _get(
       url,
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
-    final rawRows = jsonArray(
-      body['drafts'],
-    ).take(limit).toList(growable: false);
-    return UserDraftPage(
-      rawItemCount: rawRows.length,
-      drafts: List.unmodifiable(
-        jsonObjects(
-          rawRows,
-        ).map(UserDraft.fromJson).where((draft) => draft.key.isNotEmpty),
-      ),
-    );
+    try {
+      return await decodeAndProjectJsonHttpResponse(
+        response,
+        project: _userDraftPageProjection(
+          limit: limit,
+          invalidRootMessage: appL10n.expectedAJSONObject,
+        ),
+        backgroundThreshold: 0,
+      );
+    } catch (error, stackTrace) {
+      throw SiteLookupException(
+        SiteLookupFailure.unreachable,
+        siteUrl,
+        cause: error,
+        causeStackTrace: stackTrace,
+      );
+    }
   }
 
   Future<void> deleteUserDraft({
@@ -808,3 +814,23 @@ final class DiscourseAccountApi {
     if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');
   }
 }
+
+UserDraftPage Function(Object?) _userDraftPageProjection({
+  required int limit,
+  required String invalidRootMessage,
+}) => (decoded) {
+  if (decoded is! Map<String, dynamic>) {
+    throw FormatException(invalidRootMessage);
+  }
+  final rawRows = jsonArray(
+    decoded['drafts'],
+  ).take(limit).toList(growable: false);
+  return UserDraftPage(
+    rawItemCount: rawRows.length,
+    drafts: List.unmodifiable(
+      jsonObjects(
+        rawRows,
+      ).map(UserDraft.fromJson).where((draft) => draft.key.isNotEmpty),
+    ),
+  );
+};

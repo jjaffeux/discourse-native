@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 
 import 'package:discourse_native/src/data/json_decode.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,4 +39,77 @@ void main() {
       'value': 'café',
     });
   });
+
+  test('projects a small response in the requested worker isolate', () async {
+    final result = await decodeAndProjectJsonHttpResponse(
+      http.Response('{"value":42}', 200),
+      project: _projectWithIsolate,
+      backgroundThreshold: 0,
+    );
+
+    expect(result.isolate, isNot(Isolate.current.controlPort));
+    expect(result.value, {'value': 42});
+  });
+
+  test('projects below the threshold on the caller isolate', () async {
+    final result = await decodeAndProjectJsonHttpResponse(
+      http.Response('{"value":42}', 200),
+      project: _projectWithIsolate,
+    );
+
+    expect(result.isolate, Isolate.current.controlPort);
+    expect(result.value, {'value': 42});
+  });
+
+  test('projection preserves HTTP charset selection', () async {
+    for (final headers in [
+      {'content-type': 'application/json; charset=iso-8859-1'},
+      <String, String>{},
+    ]) {
+      final result = await decodeAndProjectJsonHttpResponse(
+        http.Response.bytes(
+          latin1.encode('{"value":"café"}'),
+          200,
+          headers: headers,
+        ),
+        project: _projectWithIsolate,
+        backgroundThreshold: 0,
+      );
+      expect(result.value, {'value': 'café'});
+    }
+  });
+
+  test(
+    'propagates outer JSON and projection failures from the worker',
+    () async {
+      await expectLater(
+        decodeAndProjectJsonHttpResponse(
+          http.Response('{', 200),
+          project: _projectWithIsolate,
+          backgroundThreshold: 0,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      await expectLater(
+        decodeAndProjectJsonHttpResponse<Object?>(
+          http.Response('{}', 200),
+          project: _rejectProjection,
+          backgroundThreshold: 0,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'projection failed',
+          ),
+        ),
+      );
+    },
+  );
 }
+
+({SendPort isolate, Object? value}) _projectWithIsolate(Object? value) =>
+    (isolate: Isolate.current.controlPort, value: value);
+
+Object? _rejectProjection(Object? value) =>
+    throw StateError('projection failed');

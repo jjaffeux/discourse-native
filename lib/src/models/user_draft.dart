@@ -70,7 +70,8 @@ class UserDraft {
   final String? archetype;
   final String? _excerpt;
 
-  static final RegExp _whitespace = RegExp(r'\s+');
+  static const int _maximumExcerptCodeUnits = 512;
+  static final RegExp _excerptTokens = RegExp(r'(\S)|\s+', unicode: true);
 
   int? get displayCategoryId => categoryId ?? data?.categoryId;
 
@@ -108,6 +109,23 @@ class UserDraft {
 
   String get excerpt => _excerpt ?? _normalizeExcerpt(data?.reply ?? '');
 
-  static String _normalizeExcerpt(String source) =>
-      source.trim().replaceAll(_whitespace, ' ');
+  static String _normalizeExcerpt(String source) {
+    final excerpt = StringBuffer();
+    var pendingSpace = false;
+    for (final token in _excerptTokens.allMatches(source)) {
+      final scalar = token.group(1);
+      if (scalar == null) {
+        pendingSpace = excerpt.isNotEmpty;
+        continue;
+      }
+      if (excerpt.isEmpty && scalar.trim().isEmpty) continue;
+      final nextLength = scalar.length + (pendingSpace ? 1 : 0);
+      if (excerpt.length + nextLength > _maximumExcerptCodeUnits) break;
+      if (pendingSpace) excerpt.write(' ');
+      excerpt.write(scalar);
+      pendingSpace = false;
+      if (excerpt.length == _maximumExcerptCodeUnits) break;
+    }
+    return excerpt.toString().trim();
+  }
 }
