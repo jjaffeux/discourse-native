@@ -103,6 +103,12 @@ class _CookedTableState extends State<_CookedTable> {
   ({TextStyle? style, TextDirection direction, TextScaler scaler})?
   _widthInputs;
   List<double> _initialWidths = [];
+  late final List<int> _rowIndexes = List.generate(
+    widget.rows.length,
+    (index) => index,
+  );
+  List<DDataTableColumn<int>>? _columns;
+  Locale? _columnLocale;
 
   Future<void> _copyTable() async {
     String line(List<_Cell> cells) =>
@@ -145,8 +151,14 @@ class _CookedTableState extends State<_CookedTable> {
           _initialWidth(context, index),
       ];
       _widthInputs = widthInputs;
+      _columns = null;
     }
-    final columns = [
+    final locale = Localizations.localeOf(context);
+    if (_columnLocale != locale) {
+      _columnLocale = locale;
+      _columns = null;
+    }
+    final columns = _columns ??= [
       for (var index = 0; index < widget.headers.length; index++)
         DDataTableColumn<int>(
           id: '$index',
@@ -209,7 +221,7 @@ class _CookedTableState extends State<_CookedTable> {
         const SizedBox(height: DSpacing.sm),
         DDataTable<int>(
           variant: DDataTableVariant.softHeader,
-          data: List.generate(widget.rows.length, (index) => index),
+          data: _rowIndexes,
           columns: columns,
           rowId: (row) => row,
           state: _state,

@@ -307,6 +307,23 @@ class _DDataTableView<T> {
   final DDataTableMetrics metrics;
 }
 
+@immutable
+class _LocalRowsSnapshot<T> {
+  const _LocalRowsSnapshot({
+    required this.data,
+    required this.columns,
+    required this.sort,
+    required this.filters,
+    required this.rows,
+  });
+
+  final List<T> data;
+  final List<DDataTableColumn<T>> columns;
+  final DDataTableSort? sort;
+  final Map<String, String> filters;
+  final List<T> rows;
+}
+
 /// A headless-friendly typed data table built from the shadcn Table primitives.
 ///
 /// Supply either [controller], or [state] with [onStateChanged], or neither for
@@ -340,7 +357,10 @@ class DDataTable<T> extends StatefulWidget {
   }) : assert(state == null || onStateChanged != null),
        assert(rowCount == null || rowCount >= 0);
 
+  /// The row snapshot, replaced when row values change.
   final List<T> data;
+
+  /// Column definitions, replaced when comparison or filtering behavior changes.
   final List<DDataTableColumn<T>> columns;
   final DDataTableRowId<T> rowId;
   final DDataTableVariant variant;
@@ -377,6 +397,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   late DDataTableState _ownedState = _defaultState();
   bool _normalizationScheduled = false;
   final Map<String, double> _resizedWidths = {};
+  _LocalRowsSnapshot<T>? _localRowsSnapshot;
 
   DDataTableState _defaultState() => DDataTableState(hiddenColumnIds: const {});
 
@@ -390,6 +411,9 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   @override
   void didUpdateWidget(DDataTable<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.operationMode != widget.operationMode) {
+      _localRowsSnapshot = null;
+    }
     if (!mapEquals(oldWidget.columnWidths, widget.columnWidths)) {
       _resizedWidths.clear();
     }
@@ -453,7 +477,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
         ? source.selectedRowIds.intersection(rowIds)
         : source.selectedRowIds;
     final effectiveRows = widget.operationMode == DDataTableOperationMode.local
-        ? _filtered(widget.data, filters)
+        ? _orderedLocalRows(sort: normalizedSort, filters: filters)
         : widget.data;
     final count = widget.operationMode == DDataTableOperationMode.local
         ? effectiveRows.length
@@ -481,6 +505,42 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
     ];
   }
 
+  List<T> _orderedLocalRows({
+    required DDataTableSort? sort,
+    required Map<String, String> filters,
+  }) {
+    final snapshot = _localRowsSnapshot;
+    if (snapshot != null &&
+        identical(snapshot.data, widget.data) &&
+        identical(snapshot.columns, widget.columns) &&
+        snapshot.sort == sort &&
+        mapEquals(snapshot.filters, filters)) {
+      return snapshot.rows;
+    }
+    var sorted = _filtered(widget.data, filters);
+    if (sort != null) {
+      final column = widget.columns.firstWhere((c) => c.id == sort.columnId);
+      final indexed = sorted.indexed.toList();
+      indexed.sort((first, second) {
+        final result = column.compare!(first.$2, second.$2);
+        final directed = sort.direction == DDataTableSortDirection.ascending
+            ? result
+            : -result;
+        return directed == 0 ? first.$1.compareTo(second.$1) : directed;
+      });
+      sorted = [for (final entry in indexed) entry.$2];
+    }
+    final rows = List<T>.unmodifiable(sorted);
+    _localRowsSnapshot = _LocalRowsSnapshot(
+      data: widget.data,
+      columns: widget.columns,
+      sort: sort,
+      filters: Map.unmodifiable(filters),
+      rows: rows,
+    );
+    return rows;
+  }
+
   _DDataTableView<T> _view(DDataTableState state) {
     if (widget.operationMode == DDataTableOperationMode.manual) {
       final count = widget.rowCount ?? widget.data.length;
@@ -495,21 +555,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
         ),
       );
     }
-    final filtered = _filtered(widget.data, state.filters);
-    var sorted = List<T>.of(filtered);
-    final sort = state.sort;
-    if (sort != null) {
-      final column = widget.columns.firstWhere((c) => c.id == sort.columnId);
-      final indexed = sorted.indexed.toList();
-      indexed.sort((first, second) {
-        final result = column.compare!(first.$2, second.$2);
-        final directed = sort.direction == DDataTableSortDirection.ascending
-            ? result
-            : -result;
-        return directed == 0 ? first.$1.compareTo(second.$1) : directed;
-      });
-      sorted = [for (final entry in indexed) entry.$2];
-    }
+    final sorted = _orderedLocalRows(sort: state.sort, filters: state.filters);
     final pages = sorted.isEmpty ? 0 : (sorted.length / state.pageSize).ceil();
     final start = math.min((state.page - 1) * state.pageSize, sorted.length);
     final end = math.min(start + state.pageSize, sorted.length);
