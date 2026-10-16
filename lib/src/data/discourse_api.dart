@@ -463,6 +463,19 @@ class DiscourseApi
   );
 
   @override
+  Future<Topic> topicSummary({
+    required String siteUrl,
+    required int id,
+    String? apiKey,
+    String? clientId,
+  }) => _topic.topicSummary(
+    siteUrl: siteUrl,
+    id: id,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
+
+  @override
   Future<SearchResults> searchPosts({
     required String siteUrl,
     required String term,

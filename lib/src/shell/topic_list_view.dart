@@ -85,6 +85,7 @@ class _TopicListViewState extends State<TopicListView> {
   );
   ValueNotifier<_TopicListCursor?>? _cursor;
   Object? _keyboardMoveToken;
+  Object? _selectionRestoreToken;
   Object? _loadMoreToken;
   Object? _rangeToken;
   Object? _incomingRevealToken;
@@ -257,6 +258,7 @@ class _TopicListViewState extends State<TopicListView> {
     // Availability gates prefetching, not the rows' appearance. Do not rebuild
     // the whole list whenever its retained tab is hidden or shown.
     _prefetch.setEnabled(!_touch && _tickerMode!.value.enabled);
+    if (!_tickerMode!.value.enabled) _selectionRestoreToken = null;
   }
 
   void _recordScrollEvent(String name, Map<String, Object?> data) {
@@ -344,6 +346,7 @@ class _TopicListViewState extends State<TopicListView> {
     _scroll = PaginationScrollController();
     _list = ListController();
     _keyboardMoveToken = null;
+    _selectionRestoreToken = null;
     final saved = PageStorage.maybeOf(
       context,
     )?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
@@ -457,6 +460,7 @@ class _TopicListViewState extends State<TopicListView> {
   @override
   void deactivate() {
     _prefetch.setEnabled(false);
+    _selectionRestoreToken = null;
     super.deactivate();
   }
 
@@ -660,6 +664,7 @@ class _TopicListViewState extends State<TopicListView> {
   }
 
   bool _moveSelection(int direction) {
+    _selectionRestoreToken = null;
     if (widget.feed.rowCount == 0) return false;
     if (_keyboardMoveToken != null) return true;
     unawaited(_moveSelectionTo(direction));
@@ -777,6 +782,7 @@ class _TopicListViewState extends State<TopicListView> {
 
   void _openRow(Topic topic, {bool keyboard = false}) {
     _keyboardMoveToken = null;
+    _selectionRestoreToken = null;
     _rememberTopic(topic.id, keyboard: keyboard);
     final controller = _controller!;
     if (keyboard && controller.readingTopicId == topic.id) return;
@@ -809,24 +815,32 @@ class _TopicListViewState extends State<TopicListView> {
     _TopicListIdentity identity,
     _TopicListCursor cursor,
   ) async {
-    if (!_isCurrent(controller, identity) ||
-        _cursor?.value?.topicId != cursor.topicId) {
-      return;
-    }
-    var topic = controller.store.read<Topic>(identity.$1!, cursor.topicId);
-    topic ??= await controller.readTab(identity.$3, () async {
-      final instance = controller.currentInstance;
-      if (instance == null || instance.url != identity.$1) return null;
-      return controller.topicFeeds.restoreTopic(
-        instance: instance,
-        destinationId: identity.$4,
-        topicId: cursor.topicId,
-      );
-    });
-    if (_isCurrent(controller, identity) &&
+    final token = Object();
+    _selectionRestoreToken = token;
+    final route = controller.currentContent;
+    bool isCurrent() =>
+        _isCurrent(controller, identity) &&
+        identical(_selectionRestoreToken, token) &&
         _cursor?.value?.topicId == cursor.topicId &&
-        topic != null) {
-      _openRow(topic, keyboard: true);
+        controller.currentContent == route &&
+        navigationShortcutsAllowed(context);
+    try {
+      if (!isCurrent()) return;
+      var topic = controller.store.read<Topic>(identity.$1!, cursor.topicId);
+      topic ??= await controller.readTab(identity.$3, () async {
+        final instance = controller.currentInstance;
+        if (instance == null || instance.url != identity.$1) return null;
+        return controller.topicFeeds.restoreTopic(
+          instance: instance,
+          destinationId: identity.$4,
+          topicId: cursor.topicId,
+        );
+      });
+      if (isCurrent() && topic != null) _openRow(topic, keyboard: true);
+    } finally {
+      if (identical(_selectionRestoreToken, token)) {
+        _selectionRestoreToken = null;
+      }
     }
   }
 

@@ -136,6 +136,26 @@ final class DiscourseTopicApi {
     return _models.topicList(body, siteUrl);
   }
 
+  Future<Topic> topicSummary({
+    required String siteUrl,
+    required int id,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    _requirePositiveId(id, 'id');
+    final body = await _getObject(
+      Uri.parse('$siteUrl/t/$id.json'),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    final topic = _models.topicSummary(body, siteUrl);
+    if (topic.id != id) {
+      throw const FormatException('The topic response did not match its ID.');
+    }
+    return topic;
+  }
+
   Future<TopicPayload> topic({
     required String siteUrl,
     required String slug,

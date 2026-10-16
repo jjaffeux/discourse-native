@@ -34,7 +34,7 @@ final class UnreadTopicFeed {
   }) {
     // Nested conversations use reply flags, not flat post-stream positions.
     if (topic?.isNestedView == true) {
-      return topic!.seen && !topic.hasNewReplies;
+      return topic!.listReadStateKnown && topic.seen && !topic.hasNewReplies;
     }
     final highest = _maximum(
       topic?.highestPostNumber,

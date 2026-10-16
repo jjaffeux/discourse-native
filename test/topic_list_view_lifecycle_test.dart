@@ -1703,6 +1703,21 @@ final class _RestorablePagingApi extends FakeDiscourseApi {
   bool failNext = false;
 
   @override
+  Future<Topic> topicSummary({
+    required String siteUrl,
+    required int id,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    paths.add('/t/$id.json');
+    if (failNext) {
+      failNext = false;
+      throw StateError('offline');
+    }
+    return Topic(id: id, title: 'Topic $id', slug: 'topic-$id');
+  }
+
+  @override
   Future<TopicList> topicList({
     required String siteUrl,
     required String path,

@@ -82,6 +82,9 @@ final class _PageShape {
 }
 
 final class _FeedWindow {
+  _FeedWindow({this.readerTopics});
+
+  final Set<int> Function()? readerTopics;
   String? rootPath;
   int pagesWithoutRows = 0;
   final Map<int, int> rows = {};
@@ -89,7 +92,8 @@ final class _FeedWindow {
   final Map<Object, int> owners = {};
   final Map<Object, _RowRange> viewports = {};
 
-  bool protects(int row) =>
+  bool protects(int row, {Set<int> readers = const {}}) =>
+      readers.contains(rows[row]) ||
       viewports.values.any((range) => row >= range.first && row <= range.last);
 
   void touch(int row) {
@@ -97,8 +101,11 @@ final class _FeedWindow {
   }
 
   void trim(int maximum, {_RowRange? preferredRange}) {
+    final readers = readerTopics?.call() ?? const <int>{};
     while (rows.length > maximum) {
-      final removable = rows.keys.where((row) => !protects(row));
+      final removable = rows.keys.where(
+        (row) => !protects(row, readers: readers),
+      );
       if (removable.isEmpty) return;
       final outside = preferredRange == null
           ? removable
@@ -140,10 +147,11 @@ final class _FeedWindow {
     _RowRange? preferredRange,
   }) {
     if (restoring) {
+      final readers = readerTopics?.call() ?? const <int>{};
       var row = start;
       for (final id in ids) {
         for (final entry in rows.entries) {
-          if (protects(entry.key) &&
+          if (protects(entry.key, readers: readers) &&
               ((entry.value == id && entry.key != row) ||
                   (entry.key == row && entry.value != id))) {
             throw StateError(
@@ -164,7 +172,10 @@ final class _FeedWindow {
   }
 
   void truncate(int count) {
-    if (rows.keys.any((row) => row >= count && protects(row))) {
+    final readers = readerTopics?.call() ?? const <int>{};
+    if (rows.keys.any(
+      (row) => row >= count && protects(row, readers: readers),
+    )) {
       throw StateError(
         'The topic list changed beyond a visible row. Refresh the list.',
       );
@@ -288,6 +299,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     this.readPersonalizationVersion,
     this.prepareTopicForStore,
     this.incomingFilterFor,
+    this.readerTopics,
     this.maximumRetainedTopics = 300,
     this.maximumCursorCheckpoints = 32,
     this.maximumDestinations = 32,
@@ -313,6 +325,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   /// Which arrivals a list announces, read from its path and the response
   /// that loaded it, as core's `trackIncoming` runs once a list is found.
   final TopicFeedIncomingFilter? incomingFilterFor;
+  final Set<int> Function(String siteUrl, String destinationId)? readerTopics;
 
   final Map<_FeedKey, TopicFeed> _feeds = {};
   final Map<String, String> _filterQueries = {};
@@ -396,7 +409,11 @@ final class TopicFeedController extends FrameSafeNotifier {
   }
 
   _FeedWindow _window(_FeedKey key) {
-    final window = _windows.remove(key) ?? _FeedWindow();
+    final window =
+        _windows.remove(key) ??
+        _FeedWindow(
+          readerTopics: () => readerTopics?.call(key.$1, key.$2) ?? {},
+        );
     _windows[key] = window;
     return window;
   }
@@ -406,6 +423,7 @@ final class TopicFeedController extends FrameSafeNotifier {
       final candidates = _windows.entries.where(
         (entry) =>
             entry.value.owners.isEmpty &&
+            (entry.value.readerTopics?.call().isEmpty ?? true) &&
             !_loadRequests.containsKey(entry.key) &&
             !_pageRequests.containsKey(entry.key) &&
             !_rangeRequests.containsKey(entry.key) &&
@@ -966,14 +984,13 @@ final class TopicFeedController extends FrameSafeNotifier {
     final request = _TopicRequest(topicId);
     _topicRequests[key] = request;
     _window(key);
-    unawaited(_performTopicRestore(key, instance, path, request));
+    unawaited(_performTopicRestore(key, instance, request));
     return request.completion.future;
   }
 
   Future<void> _performTopicRestore(
     _FeedKey key,
     DiscourseInstance instance,
-    String path,
     _TopicRequest request,
   ) async {
     final lease = lifecycle.capture(instance.url);
@@ -987,25 +1004,22 @@ final class TopicFeedController extends FrameSafeNotifier {
     try {
       final apiKey = await credentials.apiKeyFor(instance.url);
       if (!requestIsCurrent()) return;
-      final list = await api.topicList(
+      final topic = await api.topicSummary(
         siteUrl: instance.url,
-        path: _topicIdsPath(path, [request.topicId]),
+        id: request.topicId,
         apiKey: apiKey,
       );
       if (!requestIsCurrent()) return;
-      final topics = list.topics
-          .where((topic) => topic.id == request.topicId)
-          .toList();
       await prepareFeed?.call(
         instance,
         apiKey,
-        list.categories,
-        _categoryIds(topics),
+        const [],
+        _categoryIds([topic]),
       );
       if (!requestIsCurrent()) return;
       _commit(lease, () {
         if (!requestIsCurrent()) return;
-        if (!_putTopics(instance.url, topics, version, requestIsCurrent)) {
+        if (!_putTopics(instance.url, [topic], version, requestIsCurrent)) {
           return;
         }
         if (!request.completion.isCompleted) {
@@ -1084,23 +1098,28 @@ final class TopicFeedController extends FrameSafeNotifier {
               entry.value,
         ];
         if (missingIds.isNotEmpty) {
-          final list = await api.topicList(
-            siteUrl: instance.url,
-            path: _topicIdsPath(window.rootPath!, missingIds),
-            apiKey: apiKey,
-          );
-          if (!requestIsCurrent()) return;
+          final topics = <Topic>[];
+          for (final id in missingIds) {
+            final topic = await api.topicSummary(
+              siteUrl: instance.url,
+              id: id,
+              apiKey: apiKey,
+            );
+            if (!requestIsCurrent()) return;
+            topics.add(topic);
+          }
           await prepareFeed?.call(
             instance,
             apiKey,
-            list.categories,
-            _categoryIds(list.topics),
+            const [],
+            _categoryIds(topics),
           );
+          if (!requestIsCurrent()) return;
           _commit(lease, () {
             if (!requestIsCurrent()) return;
             _putTopics(
               instance.url,
-              list.topics,
+              topics,
               personalizationVersion,
               requestIsCurrent,
             );

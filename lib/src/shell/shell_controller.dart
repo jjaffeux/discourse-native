@@ -1193,6 +1193,17 @@ class ShellController extends FrameSafeNotifier
       credentials: credentials,
       lifecycle: lifecycle,
       store: store,
+      readerTopics: (siteUrl, destinationId) => {
+        for (final tab in workspaceFor(siteUrl)?.tabs ?? const <ForumTab>[])
+          if (tab.currentContent.topicId case final id?)
+            if ((tab.contentStack.reversed
+                        .where((route) => !route.isTopic)
+                        .firstOrNull
+                        ?.id ??
+                    tab.rootDestinationId) ==
+                destinationId)
+              id,
+      },
       prepareFeed: (instance, apiKey, categories, categoryIds) async {
         final lease = lifecycle.capture(instance.url);
         if (categories.isNotEmpty) {
@@ -6070,6 +6081,12 @@ class ShellController extends FrameSafeNotifier
     final tracked = _topicTrackingBySite[siteUrl]?.topic(incoming.id);
     if (tracked == null) return incoming;
     var row = incoming;
+    if (!row.listReadStateKnown &&
+        row.lastReadPostNumber == null &&
+        tracked.isNew &&
+        row.seen) {
+      row = row.copyWith(seen: false);
+    }
     if (tracked.isSeen && !row.seen) row = row.copyWith(seen: true);
     final position = tracked.lastReadPostNumber;
     final held = row.lastReadPostNumber;

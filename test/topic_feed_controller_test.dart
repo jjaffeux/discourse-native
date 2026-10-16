@@ -24,6 +24,17 @@ final class _ControlledTopicFeedsApi extends FakeDiscourseApi {
   final List<_PendingFeed> requests = [];
 
   @override
+  Future<Topic> topicSummary({
+    required String siteUrl,
+    required int id,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final list = await topicList(siteUrl: siteUrl, path: '/t/$id.json');
+    return list.topics.firstWhere((topic) => topic.id == id);
+  }
+
+  @override
   Future<TopicList> topicList({
     required String siteUrl,
     required String path,
@@ -726,14 +737,16 @@ void main() {
     });
 
     test(
-      'repairs retained rows evicted by another feed using the original query',
+      'repairs retained rows evicted by another feed using stable topic IDs',
       () async {
         await seed(pages: 2);
         store.forget(site.url);
         final restoring = restore(1, 2);
         await pumpEventQueue();
-        expect(api.requests.last.path, '$rootPath&topic_ids=2,3');
-        await answer([2, 3]);
+        expect(api.requests.last.path, '/t/2.json');
+        await answer([2]);
+        expect(api.requests.last.path, '/t/3.json');
+        await answer([3]);
         await restoring;
         final feed = controller.feedFor(site.url, 'filtered')!;
         expect(feed.topicIds, [1, 2, 3, 4]);
@@ -1176,7 +1189,7 @@ void main() {
         );
         expect(duplicate, same(restoring));
         await pumpEventQueue();
-        expect(api.requests.last.path, '$rootPath&topic_ids=3');
+        expect(api.requests.last.path, '/t/3.json');
         await answer([3, 999]);
         expect((await restoring)?.id, 3);
         expect(store.read<Topic>(site.url, 3)?.title, 'Topic 3');

@@ -1889,6 +1889,35 @@ class FakeDiscourseApi
   }
 
   @override
+  Future<Topic> topicSummary({
+    required String siteUrl,
+    required int id,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    for (final rows in feeds.values) {
+      for (final topic in rows) {
+        if (topic.id == id) return topic;
+      }
+    }
+    final detail = topics[id]?.detail;
+    if (detail == null) {
+      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
+    }
+    return Topic(
+      id: detail.id,
+      title: detail.title,
+      slug: 'topic-${detail.id}',
+      categoryId: detail.categoryId,
+      postsCount: detail.postsCount,
+      lastReadPostNumber: detail.lastReadPostNumber,
+      highestPostNumber: detail.highestPostNumber,
+      privateMessage: detail.privateMessage,
+      plugins: detail.plugins,
+    );
+  }
+
+  @override
   Future<TopicPayload> topic({
     required String siteUrl,
     required String slug,

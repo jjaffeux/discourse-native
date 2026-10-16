@@ -20,21 +20,20 @@ import 'shell_scope.dart';
 typedef _AdjacentTopics = ({int? previous, int? next, bool more, bool busy});
 
 _AdjacentTopics _adjacentTopics(ShellController shell) {
-  final ids = shell.currentFeed?.topicIds ?? const <int>[];
+  final feed = shell.currentFeed;
+  final count = feed?.rowCount ?? 0;
   final topicId = shell.readingTopicId;
-  final index = ids.indexOf(topicId ?? -1);
-  final fallback = topicId != null && index < 0 ? ids.firstOrNull : null;
+  final index = feed?.indexOfTopic(topicId ?? -1) ?? -1;
+  final fallback = topicId != null && index < 0 && count > 0 ? 0 : null;
   return (
-    previous: index > 0 ? ids[index - 1] : fallback,
+    previous: index > 0 ? index - 1 : fallback,
     next: topicId == null
-        ? ids.firstOrNull
-        : index >= 0 && index + 1 < ids.length
-        ? ids[index + 1]
+        ? (count > 0 ? 0 : null)
+        : index >= 0 && index + 1 < count
+        ? index + 1
         : fallback,
     more:
-        index >= 0 &&
-        index == ids.length - 1 &&
-        shell.currentFeed?.hasMore == true,
+        index >= 0 && index == count - 1 && shell.currentFeed?.hasMore == true,
     busy: shell.currentFeed?.loadingMore == true,
   );
 }
@@ -46,9 +45,10 @@ bool openAdjacentTopic(
 }) {
   final shell = ShellScope.read(context);
   final state = _adjacentTopics(shell);
-  final id = next ? state.next : state.previous;
-  final siteUrl = shell.currentInstance?.url;
-  if (siteUrl == null || (id == null && !(next && state.more))) return false;
+  final row = next ? state.next : state.previous;
+  final instance = shell.currentInstance;
+  if (instance == null || (row == null && !(next && state.more))) return false;
+  final siteUrl = instance.url;
   final lease = shell.lifecycle.capture(siteUrl);
   final source = shell.currentFeedId;
   final route = shell.currentContent;
@@ -56,44 +56,66 @@ bool openAdjacentTopic(
   final focus = FocusManager.instance.primaryFocus;
 
   Future<void> open() async {
-    var target = id;
-    if (target == null && source != null) {
-      var cancelled = false;
-      void checkOwner() {
-        cancelled |=
-            !context.mounted ||
-            !lease.isCurrent ||
-            shell.currentInstance?.url != siteUrl ||
-            shell.activeTabId != tabId ||
-            shell.currentFeedId != source ||
-            shell.currentContent != route;
-      }
-
-      void focusChanged() => cancelled = true;
-      shell.addListener(checkOwner);
-      if (fromKeyboard) FocusManager.instance.addListener(focusChanged);
-      try {
-        await shell.loadMoreFeed(source);
-      } finally {
-        shell.removeListener(checkOwner);
-        if (fromKeyboard) FocusManager.instance.removeListener(focusChanged);
-      }
-      checkOwner();
-      if (!context.mounted ||
-          cancelled ||
-          (fromKeyboard &&
-              (!navigationShortcutsAllowed(context) ||
-                  FocusManager.instance.primaryFocus != focus))) {
-        return;
-      }
-      target = _adjacentTopics(shell).next;
+    var targetRow = row;
+    var cancelled = false;
+    void checkOwner() {
+      cancelled |=
+          !context.mounted ||
+          !lease.isCurrent ||
+          shell.currentInstance?.url != siteUrl ||
+          shell.activeTabId != tabId ||
+          shell.currentFeedId != source ||
+          shell.currentContent != route;
     }
-    final topic = target == null
-        ? null
-        : shell.store.read<Topic>(siteUrl, target);
-    if (topic != null) {
-      if (_readerBeside(shell) case final reader?) shell.selectTab(reader);
-      shell.openTopicFromList(topic, revealInList: true);
+
+    bool current() {
+      checkOwner();
+      return !cancelled &&
+          (!fromKeyboard ||
+              (navigationShortcutsAllowed(context) &&
+                  FocusManager.instance.primaryFocus == focus));
+    }
+
+    void focusChanged() => cancelled = true;
+    shell.addListener(checkOwner);
+    if (fromKeyboard) FocusManager.instance.addListener(focusChanged);
+    try {
+      if (targetRow == null && source != null) {
+        await shell.loadMoreFeed(source);
+        if (!current()) return;
+        targetRow = _adjacentTopics(shell).next;
+      }
+      if (targetRow == null) return;
+      var feed = shell.currentFeed;
+      var target = feed?.topicIdAt(targetRow);
+      if (source != null &&
+          feed != null &&
+          (target == null ||
+              !shell.store.containsRecord<Topic>(siteUrl, target))) {
+        final sourceRow = feed.sourceRowFor(targetRow);
+        await shell.topicFeeds.ensureRange(
+          instance: instance,
+          destinationId: source,
+          firstRow: sourceRow,
+          lastRow: sourceRow,
+        );
+        if (!current()) return;
+        final refreshed = _adjacentTopics(shell);
+        targetRow = next ? refreshed.next : refreshed.previous;
+        feed = shell.currentFeed;
+        target = targetRow == null ? null : feed?.topicIdAt(targetRow);
+      }
+      if (!current()) return;
+      final topic = target == null
+          ? null
+          : shell.store.read<Topic>(siteUrl, target);
+      if (topic != null) {
+        if (_readerBeside(shell) case final reader?) shell.selectTab(reader);
+        shell.openTopicFromList(topic, revealInList: true);
+      }
+    } finally {
+      shell.removeListener(checkOwner);
+      if (fromKeyboard) FocusManager.instance.removeListener(focusChanged);
     }
   }
 

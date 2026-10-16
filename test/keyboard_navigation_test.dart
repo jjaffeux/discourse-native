@@ -27,6 +27,52 @@ import 'support/topic_post_list.dart';
 const _unlistedTopic = Topic(id: 32, title: 'Unlisted topic', slug: 'unlisted');
 
 void main() {
+  testWidgets(
+    'adjacent reader navigation refills logical rows after eviction',
+    (tester) async {
+      final setup = await _setup(tester, longPosts: {});
+      final shell = setup.shell;
+      shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+      await tester.pumpAndSettle();
+      await _fillLongFeed(shell, setup.api);
+      expect(shell.currentFeed!.rowCount, 1050);
+      expect(shell.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
+      expect(shell.currentFeed!.indexOfTopic(1), 0);
+      expect(shell.currentFeed!.topicIdAt(1), isNull);
+      await _adjacentAction(tester, next: true);
+      expect(shell.readingTopicId, 2);
+      await _adjacentAction(tester, next: false);
+      expect(shell.readingTopicId, 1);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  testWidgets('adjacent refill cannot navigate after its source tab changes', (
+    tester,
+  ) async {
+    final setup = await _setup(tester, longPosts: {});
+    final shell = setup.shell;
+    shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
+    await tester.pumpAndSettle();
+    await _fillLongFeed(shell, setup.api);
+    final gate = Completer<void>();
+    setup.api.feedGates['/latest.json'] = gate;
+    expect(
+      openAdjacentTopic(tester.element(find.byType(TopicView)), next: true),
+      isTrue,
+    );
+    await tester.pump();
+    shell.createTab();
+    final selected = shell.activeTabId;
+    final route = shell.currentContent;
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(shell.activeTabId, selected);
+    expect(shell.currentContent, route);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
   for (final size in [desktop, laptop, phone]) {
     testWidgets('J/K page through a long post in both directions at $size', (
       tester,
@@ -1243,6 +1289,18 @@ ScrollView _scrollable(WidgetTester tester, Finder root) =>
         ),
       ),
     );
+
+Future<void> _fillLongFeed(ShellController shell, FakeDiscourseApi api) async {
+  for (var page = 1; page < 35; page++) {
+    final path = '/latest.json?page=$page';
+    api.feeds[path] = [
+      for (var id = page * 30 + 1; id <= (page + 1) * 30; id++)
+        Topic(id: id, title: 'Keyboard topic $id', slug: 'keyboard-$id'),
+    ];
+    api.nextPages[path] = '/latest.json?page=${page + 1}';
+    await shell.loadMoreFeed('latest');
+  }
+}
 
 Future<({ShellController shell, FakeDiscourseApi api})> _setup(
   WidgetTester tester, {

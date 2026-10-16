@@ -202,6 +202,7 @@ class Topic with Storable<Topic> {
     this.isNestedView = false,
     this.privateMessage = false,
     this.hasNewReplies = false,
+    this.listReadStateKnown = true,
     this.lastReadPostNumber,
     this.highestPostNumber = 0,
     this.tags = const [],
@@ -220,6 +221,7 @@ class Topic with Storable<Topic> {
     Map<String, String?> avatarsByUsername = const {},
     Map<int, String> usernamesByUserId = const {},
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+    bool listReadStateKnown = true,
   }) {
     final posters = <TopicPoster>[];
     final seenIds = <int>{};
@@ -273,6 +275,7 @@ class Topic with Storable<Topic> {
       isNestedView: json['is_nested_view'] == true,
       privateMessage: json['archetype'] == 'private_message',
       hasNewReplies: json['has_new_replies'] == true,
+      listReadStateKnown: listReadStateKnown,
       lastReadPostNumber: jsonIntOrNull(json['last_read_post_number']),
       highestPostNumber: jsonInt(json['highest_post_number']),
       tags: List.unmodifiable(
@@ -351,6 +354,7 @@ class Topic with Storable<Topic> {
   final bool privateMessage;
 
   final bool hasNewReplies;
+  final bool listReadStateKnown;
 
   final int? lastReadPostNumber;
 
@@ -443,6 +447,7 @@ class Topic with Storable<Topic> {
     isNestedView: isNestedView,
     privateMessage: privateMessage ?? this.privateMessage,
     hasNewReplies: markRead ? false : hasNewReplies,
+    listReadStateKnown: markRead || listReadStateKnown,
     lastReadPostNumber: markRead && this.highestPostNumber > 0
         ? this.highestPostNumber
         : lastReadPostNumber ?? this.lastReadPostNumber,
@@ -478,6 +483,7 @@ class Topic with Storable<Topic> {
     isNestedView: isNestedView,
     privateMessage: privateMessage,
     hasNewReplies: hasNewReplies,
+    listReadStateKnown: listReadStateKnown,
     lastReadPostNumber: lastReadPostNumber,
     highestPostNumber: highestPostNumber,
     tags: tags,
@@ -512,6 +518,7 @@ class Topic with Storable<Topic> {
           other.isNestedView == isNestedView &&
           other.privateMessage == privateMessage &&
           other.hasNewReplies == hasNewReplies &&
+          other.listReadStateKnown == listReadStateKnown &&
           other.lastReadPostNumber == lastReadPostNumber &&
           other.highestPostNumber == highestPostNumber &&
           listEquals(other.tags, tags) &&
@@ -543,6 +550,7 @@ class Topic with Storable<Topic> {
     isNestedView,
     privateMessage,
     hasNewReplies,
+    listReadStateKnown,
     lastReadPostNumber,
     highestPostNumber,
     Object.hashAll(tags),

@@ -52,6 +52,78 @@ final class DiscourseModelCodec {
   TopicList topicList(Map<String, dynamic> json, String siteUrl) =>
       TopicList.fromJson(json, siteUrl, extensions: extensions);
 
+  Topic topicSummary(Map<String, dynamic> json, String siteUrl) {
+    final details = jsonObject(json['details']);
+    final lastPoster = jsonObject(details['last_poster']);
+    final users = <Map<String, dynamic>>[];
+    final seen = <int>{};
+    for (final user in [
+      jsonObject(details['created_by']),
+      lastPoster,
+      ...jsonObjects(details['participants']).take(Topic.maximumPosterAvatars),
+    ]) {
+      final id = jsonIntOrNull(user['id']);
+      if (id == null || !seen.add(id)) continue;
+      users.add(user);
+      if (users.length == Topic.maximumPosterAvatars) break;
+    }
+    final avatars = <int, String?>{};
+    final avatarsByUsername = <String, String?>{};
+    final usernames = <int, String>{};
+    for (final user in users) {
+      final id = jsonInt(user['id']);
+      avatars[id] = resolveAvatarUrl(
+        jsonText(user['avatar_template']),
+        siteUrl,
+      );
+      if (jsonText(user['username']) case final username?) {
+        usernames[id] = username;
+        avatarsByUsername[username.toLowerCase()] = avatars[id];
+      }
+    }
+    final notificationLevel =
+        jsonIntOrNull(
+          json['notification_level'] ?? details['notification_level'],
+        ) ??
+        TopicNotificationLevel.normal.value;
+    final lastRead = jsonIntOrNull(json['last_read_post_number']);
+    final highest = jsonInt(json['highest_post_number']);
+    final unread =
+        lastRead != null &&
+            notificationLevel != TopicNotificationLevel.muted.value &&
+            notificationLevel != TopicNotificationLevel.normal.value &&
+            highest > lastRead
+        ? highest - lastRead
+        : 0;
+    return Topic.fromJson(
+      {
+        ...json,
+        'bumped_at':
+            json['bumped_at'] ?? json['last_posted_at'] ?? json['created_at'],
+        'last_poster_username':
+            json['last_poster_username'] ?? lastPoster['username'],
+        'notification_level': notificationLevel,
+        'unread_posts': json['unread_posts'] ?? unread,
+        'new_posts': json['new_posts'] ?? unread,
+        'posters':
+            json['posters'] ??
+            [
+              for (final user in users)
+                {
+                  'user': user,
+                  'extras': user['id'] == lastPoster['id'] ? 'latest' : '',
+                },
+            ],
+      },
+      avatars,
+      siteUrl,
+      avatarsByUsername: avatarsByUsername,
+      usernamesByUserId: usernames,
+      extensions: extensions,
+      listReadStateKnown: false,
+    );
+  }
+
   TopicPayload topic(Map<String, dynamic> json, String siteUrl) =>
       TopicDetail.parse(
         json,
