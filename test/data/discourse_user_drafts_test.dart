@@ -61,7 +61,8 @@ void main() {
     test(
       'transfers lossless ${encodedData ? 'string' : 'map'} resume data and bounded Unicode excerpt',
       () async {
-        final reply = '${'😀 e\u0301 👩\u200d💻 paragraph\n' * 2500}end';
+        final reply =
+            '${'a' * 508}👩\u200d💻${'😀 e\u0301 paragraph\n' * 2500}end';
         final data = <String, Object?>{
           'reply': reply,
           'action': 'privateMessage',
@@ -103,7 +104,7 @@ void main() {
         expect(page.rawItemCount, 1);
         expect(draft.data?.toJson(), data);
         expect(draft.data?.reply, endsWith('end'));
-        expect(draft.excerpt, isNotEmpty);
+        expect(draft.excerpt, 'a' * 508);
         expect(draft.excerpt.length, lessThanOrEqualTo(512));
         expect(utf8.decode(utf8.encode(draft.excerpt)), draft.excerpt);
         expect(draft.createdAt, DateTime.utc(2026, 10, 16, 8));

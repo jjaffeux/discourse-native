@@ -111,8 +111,84 @@ void main() {
         '${'a' * 510}😀',
       ),
       'surrogate pair across the boundary': ('${'a' * 511}😀tail', 'a' * 511),
-      'combining sequence': ('${'a' * 511}e\u0301tail', '${'a' * 511}e'),
-      'joined emoji': ('${'a' * 508}👩\u200d💻tail', '${'a' * 508}👩\u200d'),
+      'combining sequence across the boundary': (
+        '${'a' * 511}e\u0301tail',
+        'a' * 511,
+      ),
+      'combining sequence at the boundary': (
+        '${'a' * 510}e\u0301tail',
+        '${'a' * 510}e\u0301',
+      ),
+      'joined emoji across the boundary': (
+        '${'a' * 508}👩\u200d💻tail',
+        'a' * 508,
+      ),
+      'joined emoji at the boundary': (
+        '${'a' * 507}👩\u200d💻tail',
+        '${'a' * 507}👩\u200d💻',
+      ),
+      'variation selector across the boundary': (
+        '${'a' * 511}✈️tail',
+        'a' * 511,
+      ),
+      'variation selector at the boundary': (
+        '${'a' * 510}✈️tail',
+        '${'a' * 510}✈️',
+      ),
+      'keycap across the boundary': ('${'a' * 510}1️⃣tail', 'a' * 510),
+      'keycap at the boundary': ('${'a' * 509}1️⃣tail', '${'a' * 509}1️⃣'),
+      'skin tone across the boundary': ('${'a' * 509}👍🏽tail', 'a' * 509),
+      'skin tone at the boundary': ('${'a' * 508}👍🏽tail', '${'a' * 508}👍🏽'),
+      'regional indicators across the boundary': (
+        '${'a' * 509}🇫🇷tail',
+        'a' * 509,
+      ),
+      'regional indicators at the boundary': (
+        '${'a' * 508}🇫🇷tail',
+        '${'a' * 508}🇫🇷',
+      ),
+      'cluster larger than the cap': ('e${'\u0301' * 100000}tail', ''),
+      'oversized cluster after useful text': (
+        'Text e${'\u0301' * 100000}tail',
+        'Text',
+      ),
+      'collapsed whitespace joins a combining mark': (
+        '${'a' * 510}\n\t \u0301tail',
+        '${'a' * 510} \u0301',
+      ),
+      'collapsed whitespace cluster across the boundary': (
+        '${'a' * 511}\n\t \u0301tail',
+        'a' * 511,
+      ),
+      'trailing whitespace within a cluster at the boundary': (
+        '${'a' * 510}\u0600 x',
+        'a' * 510,
+      ),
+      'short trailing whitespace retains its prepend character': (
+        'x\u0600 \u0085',
+        'x\u0600',
+      ),
+      'trailing whitespace after a near-cap prepend is trimmed at EOF': (
+        '${'a' * 511}\u0600 \u0085',
+        '${'a' * 511}\u0600',
+      ),
+      'trailing whitespace after a near-cap prepend before text': (
+        '${'a' * 511}\u0600 \u0085x',
+        'a' * 511,
+      ),
+      'long trailing NEL whitespace before visible text': (
+        '${'a' * 510}\u0600 ${'\u0085' * 100000}x',
+        'a' * 510,
+      ),
+      'long trailing NEL whitespace at EOF': (
+        '${'a' * 511}\u0600 ${'\u0085' * 100000}',
+        '${'a' * 511}\u0600',
+      ),
+      'leading whitespace before a combining mark': (
+        ' \n\u0301 x ',
+        '\u0301 x',
+      ),
+      'short whitespace before a combining mark': ('x\n\u0301 y', 'x \u0301 y'),
       'long leading whitespace': (
         '${' \t\n' * 10000}Visible text',
         'Visible text',
