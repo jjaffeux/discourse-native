@@ -294,6 +294,166 @@ void main() {
       });
     });
 
+    testWidgets('a countdown mounted under disabled tickers stays idle', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 59, 15),
+      );
+      await countdown.run(() async {
+        await countdown.show(
+          spec,
+          wrap: (child) => TickerMode(enabled: false, child: child),
+        );
+
+        expect(find.textContaining('a minute'), findsOneWidget);
+        final reads = countdown._clockReads;
+        await tester.pump(const Duration(seconds: 1));
+        expect(countdown._clockReads, reads);
+        await tester.pump(const Duration(seconds: 1));
+        expect(countdown._clockReads, reads);
+        await countdown.expectIdle();
+      });
+    });
+
+    testWidgets('ticker changes cancel a countdown and catch up after expiry', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 59, 15),
+      );
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      await countdown.run(() async {
+        await countdown.show(
+          spec,
+          wrap: (child) => ValueListenableBuilder<bool>(
+            valueListenable: visible,
+            builder: (context, enabled, child) =>
+                TickerMode(enabled: enabled, child: child!),
+            child: child,
+          ),
+        );
+        final state = tester.state(find.byType(LocalDateInline));
+        expect(countdown.activeTimers, hasLength(1));
+
+        visible.value = false;
+        await tester.pump();
+        await countdown.expectIdle();
+
+        visible.value = true;
+        await tester.pump();
+        expect(tester.state(find.byType(LocalDateInline)), same(state));
+        expect(find.textContaining('now'), findsOneWidget);
+        await countdown.expectIdle();
+      });
+    });
+
+    testWidgets('retained tabs resume a countdown against current wall time', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 58, 15),
+      );
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      await countdown.run(() async {
+        await countdown.show(
+          spec,
+          wrap: (child) => ValueListenableBuilder<bool>(
+            valueListenable: visible,
+            builder: (context, enabled, child) => Stack(
+              children: [
+                Offstage(
+                  offstage: !enabled,
+                  child: TickerMode(
+                    enabled: enabled,
+                    child: ExcludeFocus(
+                      excluding: !enabled,
+                      child: RepaintBoundary(child: child!),
+                    ),
+                  ),
+                ),
+                Offstage(offstage: enabled, child: const Text('Other tab')),
+              ],
+            ),
+            child: child,
+          ),
+        );
+        final date = find.byType(LocalDateInline, skipOffstage: false);
+        final state = tester.state(date);
+        expect(find.textContaining('2 minutes'), findsOneWidget);
+
+        visible.value = false;
+        await tester.pump();
+        expect(find.text('Other tab'), findsOneWidget);
+        expect(tester.state(date), same(state));
+        await countdown.expectIdle();
+
+        visible.value = true;
+        await tester.pump();
+        expect(tester.state(date), same(state));
+        expect(find.textContaining('a few seconds'), findsOneWidget);
+        expect(countdown.activeTimers, hasLength(1));
+
+        visible.value = false;
+        await tester.pump();
+        await countdown.expectIdle();
+        visible.value = true;
+        await tester.pump();
+        expect(tester.state(date), same(state));
+        expect(find.textContaining('now'), findsOneWidget);
+        await countdown.expectIdle();
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        expect(date, findsNothing);
+        await countdown.expectIdle();
+      });
+    });
+
+    testWidgets(
+      'a hidden recurring countdown catches up past missed deadlines',
+      (tester) async {
+        final countdown = _CountdownHarness(
+          tester,
+          DateTime.utc(2026, 1, 11, 11, 59, 15),
+        );
+        final visible = ValueNotifier(false);
+        addTearDown(visible.dispose);
+        await countdown.run(() async {
+          await countdown.show(
+            const LocalDateSpec(
+              date: '2026-01-11',
+              time: '12:00:00',
+              timezone: 'UTC',
+              countdown: true,
+              recurring: '1.minutes',
+              fallbackText: '',
+            ),
+            wrap: (child) => ValueListenableBuilder<bool>(
+              valueListenable: visible,
+              builder: (context, enabled, child) =>
+                  TickerMode(enabled: enabled, child: child!),
+              child: child,
+            ),
+          );
+          await countdown.expectIdle();
+
+          visible.value = true;
+          await tester.pump();
+          expect(find.textContaining('a few seconds'), findsOneWidget);
+          expect(countdown.activeTimers, hasLength(1));
+
+          await tester.pump(const Duration(seconds: 44));
+          expect(find.textContaining('a minute'), findsOneWidget);
+          expect(countdown.activeTimers, hasLength(1));
+        });
+      },
+    );
+
     testWidgets('an elapsed replacement cancels a future countdown', (
       tester,
     ) async {
@@ -460,6 +620,94 @@ void main() {
       },
     );
   });
+
+  testWidgets('ordinary dates keep their midnight refresh across visibility', (
+    tester,
+  ) async {
+    final countdown = _CountdownHarness(
+      tester,
+      DateTime.utc(2026, 1, 11, 23, 59, 59, 750),
+    );
+    final visible = ValueNotifier(true);
+    addTearDown(visible.dispose);
+    await countdown.run(() async {
+      await countdown.show(
+        const LocalDateSpec(
+          date: '2026-01-12',
+          timezone: 'UTC',
+          fallbackText: '',
+        ),
+        wrap: (child) => ValueListenableBuilder<bool>(
+          valueListenable: visible,
+          builder: (context, enabled, child) =>
+              TickerMode(enabled: enabled, child: child!),
+          child: child,
+        ),
+      );
+      expect(find.textContaining('tomorrow'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(find.textContaining('today'), findsOneWidget);
+      expect(countdown.activeTimers, hasLength(1));
+
+      visible.value = false;
+      await tester.pump();
+      await countdown.expectIdle();
+      await tester.pump(const Duration(days: 1));
+      visible.value = true;
+      await tester.pump();
+      expect(find.textContaining('yesterday'), findsOneWidget);
+      expect(countdown.activeTimers, hasLength(1));
+    });
+  });
+
+  testWidgets(
+    'ordinary recurrences keep their minute refresh across visibility',
+    (tester) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 59, 15),
+      );
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      await countdown.run(() async {
+        await countdown.show(
+          const LocalDateSpec(
+            date: '2026-01-11',
+            time: '12:00:00',
+            timezone: 'UTC',
+            recurring: '1.minutes',
+            format: 'HH:mm',
+            fallbackText: '',
+          ),
+          wrap: (child) => ValueListenableBuilder<bool>(
+            valueListenable: visible,
+            builder: (context, enabled, child) =>
+                TickerMode(enabled: enabled, child: child!),
+            child: child,
+          ),
+        );
+        final reads = countdown._clockReads;
+        await tester.pump(const Duration(seconds: 59));
+        expect(find.textContaining('12:00'), findsOneWidget);
+        expect(countdown._clockReads, reads);
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.textContaining('12:01'), findsOneWidget);
+
+        visible.value = false;
+        await tester.pump();
+        await countdown.expectIdle();
+        visible.value = true;
+        await tester.pump();
+        expect(find.textContaining('12:02'), findsOneWidget);
+        final resumedReads = countdown._clockReads;
+        await tester.pump(const Duration(seconds: 59));
+        expect(countdown._clockReads, resumedReads);
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.textContaining('12:03'), findsOneWidget);
+        expect(countdown.activeTimers, hasLength(1));
+      });
+    },
+  );
 }
 
 class _CountdownHarness {
@@ -496,26 +744,28 @@ class _CountdownHarness {
     ),
   );
 
-  Future<void> show(LocalDateSpec spec, {Locale locale = const Locale('en')}) =>
-      tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.dark,
-          themeAnimationDuration: Duration.zero,
-          locale: locale,
-          localizationsDelegates:
-              RelativeTimeLocalizations.localizationsDelegates,
-          supportedLocales: RelativeTimeLocalizations.supportedLocales,
-          home: Scaffold(
-            body: LocalDateInline(
-              spec: spec,
-              formatter: LocalDateFormatter(
-                environment: LocalDateEnvironment.instance,
-              ),
-              now: now,
-            ),
-          ),
-        ),
-      );
+  Future<void> show(
+    LocalDateSpec spec, {
+    Locale locale = const Locale('en'),
+    Widget Function(Widget)? wrap,
+  }) {
+    final child = LocalDateInline(
+      spec: spec,
+      formatter: LocalDateFormatter(environment: LocalDateEnvironment.instance),
+      now: now,
+    );
+    return tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        themeAnimationDuration: Duration.zero,
+        locale: locale,
+        localizationsDelegates:
+            RelativeTimeLocalizations.localizationsDelegates,
+        supportedLocales: RelativeTimeLocalizations.supportedLocales,
+        home: Scaffold(body: wrap?.call(child) ?? child),
+      ),
+    );
+  }
 
   Future<void> expectIdle() async {
     // Bounded pumps expose immediate and delayed refreshes without letting a
