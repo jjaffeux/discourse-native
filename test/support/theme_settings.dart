@@ -35,6 +35,7 @@ Future<void> pumpSettings(
   double scale = 1,
   TargetPlatform platform = TargetPlatform.macOS,
   TextDirection direction = TextDirection.ltr,
+  bool disableAnimations = false,
 }) async {
   tester.view.physicalSize = Size(width, 1000);
   tester.view.devicePixelRatio = 1;
@@ -49,21 +50,30 @@ Future<void> pumpSettings(
           final brightness =
               shell.forumSettings.previewBrightnessFor(_site) ??
               (mode == AppThemeMode.dark ? Brightness.dark : Brightness.light);
-          final font = shell.forumSettings.shared.font;
+          final shared = shell.forumSettings.shared;
           final palette = shell.forumSettings
               .appearanceFor(_site, null)
               ?.paletteForBrightness(brightness);
           final theme = palette == null
-              ? AppTheme.forBrightness(brightness, fontFamily: font.family)
-              : AppTheme.fromPalette(palette, fontFamily: font.family);
+              ? AppTheme.forBrightness(
+                  brightness,
+                  fontFamily: shared.interfaceFont.family,
+                  readingFontFamily: shared.readingFamily,
+                )
+              : AppTheme.fromPalette(
+                  palette,
+                  fontFamily: shared.interfaceFont.family,
+                  readingFontFamily: shared.readingFamily,
+                );
           return MaterialApp(
             theme: theme.copyWith(platform: platform),
             // The app hosts toasts above every page.
             builder: (context, child) => DToaster(
               child: MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(scale)),
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(scale),
+                  disableAnimations: disableAnimations,
+                ),
                 child: Directionality(textDirection: direction, child: child!),
               ),
             ),

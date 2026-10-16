@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'forum_appearance_settings.dart';
 import 'forum_display_settings.dart';
+import 'forum_settings_controller.dart';
 import 'settings_section_tabs.dart';
 import 'shell_scope.dart';
 
@@ -22,9 +23,30 @@ class ForumSettingsPage extends StatefulWidget {
 class _ForumSettingsPageState extends State<ForumSettingsPage> {
   String _section = 'display';
 
+  Future<void> _setDyslexiaFriendlyFont(
+    ForumSettingsController settings,
+    bool enabled,
+  ) async {
+    try {
+      await settings.setShared(
+        settings.shared.withOpenDyslexicForBoth(enabled),
+      );
+    } catch (_) {
+      if (mounted) {
+        DToast.show(
+          context,
+          context.l10n.couldNotSaveTheFont,
+          type: DToastType.error,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final appSettings = ShellScope.identityOf(context).appSettings;
+    final shell = ShellScope.identityOf(context);
+    final appSettings = shell.appSettings;
+    final forumSettings = shell.forumSettings;
     return DPageSurface.headed(
       identity: widget.siteUrl,
       title: Text(context.l10n.settings),
@@ -44,7 +66,7 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
       child: switch (_section) {
         'display' => ForumDisplaySettings(
           appSettings: appSettings,
-          forumSettings: ShellScope.identityOf(context).forumSettings,
+          forumSettings: forumSettings,
         ),
         'accessibility' => DScrollArea(
           padding: EdgeInsets.only(
@@ -56,6 +78,33 @@ class _ForumSettingsPageState extends State<ForumSettingsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                ListenableBuilder(
+                  listenable: forumSettings,
+                  builder: (context, _) => DSwitchTile(
+                    key: const ValueKey('dyslexia-friendly-font-switch'),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    title: DLabel(
+                      child: Text(context.l10n.dyslexiaFriendlyFont),
+                    ),
+                    subtitle: DFieldDescription(
+                      child: Text(context.l10n.dyslexiaFriendlyFontDescription),
+                    ),
+                    value: forumSettings.shared.usesOpenDyslexicForBoth,
+                    onChanged: (value) => unawaited(
+                      _setDyslexiaFriendlyFont(forumSettings, value),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: DButton(
+                    key: const ValueKey('dyslexia-friendly-font-display'),
+                    variant: DButtonVariant.link,
+                    size: DButtonSize.small,
+                    label: Text(context.l10n.display),
+                    onPressed: () => setState(() => _section = 'display'),
+                  ),
+                ),
                 ListenableBuilder(
                   listenable: appSettings,
                   builder: (context, _) => DSwitchTile(

@@ -53,6 +53,78 @@ void main() {
   });
 
   test(
+    'dyslexia-friendly mode preserves independent font choices on disable',
+    () {
+      for (final reading in ForumFont.values) {
+        for (final interface in ForumFont.values) {
+          final appearance = SharedAppearance(
+            font: reading,
+            interfaceFont: interface,
+            material: DAppearanceMaterial.liquidGlass,
+            effects: const ForumBackground.appearance(transparency: .25),
+          );
+          expect(
+            appearance.usesOpenDyslexicForBoth,
+            reading == ForumFont.openDyslexic &&
+                interface == ForumFont.openDyslexic,
+          );
+          final enabled = appearance.withOpenDyslexicForBoth(true);
+          expect(
+            enabled,
+            appearance.copyWith(
+              font: ForumFont.openDyslexic,
+              interfaceFont: ForumFont.openDyslexic,
+            ),
+          );
+          expect(enabled.withOpenDyslexicForBoth(true), enabled);
+          final disabled = appearance.withOpenDyslexicForBoth(false);
+          expect(
+            disabled,
+            appearance.copyWith(
+              font: reading == ForumFont.openDyslexic
+                  ? ForumFont.system
+                  : reading,
+              interfaceFont: interface == ForumFont.openDyslexic
+                  ? ForumFont.system
+                  : interface,
+            ),
+          );
+          expect(disabled.usesOpenDyslexicForBoth, isFalse);
+          expect(disabled.withOpenDyslexicForBoth(false), disabled);
+          expect(SharedAppearance.fromJson(appearance.toJson()), appearance);
+        }
+      }
+      const inherited = SharedAppearance(interfaceFont: ForumFont.openDyslexic);
+      expect(inherited.readingFamily, 'OpenDyslexic');
+      expect(inherited.usesOpenDyslexicForBoth, isFalse);
+      expect(ForumFont.fromName('unknown'), ForumFont.system);
+    },
+  );
+
+  test('both font roles persist across a settings controller reload', () async {
+    final store = ForumSettingsStore.memory();
+    final settings = ForumSettingsController(store: store);
+    addTearDown(settings.dispose);
+    await settings.setShared(
+      const SharedAppearance(
+        font: ForumFont.lora,
+        interfaceFont: ForumFont.openDyslexic,
+      ),
+    );
+    final restored = ForumSettingsController(store: store);
+    addTearDown(restored.dispose);
+    await restored.loadShared([siteA, siteB]);
+    expect(restored.shared.readingFont, ForumFont.lora);
+    expect(restored.shared.interfaceFont, ForumFont.openDyslexic);
+    expect(restored.shared.usesOpenDyslexicForBoth, isFalse);
+    await restored.setShared(restored.shared.withOpenDyslexicForBoth(true));
+    expect((await store.loadAppearance()).usesOpenDyslexicForBoth, isTrue);
+    await restored.setShared(restored.shared.withOpenDyslexicForBoth(false));
+    expect((await store.loadAppearance()).readingFont, ForumFont.system);
+    expect((await store.loadAppearance()).interfaceFont, ForumFont.system);
+  });
+
+  test(
     'interface and reading fonts apply to their own roles in both modes',
     () {
       for (final mode in Brightness.values) {

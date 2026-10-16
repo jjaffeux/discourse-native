@@ -203,6 +203,8 @@ flutter:
     - assets/fonts/JetBrainsMono-OFL.txt
     - assets/fonts/Lato-OFL.txt
     - assets/fonts/OpenSans-OFL.txt
+    - assets/fonts/Lora-OFL.txt
+    - assets/fonts/OpenDyslexic-OFL.txt
   fonts:
     - family: Open Sans
       fonts:
@@ -217,6 +219,35 @@ flutter:
         - asset: assets/fonts/Lato-Italic.ttf
           style: italic
         - asset: assets/fonts/Lato-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Lora-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Lora-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Lora-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/Lora-SemiBoldItalic.ttf
+          weight: 600
+          style: italic
+        - asset: assets/fonts/Lora-BoldItalic.ttf
+          weight: 700
+          style: italic
+    - family: OpenDyslexic
+      fonts:
+        - asset: assets/fonts/OpenDyslexic-Regular.otf
+          weight: 400
+        - asset: assets/fonts/OpenDyslexic-Bold.otf
+          weight: 700
+        - asset: assets/fonts/OpenDyslexic-Italic.otf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/OpenDyslexic-Bold-Italic.otf
           weight: 700
           style: italic
     - family: JetBrains Mono

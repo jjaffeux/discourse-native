@@ -19566,6 +19566,30 @@ abstract class AppLocalizations {
   /// **'Lato'**
   String get lato;
 
+  /// Bundled Lora font family name.
+  ///
+  /// In en, this message translates to:
+  /// **'Lora'**
+  String get lora;
+
+  /// Bundled OpenDyslexic font family name.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenDyslexic'**
+  String get openDyslexic;
+
+  /// Accessibility switch setting OpenDyslexic for both font roles.
+  ///
+  /// In en, this message translates to:
+  /// **'Dyslexia-friendly font'**
+  String get dyslexiaFriendlyFont;
+
+  /// Explains the shared dyslexia-friendly font switch and independent font choices.
+  ///
+  /// In en, this message translates to:
+  /// **'Sets OpenDyslexic for the interface and for reading. Each can be changed on its own under Display.'**
+  String get dyslexiaFriendlyFontDescription;
+
   /// English UI message used by models/forum_font.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

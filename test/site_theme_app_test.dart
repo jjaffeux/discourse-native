@@ -763,15 +763,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(_activeTheme(tester).textTheme.bodyMedium!.fontFamily, 'Open Sans');
     expect(family(), 'Lato');
+    await controller.forumSettings.setShared(
+      controller.forumSettings.shared.copyWith(
+        interfaceFont: ForumFont.lora,
+        font: ForumFont.openDyslexic,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_activeTheme(tester).textTheme.bodyMedium!.fontFamily, 'Lora');
+    expect(family(), 'OpenDyslexic');
+    await controller.forumSettings.setShared(
+      controller.forumSettings.shared.withOpenDyslexicForBoth(true),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      _activeTheme(tester).textTheme.bodyMedium!.fontFamily,
+      'OpenDyslexic',
+    );
+    expect(family(), 'OpenDyslexic');
+    await controller.forumSettings.setShared(
+      controller.forumSettings.shared
+          .withOpenDyslexicForBoth(false)
+          .copyWith(font: ForumFont.lora),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      _activeTheme(tester).textTheme.bodyMedium!.fontFamily,
+      AppTheme.forBrightness(
+        _activeTheme(tester).brightness,
+      ).textTheme.bodyMedium!.fontFamily,
+    );
+    expect(family(), 'Lora');
     controller.selectInstance(1);
     await tester.pumpAndSettle();
-    expect(family(), 'Lato');
+    expect(family(), 'Lora');
     expect(
       SharedAppearance.fromJson(
         jsonDecode(persistence.values[ForumSettingsStore.appearanceKey]!)
             as Map<String, dynamic>,
       ).font,
-      ForumFont.lato,
+      ForumFont.lora,
     );
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 

@@ -32,6 +32,42 @@ void main() {
         final faces = (entry['fonts'] as List<dynamic>)
             .cast<Map<String, dynamic>>();
         expect(faces, isNotEmpty);
+        if (font == ForumFont.lora || font == ForumFont.openDyslexic) {
+          expect(
+            {
+              for (final face in faces)
+                (face['weight'] ?? 400, face['style'] ?? 'normal'),
+            },
+            containsAll({
+              (400, 'normal'),
+              (700, 'normal'),
+              (400, 'italic'),
+              (700, 'italic'),
+              if (font == ForumFont.lora) ...{(600, 'normal'), (600, 'italic')},
+            }),
+          );
+          final asset = faces.first['asset'] as String;
+          final prefix = asset.substring(0, asset.indexOf('assets/fonts/'));
+          final license = await rootBundle.loadString(
+            '${prefix}assets/fonts/${font.family}-OFL.txt',
+          );
+          expect(license, contains('SIL OPEN FONT LICENSE'));
+          for (final face in faces) {
+            final bytes = await rootBundle.load(face['asset'] as String);
+            final metadata = _fontMetadata(bytes);
+            expect(
+              metadata.italic,
+              face['style'] == 'italic',
+              reason: face['asset'] as String,
+            );
+            final weight = face['weight'] as int;
+            expect(
+              metadata.weight,
+              font == ForumFont.openDyslexic && weight == 700 ? 800 : weight,
+              reason: face['asset'] as String,
+            );
+          }
+        }
         final loader = FontLoader(entry['family'] as String);
         for (final face in faces) {
           loader.addFont(rootBundle.load(face['asset'] as String));
@@ -40,4 +76,23 @@ void main() {
       }
     },
   );
+}
+
+({bool italic, int weight}) _fontMetadata(ByteData bytes) {
+  final tableCount = bytes.getUint16(4);
+  bool? italic;
+  int? weight;
+  for (var index = 0; index < tableCount; index++) {
+    final table = 12 + index * 16;
+    final tag = String.fromCharCodes([
+      for (var offset = 0; offset < 4; offset++) bytes.getUint8(table + offset),
+    ]);
+    final start = bytes.getUint32(table + 8);
+    if (tag == 'head') italic = bytes.getUint16(start + 44) & 2 != 0;
+    if (tag == 'OS/2') weight = bytes.getUint16(start + 4);
+  }
+  if (italic == null || weight == null) {
+    fail('Bundled font has no style metadata');
+  }
+  return (italic: italic, weight: weight);
 }

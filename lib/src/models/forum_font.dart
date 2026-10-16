@@ -5,7 +5,9 @@ enum ForumFont {
   system(null),
   openSans('Open Sans'),
   lato('Lato'),
-  jetBrainsMono('JetBrains Mono');
+  lora('Lora'),
+  jetBrainsMono('JetBrains Mono'),
+  openDyslexic('OpenDyslexic');
 
   const ForumFont(this.family);
 
@@ -13,7 +15,9 @@ enum ForumFont {
     system => appL10n.systemDefault,
     openSans => appL10n.openSans,
     lato => appL10n.lato,
+    lora => appL10n.lora,
     jetBrainsMono => appL10n.jetBrainsMono,
+    openDyslexic => appL10n.openDyslexic,
   };
   final String? family;
 

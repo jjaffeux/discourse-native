@@ -15413,6 +15413,22 @@
   "@lato": {
     "description": "English UI message used by models/forum_font.dart. Keep placeholders intact."
   },
+  "lora": "Lora",
+  "@lora": {
+    "description": "Bundled Lora font family name."
+  },
+  "openDyslexic": "OpenDyslexic",
+  "@openDyslexic": {
+    "description": "Bundled OpenDyslexic font family name."
+  },
+  "dyslexiaFriendlyFont": "Dyslexia-friendly font",
+  "@dyslexiaFriendlyFont": {
+    "description": "Accessibility switch setting OpenDyslexic for both font roles."
+  },
+  "dyslexiaFriendlyFontDescription": "Sets OpenDyslexic for the interface and for reading. Each can be changed on its own under Display.",
+  "@dyslexiaFriendlyFontDescription": {
+    "description": "Explains the shared dyslexia-friendly font switch and independent font choices."
+  },
   "jetBrainsMono": "JetBrains Mono",
   "@jetBrainsMono": {
     "description": "English UI message used by models/forum_font.dart. Keep placeholders intact."
