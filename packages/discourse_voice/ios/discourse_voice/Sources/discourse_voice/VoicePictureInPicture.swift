@@ -165,19 +165,11 @@ final class VoicePictureInPicture: NSObject, AVPictureInPictureControllerDelegat
 }
 
 /// AVKit cannot display Flutter textures in another app. Feed decoded frames
-/// to a sample-buffer layer instead. At most one frame is queued for the main
-/// thread; a renderer replacement invalidates every queued frame from before it.
+/// to a sample-buffer layer instead.
 final class VoicePictureInPictureVideoView: UIView, RTCVideoRenderer {
   override class var layerClass: AnyClass { AVSampleBufferDisplayLayer.self }
   private var displayLayer: AVSampleBufferDisplayLayer { layer as! AVSampleBufferDisplayLayer }
-  private let frameLock = NSLock()
-  private var pending = false
-  private var live = false
-  private var hasFrame = false
-  private var generation = 0
-  private let imageContext = CIContext(options: [.cacheIntermediates: false, .useSoftwareRenderer: true])
-  private var pool: CVPixelBufferPool?
-  private var poolSize = CGSize.zero
+  private let frameRenderer = VoicePictureInPictureFrameRenderer()
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -188,41 +180,25 @@ final class VoicePictureInPictureVideoView: UIView, RTCVideoRenderer {
   func setSize(_ size: CGSize) {}
 
   func setLive(_ enabled: Bool) {
-    frameLock.lock()
-    live = enabled
-    frameLock.unlock()
+    frameRenderer.setLive(enabled)
   }
 
   func reset() {
-    frameLock.lock()
-    generation += 1
-    hasFrame = false
-    frameLock.unlock()
+    frameRenderer.reset()
     displayLayer.flushAndRemoveImage()
   }
 
   func renderFrame(_ frame: RTCVideoFrame?) {
-    guard let frame else { return }
-    frameLock.lock()
-    // Prime AVKit with one frame inline, then render continuously only in PiP.
-    if pending || (!live && hasFrame) { frameLock.unlock(); return }
-    pending = true
-    hasFrame = true
-    let revision = generation
-    frameLock.unlock()
-    DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      self.frameLock.lock()
-      let current = revision == self.generation
-      self.pending = false
-      self.frameLock.unlock()
-      if current { self.display(frame) }
-    }
+    frameRenderer.renderFrame(frame, isReady: { [weak self] in
+      guard let self else { return false }
+      if self.displayLayer.status == .failed { self.displayLayer.flush() }
+      return self.displayLayer.isReadyForMoreMediaData
+    }, present: { [weak self] output in
+      self?.display(output)
+    })
   }
 
-  private func display(_ frame: RTCVideoFrame) {
-    if displayLayer.status == .failed { displayLayer.flush() }
-    guard displayLayer.isReadyForMoreMediaData, let output = presentationBuffer(frame) else { return }
+  private func display(_ output: CVPixelBuffer) {
     var format: CMVideoFormatDescription?
     guard CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault,
       imageBuffer: output, formatDescriptionOut: &format) == noErr, let format else { return }
@@ -239,8 +215,78 @@ final class VoicePictureInPictureVideoView: UIView, RTCVideoRenderer {
     }
     displayLayer.enqueue(sample)
   }
+}
 
-  private func presentationBuffer(_ frame: RTCVideoFrame) -> CVPixelBuffer? {
+final class VoicePictureInPictureFrameRenderer {
+  private let frameLock = NSLock()
+  private var pending = false
+  private var live = false
+  private var hasFrame = false
+  private var generation = 0
+  private let conversionQueue = DispatchQueue(label: "org.discourse.native.voice-pip-conversion",
+    qos: .userInitiated, autoreleaseFrequency: .workItem)
+  private let convert: (RTCVideoFrame) -> CVPixelBuffer?
+
+  init(convert: @escaping (RTCVideoFrame) -> CVPixelBuffer? =
+    VoicePictureInPictureFrameConverter().presentationBuffer) {
+    self.convert = convert
+  }
+
+  func setLive(_ enabled: Bool) {
+    frameLock.lock()
+    live = enabled
+    frameLock.unlock()
+  }
+
+  func reset() {
+    frameLock.lock()
+    generation += 1
+    hasFrame = false
+    frameLock.unlock()
+  }
+
+  func renderFrame(_ frame: RTCVideoFrame?, isReady: @escaping () -> Bool,
+    present: @escaping (CVPixelBuffer) -> Void, completion: (() -> Void)? = nil) {
+    guard let frame else { return }
+    frameLock.lock()
+    // Prime AVKit with one frame inline, then render continuously only in PiP.
+    if pending || (!live && hasFrame) { frameLock.unlock(); return }
+    pending = true
+    hasFrame = true
+    let revision = generation
+    frameLock.unlock()
+    DispatchQueue.main.async { [self] in
+      guard isCurrent(revision), isReady() else { finish(); completion?(); return }
+      conversionQueue.async { [self] in
+        let output = isCurrent(revision) ? convert(frame) : nil
+        DispatchQueue.main.async { [self] in
+          defer { finish(); completion?() }
+          guard isCurrent(revision), let output, isReady() else { return }
+          present(output)
+        }
+      }
+    }
+  }
+
+  private func isCurrent(_ revision: Int) -> Bool {
+    frameLock.lock()
+    defer { frameLock.unlock() }
+    return revision == generation
+  }
+
+  private func finish() {
+    frameLock.lock()
+    pending = false
+    frameLock.unlock()
+  }
+}
+
+final class VoicePictureInPictureFrameConverter {
+  private lazy var imageContext = CIContext(options: [.cacheIntermediates: false, .useSoftwareRenderer: true])
+  private var pool: CVPixelBufferPool?
+  private var poolSize = CGSize.zero
+
+  func presentationBuffer(_ frame: RTCVideoFrame) -> CVPixelBuffer? {
     guard let source = pixelBuffer(frame.buffer) else { return nil }
     let cropped = (frame.buffer as? RTCCVPixelBuffer)?.requiresCropping() ?? false
     // Decoded upright frames can go directly to AVKit with no pixel copy.
