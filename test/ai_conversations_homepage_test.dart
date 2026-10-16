@@ -369,6 +369,220 @@ void main() {
     });
   }
 
+  for (final (width, scale) in [(360.0, 2.0), (1200.0, 1.0)]) {
+    testWidgets('long paged history stays lazy at width $width scale $scale', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET $_path': _page(
+            ids: List.generate(40, (index) => index + 1),
+            more: true,
+          ),
+        },
+      );
+      final setup = _service(transport);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: AiConversationsPage(siteUrl: _site, service: setup.service),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      final samples = <({String stage, int descriptions, int mounted})>[];
+      void sample(String stage) {
+        final mounted = tester.widgetList<DItem>(find.byType(DItem)).toSet();
+        final descriptions = {...mounted};
+        // Eager delegates retain descriptions even when their rows are unmounted.
+        final delegate = tester
+            .widget<ListView>(find.byType(ListView))
+            .childrenDelegate;
+        if (delegate is SliverChildListDelegate) {
+          descriptions.addAll(delegate.children.whereType<DItem>());
+        }
+        samples.add((
+          stage: stage,
+          descriptions: descriptions.length,
+          mounted: mounted.length,
+        ));
+      }
+
+      sample('first page');
+      for (var page = 1; page < 6; page++) {
+        await tester.scrollUntilVisible(
+          find.text('Load more').hitTestable(),
+          600,
+          scrollable: scrollable,
+          maxScrolls: 100,
+        );
+        final previous = find.byKey(ValueKey('ai-conversation-${page * 40}'));
+        final state = tester.state(previous);
+        final gate = Completer<Object?>();
+        transport
+                .responders['GET /discourse-ai/ai-bot/conversations.json?page=$page'] =
+            (_) => gate.future;
+        await tester.tap(find.text('Load more'));
+        await tester.pump();
+        sample('loading page $page');
+        expect(
+          tester
+              .widget<DButton>(find.widgetWithText(DButton, 'Load more'))
+              .loading,
+          isTrue,
+        );
+        gate.complete(
+          _page(
+            page: page,
+            more: true,
+            ids: [
+              page * 40,
+              ...List.generate(40, (index) => page * 40 + index + 1),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        sample('completed page $page');
+        expect(tester.state(previous), same(state));
+      }
+
+      await tester.scrollUntilVisible(
+        find.text('Load more').hitTestable(),
+        600,
+        scrollable: scrollable,
+        maxScrolls: 100,
+      );
+      const lastPath = '/discourse-ai/ai-bot/conversations.json?page=6';
+      transport.failures['GET $lastPath'] = StateError('offline');
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+      sample('failed page');
+      await tester.scrollUntilVisible(
+        find.text('Retry').hitTestable(),
+        600,
+        scrollable: scrollable,
+      );
+      expect(
+        find.text('Couldn’t load AI conversations. Try again.'),
+        findsOneWidget,
+      );
+      transport.failures.clear();
+      transport.responses['GET $lastPath'] = _page(page: 6, ids: []);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      sample('terminal page');
+      expect(find.text('Retry'), findsNothing);
+      expect(find.text('Load more'), findsNothing);
+      expect(transport.reads.map((read) => read.path), [
+        for (var page = 0; page < 7; page++)
+          '/discourse-ai/ai-bot/conversations.json?page=$page',
+        lastPath,
+      ]);
+      final maximum = samples
+          .map((sample) => sample.descriptions)
+          .reduce((a, b) => a > b ? a : b);
+      expect(
+        maximum,
+        lessThan(80),
+        reason: '240 retained conversations: $samples',
+      );
+      for (final sample in samples) {
+        expect(sample.descriptions, sample.mounted, reason: sample.stage);
+      }
+
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(0);
+      await tester.pumpAndSettle();
+      final seen = <Key>{};
+      for (var step = 0; step < 500; step++) {
+        seen.addAll(
+          tester.widgetList<DItem>(find.byType(DItem)).map((row) => row.key!),
+        );
+        if (position.pixels >= position.maxScrollExtent) break;
+        position.jumpTo(
+          (position.pixels + position.viewportDimension / 2).clamp(
+            0,
+            position.maxScrollExtent,
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(seen.toList(), [
+        for (var id = 1; id <= 240; id++) ValueKey('ai-conversation-$id'),
+      ]);
+      final last = find.byKey(const ValueKey('ai-conversation-240'));
+      expect(
+        tester.getSemantics(last),
+        matchesSemantics(
+          label: 'Conversation 240',
+          isButton: true,
+          isImage: true,
+          hasTapAction: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          isFocusable: true,
+          hasFocusAction: true,
+        ),
+      );
+      await tester.tap(last);
+      expect(setup.navigation.openedPost, (
+        siteUrl: _site,
+        topicId: 240,
+        postNumber: 1,
+      ));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('refresh preserves keyed conversation state when rows move', (
+    tester,
+  ) async {
+    final transport = RecordingPluginTransport(
+      responses: {
+        'GET $_path': _page(ids: [42, 43, 44]),
+      },
+    );
+    final setup = _service(transport);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: AiConversationsPage(siteUrl: _site, service: setup.service),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('ai-conversation-42'));
+    final state = tester.state(row);
+    transport.responses['GET $_path'] = _page(ids: [44, 42, 43]);
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pumpAndSettle();
+    expect(tester.state(row), same(state));
+    expect(
+      tester.getTopLeft(find.text('Conversation 44')).dy,
+      lessThan(tester.getTopLeft(row).dy),
+    );
+    expect(
+      tester.getTopLeft(row).dy,
+      lessThan(tester.getTopLeft(find.text('Conversation 43')).dy),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('retry and empty state retain a usable forum fallback', (
     tester,
   ) async {

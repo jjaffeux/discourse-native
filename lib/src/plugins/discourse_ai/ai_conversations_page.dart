@@ -194,10 +194,27 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
         ),
       );
     }
-    return ListView(
-      children: [
-        for (final conversation in _conversations)
-          DItem(
+    return ListView.builder(
+      itemCount:
+          _conversations.length +
+          (_error ? 1 : 0) +
+          (_hasMore || _error ? 1 : 0),
+      findChildIndexCallback: (key) {
+        const prefix = 'ai-conversation-';
+        if (key is! ValueKey<String> || !key.value.startsWith(prefix)) {
+          return null;
+        }
+        final id = int.tryParse(key.value.substring(prefix.length));
+        if (id == null) return null;
+        final index = _conversations.indexWhere(
+          (conversation) => conversation.id == id,
+        );
+        return index < 0 ? null : index;
+      },
+      itemBuilder: (context, index) {
+        if (index < _conversations.length) {
+          final conversation = _conversations[index];
+          return DItem(
             key: ValueKey('ai-conversation-${conversation.id}'),
             shape: DItemShape.fullWidth,
             onPressed: () => widget.service.open(widget.siteUrl, conversation),
@@ -213,24 +230,25 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
                 children: [DItemTitle(child: Text(conversation.title))],
               ),
             ],
-          ),
-        if (_error)
-          Padding(
+          );
+        }
+        if (_error && index == _conversations.length) {
+          return Padding(
             padding: const EdgeInsets.all(DSpacing.lg),
             child: DText(context.l10n.aiConversationsLoadFailed),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.all(DSpacing.lg),
+          child: DButton(
+            label: Text(_error ? context.l10n.retry : context.l10n.loadMore),
+            loading: _loading,
+            onPressed: _loading
+                ? null
+                : () => _load(more: _error ? _retryMore : true),
           ),
-        if (_hasMore || _error)
-          Padding(
-            padding: const EdgeInsets.all(DSpacing.lg),
-            child: DButton(
-              label: Text(_error ? context.l10n.retry : context.l10n.loadMore),
-              loading: _loading,
-              onPressed: _loading
-                  ? null
-                  : () => _load(more: _error ? _retryMore : true),
-            ),
-          ),
-      ],
+        );
+      },
     );
   }
 }
