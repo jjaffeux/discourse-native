@@ -39,6 +39,15 @@ List<DDataTableColumn<_Payment>> _columns() => [
   ),
 ];
 
+List<DDataTableColumn<int>> _selectionColumns() => [
+  DDataTableColumn(
+    id: 'row',
+    label: 'Row',
+    cellBuilder: (context, cell) =>
+        Text('Row ${cell.row}: ${cell.selected ? 'selected' : 'unselected'}'),
+  ),
+];
+
 void main() {
   for (final direction in TextDirection.values) {
     testWidgets('resize handle reaches column edge in $direction', (
@@ -263,6 +272,133 @@ void main() {
     controller.setPageSize(20);
     expect(controller.value.pageSize, 20);
     expect(controller.value.page, 1);
+  });
+
+  testWidgets('local selection survives normalization and stable row changes', (
+    tester,
+  ) async {
+    var rows = [1, 2, 3];
+    var state = DDataTableState(
+      selectedRowIds: const {1, 3, 99},
+      filters: const {'row': '3'},
+      hiddenColumnIds: const {'missing'},
+      page: 99,
+      pageSize: 3,
+    );
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return DDataTable<int>(
+            data: rows,
+            columns: _selectionColumns(),
+            rowId: (row) => row,
+            state: state,
+            onStateChanged: (next) => setState(() => state = next),
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(state.filters, isEmpty);
+    expect(state.hiddenColumnIds, isEmpty);
+    expect(state.page, 1);
+    expect(state.selectedRowIds, {1, 3});
+    expect(find.text('Row 1: selected'), findsOneWidget);
+    expect(find.text('Row 2: unselected'), findsOneWidget);
+    expect(find.text('Row 3: selected'), findsOneWidget);
+
+    update(() => rows = [3, 2, 1]);
+    await tester.pumpAndSettle();
+    expect(state.selectedRowIds, {1, 3});
+    expect(
+      tester.getTopLeft(find.text('Row 3: selected')).dy,
+      lessThan(tester.getTopLeft(find.text('Row 1: selected')).dy),
+    );
+
+    update(() => rows = [3, 2]);
+    await tester.pumpAndSettle();
+    expect(state.selectedRowIds, {3});
+    expect(find.text('Row 3: selected'), findsOneWidget);
+    expect(find.text('Row 1: selected'), findsNothing);
+
+    update(() => rows = [3, 2, 1]);
+    await tester.pumpAndSettle();
+    expect(state.selectedRowIds, {3});
+    expect(find.text('Row 1: unselected'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('manual selection retains IDs outside the current server page', (
+    tester,
+  ) async {
+    var rows = [2];
+    var state = DDataTableState(
+      selectedRowIds: const {1, 2, 3},
+      filters: const {'row': 'does-not-match'},
+      page: 2,
+      pageSize: 1,
+    );
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return DDataTable<int>(
+            data: rows,
+            columns: _selectionColumns(),
+            rowId: (row) => row,
+            operationMode: DDataTableOperationMode.manual,
+            rowCount: 3,
+            state: state,
+            onStateChanged: (next) => setState(() => state = next),
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(state.filters, isEmpty);
+    expect(state.selectedRowIds, {1, 2, 3});
+    expect(find.text('Row 2: selected'), findsOneWidget);
+
+    update(() {
+      rows = [3];
+      state = state.copyWith(page: 3);
+    });
+    await tester.pumpAndSettle();
+    expect(state.selectedRowIds, {1, 2, 3});
+    expect(find.text('Row 3: selected'), findsOneWidget);
+
+    update(() {
+      rows = [1];
+      state = state.copyWith(page: 1);
+    });
+    await tester.pumpAndSettle();
+    expect(state.selectedRowIds, {1, 2, 3});
+    expect(find.text('Row 1: selected'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('duplicate row IDs fail debug validation', (tester) async {
+    await _pump(
+      tester,
+      DDataTable<int>(
+        data: const [1, 1],
+        columns: _selectionColumns(),
+        rowId: (row) => row,
+      ),
+    );
+    expect(
+      tester.takeException(),
+      isA<AssertionError>().having(
+        (error) => error.message,
+        'message',
+        'Data table row IDs must be unique.',
+      ),
+    );
   });
 
   testWidgets('manual mode reports state without reprocessing server page', (
