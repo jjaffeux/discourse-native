@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
@@ -10,6 +12,7 @@ import '../models/draft_feed.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
 import '../theme/d_icons.dart';
+import 'account_feed_viewport.dart';
 import 'adaptive_dialog_action.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
@@ -72,7 +75,9 @@ class _DraftListViewState extends State<DraftListView> {
       username,
       controller.lifecycle.capture(widget.siteUrl),
     );
-    unawaited(controller.draftList.load(instance));
+    if (!controller.draftList.feedFor(widget.siteUrl).loaded) {
+      unawaited(controller.draftList.load(instance));
+    }
   }
 
   void _scheduleRequest() {
@@ -170,7 +175,7 @@ class _DraftListViewState extends State<DraftListView> {
         body: appL10n.repliesAndTopicsYouStartWritingWillAppearHere,
       );
     }
-    if (feed.error != null && feed.drafts.isEmpty) {
+    if (feed.error != null && feed.drafts.isEmpty && !feed.hasPrevious) {
       return _DraftState(
         icon: DIcons.triangleExclamation,
         title: feed.error!,
@@ -379,90 +384,152 @@ class _Drafts extends StatelessWidget {
   Widget build(BuildContext context) {
     return ContentReadingLane(
       basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      builder: (context, lane) => CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: lane.padding,
-            sliver: SliverMainAxisGroup(
-              slivers: [
-                SliverToBoxAdapter(child: headerSpacer),
-                if (feed.error case final error?)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: DAlert(
-                        variant: DAlertVariant.destructive,
-                        icon: const DIcon(DIcons.triangleExclamation),
-                        description: DAlertDescription(child: Text(error)),
-                        action: DAlertAction(
+      builder: (context, lane) => AccountFeedViewport(
+        identity: (
+          controller,
+          siteUrl,
+          controller.lifecycle.capture(siteUrl).session,
+        ),
+        rows: [for (final draft in feed.drafts) draft.key],
+        revealEnd: feed.window.lastPageWasPrevious,
+        builder: (context, viewport) => NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (!viewport.restoring &&
+                notification.depth == 0 &&
+                (notification is UserScrollNotification &&
+                        notification.direction == ScrollDirection.forward ||
+                    notification is ScrollUpdateNotification &&
+                        (notification.scrollDelta ?? 0) < 0) &&
+                notification.metrics.extentBefore <
+                    (feed.retainedPageCount == 1 ? 0.5 : 200) &&
+                feed.hasPrevious &&
+                !feed.loading &&
+                feed.error == null) {
+              unawaited(
+                controller.draftList.load(instance, loadPrevious: true),
+              );
+            }
+            return false;
+          },
+          child: CustomScrollView(
+            controller: viewport.scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: lane.padding,
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    SliverToBoxAdapter(child: headerSpacer),
+                    if (feed.hasPrevious)
+                      SliverToBoxAdapter(
+                        child: Center(
                           child: DButton(
-                            label: Text(context.l10n.retry),
-                            onPressed: () => unawaited(onRefresh()),
-                            variant: DButtonVariant.link,
+                            label: Text(context.l10n.previous),
+                            loading: feed.loadingPrevious,
+                            onPressed: feed.loading
+                                ? null
+                                : () => unawaited(
+                                    controller.draftList.load(
+                                      instance,
+                                      loadPrevious: true,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                SliverList.builder(
-                  itemCount: feed.drafts.length,
-                  itemBuilder: (context, index) {
-                    final draft = feed.drafts[index];
-                    return Center(
-                      key: ValueKey(draft.key),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Column(
-                          children: [
-                            _DraftRow(
-                              siteUrl: siteUrl,
-                              draft: draft,
-                              deleting: controller.draftList.deleting(
-                                siteUrl,
-                                draft.key,
-                              ),
-                              onResume: draft.canResume
-                                  ? () => unawaited(
-                                      controller.resumeDraft(siteUrl, draft),
-                                    )
-                                  : null,
-                              onOpenForum: () => unawaited(
-                                openExternalLink(
-                                  '$siteUrl/u/'
-                                  '${Uri.encodeComponent(instance.user!.username)}'
-                                  '/activity/drafts',
+                    if (feed.error case final error?)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DAlert(
+                            variant: DAlertVariant.destructive,
+                            icon: const DIcon(DIcons.triangleExclamation),
+                            description: DAlertDescription(child: Text(error)),
+                            action: DAlertAction(
+                              child: DButton(
+                                label: Text(context.l10n.retry),
+                                onPressed: () => unawaited(
+                                  feed.retryPrevious
+                                      ? controller.draftList.load(
+                                          instance,
+                                          loadPrevious: true,
+                                        )
+                                      : onRefresh(),
                                 ),
+                                variant: DButtonVariant.link,
                               ),
-                              onRemove: () => onRemove(draft),
                             ),
-                            const DSeparator(space: 1),
-                          ],
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
-                if (feed.hasMore)
-                  SliverToBoxAdapter(
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: DButton(
-                          label: Text(context.l10n.loadMore),
-                          onPressed: feed.loading
-                              ? null
-                              : () => unawaited(
-                                  controller.draftList.load(instance),
-                                ),
-                        ),
-                      ),
+                    SuperSliverList.builder(
+                      listController: viewport.listController,
+                      findChildIndexCallback: viewport.indexForKey,
+                      itemCount: feed.drafts.length,
+                      itemBuilder: (context, index) {
+                        final draft = feed.drafts[index];
+                        return viewport.row(
+                          draft.key,
+                          Center(
+                            key: ValueKey(draft.key),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Column(
+                                children: [
+                                  _DraftRow(
+                                    siteUrl: siteUrl,
+                                    draft: draft,
+                                    deleting: controller.draftList.deleting(
+                                      siteUrl,
+                                      draft.key,
+                                    ),
+                                    onResume: draft.canResume
+                                        ? () => unawaited(
+                                            controller.resumeDraft(
+                                              siteUrl,
+                                              draft,
+                                            ),
+                                          )
+                                        : null,
+                                    onOpenForum: () => unawaited(
+                                      openExternalLink(
+                                        '$siteUrl/u/'
+                                        '${Uri.encodeComponent(instance.user!.username)}'
+                                        '/activity/drafts',
+                                      ),
+                                    ),
+                                    onRemove: () => onRemove(draft),
+                                  ),
+                                  const DSeparator(space: 1),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-              ],
-            ),
+                    if (feed.hasMore)
+                      SliverToBoxAdapter(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: DButton(
+                              label: Text(context.l10n.loadMore),
+                              onPressed: feed.loading
+                                  ? null
+                                  : () => unawaited(
+                                      controller.draftList.load(instance),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

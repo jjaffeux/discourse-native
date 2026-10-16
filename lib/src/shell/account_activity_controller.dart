@@ -946,14 +946,23 @@ final class AccountActivityController extends FrameSafeNotifier {
     DiscourseInstance instance, {
     bool refresh = false,
     bool loadMore = false,
+    bool loadPrevious = false,
   }) {
-    assert(!(refresh && loadMore));
+    assert(
+      [refresh, loadMore, loadPrevious].where((value) => value).length <= 1,
+    );
     if (isDisposed || !instance.isConnected) return Future<void>.value();
 
     final siteUrl = instance.url;
     final held = bookmarkListFor(siteUrl);
-    if (!refresh && !loadMore && held.loaded) return Future<void>.value();
+    if (!refresh && !loadMore && !loadPrevious && held.loaded) {
+      return Future<void>.value();
+    }
     if (loadMore && (!held.loaded || !held.hasMore)) {
+      return Future<void>.value();
+    }
+
+    if (loadPrevious && (!held.loaded || !held.hasPrevious)) {
       return Future<void>.value();
     }
 
@@ -963,12 +972,16 @@ final class AccountActivityController extends FrameSafeNotifier {
     final replace = refresh || !held.loaded;
     final request = Object();
     final lease = lifecycle.capture(siteUrl);
-    final page = replace ? 0 : held.nextPage;
+    final page = replace
+        ? 0
+        : loadPrevious
+        ? held.previousPage
+        : held.nextPage;
     final result = Completer<void>();
     final task = result.future;
     _bookmarkListRequests[siteUrl] = request;
     _bookmarkListTasks[siteUrl] = task;
-    _bookmarkLists[siteUrl] = held.loadingPage();
+    _bookmarkLists[siteUrl] = held.loadingPage(prepend: loadPrevious);
 
     void finish([Object? error, StackTrace? stackTrace]) {
       if (identical(_bookmarkListTasks[siteUrl], task)) {
@@ -998,6 +1011,7 @@ final class AccountActivityController extends FrameSafeNotifier {
           request: request,
           page: page,
           replace: replace,
+          prepend: loadPrevious,
         ).then<void>(
           (_) => finish(),
           onError: (Object error, StackTrace stackTrace) =>
@@ -1024,6 +1038,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     required Object request,
     required int page,
     required bool replace,
+    required bool prepend,
   }) async {
     final siteUrl = instance.url;
     final username = instance.user?.username;
@@ -1058,11 +1073,20 @@ final class AccountActivityController extends FrameSafeNotifier {
         username: username,
         page: page,
       );
+      if (prepend &&
+          !loaded.hasMore &&
+          _ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
+        await loadBookmarkList(instance, refresh: true);
+        return;
+      }
       _commit(lease, () {
         if (!identical(_bookmarkListRequests[siteUrl], request)) return;
-        _bookmarkLists[siteUrl] = bookmarkListFor(
-          siteUrl,
-        ).withPage(loaded, replace: replace);
+        _bookmarkLists[siteUrl] = bookmarkListFor(siteUrl).withPage(
+          loaded,
+          replace: replace,
+          prepend: prepend,
+          requestPage: page,
+        );
         _notifyBookmarkList();
       });
     } on SiteLookupException catch (error, stackTrace) {
@@ -1102,14 +1126,23 @@ final class AccountActivityController extends FrameSafeNotifier {
     DiscourseInstance instance, {
     bool refresh = false,
     bool loadMore = false,
+    bool loadPrevious = false,
   }) {
-    assert(!(refresh && loadMore));
+    assert(
+      [refresh, loadMore, loadPrevious].where((value) => value).length <= 1,
+    );
     if (isDisposed || !instance.isConnected) return Future<void>.value();
 
     final siteUrl = instance.url;
     final held = userActivityFor(siteUrl);
-    if (!refresh && !loadMore && held.loaded) return Future<void>.value();
+    if (!refresh && !loadMore && !loadPrevious && held.loaded) {
+      return Future<void>.value();
+    }
     if (loadMore && (!held.loaded || !held.hasMore)) {
+      return Future<void>.value();
+    }
+
+    if (loadPrevious && (!held.loaded || !held.hasPrevious)) {
       return Future<void>.value();
     }
 
@@ -1119,12 +1152,22 @@ final class AccountActivityController extends FrameSafeNotifier {
     final replace = refresh || !held.loaded;
     final request = Object();
     final lease = lifecycle.capture(siteUrl);
-    final offset = replace ? 0 : held.nextOffset;
+    final offset = replace
+        ? 0
+        : loadPrevious
+        ? held.previousOffset(userActivityPageSize)
+        : held.nextOffset;
+    final limit = loadPrevious
+        ? held.firstOffset - offset
+        : userActivityPageSize;
     final result = Completer<void>();
     final task = result.future;
     _userActivityRequests[siteUrl] = request;
     _userActivityTasks[siteUrl] = task;
-    _userActivity[siteUrl] = held.loadingPage(replace: replace);
+    _userActivity[siteUrl] = held.loadingPage(
+      replace: replace,
+      prepend: loadPrevious,
+    );
 
     void finish([Object? error, StackTrace? stackTrace]) {
       if (identical(_userActivityTasks[siteUrl], task)) {
@@ -1154,6 +1197,8 @@ final class AccountActivityController extends FrameSafeNotifier {
           request: request,
           offset: offset,
           replace: replace,
+          prepend: loadPrevious,
+          limit: limit,
         ).then<void>(
           (_) => finish(),
           onError: (Object error, StackTrace stackTrace) =>
@@ -1172,6 +1217,8 @@ final class AccountActivityController extends FrameSafeNotifier {
     required Object request,
     required int offset,
     required bool replace,
+    required bool prepend,
+    required int limit,
   }) async {
     final siteUrl = instance.url;
     final username = instance.user?.username;
@@ -1202,13 +1249,23 @@ final class AccountActivityController extends FrameSafeNotifier {
         apiKey: apiKey,
         username: username,
         offset: offset,
-        limit: userActivityPageSize,
+        limit: limit,
       );
+      if (prepend &&
+          page.rawItemCount < limit &&
+          _ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
+        await loadUserActivity(instance, refresh: true);
+        return;
+      }
       _commit(lease, () {
         if (!identical(_userActivityRequests[siteUrl], request)) return;
-        _userActivity[siteUrl] = userActivityFor(
-          siteUrl,
-        ).withPage(page, limit: userActivityPageSize, replace: replace);
+        _userActivity[siteUrl] = userActivityFor(siteUrl).withPage(
+          page,
+          limit: limit,
+          replace: replace,
+          prepend: prepend,
+          requestOffset: offset,
+        );
         _notifyUserActivity();
       });
     } on SiteLookupException catch (error, stackTrace) {

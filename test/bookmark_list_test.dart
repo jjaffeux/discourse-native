@@ -129,6 +129,49 @@ void main() {
     expect(api.bookmarkListRequests.map((request) => request.page), [0, 1, 2]);
   });
 
+  testWidgets(
+    'empty filters pause automatic scans and retain explicit continuation',
+    (tester) async {
+      final api = FakeDiscourseApi(user: _user, bookmarkList: _numbered(1000));
+      final shell = await _shell(api: api);
+      addTearDown(shell.dispose);
+      await _pumpPage(tester, shell);
+      await _reminderFilter(tester, 'Expired');
+      final count = api.bookmarkListRequests.length;
+      expect(count, lessThanOrEqualTo(4));
+      expect(find.text('No bookmarks in this filter.'), findsNothing);
+      expect(find.text('Load more').hitTestable(), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(api.bookmarkListRequests, hasLength(count));
+      await tester.tap(find.text('Load more'));
+      await tester.pumpAndSettle();
+      expect(api.bookmarkListRequests.length, greaterThan(count));
+      expect(api.bookmarkListRequests.length, lessThanOrEqualTo(count + 4));
+      expect(find.text('Load more').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('changing a filter after eviction restores earlier matches', (
+    tester,
+  ) async {
+    final bookmarks = _numbered(400);
+    bookmarks[0] = bookmarks[0].copyWith(reminderAt: DateTime.utc(2000));
+    final api = FakeDiscourseApi(user: _user, bookmarkList: bookmarks);
+    final shell = await _shell(api: api);
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell);
+    for (var page = 1; page < 14; page++) {
+      await shell.loadBookmarkList(_site, loadMore: true);
+    }
+    await tester.pumpAndSettle();
+    expect(shell.accountActivity.bookmarkListFor(_site).hasPrevious, isTrue);
+    await _reminderFilter(tester, 'Expired');
+    expect(api.bookmarkListRequests.last.page, lessThan(4));
+    expect(find.byKey(const ValueKey('bookmark-row-1')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final size in [const Size(390, 844), const Size(1440, 1200)]) {
     testWidgets('bookmark skeleton fills the page at $size', (tester) async {
       final api = _DelayedBookmarksApi();

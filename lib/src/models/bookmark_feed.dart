@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import 'account_feed_window.dart';
 import 'bookmark.dart';
 import 'notification.dart';
 
@@ -80,49 +81,79 @@ class BookmarkListFeed {
   const BookmarkListFeed({
     this.bookmarks = const [],
     this.loading = false,
+    this.loadingPrevious = false,
     this.loaded = false,
     this.hasMore = true,
     this.nextPage = 0,
     this.retryFromStart = false,
+    this.retryPrevious = false,
     this.error,
+    this.window = const AccountFeedWindow(),
   });
 
   final List<Bookmark> bookmarks;
   final bool loading;
+  final bool loadingPrevious;
   final bool loaded;
   final bool hasMore;
   final int nextPage;
   final bool retryFromStart;
+  final bool retryPrevious;
   final String? error;
+  final AccountFeedWindow<Bookmark> window;
 
-  bool get isEmpty => loaded && error == null && bookmarks.isEmpty;
+  int get firstPage => window.start;
+  bool get hasPrevious => firstPage > 0;
+  int get previousPage => (firstPage - 1).clamp(0, firstPage);
+  int get retainedPageCount => window.packets.length;
+  int get estimatedRetainedBytes => window.estimatedBytes(_estimate);
+  bool get isEmpty =>
+      loaded && !hasPrevious && !hasMore && error == null && bookmarks.isEmpty;
 
-  /// Held rows stay mounted until a refresh's replacement arrives, so a
-  /// failed refresh still has them to fall back to.
-  BookmarkListFeed loadingPage() => BookmarkListFeed(
+  BookmarkListFeed loadingPage({bool prepend = false}) => BookmarkListFeed(
     bookmarks: bookmarks,
     loading: true,
+    loadingPrevious: prepend,
     loaded: loaded,
     hasMore: hasMore,
     nextPage: nextPage,
+    window: window,
   );
 
-  BookmarkListFeed withPage(BookmarkListPage page, {required bool replace}) {
-    final held = replace ? const <Bookmark>[] : bookmarks;
-    // Core pages by offset, so a bookmark added or removed between two
-    // requests shifts the next page by a row. Its id keeps it from being
-    // listed twice; the newer copy wins.
-    final byId = <int, Bookmark>{
-      for (final bookmark in held) bookmark.id: bookmark,
-      for (final bookmark in page.bookmarks) bookmark.id: bookmark,
-    };
+  BookmarkListFeed withPage(
+    BookmarkListPage page, {
+    required bool replace,
+    bool prepend = false,
+    int? requestPage,
+  }) {
+    final start = requestPage ?? (replace ? 0 : nextPage);
+    final base = replace ? const AccountFeedWindow<Bookmark>() : _heldWindow;
+    final updated = base.withPage(
+      incoming: page.bookmarks,
+      start: start,
+      end: start + 1,
+      prepend: prepend,
+      identity: (bookmark) => bookmark.id,
+      merge: (_, incoming) => incoming,
+      estimate: _estimate,
+    );
     return BookmarkListFeed(
-      bookmarks: List.unmodifiable(byId.values),
+      bookmarks: updated.items,
       loaded: true,
-      hasMore: page.hasMore,
-      nextPage: (replace ? 0 : nextPage) + 1,
+      hasMore: prepend ? hasMore || updated.end < nextPage : page.hasMore,
+      nextPage: updated.end,
+      window: updated,
     );
   }
+
+  AccountFeedWindow<Bookmark> get _heldWindow =>
+      window.packets.isNotEmpty || bookmarks.isEmpty
+      ? window
+      : AccountFeedWindow(
+          packets: [
+            AccountFeedPacket(start: 0, end: nextPage, items: bookmarks),
+          ],
+        );
 
   BookmarkListFeed withError(String message, {required bool retryFromStart}) =>
       BookmarkListFeed(
@@ -131,6 +162,16 @@ class BookmarkListFeed {
         hasMore: hasMore,
         nextPage: nextPage,
         retryFromStart: retryFromStart,
+        retryPrevious: loadingPrevious,
         error: message,
+        window: window,
       );
+
+  static int _estimate(Bookmark item) => accountFeedStringBytes([
+    item.title,
+    item.name,
+    item.author,
+    item.path,
+    item.bookmarkableType,
+  ]);
 }

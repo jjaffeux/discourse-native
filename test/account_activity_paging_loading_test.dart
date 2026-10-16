@@ -24,6 +24,142 @@ enum _Page { activity, bookmarks }
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('activity backscroll restores an evicted first page', (
+    tester,
+  ) async {
+    final site = instance('meta.discourse.org').copyWith(user: _user);
+    final api = FakeDiscourseApi(
+      user: _user,
+      userActivityItems: [
+        for (var i = 0; i < 390; i++)
+          UserActivityItem(
+            actionType: 4,
+            topicId: i + 1,
+            postNumber: 1,
+            title: 'Activity $i',
+            slug: 'activity',
+            username: 'reader',
+            excerpt: '',
+          ),
+      ],
+    );
+    await pumpShell(
+      tester,
+      phone,
+      instances: [site],
+      api: api,
+      authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    );
+    final shell = ShellScope.read(
+      tester.element(find.byType(MainContent).first),
+    );
+    shell.openUserActivity(_site);
+    await tester.pumpAndSettle();
+    for (var i = 1; i < 11; i++) {
+      await shell.accountActivity.loadUserActivity(site, loadMore: true);
+    }
+    await tester.pumpAndSettle();
+    expect(shell.accountActivity.userActivityFor(_site).firstOffset, 30);
+    final view = find.byType(UserActivityView);
+    final scrollable = find
+        .descendant(of: view, matching: find.byType(Scrollable))
+        .last;
+    tester.state<ScrollableState>(scrollable).position.jumpTo(2000);
+    await tester.pumpAndSettle();
+    expect(shell.accountActivity.userActivityFor(_site).firstOffset, 30);
+    await tester.dragFrom(tester.getCenter(scrollable), const Offset(0, 700));
+    await tester.pumpAndSettle();
+    expect(
+      api.userActivityRequests.last.offset,
+      0,
+      reason:
+          'scroll=${tester.state<ScrollableState>(scrollable).position.pixels}, '
+          'requests=${api.userActivityRequests.map((request) => request.offset).toList()}',
+    );
+    expect(shell.accountActivity.userActivityFor(_site).firstOffset, 0);
+    await tester.scrollUntilVisible(
+      find.text('Activity 0'),
+      -200,
+      scrollable: scrollable,
+    );
+    expect(find.text('Activity 0').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets(
+    'a single oversized activity page is read before the next replaces it',
+    (tester) async {
+      final site = instance('meta.discourse.org').copyWith(user: _user);
+      final largeAvatar = 'x' * 75000;
+      final api = FakeDiscourseApi(
+        user: _user,
+        userActivityItems: [
+          for (var i = 0; i < 60; i++)
+            UserActivityItem(
+              actionType: 4,
+              topicId: i + 1,
+              postNumber: 1,
+              title: 'Activity $i',
+              slug: 'activity',
+              username: 'reader',
+              excerpt: '',
+              avatarUrl: '$largeAvatar/$i',
+            ),
+        ],
+      );
+      await pumpShell(
+        tester,
+        phone,
+        instances: [site],
+        api: api,
+        authenticator: FakeAuthenticator()..keys[_site] = 'key',
+      );
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.openUserActivity(_site);
+      await tester.pumpAndSettle();
+      final scrollable = find
+          .descendant(
+            of: find.byType(UserActivityView),
+            matching: find.byType(Scrollable),
+          )
+          .last;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(position.maxScrollExtent - 500);
+      await tester.pumpAndSettle();
+      expect(api.userActivityRequests, hasLength(1));
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(api.userActivityRequests.map((request) => request.offset), [
+        0,
+        30,
+      ]);
+      expect(shell.accountActivity.userActivityFor(_site).retainedPageCount, 1);
+      expect(find.text('Activity 30').hitTestable(), findsOneWidget);
+      await tester.drag(scrollable, const Offset(0, 120));
+      await tester.pumpAndSettle();
+      expect(api.userActivityRequests.map((request) => request.offset), [
+        0,
+        30,
+        0,
+      ]);
+      expect(
+        find.text('Activity 29').hitTestable(),
+        findsOneWidget,
+        reason:
+            'previous=${shell.accountActivity.userActivityFor(_site).window.lastPageWasPrevious} '
+            'pixels=${position.pixels} max=${position.maxScrollExtent} '
+            'row29=${find.text('Activity 29').evaluate().isEmpty ? 'absent' : tester.getRect(find.text('Activity 29'))}',
+      );
+      await tester.drag(scrollable, const Offset(0, 200));
+      await tester.pumpAndSettle();
+      expect(api.userActivityRequests, hasLength(3));
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   testWidgets('Activity filters retain pagination and open the exact reply', (
     tester,
   ) async {

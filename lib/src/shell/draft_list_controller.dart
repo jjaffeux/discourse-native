@@ -77,7 +77,12 @@ final class DraftListController extends FrameSafeNotifier {
     notifySafely();
   }
 
-  Future<void> load(DiscourseInstance instance, {bool refresh = false}) async {
+  Future<void> load(
+    DiscourseInstance instance, {
+    bool refresh = false,
+    bool loadPrevious = false,
+  }) async {
+    assert(!(refresh && loadPrevious));
     if (isDisposed || !instance.isConnected) return;
     final siteUrl = instance.url;
     if (_requests.containsKey(siteUrl)) {
@@ -93,12 +98,15 @@ final class DraftListController extends FrameSafeNotifier {
     // them: the feed is shared by every panel and menu that lists drafts, and
     // a failed refresh must not cost the rows already on screen.
     final held = feedFor(siteUrl);
-    if (!refresh && held.loaded && !held.hasMore) return;
+    refresh = refresh || held.requiresRefresh;
+    loadPrevious = loadPrevious && !refresh;
+    if (!refresh && loadPrevious && !held.hasPrevious) return;
+    if (!refresh && !loadPrevious && held.loaded && !held.hasMore) return;
 
     final request = Object();
     final lease = lifecycle.capture(siteUrl);
     _requests[siteUrl] = request;
-    _feeds[siteUrl] = held.loadingMore();
+    _feeds[siteUrl] = held.loadingMore(prepend: loadPrevious);
     notifySafely();
     // Publishing can synchronously dispose this owner through a listener.
     // Do not let that replacement boundary cross into credential storage.
@@ -115,11 +123,18 @@ final class DraftListController extends FrameSafeNotifier {
         });
         return;
       }
+      final current = feedFor(siteUrl);
+      final offset = refresh
+          ? 0
+          : loadPrevious
+          ? current.previousOffset(limit)
+          : current.nextOffset;
+      final requestLimit = loadPrevious ? current.firstOffset - offset : limit;
       final page = await api.userDrafts(
         siteUrl: siteUrl,
         apiKey: apiKey,
-        offset: refresh ? 0 : feedFor(siteUrl).nextOffset,
-        limit: limit,
+        offset: offset,
+        limit: requestLimit,
       );
       // A next page must build on the feed as it stands now, not the [held]
       // snapshot: a delete that landed during the request already removed its
@@ -139,6 +154,12 @@ final class DraftListController extends FrameSafeNotifier {
               draft.key,
         };
         final base = refresh ? const DraftFeed() : feedFor(siteUrl);
+        if (loadPrevious &&
+            page.rawItemCount - deletedFromPage.length < requestLimit) {
+          _feeds[siteUrl] = base.requiringRefresh();
+          _pendingRefreshes[siteUrl] = (instance: instance, lease: lease);
+          return;
+        }
         _feeds[siteUrl] = base.withPage(
           UserDraftPage(
             drafts: [
@@ -147,7 +168,9 @@ final class DraftListController extends FrameSafeNotifier {
             ],
             rawItemCount: page.rawItemCount,
           ),
-          limit: limit,
+          limit: requestLimit,
+          prepend: loadPrevious,
+          requestOffset: loadPrevious ? offset : null,
           reportedCount: instance.user?.draftCount,
           deletedCount: deletedFromPage.length,
         );

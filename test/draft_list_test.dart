@@ -1079,6 +1079,31 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('mounting a cached full page preserves its continuation', (
+      tester,
+    ) async {
+      final fixture = await _pumpList(
+        tester,
+        preloadDrafts: true,
+        userDrafts: [
+          for (var i = 0; i < 31; i++)
+            UserDraft(
+              key: 'topic_$i',
+              sequence: 1,
+              topicId: i + 1,
+              title: 'Cached draft $i',
+              data: const ComposerDraft(reply: 'Reply'),
+            ),
+        ],
+      );
+      expect(fixture.api.userDraftRequests, [
+        (siteUrl: _siteUrl, offset: 0, limit: 30),
+      ]);
+      expect(fixture.controller.draftList.feedFor(_siteUrl).nextOffset, 30);
+      expect(fixture.controller.draftList.feedFor(_siteUrl).hasMore, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('loads past an invalid full page without rendering fake rows', (
       tester,
     ) async {
@@ -1105,7 +1130,23 @@ void main() {
           );
         }),
       );
-      await _pumpList(tester, api: _ApiBackedDrafts(draftApi));
+      addTearDown(draftApi.close);
+      final pages = await tester.runAsync(
+        () async => <int, UserDraftPage>{
+          for (final offset in [0, 30])
+            offset: await draftApi.userDrafts(
+              siteUrl: _siteUrl,
+              apiKey: 'api-key',
+              offset: offset,
+              limit: 30,
+            ),
+        },
+      );
+      final requestedOffsets = <int>[];
+      await _pumpList(
+        tester,
+        api: _ProjectedDraftsApi(pages!, requestedOffsets),
+      );
 
       expect(find.byTooltip('Remove draft'), findsNothing);
       expect(find.text('No drafts yet'), findsNothing);
@@ -1118,6 +1159,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(offsets, [0, 30]);
+      expect(requestedOffsets, [0, 30]);
       expect(find.byTooltip('Remove draft'), findsOneWidget);
       expect(
         find.byWidgetPredicate(
@@ -1450,6 +1492,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
   List<UserDraft> userDrafts = const [_draft],
   ValueNotifier<String>? selectedSite,
   FakeDiscourseApi? api,
+  bool preloadDrafts = false,
 }) async {
   installTestMediaPipeline(
     client: MockClient((_) async => http.Response('', 404)),
@@ -1487,6 +1530,9 @@ Future<({ShellController controller, FakeDiscourseApi api})> _pumpList(
   );
   addTearDown(controller.dispose);
   await controller.load();
+  if (preloadDrafts) {
+    await controller.draftList.load(sites.first);
+  }
   await tester.pumpWidget(
     ShellScope(
       controller: controller,
@@ -1558,14 +1604,15 @@ class _RefreshDraftsApi extends FakeDiscourseApi {
   }
 }
 
-class _ApiBackedDrafts extends FakeDiscourseApi {
-  _ApiBackedDrafts(this.draftsApi)
+class _ProjectedDraftsApi extends FakeDiscourseApi {
+  _ProjectedDraftsApi(this.pages, this.offsets)
     : super(
         user: const DiscourseUser(id: 7, username: 'reader'),
         feeds: const {'/latest.json': []},
       );
 
-  final DraftsApi draftsApi;
+  final Map<int, UserDraftPage> pages;
+  final List<int> offsets;
 
   @override
   Future<UserDraftPage> userDrafts({
@@ -1574,11 +1621,8 @@ class _ApiBackedDrafts extends FakeDiscourseApi {
     int offset = 0,
     int limit = 30,
     String? clientId,
-  }) => draftsApi.userDrafts(
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    offset: offset,
-    limit: limit,
-    clientId: clientId,
-  );
+  }) async {
+    offsets.add(offset);
+    return pages[offset]!;
+  }
 }

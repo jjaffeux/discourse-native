@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
@@ -12,6 +14,7 @@ import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
+import 'account_feed_viewport.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'relative_time.dart';
@@ -65,6 +68,16 @@ class _UserActivityBody extends StatelessWidget {
     }
   }
 
+  Future<void> _loadPrevious() async {
+    final instance = _instance;
+    if (instance != null) {
+      await controller.accountActivity.loadUserActivity(
+        instance,
+        loadPrevious: true,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final instance = _instance;
@@ -86,7 +99,8 @@ class _UserActivityBody extends StatelessWidget {
   }
 
   Widget _body(UserActivityFeed feed) {
-    if (feed.error case final error? when feed.items.isEmpty) {
+    if (feed.error case final error?
+        when feed.items.isEmpty && !feed.hasPrevious) {
       return _ActivityState(
         icon: DIcons.triangleExclamation,
         title: error,
@@ -107,9 +121,11 @@ class _UserActivityBody extends StatelessWidget {
 
     return _ActivityList(
       siteUrl: siteUrl,
+      session: controller.lifecycle.capture(siteUrl).session,
       feed: feed,
       onRefresh: _refresh,
       onLoadMore: _loadMore,
+      onLoadPrevious: _loadPrevious,
       onOpen: controller.openUserActivityItem,
     );
   }
@@ -120,16 +136,20 @@ enum _ActivityKind { all, topics, replies }
 class _ActivityList extends StatefulWidget {
   const _ActivityList({
     required this.siteUrl,
+    required this.session,
     required this.feed,
     required this.onRefresh,
     required this.onLoadMore,
+    required this.onLoadPrevious,
     required this.onOpen,
   });
 
   final String siteUrl;
+  final Object session;
   final UserActivityFeed feed;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onLoadMore;
+  final Future<void> Function() onLoadPrevious;
   final ValueChanged<UserActivityItem> onOpen;
 
   @override
@@ -147,20 +167,27 @@ class _ActivityListState extends State<_ActivityList> {
   @override
   void didUpdateWidget(_ActivityList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.siteUrl != widget.siteUrl) _kind = _ActivityKind.all;
+    if (oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.session != widget.session) {
+      _kind = _ActivityKind.all;
+    }
   }
 
   // A failed page is retried only from its Retry row: every scroll
   // notification near the end would otherwise resend it as soon as it fails.
   bool _nearEnd(ScrollNotification notification) {
     if (notification.depth != 0 ||
+        notification is! ScrollUpdateNotification ||
+        (notification.scrollDelta ?? 0) <= 0 ||
         !feed.hasMore ||
         feed.loading ||
         feed.error != null) {
       return false;
     }
     return notification.metrics.extentAfter <
-        paginationPrefetchDistance(notification.metrics);
+        (feed.retainedPageCount == 1
+            ? 0.5
+            : paginationPrefetchDistance(notification.metrics));
   }
 
   @override
@@ -188,7 +215,9 @@ class _ActivityListState extends State<_ActivityList> {
               value: _kind,
               semanticLabel: context.l10n.activity,
               onChanged: (value) {
-                if (value != null) setState(() => _kind = value);
+                if (value == null) return;
+                setState(() => _kind = value);
+                if (feed.hasPrevious) unawaited(onRefresh());
               },
               entries: [
                 for (final (value, label) in [
@@ -204,68 +233,124 @@ class _ActivityListState extends State<_ActivityList> {
       ),
       bodyBuilder: (context, header) => ContentReadingLane(
         basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        builder: (context, lane) => NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (_nearEnd(notification)) unawaited(onLoadMore());
-            return false;
-          },
-          child: DPageScrollInsets(
-            builder: (context, insets) => ListView.separated(
-              key: const PageStorageKey('user-activity-list'),
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: lane.padding.add(insets),
-              itemCount:
-                  items.length + (hasFooter ? 1 : 0) + (items.isEmpty ? 1 : 0),
-              separatorBuilder: (context, index) => index < items.length - 1
-                  ? const Center(
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: DSeparator(space: 1),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-              itemBuilder: (context, index) {
-                if (items.isEmpty && index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(context.l10n.noActivityYet),
-                  );
-                }
-                if (index < items.length) {
-                  final item = items[index];
-                  return Center(
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: UserActivityRow(
-                        siteUrl: siteUrl,
-                        item: item,
-                        category: feed.categoryFor(item.categoryId),
-                        onTap: () => onOpen(item),
-                      ),
-                    ),
-                  );
-                }
-                if (feed.error case final error?) {
-                  return _LoadMoreError(
-                    message: error,
-                    onRetry: () => unawaited(
-                      feed.retryFromStart ? onRefresh() : onLoadMore(),
-                    ),
-                  );
-                }
-                return feed.loading
-                    ? AccountActivityPagingSkeleton(
-                        semanticsLabel: context.l10n.loadingMoreActivity,
-                      )
-                    : Align(
-                        child: DButton(
-                          label: Text(context.l10n.loadMore),
-                          onPressed: () => unawaited(onLoadMore()),
+        builder: (context, lane) => AccountFeedViewport(
+          identity: (siteUrl, widget.session, _kind),
+          rows: [for (final item in items) item.identity],
+          revealEnd: feed.window.lastPageWasPrevious,
+          builder: (context, viewport) =>
+              NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (viewport.restoring) return false;
+                  if (notification.depth == 0 &&
+                      (notification is UserScrollNotification &&
+                              notification.direction ==
+                                  ScrollDirection.forward ||
+                          notification is ScrollUpdateNotification &&
+                              (notification.scrollDelta ?? 0) < 0) &&
+                      notification.metrics.extentBefore <
+                          (feed.retainedPageCount == 1
+                              ? 0.5
+                              : paginationPrefetchDistance(
+                                  notification.metrics,
+                                )) &&
+                      feed.hasPrevious &&
+                      !feed.loading &&
+                      feed.error == null) {
+                    unawaited(widget.onLoadPrevious());
+                  } else if (_nearEnd(notification)) {
+                    unawaited(onLoadMore());
+                  }
+                  return false;
+                },
+                child: DPageScrollInsets(
+                  builder: (context, insets) => CustomScrollView(
+                    key: PageStorageKey(('user-activity-list', siteUrl, _kind)),
+                    controller: viewport.scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: lane.padding.add(insets),
+                        sliver: SliverMainAxisGroup(
+                          slivers: [
+                            if (feed.hasPrevious)
+                              SliverToBoxAdapter(
+                                child: Center(
+                                  child: DButton(
+                                    label: Text(context.l10n.previous),
+                                    loading: feed.loadingPrevious,
+                                    onPressed: feed.loading
+                                        ? null
+                                        : () => unawaited(
+                                            widget.onLoadPrevious(),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            SuperSliverList.builder(
+                              listController: viewport.listController,
+                              findChildIndexCallback: viewport.indexForKey,
+                              itemCount: items.length,
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                return viewport.row(
+                                  item.identity,
+                                  Column(
+                                    children: [
+                                      UserActivityRow(
+                                        siteUrl: siteUrl,
+                                        item: item,
+                                        category: feed.categoryFor(
+                                          item.categoryId,
+                                        ),
+                                        onTap: () => onOpen(item),
+                                      ),
+                                      if (index < items.length - 1)
+                                        const DSeparator(space: 1),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            if (items.isEmpty && !feed.hasPrevious)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(context.l10n.noActivityYet),
+                                ),
+                              ),
+                            if (hasFooter)
+                              SliverToBoxAdapter(
+                                child: feed.error != null
+                                    ? _LoadMoreError(
+                                        message: feed.error!,
+                                        onRetry: () => unawaited(
+                                          feed.retryFromStart
+                                              ? onRefresh()
+                                              : feed.retryPrevious
+                                              ? widget.onLoadPrevious()
+                                              : onLoadMore(),
+                                        ),
+                                      )
+                                    : feed.loading
+                                    ? AccountActivityPagingSkeleton(
+                                        semanticsLabel:
+                                            context.l10n.loadingMoreActivity,
+                                      )
+                                    : Center(
+                                        child: DButton(
+                                          label: Text(context.l10n.loadMore),
+                                          onPressed: () =>
+                                              unawaited(onLoadMore()),
+                                        ),
+                                      ),
+                              ),
+                          ],
                         ),
-                      );
-              },
-            ),
-          ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
         ),
       ),
     );

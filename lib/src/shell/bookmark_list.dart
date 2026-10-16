@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/bookmark.dart';
 import '../models/bookmark_feed.dart';
@@ -12,6 +14,7 @@ import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
+import 'account_feed_viewport.dart';
 import 'desktop_header_menu.dart';
 import 'destination_bookmark_ui.dart';
 import 'directory_skeleton.dart';
@@ -84,13 +87,15 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   String? _filter;
   BookmarkReminderFilter _reminderFilter = BookmarkReminderFilter.all;
   Timer? _expiryTimer;
-  final ScrollController _scrollController = ScrollController();
+  ScrollController? _scrollController;
   bool _endCheckScheduled = false;
+  int _automaticPages = 0;
+  Object? _pageSession;
+  static const _maximumAutomaticPages = 3;
 
   @override
   void dispose() {
     _expiryTimer?.cancel();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -101,6 +106,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
         oldWidget.controller != widget.controller) {
       _filter = null;
       _reminderFilter = BookmarkReminderFilter.all;
+      _automaticPages = 0;
       _expiryTimer?.cancel();
     }
   }
@@ -201,11 +207,48 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   static bool _canLoadMore(BookmarkListFeed feed) =>
       feed.loaded && feed.hasMore && !feed.loading && feed.error == null;
 
-  void _loadMore() => unawaited(
-    widget.controller.loadBookmarkList(widget.siteUrl, loadMore: true),
-  );
+  void _loadMore({bool automatic = false}) {
+    if (automatic) {
+      _automaticPages++;
+    } else {
+      _automaticPages = 0;
+    }
+    unawaited(
+      widget.controller.loadBookmarkList(widget.siteUrl, loadMore: true),
+    );
+  }
+
+  void _loadPrevious() {
+    final instance = widget.controller.instances
+        .where((item) => item.url == widget.siteUrl)
+        .firstOrNull;
+    if (instance != null) {
+      unawaited(
+        widget.controller.accountActivity.loadBookmarkList(
+          instance,
+          loadPrevious: true,
+        ),
+      );
+    }
+  }
+
+  void _changedFilter(VoidCallback update) {
+    setState(() {
+      update();
+      _automaticPages = 0;
+    });
+    if (_list.hasPrevious) {
+      unawaited(
+        widget.controller.loadBookmarkList(widget.siteUrl, refresh: true),
+      );
+    }
+  }
 
   void _retry() {
+    if (_list.retryPrevious) {
+      _loadPrevious();
+      return;
+    }
     final fromStart = _list.retryFromStart;
     unawaited(
       widget.controller.loadBookmarkList(
@@ -217,27 +260,48 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   }
 
   bool _onScroll(ScrollNotification notification) {
-    if (notification.depth == 0 &&
+    if (notification.depth != 0) return false;
+    if ((notification is UserScrollNotification &&
+                notification.direction == ScrollDirection.forward ||
+            notification is ScrollUpdateNotification &&
+                (notification.scrollDelta ?? 0) < 0) &&
+        notification.metrics.extentBefore <
+            (_list.retainedPageCount == 1
+                ? 0.5
+                : paginationPrefetchDistance(notification.metrics)) &&
+        _list.hasPrevious &&
+        !_list.loading &&
+        _list.error == null) {
+      _loadPrevious();
+    } else if (notification is ScrollUpdateNotification &&
+        (notification.scrollDelta ?? 0) > 0 &&
         notification.metrics.extentAfter <
-            paginationPrefetchDistance(notification.metrics) &&
+            (_list.retainedPageCount == 1
+                ? 0.5
+                : paginationPrefetchDistance(notification.metrics)) &&
         _canLoadMore(_list)) {
       _loadMore();
     }
     return false;
   }
 
-  /// A short list never scrolls, and a filter can hide every row the pages
-  /// so far have held. Keep reading pages until what is shown fills the view
-  /// or core has none left, so an empty filter is never claimed early.
   void _scheduleVisibleEndCheck(BookmarkListFeed feed) {
-    if (_endCheckScheduled || !_canLoadMore(feed)) return;
+    if (_endCheckScheduled ||
+        !_canLoadMore(feed) ||
+        feed.hasPrevious ||
+        _automaticPages >= _maximumAutomaticPages) {
+      return;
+    }
     _endCheckScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _endCheckScheduled = false;
-      if (!mounted || !_scrollController.hasClients) return;
+      final scroll = _scrollController;
+      if (!mounted || scroll == null || !scroll.hasClients) return;
       if (_canLoadMore(_list) &&
-          _scrollController.position.extentAfter <= 0.5) {
-        _loadMore();
+          !_list.hasPrevious &&
+          _automaticPages < _maximumAutomaticPages &&
+          scroll.position.extentAfter <= 0.5) {
+        _loadMore(automatic: true);
       }
     });
   }
@@ -334,6 +398,13 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 
   Widget _page(BuildContext context) {
     final controller = widget.controller;
+    final session = controller.lifecycle.capture(widget.siteUrl).session;
+    if (_pageSession != session) {
+      _pageSession = session;
+      _filter = null;
+      _reminderFilter = BookmarkReminderFilter.all;
+      _automaticPages = 0;
+    }
     final feed = _list;
     final entries = [
       for (final bookmark in feed.bookmarks)
@@ -349,6 +420,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           in controller.pluginSession.capabilities<PluginBookmarkPresenter>())
         presenter.bookmarkFilterLabel,
       for (final entry in entries) entry.presentation.filterLabel,
+      ?_filter,
     };
     final now = DateTime.now();
     _expiryTimer?.cancel();
@@ -393,12 +465,14 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
         state = SliverToBoxAdapter(
           child: UserMenuMessage(text: error, onRetry: _retry),
         );
-      } else if (!feed.loaded || feed.hasMore) {
+      } else if (!feed.loaded || feed.loading) {
         state = const SliverDirectorySkeleton(
           key: ValueKey('bookmarks-loading'),
           kind: DirectorySkeletonKind.bookmarks,
         );
-      } else if (visibleLocalEntries.isEmpty) {
+      } else if (visibleLocalEntries.isEmpty &&
+          !feed.hasMore &&
+          !feed.hasPrevious) {
         state = SliverToBoxAdapter(
           child: UserMenuMessage(
             text: feed.isEmpty && localEntries.isEmpty
@@ -413,11 +487,24 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       identity: widget.siteUrl,
       title: Text(context.l10n.bookmarks),
       controls: _heading(context, filters),
-      bodyBuilder: (context, header) =>
-          NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
+      bodyBuilder: (context, header) => AccountFeedViewport(
+        identity: (
+          widget.controller,
+          widget.siteUrl,
+          session,
+          _filter,
+          _reminderFilter,
+        ),
+        rows: [for (final entry in visibleEntries) entry.bookmark.id],
+        revealEnd: feed.window.lastPageWasPrevious,
+        separated: true,
+        builder: (context, viewport) {
+          _scrollController = viewport.scrollController;
+          return NotificationListener<ScrollNotification>(
+            onNotification: (notification) =>
+                viewport.restoring ? false : _onScroll(notification),
             child: CustomScrollView(
-              controller: _scrollController,
+              controller: viewport.scrollController,
               slivers: [
                 SliverToBoxAdapter(child: header.spacer),
                 for (final bookmark in visibleLocalEntries)
@@ -428,19 +515,34 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                       onOpened: widget.onOpened,
                     ),
                   ),
+                if (feed.hasPrevious)
+                  SliverToBoxAdapter(
+                    child: Center(
+                      child: DButton(
+                        label: Text(context.l10n.previous),
+                        loading: feed.loadingPrevious,
+                        onPressed: feed.loading ? null : _loadPrevious,
+                      ),
+                    ),
+                  ),
                 if (state != null)
                   state
                 else ...[
-                  SliverList.separated(
+                  SuperSliverList.separated(
+                    listController: viewport.listController,
+                    findChildIndexCallback: viewport.indexForKey,
                     itemCount: visibleEntries.length,
                     separatorBuilder: (context, index) => const DSeparator(),
                     itemBuilder: (context, index) {
                       final entry = visibleEntries[index];
-                      return BookmarkRow(
-                        bookmark: entry.bookmark,
-                        siteUrl: widget.siteUrl,
-                        presentation: entry.presentation,
-                        onTap: () => _openBookmark(entry.bookmark),
+                      return viewport.row(
+                        entry.bookmark.id,
+                        BookmarkRow(
+                          bookmark: entry.bookmark,
+                          siteUrl: widget.siteUrl,
+                          presentation: entry.presentation,
+                          onTap: () => _openBookmark(entry.bookmark),
+                        ),
                       );
                     },
                   ),
@@ -455,9 +557,20 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
                       ),
                     ),
                 ],
+                if (feed.hasMore && !feed.loading && feed.error == null)
+                  SliverToBoxAdapter(
+                    child: Center(
+                      child: DButton(
+                        label: Text(context.l10n.loadMore),
+                        onPressed: _loadMore,
+                      ),
+                    ),
+                  ),
               ],
             ),
-          ),
+          );
+        },
+      ),
     );
     return DScrollChromePagination(
       hasMore: feed.hasMore,
@@ -492,7 +605,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               },
             ),
         ],
-        onChanged: (value) => setState(
+        onChanged: (value) => _changedFilter(
           () => _reminderFilter = value ?? BookmarkReminderFilter.all,
         ),
       ),
@@ -509,7 +622,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           for (final filter in filters)
             DSelectOption(value: filter, label: filter, child: Text(filter)),
         ],
-        onChanged: (value) => setState(() => _filter = value),
+        onChanged: (value) => _changedFilter(() => _filter = value),
       ),
     ],
   );
