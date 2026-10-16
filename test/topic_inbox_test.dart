@@ -65,6 +65,7 @@ const _child = TopicCategory(
   parentCategoryId: 21,
 );
 const _tag = TopicTag(id: 1, name: 'community');
+const _postFrameInset = 2.0;
 
 void main() {
   setUpAll(() async {
@@ -1670,8 +1671,14 @@ void main() {
         expect(before.right, closeTo(viewport.right - inset - 16, 1));
         expect(back.left, closeTo(viewport.left + inset + 16, 1));
         final postBody = tester.getRect(find.byType(CookedHtml).first);
-        expect(postBody.left, closeTo(viewport.left + inset + 16 + 39, 1));
-        expect(postBody.right, closeTo(viewport.right - inset - 16, 1));
+        expect(
+          postBody.left,
+          closeTo(viewport.left + inset + 16 + _postFrameInset + 39, 1),
+        );
+        expect(
+          postBody.right,
+          closeTo(viewport.right - inset - 16 - _postFrameInset, 1),
+        );
         expect(before.left, closeTo(title.left, 1));
         expect(before.top, greaterThan(title.bottom));
         _readerScroll(tester).jumpTo(300);
@@ -2063,7 +2070,7 @@ void main() {
       expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
       expect(
         tester.getRect(find.byType(CookedHtml).first).left,
-        closeTo(title.left + 39, 1),
+        closeTo(title.left + _postFrameInset + 39, 1),
       );
       final footer = find.byKey(const ValueKey('topic-bottom-bar'));
       expect(
@@ -2115,8 +2122,8 @@ void main() {
       expect(closedTitleRect.right, titleRect.right);
       expect(find.byKey(const ValueKey('topic-header-activity')), findsNothing);
       expect(
-        lockRect.left,
-        closeTo(tester.getRect(find.byType(CookedHtml).first).left - 39, 1),
+        tester.getRect(find.byType(CookedHtml).first).left,
+        closeTo(lockRect.left + _postFrameInset + 39, 1),
       );
       expect(
         lockRect.left,
@@ -3228,13 +3235,21 @@ void main() {
           find.byKey(ValueKey('topic-filter-suggestion-$index')),
         );
         await tester.pumpAndSettle();
+        expect(setup.api.feedPaths.length, pathsBeforeTags.length + index + 1);
+        expect(tester.state(find.byType(TopicView)), same(readerState));
       }
-      await tester.tap(find.byType(DSelect<String>));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(DToggleGroup<String>),
+          matching: find.widgetWithText(DToggle, 'All'),
+        ),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('include all'));
+      final pathsBeforeDone = [...setup.api.feedPaths];
+      expect(pathsBeforeDone, hasLength(pathsBeforeTags.length + 3));
+      await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(DButton, 'Done'));
-      await tester.pumpAndSettle();
+      expect(setup.api.feedPaths, pathsBeforeDone);
       expect(shell.topicListContent?.topicFilterQuery, isEmpty);
       expect(shell.topicListContent?.tagNames, ['community', 'mobile']);
       expect(shell.topicListContent?.categoryId, 22);
@@ -3243,7 +3258,6 @@ void main() {
       expect(filtered.queryParameters['category'], '22');
       expect(filtered.queryParametersAll['tags[]'], ['community', 'mobile']);
       expect(filtered.queryParameters['match_all_tags'], 'true');
-      expect(setup.api.feedPaths.length, pathsBeforeTags.length + 1);
       expect(tester.state(find.byType(TopicView)), same(readerState));
       await shell.selectTopicListMode(
         TopicListMode.topWeekly,

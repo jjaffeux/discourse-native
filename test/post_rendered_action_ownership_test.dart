@@ -173,7 +173,7 @@ Future<Finder> _control(WidgetTester tester, String action) async {
     );
   }
   await tester.tap(find.byKey(const ValueKey('post-more-actions-2')));
-  await tester.pumpAndSettle();
+  await _settle(tester);
   return find.widgetWithText(DDropdownMenuItem, action);
 }
 
