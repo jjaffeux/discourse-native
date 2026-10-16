@@ -281,6 +281,30 @@ final class _PluginHostApi extends DiscourseApi {
   );
 
   @override
+  Future<Map<String, dynamic>> pluginGetJsonCancellable({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) => switch (_pluginTransport) {
+    final PluginCancellableJsonTransport transport =>
+      transport.pluginGetJsonCancellable(
+        siteUrl: siteUrl,
+        path: path,
+        apiKey: apiKey,
+        abortTrigger: abortTrigger,
+        clientId: clientId,
+      ),
+    final transport => transport.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    ),
+  };
+
+  @override
   Future<List<Map<String, dynamic>>> pluginGetJsonList({
     required String siteUrl,
     required String path,

@@ -41,7 +41,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 10));
 
     expect(client.requests.map((r) => r.term), [
-      'first', 'first', 'second', 'newest',
+      'first',
+      'first',
+      'second',
+      'newest',
     ]);
     expect(client.requests[0].aborted, isTrue);
     expect(client.requests[2].aborted, isTrue);
@@ -50,8 +53,8 @@ void main() {
     await tester.pump();
     expect(controller.results.single.title, 'Newest result');
     expect(controller.error, isNull);
-    client.requests[1].complete({'topics': []});
-    expect(await unrelated, {'topics': []});
+    client.requests[1].complete({'topics': <Object?>[]});
+    expect(await unrelated, {'topics': <Object?>[]});
   });
 
   testWidgets('all core and contributed scope reads share owner cancellation', (
@@ -66,7 +69,10 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pump(const Duration(milliseconds: 10));
     final old = client.requests.toList();
-    expect(old.map((r) => r.request.url.path), contains('/chat/api/search.json'));
+    expect(
+      old.map((r) => r.request.url.path),
+      contains('/chat/api/search.json'),
+    );
     expect(old, hasLength(4));
 
     controller.setQuery('newest');
@@ -80,6 +86,98 @@ void main() {
     await tester.pump();
     expect(controller.phase, GlobalSearchPhase.empty);
     expect(controller.error, isNull);
+  });
+
+  testWidgets('superseding a pending page aborts it and resets pagination', (
+    tester,
+  ) async {
+    final client = _SearchClient();
+    final api = DiscourseApi(client: client);
+    addTearDown(api.close);
+    final controller = _controller(api)
+      ..setScope(GlobalSearchScope.forum)
+      ..setQuery('first');
+    addTearDown(controller.dispose);
+    await tester.pump(const Duration(milliseconds: 10));
+    client.requests.single.complete({
+      ..._result('First page'),
+      'grouped_search_result': {'more_posts': true},
+    });
+    await tester.pump();
+    expect(controller.hasMore, isTrue);
+    controller.loadMore();
+    await tester.pump();
+    expect(client.requests.last.request.url.queryParameters['page'], '2');
+    expect(controller.results.single.title, 'First page');
+    controller.setQuery('newest');
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(client.requests[1].aborted, isTrue);
+    expect(client.requests.last.term, 'newest');
+    expect(client.requests.last.request.url.queryParameters['page'], '1');
+    client.requests.last.complete(_result('Newest result'));
+    await tester.pump();
+    expect(controller.results.single.title, 'Newest result');
+    expect(controller.hasMore, isFalse);
+  });
+
+  testWidgets('cancellable forum reads retain the search timeout', (
+    tester,
+  ) async {
+    final client = _SearchClient();
+    final api = DiscourseApi(client: client);
+    addTearDown(api.close);
+    Object? failure;
+    unawaited(
+      api
+          .pluginGetJsonCancellable(
+            siteUrl: _site,
+            path: '/search.json?q=test',
+            apiKey: 'key',
+            abortTrigger: Completer<void>().future,
+          )
+          .then<void>(
+            (_) {},
+            onError: (Object error) {
+              failure = error;
+            },
+          ),
+    );
+    await tester.pump();
+    expect(client.requests, hasLength(1));
+    await tester.pump(const Duration(seconds: 11));
+    expect(failure, isNull);
+    await tester.pump(const Duration(seconds: 20));
+    expect(
+      failure,
+      isA<SiteLookupException>().having(
+        (error) => error.cause,
+        'cause',
+        isA<TimeoutException>(),
+      ),
+    );
+  });
+
+  test('a pre-cancelled search read never reaches HTTP', () async {
+    final client = _SearchClient();
+    final api = DiscourseApi(client: client);
+    addTearDown(api.close);
+    final abort = Completer<void>()..complete();
+    await expectLater(
+      api.pluginGetJsonCancellable(
+        siteUrl: _site,
+        path: '/search.json?q=test',
+        apiKey: 'key',
+        abortTrigger: abort.future,
+      ),
+      throwsA(
+        isA<SiteLookupException>().having(
+          (error) => error.cause,
+          'cause',
+          isA<http.RequestAbortedException>(),
+        ),
+      ),
+    );
+    expect(client.requests, isEmpty);
   });
 
   for (final action in ['clear', 'too short', 'account', 'dispose']) {
@@ -122,19 +220,20 @@ GlobalSearchController _controller(
   DiscourseApi api, {
   bool chat = false,
   SiteLifecycle? lifecycle,
-}) => GlobalSearchController(
-  api: GlobalSearchApi(transport: api),
-  credentials: FakeApiCredentialReader()..keys[_site] = 'key',
-  lifecycle: lifecycle ?? SiteLifecycle(),
-  debounceDuration: const Duration(milliseconds: 1),
-)..configure(
-  siteUrl: _site,
-  capabilities: GlobalSearchCapabilities(
-    authenticated: true,
-    contributions: [if (chat) const ChatGlobalSearch()],
-    enabledContributions: {if (chat) 'chat'},
-  ),
-);
+}) =>
+    GlobalSearchController(
+      api: GlobalSearchApi(transport: api),
+      credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+      lifecycle: lifecycle ?? SiteLifecycle(),
+      debounceDuration: const Duration(milliseconds: 1),
+    )..configure(
+      siteUrl: _site,
+      capabilities: GlobalSearchCapabilities(
+        authenticated: true,
+        contributions: [if (chat) const ChatGlobalSearch()],
+        enabledContributions: {if (chat) 'chat'},
+      ),
+    );
 
 Map<String, dynamic> _result(String title) => {
   'posts': [
@@ -152,7 +251,9 @@ class _SearchClient extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     if (request.url.path == '/site/settings.json') {
       return http.StreamedResponse(
-        Stream.value(utf8.encode('{"chat_enabled":true,"chat_search_enabled":true}')),
+        Stream.value(
+          utf8.encode('{"chat_enabled":true,"chat_search_enabled":true}'),
+        ),
         200,
       );
     }
@@ -160,7 +261,14 @@ class _SearchClient extends http.BaseClient {
       return http.StreamedResponse(Stream.value(utf8.encode('{}')), 200);
     }
     if (request.url.path == '/session/current.json') {
-      return http.StreamedResponse(Stream.value(utf8.encode('{"current_user":{"has_chat_enabled":true,"can_chat":true}}')), 200);
+      return http.StreamedResponse(
+        Stream.value(
+          utf8.encode(
+            '{"current_user":{"has_chat_enabled":true,"can_chat":true}}',
+          ),
+        ),
+        200,
+      );
     }
     final pending = _SearchRequest(request);
     requests.add(pending);
@@ -171,20 +279,24 @@ class _SearchClient extends http.BaseClient {
 class _SearchRequest {
   _SearchRequest(this.request) {
     if (request case http.Abortable(:final abortTrigger)) {
-      unawaited(abortTrigger?.then((_) {
-        aborted = true;
-        if (!response.isCompleted) {
-          response.completeError(http.RequestAbortedException(request.url));
-        }
-      }));
+      unawaited(
+        abortTrigger?.then((_) {
+          aborted = true;
+          if (!response.isCompleted) {
+            response.completeError(http.RequestAbortedException(request.url));
+          }
+        }),
+      );
     }
   }
 
   final http.BaseRequest request;
   final response = Completer<http.StreamedResponse>();
   bool aborted = false;
-  String get term => request.url.queryParameters['q'] ??
-      request.url.queryParameters['term'] ?? '';
+  String get term =>
+      request.url.queryParameters['q'] ??
+      request.url.queryParameters['term'] ??
+      '';
 
   void complete(Map<String, dynamic> body) => response.complete(
     http.StreamedResponse(Stream.value(utf8.encode(jsonEncode(body))), 200),

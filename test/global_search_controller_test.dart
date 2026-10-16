@@ -1247,14 +1247,8 @@ void main() {
           offset: 20,
           conditions: const [
             threads,
-            GlobalSearchCondition(
-              filterId: 'chatAuthor',
-              value: ['mira'],
-            ),
-            GlobalSearchCondition(
-              filterId: 'chatChannel',
-              value: ['design'],
-            ),
+            GlobalSearchCondition(filterId: 'chatAuthor', value: ['mira']),
+            GlobalSearchCondition(filterId: 'chatChannel', value: ['design']),
           ],
         ),
       );
@@ -1397,6 +1391,7 @@ class _EngineApi extends GlobalSearchApi {
     required String? apiKey,
     String? clientId,
     required GlobalSearchRequest request,
+    Future<void>? abortTrigger,
   }) async {
     requests.add(request);
     clientIds.add(clientId);

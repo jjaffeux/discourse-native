@@ -1012,6 +1012,7 @@ class _PanelApi extends GlobalSearchApi {
     required String? apiKey,
     String? clientId,
     required GlobalSearchRequest request,
+    Future<void>? abortTrigger,
   }) async => GlobalSearchPage(
     sections: [
       GlobalSearchSection(scope: GlobalSearchScope.forum, results: results),

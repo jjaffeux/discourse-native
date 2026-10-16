@@ -13,12 +13,16 @@ import '../plugin_api/global_search.dart';
 class GlobalSearchApi {
   const GlobalSearchApi({required this.transport});
 
-  GlobalSearchReadContext _context(String site, String? key, String? client) =>
-      GlobalSearchReadContext(
-        siteUrl: site,
-        authenticated: key != null,
-        get: (path) => _get(site, path, key, client),
-      );
+  GlobalSearchReadContext _context(
+    String site,
+    String? key,
+    String? client, {
+    Future<void>? abortTrigger,
+  }) => GlobalSearchReadContext(
+    siteUrl: site,
+    authenticated: key != null,
+    get: (path) => _get(site, path, key, client, abortTrigger: abortTrigger),
+  );
   final PluginApiTransport transport;
 
   /// Keep recoverable failures actionable without displaying raw URLs or
@@ -49,13 +53,27 @@ class GlobalSearchApi {
     String site,
     String path,
     String? key,
-    String? client,
-  ) => transport.pluginGetJson(
-    siteUrl: site,
-    path: path,
-    apiKey: key,
-    clientId: client,
-  );
+    String? client, {
+    Future<void>? abortTrigger,
+  }) {
+    if (abortTrigger != null) {
+      if (transport case final PluginCancellableJsonTransport cancellable) {
+        return cancellable.pluginGetJsonCancellable(
+          siteUrl: site,
+          path: path,
+          apiKey: key,
+          clientId: client,
+          abortTrigger: abortTrigger,
+        );
+      }
+    }
+    return transport.pluginGetJson(
+      siteUrl: site,
+      path: path,
+      apiKey: key,
+      clientId: client,
+    );
+  }
 
   Future<GlobalSearchCapabilities> capabilities({
     required String siteUrl,
@@ -116,6 +134,7 @@ class GlobalSearchApi {
     required String? apiKey,
     String? clientId,
     required GlobalSearchRequest request,
+    Future<void>? abortTrigger,
   }) async {
     final r = request, c = r.capabilities;
     if (!c.scopes.contains(r.scope)) {
@@ -161,6 +180,7 @@ class GlobalSearchApi {
                 }),
                 apiKey,
                 clientId,
+                abortTrigger: abortTrigger,
               );
               final page = _core(body, siteUrl, scope: GlobalSearchScope.forum);
               final matches =
@@ -205,6 +225,7 @@ class GlobalSearchApi {
                 }),
                 apiKey,
                 clientId,
+                abortTrigger: abortTrigger,
               );
               sections.addAll(
                 _core(
@@ -229,6 +250,7 @@ class GlobalSearchApi {
               _path('/search/query.json', {'term': r.query}),
               apiKey,
               clientId,
+              abortTrigger: abortTrigger,
             );
             sections.addAll(_core(body, siteUrl).sections);
           } catch (error) {
@@ -250,7 +272,12 @@ class GlobalSearchApi {
               (() async {
                 try {
                   final page = await contribution.search(
-                    _context(siteUrl, apiKey, clientId),
+                    _context(
+                      siteUrl,
+                      apiKey,
+                      clientId,
+                      abortTrigger: abortTrigger,
+                    ),
                     GlobalSearchRequest(
                       scope: scope,
                       query: r.query,
@@ -324,6 +351,7 @@ class GlobalSearchApi {
         ),
         apiKey,
         clientId,
+        abortTrigger: abortTrigger,
       );
       return _core(
         body,
@@ -343,7 +371,10 @@ class GlobalSearchApi {
       if (provider == null) {
         throw FormatException(appL10n.searchIsUnavailable);
       }
-      return provider.search(_context(siteUrl, apiKey, clientId), r);
+      return provider.search(
+        _context(siteUrl, apiKey, clientId, abortTrigger: abortTrigger),
+        r,
+      );
     }
     if (r.scope == GlobalSearchScope.forum) {
       final body = await _get(
@@ -354,6 +385,7 @@ class GlobalSearchApi {
         }),
         apiKey,
         clientId,
+        abortTrigger: abortTrigger,
       );
       return _core(
         body,
@@ -373,6 +405,7 @@ class GlobalSearchApi {
         }),
         apiKey,
         clientId,
+        abortTrigger: abortTrigger,
       );
       return _core(body, siteUrl, scope: r.scope, canPage: false);
     }
@@ -408,6 +441,7 @@ class GlobalSearchApi {
       _path(users ? '/directory_items.json' : '/groups.json', params),
       apiKey,
       clientId,
+      abortTrigger: abortTrigger,
     );
     final records = jsonObjects(
       body[users ? 'directory_items' : 'groups'],

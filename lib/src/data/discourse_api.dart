@@ -64,6 +64,7 @@ class DiscourseApi
     implements
         ShellApiCapabilities,
         DiscourseApiConfiguration,
+        PluginCancellableJsonTransport,
         PluginJsonQueryTransport,
         PluginLongRunningWriteTransport,
         PluginTextTransport {
@@ -1657,12 +1658,14 @@ class DiscourseApi
     String? apiKey,
     String? clientId,
     Duration? requestTimeout,
+    Future<void>? abortTrigger,
   }) => _transport.getObject(
     url,
     siteUrl: siteUrl,
     apiKey: apiKey,
     clientId: clientId,
     requestTimeout: requestTimeout,
+    abortTrigger: abortTrigger,
   );
 
   @override
@@ -1677,6 +1680,22 @@ class DiscourseApi
     apiKey: apiKey,
     clientId: clientId,
     requestTimeout: _isForumSearchPath(path) ? searchTimeout : null,
+  );
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJsonCancellable({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) async => _getObject(
+    _resolvePluginPath(siteUrl, path),
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    clientId: clientId,
+    requestTimeout: _isForumSearchPath(path) ? searchTimeout : null,
+    abortTrigger: abortTrigger,
   );
 
   static bool _isForumSearchPath(String path) {

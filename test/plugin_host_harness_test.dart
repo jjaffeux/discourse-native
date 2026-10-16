@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -63,6 +65,46 @@ void main() {
     expect(host.popContent(), isTrue);
     expect(host.currentContent?.id, destination?.id);
   });
+
+  for (final cancellable in [false, true]) {
+    test(
+      'cancellable reads use supplied transport capability $cancellable',
+      () async {
+        final transport = cancellable
+            ? _CancellableRecordingTransport()
+            : RecordingPluginTransport(
+                responses: {
+                  'GET /search.json?q=test': {'ok': true},
+                },
+              );
+        final host = await PluginHostHarness.open(
+          transport: transport,
+          manifest: const PluginManifest([_TestTransportModule()]),
+          sites: const [
+            PluginHostSite(url: 'https://forum.example', apiKey: 'key'),
+          ],
+        );
+        addTearDown(host.close);
+        final port =
+            host.require(_transportService).transport
+                as PluginCancellableJsonTransport;
+        final abort = Completer<void>();
+        final body = await port.pluginGetJsonCancellable(
+          siteUrl: 'https://forum.example',
+          path: '/search.json?q=test',
+          apiKey: 'key',
+          clientId: 'client',
+          abortTrigger: abort.future,
+        );
+        expect(body, {'ok': true});
+        expect(transport.reads.single.path, '/search.json?q=test');
+        expect(transport.reads.single.clientId, 'client');
+        if (transport is _CancellableRecordingTransport) {
+          expect(transport.abortTrigger, same(abort.future));
+        }
+      },
+    );
+  }
 
   test('long-running plugin writes reach the supplied transport', () async {
     final transport = RecordingPluginTransport(
@@ -164,6 +206,35 @@ final class _TestNavigationService {
         title: 'Plugin route',
         icon: DIcons.microphoneLines,
       ),
+    );
+  }
+}
+
+class _CancellableRecordingTransport extends RecordingPluginTransport
+    implements PluginCancellableJsonTransport {
+  _CancellableRecordingTransport()
+    : super(
+        responses: {
+          'GET /search.json?q=test': {'ok': true},
+        },
+      );
+
+  Future<void>? abortTrigger;
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJsonCancellable({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    required Future<void> abortTrigger,
+    String? clientId,
+  }) {
+    this.abortTrigger = abortTrigger;
+    return pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
     );
   }
 }

@@ -62,7 +62,7 @@ class GlobalSearchController extends ChangeNotifier {
   String? _error;
   bool _hasMore = false, _loadingMore = false, _disposed = false;
   int _revision = 0, _configuration = 0, _page = 0, _offset = 0;
-  final _inFlight = <Object, int>{};
+  final _inFlight = <Object, Set<Completer<void>>>{};
   Timer? _debounce;
   VoidCallback? _queued;
 
@@ -680,6 +680,8 @@ class GlobalSearchController extends ChangeNotifier {
     } on FormatException catch (exception) {
       _revision++;
       _debounce?.cancel();
+      _queued = null;
+      _cancelSearches();
       _error = exception.message;
       _phase = GlobalSearchPhase.failed;
       _notify();
@@ -977,6 +979,7 @@ class GlobalSearchController extends ChangeNotifier {
     _debounce?.cancel();
     _queued = null;
     final revision = ++_revision;
+    _cancelSearches();
     _page = 0;
     _offset = 0;
     _loadingMore = false;
@@ -1006,13 +1009,23 @@ class GlobalSearchController extends ChangeNotifier {
     if (_disposed || revision != _revision) return;
     final site = siteUrl, lease = _lease;
     if (site == null || lease == null || !lease.isCurrent) return;
-    if ((_inFlight[lease.session] ?? 0) >= 2) {
+    final active = _inFlight.putIfAbsent(lease.session, () => {});
+    if (active.length >= 2) {
       _queued = () => _dispatch(revision, append: append);
       return;
     }
     final request = _request(append: append);
-    _inFlight[lease.session] = (_inFlight[lease.session] ?? 0) + 1;
-    unawaited(_execute(site, lease, revision, request, append));
+    final abort = Completer<void>();
+    active.add(abort);
+    unawaited(_execute(site, lease, revision, request, append, abort));
+  }
+
+  void _cancelSearches() {
+    for (final active in _inFlight.values) {
+      for (final abort in active) {
+        if (!abort.isCompleted) abort.complete();
+      }
+    }
   }
 
   Future<void> _execute(
@@ -1021,6 +1034,7 @@ class GlobalSearchController extends ChangeNotifier {
     int revision,
     GlobalSearchRequest request,
     bool append,
+    Completer<void> abort,
   ) async {
     bool current() =>
         !_disposed &&
@@ -1037,6 +1051,7 @@ class GlobalSearchController extends ChangeNotifier {
         apiKey: key,
         clientId: client,
         request: request,
+        abortTrigger: abort.future,
       );
       if (!current()) return;
       if (append) {
@@ -1091,11 +1106,10 @@ class GlobalSearchController extends ChangeNotifier {
       _loadingMore = false;
       _notify();
     } finally {
-      final remaining = (_inFlight[lease.session] ?? 1) - 1;
-      if (remaining == 0) {
+      final active = _inFlight[lease.session];
+      active?.remove(abort);
+      if (active?.isEmpty == true) {
         _inFlight.remove(lease.session);
-      } else {
-        _inFlight[lease.session] = remaining;
       }
       final queued = _queued;
       _queued = null;
@@ -1115,6 +1129,7 @@ class GlobalSearchController extends ChangeNotifier {
     _revision++;
     _debounce?.cancel();
     _queued = null;
+    _cancelSearches();
     recentSource?.removeListener(_recentChanged);
     super.dispose();
   }

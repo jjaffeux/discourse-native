@@ -19,6 +19,18 @@ abstract interface class PluginApiTransport {
   });
 }
 
+/// Optional JSON reads whose cancellation belongs to one caller. Cancellable
+/// reads must not share their response or cancellation with other consumers.
+abstract interface class PluginCancellableJsonTransport {
+  Future<Map<String, dynamic>> pluginGetJsonCancellable({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    required Future<void> abortTrigger,
+    String? clientId,
+  });
+}
+
 /// Optional writes whose server does slow work before it answers, such as
 /// generating text with a language model inside the request. The plugin states
 /// how long that work may take in [requestTimeout], which replaces the host's
