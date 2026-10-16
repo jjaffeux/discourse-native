@@ -247,7 +247,7 @@ class _CookedTableState extends State<_CookedTable> {
       var width = 140.0;
       for (final cell in [
         widget.headers[column],
-        ...widget.rows.map((row) => row[column]),
+        ...widget.rows.take(_pageSize).map((row) => row[column]),
       ]) {
         painter.text = TextSpan(
           text: cell.text,

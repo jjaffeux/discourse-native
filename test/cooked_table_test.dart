@@ -536,6 +536,59 @@ void main() {
     );
   }
 
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'later long cells wrap within sampled widths at 200% text in $direction',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        const note =
+            'Staying at Artrip Hotel until the 24th then train to Seville';
+        final html =
+            '<table><tr><th>Name</th><th>Days</th><th>Notes</th></tr>'
+            '${List.generate(30, (i) => '<tr><td>Member $i</td><td>1</td><td>${i == 29 ? '<strong>$note</strong>' : 'Note'}</td></tr>').join()}'
+            '</table>';
+        await _pump(tester, html, scale: 2, direction: direction);
+        final widths = tester
+            .widget<DDataTable<int>>(find.byType(DDataTable<int>))
+            .columns
+            .map((column) => (column.width as FixedColumnWidth).value)
+            .toList();
+        expect(widths.last, lessThan(360));
+        expect(_text(note), findsNothing);
+        final horizontal = tester
+            .stateList<ScrollableState>(find.byType(Scrollable))
+            .firstWhere(
+              (state) =>
+                  axisDirectionToAxis(state.axisDirection) == Axis.horizontal,
+            );
+        expect(horizontal.position.maxScrollExtent, greaterThan(0));
+        await tester.ensureVisible(find.byType(DPaginationNext));
+        await tester.tap(find.byType(DPaginationNext));
+        await tester.pumpAndSettle();
+        horizontal.position.jumpTo(horizontal.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        final longCell = _text(note);
+        expect(longCell, findsOneWidget);
+        await tester.ensureVisible(longCell);
+        await tester.pumpAndSettle();
+        final paragraph = tester.renderObject<RenderParagraph>(longCell);
+        expect(paragraph.didExceedMaxLines, isFalse);
+        expect(paragraph.size.height, greaterThan(80));
+        expect(paragraph.size.width, lessThanOrEqualTo(widths.last));
+        expect(
+          tester
+              .widget<DDataTable<int>>(find.byType(DDataTable<int>))
+              .columns
+              .map((column) => (column.width as FixedColumnWidth).value),
+          widths,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('sorts mixed numeric and text values consistently', (
     tester,
   ) async {
