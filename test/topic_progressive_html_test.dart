@@ -10,6 +10,45 @@ import 'support/topic_scroll_capture.dart';
 import 'support/topic_scroll_fixture.dart';
 
 void main() {
+  for (final inbox in [false, true]) {
+    testWidgets(
+      'reveals a long post after restoring an offset inside it (inbox=$inbox)',
+      (tester) async {
+        final controller = await topicScrollController();
+        addTearDown(controller.dispose);
+        controller.store.update<Post>(
+          controller.currentInstance!.url,
+          1,
+          (post) => post.copyWith(
+            cooked: List.filled(
+              450,
+              '<p>Anchored paragraph for saved reading position.</p>',
+            ).join(),
+          ),
+        );
+        controller.saveTopicScrollPost(7, 1, viewportOffset: -600);
+        await tester.pumpWidget(
+          TopicScrollFixture(controller: controller, inbox: inbox),
+        );
+        final target = find.byKey(const ValueKey(1));
+        await _until(tester, () => target.evaluate().isNotEmpty);
+        await tester.pumpAndSettle();
+        expect(_paragraphs('Anchored paragraph'), findsNWidgets(450));
+        expect(
+          find.byKey(const ValueKey('topic-loading-skeleton')),
+          findsNothing,
+        );
+        final top = topicReadingViewportRect(tester).top - 600;
+        expect(tester.getTopLeft(target).dy, closeTo(top, 1));
+        for (var frame = 0; frame < 4; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(tester.getTopLeft(target).dy, closeTo(top, 1));
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final (inbox, oversized) in [
     (true, false),
     (false, false),

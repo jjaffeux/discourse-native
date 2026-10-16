@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
@@ -103,6 +104,53 @@ void main() {
       },
     );
   }
+
+  desktopTest('retained long readers give mounting turns to the selected tab', (
+    tester,
+  ) async {
+    final shell = await pumpTabSwitchFixture(tester);
+    final firstPage = tester.state(_page('reader-a'));
+    await tapDocumentTab(tester, 'reader-b');
+    await tester.pumpAndSettle();
+    final secondPage = tester.state(_page('reader-b'));
+    for (final (id, label) in [(1001, 'Reader A'), (2001, 'Reader B')]) {
+      shell.store.update<Post>(
+        'https://tabs.example',
+        id,
+        (post) =>
+            post.copyWith(cooked: List.filled(450, '<p>$label</p>').join()),
+      );
+    }
+    Finder paragraphs(String label) => find.byWidgetPredicate(
+      (widget) => widget is RichText && widget.text.toPlainText() == label,
+      skipOffstage: false,
+    );
+    int count(String label) => paragraphs(label).evaluate().length;
+    await tester.pump();
+    final initial = count('Reader A');
+    expect(initial, inExclusiveRange(0, 450));
+    expect(count('Reader B'), initial);
+    final firstParagraph = tester.element(paragraphs('Reader A').first);
+    expect(TickerMode.valuesOf(firstParagraph).enabled, isFalse);
+    await tester.pump();
+    expect(count('Reader A'), initial);
+    expect(count('Reader B'), greaterThan(initial));
+    await tapDocumentTab(tester, 'reader-a');
+    await tester.pump();
+    final hiddenCount = count('Reader B');
+    await tester.pump();
+    expect(count('Reader A'), greaterThan(initial));
+    expect(count('Reader B'), hiddenCount);
+    expect(tester.state(_page('reader-a')), same(firstPage));
+    expect(tester.element(paragraphs('Reader A').first), same(firstParagraph));
+    await tester.pumpAndSettle();
+    expect(count('Reader A'), 450);
+    expect(count('Reader B'), 450);
+    await tapDocumentTab(tester, 'reader-b');
+    await tester.pumpAndSettle();
+    expect(tester.state(_page('reader-b')), same(secondPage));
+    expect(tester.takeException(), isNull);
+  });
 
   desktopTest('page retention is bounded and releases closed tabs', (
     tester,

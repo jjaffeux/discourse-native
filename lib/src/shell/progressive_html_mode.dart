@@ -150,7 +150,10 @@ abstract final class _HtmlMountQueue {
     _pending.add(body);
     _frame ??= SchedulerBinding.instance.scheduleFrameCallback((_) {
       _frame = null;
-      final next = _pending.first;
+      final next = _pending.firstWhere(
+        (body) => TickerMode.getValuesNotifier(body.context).value.enabled,
+        orElse: () => _pending.first,
+      );
       _pending.remove(next);
       next.mountNextBatch();
       if (_pending.isNotEmpty) add(_pending.first);
