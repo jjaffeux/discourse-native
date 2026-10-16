@@ -65,7 +65,10 @@ void main() {
   testWidgets(
     'content contexts add and remove every local destination without server mutation',
     (tester) async {
-      final shell = await tester.runAsync(() => _shell());
+      final api = FakeDiscourseApi(
+        user: const DiscourseUser(username: 'reader'),
+      );
+      final shell = await tester.runAsync(() => _shell(api: api));
       addTearDown(shell!.dispose);
       for (final route in [_page, _category, _chat]) {
         await _pump(
@@ -126,6 +129,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Bookmark'), findsNothing);
       expect(find.text('Remove bookmark'), findsNothing);
+      expect(api.createdBookmarks, isEmpty);
+      expect(api.updatedBookmarks, isEmpty);
+      expect(api.deletedBookmarks, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );
