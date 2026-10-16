@@ -11,9 +11,12 @@ String _html(String label, [int count = 450]) => List.generate(
   (i) => '<p>$label $i: A paragraph with <strong>bold</strong> words.</p>',
 ).join();
 
-Finder _paragraphs(String label) => find.byWidgetPredicate(
-  (widget) => widget is RichText && widget.text.toPlainText().startsWith(label),
-);
+Finder _paragraphs(String label, {bool skipOffstage = true}) =>
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is RichText && widget.text.toPlainText().startsWith(label),
+      skipOffstage: skipOffstage,
+    );
 
 Widget _host(
   String html, {
@@ -38,6 +41,44 @@ Widget _host(
 );
 
 void main() {
+  testWidgets('visible bodies take queue turns before hidden bodies', (
+    tester,
+  ) async {
+    Widget body(String label, {bool visible = true}) => Offstage(
+      offstage: !visible,
+      child: TickerMode(enabled: visible, child: _host(_html(label))),
+    );
+    await tester.pumpWidget(
+      Stack(
+        textDirection: TextDirection.ltr,
+        children: [
+          body('Hidden', visible: false),
+          body('Visible first'),
+          body('Visible second'),
+        ],
+      ),
+    );
+    int count(String label) =>
+        _paragraphs(label, skipOffstage: false).evaluate().length;
+    final initial = count('Visible first');
+    expect(count('Hidden'), initial);
+    expect(count('Visible second'), initial);
+    await tester.pump();
+    expect(count('Hidden'), initial);
+    expect(count('Visible first'), greaterThan(initial));
+    expect(count('Visible second'), initial);
+    final firstTurn = count('Visible first');
+    await tester.pump();
+    expect(count('Hidden'), initial);
+    expect(count('Visible first'), firstTurn);
+    expect(count('Visible second'), firstTurn);
+    await tester.pumpAndSettle();
+    expect(count('Hidden'), 450);
+    expect(count('Visible first'), 450);
+    expect(count('Visible second'), 450);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'shows a prefix first and keeps its elements and final geometry',
     (tester) async {
