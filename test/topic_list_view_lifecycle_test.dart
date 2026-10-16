@@ -92,7 +92,7 @@ void main() {
 
   for (final empty in [false, true]) {
     testWidgets(
-      'pull does not refresh ${empty ? 'an empty' : 'a short'} topic list',
+      'pull refreshes ${empty ? 'an empty' : 'a short'} topic list',
       (tester) async {
         final api = _ControlledPagingApi();
         final controller = await _controlledShell(api, sites.first);
@@ -107,10 +107,15 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.byType(DPullToRefresh), findsNothing);
         await tester.drag(find.byType(TopicListView), const Offset(0, 500));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(api.requests, hasLength(2));
+        expect(api.requests.last.path, '/latest.json');
+        expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+        api.requests.last.response.complete(_page(2));
         await tester.pumpAndSettle();
-        expect(api.requests, hasLength(1));
+        expect(find.text('Topic 2'), findsOneWidget);
         expect(find.byType(DSpinner), findsNothing);
         expect(tester.takeException(), isNull);
       },
