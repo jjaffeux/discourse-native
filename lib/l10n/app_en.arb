@@ -1,4 +1,8 @@
 {
+  "destinationBookmarkPageType": "Page",
+  "@destinationBookmarkPageType": {"description": "Type label for an app-local bookmark of a whole page."},
+  "destinationBookmarkUnavailable": "This destination is currently unavailable.",
+  "@destinationBookmarkUnavailable": {"description": "A locally saved destination cannot currently be opened."},
   "@@locale": "en",
   "filterNoSubcategories": "No subcategories",
   "@filterNoSubcategories": {"description": "Category breadcrumb for an exact category filter."},

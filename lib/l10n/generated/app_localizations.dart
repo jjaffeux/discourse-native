@@ -94,6 +94,18 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Type label for an app-local bookmark of a whole page.
+  ///
+  /// In en, this message translates to:
+  /// **'Page'**
+  String get destinationBookmarkPageType;
+
+  /// A locally saved destination cannot currently be opened.
+  ///
+  /// In en, this message translates to:
+  /// **'This destination is currently unavailable.'**
+  String get destinationBookmarkUnavailable;
+
   /// Category breadcrumb for an exact category filter.
   ///
   /// In en, this message translates to:

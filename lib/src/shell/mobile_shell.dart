@@ -11,6 +11,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'composer_presentation.dart';
+import 'destination_bookmark_ui.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_rail.dart';
@@ -628,6 +629,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           side: DPopoverSide.top,
           align: DPopoverAlign.end,
           children: [
+            if (shell.currentContent case final route?)
+              DestinationBookmarkMenuItem(route: route, dropdown: true),
             for (final item in destinations.skip(_shownDockCount))
               DDropdownMenuItem(
                 leading: DIcon(item.icon),

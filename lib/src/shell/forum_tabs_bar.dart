@@ -16,6 +16,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'destination_bookmark_ui.dart';
 import 'emoji.dart';
 import 'open_link.dart';
 import 'panel_rail.dart';
@@ -1106,7 +1107,7 @@ class _TabSwitcherRow extends StatelessWidget {
                 size: 15,
                 color: theme.colorScheme.onSurfaceVariant,
               );
-    return Padding(
+    final row = Padding(
       padding: EdgeInsets.only(bottom: recentlyClosed ? 2 : 0),
       child: DTooltip(
         message: item.title,
@@ -1134,6 +1135,15 @@ class _TabSwitcherRow extends StatelessWidget {
         ),
       ),
     );
+    final shell = ShellScope.maybeRead(context);
+    final tab =
+        shell?.currentWorkspace?.tabById(item.id) ??
+        shell?.recentlyClosedTabsForCurrentForum
+            .where((tab) => tab.id == item.id)
+            .firstOrNull;
+    return tab == null
+        ? row
+        : LinkTarget.content(content: tab.currentContent, child: row);
   }
 }
 
@@ -1855,6 +1865,19 @@ class _ForumTabActionsState extends State<_ForumTabActions> {
         semanticLabel: context.l10n.tabActions,
         width: 280,
         children: [
+          Builder(
+            builder: (context) {
+              final shell = ShellScope.maybeOf(context);
+              final tab =
+                  shell?.currentWorkspace?.tabById(widget.tabId) ??
+                  shell?.recentlyClosedTabsForCurrentForum
+                      .where((tab) => tab.id == widget.tabId)
+                      .firstOrNull;
+              return tab == null
+                  ? const SizedBox.shrink()
+                  : DestinationBookmarkMenuItem(route: tab.currentContent);
+            },
+          ),
           if (widget.moveToPanel != null)
             DContextMenuItem(
               key: ValueKey('forum-tab-menu-move-${widget.tabId}'),
@@ -1903,6 +1926,7 @@ final class _CurrentForumTabsSnapshot {
     required this.activeTabId,
     required this.presentationToken,
     required this.listTabId,
+    required this.bookmarksRevision,
   });
 
   factory _CurrentForumTabsSnapshot.of(ShellController controller) {
@@ -1914,6 +1938,7 @@ final class _CurrentForumTabsSnapshot {
       recentlyClosedTabs: controller.recentlyClosedTabsForCurrentForum,
       activeTabId: controller.activeTabId,
       listTabId: controller.listPanelTab?.id,
+      bookmarksRevision: controller.destinationBookmarksRevision,
       presentationToken: instance == null
           ? null
           : controller.presentationTokenFor(instance.url),
@@ -1927,11 +1952,13 @@ final class _CurrentForumTabsSnapshot {
   final String? activeTabId;
   final Object? presentationToken;
   final String? listTabId;
+  final int bookmarksRevision;
 
   @override
   bool operator ==(Object other) =>
       other is _CurrentForumTabsSnapshot &&
       siteUrl == other.siteUrl &&
+      bookmarksRevision == other.bookmarksRevision &&
       forumName == other.forumName &&
       identical(tabs, other.tabs) &&
       _sameTabs(recentlyClosedTabs, other.recentlyClosedTabs) &&
@@ -1950,6 +1977,7 @@ final class _CurrentForumTabsSnapshot {
   @override
   int get hashCode => Object.hash(
     siteUrl,
+    bookmarksRevision,
     forumName,
     identityHashCode(tabs),
     Object.hashAll(recentlyClosedTabs.map(identityHashCode)),

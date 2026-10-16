@@ -9,6 +9,13 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get destinationBookmarkPageType => 'Page';
+
+  @override
+  String get destinationBookmarkUnavailable =>
+      'This destination is currently unavailable.';
+
+  @override
   String get filterNoSubcategories => 'No subcategories';
 
   @override

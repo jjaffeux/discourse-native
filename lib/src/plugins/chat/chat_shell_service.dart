@@ -230,10 +230,16 @@ final class ChatShellService
     // back. Standing down counts as handled: a browser fallback would be as
     // unwanted as the stale route.
     final sourceSiteUrl = _host.currentInstance?.url;
+    final targetLease = chat.captureSession(_host.instances[index].url);
+    final sourceLease = sourceSiteUrl == null
+        ? null
+        : chat.captureSession(sourceSiteUrl);
     final sourceTabId = _host.activeTabId;
     final sourceRouteId = _host.currentContent?.id;
     bool superseded() {
       if (_host.isDisposed ||
+          !targetLease.isCurrent ||
+          sourceLease?.isCurrent == false ||
           generation != _urlOpenGeneration ||
           _host.currentInstance?.url != sourceSiteUrl) {
         return true;

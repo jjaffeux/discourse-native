@@ -92,6 +92,15 @@ class _ChannelMenu extends StatelessWidget {
     final followBusy = chat.channelFollowWriteInFlight(siteUrl, channel.id);
     final membership = channel.membership;
     final items = <Widget>[
+      DestinationBookmarkMenuItem(
+        route: ContentRoute(
+          id: 'chat-c-${channel.id}',
+          title: channel.title,
+          icon: DIcons.comment,
+        ),
+        siteUrl: siteUrl,
+        dropdown: true,
+      ),
       DDropdownMenuSub(
         key: ValueKey('chat-channel-notifications-${channel.id}'),
         leading: const DIcon(DIcons.bell, size: 16),

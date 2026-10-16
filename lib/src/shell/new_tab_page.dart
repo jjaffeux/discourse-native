@@ -17,6 +17,7 @@ import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
+import 'destination_bookmark_ui.dart';
 import 'forum_tabs_bar.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
@@ -121,7 +122,7 @@ class NewTabPage extends StatelessWidget {
       for (final section in contributed) section.destination.id,
     };
     final sections = <_StartSection>[
-      if (siteUrl != null) ...[
+      if (siteUrl != null && shell != null) ...[
         if (closedRows.isNotEmpty)
           _StartSection(
             id: 'recently-closed',
@@ -135,7 +136,19 @@ class NewTabPage extends StatelessWidget {
             id: 'bookmarks',
             title: context.l10n.bookmarks,
             icon: DIcons.bookmark,
-            rows: const [],
+            rows: matching([
+              for (final bookmark in shell.destinationBookmarksFor(siteUrl))
+                _StartPageEntry(
+                  id: 'bookmark-${bookmark.identity}',
+                  title: bookmark.route.title,
+                  icon: destinationBookmarkIcon(bookmark.kind),
+                  subtitle:
+                      '${destinationBookmarkTypeLabel(bookmark.kind)} · ${forum!.title}',
+                  route: bookmark.route,
+                  onPressed: () =>
+                      shell.openDestinationBookmark(siteUrl, bookmark),
+                ),
+            ]).take(5).toList(),
             siteUrl: siteUrl,
             onHeading: openBookmarks,
           ),
@@ -165,7 +178,7 @@ class NewTabPage extends StatelessWidget {
           onHeading: onBrowseTopics,
         ),
         if (forum?.user != null) ...[
-          if (shell!.draftList
+          if (shell.draftList
               .feedFor(siteUrl)
               .drafts
               .any((draft) => draft.canResume))
@@ -208,7 +221,7 @@ class NewTabPage extends StatelessWidget {
           icon: DIcons.userGroup,
           rows: const [],
           siteUrl: siteUrl,
-          onHeading: () => openLink(context, shell!.siteLink('/g')),
+          onHeading: () => openLink(context, shell.siteLink('/g')),
         ),
         _StartSection(
           id: 'badges',
@@ -216,7 +229,7 @@ class NewTabPage extends StatelessWidget {
           icon: DIcons.certificate,
           rows: const [],
           siteUrl: siteUrl,
-          onHeading: () => openLink(context, shell!.siteLink('/badges')),
+          onHeading: () => openLink(context, shell.siteLink('/badges')),
         ),
         _StartSection(
           id: 'users',
@@ -224,7 +237,7 @@ class NewTabPage extends StatelessWidget {
           icon: DIcons.users,
           rows: const [],
           siteUrl: siteUrl,
-          onHeading: () => openLink(context, shell!.siteLink('/u')),
+          onHeading: () => openLink(context, shell.siteLink('/u')),
         ),
         for (final section in contributed.where((s) => s.destination.enabled))
           _StartSection(
@@ -233,7 +246,7 @@ class NewTabPage extends StatelessWidget {
             icon: section.destination.icon,
             rows: const [],
             siteUrl: siteUrl,
-            onHeading: () => shell!.selectDestination(section.destination),
+            onHeading: () => shell.selectDestination(section.destination),
           ),
         for (final shortcut in shortcuts)
           if (!contributedIds.contains(shortcut.id))
@@ -243,7 +256,7 @@ class NewTabPage extends StatelessWidget {
               icon: shortcut.icon,
               rows: const [],
               siteUrl: siteUrl,
-              onHeading: () => shell!.selectDestination(shortcut),
+              onHeading: () => shell.selectDestination(shortcut),
             ),
         if (forum?.user != null)
           _StartSection(
@@ -252,7 +265,7 @@ class NewTabPage extends StatelessWidget {
             icon: DNativeIcons.sliders,
             rows: const [],
             siteUrl: siteUrl,
-            onHeading: () => shell!.openPreferences(siteUrl),
+            onHeading: () => shell.openPreferences(siteUrl),
           ),
         _StartSection(
           id: 'settings',
@@ -260,11 +273,15 @@ class NewTabPage extends StatelessWidget {
           icon: DIcons.gear,
           rows: const [],
           siteUrl: siteUrl,
-          onHeading: () => shell!.openForumSettings(siteUrl),
+          onHeading: () => shell.openForumSettings(siteUrl),
         ),
       ],
     ];
-    final found = closedRows.length;
+    final found =
+        closedRows.length +
+        sections
+            .where((section) => section.id == 'bookmarks')
+            .fold<int>(0, (count, section) => count + section.rows.length);
     final visibleSections = sections;
     visibleSections.sort((a, b) {
       if (a.id == 'recently-closed') return -1;
@@ -322,6 +339,7 @@ class NewTabPage extends StatelessWidget {
         .firstOrNull;
     return _StartPageEntry(
       id: 'closed-${tab.id}',
+      route: route,
       title:
           topic?.title ?? category?.name ?? destination?.label ?? route.title,
       icon:
@@ -418,7 +436,9 @@ class _StartList extends StatelessWidget {
                 children: [
                   ?searchResults,
                   for (final section in sections.where(
-                    (s) => s.id == 'recently-closed',
+                    (s) =>
+                        s.id == 'recently-closed' ||
+                        s.id == 'bookmarks' && s.rows.isNotEmpty,
                   ))
                     section,
                   LayoutBuilder(
@@ -439,7 +459,9 @@ class _StartList extends StatelessWidget {
                         runSpacing: gap,
                         children: [
                           for (final section in sections.where(
-                            (s) => s.id != 'recently-closed',
+                            (s) =>
+                                s.id != 'recently-closed' &&
+                                (s.id != 'bookmarks' || s.rows.isEmpty),
                           ))
                             SizedBox(width: width, child: section),
                         ],
@@ -466,8 +488,10 @@ class _StartPageEntry {
     this.color,
     this.path,
     this.bookmarkUrl,
+    this.subtitle,
     this.avatarUrl,
     this.prefixBuilder,
+    this.route,
   });
 
   final String id;
@@ -476,6 +500,8 @@ class _StartPageEntry {
   final Color? color;
   final String? path;
   final String? bookmarkUrl;
+  final String? subtitle;
+  final ContentRoute? route;
   final String? avatarUrl;
   final SidebarRowDecorationBuilder? prefixBuilder;
   final VoidCallback? onPressed;
@@ -584,10 +610,20 @@ class _StartSection extends StatelessWidget {
                 ).textTheme.bodyLarge?.fontFamilyFallback,
               ),
             ),
+            if (entry.subtitle case final subtitle?)
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: DTokens.of(context).mutedForeground,
+                ),
+              ),
           ],
         ),
       ],
     );
+    if (entry.route case final route? when !route.isTopic) {
+      return LinkTarget.content(content: route, siteUrl: siteUrl, child: row);
+    }
     return entry.path == null
         ? row
         : LinkTarget(
@@ -601,7 +637,7 @@ class _StartSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (id != 'recently-closed') {
+    if (id != 'recently-closed' && rows.isEmpty) {
       return DButton(
         key: ValueKey('start-page-section-link-$title'),
         variant: DButtonVariant.launcher,
@@ -617,6 +653,7 @@ class _StartSection extends StatelessWidget {
       children: [
         DItem(
           key: ValueKey('start-page-section-link-$title'),
+          onPressed: onHeading,
           size: DItemSize.xs,
           children: [
             DIcon(icon, size: 21, color: DTokens.of(context).mutedForeground),

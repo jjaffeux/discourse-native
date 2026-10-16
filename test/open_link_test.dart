@@ -268,7 +268,7 @@ void main() {
 
   for (final signedIn in [false, true]) {
     testWidgets(
-      'shared menus omit unsupported targets (signed in: $signedIn)',
+      'shared menus expose category bookmarks only when signed in ($signedIn)',
       (tester) async {
         await _pumpLink(
           tester,
@@ -283,7 +283,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Open in main panel'), findsOneWidget);
-        expect(find.text('Bookmark'), findsNothing);
+        expect(find.text('Bookmark'), signedIn ? findsOneWidget : findsNothing);
         expect(find.text('Remove bookmark'), findsNothing);
       },
     );

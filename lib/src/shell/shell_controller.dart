@@ -18,6 +18,7 @@ import '../data/authenticator.dart';
 import '../data/badges_api.dart';
 import '../data/bookmark_reminder_store.dart';
 import '../data/composer_media_optimizer.dart';
+import '../data/destination_bookmarks_store.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/discover_sites.dart';
 import '../data/draft_store.dart';
@@ -57,6 +58,7 @@ import '../models/category_sidebar.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/content_route.dart';
+import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
@@ -238,6 +240,15 @@ int? _destinationNumericId(String destinationId, String prefix) {
   return id != null && id > 0 ? id : null;
 }
 
+final class DestinationBookmarkAction {
+  const DestinationBookmarkAction({
+    required this.bookmarked,
+    required this.invoke,
+  });
+  final bool bookmarked;
+  final Future<BookmarkWriteResult> Function() invoke;
+}
+
 sealed class _BookmarkWriteContext {
   const _BookmarkWriteContext();
 }
@@ -350,6 +361,7 @@ class ShellController extends FrameSafeNotifier
     ForumSettingsStore? forumSettingsStore,
     ForumTabStore? forumTabs,
     RecentDestinationsStore? recentDestinations,
+    DestinationBookmarksStore? destinationBookmarks,
     this.forumTabsEnabled = true,
     this.mobileNavigationEnabled = false,
     Store? store,
@@ -376,6 +388,8 @@ class ShellController extends FrameSafeNotifier
        forumTabs = forumTabs ?? ForumTabStore.memory(),
        recentDestinations =
            recentDestinations ?? RecentDestinationsStore.memory(),
+       destinationBookmarks =
+           destinationBookmarks ?? DestinationBookmarksStore.memory(),
        appSettings = AppSettingsController(
          store:
              appSettingsStore ??
@@ -572,6 +586,9 @@ class ShellController extends FrameSafeNotifier
   final InstanceStore instanceStore;
   final ForumTabStore forumTabs;
   final RecentDestinationsStore recentDestinations;
+  final DestinationBookmarksStore destinationBookmarks;
+  int _destinationBookmarksRevision = 0;
+  int get destinationBookmarksRevision => _destinationBookmarksRevision;
   final AppSettingsController appSettings;
   final ForumSettingsController forumSettings;
   final sidebarSections = SidebarSectionStore();
@@ -1675,6 +1692,176 @@ class ShellController extends FrameSafeNotifier
   List<ContentRoute> recentCategoriesFor(String siteUrl) => recentDestinations
       .categoriesFor(siteUrl, _recentAccountIdentity(siteUrl));
 
+  List<DestinationBookmark> destinationBookmarksFor(String siteUrl) =>
+      destinationBookmarks.entriesFor(siteUrl, _recentAccountIdentity(siteUrl));
+
+  DestinationBookmarkAction? destinationBookmarkAction(
+    ContentRoute route, {
+    String? siteUrl,
+  }) {
+    final site = siteUrl ?? currentInstance?.url;
+    final bookmark = DestinationBookmark.fromRoute(route);
+    if (site == null ||
+        _instanceAt(site)?.isConnected != true ||
+        bookmark == null) {
+      return null;
+    }
+    final account = _recentAccountIdentity(site);
+    final lease = lifecycle.capture(site);
+    final bookmarked = destinationBookmarksFor(
+      site,
+    ).any((entry) => entry.identity == bookmark.identity);
+    bool current() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        _recentAccountIdentity(site) == account;
+    return DestinationBookmarkAction(
+      bookmarked: bookmarked,
+      invoke: () async {
+        if (!current()) {
+          return BookmarkWriteResult.refused(
+            appL10n.bookmarkChangedRefreshMenu,
+          );
+        }
+        try {
+          await destinationBookmarks.set(
+            site,
+            account,
+            bookmark,
+            bookmarked: !bookmarked,
+            isCurrent: current,
+          );
+          if (!current()) {
+            return BookmarkWriteResult.refused(
+              appL10n.bookmarkChangedRefreshMenu,
+            );
+          }
+          _destinationBookmarksRevision++;
+          _notify();
+          return const BookmarkWriteResult.saved();
+        } catch (error, stack) {
+          _reportOperationalError(
+            error,
+            stack,
+            'destinationBookmarks.save',
+            degraded: true,
+          );
+          return BookmarkWriteResult.refused(appL10n.couldNotSaveChanges);
+        }
+      },
+    );
+  }
+
+  String? destinationBookmarkSiteForUrl(String url, {String? siteUrl}) {
+    final target = Uri.tryParse(absoluteUrl(url, siteUrl: siteUrl));
+    return target == null
+        ? null
+        : _instances.where((site) => site.serves(target)).firstOrNull?.url;
+  }
+
+  ContentRoute? destinationBookmarkRouteForUrl(
+    String url, {
+    String? siteUrl,
+    String? title,
+  }) {
+    final absolute = absoluteUrl(url, siteUrl: siteUrl);
+    final destination = _routeForLink(absolute, title: title);
+    if (destination != null) return destination.route;
+    final target = Uri.tryParse(absolute);
+    final instance = target == null
+        ? null
+        : _instances.where((site) => site.serves(target)).firstOrNull;
+    if (instance == null) return null;
+    final channel = RegExp(
+      r'^/chat/c/[^/]+/([1-9][0-9]*)/?$',
+    ).firstMatch(instance.pathWithin(target!) ?? '');
+    return channel == null
+        ? null
+        : ContentRoute(
+            id: 'chat-c-${channel.group(1)}',
+            title: title ?? appL10n.chat,
+            icon: DIcons.comments,
+          );
+  }
+
+  Future<bool> openDestinationBookmark(
+    String siteUrl,
+    DestinationBookmark bookmark, {
+    bool newTab = false,
+    ForumPanel? panel,
+  }) async {
+    if (currentInstance?.url != siteUrl ||
+        !destinationBookmarksFor(siteUrl).contains(bookmark)) {
+      return false;
+    }
+    return openDestinationRoute(bookmark.route, newTab: newTab, panel: panel);
+  }
+
+  Future<bool> openDestinationRoute(
+    ContentRoute route, {
+    String? siteUrl,
+    bool newTab = false,
+    ForumPanel? panel,
+  }) async {
+    final instance = siteUrl == null ? currentInstance : _instanceAt(siteUrl);
+    if (instance == null) return false;
+    final bookmark = DestinationBookmark.fromRoute(route);
+    if (bookmark?.kind == DestinationBookmarkKind.chat) {
+      final channel = bookmark!.identity.substring('chat:'.length);
+      return openPluginUrl(
+        siteLink('/chat/c/-/$channel', siteUrl: instance.url),
+        origin: newTab
+            ? panel == ForumPanel.main
+                  ? PluginLinkOrigin.mainPanelNewTab
+                  : panel == ForumPanel.secondary
+                  ? PluginLinkOrigin.secondaryPanelNewTab
+                  : PluginLinkOrigin.newTab
+            : panel == ForumPanel.main
+            ? PluginLinkOrigin.mainPanel
+            : panel == ForumPanel.secondary
+            ? PluginLinkOrigin.secondaryPanel
+            : PluginLinkOrigin.inApp,
+      );
+    }
+    if (newTab) {
+      return openContentInNewTab(
+            route,
+            siteUrl: instance.url,
+            panel: panel,
+            select: false,
+          ) ==
+          TabOpenResult.opened;
+    }
+    if (currentInstance?.url != instance.url) {
+      selectInstance(_instances.indexOf(instance));
+    }
+    if (panel != null && desktopPanelsEnabled) {
+      final target = selectedTabIn(panel);
+      if (target == null) {
+        return openContentInNewTab(
+              route,
+              siteUrl: instance.url,
+              panel: panel,
+              select: true,
+            ) ==
+            TabOpenResult.opened;
+      }
+      if (target.id != activeTabId) selectTab(target.id);
+    }
+    _preparePluginPaneForRoute(route.id);
+    final tab = activeTab;
+    if (tab == null) return false;
+    _replaceActiveTab(
+      tab.navigate(rootDestinationId: route.id, contentStack: [route]),
+    );
+    _setForumContentRoot();
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    _hydrateActiveTab(instance);
+    return true;
+  }
+
   /// Uses the loaded topic tracking snapshot and live updates, with the same
   /// category counting rules as sidebar badges.
   int categoryActivityCountFor(String siteUrl, int categoryId) {
@@ -2130,6 +2317,14 @@ class ShellController extends FrameSafeNotifier
     final settingsLoad = appSettings.load();
     final storedWorkspaces = forumTabs.load();
     final recentDestinationsLoad = recentDestinations.load();
+    final destinationBookmarksLoad = destinationBookmarks.load().catchError(
+      (Object error, StackTrace stack) => _reportOperationalError(
+        error,
+        stack,
+        'destinationBookmarks.load',
+        degraded: true,
+      ),
+    );
     final List<DiscourseInstance> stored;
     try {
       stored = await instanceStore.load();
@@ -2150,6 +2345,7 @@ class ShellController extends FrameSafeNotifier
 
     await settingsLoad;
     await recentDestinationsLoad;
+    await destinationBookmarksLoad;
     if (isDisposed) return;
     _instances
       ..clear()
@@ -2516,6 +2712,18 @@ class ShellController extends FrameSafeNotifier
       // drops them: a rollback restores the forum with them, and a re-add that
       // landed during the save owns the URL's again.
       if (_instanceAt(held.url) == null) {
+        unawaited(
+          destinationBookmarks
+              .forgetSite(held.url)
+              .catchError(
+                (Object error, StackTrace stack) => _reportOperationalError(
+                  error,
+                  stack,
+                  'destinationBookmarks.forgetSite',
+                  degraded: true,
+                ),
+              ),
+        );
         if (recentDestinations.forgetSite(held.url)) {
           unawaited(recentDestinations.save());
         }
@@ -6701,7 +6909,11 @@ class ShellController extends FrameSafeNotifier
     for (final composer in _composers) {
       unawaited(composer.flushDraftOnBackground());
     }
-    await Future.wait([_workspacesSaved, _composerDrafts.localWritesSettled()]);
+    await Future.wait([
+      _workspacesSaved,
+      _composerDrafts.localWritesSettled(),
+      destinationBookmarks.flush(),
+    ]);
   }
 
   void setForeground(bool foreground) {

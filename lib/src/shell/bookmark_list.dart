@@ -13,6 +13,7 @@ import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
 import 'desktop_header_menu.dart';
+import 'destination_bookmark_ui.dart';
 import 'directory_skeleton.dart';
 import 'external_link.dart';
 import 'notification_list.dart';
@@ -256,6 +257,28 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   }
 
   Widget _menu(BuildContext context) {
+    final entries = widget.controller.destinationBookmarksFor(widget.siteUrl);
+    if (entries.isEmpty || DesktopHeaderMenu.isActiveOf(context)) {
+      return _serverMenu(context);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final bookmark in entries)
+          DestinationBookmarkRow(
+            siteUrl: widget.siteUrl,
+            bookmark: bookmark,
+            onOpened: widget.onOpened,
+          ),
+        if (!widget.controller.bookmarksFor(widget.siteUrl).loaded ||
+            widget.controller.bookmarksFor(widget.siteUrl).error != null ||
+            widget.controller.bookmarksFor(widget.siteUrl).hasRows)
+          _serverMenu(context),
+      ],
+    );
+  }
+
+  Widget _serverMenu(BuildContext context) {
     final controller = widget.controller;
     final feed = controller.bookmarksFor(widget.siteUrl);
     if (feed.error case final error?) {
@@ -316,7 +339,10 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       for (final bookmark in feed.bookmarks)
         (bookmark: bookmark, presentation: _present(bookmark)),
     ];
+    final localEntries = controller.destinationBookmarksFor(widget.siteUrl);
     final filters = <String>{
+      for (final entry in localEntries)
+        destinationBookmarkTypeLabel(entry.kind),
       context.l10n.posts,
       context.l10n.topics,
       for (final presenter
@@ -351,6 +377,14 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               },
         )
         .toList();
+    final visibleLocalEntries = localEntries
+        .where(
+          (entry) =>
+              _reminderFilter == BookmarkReminderFilter.all &&
+              (_filter == null ||
+                  _filter == destinationBookmarkTypeLabel(entry.kind)),
+        )
+        .toList();
     _scheduleVisibleEndCheck(feed);
 
     Widget? state;
@@ -364,10 +398,10 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           key: ValueKey('bookmarks-loading'),
           kind: DirectorySkeletonKind.bookmarks,
         );
-      } else {
+      } else if (visibleLocalEntries.isEmpty) {
         state = SliverToBoxAdapter(
           child: UserMenuMessage(
-            text: feed.isEmpty
+            text: feed.isEmpty && localEntries.isEmpty
                 ? context.l10n.nothingBookmarkedYet
                 : context.l10n.noBookmarksInThisFilter,
           ),
@@ -386,6 +420,14 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               controller: _scrollController,
               slivers: [
                 SliverToBoxAdapter(child: header.spacer),
+                for (final bookmark in visibleLocalEntries)
+                  SliverToBoxAdapter(
+                    child: DestinationBookmarkRow(
+                      siteUrl: widget.siteUrl,
+                      bookmark: bookmark,
+                      onOpened: widget.onOpened,
+                    ),
+                  ),
                 if (state != null)
                   state
                 else ...[

@@ -13,6 +13,7 @@ import 'package:relative_time/relative_time.dart';
 
 import 'data/app_settings_store.dart';
 import 'data/authenticator.dart';
+import 'data/destination_bookmarks_store.dart';
 import 'data/discourse_api.dart';
 import 'data/draft_store.dart';
 import 'data/forum_settings_store.dart';
@@ -101,6 +102,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   late DraftStore _drafts;
   late ForumTabStore _forumTabs;
   late RecentDestinationsStore _recentDestinations;
+  late DestinationBookmarksStore _destinationBookmarks;
   late SiteTrackerFactory _trackers;
   late Updater _updater;
   late UpdateStore _updateStore;
@@ -185,6 +187,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     drafts: _drafts,
     forumTabs: _forumTabs,
     recentDestinations: _recentDestinations,
+    destinationBookmarks: _destinationBookmarks,
     forumTabsEnabled: forumTabsEnabledForCurrentPlatform,
     mobileNavigationEnabled: usesMobileNavigation(defaultTargetPlatform),
     trackers: _trackers,
@@ -212,6 +215,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _drafts = widget.drafts ?? DraftStore();
     _forumTabs = widget.forumTabs ?? ForumTabStore();
     _recentDestinations = RecentDestinationsStore();
+    _destinationBookmarks = DestinationBookmarksStore();
     _trackers = widget.trackers ?? SiteTracker.new;
     _updater = widget.updater ?? const UnsupportedUpdater();
     _updateStore = widget.updateStore ?? UpdateStore();

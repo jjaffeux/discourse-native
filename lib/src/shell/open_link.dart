@@ -7,9 +7,11 @@ import 'package:flutter/services.dart';
 
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
+import '../models/destination_bookmark.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/shell_extensions.dart';
+import 'destination_bookmark_ui.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -217,6 +219,14 @@ class _LinkTargetState extends State<LinkTarget> {
                 siteUrl: widget.siteUrl,
               ));
     if (url == null) return;
+    final local =
+        route ??
+        controller.destinationBookmarkRouteForUrl(url, siteUrl: widget.siteUrl);
+    if (widget.targetBookmark == null &&
+        local != null &&
+        DestinationBookmark.fromRoute(local) != null) {
+      return;
+    }
     final absoluteUrl = controller.absoluteUrl(url, siteUrl: widget.siteUrl);
     final cached = widget.targetBookmark == null
         ? controller.cachedTopicBookmarkLink(absoluteUrl)
@@ -273,11 +283,48 @@ class _LinkTargetState extends State<LinkTarget> {
 
   @override
   Widget build(BuildContext context) {
+    final shell = ShellScope.maybeRead(context);
+    final ownerSite = widget.url == null
+        ? widget.siteUrl ?? shell?.currentInstance?.url
+        : shell?.destinationBookmarkSiteForUrl(
+                widget.url!,
+                siteUrl: widget.siteUrl,
+              ) ??
+              widget.siteUrl ??
+              shell?.currentInstance?.url;
+    final ownerLease = ownerSite == null
+        ? null
+        : shell?.lifecycle.capture(ownerSite);
+    final ownerAccount = shell?.currentAccountIdentity;
+    final localRoute =
+        widget.content ??
+        (widget.targetBookmark == null && widget.url != null
+            ? shell?.destinationBookmarkRouteForUrl(
+                widget.url!,
+                siteUrl: widget.siteUrl,
+                title: widget.title,
+              )
+            : null);
     void activate({required bool newTab, ForumPanel? panel}) {
+      if (ownerLease?.isCurrent == false ||
+          shell?.currentAccountIdentity != ownerAccount) {
+        return;
+      }
       if (widget.action case final open?) {
         open(newTab: newTab, panel: panel);
       } else if (widget.content case final route?) {
         final controller = ShellScope.read(context);
+        if (DestinationBookmark.fromRoute(route) != null) {
+          unawaited(
+            controller.openDestinationRoute(
+              route,
+              siteUrl: widget.siteUrl,
+              newTab: newTab,
+              panel: panel,
+            ),
+          );
+          return;
+        }
         if (newTab) {
           handleTabOpenResult(
             context,
@@ -342,7 +389,14 @@ class _LinkTargetState extends State<LinkTarget> {
                     activate(newTab: true, panel: ForumPanel.secondary),
                 child: Text(context.l10n.openInNewSecondaryTab),
               ),
-              if (_bookmarkAction case final action?) ...[
+              if (localRoute != null &&
+                  DestinationBookmark.fromRoute(localRoute) != null) ...[
+                const DContextMenuSeparator(),
+                DestinationBookmarkMenuItem(
+                  route: localRoute,
+                  siteUrl: ownerSite,
+                ),
+              ] else if (_bookmarkAction case final action?) ...[
                 const DContextMenuSeparator(),
                 DContextMenuItem(
                   onPressed: () => unawaited(_invokeBookmark(action)),

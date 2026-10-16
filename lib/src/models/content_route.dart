@@ -807,7 +807,8 @@ class ContentRoute {
             !MessageListMode.values.any(
               (mode) =>
                   mode.supportsGroup &&
-                  id == _messageRouteId(messageGroupName, mode),
+                  id.split('?').first ==
+                      _messageRouteId(messageGroupName, mode),
             ))) {
       throw FormatException(appL10n.invalidContentRouteMessageGroup);
     }
