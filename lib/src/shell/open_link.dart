@@ -284,6 +284,7 @@ class _LinkTargetState extends State<LinkTarget> {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.maybeRead(context);
+    final toasts = DToast.maybeOf(context);
     final ownerSite = widget.url == null
         ? widget.siteUrl ?? shell?.currentInstance?.url
         : shell?.destinationBookmarkSiteForUrl(
@@ -316,12 +317,27 @@ class _LinkTargetState extends State<LinkTarget> {
         final controller = ShellScope.read(context);
         if (DestinationBookmark.fromRoute(route) != null) {
           unawaited(
-            controller.openDestinationRoute(
-              route,
-              siteUrl: widget.siteUrl,
-              newTab: newTab,
-              panel: panel,
-            ),
+            controller
+                .openDestinationRoute(
+                  route,
+                  siteUrl: widget.siteUrl,
+                  newTab: newTab,
+                  panel: panel,
+                )
+                .then((result) {
+                  if (ownerLease?.isCurrent == false ||
+                      controller.currentAccountIdentity != ownerAccount ||
+                      result == TabOpenResult.opened) {
+                    return;
+                  }
+                  toasts?.add(
+                    DToastOptions(
+                      description: result == TabOpenResult.limitReached
+                          ? appL10n.closeATabBeforeOpeningAnotherOpenlink
+                          : appL10n.destinationBookmarkUnavailable,
+                    ),
+                  );
+                }),
           );
           return;
         }

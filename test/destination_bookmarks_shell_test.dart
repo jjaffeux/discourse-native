@@ -134,11 +134,14 @@ void main() {
     final sourceSite = shell.currentInstance!.url;
     expect(
       await shell.openDestinationRoute(route, siteUrl: site, newTab: true),
-      isTrue,
+      TabOpenResult.opened,
     );
     expect(shell.currentInstance!.url, sourceSite);
     expect(shell.workspaceFor(site)!.tabs.last.currentContent, route);
-    expect(await shell.openDestinationRoute(route, siteUrl: site), isTrue);
+    expect(
+      await shell.openDestinationRoute(route, siteUrl: site),
+      TabOpenResult.opened,
+    );
     expect(shell.currentInstance!.url, site);
     expect(shell.currentContent, route);
     expect(

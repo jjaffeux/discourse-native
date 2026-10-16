@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/destination_bookmarks_store.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/destination_bookmark_ui.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -135,6 +136,81 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final route in [_page, _category, _chat]) {
+    for (final contextMenu in [false, true]) {
+      testWidgets(
+        'typed content new-tab failures report workspace capacity for ${route.id} with menu $contextMenu',
+        (tester) async {
+          final shell = await tester.runAsync(() => _shell());
+          addTearDown(shell!.dispose);
+          shell.desktopTopicTabs = true;
+          for (var i = 1; i < ForumWorkspace.maximumTabs; i++) {
+            shell.createTab();
+          }
+          final original = shell.activeTab;
+          await _pump(
+            tester,
+            shell,
+            LinkTarget.content(
+              content: route,
+              child: DButton(label: Text(route.title), onPressed: () {}),
+            ),
+          );
+          await tester.tap(
+            find.text(route.title),
+            kind: PointerDeviceKind.mouse,
+            buttons: contextMenu ? kSecondaryMouseButton : kMiddleMouseButton,
+          );
+          await tester.pumpAndSettle();
+          if (contextMenu) {
+            await tester.tap(find.text('Open in new main tab'));
+            await tester.pumpAndSettle();
+          }
+          expect(shell.activeTab, original);
+          expect(
+            shell.tabsForCurrentForum,
+            hasLength(ForumWorkspace.maximumTabs),
+          );
+          expect(
+            find.text('Close a tab before opening another.'),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  testWidgets('typed chat context actions report an unavailable destination', (
+    tester,
+  ) async {
+    final shell = await tester.runAsync(() => _shell());
+    addTearDown(shell!.dispose);
+    final original = shell.activeTab;
+    await _pump(
+      tester,
+      shell,
+      LinkTarget.content(
+        content: _chat,
+        child: DButton(label: Text(_chat.title), onPressed: () {}),
+      ),
+    );
+    await tester.tap(
+      find.text(_chat.title),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open in main panel'));
+    await tester.pumpAndSettle();
+    expect(shell.activeTab, original);
+    expect(
+      find.text('This destination is currently unavailable.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   for (final (size, scale) in [
     (const Size(390, 844), 1.0),

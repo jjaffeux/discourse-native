@@ -1794,21 +1794,32 @@ class ShellController extends FrameSafeNotifier
         !destinationBookmarksFor(siteUrl).contains(bookmark)) {
       return false;
     }
-    return openDestinationRoute(bookmark.route, newTab: newTab, panel: panel);
+    return await openDestinationRoute(
+          bookmark.route,
+          newTab: newTab,
+          panel: panel,
+        ) ==
+        TabOpenResult.opened;
   }
 
-  Future<bool> openDestinationRoute(
+  Future<TabOpenResult> openDestinationRoute(
     ContentRoute route, {
     String? siteUrl,
     bool newTab = false,
     ForumPanel? panel,
   }) async {
     final instance = siteUrl == null ? currentInstance : _instanceAt(siteUrl);
-    if (instance == null) return false;
+    if (instance == null) return TabOpenResult.unsupported;
+    if (newTab &&
+        forumTabsEnabled &&
+        (workspaceFor(instance.url)?.tabs.length ?? 0) >=
+            ForumWorkspace.maximumTabs) {
+      return TabOpenResult.limitReached;
+    }
     final bookmark = DestinationBookmark.fromRoute(route);
     if (bookmark?.kind == DestinationBookmarkKind.chat) {
       final channel = bookmark!.identity.substring('chat:'.length);
-      return openPluginUrl(
+      final opened = await openPluginUrl(
         siteLink('/chat/c/-/$channel', siteUrl: instance.url),
         origin: newTab
             ? panel == ForumPanel.main
@@ -1822,15 +1833,15 @@ class ShellController extends FrameSafeNotifier
             ? PluginLinkOrigin.secondaryPanel
             : PluginLinkOrigin.inApp,
       );
+      return opened ? TabOpenResult.opened : TabOpenResult.unsupported;
     }
     if (newTab) {
       return openContentInNewTab(
-            route,
-            siteUrl: instance.url,
-            panel: panel,
-            select: false,
-          ) ==
-          TabOpenResult.opened;
+        route,
+        siteUrl: instance.url,
+        panel: panel,
+        select: false,
+      );
     }
     if (currentInstance?.url != instance.url) {
       selectInstance(_instances.indexOf(instance));
@@ -1839,18 +1850,17 @@ class ShellController extends FrameSafeNotifier
       final target = selectedTabIn(panel);
       if (target == null) {
         return openContentInNewTab(
-              route,
-              siteUrl: instance.url,
-              panel: panel,
-              select: true,
-            ) ==
-            TabOpenResult.opened;
+          route,
+          siteUrl: instance.url,
+          panel: panel,
+          select: true,
+        );
       }
       if (target.id != activeTabId) selectTab(target.id);
     }
     _preparePluginPaneForRoute(route.id);
     final tab = activeTab;
-    if (tab == null) return false;
+    if (tab == null) return TabOpenResult.unsupported;
     _replaceActiveTab(
       tab.navigate(rootDestinationId: route.id, contentStack: [route]),
     );
@@ -1859,7 +1869,7 @@ class ShellController extends FrameSafeNotifier
     _syncTopicChannels();
     _notify();
     _hydrateActiveTab(instance);
-    return true;
+    return TabOpenResult.opened;
   }
 
   /// Uses the loaded topic tracking snapshot and live updates, with the same
