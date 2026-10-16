@@ -194,9 +194,12 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
             ),
             if (!gradient && background?.effect != ForumBackgroundEffect.hatch)
               Positioned.fill(
-                child: ForumTexture(
-                  background: background ?? const ForumBackground.appearance(),
-                  accent: tokens.primary,
+                child: RepaintBoundary(
+                  child: ForumTexture(
+                    background:
+                        background ?? const ForumBackground.appearance(),
+                    accent: tokens.primary,
+                  ),
                 ),
               ),
           ],
