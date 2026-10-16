@@ -74,6 +74,75 @@ void main() {
       }
     });
 
+    test(
+      'loads forum themes when HTML negotiation triggers a browser challenge',
+      () async {
+        final paletteCss = _paletteCss.replaceAll('#0088cc', '#76b900');
+        final client = _Client((request) async {
+          if (request.url.path == '/' &&
+              (request.headers['accept']?.contains('text/html') ?? false)) {
+            return _response(
+              request,
+              '<html><body>Browser verification required</body></html>',
+              statusCode: 403,
+              contentType: 'text/html',
+            );
+          }
+          return switch (request.url.path) {
+            '/site.json' => _response(
+              request,
+              _siteJson(),
+              contentType: 'application/json',
+            ),
+            '/color-scheme-stylesheet/10/5.json' => _response(
+              request,
+              _details('/light.css'),
+              contentType: 'application/json',
+            ),
+            '/color-scheme-stylesheet/11/5.json' => _response(
+              request,
+              _details('/dark.css'),
+              contentType: 'application/json',
+            ),
+            '/' => _response(
+              request,
+              _themeDocument(themeId: 5, href: '/theme.css'),
+              contentType: 'text/html',
+            ),
+            '/light.css' => _response(
+              request,
+              paletteCss,
+              contentType: 'text/css',
+            ),
+            '/dark.css' => _response(
+              request,
+              paletteCss.replaceFirst('light', 'dark'),
+              contentType: 'text/css',
+            ),
+            '/theme.css' => _response(
+              request,
+              ':root { --header_background: #000000; --header_primary: #ffffff; }',
+              contentType: 'text/css',
+            ),
+            _ => throw StateError('Unexpected request: ${request.url}'),
+          };
+        });
+
+        final appearance = await SiteAppearanceLoader(
+          client: client,
+        ).load(siteUrl: 'https://forum.example');
+
+        expect(appearance?.mode, SiteAppearanceMode.followSystem);
+        expect(appearance?.base?.brightness, Brightness.light);
+        expect(appearance?.alternate?.brightness, Brightness.dark);
+        for (final palette in [appearance?.base, appearance?.alternate]) {
+          expect(palette?.tertiary, const Color(0xFF76B900));
+          expect(palette?.headerBackground, const Color(0xFF000000));
+          expect(palette?.headerPrimary, const Color(0xFFFFFFFF));
+        }
+      },
+    );
+
     for (final clientId in ['', 'client-id']) {
       test(
         'uses authenticated preferences and isolates CSS credentials (client ID: $clientId)',
@@ -158,7 +227,7 @@ void main() {
               clientId.isEmpty ? null : clientId,
             );
           }
-          expect(client.requests[4].headers['accept'], 'text/html');
+          expect(client.requests[4].headers['accept'], '*/*');
           expect(client.requests[4].headers['user-api-key'], 'secret-key');
           expect(
             client.requests[4].headers['user-api-client-id'],

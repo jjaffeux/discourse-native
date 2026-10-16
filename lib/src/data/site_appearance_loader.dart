@@ -168,7 +168,8 @@ final class SiteAppearanceLoader {
     // consuming the result the later await still needs.
     final documentLoad = _loadText(
       apiBase,
-      accept: 'text/html',
+      // Some forums challenge browser-style HTML requests from native clients.
+      accept: '*/*',
       headers: forumHeaders,
       redirectOrigin: apiKey == null ? null : apiBase.origin,
     );
