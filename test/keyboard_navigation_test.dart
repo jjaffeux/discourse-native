@@ -445,7 +445,7 @@ void main() {
           expect(setup.shell.contentStack, hasLength(2));
           expect(_selectedPosts(tester), isEmpty);
           if (size == phone) {
-            await tester.tap(find.byTooltip('Back'));
+            await tester.binding.handlePopRoute();
             await tester.pumpAndSettle();
           }
           _expectTopicVisible(tester, 1);
