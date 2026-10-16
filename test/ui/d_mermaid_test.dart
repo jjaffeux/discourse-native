@@ -70,6 +70,64 @@ void main() {
       (controller ?? platform.controllers.last).channels['NativeMermaid']!
           .onMessageReceived(JavaScriptMessage(message: message));
 
+  Widget consumers(List<({String source, bool visible})> diagrams) =>
+      DefaultAssetBundle(
+        bundle: assets,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (var index = 0; index < diagrams.length; index++)
+                    Offstage(
+                      key: ValueKey(index),
+                      offstage: !diagrams[index].visible,
+                      child: TickerMode(
+                        enabled: diagrams[index].visible,
+                        child: DMermaid(source: diagrams[index].source),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+  testWidgets('concurrent identical consumers share one renderer and artwork', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      consumers(List.filled(8, (source: _source, visible: true))),
+    );
+    await tester.pump();
+    expect(platform.controllers, hasLength(1));
+    expect(find.byType(WebViewWidget), findsOneWidget);
+    send(_rendered());
+    await tester.pumpAndSettle();
+    expect(find.byType(Image), findsNWidgets(8));
+    expect(find.byType(WebViewWidget), findsNothing);
+    expect(platform.controllers.single.channels, isEmpty);
+  });
+
+  testWidgets('hidden initial consumers wait until visible before rendering', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      consumers(List.filled(8, (source: _source, visible: false))),
+    );
+    await tester.pump();
+    expect(platform.controllers, isEmpty);
+    await tester.pumpWidget(
+      consumers(List.filled(8, (source: _source, visible: true))),
+    );
+    await tester.pump();
+    expect(platform.controllers, hasLength(1));
+    send(_rendered());
+    await tester.pumpAndSettle();
+    expect(find.byType(Image), findsNWidgets(8));
+  });
+
   test('author source cannot escape the offline document', () {
     const source = 'flowchart TD\nA["</script><script>alert(1)</script>"]';
     final document = html.parse(
