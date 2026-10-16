@@ -422,13 +422,15 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       content = const SizedBox.shrink();
     }
 
-    Widget conversationHeader({bool compact = false}) => _ThreadHeader(
-      siteUrl: widget.siteUrl,
-      target: widget.target,
-      showClose: widget.showClose,
-      stream: stream,
-      activity: _activity,
-      compact: compact,
+    Widget conversationHeader({bool compact = false}) => DSheetDragRegion(
+      child: _ThreadHeader(
+        siteUrl: widget.siteUrl,
+        target: widget.target,
+        showClose: widget.showClose,
+        stream: stream,
+        activity: _activity,
+        compact: compact,
+      ),
     );
     return ChatUploadDropRegion(
       controller: _uploadDropController,

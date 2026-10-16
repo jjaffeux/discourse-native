@@ -848,6 +848,11 @@ abstract interface class ContentChromePlugin {
   bool ownsContentChrome(BuildContext context, ContentRoute route);
 }
 
+/// Plugin readers that use the shared mobile pushed-page sheet.
+abstract interface class ContentMobilePageSheetPlugin {
+  bool usesMobilePageSheet(BuildContext context, ContentRoute route);
+}
+
 abstract interface class ContentMobileDockPlugin {
   /// Keeps the full mobile dock visible while this route scrolls.
   bool keepsMobileDockVisible(BuildContext context, ContentRoute route);

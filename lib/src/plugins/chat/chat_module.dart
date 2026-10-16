@@ -113,9 +113,14 @@ final class ChatModule implements PluginModule {
         final bookmarkHost = bindings
             .require(corePluginBookmarkPort)
             .forTarget(chatMessageBookmarkTarget);
+        final routeNavigation = bindings.require(corePluginRouteNavigationPort);
         final shell = ChatShellService(
           chat: controller,
           host: navigation,
+          presentationHost: switch (routeNavigation) {
+            final PluginRoutePresentationHost host => host,
+            _ => null,
+          },
           composerHost: composerHost,
           store: store,
           postFlagCatalog: bindings.require(corePluginPostFlagCatalogPort),
@@ -165,6 +170,7 @@ final class ChatModule implements PluginModule {
         corePluginTimezonePort,
         corePluginAccountEventsPort,
         corePluginNavigationPort,
+        corePluginRouteNavigationPort,
         corePluginBookmarkPort,
         corePluginComposerPort,
         corePluginEmojiPort,

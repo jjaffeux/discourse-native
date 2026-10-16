@@ -490,13 +490,16 @@ class _MainContentBody extends StatelessWidget {
         ),
       ),
     );
-    if (route.isTopic &&
+    if ((route.isTopic || registry.usesMobilePageSheet(context, route)) &&
         sourceRoute == null &&
         ShellScope.read(context).mobileNavigationEnabled) {
       final controller = ShellScope.read(context);
       final entry = controller.mobileNavigation.entryId;
       return DSheetViewport(
-        key: ValueKey(('mobile-topic-sheet', entry)),
+        key: ValueKey((
+          route.isTopic ? 'mobile-topic-sheet' : 'mobile-plugin-page-sheet',
+          entry,
+        )),
         onDismiss: () {
           if (controller.mobileNavigation.entryId == entry) {
             controller.handleBack();

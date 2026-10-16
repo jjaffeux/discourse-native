@@ -329,40 +329,42 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
           identity: (widget.siteUrl, widget.channelId, widget.chat),
           // Large text or pinned content can crowd a short page. Keep the
           // transcript reachable by limiting the header's share of the page.
-          header: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: constraints.maxHeight.isFinite
-                  ? constraints.maxHeight * _maxHeaderShare
-                  : double.infinity,
-            ),
-            child: SingleChildScrollView(
-              primary: false,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ?widget.header,
-                  if (widget.showHeader)
-                    ChatChannelHeader(
-                      siteUrl: widget.siteUrl,
-                      channelId: widget.channelId,
-                      channel: channel,
-                      onOpenDetails: () =>
-                          PluginUiScope.require(
-                            context,
-                            chatShellService,
-                          ).openChannelInfo(
-                            siteUrl: widget.siteUrl,
-                            channelId: widget.channelId,
-                          ),
-                    ),
-                  if (channel?.hasPinnedMessages == true)
-                    ChatPinnedBar(
-                      siteUrl: widget.siteUrl,
-                      channel: channel!,
-                      chat: widget.chat,
-                      onJumpToMessage: _jumpToMessage,
-                    ),
-                ],
+          header: DSheetDragRegion(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight.isFinite
+                    ? constraints.maxHeight * _maxHeaderShare
+                    : double.infinity,
+              ),
+              child: SingleChildScrollView(
+                primary: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ?widget.header,
+                    if (widget.showHeader)
+                      ChatChannelHeader(
+                        siteUrl: widget.siteUrl,
+                        channelId: widget.channelId,
+                        channel: channel,
+                        onOpenDetails: () =>
+                            PluginUiScope.require(
+                              context,
+                              chatShellService,
+                            ).openChannelInfo(
+                              siteUrl: widget.siteUrl,
+                              channelId: widget.channelId,
+                            ),
+                      ),
+                    if (channel?.hasPinnedMessages == true)
+                      ChatPinnedBar(
+                        siteUrl: widget.siteUrl,
+                        channel: channel!,
+                        chat: widget.chat,
+                        onJumpToMessage: _jumpToMessage,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

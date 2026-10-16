@@ -2034,6 +2034,12 @@ final class PluginRegistry
             plugin.ownsContentChrome(_uiContext(context, plugin), route),
       );
 
+  bool usesMobilePageSheet(BuildContext context, ContentRoute route) =>
+      plugins.whereType<ContentMobilePageSheetPlugin>().any(
+        (plugin) =>
+            plugin.usesMobilePageSheet(_uiContext(context, plugin), route),
+      );
+
   bool keepsMobileDockVisible(BuildContext context, ContentRoute route) =>
       plugins.whereType<ContentMobileDockPlugin>().any(
         (plugin) =>

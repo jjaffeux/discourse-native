@@ -42,7 +42,9 @@ final class ChatShellService
     required this.composerHost,
     required this.store,
     required PluginPostFlagCatalogReader postFlagCatalog,
+    PluginRoutePresentationHost? presentationHost,
   }) : _host = host,
+       _presentationHost = presentationHost,
        _postFlagCatalog = postFlagCatalog {
     _rememberHeaderRoutes();
     _lastHostPresentation = _hostPresentation;
@@ -54,6 +56,7 @@ final class ChatShellService
   final PluginComposerHost composerHost;
   final Store store;
   final PluginNavigationHost _host;
+  final PluginRoutePresentationHost? _presentationHost;
   final PluginPostFlagCatalogReader _postFlagCatalog;
   final ChatNavigationHandoff navigation = ChatNavigationHandoff();
   final ValueNotifier<int> _changes = ValueNotifier(0);
@@ -911,9 +914,13 @@ final class ChatShellService
         final preservesThreadList =
             _host.currentContent?.id == ChatPlugin.myThreadsRouteId ||
             currentThreadsChannelId == route.channelId;
-        if (currentRoute?.threadId != null ||
-            !preservesThreadList &&
-                currentRoute?.channelId != route.channelId) {
+        final needsParentChannel =
+            _presentationHost?.mobileNavigationEnabled == true
+            ? currentRoute != ChatRoute.channel(route.channelId)
+            : currentRoute?.threadId != null ||
+                  !preservesThreadList &&
+                      currentRoute?.channelId != route.channelId;
+        if (needsParentChannel) {
           _host.selectDestination(ChatPlugin.destination(channel));
         }
         _host.pushContent(
