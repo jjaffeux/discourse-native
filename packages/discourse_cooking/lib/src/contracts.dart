@@ -204,6 +204,9 @@ final class CookingSnapshot {
 }
 
 final class CookingRequest {
+  static final _contextFingerprints = Expando<String>();
+  static final _fingerprints = Expando<String>();
+
   const CookingRequest({
     required this.raw,
     required this.snapshot,
@@ -230,15 +233,18 @@ final class CookingRequest {
   final CookingConfiguration? configuration;
   CookingConfiguration get effectiveConfiguration =>
       configuration ?? CookingConfiguration();
-  String get contextFingerprint => cookingFingerprint({
-    'snapshot': snapshot.toJson(),
-    'profile': profile.toJson(),
-    'configuration': effectiveConfiguration.toJson(),
-    'engine': cookingEngineRevision,
-    'bundle': cookingBundleRevision,
+  String get contextFingerprint =>
+      _contextFingerprints[this] ??= cookingFingerprint({
+        'snapshot': snapshot.toJson(),
+        'profile': profile.toJson(),
+        'configuration': effectiveConfiguration.toJson(),
+        'engine': cookingEngineRevision,
+        'bundle': cookingBundleRevision,
+      });
+  String get fingerprint => _fingerprints[this] ??= cookingFingerprint({
+    'context': contextFingerprint,
+    'raw': raw,
   });
-  String get fingerprint =>
-      cookingFingerprint({'context': contextFingerprint, 'raw': raw});
 
   Map<String, Object?> toJson() => {
     'raw': raw,
