@@ -382,6 +382,7 @@ void main() {
     Future<void> show(
       ForumBackgroundEffect effect, {
       bool reduced = false,
+      bool tickers = true,
       double intensity = .7,
     }) async {
       final theme = forumThemePresets.first
@@ -397,8 +398,11 @@ void main() {
           theme: AppTheme.fromPalette(theme.resolve(Brightness.dark)),
           home: MediaQuery(
             data: MediaQueryData(disableAnimations: reduced),
-            child: const ForumWindowBackground(
-              child: ForumWindowBackground(child: SizedBox.expand()),
+            child: TickerMode(
+              enabled: tickers,
+              child: const ForumWindowBackground(
+                child: ForumWindowBackground(child: SizedBox.expand()),
+              ),
             ),
           ),
         ),
@@ -416,6 +420,11 @@ void main() {
     await show(ForumBackgroundEffect.lava, reduced: true);
     await tester.pumpAndSettle();
     expect(tester.binding.hasScheduledFrame, isFalse);
+    await show(ForumBackgroundEffect.lava, tickers: false);
+    await tester.pumpAndSettle();
+    expect(tester.binding.hasScheduledFrame, isFalse);
+    await show(ForumBackgroundEffect.lava);
+    expect(tester.binding.hasScheduledFrame, isTrue);
     await show(ForumBackgroundEffect.paper);
     await tester.pumpAndSettle();
     await show(ForumBackgroundEffect.normal);
