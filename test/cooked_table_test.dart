@@ -204,17 +204,18 @@ void main() {
   });
 
   testWidgets(
-    'initial widths reuse shaping until content or layout inputs change',
+    'initial widths bound shaping and cache until layout inputs change',
     (tester) async {
       var scaleCalls = 0;
       var theme = AppTheme.dark;
       var direction = TextDirection.ltr;
       var textScaler = _CountingTextScaler(onScale: () => scaleCalls++);
       var value = 'cell';
+      var rowCount = 500;
       Future<void> pumpTable() async {
         final html =
             '<table><tr><th>Name</th><th>Notes</th></tr>'
-            '${List.generate(500, (i) => '<tr><td>$value $i</td><td>note $i</td></tr>').join()}</table>';
+            '${List.generate(rowCount, (i) => '<tr><td>$value $i</td><td>note $i</td></tr>').join()}</table>';
         await tester.pumpWidget(
           MaterialApp(
             theme: theme,
@@ -239,17 +240,30 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      for (final count in [50, 500, 5000]) {
+        rowCount = count;
+        scaleCalls = 0;
+        await pumpTable();
+        expect(
+          scaleCalls,
+          inExclusiveRange(0, 500),
+          reason: 'Initial shaping must stay bounded with $count source rows',
+        );
+      }
+      final initialCalls = scaleCalls;
+      scaleCalls = 0;
       await pumpTable();
-      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      final cachedBuildCalls = scaleCalls;
+      expect(cachedBuildCalls, lessThan(initialCalls));
       scaleCalls = 0;
       await _sort(tester, 'Name', 'descending');
-      expect(scaleCalls, lessThan(1000));
+      expect(scaleCalls, lessThan(initialCalls));
       scaleCalls = 0;
       await tester.tap(find.text('Notes'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Hide column'));
       await tester.pumpAndSettle();
-      expect(scaleCalls, lessThan(1000));
+      expect(scaleCalls, lessThan(initialCalls));
       scaleCalls = 0;
       await tester.tap(
         find.byWidgetPredicate(
@@ -258,11 +272,11 @@ void main() {
       );
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
-      expect(scaleCalls, lessThan(1000));
+      expect(scaleCalls, lessThan(initialCalls));
       scaleCalls = 0;
       direction = TextDirection.rtl;
       await pumpTable();
-      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      expect(scaleCalls, inExclusiveRange(cachedBuildCalls, 500));
       scaleCalls = 0;
       theme = theme.copyWith(
         textTheme: theme.textTheme.copyWith(
@@ -270,15 +284,15 @@ void main() {
         ),
       );
       await pumpTable();
-      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      expect(scaleCalls, inExclusiveRange(cachedBuildCalls, 500));
       scaleCalls = 0;
       textScaler = _CountingTextScaler(factor: 2, onScale: () => scaleCalls++);
       await pumpTable();
-      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      expect(scaleCalls, inExclusiveRange(cachedBuildCalls, 500));
       scaleCalls = 0;
       value = 'changed';
       await pumpTable();
-      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      expect(scaleCalls, inExclusiveRange(cachedBuildCalls, 500));
       expect(tester.takeException(), isNull);
     },
   );
