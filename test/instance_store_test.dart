@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/notification_counters.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
@@ -455,6 +456,44 @@ void main() {
       expect((await controlledStore.load()).single, third);
     });
 
+    test('serializes only admitted instance snapshots', () async {
+      final serializedTitles = <String>[];
+      final gate = Completer<void>();
+      final persistence = ControlledInstancePersistence(firstWriteGate: gate);
+      final controlledStore = InstanceStore(persistence: persistence);
+      final instances = <DiscourseInstance>[
+        _SerializationProbeInstance(serializedTitles, 'revision-0'),
+      ];
+      final saves = [controlledStore.save(instances)];
+      await persistence.firstWriteStarted.future;
+
+      for (var revision = 1; revision <= 100; revision++) {
+        instances[0] = _SerializationProbeInstance(
+          serializedTitles,
+          'revision-$revision',
+        );
+        saves.add(controlledStore.save(instances));
+      }
+      instances.clear();
+      final loading = InstanceStore(persistence: persistence).load();
+
+      try {
+        await Future<void>.delayed(Duration.zero);
+        expect(serializedTitles, ['revision-0']);
+        expect(persistence.writeCount, 1);
+        expect(persistence.readCount, 0);
+        expect(saves.skip(1), everyElement(same(saves[1])));
+      } finally {
+        gate.complete();
+        await Future.wait(saves);
+      }
+
+      expect(serializedTitles, ['revision-0', 'revision-100']);
+      expect(persistence.writeCount, 2);
+      expect((await loading).single.title, 'revision-100');
+      expect((await controlledStore.load()).single.title, 'revision-100');
+    });
+
     test('a failed write does not strand a newer snapshot', () async {
       const first = DiscourseInstance(
         url: 'https://one.example.com',
@@ -582,6 +621,23 @@ void main() {
       },
     );
   });
+}
+
+final class _SerializationProbeInstance extends DiscourseInstance {
+  _SerializationProbeInstance(this.serializedTitles, String title)
+    : super(url: 'https://one.example.com', title: title);
+
+  final List<String> serializedTitles;
+
+  @override
+  Map<String, dynamic> toJson({
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+    PluginNotificationCounterCodec counterCodec =
+        const EmptyPluginNotificationCounterCodec(),
+  }) {
+    serializedTitles.add(title);
+    return super.toJson(extensions: extensions, counterCodec: counterCodec);
+  }
 }
 
 final class ControlledInstancePersistence implements InstancePersistence {
