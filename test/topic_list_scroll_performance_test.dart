@@ -216,6 +216,7 @@ void main() {
                 axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
           );
           final position = tester.state<ScrollableState>(scrollable).position;
+          expect(position.maxScrollExtent, greaterThan(14400));
           final viewport = tester.getRect(scrollable);
           final rebuiltTitles = <Element>[];
           final builtTitles = find.byType(TopicTitle).evaluate().toSet();
@@ -230,18 +231,21 @@ void main() {
 
           // Ordinary scrolling keeps existing rows and does not arm diagnostics.
           for (var step = 0; step < 180; step++) {
+            final requested = position.pixels + 40;
             position.pointerScroll(40);
             await tester.pump(const Duration(milliseconds: 16));
+            expect(position.pixels, closeTo(requested, 0.01));
           }
+          expect(position.pixels, 7200);
           expect(capture.events, isEmpty);
           expect(rebuiltTitles, isEmpty);
 
           for (final delta in [1200.0, -1200.0]) {
             capture.start();
-            for (var step = 0; step < 20; step++) {
+            for (var step = 0; step < 6; step++) {
               final before = capture.events.length;
+              final requested = position.pixels + delta;
               position.pointerScroll(delta);
-              final requested = position.pixels;
               await tester.pump(const Duration(milliseconds: 16));
 
               final builtRows = capture.events

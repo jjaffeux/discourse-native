@@ -80,6 +80,9 @@ class _TopicListViewState extends State<TopicListView> {
   PaginationScrollController? _scroll;
   ListController? _list;
   _TopicListIdentity? _feedIdentity;
+  List<int>? _indexedTopicIds;
+  List<int>? _indexedTopicRows;
+  Map<int, int> _topicSourceRows = const {};
   final ReadingFocusNode _keyboardFocus = ReadingFocusNode(
     debugLabel: 'Topic list cursor',
   );
@@ -126,8 +129,11 @@ class _TopicListViewState extends State<TopicListView> {
     }
     final previous = oldWidget.feed;
     final next = widget.feed;
-    if (identical(previous.topicIds, next.topicIds)) return;
-    final remaining = next.topicIds.toSet();
+    if (identical(previous.topicIds, next.topicIds) &&
+        identical(previous.topicRows, next.topicRows)) {
+      return;
+    }
+    final sourceRows = _sourceRowsFor(next);
     if (next.rowCount == 0) return;
     final range = list!.visibleRange;
     if (range == null) return;
@@ -137,30 +143,39 @@ class _TopicListViewState extends State<TopicListView> {
         i <= range.$2 ~/ 2 && i < previous.rowCount;
         i++
       )
-        if (previous.topicIdAt(i) case final id? when remaining.contains(id))
-          id,
+        if (previous.topicIdAt(i) case final id?
+            when sourceRows.containsKey(id))
+          (topicId: id, index: i),
     ];
     final selected = controller.readingTopicId;
-    final anchor = visible.contains(selected) ? selected : visible.firstOrNull;
+    final anchor =
+        visible.where((row) => row.topicId == selected).firstOrNull ??
+        visible.firstOrNull;
     if (anchor == null) return;
-    if (previous.indexOfTopic(anchor) == next.indexOfTopic(anchor)) return;
-    final anchorBox = _renderedRow(previous.indexOfTopic(anchor));
+    if (anchor.index == next.visibleRowForSource(sourceRows[anchor.topicId]!)) {
+      return;
+    }
+    final anchorBox = _renderedRow(anchor.index);
     if (anchorBox == null) return;
     final top = anchorBox.localToGlobal(Offset.zero).dy;
     final readingTopicId = controller.readingTopicId;
     void restore({bool correct = true}) {
       if (!_isCurrent(controller, identity) ||
           !identical(widget.feed.topicIds, next.topicIds) ||
+          !identical(widget.feed.topicRows, next.topicRows) ||
           controller.readingTopicId != readingTopicId ||
           !identical(_list, list) ||
           !list.isAttached ||
           !scroll!.hasClients) {
         return;
       }
-      final box = _renderedRow(next.indexOfTopic(anchor));
+      final current = widget.feed;
+      final index = _visibleIndexFor(current, anchor.topicId);
+      if (index < 0 || index >= current.rowCount) return;
+      final box = _renderedRow(index);
       if (box == null) {
         list.jumpToItem(
-          index: next.indexOfTopic(anchor) * 2,
+          index: index * 2,
           scrollController: scroll,
           alignment: 0,
         );
@@ -185,10 +200,32 @@ class _TopicListViewState extends State<TopicListView> {
     WidgetsBinding.instance.addPostFrameCallback((_) => restore());
   }
 
+  Map<int, int> _sourceRowsFor(TopicFeed feed) {
+    if (!identical(_indexedTopicIds, feed.topicIds) ||
+        !identical(_indexedTopicRows, feed.topicRows)) {
+      final rows = <int, int>{};
+      for (var index = 0; index < feed.topicIds.length; index++) {
+        rows.putIfAbsent(
+          feed.topicIds[index],
+          () => feed.topicRows.isEmpty ? index : feed.topicRows[index],
+        );
+      }
+      _indexedTopicIds = feed.topicIds;
+      _indexedTopicRows = feed.topicRows;
+      _topicSourceRows = rows;
+    }
+    return _topicSourceRows;
+  }
+
+  int _visibleIndexFor(TopicFeed feed, int topicId) {
+    final source = _sourceRowsFor(feed)[topicId];
+    return source == null ? -1 : feed.visibleRowForSource(source);
+  }
+
   void _syncCursor(TopicFeed previous, TopicFeed next) {
     final cursor = _cursor?.value;
     if (cursor == null) return;
-    var index = next.indexOfTopic(cursor.topicId);
+    var index = _visibleIndexFor(next, cursor.topicId);
     if (index < 0) {
       var source = previous.sourceRowFor(cursor.index);
       if (previous.loadingIncoming && !next.loadingIncoming) {
@@ -442,6 +479,9 @@ class _TopicListViewState extends State<TopicListView> {
   }
 
   void _disposeControllers() {
+    _indexedTopicIds = null;
+    _indexedTopicRows = null;
+    _topicSourceRows = const {};
     // The outgoing controllers are still attached to the scrollable being
     // replaced this frame; disposing them before that detach happens would
     // leave the scrollable holding a dead position.
@@ -997,6 +1037,7 @@ class _TopicListViewState extends State<TopicListView> {
       }
     }
 
+    final sourceRows = _sourceRowsFor(feed);
     final content = Column(
       children: [
         if (feed.error case final error? when !feed.pageError)
@@ -1101,9 +1142,11 @@ class _TopicListViewState extends State<TopicListView> {
                           (feed.loadingMore || feed.pageError ? 1 : 0),
                       findChildIndexCallback: (key) {
                         if (key is! ValueKey<int>) return null;
-                        final index = feed.indexOfTopic(key.value);
+                        final source = sourceRows[key.value];
                         // The separated delegate addresses topics and gaps.
-                        return index < 0 ? null : index * 2;
+                        return source == null
+                            ? null
+                            : feed.visibleRowForSource(source) * 2;
                       },
                       separatorBuilder: (context, index) =>
                           ValueListenableBuilder<_TopicListCursor?>(

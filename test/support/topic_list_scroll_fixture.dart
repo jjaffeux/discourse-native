@@ -24,7 +24,7 @@ import 'package:flutter/material.dart';
 import 'fakes.dart';
 
 Future<ShellController> topicListScrollController({
-  int count = 500,
+  int count = 300,
   int? pageSize,
   TopicListDisplayMode mode = TopicListDisplayMode.card,
   bool events = false,

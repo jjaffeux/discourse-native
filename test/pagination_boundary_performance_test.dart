@@ -13,6 +13,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/utils/pagination.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/fakes.dart';
 import 'support/mixed_topic_scroll_fixture.dart';
@@ -101,11 +102,15 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('paging a long topic list indexes retained rows once', (
+  testWidgets('paging a retained topic window indexes its rows once', (
     tester,
   ) async {
-    final controller = await topicListScrollController(count: 1000);
+    const retainedCount = 300;
+    final controller = await topicListScrollController(count: retainedCount);
     addTearDown(controller.dispose);
+    expect(controller.topicFeeds.maximumRetainedTopics, retainedCount);
+    expect(controller.currentFeed!.rowCount, retainedCount);
+    expect(controller.currentFeed!.topicIds, hasLength(retainedCount));
     final ids = _CountingIds(controller.currentFeed!.topicIds);
     final feed = ValueNotifier(controller.currentFeed!.copyWith(topicIds: ids));
     addTearDown(feed.dispose);
@@ -127,9 +132,13 @@ void main() {
     final position = tester
         .state<ScrollableState>(find.byType(Scrollable).first)
         .position;
+    expect(position.maxScrollExtent, greaterThan(1600));
     position.jumpTo(position.maxScrollExtent - 800);
     await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(position.viewportDimension));
+    expect(position.extentAfter, greaterThan(0));
     final offset = position.pixels;
+    final extent = position.maxScrollExtent;
 
     ids.reads = 0;
     feed.value = feed.value.copyWith(loadingMore: true);
@@ -137,17 +146,86 @@ void main() {
     final loadingReads = ids.reads;
     controller.store.put(
       controller.currentInstance!.url,
-      const Topic(id: 1001, title: 'Appended topic', slug: 'appended-topic'),
+      const Topic(id: 301, title: 'Appended topic', slug: 'appended-topic'),
     );
-    final appended = _CountingIds([...ids, 1001]);
-    feed.value = feed.value.copyWith(topicIds: appended, loadingMore: false);
+    final appended = _CountingIds([...ids.skip(1), 301]);
+    feed.value = feed.value.copyWith(
+      topicIds: appended,
+      topicRows: [...feed.value.topicRows.skip(1), retainedCount],
+      totalRows: retainedCount + 1,
+      loadingMore: false,
+    );
     await tester.pumpAndSettle();
     debugPrint(
       'PAGINATION_LIST_READS loading=$loadingReads append=${appended.reads}',
     );
-    expect(loadingReads, lessThan(500));
+    expect(loadingReads, lessThan(retainedCount));
     expect(appended.reads, lessThan(appended.length + 500));
+    expect(feed.value.topicIds, hasLength(retainedCount));
+    expect(feed.value.rowCount, retainedCount + 1);
+    expect(feed.value.topicIdAt(0), isNull);
+    expect(feed.value.topicIdAt(retainedCount), 301);
+    expect(position.maxScrollExtent, greaterThan(extent));
     expect(position.pixels, closeTo(offset, .01));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('topic keys follow replaced source rows and unread projections', (
+    tester,
+  ) async {
+    final controller = await topicListScrollController(count: 12);
+    addTearDown(controller.dispose);
+    final ids = _CountingIds(controller.currentFeed!.topicIds);
+    final feed = ValueNotifier(controller.currentFeed!.copyWith(topicIds: ids));
+    addTearDown(feed.dispose);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: ValueListenableBuilder<TopicFeed>(
+              valueListenable: feed,
+              builder: (_, value, _) => TopicListView(feed: value),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final original = tester
+        .widget<SuperListView>(find.byType(SuperListView))
+        .childrenDelegate;
+    expect(original.findIndexByKey(const ValueKey(3)), 4);
+
+    final rows = [for (var row = 1; row <= ids.length; row++) row];
+    feed.value = feed.value.copyWith(topicRows: rows, totalRows: 13);
+    await tester.pump();
+    final shifted = tester
+        .widget<SuperListView>(find.byType(SuperListView))
+        .childrenDelegate;
+    expect(shifted.findIndexByKey(const ValueKey(3)), 6);
+    expect(original.findIndexByKey(const ValueKey(3)), 4);
+
+    feed.value = TopicFeed(
+      topicIds: ids,
+      topicRows: rows,
+      totalRows: 13,
+      hiddenRows: const [0],
+      loaded: true,
+    );
+    await tester.pumpAndSettle();
+    final unread = tester
+        .widget<SuperListView>(find.byType(SuperListView))
+        .childrenDelegate;
+    ids.reads = 0;
+    expect(unread.findIndexByKey(const ValueKey(3)), 4);
+    expect(shifted.findIndexByKey(const ValueKey(3)), 6);
+    expect(original.findIndexByKey(const ValueKey(3)), 4);
+    expect(unread.findIndexByKey(const ValueKey(99)), isNull);
+    expect(unread.findIndexByKey(const ValueKey('gap')), isNull);
+    expect(ids.reads, 0);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
