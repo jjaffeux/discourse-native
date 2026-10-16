@@ -626,7 +626,10 @@ void main() {
       expect(focus.hasPrimaryFocus, isTrue);
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
-      expect(_primaryFocusIsWithin(find.byKey(const ValueKey('topic-sort-likes'))), isTrue);
+      expect(
+        _primaryFocusIsWithin(find.byKey(const ValueKey('topic-sort-likes'))),
+        isTrue,
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       expect(_primaryFocusIsWithin(views), isTrue);

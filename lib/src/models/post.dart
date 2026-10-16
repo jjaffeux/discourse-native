@@ -109,9 +109,9 @@ class Post with Storable<Post> {
     PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
   }) {
     final like = _likeSummary(json['actions_summary']);
-    final linkCountJson = jsonObjects(json['link_counts'])
-        .take(maximumLinkCounts)
-        .toList(growable: false);
+    final linkCountJson = jsonObjects(
+      json['link_counts'],
+    ).take(maximumLinkCounts).toList(growable: false);
     return Post(
       id: jsonInt(json['id']),
       postNumber: jsonInt(json['post_number']),
@@ -681,9 +681,9 @@ class TopicDetail with Storable<TopicDetail> {
                   for (final post in posts)
                     if (post.id > 0) post.id,
                 }
-              : jsonArray(postStream['stream'])
-                    .map(jsonIntOrNull)
-                    .whereType<int>(),
+              : jsonArray(
+                  postStream['stream'],
+                ).map(jsonIntOrNull).whereType<int>(),
         ),
         isMegaTopic: isMegaTopic,
         lastPostId: isMegaTopic ? jsonIntOrNull(postStream['lastId']) : null,

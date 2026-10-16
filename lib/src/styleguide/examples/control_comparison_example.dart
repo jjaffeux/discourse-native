@@ -71,18 +71,19 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
                 ],
                 onChanged: (value) => setState(() => _feed = value!),
               ),
-              if (size == DControlSize.regular) DDropdownMenu(
-                content: DDropdownMenuContent(
-                  children: [
-                    for (final label in ['Bugs', 'Support', 'General'])
-                      DDropdownMenuItem(
-                        onPressed: () => setState(() => _category = label),
-                        child: Text(label),
-                      ),
-                  ],
+              if (size == DControlSize.regular)
+                DDropdownMenu(
+                  content: DDropdownMenuContent(
+                    children: [
+                      for (final label in ['Bugs', 'Support', 'General'])
+                        DDropdownMenuItem(
+                          onPressed: () => setState(() => _category = label),
+                          child: Text(label),
+                        ),
+                    ],
+                  ),
+                  child: DDropdownMenuTrigger.button(label: Text(_category)),
                 ),
-                child: DDropdownMenuTrigger.button(label: Text(_category)),
-              ),
               DButton(
                 label: const Text('Disabled'),
                 variant: DButtonVariant.outline,

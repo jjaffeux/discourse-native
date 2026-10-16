@@ -127,13 +127,7 @@ class _TypesToastExample extends StatelessWidget {
         DButton(
           label: Text(_typeName(type)),
           variant: DButtonVariant.outline,
-          onPressed: () => DToast.show(
-            context,
-            _typeMessage(type),
-            type: type,
-
-
-          ),
+          onPressed: () => DToast.show(context, _typeMessage(type), type: type),
         ),
     ],
   );
@@ -198,7 +192,6 @@ class _PromiseToastExampleState extends State<_PromiseToastExample> {
           context,
           'The pending result no longer owns this notice.',
           id: 'styleguide-promise',
-
         ),
       ),
     ],
@@ -225,7 +218,6 @@ class _StackToastExampleState extends State<_StackToastExample> {
         onPressed: () => DToast.show(
           context,
           'Notice ${++_count}; only the newest three remain.',
-
         ),
       ),
       DButton(
@@ -236,7 +228,6 @@ class _StackToastExampleState extends State<_StackToastExample> {
           'Synchronized revision ${++_count}',
           id: 'sync',
           type: DToastType.info,
-
         ),
       ),
       DButton(

@@ -101,7 +101,10 @@ void main() {
         ),
       ),
     );
-    final target = find.ancestor(of: find.text('Controller target'), matching: find.byType(DButton));
+    final target = find.ancestor(
+      of: find.text('Controller target'),
+      matching: find.byType(DButton),
+    );
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     tester.widget<DButton>(target).focusNode!.requestFocus();
     await tester.pump();

@@ -1120,31 +1120,34 @@ void main() {
     expect(find.text('Next.js'), findsNothing);
   });
 
-  testWidgets('touch actions use 30px surfaces and menu rows keep their visible bounds', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _app(
-        DCombobox<String>(
-          options: _options,
-          anchor: const DComboboxInput<String>(),
-          content: const DComboboxContent(children: [DComboboxList<String>()]),
+  testWidgets(
+    'touch actions use 30px surfaces and menu rows keep their visible bounds',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          DCombobox<String>(
+            options: _options,
+            anchor: const DComboboxInput<String>(),
+            content: const DComboboxContent(
+              children: [DComboboxList<String>()],
+            ),
+          ),
+          theme: ThemeData(platform: TargetPlatform.iOS),
         ),
-        theme: ThemeData(platform: TargetPlatform.iOS),
-      ),
-    );
-    expect(tester.getSize(find.byType(DInputGroupButton)).height, 30);
-    await tester.tap(find.byType(TextField));
-    await tester.pumpAndSettle();
-    expect(
-      tester.getRect(find.text('SvelteKit').last).height,
-      lessThanOrEqualTo(48),
-    );
-    expect(
-      tester.getRect(find.byType(DComboboxItem<String>).first).height,
-      33.5,
-    );
-  });
+      );
+      expect(tester.getSize(find.byType(DInputGroupButton)).height, 30);
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.text('SvelteKit').last).height,
+        lessThanOrEqualTo(48),
+      );
+      expect(
+        tester.getRect(find.byType(DComboboxItem<String>).first).height,
+        33.5,
+      );
+    },
+  );
 
   testWidgets('touch items grow past their minimum target for scaled text', (
     tester,

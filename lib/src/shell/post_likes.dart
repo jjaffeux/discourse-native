@@ -32,8 +32,9 @@ class _PostLikesState extends State<PostLikes> {
   final GlobalKey<HoverPanelState> _panel = GlobalKey<HoverPanelState>();
 
   void _load() => unawaited(
-    ShellScope.read(context)
-        .loadLikers(widget.post.id, siteUrl: widget.siteUrl),
+    ShellScope.read(
+      context,
+    ).loadLikers(widget.post.id, siteUrl: widget.siteUrl),
   );
 
   void _openPanel() => _panel.currentState?.open();

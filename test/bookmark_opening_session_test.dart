@@ -251,7 +251,9 @@ void main() {
       await fixture.open(tester);
       await tester.tap(find.text('More options').last);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.byKey(const ValueKey('bookmark-custom-reminder')));
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('bookmark-custom-reminder')),
+      );
       await tester.tap(find.byKey(const ValueKey('bookmark-custom-reminder')));
       await tester.pumpAndSettle();
       expect(find.byType(BookmarkReminderDatePicker), findsOneWidget);

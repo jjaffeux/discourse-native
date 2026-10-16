@@ -143,140 +143,141 @@ void main() {
   });
 
   for (final material in DAppearanceMaterial.values) {
-    testWidgets('panel rim stays uniform while its top highlight fades ($material)', (
-      tester,
-    ) async {
-      const backdrop = Color(0xff153d99);
-      const fill = Color(0x99333643);
-      for (final dark in [false, true]) {
-        for (final height in [240.0, 560.0]) {
-          await tester.pumpWidget(
-            MaterialApp(
-              themeAnimationStyle: AnimationStyle.noAnimation,
-              theme: DMaterialTheme.apply(
-                dark ? AppTheme.dark : AppTheme.light,
-                material,
-              ),
-              home: Center(
-                child: RepaintBoundary(
-                  key: const ValueKey('panel-paint'),
-                  child: SizedBox(
-                    width: 200,
-                    height: height,
-                    child: const ColoredBox(
-                      color: backdrop,
-                      child: DCard(
-                        border: false,
-                        spacing: 0,
-                        backgroundColor: fill,
-                        child: Expanded(child: SizedBox.expand()),
+    testWidgets(
+      'panel rim stays uniform while its top highlight fades ($material)',
+      (tester) async {
+        const backdrop = Color(0xff153d99);
+        const fill = Color(0x99333643);
+        for (final dark in [false, true]) {
+          for (final height in [240.0, 560.0]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                themeAnimationStyle: AnimationStyle.noAnimation,
+                theme: DMaterialTheme.apply(
+                  dark ? AppTheme.dark : AppTheme.light,
+                  material,
+                ),
+                home: Center(
+                  child: RepaintBoundary(
+                    key: const ValueKey('panel-paint'),
+                    child: SizedBox(
+                      width: 200,
+                      height: height,
+                      child: const ColoredBox(
+                        color: backdrop,
+                        child: DCard(
+                          border: false,
+                          spacing: 0,
+                          backgroundColor: fill,
+                          child: Expanded(child: SizedBox.expand()),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-          await tester.pumpAndSettle();
-          await tester.runAsync(() async {
-            final image = await tester
-                .renderObject<RenderRepaintBoundary>(
-                  find.byKey(const ValueKey('panel-paint')),
-                )
-                .toImage();
-            try {
-              final bytes = (await image.toByteData(
-                format: ui.ImageByteFormat.rawRgba,
-              ))!;
-              final base = Color.alphaBlend(fill, backdrop);
-              void pixel(int x, int y, Color expected) {
-                final offset = (y * image.width + x) * 4;
-                for (final (channel, value) in [
-                  expected.r,
-                  expected.g,
-                  expected.b,
+            );
+            await tester.pumpAndSettle();
+            await tester.runAsync(() async {
+              final image = await tester
+                  .renderObject<RenderRepaintBoundary>(
+                    find.byKey(const ValueKey('panel-paint')),
+                  )
+                  .toImage();
+              try {
+                final bytes = (await image.toByteData(
+                  format: ui.ImageByteFormat.rawRgba,
+                ))!;
+                final base = Color.alphaBlend(fill, backdrop);
+                void pixel(int x, int y, Color expected) {
+                  final offset = (y * image.width + x) * 4;
+                  for (final (channel, value) in [
+                    expected.r,
+                    expected.g,
+                    expected.b,
+                  ].indexed) {
+                    expect(
+                      bytes.getUint8(offset + channel),
+                      closeTo(value * 255, 2),
+                      reason: '$dark $height ($x,$y)',
+                    );
+                  }
+                }
+
+                pixel(100, 200, base);
+                pixel(
+                  100,
+                  20,
+                  Color.alphaBlend(
+                    Colors.white.withValues(
+                      alpha: (dark ? .066 : .5) * (1 - 20.5 / 140),
+                    ),
+                    base,
+                  ),
+                );
+                // The constant rim receives a small contribution from the
+                // blurred inset shadow at both vertical edges. GPU blur kernels
+                // vary slightly, so bound that contribution and check constancy.
+                final sideBase = Color.alphaBlend(
+                  Colors.white.withValues(alpha: dark ? .14 : .75),
+                  base,
+                );
+                final sideLit = Color.alphaBlend(
+                  Colors.white.withValues(
+                    alpha: (dark ? .12 : .55) * 1.6 * .25,
+                  ),
+                  sideBase,
+                );
+                for (final (channel, bounds) in [
+                  (sideBase.r, sideLit.r),
+                  (sideBase.g, sideLit.g),
+                  (sideBase.b, sideLit.b),
+                ].indexed) {
+                  final value = bytes.getUint8(200 * image.width * 4 + channel);
+                  expect(
+                    value,
+                    inInclusiveRange(bounds.$1 * 255 - 2, bounds.$2 * 255 + 2),
+                  );
+                  expect(
+                    bytes.getUint8(160 * image.width * 4 + channel),
+                    closeTo(value, 1),
+                  );
+                }
+                // The top adds the reference's soft inset 0 1px 1px catch.
+                final topBase = Color.alphaBlend(
+                  Colors.white.withValues(alpha: dark ? .14 : .75),
+                  Color.alphaBlend(
+                    Colors.white.withValues(
+                      alpha: (dark ? .066 : .5) * (1 - .5 / 140),
+                    ),
+                    base,
+                  ),
+                );
+                final topLit = Color.alphaBlend(
+                  Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6),
+                  topBase,
+                );
+                const offset = 100 * 4;
+                for (final (channel, bounds) in [
+                  (topBase.r, topLit.r),
+                  (topBase.g, topLit.g),
+                  (topBase.b, topLit.b),
                 ].indexed) {
                   expect(
                     bytes.getUint8(offset + channel),
-                    closeTo(value * 255, 2),
-                    reason: '$dark $height ($x,$y)',
+                    inInclusiveRange(bounds.$1 * 255 + 1, bounds.$2 * 255 + 2),
                   );
                 }
+                pixel(0, 0, backdrop);
+              } finally {
+                image.dispose();
               }
-
-              pixel(100, 200, base);
-              pixel(
-                100,
-                20,
-                Color.alphaBlend(
-                  Colors.white.withValues(
-                    alpha: (dark ? .066 : .5) * (1 - 20.5 / 140),
-                  ),
-                  base,
-                ),
-              );
-              // The constant rim receives a small contribution from the
-              // blurred inset shadow at both vertical edges. GPU blur kernels
-              // vary slightly, so bound that contribution and check constancy.
-              final sideBase = Color.alphaBlend(
-                Colors.white.withValues(alpha: dark ? .14 : .75),
-                base,
-              );
-              final sideLit = Color.alphaBlend(
-                Colors.white.withValues(
-                  alpha: (dark ? .12 : .55) * 1.6 * .25,
-                ),
-                sideBase,
-              );
-              for (final (channel, bounds) in [
-                (sideBase.r, sideLit.r),
-                (sideBase.g, sideLit.g),
-                (sideBase.b, sideLit.b),
-              ].indexed) {
-                final value = bytes.getUint8(200 * image.width * 4 + channel);
-                expect(
-                  value,
-                  inInclusiveRange(bounds.$1 * 255 - 2, bounds.$2 * 255 + 2),
-                );
-                expect(
-                  bytes.getUint8(160 * image.width * 4 + channel),
-                  closeTo(value, 1),
-                );
-              }
-              // The top adds the reference's soft inset 0 1px 1px catch.
-              final topBase = Color.alphaBlend(
-                Colors.white.withValues(alpha: dark ? .14 : .75),
-                Color.alphaBlend(
-                  Colors.white.withValues(
-                    alpha: (dark ? .066 : .5) * (1 - .5 / 140),
-                  ),
-                  base,
-                ),
-              );
-              final topLit = Color.alphaBlend(
-                Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6),
-                topBase,
-              );
-              const offset = 100 * 4;
-              for (final (channel, bounds) in [
-                (topBase.r, topLit.r),
-                (topBase.g, topLit.g),
-                (topBase.b, topLit.b),
-              ].indexed) {
-                expect(
-                  bytes.getUint8(offset + channel),
-                  inInclusiveRange(bounds.$1 * 255 + 1, bounds.$2 * 255 + 2),
-                );
-              }
-              pixel(0, 0, backdrop);
-            } finally {
-              image.dispose();
-            }
-          });
-          expect(tester.takeException(), isNull);
+            });
+            expect(tester.takeException(), isNull);
+          }
         }
-      }
-    });
+      },
+    );
   }
 
   testWidgets('recessed actions paint inner depth and leave no outer shadow', (

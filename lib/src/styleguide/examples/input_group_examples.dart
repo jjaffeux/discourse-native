@@ -710,7 +710,13 @@ class _FormExampleState extends State<_FormExample> {
             DInputGroup(
               invalid: _invalid,
               children: [
-                DInput(focusNode: _focus, semanticLabel: 'Username', validator: (value) => (value ?? '').trim().isEmpty ? 'Required' : null, onChanged: (value) => _username = value),
+                DInput(
+                  focusNode: _focus,
+                  semanticLabel: 'Username',
+                  validator: (value) =>
+                      (value ?? '').trim().isEmpty ? 'Required' : null,
+                  onChanged: (value) => _username = value,
+                ),
                 const DInputGroupAddon(
                   alignment: DInputGroupAddonAlignment.inlineEnd,
                   child: DInputGroupText(Text('@company.com')),

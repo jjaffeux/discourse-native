@@ -149,9 +149,10 @@ class _ControlledState extends State<_Controlled> {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      DProgress(value: value, track: const Column(
-        children: [DProgressTrack(), DProgressValue()],
-      )),
+      DProgress(
+        value: value,
+        track: const Column(children: [DProgressTrack(), DProgressValue()]),
+      ),
       const SizedBox(height: 24),
       Wrap(
         spacing: 8,

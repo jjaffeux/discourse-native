@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -20,7 +19,6 @@ import 'content_reading_lane.dart';
 import 'forum_theme_surfaces.dart';
 import 'message_archive_button.dart';
 import 'open_link.dart';
-import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';

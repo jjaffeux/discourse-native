@@ -11,9 +11,8 @@ import 'd_collapsible.dart';
 /// same object that created them. A root without a controller owns and disposes
 /// an internal controller.
 class DAccordionController<T> extends ChangeNotifier {
-  DAccordionController({
-    Iterable<T> initialValues = const [],
-  }) : _values = _normalize(initialValues);
+  DAccordionController({Iterable<T> initialValues = const []})
+    : _values = _normalize(initialValues);
 
   Set<T> _values;
 

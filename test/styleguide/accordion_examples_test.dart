@@ -27,12 +27,7 @@ void main() {
     expect(componentExamples['accordion'], same(accordionExamples));
     expect(
       accordionExamples.examples.map((example) => example.title),
-      containsAll([
-        'Basic',
-        'Card',
-        'RTL',
-        'Controlled and lifecycle',
-      ]),
+      containsAll(['Basic', 'Card', 'RTL', 'Controlled and lifecycle']),
     );
     expect(
       accordionExamples.examples.every((example) => example.code.isNotEmpty),
@@ -70,8 +65,6 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
-
-
 
   testWidgets(
     'controlled example preserves draft through reorder and collapse',

@@ -489,7 +489,7 @@ void main() {
     );
     await tester.pump();
     expect(api.requests, hasLength(2));
-    final categoryPath = '/c/sailing/7.json';
+    const categoryPath = '/c/sailing/7.json';
     expect(api.requests.last.path, categoryPath);
     api.requests.last.response.complete(TopicList(topics: _topics(10, 30)));
     await tester.pumpAndSettle();

@@ -62,15 +62,10 @@ void main() {
     }
   });
 
-
-
   testWidgets('sortable header applies ascending and descending row order', (
     tester,
   ) async {
-    await _show(
-      tester,
-      'Sorting and row actions',
-    );
+    await _show(tester, 'Sorting and row actions');
 
     await tester.tap(find.text('Email'));
     await tester.pumpAndSettle();
@@ -91,13 +86,8 @@ void main() {
     );
   });
 
-
-
   testWidgets('row action menu targets the stable payment ID', (tester) async {
-    await _show(
-      tester,
-      'Sorting and row actions',
-    );
+    await _show(tester, 'Sorting and row actions');
     expect(find.text('Actions'), findsNothing);
     final trigger = find.byWidgetPredicate(
       (widget) =>
@@ -115,14 +105,18 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('dynamic example reorders stable rows', (
-    tester,
-  ) async {
+  testWidgets('dynamic example reorders stable rows', (tester) async {
     await _show(tester, 'Dynamic data');
-    expect(tester.getTopLeft(find.text('ken99@example.com')).dy, lessThan(tester.getTopLeft(find.text('abe45@example.com')).dy));
+    expect(
+      tester.getTopLeft(find.text('ken99@example.com')).dy,
+      lessThan(tester.getTopLeft(find.text('abe45@example.com')).dy),
+    );
     await tester.tap(find.text('Reverse rows'));
     await tester.pump();
-    expect(tester.getTopLeft(find.text('ken99@example.com')).dy, greaterThan(tester.getTopLeft(find.text('abe45@example.com')).dy));
+    expect(
+      tester.getTopLeft(find.text('ken99@example.com')).dy,
+      greaterThan(tester.getTopLeft(find.text('abe45@example.com')).dy),
+    );
     expect(tester.takeException(), isNull);
   });
 }

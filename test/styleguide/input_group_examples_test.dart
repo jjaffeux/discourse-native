@@ -75,7 +75,14 @@ void main() {
 
     await tester.tap(find.text('Show loading'));
     await tester.pump();
-    expect(tester.widget<DInputGroupButton>(find.widgetWithText(DInputGroupButton, 'Search')).onPressed, isNull);
+    expect(
+      tester
+          .widget<DInputGroupButton>(
+            find.widgetWithText(DInputGroupButton, 'Search'),
+          )
+          .onPressed,
+      isNull,
+    );
     await tester.enterText(find.byType(TextField).first, 'still editable');
     expect(
       tester.widget<TextField>(find.byType(TextField).first).controller!.text,

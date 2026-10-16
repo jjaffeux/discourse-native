@@ -194,7 +194,10 @@ void main() {
             await tester.pumpAndSettle();
             final row = find.byKey(const ValueKey('notification-row-31'));
             expect(tester.widget(row), isA<DesktopHeaderMenuRow>());
-            final interaction = find.descendant(of: row, matching: find.byType(DItem));
+            final interaction = find.descendant(
+              of: row,
+              matching: find.byType(DItem),
+            );
             final source = tester.element(row);
             final sourceState = tester.state(interaction);
             final shell = ShellScope.read(tester.element(menu));
@@ -264,7 +267,12 @@ void main() {
               expect(find.byType(UserMenuPanel), findsNothing);
               await tester.tap(find.byKey(UserMenuButton.bellKey));
               await tester.pumpAndSettle();
-              final replacementTab = find.descendant(of: find.byType(UserMenuPanel), matching: find.text(section)).last;
+              final replacementTab = find
+                  .descendant(
+                    of: find.byType(UserMenuPanel),
+                    matching: find.text(section),
+                  )
+                  .last;
               await tester.ensureVisible(replacementTab);
               await tester.pumpAndSettle();
               await tester.tap(replacementTab);

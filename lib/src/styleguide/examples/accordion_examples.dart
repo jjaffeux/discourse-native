@@ -28,8 +28,6 @@ final accordionExamples = ComponentExamples(
       ),
     ),
 
-
-
     StyleguideExample(
       title: 'Card',
       description:
@@ -106,10 +104,7 @@ class _Frame extends StatelessWidget {
 }
 
 class _Example extends StatelessWidget {
-  const _Example({
-    required this.items,
-    this.initial = const [],
-  });
+  const _Example({required this.items, this.initial = const []});
   final List<_Entry> items;
   final List<String> initial;
 
@@ -117,29 +112,26 @@ class _Example extends StatelessWidget {
   Widget build(BuildContext context) => DAccordion<String>(
     defaultValues: initial,
 
-    children: [
-      for (final entry in items)
-        _item(entry),
-    ],
+    children: [for (final entry in items) _item(entry)],
   );
 }
 
-DAccordionItem<String> _item(
-  _Entry entry, {
-  Widget? content,
-}) => DAccordionItem<String>(
-  key: ValueKey('accordion-${entry.value}'),
-  value: entry.value,
+DAccordionItem<String> _item(_Entry entry, {Widget? content}) =>
+    DAccordionItem<String>(
+      key: ValueKey('accordion-${entry.value}'),
+      value: entry.value,
 
-  child: Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      DAccordionHeader(child: DAccordionTrigger(child: Text(entry.question))),
-      DAccordionContent(child: content ?? Text(entry.answer)),
-    ],
-  ),
-);
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DAccordionHeader(
+            child: DAccordionTrigger(child: Text(entry.question)),
+          ),
+          DAccordionContent(child: content ?? Text(entry.answer)),
+        ],
+      ),
+    );
 
 class _CardExample extends StatelessWidget {
   const _CardExample();
@@ -179,6 +171,7 @@ class _ControlledExampleState extends State<_ControlledExample> {
     super.initState();
     _controller.addListener(_changed);
   }
+
   void _changed() => setState(() {});
   bool _reversed = false;
   bool _showSecurity = true;
@@ -291,12 +284,6 @@ const _referenceItems = [
   ),
 ];
 
-
-
-
-
-
-
 const _cardItems = [
   _Entry(
     'plans',
@@ -353,12 +340,6 @@ const _basicCode =
     DAccordionContent(child: Text('Use Forgot Password on the login page.')),
   ])),
 ])''';
-
-
-
-
-
-
 
 const _cardCode = '''DCard(children: [
   DCardHeader(title: DCardTitle(child: Text('Subscription & Billing')),

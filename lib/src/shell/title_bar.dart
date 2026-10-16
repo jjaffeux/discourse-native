@@ -134,9 +134,9 @@ class ShellTitleBar extends StatelessWidget {
                 : rowHeight,
             child: ColoredBox(
               color:
-                  Theme.of(context)
-                          .extension<ForumThemeEffects>()
-                          ?.windowGradient !=
+                  Theme.of(
+                        context,
+                      ).extension<ForumThemeEffects>()?.windowGradient !=
                       null
                   ? Colors.transparent
                   : ForumWindowBackground.surfaceColor(context, surface),

@@ -78,20 +78,15 @@ void main() {
     expect(find.text('Added: 1'), findsOneWidget);
   });
 
-  testWidgets(
-    'keyboard example runs S through Actions',
-    (tester) async {
-      await _pump(tester, 2);
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pumpAndSettle();
-      expect(find.text('Save Changes'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
-      await tester.pump();
-      expect(find.text('Saved: 1'), findsOneWidget);
-    },
-  );
-
-
+  testWidgets('keyboard example runs S through Actions', (tester) async {
+    await _pump(tester, 2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(find.text('Save Changes'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+    await tester.pump();
+    expect(find.text('Saved: 1'), findsOneWidget);
+  });
 }
 
 Future<void> _pump(WidgetTester tester, int index) async {
