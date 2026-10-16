@@ -192,6 +192,10 @@ class _LocalDateInlineState extends State<LocalDateInline> {
       .join(', ');
 
   void _scheduleRefresh(LocalDateResolved resolved, DateTime now) {
+    if (!TickerMode.valuesOf(context).enabled) {
+      _cancelRefresh();
+      return;
+    }
     final readerLocation = widget.formatter.environment.location(
       resolved.readerTimezone,
     )!;
