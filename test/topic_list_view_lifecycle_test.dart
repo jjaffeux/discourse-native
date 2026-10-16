@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
@@ -91,38 +92,41 @@ void main() {
   }
 
   for (final empty in [false, true]) {
-    testWidgets(
-      'pull refreshes ${empty ? 'an empty' : 'a short'} topic list',
-      (tester) async {
-        final api = _ControlledPagingApi();
-        final controller = await _controlledShell(api, sites.first);
-        addTearDown(controller.dispose);
-        api.requests.single.response.complete(
-          TopicList(topics: empty ? [] : _topics(1, 1)),
-        );
-        await tester.pumpWidget(
-          _LiveTestList(
-            controller: controller,
-            theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-          ),
-        );
-        await tester.pumpAndSettle();
-        await tester.drag(find.byType(TopicListView), const Offset(0, 500));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
+    testWidgets('pull refreshes ${empty ? 'an empty' : 'a short'} topic list', (
+      tester,
+    ) async {
+      final api = _ControlledPagingApi();
+      final controller = await _controlledShell(api, sites.first);
+      addTearDown(controller.dispose);
+      api.requests.single.response.complete(
+        TopicList(topics: empty ? [] : _topics(1, 1)),
+      );
+      await tester.pumpWidget(
+        _LiveTestList(
+          controller: controller,
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _pullTopics(tester);
+      expect(api.requests, hasLength(2));
+      expect(api.requests.last.path, '/latest.json');
+      expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+      if (!empty) {
+        expect(find.text('Topic 1'), findsOneWidget);
+        await _pullTopics(tester);
         expect(api.requests, hasLength(2));
-        expect(api.requests.last.path, '/latest.json');
-        expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
-        api.requests.last.response.complete(_page(2));
-        await tester.pumpAndSettle();
-        expect(find.text('Topic 2'), findsOneWidget);
-        expect(find.byType(DSpinner), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
+        expect(find.text('Topic 1'), findsOneWidget);
+      }
+      api.requests.last.response.complete(_page(2));
+      await tester.pumpAndSettle();
+      expect(find.text('Topic 2'), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
   }
 
-  testWidgets('failed refresh retains topics and permits another refresh', (
+  testWidgets('failed pull retains topics and permits another refresh', (
     tester,
   ) async {
     final api = _ControlledPagingApi();
@@ -131,8 +135,8 @@ void main() {
     api.requests.single.response.complete(_page(1));
     await tester.pumpWidget(_LiveTestList(controller: controller));
     await tester.pumpAndSettle();
-    unawaited(controller.loadFeed('latest', force: true));
-    await tester.pump();
+    await _pullTopics(tester);
+    expect(api.requests, hasLength(2));
     api.requests.last.response.completeError(Exception('offline'));
     await tester.pumpAndSettle();
     expect(find.text('Topic 1'), findsOneWidget);
@@ -141,8 +145,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.bySemanticsLabel('Refreshing'), findsNothing);
-    unawaited(controller.loadFeed('latest', force: true));
-    await tester.pump();
+    await _pullTopics(tester);
     expect(api.requests, hasLength(3));
     api.requests.last.response.complete(_page(2));
     await tester.pumpAndSettle();
@@ -153,7 +156,7 @@ void main() {
     );
   });
 
-  testWidgets('switching feeds during a refresh keeps the new feed', (
+  testWidgets('switching feeds during a pull refresh keeps the new feed', (
     tester,
   ) async {
     final api = _ControlledPagingApi();
@@ -162,8 +165,8 @@ void main() {
     api.requests.single.response.complete(_page(1));
     await tester.pumpWidget(_LiveTestList(controller: controller));
     await tester.pumpAndSettle();
-    unawaited(controller.loadFeed('latest', force: true));
-    await tester.pump();
+    await _pullTopics(tester);
+    expect(api.requests, hasLength(2));
     final refresh = api.requests.last;
     final switching = controller.selectTopicListMode(TopicListMode.popular);
     await tester.pump();
@@ -177,6 +180,117 @@ void main() {
     expect(find.text('Topic 2'), findsOneWidget);
     expect(find.text('Topic 99'), findsNothing);
     expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Android pulls a long topic list only from its top', (
+    tester,
+  ) async {
+    final api = _ControlledPagingApi();
+    final controller = await _controlledShell(api, sites.first);
+    addTearDown(controller.dispose);
+    api.requests.single.response.complete(TopicList(topics: _topics(1, 30)));
+    await tester.pumpWidget(
+      _LiveTestList(
+        controller: controller,
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(TopicListView), const Offset(0, -400));
+    await tester.pumpAndSettle();
+    final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+    expect(scroll.position.pixels, greaterThan(100));
+    await tester.drag(find.byType(TopicListView), const Offset(0, 100));
+    await tester.pumpAndSettle();
+    expect(api.requests, hasLength(1));
+    expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+    scroll.position.jumpTo(scroll.position.minScrollExtent);
+    await tester.pumpAndSettle();
+    await _pullTopics(tester);
+    expect(api.requests, hasLength(2));
+    expect(find.text('Topic 1'), findsOneWidget);
+    api.requests.last.response.complete(_page(99));
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 99'), findsOneWidget);
+    expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('macOS trackpad refreshes its list while another tab is active', (
+    tester,
+  ) async {
+    final api = _ControlledPagingApi();
+    final controller = await _controlledShell(api, sites.first);
+    addTearDown(controller.dispose);
+    api.requests.single.response.complete(_page(1));
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+    controller.desktopTopicTabs = true;
+    controller.openCategory(
+      const TopicCategory(
+        id: 7,
+        name: 'Sailing',
+        slug: 'sailing',
+        color: '0088CC',
+      ),
+    );
+    await tester.pump();
+    expect(api.requests, hasLength(2));
+    final categoryPath = '/c/sailing/7.json';
+    expect(api.requests.last.path, categoryPath);
+    api.requests.last.response.complete(TopicList(topics: _topics(10, 30)));
+    await tester.pumpAndSettle();
+    final listTab = controller.activeTabId!;
+    controller.selectTab(controller.selectedTabIn(ForumPanel.secondary)!.id);
+    final activeTab = controller.activeTabId;
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: ForumTabScope(
+              tabId: listTab,
+              panel: ForumPanel.main,
+              child: ForumTabListenableBuilder(
+                listenable: controller.topicFeeds,
+                builder: (context, _) =>
+                    TopicListView(feed: controller.currentFeed!),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final position = tester.getCenter(find.byType(TopicListView));
+    final pullDistance = tester.getSize(find.byType(TopicListView)).height;
+    final trackpad = await tester.createGesture(
+      kind: PointerDeviceKind.trackpad,
+    );
+    await trackpad.panZoomStart(position);
+    for (var step = 1; step <= 12; step++) {
+      await trackpad.panZoomUpdate(
+        position,
+        pan: Offset(0, pullDistance * step / 12),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(find.bySemanticsLabel('Release to refresh'), findsOneWidget);
+    expect(api.requests, hasLength(2));
+    await trackpad.panZoomEnd();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(api.requests, hasLength(3));
+    expect(api.requests.last.path, categoryPath);
+    expect(controller.activeTabId, activeTab);
+    expect(find.text('Topic 10'), findsOneWidget);
+    api.requests.last.response.complete(_page(99));
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 99'), findsOneWidget);
+    expect(find.bySemanticsLabel('Refreshing'), findsNothing);
+    expect(controller.activeTabId, activeTab);
     expect(tester.takeException(), isNull);
   });
 
@@ -1197,6 +1311,12 @@ void main() {
 
     expect(api.pageSites, isNot(contains(sites[1].url)));
   });
+}
+
+Future<void> _pullTopics(WidgetTester tester) async {
+  await tester.drag(find.byType(DPullToRefresh), const Offset(0, 500));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
 }
 
 final class _TestList extends StatelessWidget {

@@ -646,7 +646,20 @@ class _TopicListViewState extends State<TopicListView> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              _body(controller, destination, feedIdentity),
+              DPullToRefresh(
+                key: ValueKey(('topic-list-refresh', controller, feedIdentity)),
+                onRefresh: () async {
+                  if (!identical(_controller, controller) ||
+                      !_isCurrent(controller, feedIdentity)) {
+                    return;
+                  }
+                  await controller.readTab(
+                    feedIdentity.$3,
+                    () => controller.loadFeed(destination, force: true),
+                  );
+                },
+                child: _body(controller, destination, feedIdentity),
+              ),
               if (state.incoming > 0 && !widget.feed.loadingIncoming)
                 Positioned(
                   top: 0,
