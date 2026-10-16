@@ -454,10 +454,8 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
     }
     final rowIds = <Object>{};
     for (final row in widget.data) {
-      assert(
-        rowIds.add(widget.rowId(row)),
-        'Data table row IDs must be unique.',
-      );
+      final unique = rowIds.add(widget.rowId(row));
+      assert(unique, 'Data table row IDs must be unique.');
     }
     final sort = source.sort;
     final normalizedSort = sort != null && byId[sort.columnId]?.sortable == true
