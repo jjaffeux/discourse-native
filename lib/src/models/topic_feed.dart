@@ -7,6 +7,8 @@ import 'topic_filter.dart';
 class TopicFeed {
   const TopicFeed({
     this.topicIds = const [],
+    this.topicRows = const [],
+    this.totalRows,
     this.loading = false,
     this.loadingMore = false,
     this.loadingIncoming = false,
@@ -16,6 +18,7 @@ class TopicFeed {
     this.nextPagePath,
     this.canCreateTopic = false,
     this.filterOptions = const [],
+    this._hiddenRows = const [],
   });
 
   const TopicFeed.loading() : this(loading: true);
@@ -33,6 +36,8 @@ class TopicFeed {
 
   TopicFeed copyWith({
     List<int>? topicIds,
+    List<int>? topicRows,
+    int? totalRows,
     bool? loading,
     bool? loadingMore,
     bool? loadingIncoming,
@@ -47,6 +52,9 @@ class TopicFeed {
   }) {
     return TopicFeed(
       topicIds: topicIds ?? this.topicIds,
+      topicRows: topicRows ?? this.topicRows,
+      totalRows: totalRows ?? this.totalRows,
+      hiddenRows: _hiddenRows,
       loading: loading ?? this.loading,
       loadingMore: loadingMore ?? this.loadingMore,
       loadingIncoming: loadingIncoming ?? this.loadingIncoming,
@@ -59,8 +67,41 @@ class TopicFeed {
     );
   }
 
+  TopicFeed withVisibleTopics(List<int> ids) {
+    final kept = ids.toSet();
+    final hidden = [..._hiddenRows];
+    final rows = <int>[];
+    for (var index = 0; index < topicIds.length; index++) {
+      final row = topicRows.isEmpty ? index : topicRows[index];
+      if (kept.contains(topicIds[index])) {
+        rows.add(row);
+      } else {
+        hidden.add(row);
+      }
+    }
+    hidden.sort();
+    return TopicFeed(
+      topicIds: ids,
+      topicRows: rows,
+      totalRows: totalRows ?? topicIds.length,
+      hiddenRows: hidden,
+      loading: loading,
+      loadingMore: loadingMore,
+      loadingIncoming: loadingIncoming,
+      error: error,
+      pageError: pageError,
+      loaded: loaded,
+      nextPagePath: nextPagePath,
+      canCreateTopic: canCreateTopic,
+      filterOptions: filterOptions,
+    );
+  }
+
   TopicFeed refreshing() => TopicFeed(
     topicIds: topicIds,
+    topicRows: topicRows,
+    totalRows: totalRows,
+    hiddenRows: _hiddenRows,
     loading: true,
     loaded: loaded,
     nextPagePath: nextPagePath,
@@ -70,6 +111,9 @@ class TopicFeed {
 
   TopicFeed loadingNextPage() => TopicFeed(
     topicIds: topicIds,
+    topicRows: topicRows,
+    totalRows: totalRows,
+    hiddenRows: _hiddenRows,
     loadingMore: true,
     loadingIncoming: loadingIncoming,
     loaded: loaded,
@@ -80,6 +124,9 @@ class TopicFeed {
 
   TopicFeed withError(String message, {bool page = false}) => TopicFeed(
     topicIds: topicIds,
+    topicRows: topicRows,
+    totalRows: totalRows,
+    hiddenRows: _hiddenRows,
     loadingIncoming: loadingIncoming,
     error: message,
     pageError: page,
@@ -90,6 +137,55 @@ class TopicFeed {
   );
 
   final List<int> topicIds;
+
+  /// Source row positions for resident IDs. Empty means a dense first page.
+  final List<int> topicRows;
+  final int? totalRows;
+  final List<int> _hiddenRows;
+
+  int get rowCount => (totalRows ?? topicIds.length) - _hiddenRows.length;
+
+  /// Maps the unread projection's row back to the server page positions.
+  int sourceRowFor(int row) {
+    var source = row;
+    for (final hidden in _hiddenRows) {
+      if (hidden > source) break;
+      source++;
+    }
+    return source;
+  }
+
+  int? topicIdAt(int row) {
+    if (row < 0 || row >= rowCount) return null;
+    final source = sourceRowFor(row);
+    if (topicRows.isEmpty) {
+      return source < topicIds.length ? topicIds[source] : null;
+    }
+    var low = 0;
+    var high = topicRows.length;
+    while (low < high) {
+      final middle = (low + high) ~/ 2;
+      if (topicRows[middle] < source) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return low < topicRows.length && topicRows[low] == source
+        ? topicIds[low]
+        : null;
+  }
+
+  int indexOfTopic(int id) {
+    final index = topicIds.indexOf(id);
+    if (index < 0) return -1;
+    final source = topicRows.isEmpty ? index : topicRows[index];
+    return visibleRowForSource(source);
+  }
+
+  int visibleRowForSource(int row) =>
+      row - _hiddenRows.where((hidden) => hidden < row).length;
+
   final bool loading;
 
   final bool loadingMore;
@@ -108,5 +204,5 @@ class TopicFeed {
   final bool canCreateTopic;
   final List<TopicFilterOption> filterOptions;
 
-  bool get isEmpty => loaded && error == null && topicIds.isEmpty;
+  bool get isEmpty => loaded && error == null && rowCount == 0;
 }

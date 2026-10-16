@@ -35,6 +35,7 @@ import 'site_emoji_text.dart';
 import 'site_url.dart';
 import 'skeleton_fill.dart';
 import 'topic_card_taxonomy_layout.dart';
+import 'topic_feed_controller.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_pointer_predictor.dart';
@@ -49,6 +50,12 @@ part 'topic_card_metadata.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String);
 typedef _TopicListCursor = ({int topicId, int index, bool keyboard});
+
+Widget _restoringRow(BuildContext context) => DSkeletonRegion(
+  semanticsLabel: appL10n.loadingTopics,
+  color: skeletonFill(context),
+  child: const _TopicListSkeletonRow(titleWidth: .72, metadataWidth: .64),
+);
 
 class TopicListView extends StatefulWidget {
   const TopicListView({
@@ -79,23 +86,15 @@ class _TopicListViewState extends State<TopicListView> {
   ValueNotifier<_TopicListCursor?>? _cursor;
   Object? _keyboardMoveToken;
   Object? _loadMoreToken;
+  Object? _rangeToken;
+  Object? _incomingRevealToken;
+  int? _rangeFirst;
+  int? _rangeLast;
+  final Object _viewportOwner = Object();
+  VoidCallback? _releaseFeed;
   bool _restored = false;
   int? _readingTopicId;
   int _boundaryJumpRevision = 0;
-  List<int>? _indexedTopicIds;
-  Map<int, int> _topicIndexes = const {};
-
-  Map<int, int> _indexesFor(List<int> ids) {
-    if (!identical(_indexedTopicIds, ids)) {
-      _indexedTopicIds = ids;
-      final indexes = <int, int>{};
-      for (var index = 0; index < ids.length; index++) {
-        indexes.putIfAbsent(ids[index], () => index);
-      }
-      _topicIndexes = indexes;
-    }
-    return _topicIndexes;
-  }
 
   ShellController? _controller;
   StreamSubscription<int>? _topicListRevealSubscription;
@@ -111,49 +110,56 @@ class _TopicListViewState extends State<TopicListView> {
     final identity = _feedIdentity;
     final list = _list;
     final scroll = _scroll;
+    if (controller != null &&
+        identity != null &&
+        _isCurrent(controller, identity)) {
+      _syncCursor(oldWidget.feed, widget.feed);
+    }
     if (controller == null ||
         identity == null ||
         !_isCurrent(controller, identity) ||
-        !controller.currentFeedIsUnread ||
+        _incomingRevealToken != null ||
         list?.isAttached != true ||
         scroll?.hasClients != true) {
       return;
     }
-    final previous = oldWidget.feed.topicIds;
-    final next = widget.feed.topicIds;
-    if (identical(previous, next)) return;
-    final remaining = next.toSet();
-    if (next.isEmpty || !previous.any((id) => !remaining.contains(id))) return;
+    final previous = oldWidget.feed;
+    final next = widget.feed;
+    if (identical(previous.topicIds, next.topicIds)) return;
+    final remaining = next.topicIds.toSet();
+    if (next.rowCount == 0) return;
     final range = list!.visibleRange;
     if (range == null) return;
     final visible = [
       for (
         var i = range.$1 ~/ 2;
-        i <= range.$2 ~/ 2 && i < previous.length;
+        i <= range.$2 ~/ 2 && i < previous.rowCount;
         i++
       )
-        if (remaining.contains(previous[i])) previous[i],
+        if (previous.topicIdAt(i) case final id? when remaining.contains(id))
+          id,
     ];
     final selected = controller.readingTopicId;
     final anchor = visible.contains(selected) ? selected : visible.firstOrNull;
     if (anchor == null) return;
-    final anchorBox = _renderedRow(previous.indexOf(anchor));
+    if (previous.indexOfTopic(anchor) == next.indexOfTopic(anchor)) return;
+    final anchorBox = _renderedRow(previous.indexOfTopic(anchor));
     if (anchorBox == null) return;
     final top = anchorBox.localToGlobal(Offset.zero).dy;
     final readingTopicId = controller.readingTopicId;
     void restore({bool correct = true}) {
       if (!_isCurrent(controller, identity) ||
-          !identical(widget.feed.topicIds, next) ||
+          !identical(widget.feed.topicIds, next.topicIds) ||
           controller.readingTopicId != readingTopicId ||
           !identical(_list, list) ||
           !list.isAttached ||
           !scroll!.hasClients) {
         return;
       }
-      final box = _renderedRow(next.indexOf(anchor));
+      final box = _renderedRow(next.indexOfTopic(anchor));
       if (box == null) {
         list.jumpToItem(
-          index: next.indexOf(anchor) * 2,
+          index: next.indexOfTopic(anchor) * 2,
           scrollController: scroll,
           alignment: 0,
         );
@@ -176,6 +182,28 @@ class _TopicListViewState extends State<TopicListView> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) => restore());
+  }
+
+  void _syncCursor(TopicFeed previous, TopicFeed next) {
+    final cursor = _cursor?.value;
+    if (cursor == null) return;
+    var index = next.indexOfTopic(cursor.topicId);
+    if (index < 0) {
+      var source = previous.sourceRowFor(cursor.index);
+      if (previous.loadingIncoming && !next.loadingIncoming) {
+        source +=
+            (next.totalRows ?? next.rowCount) -
+            (previous.totalRows ?? previous.rowCount);
+      }
+      index = next.visibleRowForSource(source);
+    }
+    if (index != cursor.index) {
+      _saveCursor((
+        topicId: cursor.topicId,
+        index: index,
+        keyboard: cursor.keyboard,
+      ));
+    }
   }
 
   RenderBox? _renderedRow(int topicIndex) {
@@ -238,7 +266,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (_captureContext != identity) {
       _captureContext = identity;
       capture.recordTopicEvent('topicList.capture.context', {
-        'topicCount': widget.feed.topicIds.length,
+        'topicCount': widget.feed.rowCount,
         'inbox': widget.inbox,
         'mode': 'card',
         if (_scroll?.hasClients == true)
@@ -262,7 +290,7 @@ class _TopicListViewState extends State<TopicListView> {
           !(_tickerMode?.value.enabled ?? true)) {
         return;
       }
-      final index = widget.feed.topicIds.indexOf(cursor.topicId);
+      final index = widget.feed.indexOfTopic(cursor.topicId);
       if (index < 0) return;
       _jumpTo(index * 2);
       if (correct) {
@@ -297,8 +325,20 @@ class _TopicListViewState extends State<TopicListView> {
 
     _prefetch.reset();
     _disposeControllers();
+    _releaseFeed?.call();
+    _releaseFeed = feedIdentity.$1 == null
+        ? null
+        : _controller!.topicFeeds.retainFeed(
+            feedIdentity.$1!,
+            feedIdentity.$4,
+            owner: _viewportOwner,
+          );
     _feedIdentity = feedIdentity;
     _loadMoreToken = null;
+    _rangeToken = null;
+    _incomingRevealToken = null;
+    _rangeFirst = null;
+    _rangeLast = null;
     _restored = false;
     _readingTopicId = null;
     _scroll = PaginationScrollController();
@@ -344,10 +384,10 @@ class _TopicListViewState extends State<TopicListView> {
     // or to a loading/error footer that is no longer present. Bound it by
     // both the extent table and the real topic rows in this frame.
     final renderedItemCount = list.numberOfItems;
-    if (renderedItemCount == 0 || widget.feed.topicIds.isEmpty) return;
+    if (renderedItemCount == 0 || widget.feed.rowCount == 0) return;
     // The separated list gives the controller interleaved topic/separator
     // indices, so topic N is extent index N * 2.
-    final lastTopicIndex = (widget.feed.topicIds.length - 1) * 2;
+    final lastTopicIndex = (widget.feed.rowCount - 1) * 2;
     final lastRenderedTopicIndex = lastTopicIndex < renderedItemCount
         ? lastTopicIndex
         : renderedItemCount - 1;
@@ -428,6 +468,7 @@ class _TopicListViewState extends State<TopicListView> {
     // be waiting out its debounce window. The torn-down list cannot move it
     // any more, so it is written now.
     _controller?.flushAnchorPersist();
+    _releaseFeed?.call();
     _disposeControllers();
     _prefetch.dispose();
     _keyboardFocus.dispose();
@@ -439,14 +480,23 @@ class _TopicListViewState extends State<TopicListView> {
     String destination,
     _TopicListIdentity feedIdentity,
   ) async {
+    final token = Object();
+    _incomingRevealToken = token;
     await controller.showIncoming(destination);
-    if (!_isCurrent(controller, feedIdentity)) return;
+    if (!_isCurrent(controller, feedIdentity) ||
+        !identical(_incomingRevealToken, token)) {
+      return;
+    }
 
     // The rows only exist after the frame that draws them.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isCurrent(controller, feedIdentity)) return;
+      if (!_isCurrent(controller, feedIdentity) ||
+          !identical(_incomingRevealToken, token)) {
+        return;
+      }
       final scroll = _scroll;
       if (scroll != null && scroll.hasClients) scroll.jumpTo(0);
+      _incomingRevealToken = null;
     });
   }
 
@@ -471,6 +521,84 @@ class _TopicListViewState extends State<TopicListView> {
       if (!_isCurrent(controller, feedIdentity)) return;
       if (!identical(widget.feed, feed)) return;
       unawaited(controller.loadMoreFeed(destination));
+    });
+  }
+
+  void _publishViewport() {
+    final identity = _feedIdentity;
+    final controller = _controller;
+    final range = _list?.isAttached == true ? _list!.visibleRange : null;
+    if (identity == null ||
+        controller == null ||
+        identity.$1 == null ||
+        range == null ||
+        !_isCurrent(controller, identity) ||
+        widget.feed.rowCount == 0) {
+      return;
+    }
+    final feed = widget.feed;
+    controller.topicFeeds.updateViewport(
+      identity.$1!,
+      identity.$4,
+      owner: _viewportOwner,
+      firstRow: feed.sourceRowFor(range.$1 ~/ 2),
+      lastRow: feed.sourceRowFor((range.$2 ~/ 2).clamp(0, feed.rowCount - 1)),
+    );
+  }
+
+  void _scheduleRange(int first, int last, {bool retry = false}) {
+    if (widget.feed.loading || widget.feed.error != null && !retry) return;
+    _rangeFirst = _rangeFirst == null || first < _rangeFirst!
+        ? first
+        : _rangeFirst;
+    _rangeLast = _rangeLast == null || last > _rangeLast! ? last : _rangeLast;
+    if (_rangeToken != null) return;
+    final token = Object();
+    final identity = _feedIdentity!;
+    _rangeToken = token;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!identical(_rangeToken, token)) return;
+      final first = _rangeFirst!;
+      final last = _rangeLast!;
+      _rangeToken = null;
+      _rangeFirst = null;
+      _rangeLast = null;
+      final controller = _controller;
+      if (controller == null || !_isCurrent(controller, identity)) return;
+      unawaited(_ensureRange(controller, identity, first, last));
+    });
+  }
+
+  Future<void> _ensureRange(
+    ShellController controller,
+    _TopicListIdentity identity,
+    int first,
+    int last,
+  ) async {
+    final feed = _latestFeed();
+    await _ensureSourceRange(
+      controller,
+      identity,
+      feed.sourceRowFor(first),
+      feed.sourceRowFor(last),
+    );
+  }
+
+  Future<void> _ensureSourceRange(
+    ShellController controller,
+    _TopicListIdentity identity,
+    int first,
+    int last,
+  ) async {
+    await controller.readTab(identity.$3, () async {
+      final instance = controller.currentInstance;
+      if (instance == null || instance.url != identity.$1) return;
+      await controller.topicFeeds.ensureRange(
+        instance: instance,
+        destinationId: identity.$4,
+        firstRow: first,
+        lastRow: last,
+      );
     });
   }
 
@@ -499,19 +627,16 @@ class _TopicListViewState extends State<TopicListView> {
 
   // A page can land in the controller a frame before this list rebuilds with
   // it. Read the list's own tab, not whichever tab is active.
-  List<int> _latestTopicIds() {
+  TopicFeed _latestFeed() {
     final controller = _controller;
     final identity = _feedIdentity;
-    if (controller == null || identity == null) return widget.feed.topicIds;
-    return controller
-            .readTab(identity.$3, () => controller.currentFeed)
-            ?.topicIds ??
-        widget.feed.topicIds;
+    if (controller == null || identity == null) return widget.feed;
+    return controller.readTab(identity.$3, () => controller.currentFeed) ??
+        widget.feed;
   }
 
   void _rememberTopic(int topicId, {bool? keyboard}) {
-    final ids = _latestTopicIds();
-    final index = ids.indexOf(topicId);
+    final index = _latestFeed().indexOfTopic(topicId);
     if (index < 0) return;
     // Mouse navigation remembers the position without leaving a keyboard
     // highlight behind after the reader closes.
@@ -522,6 +647,10 @@ class _TopicListViewState extends State<TopicListView> {
       keyboard:
           keyboard ?? (previous?.topicId == topicId && previous!.keyboard),
     );
+    _saveCursor(cursor);
+  }
+
+  void _saveCursor(_TopicListCursor cursor) {
     _cursor!.value = cursor;
     PageStorage.maybeOf(context)?.writeState(
       context,
@@ -531,7 +660,7 @@ class _TopicListViewState extends State<TopicListView> {
   }
 
   bool _moveSelection(int direction) {
-    if (widget.feed.topicIds.isEmpty) return false;
+    if (widget.feed.rowCount == 0) return false;
     if (_keyboardMoveToken != null) return true;
     unawaited(_moveSelectionTo(direction));
     return true;
@@ -549,28 +678,87 @@ class _TopicListViewState extends State<TopicListView> {
         controller.currentContent == route &&
         navigationShortcutsAllowed(context);
     try {
-      final ids = widget.feed.topicIds;
+      var feed = widget.feed;
       final cursor = _cursor!.value;
       final anchor = cursor?.topicId ?? controller.readingTopicId;
-      final index = anchor == null ? -1 : ids.indexOf(anchor);
+      var index = anchor == null ? -1 : feed.indexOfTopic(anchor);
+      TopicFeed sourceFeed() =>
+          controller.topicFeeds.feedFor(identity.$1!, identity.$4) ?? feed;
+      if (index < 0 &&
+          cursor != null &&
+          sourceFeed().rowCount > sourceFeed().topicIds.length) {
+        final hint = feed.sourceRowFor(cursor.index);
+        await _ensureSourceRange(
+          controller,
+          identity,
+          hint - TopicFeedController.incomingPageSize,
+          hint + TopicFeedController.incomingPageSize,
+        );
+        if (!isCurrent()) return;
+        feed = _latestFeed();
+        if (feed.error != null) return;
+        for (
+          var row = 0;
+          sourceFeed().indexOfTopic(cursor.topicId) < 0 &&
+              row < sourceFeed().rowCount;
+          row += TopicFeedController.incomingPageSize
+        ) {
+          await _ensureSourceRange(
+            controller,
+            identity,
+            row,
+            row + TopicFeedController.incomingPageSize - 1,
+          );
+          if (!isCurrent()) return;
+          feed = _latestFeed();
+          if (feed.error != null) return;
+        }
+        if (sourceFeed().indexOfTopic(cursor.topicId) < 0) return;
+        index = feed.indexOfTopic(cursor.topicId);
+      }
+      final sourceIndex = anchor == null
+          ? -1
+          : sourceFeed().indexOfTopic(anchor);
+      final removedIndex = sourceIndex < 0
+          ? null
+          : feed.visibleRowForSource(sourceIndex);
       var target = index >= 0
           ? index + direction
+          : removedIndex != null
+          ? removedIndex + (direction < 0 ? -1 : 0)
           : cursor != null
-          ? cursor.index + (direction < 0 ? -1 : 0)
+          ? cursor.index +
+                (feed.topicIdAt(cursor.index) == null
+                    ? direction
+                    : direction < 0
+                    ? -1
+                    : 0)
           : (_list?.visibleRange?.$1 ?? 0) ~/ 2;
-      if (target >= ids.length && widget.feed.hasMore) {
-        await controller.loadMoreFeed(identity.$4);
+      if (target >= feed.rowCount && feed.hasMore) {
+        await controller.readTab(
+          identity.$3,
+          () => controller.loadMoreFeed(identity.$4),
+        );
         if (!isCurrent()) return;
       }
-      final currentIds = _latestTopicIds();
-      if (!isCurrent() || currentIds.isEmpty) return;
-      target = target.clamp(0, currentIds.length - 1);
-      _rememberTopic(currentIds[target], keyboard: true);
+      var current = _latestFeed();
+      if (!isCurrent() || current.rowCount == 0) return;
+      target = target.clamp(0, current.rowCount - 1);
+      final candidate = current.topicIdAt(target);
+      if (candidate == null ||
+          !controller.store.containsRecord<Topic>(identity.$1!, candidate)) {
+        await _ensureRange(controller, identity, target, target);
+        if (!isCurrent()) return;
+        current = _latestFeed();
+      }
+      final topicId = current.topicIdAt(target);
+      if (topicId == null) return;
+      _rememberTopic(topicId, keyboard: true);
       _keyboardFocus.requestFocus();
       final siteUrl = controller.currentInstance?.url;
       final topic = siteUrl == null
           ? null
-          : controller.store.read<Topic>(siteUrl, currentIds[target]);
+          : controller.store.read<Topic>(siteUrl, topicId);
       if (topic != null) _prefetch.keyboard(topic);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!isCurrent()) return;
@@ -603,16 +791,43 @@ class _TopicListViewState extends State<TopicListView> {
   }
 
   bool _openSelection() {
-    final id = _cursor?.value?.topicId;
+    final cursor = _cursor?.value;
     final controller = _controller!;
     final siteUrl = controller.currentInstance?.url;
-    if (id == null || siteUrl == null || !widget.feed.topicIds.contains(id)) {
-      return false;
+    if (cursor == null || siteUrl == null) return false;
+    final topic = controller.store.read<Topic>(siteUrl, cursor.topicId);
+    if (topic != null && widget.feed.topicIds.contains(cursor.topicId)) {
+      _openRow(topic, keyboard: true);
+    } else {
+      unawaited(_restoreSelection(controller, _feedIdentity!, cursor));
     }
-    final topic = controller.store.read<Topic>(siteUrl, id);
-    if (topic == null) return false;
-    _openRow(topic, keyboard: true);
     return true;
+  }
+
+  Future<void> _restoreSelection(
+    ShellController controller,
+    _TopicListIdentity identity,
+    _TopicListCursor cursor,
+  ) async {
+    if (!_isCurrent(controller, identity) ||
+        _cursor?.value?.topicId != cursor.topicId) {
+      return;
+    }
+    var topic = controller.store.read<Topic>(identity.$1!, cursor.topicId);
+    topic ??= await controller.readTab(identity.$3, () async {
+      final instance = controller.currentInstance;
+      if (instance == null || instance.url != identity.$1) return null;
+      return controller.topicFeeds.restoreTopic(
+        instance: instance,
+        destinationId: identity.$4,
+        topicId: cursor.topicId,
+      );
+    });
+    if (_isCurrent(controller, identity) &&
+        _cursor?.value?.topicId == cursor.topicId &&
+        topic != null) {
+      _openRow(topic, keyboard: true);
+    }
   }
 
   @override
@@ -627,6 +842,9 @@ class _TopicListViewState extends State<TopicListView> {
     final controller = ShellScope.read(context);
     if (!identical(_controller, controller)) {
       _prefetch.reset();
+      _releaseFeed?.call();
+      _releaseFeed = null;
+      _feedIdentity = null;
       // A replaced shell keeps its own pending anchor window; this list no
       // longer feeds it, so the window is written rather than left behind.
       _controller?.flushAnchorPersist();
@@ -687,7 +905,7 @@ class _TopicListViewState extends State<TopicListView> {
     final feed = widget.feed;
     _syncControllers(feedIdentity);
 
-    if (feed.loading && feed.topicIds.isEmpty) {
+    if (feed.loading && feed.rowCount == 0) {
       return ContentReadingLaneBox(
         widthLimit: topicListContentWidth,
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -697,7 +915,7 @@ class _TopicListViewState extends State<TopicListView> {
         ),
       );
     }
-    if (feed.error case final error? when feed.topicIds.isEmpty) {
+    if (feed.error case final error? when feed.rowCount == 0) {
       return _Message(
         icon: DIcons.triangleExclamation,
         text: error,
@@ -706,6 +924,28 @@ class _TopicListViewState extends State<TopicListView> {
           feed.pageError
               ? controller.loadMoreFeed(destination)
               : controller.loadFeed(destination),
+        ),
+      );
+    }
+    if (feed.error case final error?
+        when !feed.pageError &&
+            !feed.topicIds.any(
+              (id) =>
+                  feedIdentity.$1 != null &&
+                  controller.store.containsRecord<Topic>(feedIdentity.$1!, id),
+            )) {
+      return ContentReadingLaneBox(
+        widthLimit: topicListContentWidth,
+        padding: const EdgeInsets.all(16),
+        child: _FeedErrorBanner(
+          key: const ValueKey('topic-feed-refresh-error'),
+          message: error,
+          onRetry: () => unawaited(
+            controller.readTab(
+              feedIdentity.$3,
+              () => controller.loadFeed(destination),
+            ),
+          ),
         ),
       );
     }
@@ -726,11 +966,11 @@ class _TopicListViewState extends State<TopicListView> {
     }
 
     _restore(controller, destination, feedIdentity);
-    final topicIndexes = _indexesFor(feed.topicIds);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _feedIdentity == feedIdentity) _publishViewport();
+    });
     if (_recording) {
-      _recordScrollEvent('topicList.view.built', {
-        'topicCount': feed.topicIds.length,
-      });
+      _recordScrollEvent('topicList.view.built', {'topicCount': feed.rowCount});
     }
     final readingTopicId = widget.inbox ? controller.readingTopicId : null;
     final hiddenCategoryId = controller.topicListContent?.categoryId;
@@ -764,6 +1004,7 @@ class _TopicListViewState extends State<TopicListView> {
               onNotification: (notification) {
                 if (notification.depth != 0) return false;
                 _prefetch.scroll(notification);
+                _publishViewport();
                 final stopwatch = _recording ? (Stopwatch()..start()) : null;
                 // Opening a topic tears this list down, so the position has
                 // to be handed to the controller as it changes rather than
@@ -842,22 +1083,20 @@ class _TopicListViewState extends State<TopicListView> {
                       extentEstimation: _estimateExtent,
                       padding: lane.padding.add(insets),
                       itemCount:
-                          feed.topicIds.length +
+                          feed.rowCount +
                           (feed.loadingMore || feed.pageError ? 1 : 0),
                       findChildIndexCallback: (key) {
                         if (key is! ValueKey<int>) return null;
-                        final index = topicIndexes[key.value];
+                        final index = feed.indexOfTopic(key.value);
                         // The separated delegate addresses topics and gaps.
-                        return index == null ? null : index * 2;
+                        return index < 0 ? null : index * 2;
                       },
                       separatorBuilder: (context, index) =>
                           ValueListenableBuilder<_TopicListCursor?>(
                             valueListenable: _cursor!,
                             builder: (context, cursor, _) {
-                              final current = feed.topicIds[index];
-                              final next = index + 1 < feed.topicIds.length
-                                  ? feed.topicIds[index + 1]
-                                  : null;
+                              final current = feed.topicIdAt(index);
+                              final next = feed.topicIdAt(index + 1);
                               final keyboardId =
                                   cursor != null &&
                                       (cursor.keyboard ||
@@ -882,7 +1121,7 @@ class _TopicListViewState extends State<TopicListView> {
                             'index': index,
                           });
                         }
-                        if (index >= feed.topicIds.length) {
+                        if (index >= feed.rowCount) {
                           if (feed.loadingMore) {
                             return const _LoadingMoreRow();
                           }
@@ -893,7 +1132,7 @@ class _TopicListViewState extends State<TopicListView> {
                           );
                         }
 
-                        if (index == feed.topicIds.length - 1 && feed.hasMore) {
+                        if (index == feed.rowCount - 1 && feed.hasMore) {
                           _scheduleLoadMore(
                             controller,
                             destination,
@@ -902,7 +1141,34 @@ class _TopicListViewState extends State<TopicListView> {
                           );
                         }
 
-                        final topicId = feed.topicIds[index];
+                        final topicId = feed.topicIdAt(index);
+                        final unbacked =
+                            topicId == null ||
+                            feedIdentity.$1 != null &&
+                                !controller.store.containsRecord<Topic>(
+                                  feedIdentity.$1!,
+                                  topicId,
+                                );
+                        if (unbacked) {
+                          _scheduleRange(index, index);
+                          return KeyedSubtree(
+                            key: ValueKey(('topic-list-gap', index)),
+                            child: feed.error != null
+                                ? _LoadMoreErrorRow(
+                                    message: feed.error!,
+                                    onRetry: () => feed.pageError
+                                        ? _scheduleRange(
+                                            index,
+                                            index,
+                                            retry: true,
+                                          )
+                                        : unawaited(
+                                            controller.loadFeed(destination),
+                                          ),
+                                  )
+                                : _restoringRow(context),
+                          );
+                        }
                         return ValueListenableBuilder<_TopicListCursor?>(
                           key: ValueKey(topicId),
                           valueListenable: _cursor!,
@@ -1263,10 +1529,7 @@ class _TopicRowState extends State<_TopicRow> {
         return ValueListenableBuilder<Topic?>(
           valueListenable: controller.topicRef(siteUrl, widget.topicId),
           builder: (context, topic, _) => topic == null
-              // The id is in a list, so the topic was stored with it. A gap
-              // here means the site was just disconnected and this list is
-              // one frame from being torn down.
-              ? const SizedBox.shrink()
+              ? _restoringRow(context)
               : ShellSelector<_TopicCategoryPresentation>(
                   select: (controller) => _topicCategoryPresentation(
                     controller,

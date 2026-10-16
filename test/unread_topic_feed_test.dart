@@ -5,6 +5,54 @@ import 'package:discourse_native/src/shell/unread_topic_feed.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('a dense feed still appends ordinary topic IDs', () {
+    const source = TopicFeed(topicIds: [1, 2], loaded: true);
+    final appended = source.copyWith(topicIds: [1, 2, 3]);
+    expect(appended.rowCount, 3);
+    expect(appended.topicIdAt(2), 3);
+    expect(appended.indexOfTopic(3), 2);
+  });
+
+  test(
+    'projects resident unread rows without losing gaps or source positions',
+    () {
+      const source = TopicFeed(
+        topicIds: [1, 2, 61, 62],
+        topicRows: [0, 1, 60, 61],
+        totalRows: 90,
+        loaded: true,
+        nextPagePath: '/unread.json?cursor=opaque',
+      );
+      final projected = UnreadTopicFeed().project(
+        source,
+        selectedTopicId: 62,
+        isRead: {1, 61, 62}.contains,
+      );
+      expect(projected.topicIds, [2, 62]);
+      expect(projected.rowCount, 88);
+      expect(projected.topicIdAt(0), 2);
+      expect(projected.topicIdAt(59), 62);
+      expect(projected.topicIdAt(30), isNull);
+      expect(projected.indexOfTopic(62), 59);
+      expect(projected.sourceRowFor(0), 1);
+      expect(projected.sourceRowFor(59), 61);
+      expect(projected.sourceRowFor(87), 89);
+      expect(projected.nextPagePath, source.nextPagePath);
+      for (final state in [
+        projected.refreshing(),
+        projected.loadingNextPage(),
+        projected.withError('offline', page: true),
+        projected.copyWith(loadingIncoming: true),
+      ]) {
+        expect(state.rowCount, 88);
+        expect(state.topicIdAt(59), 62);
+        expect(state.sourceRowFor(59), 61);
+      }
+      expect(source.rowCount, 90);
+      expect(source.topicIdAt(0), 1);
+    },
+  );
+
   test('keeps the open topic and restores a topic with another reply', () {
     const source = TopicFeed(
       topicIds: [1, 2, 3],

@@ -24,7 +24,7 @@ final class UnreadTopicFeed {
       return _visible!;
     }
     _source = source;
-    return _visible = source.copyWith(topicIds: ids);
+    return _visible = source.withVisibleTopics(ids);
   }
 
   static bool isRead({

@@ -64,10 +64,11 @@ TopicList _page(int id, {String? moreTopicsUrl}) => TopicList(
   moreTopicsUrl: moreTopicsUrl,
 );
 
-TopicList _pages(Iterable<int> ids) => TopicList(
+TopicList _pages(Iterable<int> ids, {String? moreTopicsUrl}) => TopicList(
   topics: [
     for (final id in ids) Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
   ],
+  moreTopicsUrl: moreTopicsUrl,
 );
 
 void main() {
@@ -358,56 +359,85 @@ void main() {
   });
 
   group('pagination', () {
-    test('bounds retained identities past the production Store budget', () async {
-      final site = instance('one.example');
-      controller.dispose();
-      store = Store(
-        policy: const StorePolicy(
-          maxEntries: 4096,
-          maxEntriesPerSite: 2048,
-          maxEntriesPerSiteAndType: 1024,
-        ),
-      );
-      controller = TopicFeedController(
-        api: api,
-        credentials: credentials,
-        lifecycle: SiteLifecycle(),
-        store: store,
-      );
-      for (var page = 0; page < 35; page++) {
-        final loading = page == 0
-            ? controller.load(
-                instance: site,
-                destinationId: 'latest',
-                path: '/latest.json',
-                incoming: null,
-              )
-            : controller.loadMore(instance: site, destinationId: 'latest');
-        await pumpEventQueue();
-        api.requests.last.response.complete(
-          TopicList(
-            topics: [
-              for (var row = 0; row < 30; row++)
-                Topic(
-                  id: page * 30 + row + 1,
-                  title: 'Topic ${page * 30 + row + 1}',
-                  slug: 'topic',
-                ),
-            ],
-            moreTopicsUrl: '/latest.json?page=${page + 1}',
+    test(
+      'bounds retained identities past the production Store budget',
+      () async {
+        final site = instance('one.example');
+        controller.dispose();
+        store = Store(
+          policy: const StorePolicy(
+            maxEntries: 4096,
+            maxEntriesPerSite: 2048,
+            maxEntriesPerSiteAndType: 1024,
           ),
         );
-        await loading;
-      }
-      final feed = controller.feedFor(site.url, 'latest')!;
-      expect(api.requests, hasLength(35));
-      expect(feed.topicIds.length, lessThanOrEqualTo(300));
-      expect(
-        feed.topicIds.every((id) => store.containsRecord<Topic>(site.url, id)),
-        isTrue,
-      );
-      expect(store.statisticsForTesting.entriesFor<Topic>(site.url), 1024);
-    });
+        controller = TopicFeedController(
+          api: api,
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+          store: store,
+        );
+        for (var page = 0; page < 35; page++) {
+          final loading = page == 0
+              ? controller.load(
+                  instance: site,
+                  destinationId: 'latest',
+                  path: '/latest.json',
+                  incoming: null,
+                )
+              : controller.loadMore(instance: site, destinationId: 'latest');
+          await pumpEventQueue();
+          api.requests.last.response.complete(
+            TopicList(
+              topics: [
+                for (var row = 0; row < 30; row++)
+                  Topic(
+                    id: page * 30 + row + 1,
+                    title: 'Topic ${page * 30 + row + 1}',
+                    slug: 'topic',
+                  ),
+              ],
+              moreTopicsUrl: '/latest.json?page=${page + 1}',
+            ),
+          );
+          await loading;
+        }
+        final feed = controller.feedFor(site.url, 'latest')!;
+        expect(api.requests, hasLength(35));
+        expect(feed.topicIds.length, lessThanOrEqualTo(300));
+        expect(
+          feed.topicIds.every(
+            (id) => store.containsRecord<Topic>(site.url, id),
+          ),
+          isTrue,
+        );
+        expect(store.statisticsForTesting.entriesFor<Topic>(site.url), 1024);
+
+        final restoring = controller.ensureRange(
+          instance: site,
+          destinationId: 'latest',
+          firstRow: 300,
+          lastRow: 329,
+        );
+        await pumpEventQueue();
+        expect(api.requests.last.path, '/latest.json?page=10');
+        api.requests.last.response.complete(
+          _pages(
+            List.generate(30, (index) => index + 301),
+            moreTopicsUrl: '/latest.json?page=11',
+          ),
+        );
+        await restoring;
+        final restored = controller.feedFor(site.url, 'latest')!;
+        expect(restored.rowCount, 1050);
+        expect(restored.topicIdAt(300), 301);
+        expect(restored.topicIdAt(329), 330);
+        expect(restored.nextPagePath, '/latest.json?page=35');
+        expect(restored.topicIds.length, lessThanOrEqualTo(300));
+        expect(store.read<Topic>(site.url, 301)?.title, 'Topic 301');
+        expect(store.statisticsForTesting.observedEntries, 0);
+      },
+    );
 
     test('keeps the cursor and coalesces retry after a page failure', () async {
       final site = instance('one.example');
@@ -540,6 +570,746 @@ void main() {
       await controller.loadMore(instance: site, destinationId: 'latest');
       expect(api.requests, hasLength(2));
     });
+  });
+
+  group('range restoration', () {
+    final site = instance('one.example');
+    const rootPath = '/filter.json?tags=one&order=created';
+
+    setUp(() {
+      controller.dispose();
+      controller = TopicFeedController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        store: store,
+        maximumRetainedTopics: 4,
+        maximumCursorCheckpoints: 2,
+        maximumDestinations: 2,
+      );
+    });
+
+    Future<void> seed({int pages = 6}) async {
+      for (var page = 0; page < pages; page++) {
+        final loading = page == 0
+            ? controller.load(
+                instance: site,
+                destinationId: 'filtered',
+                path: rootPath,
+                incoming: null,
+              )
+            : controller.loadMore(instance: site, destinationId: 'filtered');
+        await pumpEventQueue();
+        api.requests.last.response.complete(
+          _pages([
+            page * 2 + 1,
+            page * 2 + 2,
+          ], moreTopicsUrl: '/cursor/${page + 1}.json?token=opaque'),
+        );
+        await loading;
+      }
+    }
+
+    Future<void> restore(int first, int last) => controller.ensureRange(
+      instance: site,
+      destinationId: 'filtered',
+      firstRow: first,
+      lastRow: last,
+    );
+
+    Future<void> answer(List<int> ids, {String? next}) async {
+      await pumpEventQueue();
+      api.requests.last.response.complete(_pages(ids, moreTopicsUrl: next));
+      await pumpEventQueue();
+    }
+
+    test(
+      'replays dropped opaque checkpoints without changing the frontier',
+      () async {
+        await seed();
+        expect(controller.feedFor(site.url, 'filtered')?.topicIdAt(2), isNull);
+        final restoring = restore(2, 3);
+        final duplicate = restore(2, 3);
+        expect(duplicate, same(restoring));
+        await pumpEventQueue();
+        expect(api.requests.last.path, rootPath);
+        await answer([1, 2], next: '/cursor/1.json?token=opaque');
+        expect(api.requests.last.path, '/cursor/1.json?token=opaque');
+        await answer([3, 4], next: '/cursor/2.json?token=opaque');
+        await restoring;
+
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIdAt(2), 3);
+        expect(feed.topicIdAt(3), 4);
+        expect(feed.rowCount, 12);
+        expect(feed.nextPagePath, '/cursor/6.json?token=opaque');
+        expect(feed.topicIds.length, lessThanOrEqualTo(4));
+        expect(feed.error, isNull);
+        final requestsBefore = api.requests.length;
+        await restore(2, 3);
+        expect(api.requests, hasLength(requestsBefore));
+
+        final forward = controller.loadMore(
+          instance: site,
+          destinationId: 'filtered',
+        );
+        await pumpEventQueue();
+        expect(api.requests.last.path, '/cursor/6.json?token=opaque');
+        await answer([13, 14], next: '/cursor/7.json?token=opaque');
+        await forward;
+        expect(controller.feedFor(site.url, 'filtered')?.rowCount, 14);
+      },
+    );
+
+    for (final pageFirst in [false, true]) {
+      test(
+        'serializes restoration and pagination with page first=$pageFirst',
+        () async {
+          await seed();
+          late Future<void> restoring;
+          late Future<void> forward;
+          if (pageFirst) {
+            forward = controller.loadMore(
+              instance: site,
+              destinationId: 'filtered',
+            );
+            await pumpEventQueue();
+            restoring = restore(2, 3);
+            await pumpEventQueue();
+            expect(api.requests, hasLength(7));
+            expect(api.requests.last.path, '/cursor/6.json?token=opaque');
+            await answer([13, 14], next: '/cursor/7.json?token=opaque');
+            await forward;
+          } else {
+            restoring = restore(2, 3);
+            await pumpEventQueue();
+            forward = controller.loadMore(
+              instance: site,
+              destinationId: 'filtered',
+            );
+            await pumpEventQueue();
+            expect(api.requests, hasLength(7));
+          }
+          expect(api.requests.last.path, rootPath);
+          await answer([1, 2], next: '/cursor/1.json?token=opaque');
+          await answer([3, 4], next: '/cursor/2.json?token=opaque');
+          await restoring;
+          if (!pageFirst) {
+            expect(api.requests.last.path, '/cursor/6.json?token=opaque');
+            await answer([13, 14], next: '/cursor/7.json?token=opaque');
+            await forward;
+          }
+          final feed = controller.feedFor(site.url, 'filtered')!;
+          expect(feed.rowCount, 14);
+          expect(feed.nextPagePath, '/cursor/7.json?token=opaque');
+        },
+      );
+    }
+
+    test('coalesces overlapping ranges while a replay is in flight', () async {
+      await seed();
+      final first = restore(2, 3);
+      await pumpEventQueue();
+      final second = restore(2, 5);
+      expect(second, same(first));
+      await answer([1, 2], next: '/cursor/1.json?token=opaque');
+      await answer([3, 4], next: '/cursor/2.json?token=opaque');
+      expect(api.requests.last.path, '/cursor/2.json?token=opaque');
+      await answer([5, 6], next: '/cursor/3.json?token=opaque');
+      await Future.wait([first, second]);
+      final feed = controller.feedFor(site.url, 'filtered')!;
+      expect(
+        [for (var row = 2; row <= 5; row++) feed.topicIdAt(row)],
+        [3, 4, 5, 6],
+      );
+      expect(feed.topicIds, hasLength(4));
+    });
+
+    test(
+      'repairs retained rows evicted by another feed using the original query',
+      () async {
+        await seed(pages: 2);
+        store.forget(site.url);
+        final restoring = restore(1, 2);
+        await pumpEventQueue();
+        expect(api.requests.last.path, '$rootPath&topic_ids=2,3');
+        await answer([2, 3]);
+        await restoring;
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIds, [1, 2, 3, 4]);
+        expect(feed.rowCount, 4);
+        expect(feed.nextPagePath, '/cursor/2.json?token=opaque');
+        expect(store.read<Topic>(site.url, 2)?.title, 'Topic 2');
+        expect(store.read<Topic>(site.url, 3)?.title, 'Topic 3');
+      },
+    );
+
+    test(
+      'keeps visible ranges for two panels while pruning old rows',
+      () async {
+        final firstOwner = Object();
+        final secondOwner = Object();
+        final firstRelease = controller.retainFeed(
+          site.url,
+          'filtered',
+          owner: firstOwner,
+        );
+        final secondRelease = controller.retainFeed(
+          site.url,
+          'filtered',
+          owner: secondOwner,
+        );
+        controller.updateViewport(
+          site.url,
+          'filtered',
+          owner: firstOwner,
+          firstRow: 0,
+          lastRow: 1,
+        );
+        controller.updateViewport(
+          site.url,
+          'filtered',
+          owner: secondOwner,
+          firstRow: 8,
+          lastRow: 9,
+        );
+        await seed();
+        var feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIds, [1, 2, 9, 10]);
+        expect(feed.rowCount, 12);
+        final beforeViewportUpdate = feed;
+        controller.updateViewport(
+          site.url,
+          'filtered',
+          owner: secondOwner,
+          firstRow: 8,
+          lastRow: 9,
+        );
+        expect(
+          controller.feedFor(site.url, 'filtered'),
+          same(beforeViewportUpdate),
+        );
+        firstRelease();
+        firstRelease();
+        final forward = controller.loadMore(
+          instance: site,
+          destinationId: 'filtered',
+        );
+        await answer([13, 14], next: '/cursor/7.json?token=opaque');
+        await forward;
+        feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIds, [9, 10, 13, 14]);
+        secondRelease();
+      },
+    );
+
+    for (final includesVisible in [false, true]) {
+      test(
+        'shifts protected panels before trimming an incoming prepend, overlap=$includesVisible',
+        () async {
+          final firstOwner = Object();
+          final secondOwner = Object();
+          final firstRelease = controller.retainFeed(
+            site.url,
+            'filtered',
+            owner: firstOwner,
+          );
+          final secondRelease = controller.retainFeed(
+            site.url,
+            'filtered',
+            owner: secondOwner,
+          );
+          controller.updateViewport(
+            site.url,
+            'filtered',
+            owner: firstOwner,
+            firstRow: 0,
+            lastRow: 1,
+          );
+          controller.updateViewport(
+            site.url,
+            'filtered',
+            owner: secondOwner,
+            firstRow: 8,
+            lastRow: 9,
+          );
+          await seed();
+          final incoming = IncomingTopics()
+            ..track({'filtered': const IncomingTopicsFilter.latest()})
+            ..notify({'message_type': 'new_topic', 'topic_id': 100});
+          if (includesVisible) {
+            incoming.notify({'message_type': 'new_topic', 'topic_id': 10});
+          }
+          final showing = controller.showIncoming(
+            instance: site,
+            destinationId: 'filtered',
+            path: rootPath,
+            incoming: incoming,
+          );
+          await answer([100, if (includesVisible) 10]);
+          await showing;
+          final feed = controller.feedFor(site.url, 'filtered')!;
+          final delta = includesVisible ? 2 : 1;
+          expect(feed.topicIdAt(delta), 1);
+          expect(feed.topicIdAt(delta + 1), 2);
+          expect(feed.topicIdAt(8 + delta), 9);
+          expect(feed.topicIdAt(includesVisible ? 1 : 10), 10);
+          expect(feed.rowCount, 13);
+          expect(feed.topicIds.length, lessThanOrEqualTo(4));
+          firstRelease();
+          secondRelease();
+        },
+      );
+    }
+
+    test(
+      'keeps range errors retryable without collapsing rows or losing cursors',
+      () async {
+        await seed();
+        final failed = restore(2, 3);
+        await pumpEventQueue();
+        api.requests.last.response.completeError(StateError('offline'));
+        await failed;
+        var feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.pageError, isTrue);
+        expect(feed.rowCount, 12);
+        expect(feed.topicIdAt(2), isNull);
+        expect(feed.nextPagePath, '/cursor/6.json?token=opaque');
+        final retry = restore(2, 3);
+        final duplicate = restore(2, 3);
+        expect(duplicate, same(retry));
+        await answer([1, 2], next: '/cursor/1.json?token=opaque');
+        await answer([3, 4], next: '/cursor/2.json?token=opaque');
+        await retry;
+        feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIdAt(2), 3);
+        expect(feed.error, isNull);
+        expect(feed.rowCount, 12);
+      },
+    );
+
+    test(
+      'stops a repeated replay cursor and retains a retryable sparse range',
+      () async {
+        await seed();
+        final restoring = restore(2, 3);
+        await answer([1, 2], next: rootPath);
+        await restoring;
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(api.requests, hasLength(7));
+        expect(feed.pageError, isTrue);
+        expect(feed.rowCount, 12);
+        expect(feed.topicIdAt(2), isNull);
+        expect(feed.nextPagePath, '/cursor/6.json?token=opaque');
+      },
+    );
+
+    test(
+      'reconciles stale tail rows when a changed server list ends early',
+      () async {
+        await seed();
+        final restoring = restore(2, 3);
+        await answer([101]);
+        await restoring;
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(api.requests, hasLength(7));
+        expect(feed.pageError, isFalse);
+        expect(feed.rowCount, 1);
+        expect(feed.topicIdAt(0), 101);
+        expect(feed.topicIdAt(2), isNull);
+        expect(feed.nextPagePath, isNull);
+      },
+    );
+
+    test(
+      'refresh cancels an old replay and resets its sparse metadata',
+      () async {
+        await seed();
+        final restoring = restore(2, 3);
+        await pumpEventQueue();
+        final oldRequest = api.requests.last;
+        final refresh = controller.load(
+          instance: site,
+          destinationId: 'filtered',
+          path: '/new.json',
+          incoming: null,
+          force: true,
+        );
+        await pumpEventQueue();
+        expect(api.requests.last.path, '/new.json');
+        await answer([100], next: '/new.json?page=1');
+        await refresh;
+        oldRequest.response.complete(
+          _pages([1, 2], moreTopicsUrl: '/cursor/1.json?token=opaque'),
+        );
+        await restoring;
+        await pumpEventQueue();
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIds, [100]);
+        expect(feed.rowCount, 1);
+        expect(feed.nextPagePath, '/new.json?page=1');
+        expect(feed.error, isNull);
+      },
+    );
+
+    test(
+      'an old account replay cannot write into a replacement feed',
+      () async {
+        await seed();
+        final restoring = restore(2, 3);
+        await pumpEventQueue();
+        final oldRequest = api.requests.last;
+        controller.forget(site.url);
+        store.forget(site.url);
+        final replacement = controller.load(
+          instance: site,
+          destinationId: 'filtered',
+          path: '/account.json',
+          incoming: null,
+        );
+        await answer([100]);
+        await replacement;
+        oldRequest.response.complete(
+          _pages([1, 2], moreTopicsUrl: '/cursor/1.json?token=opaque'),
+        );
+        await restoring;
+        await pumpEventQueue();
+        expect(controller.feedFor(site.url, 'filtered')?.topicIds, [100]);
+        expect(store.read<Topic>(site.url, 1), isNull);
+        expect(api.requests.last.path, '/account.json');
+      },
+    );
+
+    test(
+      'restores the original row after an overlapping page is evicted',
+      () async {
+        controller.dispose();
+        controller = TopicFeedController(
+          api: api,
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+          store: store,
+          maximumRetainedTopics: 2,
+        );
+        await seed(pages: 1);
+        var forward = controller.loadMore(
+          instance: site,
+          destinationId: 'filtered',
+        );
+        await answer([2, 3], next: '/cursor/2.json?token=opaque');
+        await forward;
+        forward = controller.loadMore(
+          instance: site,
+          destinationId: 'filtered',
+        );
+        await answer([4, 5], next: '/cursor/3.json?token=opaque');
+        await forward;
+        expect(controller.feedFor(site.url, 'filtered')?.rowCount, 5);
+        final restoring = restore(2, 2);
+        await pumpEventQueue();
+        expect(api.requests.last.path, '/cursor/1.json?token=opaque');
+        await answer([2, 3], next: '/cursor/2.json?token=opaque');
+        await restoring;
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIdAt(2), 3);
+        expect(feed.rowCount, 5);
+        expect(feed.error, isNull);
+      },
+    );
+
+    test(
+      'rejects changed checkpoint contents without relocating protected rows',
+      () async {
+        final owner = Object();
+        final release = controller.retainFeed(
+          site.url,
+          'filtered',
+          owner: owner,
+        );
+        controller.updateViewport(
+          site.url,
+          'filtered',
+          owner: owner,
+          firstRow: 8,
+          lastRow: 9,
+        );
+        await seed();
+        final restoring = restore(0, 1);
+        await answer([9, 10], next: '/cursor/1.json?token=opaque');
+        await restoring;
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIdAt(8), 9);
+        expect(feed.topicIdAt(9), 10);
+        expect(feed.topicIdAt(0), isNull);
+        expect(feed.topicIdAt(1), isNull);
+        expect(feed.pageError, isTrue);
+        expect(feed.rowCount, 12);
+        release();
+      },
+    );
+
+    for (final checkpoints in [2, 32]) {
+      test(
+        'reconciles an incoming duplicate with $checkpoints checkpoints',
+        () async {
+          controller.dispose();
+          controller = TopicFeedController(
+            api: api,
+            credentials: credentials,
+            lifecycle: SiteLifecycle(),
+            store: store,
+            maximumRetainedTopics: 2,
+            maximumCursorCheckpoints: checkpoints,
+          );
+          await seed(pages: 2);
+          final incoming = IncomingTopics()
+            ..track({'filtered': const IncomingTopicsFilter.latest()})
+            ..notify({'message_type': 'new_topic', 'topic_id': 1});
+          final showing = controller.showIncoming(
+            instance: site,
+            destinationId: 'filtered',
+            path: rootPath,
+            incoming: incoming,
+          );
+          await answer([1]);
+          await showing;
+          expect(controller.feedFor(site.url, 'filtered')?.rowCount, 5);
+          final owner = Object();
+          final release = controller.retainFeed(
+            site.url,
+            'filtered',
+            owner: owner,
+          );
+          controller.updateViewport(
+            site.url,
+            'filtered',
+            owner: owner,
+            firstRow: 0,
+            lastRow: 0,
+          );
+          final first = restore(1, 1);
+          await pumpEventQueue();
+          if (checkpoints == 2) {
+            expect(api.requests.last.path, '$rootPath&topic_ids=1');
+            await answer([1]);
+          }
+          expect(api.requests.last.path, rootPath);
+          await answer([1, 2], next: '/cursor/1.json?token=opaque');
+          await first;
+          final restoring = restore(2, 2);
+          await pumpEventQueue();
+          expect(api.requests.last.path, '/cursor/1.json?token=opaque');
+          await answer([3, 4]);
+          await restoring;
+          final feed = controller.feedFor(site.url, 'filtered')!;
+          expect(feed.rowCount, 4);
+          expect(feed.nextPagePath, isNull);
+          expect(feed.topicIdAt(4), isNull);
+          expect(feed.topicIdAt(0), 1);
+          expect(feed.error, isNull);
+          release();
+        },
+      );
+    }
+
+    test(
+      'replays a retained incoming query after its IDs are evicted',
+      () async {
+        controller.dispose();
+        controller = TopicFeedController(
+          api: api,
+          credentials: credentials,
+          lifecycle: SiteLifecycle(),
+          store: store,
+          maximumRetainedTopics: 2,
+          maximumCursorCheckpoints: 8,
+        );
+        await seed(pages: 1);
+        final incoming = IncomingTopics()
+          ..track({'filtered': const IncomingTopicsFilter.latest()})
+          ..notify({'message_type': 'new_topic', 'topic_id': 100});
+        final showing = controller.showIncoming(
+          instance: site,
+          destinationId: 'filtered',
+          path: rootPath,
+          incoming: incoming,
+        );
+        await answer([100]);
+        await showing;
+        final forward = controller.loadMore(
+          instance: site,
+          destinationId: 'filtered',
+        );
+        await answer([3, 4], next: '/cursor/2.json?token=opaque');
+        await forward;
+        expect(controller.feedFor(site.url, 'filtered')?.topicIdAt(0), isNull);
+        final restoring = restore(0, 1);
+        await pumpEventQueue();
+        expect(api.requests.last.path, '$rootPath&topic_ids=100');
+        await answer([100], next: '/unrelated-filter-page.json');
+        expect(api.requests.last.path, rootPath);
+        await answer([1, 2], next: '/cursor/1.json?token=opaque');
+        await restoring;
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIdAt(0), 100);
+        expect(feed.topicIdAt(1), 1);
+        expect(feed.rowCount, 5);
+        expect(feed.nextPagePath, '/cursor/2.json?token=opaque');
+      },
+    );
+
+    test(
+      'restores a selected ID without changing sparse row positions',
+      () async {
+        await seed();
+        store.forget(site.url);
+        final before = controller.feedFor(site.url, 'filtered')!;
+        final restoring = controller.restoreTopic(
+          instance: site,
+          destinationId: 'filtered',
+          topicId: 3,
+        );
+        final duplicate = controller.restoreTopic(
+          instance: site,
+          destinationId: 'filtered',
+          topicId: 3,
+        );
+        expect(duplicate, same(restoring));
+        await pumpEventQueue();
+        expect(api.requests.last.path, '$rootPath&topic_ids=3');
+        await answer([3, 999]);
+        expect((await restoring)?.id, 3);
+        expect(store.read<Topic>(site.url, 3)?.title, 'Topic 3');
+        expect(store.containsRecord<Topic>(site.url, 999), isFalse);
+        expect(controller.feedFor(site.url, 'filtered'), same(before));
+      },
+    );
+
+    test(
+      'rejects a selection response after the account lease changes',
+      () async {
+        await seed();
+        final restoring = controller.restoreTopic(
+          instance: site,
+          destinationId: 'filtered',
+          topicId: 99,
+        );
+        await pumpEventQueue();
+        controller.lifecycle.invalidate(site.url);
+        await answer([99]);
+        expect(await restoring, isNull);
+        expect(store.containsRecord<Topic>(site.url, 99), isFalse);
+      },
+    );
+
+    test('destination LRU keeps two leases until both are released', () async {
+      final releaseFirst = controller.retainFeed(site.url, 'filtered');
+      final releaseSecond = controller.retainFeed(site.url, 'filtered');
+      await seed(pages: 1);
+      controller.saveScrollRow(site.url, 'filtered', 1);
+      releaseFirst();
+      releaseFirst();
+      for (final destination in ['one', 'two']) {
+        final loading = controller.load(
+          instance: site,
+          destinationId: destination,
+          path: '/$destination.json',
+          incoming: null,
+        );
+        await answer([20]);
+        await loading;
+      }
+      expect(controller.feedFor(site.url, 'one'), isNull);
+      expect(controller.feedFor(site.url, 'filtered'), isNotNull);
+      expect(controller.scrollRowFor(site.url, 'filtered'), 1);
+      releaseSecond();
+      controller.feedFor(site.url, 'two');
+      final third = controller.load(
+        instance: site,
+        destinationId: 'three',
+        path: '/three.json',
+        incoming: null,
+      );
+      await answer([30]);
+      await third;
+      expect(controller.feedFor(site.url, 'filtered'), isNull);
+      expect(controller.scrollRowFor(site.url, 'filtered'), 0);
+      expect(controller.feedFor(site.url, 'two'), isNotNull);
+      expect(controller.feedFor(site.url, 'three'), isNotNull);
+    });
+
+    for (final source in ['load', 'page', 'incoming', 'range', 'selection']) {
+      test('destination LRU excludes an in-flight $source request', () async {
+        final release = controller.retainFeed(site.url, 'visible');
+        final visible = controller.load(
+          instance: site,
+          destinationId: 'visible',
+          path: '/visible.json',
+          incoming: null,
+        );
+        await answer([100]);
+        await visible;
+        if (source != 'load') {
+          final first = controller.load(
+            instance: site,
+            destinationId: 'working',
+            path: '/working.json',
+            incoming: null,
+          );
+          await answer([1], next: '/working.json?page=1');
+          await first;
+        }
+        final incoming = IncomingTopics()
+          ..track({'working': const IncomingTopicsFilter.latest()})
+          ..notify({'message_type': 'new_topic', 'topic_id': 2});
+        if (source == 'range') store.forget(site.url);
+        final pending = switch (source) {
+          'load' => controller.load(
+            instance: site,
+            destinationId: 'working',
+            path: '/working.json',
+            incoming: null,
+          ),
+          'page' => controller.loadMore(
+            instance: site,
+            destinationId: 'working',
+          ),
+          'incoming' => controller.showIncoming(
+            instance: site,
+            destinationId: 'working',
+            path: '/working.json',
+            incoming: incoming,
+          ),
+          'selection' => controller.restoreTopic(
+            instance: site,
+            destinationId: 'working',
+            topicId: 2,
+          ),
+          _ => controller.ensureRange(
+            instance: site,
+            destinationId: 'working',
+            firstRow: 0,
+            lastRow: 0,
+          ),
+        };
+        await pumpEventQueue();
+        final activeRequest = api.requests.last;
+        final third = controller.load(
+          instance: site,
+          destinationId: 'third',
+          path: '/third.json',
+          incoming: null,
+        );
+        await answer([3]);
+        await third;
+        expect(controller.feedFor(site.url, 'visible'), isNotNull);
+        expect(controller.feedFor(site.url, 'third'), isNull);
+        activeRequest.response.complete(_page(source == 'range' ? 1 : 2));
+        await pending;
+        expect(controller.feedFor(site.url, 'working'), isNotNull);
+        release();
+      });
+    }
   });
 
   group('incoming topics', () {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
@@ -40,6 +41,242 @@ typedef _FeedLoad = ({
   IncomingTopics? incoming,
 });
 
+typedef _RowRange = ({int first, int last});
+typedef _CursorCheckpoint = ({
+  int row,
+  String path,
+  String? resumePath,
+  _PageShape? shape,
+});
+
+final class _PageShape {
+  _PageShape(List<int> ids, Set<int> seen)
+    : indices = [
+        for (var index = 0; index < ids.length; index++)
+          if (seen.add(ids[index])) index,
+      ],
+      signature = Object.hashAll(ids),
+      count = ids.length;
+
+  _PageShape._(this.indices, this.signature, this.count);
+
+  final List<int> indices;
+  final int signature;
+  final int count;
+
+  List<int> resolve(List<int> ids) {
+    if (ids.length != count || Object.hashAll(ids) != signature) {
+      throw StateError('The topic page changed. Refresh the list to continue.');
+    }
+    return [for (final index in indices) ids[index]];
+  }
+
+  _PageShape removingRows(int start, Set<int> removed) => _PageShape._(
+    [
+      for (var index = 0; index < indices.length; index++)
+        if (!removed.contains(start + index)) indices[index],
+    ],
+    signature,
+    count,
+  );
+}
+
+final class _FeedWindow {
+  String? rootPath;
+  int pagesWithoutRows = 0;
+  final Map<int, int> rows = {};
+  final List<_CursorCheckpoint> checkpoints = [];
+  final Map<Object, int> owners = {};
+  final Map<Object, _RowRange> viewports = {};
+
+  bool protects(int row) =>
+      viewports.values.any((range) => row >= range.first && row <= range.last);
+
+  void touch(int row) {
+    if (rows.remove(row) case final id?) rows[row] = id;
+  }
+
+  void trim(int maximum, {_RowRange? preferredRange}) {
+    while (rows.length > maximum) {
+      final removable = rows.keys.where((row) => !protects(row));
+      if (removable.isEmpty) return;
+      final outside = preferredRange == null
+          ? removable
+          : removable.where(
+              (row) => row < preferredRange.first || row > preferredRange.last,
+            );
+      rows.remove((outside.isEmpty ? removable : outside).first);
+    }
+  }
+
+  void remember(
+    int row,
+    String path,
+    int maximum, {
+    String? resumePath,
+    _PageShape? shape,
+  }) {
+    for (final previous in checkpoints) {
+      if (previous.path == path) {
+        resumePath ??= previous.resumePath;
+        shape ??= previous.shape;
+      }
+    }
+    checkpoints.removeWhere((checkpoint) => checkpoint.path == path);
+    checkpoints.add((
+      row: row,
+      path: path,
+      resumePath: resumePath,
+      shape: shape,
+    ));
+    if (checkpoints.length > maximum) checkpoints.removeAt(0);
+  }
+
+  void put(
+    int start,
+    Iterable<int> ids,
+    int maximum, {
+    bool restoring = false,
+    _RowRange? preferredRange,
+  }) {
+    if (restoring) {
+      var row = start;
+      for (final id in ids) {
+        for (final entry in rows.entries) {
+          if (protects(entry.key) &&
+              ((entry.value == id && entry.key != row) ||
+                  (entry.key == row && entry.value != id))) {
+            throw StateError(
+              'The topic page moved visible rows. Refresh the list.',
+            );
+          }
+        }
+        row++;
+      }
+    }
+    var row = start;
+    for (final id in ids) {
+      rows.removeWhere((otherRow, otherId) => otherRow != row && otherId == id);
+      rows.remove(row);
+      rows[row++] = id;
+    }
+    trim(maximum, preferredRange: preferredRange);
+  }
+
+  void truncate(int count) {
+    if (rows.keys.any((row) => row >= count && protects(row))) {
+      throw StateError(
+        'The topic list changed beyond a visible row. Refresh the list.',
+      );
+    }
+    rows.removeWhere((row, _) => row >= count);
+    checkpoints.removeWhere((checkpoint) => checkpoint.row >= count);
+  }
+
+  int removeSourceRows(Set<int> removed, int totalRows) {
+    if (removed.any(rows.containsKey)) {
+      throw StateError('The duplicate topic slot changed. Refresh the list.');
+    }
+    int shifted(int row) => row - removed.where((old) => old < row).length;
+    final oldRows = rows.entries.toList();
+    rows.clear();
+    for (final entry in oldRows) {
+      rows[shifted(entry.key)] = entry.value;
+    }
+    for (var index = 0; index < checkpoints.length; index++) {
+      final checkpoint = checkpoints[index];
+      checkpoints[index] = (
+        row: shifted(checkpoint.row),
+        path: checkpoint.path,
+        resumePath: checkpoint.resumePath,
+        shape: checkpoint.shape?.removingRows(checkpoint.row, removed),
+      );
+    }
+    for (final entry in viewports.entries.toList()) {
+      viewports[entry.key] = (
+        first: shifted(entry.value.first),
+        last:
+            entry.value.last -
+            removed.where((old) => old <= entry.value.last).length,
+      );
+    }
+    return totalRows - removed.length;
+  }
+
+  int prepend(List<int> ids, int totalRows, int maximum) {
+    final arrived = ids.toSet();
+    final removed = [
+      for (final entry in rows.entries)
+        if (arrived.contains(entry.value)) entry.key,
+    ];
+    int shifted(int row) =>
+        row + ids.length - removed.where((old) => old < row).length;
+    final oldRows = rows.entries.toList();
+    rows.clear();
+    for (final entry in oldRows) {
+      if (!arrived.contains(entry.value)) {
+        rows[shifted(entry.key)] = entry.value;
+      }
+    }
+    for (var i = 0; i < checkpoints.length; i++) {
+      final checkpoint = checkpoints[i];
+      checkpoints[i] = (
+        row: shifted(checkpoint.row),
+        path: checkpoint.path,
+        resumePath: checkpoint.resumePath,
+        shape: checkpoint.shape?.removingRows(checkpoint.row, removed.toSet()),
+      );
+    }
+    for (final entry in viewports.entries.toList()) {
+      viewports[entry.key] = (
+        first: shifted(entry.value.first),
+        last:
+            entry.value.last +
+            ids.length -
+            removed.where((old) => old <= entry.value.last).length,
+      );
+    }
+    put(0, ids, maximum);
+    return totalRows + ids.length - removed.length;
+  }
+
+  TopicFeed publish(TopicFeed feed, {int? totalRows}) {
+    final entries = rows.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return feed.copyWith(
+      topicIds: [for (final entry in entries) entry.value],
+      topicRows: [for (final entry in entries) entry.key],
+      totalRows: totalRows ?? feed.totalRows ?? feed.rowCount,
+    );
+  }
+}
+
+final class _RangeRequest {
+  final completion = Completer<void>();
+  final List<_RowRange> pending = [];
+
+  void add(int first, int last) {
+    for (var i = 0; i < pending.length; i++) {
+      final held = pending[i];
+      if (first <= held.last + 1 && last >= held.first - 1) {
+        pending[i] = (
+          first: first < held.first ? first : held.first,
+          last: last > held.last ? last : held.last,
+        );
+        return;
+      }
+    }
+    pending.add((first: first, last: last));
+  }
+}
+
+final class _TopicRequest {
+  _TopicRequest(this.topicId);
+
+  final int topicId;
+  final completion = Completer<Topic?>();
+}
+
 final class TopicFeedController extends FrameSafeNotifier {
   TopicFeedController({
     required this.api,
@@ -51,11 +288,19 @@ final class TopicFeedController extends FrameSafeNotifier {
     this.readPersonalizationVersion,
     this.prepareTopicForStore,
     this.incomingFilterFor,
-  });
+    this.maximumRetainedTopics = 300,
+    this.maximumCursorCheckpoints = 32,
+    this.maximumDestinations = 32,
+  }) : assert(maximumRetainedTopics > 0),
+       assert(maximumCursorCheckpoints > 0),
+       assert(maximumDestinations > 0);
 
   static const int incomingPageSize = 30;
 
   final TopicFeedsApi api;
+  final int maximumRetainedTopics;
+  final int maximumCursorCheckpoints;
+  final int maximumDestinations;
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
   final Store store;
@@ -78,9 +323,107 @@ final class TopicFeedController extends FrameSafeNotifier {
   final Map<_FeedKey, _FeedLoad> _pendingLoads = {};
   final Map<_FeedKey, Completer<void>> _pendingLoadWaiters = {};
   final Map<_FeedKey, IncomingTopicsFilter> _incomingFilters = {};
+  final Map<_FeedKey, _FeedWindow> _windows = {};
+  final Map<_FeedKey, _RangeRequest> _rangeRequests = {};
+  final Map<_FeedKey, _TopicRequest> _topicRequests = {};
+  final Map<_FeedKey, Set<Object>> _incomingRequests = {};
 
-  TopicFeed? feedFor(String siteUrl, String destinationId) =>
-      _feeds[(siteUrl, destinationId)];
+  TopicFeed? feedFor(String siteUrl, String destinationId) {
+    final key = (siteUrl, destinationId);
+    if (_windows.containsKey(key)) _window(key);
+    return _feeds[key];
+  }
+
+  VoidCallback retainFeed(
+    String siteUrl,
+    String destinationId, {
+    Object? owner,
+  }) {
+    if (isDisposed) return () {};
+    final key = (siteUrl, destinationId);
+    final token = owner ?? Object();
+    final window = _window(key);
+    window.owners.update(token, (count) => count + 1, ifAbsent: () => 1);
+    _pruneDestinations();
+    var released = false;
+    return () {
+      if (released) return;
+      released = true;
+      final count = window.owners[token];
+      if (count == null) return;
+      if (count > 1) {
+        window.owners[token] = count - 1;
+      } else {
+        window.owners.remove(token);
+        window.viewports.remove(token);
+      }
+      final before = window.rows.length;
+      window.trim(maximumRetainedTopics);
+      final feed = _feeds[key];
+      if (identical(_windows[key], window) &&
+          feed != null &&
+          window.rows.length != before) {
+        _feeds[key] = window.publish(feed);
+        if (!isDisposed) notifySafely();
+      }
+      _pruneDestinations();
+    };
+  }
+
+  void updateViewport(
+    String siteUrl,
+    String destinationId, {
+    required Object owner,
+    required int firstRow,
+    required int lastRow,
+  }) {
+    if (isDisposed) return;
+    final key = (siteUrl, destinationId);
+    final window = _windows[key];
+    if (window == null || !window.owners.containsKey(owner)) return;
+    window.viewports[owner] = (first: firstRow, last: lastRow);
+    for (final row in window.rows.keys.toList()) {
+      if (row >= firstRow && row <= lastRow) window.touch(row);
+    }
+    final before = window.rows.length;
+    window.trim(maximumRetainedTopics);
+    final feed = _feeds[key];
+    _window(key);
+    if (feed != null && window.rows.length != before) {
+      _feeds[key] = window.publish(feed);
+      notifySafely();
+    }
+  }
+
+  _FeedWindow _window(_FeedKey key) {
+    final window = _windows.remove(key) ?? _FeedWindow();
+    _windows[key] = window;
+    return window;
+  }
+
+  void _pruneDestinations() {
+    while (_windows.length > maximumDestinations) {
+      final candidates = _windows.entries.where(
+        (entry) =>
+            entry.value.owners.isEmpty &&
+            !_loadRequests.containsKey(entry.key) &&
+            !_pageRequests.containsKey(entry.key) &&
+            !_rangeRequests.containsKey(entry.key) &&
+            !_topicRequests.containsKey(entry.key) &&
+            !_incomingRequests.containsKey(entry.key),
+      );
+      if (candidates.isEmpty) return;
+      final key = candidates.first.key;
+      _windows.remove(key);
+      _feeds.remove(key);
+      _revisions.remove(key);
+      _rows.remove(key);
+      _incomingFilters.remove(key);
+      _pendingLoads.remove(key);
+      final waiter = _pendingLoadWaiters.remove(key);
+      if (waiter != null && !waiter.isCompleted) waiter.complete();
+    }
+  }
 
   /// The filter of every list loaded on [siteUrl] that announces arrivals,
   /// by destination, oldest load first.
@@ -101,7 +444,11 @@ final class TopicFeedController extends FrameSafeNotifier {
       _rows[(siteUrl, destinationId)] ?? 0;
 
   void saveScrollRow(String siteUrl, String destinationId, int row) {
-    _rows[(siteUrl, destinationId)] = row;
+    if (isDisposed) return;
+    final key = (siteUrl, destinationId);
+    _rows[key] = row;
+    _window(key);
+    _pruneDestinations();
   }
 
   Future<void> load({
@@ -113,6 +460,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   }) {
     if (isDisposed) return Future.value();
     final key = (instance.url, destinationId);
+    _window(key);
     final load = (
       instance: instance,
       destinationId: destinationId,
@@ -150,6 +498,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     // Loading notifications can synchronously retry or forget this feed.
     // Publish ownership before the worker exposes its loading state.
     _loadRequests[key] = request;
+    _pruneDestinations();
     completion.complete(
       _performLoad(key, load).whenComplete(() => _finishLoad(key, request)),
     );
@@ -167,6 +516,8 @@ final class TopicFeedController extends FrameSafeNotifier {
     final revision = Object();
     _revisions[key] = revision;
     _cancelPageRequest(key);
+    _cancelRangeRequest(key);
+    _cancelTopicRequest(key);
 
     final announced = incoming?.topicIds(destinationId) ?? const <int>[];
     incoming?.reset(destinationId);
@@ -201,7 +552,20 @@ final class TopicFeedController extends FrameSafeNotifier {
         )) {
           return;
         }
-        _feeds[key] = TopicFeed.of(list);
+        final window = _window(key);
+        window.rootPath = path;
+        window.pagesWithoutRows = 0;
+        window.rows.clear();
+        window.checkpoints.clear();
+        final rawIds = list.topics.map((topic) => topic.id).toList();
+        final shape = _PageShape(rawIds, {});
+        final ids = shape.resolve(rawIds);
+        window.put(0, ids, maximumRetainedTopics);
+        window.remember(0, path, maximumCursorCheckpoints, shape: shape);
+        if (list.nextPagePath case final nextPath?) {
+          window.remember(ids.length, nextPath, maximumCursorCheckpoints);
+        }
+        _feeds[key] = window.publish(TopicFeed.of(list), totalRows: ids.length);
         // Core's `trackIncoming` starts counting once the list is found, so
         // an arrival the answer already lists is not announced over it. One
         // that arrived while the request was out and that the answer missed
@@ -264,6 +628,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     final waiter = _pendingLoadWaiters.remove(key);
     if (pending == null || waiter == null || isDisposed) {
       if (waiter != null && !waiter.isCompleted) waiter.complete();
+      _pruneDestinations();
       return;
     }
 
@@ -298,6 +663,9 @@ final class TopicFeedController extends FrameSafeNotifier {
       instance.url,
     );
     final feedRevision = _revisions[key];
+    final incomingRequest = Object();
+    (_incomingRequests[key] ??= {}).add(incomingRequest);
+    _window(key);
 
     bool requestIsCurrent() =>
         !isDisposed &&
@@ -312,10 +680,9 @@ final class TopicFeedController extends FrameSafeNotifier {
       if (!requestIsCurrent()) return;
       // The list's own query — its category, tags, subset or order — still
       // applies, as core's `loadBefore` sends the list's params along.
-      final separator = path.contains('?') ? '&' : '?';
       final list = await api.topicList(
         siteUrl: instance.url,
-        path: '$path${separator}topic_ids=${ids.join(',')}',
+        path: _topicIdsPath(path, ids),
         apiKey: apiKey,
       );
       if (!requestIsCurrent()) return;
@@ -337,14 +704,35 @@ final class TopicFeedController extends FrameSafeNotifier {
           return;
         }
         final held = _feeds[key] ?? feed;
-        final arrived = [for (final topic in list.topics) topic.id];
-        final prepended = arrived.toSet();
-        _feeds[key] = held.copyWith(
-          topicIds: [
-            ...arrived,
-            ...held.topicIds.where((id) => !prepended.contains(id)),
-          ],
-          loadingIncoming: false,
+        final arrived = list.topics.map((topic) => topic.id).toSet().toList();
+        final window = _window(key);
+        final previousRoot = window.checkpoints.where(
+          (checkpoint) => checkpoint.row == 0,
+        );
+        final resumePath = previousRoot.isEmpty
+            ? window.rootPath
+            : previousRoot.last.path;
+        _cancelRangeRequest(key);
+        final totalRows = window.prepend(
+          arrived,
+          held.rowCount,
+          maximumRetainedTopics,
+        );
+        if (arrived.isNotEmpty) {
+          window.remember(
+            0,
+            _topicIdsPath(path, ids),
+            maximumCursorCheckpoints,
+            resumePath: resumePath,
+            shape: _PageShape(
+              list.topics.map((topic) => topic.id).toList(),
+              {},
+            ),
+          );
+        }
+        _feeds[key] = window.publish(
+          held.copyWith(loadingIncoming: false),
+          totalRows: totalRows,
         );
         incoming.clear(destinationId, ids);
         _rows[key] = 0;
@@ -371,6 +759,11 @@ final class TopicFeedController extends FrameSafeNotifier {
         _feeds[key] = (_feeds[key] ?? feed).copyWith(loadingIncoming: false);
         notifySafely();
       });
+    } finally {
+      final requests = _incomingRequests[key];
+      requests?.remove(incomingRequest);
+      if (requests?.isEmpty == true) _incomingRequests.remove(key);
+      _pruneDestinations();
     }
   }
 
@@ -383,6 +776,17 @@ final class TopicFeedController extends FrameSafeNotifier {
     if (_pageRequests[key] case final pending?) {
       await pending.future;
       return;
+    }
+    if (_rangeRequests[key] case final range?) {
+      final lease = lifecycle.capture(instance.url);
+      final revision = _revisions[key];
+      await range.completion.future;
+      if (isDisposed ||
+          !lease.isCurrent ||
+          !identical(_revisions[key], revision)) {
+        return;
+      }
+      return loadMore(instance: instance, destinationId: destinationId);
     }
     final feed = _feeds[key];
     if (feed == null || feed.loading || feed.loadingMore || !feed.hasMore) {
@@ -397,6 +801,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     final feedRevision = _revisions[key];
     final pageRequest = Completer<void>();
     _pageRequests[key] = pageRequest;
+    _window(key);
 
     bool requestIsCurrent() =>
         !isDisposed &&
@@ -435,23 +840,43 @@ final class TopicFeedController extends FrameSafeNotifier {
         }
         final held = _feeds[key];
         if (held == null) return;
-        final seen = held.topicIds.toSet();
-        final fresh = [
-          for (final topic in next.topics)
-            if (!seen.contains(topic.id)) topic.id,
-        ];
-        _feeds[key] = held.copyWith(
-          topicIds: [...held.topicIds, ...fresh],
-          loadingMore: false,
-          nextPagePath: next.nextPagePath,
-          // A page whose topics were all already on the list — routine after
-          // the incoming banner prepends them — still advances the cursor.
-          // Pagination ends only when the server stops supplying one or
-          // repeats the cursor just requested, which would loop forever.
-          clearNextPage:
-              next.nextPagePath == null ||
-              next.nextPagePath == feed.nextPagePath,
-          clearError: true,
+        final window = _window(key);
+        final rawIds = next.topics.map((topic) => topic.id).toList();
+        final shape = _PageShape(rawIds, held.topicIds.toSet());
+        final fresh = shape.resolve(rawIds);
+        final start = held.rowCount;
+        final repeatsCursor = window.checkpoints.any(
+          (checkpoint) => checkpoint.path == next.nextPagePath,
+        );
+        window.pagesWithoutRows = fresh.isEmpty
+            ? window.pagesWithoutRows + 1
+            : 0;
+        window.remember(
+          start,
+          feed.nextPagePath!,
+          maximumCursorCheckpoints,
+          shape: shape,
+        );
+        window.put(start, fresh, maximumRetainedTopics);
+        final nextPath = next.nextPagePath;
+        if (!repeatsCursor && nextPath != null) {
+          window.remember(
+            start + fresh.length,
+            nextPath,
+            maximumCursorCheckpoints,
+          );
+        }
+        _feeds[key] = window.publish(
+          held.copyWith(
+            loadingMore: false,
+            nextPagePath: next.nextPagePath,
+            clearNextPage:
+                next.nextPagePath == null ||
+                repeatsCursor ||
+                window.pagesWithoutRows >= maximumCursorCheckpoints,
+            clearError: true,
+          ),
+          totalRows: start + fresh.length,
         );
         if (requestIsCurrent()) {
           onFeedLoaded?.call(
@@ -481,12 +906,409 @@ final class TopicFeedController extends FrameSafeNotifier {
         }
       });
     } finally {
-      _commit(lease, () {
-        if (!identical(_pageRequests[key], pageRequest)) return;
+      if (identical(_pageRequests[key], pageRequest)) {
         _pageRequests.remove(key);
-        notifySafely();
-      });
+        if (!isDisposed && lease.isCurrent) notifySafely();
+      }
       if (!pageRequest.isCompleted) pageRequest.complete();
+      _pruneDestinations();
+    }
+  }
+
+  Future<void> ensureRange({
+    required DiscourseInstance instance,
+    required String destinationId,
+    required int firstRow,
+    required int lastRow,
+  }) {
+    if (isDisposed) return Future.value();
+    final key = (instance.url, destinationId);
+    final feed = _feeds[key];
+    final window = _windows[key];
+    if (feed == null || window?.rootPath == null || feed.loading) {
+      return Future.value();
+    }
+    final first = firstRow < 0 ? 0 : firstRow;
+    final last = lastRow >= feed.rowCount ? feed.rowCount - 1 : lastRow;
+    if (first > last) return Future.value();
+    _window(key);
+    for (final row in window!.rows.keys.toList()) {
+      if (row >= first && row <= last) window.touch(row);
+    }
+    if (_rangeRequests[key] case final request?) {
+      if (request.pending.length >= maximumCursorCheckpoints) {
+        request.pending.removeAt(0);
+      }
+      request.add(first, last);
+      return request.completion.future;
+    }
+    if (_rangeIsBacked(instance.url, window, first, last)) {
+      return Future.value();
+    }
+    final request = _RangeRequest()..add(first, last);
+    _rangeRequests[key] = request;
+    unawaited(_performRanges(key, instance, window, request));
+    return request.completion.future;
+  }
+
+  Future<Topic?> restoreTopic({
+    required DiscourseInstance instance,
+    required String destinationId,
+    required int topicId,
+  }) {
+    if (isDisposed) return Future.value();
+    final key = (instance.url, destinationId);
+    final path = _windows[key]?.rootPath;
+    if (path == null) return Future.value();
+    final active = _topicRequests[key];
+    if (active?.topicId == topicId) return active!.completion.future;
+    _cancelTopicRequest(key);
+    final request = _TopicRequest(topicId);
+    _topicRequests[key] = request;
+    _window(key);
+    unawaited(_performTopicRestore(key, instance, path, request));
+    return request.completion.future;
+  }
+
+  Future<void> _performTopicRestore(
+    _FeedKey key,
+    DiscourseInstance instance,
+    String path,
+    _TopicRequest request,
+  ) async {
+    final lease = lifecycle.capture(instance.url);
+    final revision = _revisions[key];
+    final version = readPersonalizationVersion?.call(instance.url);
+    bool requestIsCurrent() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_revisions[key], revision) &&
+        identical(_topicRequests[key], request);
+    try {
+      final apiKey = await credentials.apiKeyFor(instance.url);
+      if (!requestIsCurrent()) return;
+      final list = await api.topicList(
+        siteUrl: instance.url,
+        path: _topicIdsPath(path, [request.topicId]),
+        apiKey: apiKey,
+      );
+      if (!requestIsCurrent()) return;
+      final topics = list.topics
+          .where((topic) => topic.id == request.topicId)
+          .toList();
+      await prepareFeed?.call(
+        instance,
+        apiKey,
+        list.categories,
+        _categoryIds(topics),
+      );
+      if (!requestIsCurrent()) return;
+      _commit(lease, () {
+        if (!requestIsCurrent()) return;
+        if (!_putTopics(instance.url, topics, version, requestIsCurrent)) {
+          return;
+        }
+        if (!request.completion.isCompleted) {
+          request.completion.complete(
+            store.read<Topic>(instance.url, request.topicId),
+          );
+        }
+      });
+    } catch (error, stackTrace) {
+      if (requestIsCurrent()) {
+        _report(
+          error,
+          stackTrace,
+          'topics.restoreSelection',
+          severity: DiagnosticSeverity.warning,
+        );
+      }
+    } finally {
+      if (identical(_topicRequests[key], request)) {
+        _topicRequests.remove(key);
+      }
+      if (!request.completion.isCompleted) request.completion.complete();
+      _pruneDestinations();
+    }
+  }
+
+  void _cancelTopicRequest(_FeedKey key) {
+    final request = _topicRequests.remove(key);
+    if (request != null && !request.completion.isCompleted) {
+      request.completion.complete();
+    }
+  }
+
+  bool _rangeIsBacked(String siteUrl, _FeedWindow window, int first, int last) {
+    for (var row = first; row <= last; row++) {
+      final id = window.rows[row];
+      if (id == null || !store.containsRecord<Topic>(siteUrl, id)) return false;
+    }
+    return true;
+  }
+
+  Future<void> _performRanges(
+    _FeedKey key,
+    DiscourseInstance instance,
+    _FeedWindow window,
+    _RangeRequest request,
+  ) async {
+    final lease = lifecycle.capture(instance.url);
+    final revision = _revisions[key];
+    final personalizationVersion = readPersonalizationVersion?.call(
+      instance.url,
+    );
+    bool requestIsCurrent() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        identical(_revisions[key], revision) &&
+        identical(_rangeRequests[key], request);
+
+    try {
+      if (_pageRequests[key] case final page?) {
+        await page.future;
+      }
+      if (!requestIsCurrent()) return;
+      final apiKey = await credentials.apiKeyFor(instance.url);
+      if (!requestIsCurrent()) return;
+      while (request.pending.isNotEmpty) {
+        final range = request.pending.removeAt(0);
+        if (_rangeIsBacked(instance.url, window, range.first, range.last)) {
+          continue;
+        }
+        final missingIds = [
+          for (final entry in window.rows.entries)
+            if (entry.key >= range.first &&
+                entry.key <= range.last &&
+                !store.containsRecord<Topic>(instance.url, entry.value))
+              entry.value,
+        ];
+        if (missingIds.isNotEmpty) {
+          final list = await api.topicList(
+            siteUrl: instance.url,
+            path: _topicIdsPath(window.rootPath!, missingIds),
+            apiKey: apiKey,
+          );
+          if (!requestIsCurrent()) return;
+          await prepareFeed?.call(
+            instance,
+            apiKey,
+            list.categories,
+            _categoryIds(list.topics),
+          );
+          _commit(lease, () {
+            if (!requestIsCurrent()) return;
+            _putTopics(
+              instance.url,
+              list.topics,
+              personalizationVersion,
+              requestIsCurrent,
+            );
+          });
+          if (!requestIsCurrent()) return;
+          if (missingIds.any(
+            (id) => !store.containsRecord<Topic>(instance.url, id),
+          )) {
+            throw StateError('The requested topics are no longer available.');
+          }
+        }
+
+        int? firstMissing;
+        for (var row = range.first; row <= range.last; row++) {
+          if (!window.rows.containsKey(row)) {
+            firstMissing = row;
+            break;
+          }
+        }
+        if (firstMissing != null) {
+          _CursorCheckpoint checkpoint = (
+            row: 0,
+            path: window.rootPath!,
+            resumePath: null,
+            shape: null,
+          );
+          for (final candidate in window.checkpoints) {
+            if (candidate.row <= firstMissing &&
+                candidate.row >= checkpoint.row) {
+              checkpoint = candidate;
+            }
+          }
+          var start = checkpoint.row;
+          String? path = checkpoint.path;
+          var resumePath = checkpoint.resumePath;
+          var pageShape = checkpoint.shape;
+          final Set<String> visited = {};
+          var pagesWithoutRows = 0;
+          while (start <= range.last) {
+            if (path == null || !visited.add(path)) {
+              throw StateError(
+                'The requested topic range is no longer available.',
+              );
+            }
+            if (visited.length > maximumCursorCheckpoints) {
+              visited.remove(visited.first);
+            }
+            final list = await api.topicList(
+              siteUrl: instance.url,
+              path: path,
+              apiKey: apiKey,
+            );
+            if (!requestIsCurrent()) return;
+            await prepareFeed?.call(
+              instance,
+              apiKey,
+              list.categories,
+              _categoryIds(list.topics),
+            );
+            if (!requestIsCurrent()) return;
+            final earlier = {
+              for (final entry in window.rows.entries)
+                if (entry.key < start) entry.value,
+            };
+            final rawIds = list.topics.map((topic) => topic.id).toList();
+            var shape = pageShape ?? _PageShape(rawIds, {...earlier});
+            var ids = shape.resolve(rawIds);
+            final duplicateRows = <int>{
+              for (var index = 0; index < ids.length; index++)
+                if (earlier.contains(ids[index])) start + index,
+            };
+            if (duplicateRows.isNotEmpty) {
+              final held = _feeds[key];
+              if (held == null) return;
+              final count = window.removeSourceRows(
+                duplicateRows,
+                held.rowCount,
+              );
+              shape = shape.removingRows(start, duplicateRows);
+              ids = shape.resolve(rawIds);
+              _feeds[key] = window.publish(held, totalRows: count);
+            }
+            final nextPath = resumePath ?? list.nextPagePath;
+            _commit(lease, () {
+              if (!requestIsCurrent()) return;
+              if (!_putTopics(
+                instance.url,
+                list.topics,
+                personalizationVersion,
+                requestIsCurrent,
+              )) {
+                return;
+              }
+              final held = _feeds[key];
+              if (held == null) return;
+              window.remember(
+                start,
+                path!,
+                maximumCursorCheckpoints,
+                resumePath: resumePath,
+                shape: shape,
+              );
+              window.put(
+                start,
+                ids.take(held.rowCount - start),
+                maximumRetainedTopics,
+                restoring: true,
+                preferredRange: range,
+              );
+              if (nextPath case final next?) {
+                window.remember(
+                  start + ids.length,
+                  next,
+                  maximumCursorCheckpoints,
+                );
+              }
+              final end = start + ids.length;
+              if (nextPath == null && end <= held.rowCount) {
+                window.truncate(end);
+                _feeds[key] = window.publish(
+                  held.copyWith(clearNextPage: true),
+                  totalRows: end,
+                );
+              } else {
+                _feeds[key] = window.publish(held);
+              }
+              notifySafely();
+              if (requestIsCurrent()) {
+                onFeedLoaded?.call(
+                  instance,
+                  apiKey,
+                  list.categories,
+                  _categoryIds(list.topics),
+                );
+              }
+            });
+            if (!requestIsCurrent()) return;
+            if (ids.isEmpty) {
+              if (++pagesWithoutRows >= maximumCursorCheckpoints) {
+                throw StateError('Pagination did not advance the topic range.');
+              }
+            } else {
+              pagesWithoutRows = 0;
+            }
+            start += ids.length;
+            path = nextPath;
+            resumePath = null;
+            pageShape = null;
+            for (final candidate in window.checkpoints) {
+              if (candidate.path == path) {
+                resumePath = candidate.resumePath;
+                pageShape = candidate.shape;
+              }
+            }
+            if (path == null) break;
+          }
+        }
+        if (!requestIsCurrent()) return;
+        final last = (_feeds[key]?.rowCount ?? 0) - 1;
+        if (!_rangeIsBacked(
+          instance.url,
+          window,
+          range.first,
+          range.last < last ? range.last : last,
+        )) {
+          throw StateError('The requested topic range could not be restored.');
+        }
+        final held = _feeds[key];
+        if (held != null) {
+          _feeds[key] = window.publish(held.copyWith(clearError: true));
+        }
+      }
+    } catch (error, stackTrace) {
+      if (!requestIsCurrent()) return;
+      _report(
+        error,
+        stackTrace,
+        'topics.restoreRange',
+        severity: DiagnosticSeverity.warning,
+      );
+      _commit(lease, () {
+        if (!requestIsCurrent()) return;
+        final held = _feeds[key];
+        if (held == null) return;
+        _feeds[key] = held.withError(
+          appL10n.couldnTLoadMoreTopicsFrom((instance.host).toString()),
+          page: true,
+        );
+      });
+    } finally {
+      if (identical(_rangeRequests[key], request)) {
+        _rangeRequests.remove(key);
+        if (!isDisposed && lease.isCurrent) notifySafely();
+      }
+      if (!request.completion.isCompleted) request.completion.complete();
+      _pruneDestinations();
+    }
+  }
+
+  String _topicIdsPath(String path, Iterable<int> ids) {
+    final separator = path.contains('?') ? '&' : '?';
+    return '$path${separator}topic_ids=${ids.join(',')}';
+  }
+
+  void _cancelRangeRequest(_FeedKey key) {
+    final request = _rangeRequests.remove(key);
+    if (request != null && !request.completion.isCompleted) {
+      request.completion.complete();
     }
   }
 
@@ -503,6 +1325,14 @@ final class TopicFeedController extends FrameSafeNotifier {
     for (final key in _pageRequests.keys.toList()) {
       if (key.$1 == siteUrl) _cancelPageRequest(key);
     }
+    for (final key in _rangeRequests.keys.toList()) {
+      if (key.$1 == siteUrl) _cancelRangeRequest(key);
+    }
+    for (final key in _topicRequests.keys.toList()) {
+      if (key.$1 == siteUrl) _cancelTopicRequest(key);
+    }
+    _windows.removeWhere((key, _) => key.$1 == siteUrl);
+    _incomingRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _rows.removeWhere((key, _) => key.$1 == siteUrl);
     _incomingFilters.removeWhere((key, _) => key.$1 == siteUrl);
     _loadRequests.removeWhere((key, _) => key.$1 == siteUrl);
@@ -572,6 +1402,18 @@ final class TopicFeedController extends FrameSafeNotifier {
     for (final key in _pageRequests.keys.toList()) {
       _cancelPageRequest(key);
     }
+    for (final key in _rangeRequests.keys.toList()) {
+      _cancelRangeRequest(key);
+    }
+    for (final key in _topicRequests.keys.toList()) {
+      _cancelTopicRequest(key);
+    }
+    _feeds.clear();
+    _windows.clear();
+    _rows.clear();
+    _incomingFilters.clear();
+    _incomingRequests.clear();
+    _filterQueries.clear();
     super.dispose();
   }
 }

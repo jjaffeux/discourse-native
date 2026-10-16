@@ -9,10 +9,12 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
+import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -31,6 +33,80 @@ import 'support/fakes.dart';
 
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
+
+  for (final mode in TopicListDisplayMode.values) {
+    testWidgets(
+      '$mode restores earlier ranges while the long feed stays mounted',
+      (tester) async {
+        final api = _RestorablePagingApi();
+        final store = Store(
+          policy: const StorePolicy(
+            maxEntries: 4096,
+            maxEntriesPerSite: 2048,
+            maxEntriesPerSiteAndType: 1024,
+          ),
+        );
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([sites.first]),
+          api: api,
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          store: store,
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        await controller.appSettings.setTopicListMode(mode);
+        await tester.pumpWidget(_LiveTestList(controller: controller));
+        await tester.pumpAndSettle();
+        expect(find.text('Topic 1'), findsOneWidget);
+        final mountedList = find.byType(TopicListView).evaluate().single;
+
+        void jumpToTopicRow(int row) {
+          final list = tester.widget<SuperListView>(find.byType(SuperListView));
+          list.listController!.jumpToItem(
+            index: row * 2,
+            scrollController: list.controller!,
+            alignment: 0,
+          );
+        }
+
+        for (var page = 1; page < 35; page++) {
+          await controller.loadMoreFeed('latest');
+          await tester.pumpAndSettle();
+          jumpToTopicRow(page * 30);
+          await tester.pumpAndSettle();
+        }
+        expect(find.text('Topic 1'), findsNothing);
+        expect(store.containsRecord<Topic>(sites.first.url, 1), isFalse);
+        expect(controller.currentFeed!.rowCount, 1050);
+        expect(controller.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
+        expect(
+          store.statisticsForTesting.entriesFor<Topic>(sites.first.url),
+          1024,
+        );
+
+        final requestsBeforeReturn = api.paths.length;
+        jumpToTopicRow(360);
+        await tester.pumpAndSettle();
+        expect(find.text('Topic 361'), findsOneWidget);
+        expect(api.paths.length, greaterThan(requestsBeforeReturn));
+        await tester.drag(find.byType(SuperListView), const Offset(0, 300));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+
+        jumpToTopicRow(0);
+        await tester.pumpAndSettle();
+        expect(find.text('Topic 1'), findsOneWidget);
+        expect(store.read<Topic>(sites.first.url, 1)?.title, 'Topic 1');
+        expect(find.byType(TopicListView).evaluate().single, same(mountedList));
+        expect(controller.currentFeed!.rowCount, 1050);
+        expect(controller.currentFeed!.hasMore, isFalse);
+        expect(controller.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final mode in TopicListDisplayMode.values) {
     testWidgets('$mode pagination retains unchanged row contents', (
@@ -90,6 +166,182 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('keyboard selection survives discarded pages and incoming rows', (
+    tester,
+  ) async {
+    final api = _RestorablePagingApi();
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: api,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+
+    Future<void> advance(int first, int last) async {
+      for (var page = first; page <= last; page++) {
+        await controller.loadMoreFeed('latest');
+        await tester.pumpAndSettle();
+        final list = tester.widget<SuperListView>(find.byType(SuperListView));
+        list.listController!.jumpToItem(
+          index: page * 60,
+          scrollController: list.controller!,
+          alignment: 0,
+        );
+        await tester.pumpAndSettle();
+      }
+    }
+
+    await advance(1, 11);
+    expect(controller.currentFeed!.topicIds, isNot(contains(1)));
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<KeyboardSelection>(
+            find.byKey(const ValueKey('topic-list-keyboard-2')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    await advance(12, 23);
+    expect(controller.currentFeed!.topicIds, isNot(contains(2)));
+    for (final first in [550, 580]) {
+      final bumped = IncomingTopics();
+      for (var id = first; id < first + 30; id++) {
+        bumped.notify({'topic_id': id, 'message_type': 'latest'});
+      }
+      await controller.topicFeeds.showIncoming(
+        instance: sites.first,
+        destinationId: 'latest',
+        path: '/latest.json',
+        incoming: bumped,
+      );
+      await tester.pumpAndSettle();
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<KeyboardSelection>(
+            find.byKey(const ValueKey('topic-list-keyboard-3')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    await advance(24, 34);
+    expect(controller.currentFeed!.topicIds, isNot(contains(3)));
+    controller.store.remove<Topic>(sites.first.url, 3);
+    final incoming = IncomingTopics()
+      ..notify({'topic_id': 9001, 'message_type': 'latest'});
+    await controller.topicFeeds.showIncoming(
+      instance: sites.first,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: incoming,
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(controller.currentContent?.topicId, 3);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('two mounted lists retain their independent visible ranges', (
+    tester,
+  ) async {
+    final api = _RestorablePagingApi();
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: api,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await tester.pumpWidget(_LiveTestList(controller: controller, panels: 2));
+    await tester.pumpAndSettle();
+    final firstTop = tester.getTopLeft(find.text('Topic 1').first).dy;
+    for (var page = 1; page < 14; page++) {
+      await controller.loadMoreFeed('latest');
+      await tester.pumpAndSettle();
+      final list = tester.widget<SuperListView>(
+        find.byType(SuperListView).last,
+      );
+      list.listController!.jumpToItem(
+        index: page * 60,
+        scrollController: list.controller!,
+        alignment: 0,
+      );
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Topic 1'), findsOneWidget);
+    expect(find.text('Topic 391'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Topic 1')).dy, firstTop);
+    expect(controller.currentFeed!.topicIdAt(0), 1);
+    expect(controller.currentFeed!.topicIdAt(390), 391);
+    expect(controller.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a failed mounted range waits for an explicit retry', (
+    tester,
+  ) async {
+    final api = _RestorablePagingApi();
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([sites.first]),
+      api: api,
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await tester.pumpWidget(_LiveTestList(controller: controller));
+    await tester.pumpAndSettle();
+    for (var page = 1; page < 12; page++) {
+      await controller.loadMoreFeed('latest');
+      await tester.pumpAndSettle();
+      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      list.listController!.jumpToItem(
+        index: page * 60,
+        scrollController: list.controller!,
+        alignment: 0,
+      );
+      await tester.pumpAndSettle();
+    }
+    expect(controller.currentFeed!.topicIdAt(0), isNull);
+    api.failNext = true;
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    list.listController!.jumpToItem(
+      index: 0,
+      scrollController: list.controller!,
+      alignment: 0,
+    );
+    await tester.pumpAndSettle();
+    expect(controller.currentFeed!.pageError, isTrue);
+    final countAfterFailure = api.paths.length;
+    await tester.pump(const Duration(seconds: 1));
+    expect(api.paths, hasLength(countAfterFailure));
+    final retry = find.byKey(const ValueKey('topic-feed-error-retry')).first;
+    await tester.tap(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+    expect(find.text('Topic 1'), findsOneWidget);
+    expect(api.paths, hasLength(countAfterFailure + 1));
+    expect(controller.currentFeed!.pageError, isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final empty in [false, true]) {
     testWidgets('pull refreshes ${empty ? 'an empty' : 'a short'} topic list', (
@@ -1347,11 +1599,13 @@ final class _LiveTestList extends StatelessWidget {
     required this.controller,
     this.theme,
     this.textScaler = TextScaler.noScaling,
+    this.panels = 1,
   });
 
   final ShellController controller;
   final ThemeData? theme;
   final TextScaler textScaler;
+  final int panels;
 
   @override
   Widget build(BuildContext context) => ShellScope(
@@ -1367,7 +1621,16 @@ final class _LiveTestList extends StatelessWidget {
           listenable: controller.topicFeeds,
           builder: (context, _) => controller.currentFeed == null
               ? const SizedBox.shrink()
-              : TopicListView(feed: controller.currentFeed!),
+              : panels == 1
+              ? TopicListView(feed: controller.currentFeed!)
+              : Row(
+                  children: [
+                    for (var i = 0; i < panels; i++)
+                      Expanded(
+                        child: TopicListView(feed: controller.currentFeed!),
+                      ),
+                  ],
+                ),
         ),
       ),
     ),
@@ -1434,6 +1697,40 @@ TopicList _page(int id, {String? moreTopicsUrl}) => TopicList(
   topics: [Topic(id: id, title: 'Topic $id', slug: 'topic-$id')],
   moreTopicsUrl: moreTopicsUrl,
 );
+
+final class _RestorablePagingApi extends FakeDiscourseApi {
+  final List<String> paths = [];
+  bool failNext = false;
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    paths.add(path);
+    if (failNext) {
+      failNext = false;
+      throw StateError('offline');
+    }
+    final parameters = Uri.parse(path).queryParameters;
+    final requestedIds = parameters['topic_ids'];
+    if (requestedIds != null) {
+      return TopicList(
+        topics: [
+          for (final id in requestedIds.split(',').map(int.parse))
+            Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
+        ],
+      );
+    }
+    final page = int.tryParse(parameters['page'] ?? '') ?? 0;
+    return TopicList(
+      topics: _topics(page * 30 + 1, 30),
+      moreTopicsUrl: page < 34 ? '/latest.json?page=${page + 1}' : null,
+    );
+  }
+}
 
 final class _PagingApi extends FakeDiscourseApi {
   final List<String> pageSites = [];
