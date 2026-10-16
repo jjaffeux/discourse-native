@@ -4199,6 +4199,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unable to load events. Try refreshing the calendar.';
 
   @override
+  String get nothingPlanned => 'Nothing planned';
+
+  @override
   String get noEventsInThisPeriod => 'No events in this period.';
 
   @override

@@ -7281,6 +7281,12 @@ abstract class AppLocalizations {
   /// **'Unable to load events. Try refreshing the calendar.'**
   String get unableToLoadEventsTryRefreshingTheCalendar;
 
+  /// Empty Today row in the event schedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing planned'**
+  String get nothingPlanned;
+
   /// English UI message used by plugins/discourse_events/event_directory.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

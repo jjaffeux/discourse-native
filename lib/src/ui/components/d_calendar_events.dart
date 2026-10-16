@@ -2,17 +2,23 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../theme/d_icon.dart';
+import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_badge.dart';
+import 'd_button.dart';
 import 'd_calendar.dart';
 import 'd_item.dart';
 import 'd_separator.dart';
+
+part 'd_calendar_schedule.dart';
 
 /// A localized event-calendar weekday label that fits narrow, scaled columns.
 class DCalendarWeekdayHeader extends StatelessWidget {
@@ -374,6 +380,84 @@ class DKalenderScheduleBody extends StatelessWidget {
   );
 }
 
+/// The shared date heading for a schedule row and its pinned viewport copy.
+class DCalendarScheduleDay extends StatelessWidget {
+  const DCalendarScheduleDay({
+    super.key,
+    required this.label,
+    this.today = false,
+    this.pinned = false,
+  });
+
+  final String label;
+  final bool today;
+  final bool pinned;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    return Stack(
+      children: [
+        PositionedDirectional(
+          start: 3.5,
+          top: 0,
+          bottom: 0,
+          child: DSeparator(orientation: Axis.vertical, color: tokens.border),
+        ),
+        Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(20, 16, 0, 8),
+          child: Semantics(
+            header: true,
+            child: DefaultTextStyle(
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: DiscourseTypography.sm,
+                height: DiscourseTypography.lineHeightSmall,
+                color: tokens.foreground,
+                fontWeight: FontWeight.w700,
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(label),
+                  if (today)
+                    Visibility(
+                      visible: !pinned,
+                      maintainSize: true,
+                      maintainState: true,
+                      maintainAnimation: true,
+                      child: DBadge(
+                        backgroundColor: tokens.primary.withValues(alpha: .2),
+                        foregroundColor: tokens.primary,
+                        child: Text(context.l10n.todayDcalendarevents),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        PositionedDirectional(
+          start: 0,
+          top:
+              16 +
+              scaler.scale(14) * DiscourseTypography.lineHeightSmall / 2 -
+              4,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: today ? tokens.primary : tokens.mutedForeground,
+              shape: BoxShape.circle,
+            ),
+            child: const SizedBox.square(dimension: 8),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// A schedule row with an optional day heading and a continuous date rail.
 /// Dates, times and metadata are already formatted by the calendar adapter.
 class DCalendarScheduleEntry extends StatelessWidget {
@@ -386,7 +470,18 @@ class DCalendarScheduleEntry extends StatelessWidget {
     this.subtitle,
     this.color,
     required this.onPressed,
-  });
+  }) : _empty = false;
+
+  const DCalendarScheduleEntry.empty({
+    super.key,
+    required this.dayLabel,
+    this.today = false,
+    required this.title,
+  }) : time = '',
+       subtitle = null,
+       color = null,
+       onPressed = null,
+       _empty = true;
 
   final String? dayLabel;
   final bool today;
@@ -395,18 +490,18 @@ class DCalendarScheduleEntry extends StatelessWidget {
   final String? subtitle;
   final Color? color;
   final VoidCallback? onPressed;
+  final bool _empty;
 
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final scaler = MediaQuery.textScalerOf(context);
-    final textStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontSize: DiscourseTypography.sm,
-      height: DiscourseTypography.lineHeightSmall,
-      color: tokens.foreground,
-    );
     return DefaultTextStyle(
-      style: textStyle,
+      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+        fontSize: DiscourseTypography.sm,
+        height: DiscourseTypography.lineHeightSmall,
+        color: tokens.foreground,
+      ),
       child: Stack(
         children: [
           PositionedDirectional(
@@ -415,38 +510,20 @@ class DCalendarScheduleEntry extends StatelessWidget {
             bottom: 0,
             child: DSeparator(orientation: Axis.vertical, color: tokens.border),
           ),
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (dayLabel != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16, bottom: 8),
-                    child: Semantics(
-                      header: true,
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            dayLabel!,
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          if (today)
-                            DBadge(
-                              backgroundColor: tokens.primary.withValues(
-                                alpha: .2,
-                              ),
-                              foregroundColor: tokens.primary,
-                              child: Text(context.l10n.todayDcalendarevents),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                DItem(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (dayLabel != null)
+                _ScheduleSourceHeading(
+                  frame: _ScheduleScope.of(context),
+                  date: context
+                      .dependOnInheritedWidgetOfExactType<_ScheduleRowScope>()
+                      ?.date,
+                  child: DCalendarScheduleDay(label: dayLabel!, today: today),
+                ),
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: 20),
+                child: DItem(
                   onPressed: onPressed,
                   size: DItemSize.xs,
                   padding: const EdgeInsets.symmetric(vertical: 6),
@@ -468,7 +545,9 @@ class DCalendarScheduleEntry extends StatelessWidget {
                                   length:
                                       scaler.scale(20) *
                                       (subtitle == null ? 1 : 2),
-                                  color: color ?? tokens.primary,
+                                  color: _empty
+                                      ? tokens.mutedForeground
+                                      : color ?? tokens.primary,
                                   radius: BorderRadius.circular(2),
                                 ),
                                 const SizedBox(width: 10),
@@ -479,8 +558,13 @@ class DCalendarScheduleEntry extends StatelessWidget {
                                     children: [
                                       Text(
                                         title,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
+                                        style: TextStyle(
+                                          fontWeight: _empty
+                                              ? FontWeight.w400
+                                              : FontWeight.w600,
+                                          color: _empty
+                                              ? tokens.mutedForeground
+                                              : null,
                                         ),
                                       ),
                                       if (subtitle != null)
@@ -509,8 +593,10 @@ class DCalendarScheduleEntry extends StatelessWidget {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  timeLabel,
-                                  const SizedBox(height: 4),
+                                  if (!_empty) ...[
+                                    timeLabel,
+                                    const SizedBox(height: 4),
+                                  ],
                                   details,
                                 ],
                               );
@@ -528,24 +614,9 @@ class DCalendarScheduleEntry extends StatelessWidget {
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          if (dayLabel != null)
-            PositionedDirectional(
-              start: 0,
-              top:
-                  16 +
-                  scaler.scale(14) * DiscourseTypography.lineHeightSmall / 2 -
-                  4,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: today ? tokens.primary : tokens.mutedForeground,
-                  shape: BoxShape.circle,
-                ),
-                child: const SizedBox.square(dimension: 8),
               ),
-            ),
+            ],
+          ),
         ],
       ),
     );

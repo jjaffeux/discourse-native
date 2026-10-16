@@ -129,7 +129,17 @@ final class _EventCalendarState extends State<EventCalendar> {
       final page = widget.page;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && widget.page == page) {
-          _calendar.jumpToDate(_inCalendar(page.date));
+          final view = _calendar.viewController;
+          if (_schedule && view is kalender.ScheduleViewController) {
+            final index =
+                view.indexFromDateTime(_inCalendar(page.date)) ??
+                view.closestIndex(_inCalendar(page.date));
+            if (view.itemScrollController?.isAttached == true) {
+              view.itemScrollController!.jumpTo(index: index);
+            }
+          } else {
+            _calendar.jumpToDate(_inCalendar(page.date));
+          }
         }
       });
     }
@@ -278,7 +288,28 @@ final class _EventCalendarState extends State<EventCalendar> {
     final inView = !today.isBefore(_days.start) && today.isBefore(_days.end);
     if (_monthScroll.hasClients) _monthScroll.jumpTo(0);
     widget.onPageChanged(EventCalendarPage(_view, today));
-    if (inView) unawaited(_calendar.animateToDate(_inCalendar(today)));
+    if (inView) {
+      if (_schedule) {
+        final view =
+            _calendar.viewController as kalender.ScheduleViewController;
+        final index = view.indexFromDateTime(_inCalendar(today));
+        if (index != null && view.itemScrollController?.isAttached == true) {
+          if (MediaQuery.disableAnimationsOf(context)) {
+            view.itemScrollController!.jumpTo(index: index);
+          } else {
+            unawaited(
+              view.itemScrollController!.scrollTo(
+                index: index,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+              ),
+            );
+          }
+        }
+      } else {
+        unawaited(_calendar.animateToDate(_inCalendar(today)));
+      }
+    }
   }
 
   Widget _select<T extends Object>(
@@ -391,12 +422,13 @@ final class _EventCalendarState extends State<EventCalendar> {
                       ],
                     ),
                   ),
-                  DButton(
-                    variant: DButtonVariant.outline,
-                    size: DControlSize.chip,
-                    label: Text(context.l10n.todayDcalendarevents),
-                    onPressed: _today,
-                  ),
+                  if (!_schedule)
+                    DButton(
+                      variant: DButtonVariant.outline,
+                      size: DControlSize.chip,
+                      label: Text(context.l10n.todayDcalendarevents),
+                      onPressed: _today,
+                    ),
                 ],
               ),
               DControlWrap(
@@ -512,7 +544,9 @@ final class _EventCalendarState extends State<EventCalendar> {
               ),
       ),
       configuration: kalender.ScheduleBodyConfiguration(
-        emptyDay: kalender.EmptyDayBehavior.hide,
+        emptyDay: _schedule
+            ? kalender.EmptyDayBehavior.showOnlyToday
+            : kalender.EmptyDayBehavior.hide,
         leadingWidth: _schedule ? 0 : 56,
       ),
     );
@@ -529,6 +563,22 @@ final class _EventCalendarState extends State<EventCalendar> {
                   leadingDateBuilder: (context, date) =>
                       const SizedBox.shrink(),
                   monthItemBuilder: (context, range) => const SizedBox.shrink(),
+                  emptyItemBuilder: (context, range) {
+                    final day = DateTime.utc(
+                      range.start.year,
+                      range.start.month,
+                      range.start.day,
+                    );
+                    return DCalendarScheduleRow(
+                      date: day,
+                      rowId: 'empty',
+                      child: DCalendarScheduleEntry.empty(
+                        dayLabel: DateFormat('EEE d', _locale).format(day),
+                        today: true,
+                        title: context.l10n.nothingPlanned,
+                      ),
+                    );
+                  },
                   scheduleTileHighlightBuilder: (context, date, range, child) =>
                       child,
                 )
@@ -581,9 +631,7 @@ final class _EventCalendarState extends State<EventCalendar> {
             ),
           ),
           kalender.ScheduleViewParts(
-            body: _schedule
-                ? DKalenderScheduleBody(child: scheduleBody)
-                : scheduleBody,
+            body: _schedule ? _buildSchedule(scheduleBody) : scheduleBody,
           ),
           kalender.MonthViewParts(
             body: compact
@@ -630,6 +678,52 @@ final class _EventCalendarState extends State<EventCalendar> {
     );
   }
 
+  Widget _buildSchedule(Widget body) {
+    final now = _now();
+    final today = DateTime.utc(now.year, now.month, now.day);
+    return DCalendarScheduleViewport(
+      days: [
+        for (
+          var day = _days.start;
+          day.isBefore(_days.end);
+          day = day.add(const Duration(days: 1))
+        )
+          if (day == today || widget.events.any((event) => event.includes(day)))
+            DCalendarScheduleDayData(
+              date: day,
+              label: DateFormat('EEE d', _locale).format(day),
+              today: day == today,
+              rows: [
+                for (final event in _events.eventsInRange(
+                  kalender.FloatingDateTimeRange(
+                    start: kalender.FloatingDateTime.fromDateTime(day),
+                    end: kalender.FloatingDateTime.fromDateTime(
+                      day.add(const Duration(days: 1)),
+                    ),
+                  ),
+                  multiDayRule: _configuration.multiDayRule,
+                  location: widget.location,
+                ))
+                  event.id,
+                if (!widget.events.any((event) => event.includes(day))) 'empty',
+              ],
+            ),
+      ],
+      missingTodayPosition: today.isBefore(_days.start)
+          ? DCalendarScheduleTodayPosition.before
+          : today.isBefore(_days.end)
+          ? DCalendarScheduleTodayPosition.visible
+          : DCalendarScheduleTodayPosition.after,
+      todayLabel: context.l10n.todayDcalendarevents,
+      onToday: _today,
+      bottomInset: math.max(
+        MediaQuery.paddingOf(context).bottom,
+        DScrollChrome.bottomInsetOf(context),
+      ),
+      child: DKalenderScheduleBody(child: body),
+    );
+  }
+
   Widget _scheduleTile(
     BuildContext context,
     kalender.KalenderEvent raw,
@@ -641,7 +735,7 @@ final class _EventCalendarState extends State<EventCalendar> {
       range.start.month,
       range.start.day,
     );
-    final first = _events
+    final dayEvents = _events
         .eventsInRange(
           kalender.FloatingDateTimeRange(
             start: kalender.FloatingDateTime.fromDateTime(day),
@@ -650,30 +744,36 @@ final class _EventCalendarState extends State<EventCalendar> {
             ),
           ),
           multiDayRule: _configuration.multiDayRule,
+          location: widget.location,
         )
-        .firstOrNull;
+        .toList();
+    final first = dayEvents.firstOrNull;
     final now = _now();
     final today = day == DateTime.utc(now.year, now.month, now.day);
     final metadata = event.scheduleMetadata(day);
-    return DCalendarScheduleEntry(
-      dayLabel: first?.id == event.id
-          ? DateFormat('EEE d', _locale).format(day)
-          : null,
-      today: today,
-      time: event.isAllDay
-          ? context.l10n.allDay
-          : _use24HourClock
-          ? _time(event.localStart)
-          : (event.localStart.minute == 0
-                    ? DateFormat.j(_locale)
-                    : DateFormat.jm(_locale))
-                .format(event.localStart)
-                .toLowerCase()
-                .replaceAll('\u202f', ' '),
-      title: event.title,
-      subtitle: metadata.isEmpty ? null : metadata,
-      color: event.color,
-      onPressed: () => widget.onOpen(event),
+    return DCalendarScheduleRow(
+      date: day,
+      rowId: event.id,
+      child: DCalendarScheduleEntry(
+        dayLabel: first?.id == event.id
+            ? DateFormat('EEE d', _locale).format(day)
+            : null,
+        today: today,
+        time: event.isAllDay
+            ? context.l10n.allDay
+            : _use24HourClock
+            ? _time(event.localStart)
+            : (event.localStart.minute == 0
+                      ? DateFormat.j(_locale)
+                      : DateFormat.jm(_locale))
+                  .format(event.localStart)
+                  .toLowerCase()
+                  .replaceAll('\u202f', ' '),
+        title: event.title,
+        subtitle: metadata.isEmpty ? null : metadata,
+        color: event.color,
+        onPressed: () => widget.onOpen(event),
+      ),
     );
   }
 

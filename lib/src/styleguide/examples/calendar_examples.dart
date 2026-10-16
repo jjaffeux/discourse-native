@@ -119,8 +119,14 @@ final calendarExamples = ComponentExamples(
     StyleguideExample(
       title: 'Event schedule',
       description:
-          'Date headings, a continuous timeline, event times and metadata reflow with text size.',
-      states: const ['Mobile', 'Today', 'Metadata', 'Multi-day continuation'],
+          'Shared date headings, a continuous timeline, event metadata and an empty Today row reflow with text size.',
+      states: const [
+        'Mobile',
+        'Today',
+        'Empty day',
+        'Metadata',
+        'Multi-day continuation',
+      ],
       code: '''DCalendarScheduleEntry(
   dayLabel: 'Wed 23',
   today: true,
@@ -656,6 +662,11 @@ class _EventScheduleExampleState extends State<_EventScheduleExample> {
           subtitle: 'plants · grindsetgo · day 1 of 3',
           color: Colors.blue,
           onPressed: () => setState(() => _opened = 'Customer roundtable'),
+        ),
+        const DCalendarScheduleEntry.empty(
+          dayLabel: 'Fri 25',
+          today: true,
+          title: 'Nothing planned',
         ),
         if (_opened != null) Text('Opened $_opened'),
       ],

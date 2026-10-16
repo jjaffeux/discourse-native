@@ -5487,6 +5487,10 @@
   "@unableToLoadEventsTryRefreshingTheCalendar": {
     "description": "English UI message used by plugins/discourse_events/event_directory.dart. Keep placeholders intact."
   },
+  "nothingPlanned": "Nothing planned",
+  "@nothingPlanned": {
+    "description": "Empty Today row in the event schedule."
+  },
   "noEventsInThisPeriod": "No events in this period.",
   "@noEventsInThisPeriod": {
     "description": "English UI message used by plugins/discourse_events/event_directory.dart. Keep placeholders intact."

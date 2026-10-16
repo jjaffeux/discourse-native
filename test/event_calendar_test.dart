@@ -207,7 +207,7 @@ void main() {
         await tester.tap(find.byTooltip('Next month'));
         await tester.pumpAndSettle();
         expect(find.text('October 2026'), findsOneWidget);
-        await tester.tap(find.text('Today'));
+        await tester.tap(find.text('Today').hitTestable());
         await tester.pumpAndSettle();
         expect(page.date, DateTime.utc(2026, 9, 8));
         expect(tester.takeException(), isNull);
@@ -376,7 +376,15 @@ void main() {
       expect(mine, isTrue);
       expect(page.view, EventCalendarView.schedule);
       expect(find.text('September 2026'), findsOneWidget);
-      expect(find.text('Tue 8'), findsOneWidget);
+      expect(
+        find.byElementPredicate((element) {
+          final node = element.renderObject?.debugSemantics;
+          return node != null &&
+              node.attached &&
+              RegExp(r'^Tue 8(?:\nToday)?$').hasMatch(node.label);
+        }),
+        findsOneWidget,
+      );
       expect(find.text('books · sam'), findsOneWidget);
       expect(find.text('9 am'), findsOneWidget);
       expect(find.text('day 1 of 3'), findsOneWidget);
@@ -395,7 +403,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(page.date, DateTime.utc(2026, 10));
       expect(find.text('First event'), findsNothing);
-      await tester.tap(find.text('Today'));
+      await tester.tap(find.text('Today').hitTestable());
       await tester.pumpAndSettle();
       expect(page.date, DateTime.utc(2026, 9, 8));
       expect(find.text('First event'), findsOneWidget);

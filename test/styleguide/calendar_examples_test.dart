@@ -63,7 +63,7 @@ void main() {
         if (example.title == 'Compact event month') {
           expect(find.byType(DKalenderCompactMonthBody), findsOneWidget);
         } else if (example.title == 'Event schedule') {
-          expect(find.byType(DCalendarScheduleEntry), findsNWidgets(3));
+          expect(find.byType(DCalendarScheduleEntry), findsNWidgets(4));
         } else {
           expect(find.byType(DCalendar), findsAtLeastNWidgets(1));
         }
@@ -164,7 +164,10 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpAndSettle();
     expect(tester.getSize(find.byType(DCalendarDayButton).first).height, 40);
-    expect(tester.widget<DCalendar>(find.byType(DCalendar)).mode, DCalendarSelectionMode.range);
+    expect(
+      tester.widget<DCalendar>(find.byType(DCalendar)).mode,
+      DCalendarSelectionMode.range,
+    );
   });
 
   testWidgets('RTL outside days announce their actual Arabic month', (
