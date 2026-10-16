@@ -1,13 +1,17 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/cooked_table.dart';
 import 'package:discourse_native/src/shell/inline_code.dart';
+import 'package:discourse_native/src/shell/progressive_html_mode.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:html/parser.dart' as html_parser;
 
 const _html = '''
 <table><thead><tr><th>Who?</th><th>Days</th><th>Notes</th></tr></thead>
@@ -25,6 +29,8 @@ Future<void> _pump(
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   ThemeData? theme,
+  RenderMode renderMode = RenderMode.column,
+  ValueChanged<SelectedContent?>? onSelectionChanged,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -36,11 +42,13 @@ Future<void> _pump(
           child: Scaffold(
             body: SingleChildScrollView(
               child: SelectionArea(
+                onSelectionChanged: onSelectionChanged,
                 child: CookedHtml(
                   html: html,
                   post: post,
                   siteUrl: 'https://source.example.com',
                   buildAsync: false,
+                  renderMode: renderMode,
                 ),
               ),
             ),
@@ -62,6 +70,219 @@ Future<void> _sort(WidgetTester tester, String column, String order) async {
 }
 
 void main() {
+  testWidgets('large progressive tables bound mounted cells and page every row', (
+    tester,
+  ) async {
+    final html =
+        '<table><tr><th>Name</th><th>Notes</th></tr>'
+        '${List.generate(500, (i) => '<tr><td>Member $i</td><td>Notes $i</td></tr>').join()}'
+        '</table>';
+    await _pump(tester, html, renderMode: const ProgressiveHtmlMode());
+
+    expect(find.byType(CookedHtml).evaluate().length, 51);
+    expect(_text('Member 499'), findsNothing);
+    final semantics = tester.ensureSemantics();
+    try {
+      final visited = <String>{};
+      for (var page = 0; page < 20; page++) {
+        for (var row = page * 25; row < (page + 1) * 25; row++) {
+          expect(_text('Member $row'), findsOneWidget);
+          visited.add('Member $row');
+        }
+        expect(find.byType(CookedHtml).evaluate().length, 51);
+        final last = _text('Member ${(page + 1) * 25 - 1}');
+        await tester.ensureVisible(last);
+        await tester.pumpAndSettle();
+        expect(tester.getSemantics(last).label, contains('Member'));
+        final next = find.byType(DPaginationNext);
+        await tester.ensureVisible(next);
+        await tester.pumpAndSettle();
+        if (page < 19) {
+          await tester.tap(next);
+          await tester.pumpAndSettle();
+        } else {
+          expect(tester.widget<DPaginationNext>(next).onPressed, isNull);
+        }
+        expect(tester.takeException(), isNull);
+      }
+      expect(visited, hasLength(500));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) => widget is DPaginationLink && widget.page == 1,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(_text('Member 0'), findsOneWidget);
+      expect(_text('Member 499'), findsNothing);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets('later pages retain rich cells, selection, sorting and full copy', (
+    tester,
+  ) async {
+    String? copied;
+    String? selected;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+    final html =
+        '<table><tr><th>Name</th><th>Notes</th></tr>'
+        '${List.generate(30, (i) => '<tr><td>Member $i</td><td><a href="/t/example/12">Link $i</a> <code>code $i</code></td></tr>').join()}'
+        '</table>';
+    await _pump(
+      tester,
+      html,
+      onSelectionChanged: (content) => selected = content?.plainText,
+    );
+    await tester.ensureVisible(find.byType(DPaginationNext));
+    await tester.tap(find.byType(DPaginationNext));
+    await tester.pumpAndSettle();
+    expect(_text('Member 29'), findsOneWidget);
+    expect(find.byType(InlineCode), findsNWidgets(5));
+    final linkCell = tester
+        .widgetList<HtmlWidget>(find.byType(HtmlWidget))
+        .firstWhere(
+          (widget) =>
+              widget.html.startsWith('<div>') &&
+              widget.html.contains('Link 29'),
+        );
+    expect(linkCell.baseUrl, Uri.parse('https://source.example.com'));
+    expect(linkCell.onTapUrl, isNotNull);
+    tester
+        .state<SelectionAreaState>(find.byType(SelectionArea))
+        .selectableRegion
+        .selectAll(SelectionChangedCause.keyboard);
+    await tester.pump();
+    expect(selected, contains('Member 29'));
+    expect(selected, contains('code 29'));
+
+    await tester.ensureVisible(find.text('Name'));
+    await _sort(tester, 'Name', 'descending');
+    expect(
+      tester
+          .widget<DPaginationNavigation>(find.byType(DPaginationNavigation))
+          .page,
+      1,
+    );
+    await tester.tap(find.text('Notes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hide column'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byType(DPaginationNext));
+    await tester.tap(find.byType(DPaginationNext));
+    await tester.pumpAndSettle();
+    final copy = find.byWidgetPredicate(
+      (widget) => widget is DButton && widget.tooltip == 'Copy table',
+    );
+    await tester.ensureVisible(copy);
+    await tester.tap(copy);
+    await tester.pump();
+    expect(
+      copied,
+      startsWith(
+        '| Name | Notes |\n| --- | --- |\n| Member 0 | Link 0 code 0 |',
+      ),
+    );
+    expect(copied, endsWith('| Member 29 | Link 29 code 29 |'));
+    expect(copied!.split('\n'), hasLength(32));
+    await tester.pump(const Duration(seconds: 2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'initial widths reuse shaping until content or layout inputs change',
+    (tester) async {
+      var scaleCalls = 0;
+      var theme = AppTheme.dark;
+      var direction = TextDirection.ltr;
+      var textScaler = _CountingTextScaler(onScale: () => scaleCalls++);
+      var value = 'cell';
+      Future<void> pumpTable() async {
+        final html =
+            '<table><tr><th>Name</th><th>Notes</th></tr>'
+            '${List.generate(500, (i) => '<tr><td>$value $i</td><td>note $i</td></tr>').join()}</table>';
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: textScaler),
+              child: Directionality(
+                textDirection: direction,
+                child: Scaffold(
+                  body: SingleChildScrollView(
+                    child: Builder(
+                      builder: (context) => cookedTableWidgetBuilder(
+                        html_parser.parseFragment(html).querySelector('table')!,
+                        cellBuilder: (_, _) => const SizedBox(height: 1),
+                      )!,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pumpTable();
+      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      scaleCalls = 0;
+      await _sort(tester, 'Name', 'descending');
+      expect(scaleCalls, lessThan(1000));
+      scaleCalls = 0;
+      await tester.tap(find.text('Notes'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hide column'));
+      await tester.pumpAndSettle();
+      expect(scaleCalls, lessThan(1000));
+      scaleCalls = 0;
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) => widget is DButton && widget.tooltip == 'Copy table',
+        ),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(scaleCalls, lessThan(1000));
+      scaleCalls = 0;
+      direction = TextDirection.rtl;
+      await pumpTable();
+      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      scaleCalls = 0;
+      theme = theme.copyWith(
+        textTheme: theme.textTheme.copyWith(
+          bodyMedium: theme.textTheme.bodyMedium!.copyWith(fontSize: 16),
+        ),
+      );
+      await pumpTable();
+      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      scaleCalls = 0;
+      textScaler = _CountingTextScaler(factor: 2, onScale: () => scaleCalls++);
+      await pumpTable();
+      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      scaleCalls = 0;
+      value = 'changed';
+      await pumpTable();
+      expect(scaleCalls, greaterThanOrEqualTo(1000));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('copy table copies complete Markdown beside Columns', (
     tester,
   ) async {
@@ -264,12 +485,13 @@ void main() {
         addTearDown(tester.view.reset);
         const note =
             'Staying at Artrip Hotel until the 24th then train to Seville';
-        await _pump(
-          tester,
-          _html.replaceFirst('First note', note),
-          scale: 2,
-          direction: direction,
-        );
+        final html = _html
+            .replaceFirst('First note', note)
+            .replaceFirst(
+              '</tbody>',
+              '${List.generate(27, (i) => '<tr><td>Member ${i + 3}</td><td>1</td><td>Note</td></tr>').join()}</tbody>',
+            );
+        await _pump(tester, html, scale: 2, direction: direction);
         expect(tester.getSize(_text(note)).height, greaterThan(40));
         final horizontal = tester
             .stateList<ScrollableState>(find.byType(Scrollable))
@@ -290,6 +512,11 @@ void main() {
         expect(horizontal.position.pixels, greaterThan(0));
         horizontal.position.jumpTo(horizontal.position.maxScrollExtent);
         await tester.pumpAndSettle();
+        await tester.ensureVisible(find.byType(DPaginationNext));
+        await tester.tap(find.byType(DPaginationNext));
+        await tester.pumpAndSettle();
+        expect(_text('Member 29'), findsOneWidget);
+        expect(_text(note), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -362,4 +589,20 @@ void main() {
     expect(_text('Other Zara'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+}
+
+class _CountingTextScaler extends TextScaler {
+  const _CountingTextScaler({required this.onScale, this.factor = 1});
+
+  final double factor;
+  final VoidCallback onScale;
+
+  @override
+  double scale(double fontSize) {
+    onScale();
+    return fontSize * factor;
+  }
+
+  @override
+  double get textScaleFactor => factor;
 }

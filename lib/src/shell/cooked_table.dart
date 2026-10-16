@@ -96,8 +96,13 @@ class _CookedTable extends StatefulWidget {
 }
 
 class _CookedTableState extends State<_CookedTable> {
+  static const _pageSize = 25;
+
   bool _copied = false;
   Timer? _copyReset;
+  ({TextStyle? style, TextDirection direction, TextScaler scaler})?
+  _widthInputs;
+  List<double> _initialWidths = [];
 
   Future<void> _copyTable() async {
     String line(List<_Cell> cells) =>
@@ -125,12 +130,22 @@ class _CookedTableState extends State<_CookedTable> {
     super.dispose();
   }
 
-  late DDataTableState _state = DDataTableState(
-    pageSize: math.max(1, widget.rows.length),
-  );
+  DDataTableState _state = DDataTableState(pageSize: _pageSize);
 
   @override
   Widget build(BuildContext context) {
+    final widthInputs = (
+      style: Theme.of(context).textTheme.bodyMedium,
+      direction: Directionality.of(context),
+      scaler: MediaQuery.textScalerOf(context),
+    );
+    if (_widthInputs != widthInputs) {
+      _initialWidths = [
+        for (var index = 0; index < widget.headers.length; index++)
+          _initialWidth(context, index),
+      ];
+      _widthInputs = widthInputs;
+    }
     final columns = [
       for (var index = 0; index < widget.headers.length; index++)
         DDataTableColumn<int>(
@@ -140,7 +155,7 @@ class _CookedTableState extends State<_CookedTable> {
               : widget.headers[index].text,
           resizable: true,
           alignment: AlignmentDirectional.topStart,
-          width: FixedColumnWidth(_initialWidth(context, index)),
+          width: FixedColumnWidth(_initialWidths[index]),
           compare: (first, second) => _compare(
             widget.rows[first][index].text,
             widget.rows[second][index].text,
@@ -201,6 +216,21 @@ class _CookedTableState extends State<_CookedTable> {
           onStateChanged: (state) => setState(() => _state = state),
           empty: const SizedBox.shrink(),
         ),
+        if (widget.rows.length > _pageSize) ...[
+          const SizedBox(height: DSpacing.sm),
+          DPaginationNavigation.controlled(
+            page: _state.page,
+            pageCount: DPaginationController.pageCountFor(
+              totalItems: widget.rows.length,
+              pageSize: _pageSize,
+            ),
+            pageSize: _pageSize,
+            size: DButtonSize.post,
+            onPageChanged: (page) => setState(() {
+              _state = _state.copyWith(page: page);
+            }),
+          ),
+        ],
         if (widget.caption case final caption?)
           DTableCaption(child: widget.cellBuilder(context, caption)),
       ],
