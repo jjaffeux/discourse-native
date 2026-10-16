@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Icon, Icons;
 import 'package:flutter/widgets.dart';
 
 import '../foundation/frame_safe_notifier.dart';
@@ -33,6 +34,7 @@ final class DesktopPanelsLayout extends FrameSafeNotifier {
 
   // Only one panel stands down at a time, or there would be nothing left to
   // read.
+  ForumPanel _leading = ForumPanel.main;
   ForumPanel? _minimized;
   VoidCallback? _toggle;
   bool _splitVisible = false;
@@ -96,9 +98,15 @@ class _DesktopPanelsState extends State<DesktopPanels>
   double? _anchoredMainWidth;
   double? _anchoredSecondaryWidth;
   double? _anchoredWindowWidth;
+  double? _swappedMainWidthLimit;
   double? _lastSplitMainWidth;
   double? _lastSplitTotalWidth;
   ForumPanel? _effectiveMinimized;
+  final _swapFocus = FocusNode(debugLabel: 'Swap panels');
+  bool _seamHovered = false;
+  bool _seamFocused = false;
+  bool _seamDragging = false;
+  bool _swapAtTop = true;
 
   PanelWidthController get _mainWidth => _layout.mainWidth;
 
@@ -136,12 +144,33 @@ class _DesktopPanelsState extends State<DesktopPanels>
     _windowFrame = widget.windowFrame ?? (_ownedWindowFrame = WindowFrame());
     _previousWindowFrame = _windowFrame.value;
     _resizeEdge = null;
+    _swappedMainWidthLimit = null;
     _windowFrame.addListener(_frameChanged);
+  }
+
+  void _swapPanels() {
+    if (!_layout.splitVisible || _moving.value != null || _seamDragging) return;
+    setState(() {
+      if (_resizeEdge != null && _lastSplitMainWidth != null) {
+        _anchoredMainWidth = _lastSplitMainWidth;
+        _anchoredSecondaryWidth = _lastSplitTotalWidth! - _lastSplitMainWidth!;
+        _anchoredWindowWidth = _windowFrame.value?.width;
+        _swappedMainWidthLimit = math.max(
+          _mainWidth.value,
+          _lastSplitMainWidth!,
+        );
+      }
+      _layout._leading = _other(_layout._leading);
+      _seamHovered = false;
+    });
   }
 
   void _preferredWidthChanged() {
     // A seam drag becomes the starting split for the next window resize.
-    setState(() => _resizeEdge = null);
+    setState(() {
+      _resizeEdge = null;
+      _swappedMainWidthLimit = null;
+    });
   }
 
   void _frameChanged() {
@@ -161,6 +190,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
         ? _WindowResizeEdge.right
         : null;
     if (nextEdge != _resizeEdge && _lastSplitMainWidth != null) {
+      _swappedMainWidthLimit = null;
       _anchoredMainWidth = _lastSplitMainWidth;
       _anchoredSecondaryWidth = _lastSplitTotalWidth! - _lastSplitMainWidth!;
       _anchoredWindowWidth = previous.width;
@@ -217,6 +247,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
       _minimized = null;
       // Restoring a rail at this window width starts a new visible split.
       _resizeEdge = null;
+      _swappedMainWidthLimit = null;
       if (!canSplit) {
         // No two-panel split exists at this width. An older split would
         // otherwise become the anchor of the next window expansion.
@@ -279,10 +310,11 @@ class _DesktopPanelsState extends State<DesktopPanels>
     ForumPanel changing,
   ) {
     final placement = ComposerDock.workspacePlacementOf(context);
+    final start = _layout._leading;
     return DLayoutGlyph(
-      mainVisible: hidden != ForumPanel.main,
-      secondaryVisible: hidden != ForumPanel.secondary,
-      changingPanel: changing.index,
+      mainVisible: hidden != start,
+      secondaryVisible: hidden != _other(start),
+      changingPanel: changing == start ? 0 : 1,
       dock: switch (placement) {
         ComposerPlacement.left => DLayoutGlyphDock.left,
         ComposerPlacement.right => DLayoutGlyphDock.right,
@@ -300,6 +332,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
     _windowFrame.removeListener(_frameChanged);
     _ownedWindowFrame?.dispose();
     _mainWidth.removeListener(_preferredWidthChanged);
+    _swapFocus.dispose();
     _folded.dispose();
     _fold.dispose();
     _moving.dispose();
@@ -351,6 +384,14 @@ class _DesktopPanelsState extends State<DesktopPanels>
     return LayoutBuilder(
       builder: (context, constraints) {
         final total = constraints.maxWidth;
+        final direction = Directionality.of(context);
+        final startPanel = _layout._leading;
+        final mainAtStart = startPanel == ForumPanel.main;
+        final mainResizeWindowEdge =
+            mainAtStart == (direction == TextDirection.ltr)
+            ? _WindowResizeEdge.right
+            : _WindowResizeEdge.left;
+        final resizingMain = _resizeEdge == mainResizeWindowEdge;
         const minimumMainWidth = 320 + workspacePanelGap;
         final maximumMainWidth = total - 320;
         final preferredMainWidth = _mainWidth.effectiveWidth(
@@ -363,24 +404,24 @@ class _DesktopPanelsState extends State<DesktopPanels>
             ? 0.0
             : (_windowFrame.value?.width ?? _anchoredWindowWidth!) -
                   _anchoredWindowWidth!;
-        final requestedMainWidth = switch (_resizeEdge) {
-          _WindowResizeEdge.right => math.min(
-            _mainWidth.value,
-            (_anchoredMainWidth ?? preferredMainWidth) + windowDelta,
-          ),
-          _WindowResizeEdge.left =>
-            total -
-                (_anchoredSecondaryWidth ?? total - preferredMainWidth) -
-                windowDelta,
-          null => preferredMainWidth,
-        };
-        final autoCollapsed = switch (_resizeEdge) {
-          _WindowResizeEdge.right
+        final requestedMainWidth = _resizeEdge == null
+            ? preferredMainWidth
+            : resizingMain
+            ? math.min(
+                _swappedMainWidthLimit ?? _mainWidth.value,
+                (_anchoredMainWidth ?? preferredMainWidth) + windowDelta,
+              )
+            : total -
+                  (_anchoredSecondaryWidth ?? total - preferredMainWidth) -
+                  windowDelta;
+        final autoCollapsed = switch ((_resizeEdge, resizingMain)) {
+          (null, _) => null,
+          (_, true)
               when _minimized == null &&
                   shell.selectedTabIn(ForumPanel.secondary) != null &&
                   requestedMainWidth < minimumMainWidth =>
             ForumPanel.main,
-          _WindowResizeEdge.left
+          (_, false)
               when _minimized == null &&
                   shell.selectedTabIn(ForumPanel.main) != null &&
                   total - requestedMainWidth < 320 =>
@@ -435,6 +476,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
             minimizable,
             minimized,
             ComposerDock.workspacePlacementOf(context),
+            startPanel,
           );
           if (_panelWidgets[target] case (
             :final key,
@@ -503,7 +545,6 @@ class _DesktopPanelsState extends State<DesktopPanels>
           });
         }
 
-        final direction = Directionality.of(context);
         // Built once per layout, so that dragging the seam or settling a fold
         // only moves and wraps them.
         final documents = {
@@ -533,17 +574,25 @@ class _DesktopPanelsState extends State<DesktopPanels>
                   final moving = horizontal ? _moving.value : null;
                   final seam = ResizablePane(
                     controller: _mainWidth,
-                    edge: ResizablePaneEdge.trailing,
+                    edge: mainAtStart
+                        ? ResizablePaneEdge.trailing
+                        : ResizablePaneEdge.leading,
                     resizeKey: 'main-panel',
                     semanticsLabel: context.l10n.resizeMainPanel,
                     maximumWidth: maximumMainWidth,
                     widthOverride: mainWidth,
                     gap: workspacePanelGap,
+                    onResizeStart: () => setState(() => _seamDragging = true),
+                    onResizeEnd: () => setState(() => _seamDragging = false),
                     child: const SizedBox.shrink(),
                   );
                   // Either panel leaves the workspace entirely, including the gap.
-                  final mainTravel = mainWidth;
-                  final secondaryTravel = total + workspacePanelGap - mainWidth;
+                  final startWidth = mainAtStart
+                      ? mainWidth - workspacePanelGap
+                      : total - mainWidth;
+                  final startExtent = startWidth + workspacePanelGap;
+                  final startTravel = startExtent;
+                  final endTravel = total + workspacePanelGap - startExtent;
                   final ltr = direction == TextDirection.ltr ? 1.0 : -1.0;
                   // Both panels keep one place in the tree in every layout, at rest
                   // and in motion. Moving a document under another parent would
@@ -559,26 +608,17 @@ class _DesktopPanelsState extends State<DesktopPanels>
                   Widget slot(ForumPanel target) {
                     // A minimized panel keeps the place it returns to, so it is laid
                     // out again only when the window changes.
-                    final (start, width) = !horizontal
+                    final (
+                      start,
+                      width,
+                    ) = !horizontal || placed == _other(target)
                         ? (0.0, total)
-                        : switch ((target, placed)) {
-                            (ForumPanel.main, ForumPanel.secondary) => (
-                              0.0,
-                              total,
-                            ),
-                            (ForumPanel.secondary, ForumPanel.main) => (
-                              0.0,
-                              total,
-                            ),
-                            (ForumPanel.main, _) => (
-                              0.0,
-                              mainWidth - workspacePanelGap,
-                            ),
-                            (ForumPanel.secondary, _) => (
-                              mainWidth,
-                              math.max(320.0, total - mainWidth),
-                            ),
-                          };
+                        : (
+                            target == startPanel ? 0.0 : startExtent,
+                            target == ForumPanel.main
+                                ? mainWidth - workspacePanelGap
+                                : math.max(320.0, total - mainWidth),
+                          );
                     final folding = moving?.panel == target;
                     final revealing = moving != null && !folding;
                     final stowed = horizontal
@@ -606,9 +646,9 @@ class _DesktopPanelsState extends State<DesktopPanels>
                                     Tween(
                                       begin: Offset.zero,
                                       end: Offset(
-                                        target == ForumPanel.main
-                                            ? -ltr * mainTravel / width
-                                            : ltr * secondaryTravel / width,
+                                        target == startPanel
+                                            ? -ltr * startTravel / width
+                                            : ltr * endTravel / width,
                                         0,
                                       ),
                                     ),
@@ -624,17 +664,17 @@ class _DesktopPanelsState extends State<DesktopPanels>
                                   ? _Reveal(
                                       folded: _folded,
                                       direction: direction,
-                                      hidden: target == ForumPanel.main
+                                      hidden: target == startPanel
                                           ? (folded) => (
                                               0,
                                               width -
-                                                  (mainWidth +
-                                                      secondaryTravel * folded -
+                                                  (startExtent +
+                                                      endTravel * folded -
                                                       workspacePanelGap),
                                             )
                                           : (folded) => (
-                                              mainWidth -
-                                                  mainTravel * folded -
+                                              startExtent -
+                                                  startTravel * folded -
                                                   start,
                                               0,
                                             ),
@@ -667,13 +707,107 @@ class _DesktopPanelsState extends State<DesktopPanels>
                     children: [
                       for (final target in ForumPanel.values) slot(target),
                       if (horizontal && minimized == null && moving == null)
-                        // The pane carries only the seam's handle; the panels sit
-                        // beside it in their own places.
-                        PositionedDirectional(
-                          start: 0,
-                          top: 0,
-                          bottom: 0,
-                          child: seam,
+                        Positioned.fill(
+                          child: Focus(
+                            canRequestFocus: false,
+                            onFocusChange: (focused) =>
+                                setState(() => _seamFocused = focused),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                PositionedDirectional(
+                                  start: mainAtStart ? 0 : total - mainWidth,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: seam,
+                                ),
+                                PositionedDirectional(
+                                  start: startWidth,
+                                  width: workspacePanelGap,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: MouseRegion(
+                                    opaque: false,
+                                    hitTestBehavior:
+                                        HitTestBehavior.translucent,
+                                    onEnter: (_) =>
+                                        setState(() => _seamHovered = true),
+                                    onExit: (_) =>
+                                        setState(() => _seamHovered = false),
+                                    onHover: (event) {
+                                      final top =
+                                          event.localPosition.dy <
+                                          constraints.maxHeight / 2;
+                                      if (top != _swapAtTop) {
+                                        setState(() => _swapAtTop = top);
+                                      }
+                                    },
+                                    child: const SizedBox.expand(),
+                                  ),
+                                ),
+                                if (constraints.maxHeight >=
+                                    2 *
+                                            (44 +
+                                                MediaQuery.textScalerOf(
+                                                  context,
+                                                ).scale(26)) +
+                                        36)
+                                  PositionedDirectional(
+                                    start: startWidth + workspacePanelGap / 2,
+                                    top: _swapAtTop ? 44 : null,
+                                    bottom: _swapAtTop ? null : 44,
+                                    child: FractionalTranslation(
+                                      translation: Offset(-ltr / 2, 0),
+                                      child: MergeSemantics(
+                                        child: Semantics(
+                                          onTap: _swapPanels,
+                                          onDidGainAccessibilityFocus:
+                                              _swapFocus.requestFocus,
+                                          child: Visibility(
+                                            visible:
+                                                !_seamDragging &&
+                                                (_seamHovered || _seamFocused),
+                                            maintainState: true,
+                                            maintainAnimation: true,
+                                            maintainSize: true,
+                                            maintainFocusability: true,
+                                            maintainSemantics: true,
+                                            child: MouseRegion(
+                                              onEnter: (_) => setState(
+                                                () => _seamHovered = true,
+                                              ),
+                                              onExit: (_) => setState(
+                                                () => _seamHovered = false,
+                                              ),
+                                              child: TextFieldTapRegion(
+                                                child: DButton.iconOnly(
+                                                  key: const ValueKey(
+                                                    'swap-panels',
+                                                  ),
+                                                  focusNode: _swapFocus,
+                                                  density: DButtonDensity
+                                                      .chatMessageAction,
+                                                  variant:
+                                                      DButtonVariant.outline,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  icon: const Icon(
+                                                    Icons.swap_horiz,
+                                                  ),
+                                                  tooltip:
+                                                      context.l10n.swapPanels,
+                                                  onPressed: _swapPanels,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                     ],
                   );

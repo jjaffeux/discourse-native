@@ -9011,6 +9011,10 @@
   "@secondaryPanelMinimized": {
     "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
   },
+  "swapPanels": "Swap panels",
+  "@swapPanels": {
+    "description": "Action that exchanges the positions of the two desktop panels."
+  },
   "resizeMainPanel": "Resize main panel",
   "@resizeMainPanel": {
     "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."

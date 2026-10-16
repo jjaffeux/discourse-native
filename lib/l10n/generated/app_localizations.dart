@@ -11618,6 +11618,12 @@ abstract class AppLocalizations {
   /// **'Secondary panel, minimized'**
   String get secondaryPanelMinimized;
 
+  /// Action that exchanges the positions of the two desktop panels.
+  ///
+  /// In en, this message translates to:
+  /// **'Swap panels'**
+  String get swapPanels;
+
   /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

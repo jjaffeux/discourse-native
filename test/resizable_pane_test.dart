@@ -10,6 +10,37 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets(
+    'resize observers report pointer and keyboard interaction boundaries',
+    (tester) async {
+      final controller = _controller();
+      addTearDown(controller.dispose);
+      final events = <String>[];
+      await _pumpPane(
+        tester,
+        controller: controller,
+        onResizeStart: () => events.add('start'),
+        onResizeEnd: () => events.add('end'),
+      );
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('shared-resize-handle'))),
+      );
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      expect(events, ['start']);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(events, ['start', 'end']);
+      await _requestResizeFocus(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(events, ['start', 'end', 'start']);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(events, ['start', 'end', 'start', 'end']);
+    },
+  );
+
   for (final testCase
       in <
         ({
@@ -547,6 +578,8 @@ Future<void> _pumpPane(
   Widget sibling = const SizedBox.shrink(),
   Widget child = const ColoredBox(color: Colors.blue),
   TargetPlatform? platform,
+  VoidCallback? onResizeStart,
+  VoidCallback? onResizeEnd,
 }) => tester.pumpWidget(
   MaterialApp(
     theme: AppTheme.light.copyWith(platform: platform),
@@ -568,6 +601,8 @@ Future<void> _pumpPane(
                 maximumWidth: maximumWidth,
                 dividerWidth: dividerWidth,
                 gap: gap,
+                onResizeStart: onResizeStart,
+                onResizeEnd: onResizeEnd,
                 child: child,
               ),
               sibling,

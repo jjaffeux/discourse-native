@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -24,6 +26,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -80,6 +83,557 @@ void main() {
     shell.desktopTopicTabs = true;
   });
   tearDown(() => shell.dispose());
+
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'swapping twice preserves documents, widths, tabs, scroll and focus in $direction',
+      (tester) async {
+        api.topics[42] = (
+          detail: const TopicDetail(
+            id: 42,
+            title: 'Panel topic',
+            stream: [42],
+            postsCount: 1,
+          ),
+          posts: [
+            Post(
+              id: 42,
+              postNumber: 1,
+              username: 'reader',
+              cooked: List.generate(
+                70,
+                (i) => '<p>Retained paragraph $i.</p>',
+              ).join(),
+            ),
+          ],
+        );
+        _openTopicTab(shell, _otherTopic, panel: ForumPanel.main);
+        _openTopicTab(shell, _topic);
+        await _pump(tester, shell, direction: direction);
+        final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
+        await tester.drag(
+          handle,
+          Offset(direction == TextDirection.ltr ? 64 : -64, 0),
+        );
+        await tester.pumpAndSettle();
+        final selected = {
+          for (final panel in ForumPanel.values)
+            panel: shell.selectedTabIn(panel)!.id,
+        };
+        final before = {
+          ForumPanel.main: tester.getRect(_mainPanel),
+          ForumPanel.secondary: tester.getRect(_secondaryPanel),
+        };
+        final ancestry = {
+          for (final panel in [_mainPanel, _secondaryPanel])
+            panel: _panelAncestry(tester, panel),
+        };
+        final readers = tester
+            .stateList(find.byType(TopicView, skipOffstage: false))
+            .toList();
+        final documents = tester
+            .stateList(find.byType(MainContent, skipOffstage: false))
+            .toList();
+        final scroll = tester
+            .stateList<ScrollableState>(
+              find.descendant(
+                of: _secondaryPanel,
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .firstWhere((state) => state.position.maxScrollExtent > 200);
+        scroll.position.jumpTo(180);
+        await tester.pumpAndSettle();
+        final focus = tester
+            .widgetList<Focus>(
+              find.descendant(of: _mainPanel, matching: find.byType(Focus)),
+            )
+            .firstWhere(
+              (widget) => widget.focusNode != null && widget.canRequestFocus,
+            )
+            .focusNode!;
+        focus.requestFocus();
+        await tester.pumpAndSettle();
+        expect(focus.hasFocus, isTrue);
+        final active = shell.activeTabId;
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(20, 20));
+        addTearDown(mouse.removePointer);
+        for (final swapped in [true, false]) {
+          await mouse.moveTo(Offset(tester.getCenter(handle).dx, 20));
+          await tester.pumpAndSettle();
+          expect(_swapVisible(tester), isTrue);
+          await tester.tap(_swapButton, kind: PointerDeviceKind.mouse);
+          await tester.pumpAndSettle();
+          expect(
+            tester.getRect(_mainPanel).width,
+            before[ForumPanel.main]!.width,
+          );
+          expect(
+            tester.getRect(_secondaryPanel).width,
+            before[ForumPanel.secondary]!.width,
+          );
+          expect(
+            tester.getRect(_mainPanel).left <
+                tester.getRect(_secondaryPanel).left,
+            swapped == (direction == TextDirection.rtl),
+          );
+          for (final panel in ForumPanel.values) {
+            expect(shell.selectedTabIn(panel)?.id, selected[panel]);
+          }
+          for (final panel in [_mainPanel, _secondaryPanel]) {
+            expect(
+              _panelAncestry(tester, panel),
+              orderedEquals(ancestry[panel]!),
+            );
+          }
+          expect(
+            tester.stateList(find.byType(TopicView, skipOffstage: false)),
+            orderedEquals(readers),
+          );
+          expect(
+            tester.stateList(find.byType(MainContent, skipOffstage: false)),
+            orderedEquals(documents),
+          );
+          expect(scroll.position.pixels, 180);
+          expect(focus.hasFocus, isTrue);
+          expect(shell.activeTabId, active);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'swapped seam reverses pointer and keyboard resizing in $direction',
+      (tester) async {
+        _openTopicTab(shell, _topic);
+        await _pump(tester, shell, direction: direction);
+        await _activateSwap(tester);
+        final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
+        expect(tester.getSize(handle), const Size(4, 36));
+        final growsRight = direction == TextDirection.rtl;
+        await tester.drag(handle, Offset(growsRight ? 60 : -60, 0));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_mainPanel).width, 460);
+        final focus = tester
+            .widget<Focus>(
+              find.byKey(const ValueKey('main-panel-resize-focus')),
+            )
+            .focusNode!;
+        focus.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(
+          growsRight
+              ? LogicalKeyboardKey.arrowRight
+              : LogicalKeyboardKey.arrowLeft,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_mainPanel).width, 476);
+        expect(
+          tester.getRect(_mainPanel).width +
+              tester.getRect(_secondaryPanel).width +
+              workspacePanelGap,
+          1200,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    for (final panel in ForumPanel.values) {
+      testWidgets(
+        'swapped $panel folds toward its side and restores in $direction',
+        (tester) async {
+          _openTopicTab(shell, _topic);
+          await _pump(tester, shell, direction: direction);
+          await _activateSwap(tester);
+          final target = panel == ForumPanel.main
+              ? _mainPanel
+              : _secondaryPanel;
+          final other = panel == ForumPanel.main ? _secondaryPanel : _mainPanel;
+          final before = tester.getRect(target);
+          final previous = {
+            for (final panel in [_mainPanel, _secondaryPanel])
+              panel: _panelAncestry(tester, panel),
+          };
+          await tester.tap(
+            find.byKey(ValueKey('panel-split-view-${panel.name}')),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 16));
+          await tester.pump(const Duration(milliseconds: 100));
+          final moving = tester.getRect(target);
+          expect(
+            moving.left > before.left,
+            panel == ForumPanel.main
+                ? direction == TextDirection.ltr
+                : direction == TextDirection.rtl,
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getRect(other), const Rect.fromLTWH(0, 0, 1200, 850));
+          expect(_swapButton, findsNothing);
+          await tester.tap(
+            find.byKey(
+              ValueKey(
+                'panel-split-view-${panel == ForumPanel.main ? 'secondary' : 'main'}',
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getRect(target), before);
+          for (final panel in [_mainPanel, _secondaryPanel]) {
+            expect(
+              _panelAncestry(tester, panel),
+              orderedEquals(previous[panel]!),
+            );
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    testWidgets(
+      'window edges follow swapped physical panel positions in $direction',
+      (tester) async {
+        final frame = ValueNotifier<Rect?>(
+          const Rect.fromLTWH(100, 0, 1200, 850),
+        );
+        addTearDown(frame.dispose);
+        _openTopicTab(shell, _topic);
+        await _pump(tester, shell, direction: direction, windowFrame: frame);
+        await _activateSwap(tester);
+        final left = direction == TextDirection.ltr ? 140.0 : 100.0;
+        frame.value = Rect.fromLTWH(left, 0, 1160, 850);
+        tester.view.physicalSize = const Size(1160, 850);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_mainPanel).width, 360);
+        final preferred = tester
+            .widget<DesktopPanels>(find.byType(DesktopPanels))
+            .layout!
+            .mainWidth
+            .value;
+        await _activateSwap(tester);
+        expect(
+          tester.getRect(_mainPanel).width,
+          360,
+          reason: 'swap preserves the displayed window-resize width',
+        );
+        expect(
+          tester
+              .widget<DesktopPanels>(find.byType(DesktopPanels))
+              .layout!
+              .mainWidth
+              .value,
+          preferred,
+        );
+        frame.value = Rect.fromLTWH(
+          direction == TextDirection.ltr ? 160 : 100,
+          0,
+          1140,
+          850,
+        );
+        tester.view.physicalSize = const Size(1140, 850);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_mainPanel).width, 360);
+        expect(tester.getRect(_secondaryPanel).width, 768);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'swap action reveals at hovered edge, stays focusable, hides while resizing, and leaves gaps inert',
+    (tester) async {
+      _openTopicTab(shell, _topic);
+      await _pump(tester, shell);
+      final semantics = tester.ensureSemantics();
+      try {
+        expect(_swapVisible(tester), isFalse);
+        final node = tester.getSemantics(_swapButton);
+        expect(node.getSemanticsData().label, contains('Swap panels'));
+        expect(
+          node.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+          isTrue,
+        );
+        expect(node.getSemanticsData().flagsCollection.isButton, isTrue);
+        expect(node.rect.size, tester.getSize(_swapButton));
+        tester.platformDispatcher.onSemanticsActionEvent!(
+          ui.SemanticsActionEvent(
+            type: ui.SemanticsAction.didGainAccessibilityFocus,
+            viewId: tester.view.viewId,
+            nodeId: node.id,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(_swapVisible(tester), isTrue);
+        tester.widget<DButton>(_swapButton).focusNode!.unfocus();
+        await tester.pumpAndSettle();
+        expect(_swapVisible(tester), isFalse);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(20, 20));
+        addTearDown(mouse.removePointer);
+        final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
+        final x = tester.getCenter(handle).dx;
+        await mouse.moveTo(Offset(x, 20));
+        await tester.pumpAndSettle();
+        expect(_swapVisible(tester), isTrue);
+        expect(tester.getRect(_swapButton), Rect.fromLTWH(x - 13, 44, 26, 26));
+        await mouse.moveTo(Offset(x, 830));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_swapButton).bottom, 806);
+        final width = tester.getRect(_mainPanel).width;
+        for (final point in [
+          Offset(x, 200),
+          Offset(x - 3, 425),
+          Offset(x + 3, 425),
+        ]) {
+          final gap = await tester.startGesture(point);
+          await gap.moveBy(const Offset(60, 0));
+          await gap.up();
+          await tester.pumpAndSettle();
+          expect(tester.getRect(_mainPanel).width, width);
+        }
+        await mouse.moveTo(const Offset(20, 20));
+        await tester.pumpAndSettle();
+        expect(_swapVisible(tester), isFalse);
+        final hiddenRect = tester.getRect(_swapButton);
+        await tester.tapAt(hiddenRect.center);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(_mainPanel).left,
+          0,
+          reason: 'a hidden action cannot receive pointer taps',
+        );
+        final focus = tester
+            .widget<Focus>(
+              find.byKey(const ValueKey('main-panel-resize-focus')),
+            )
+            .focusNode!;
+        focus.requestFocus();
+        await tester.pumpAndSettle();
+        expect(_swapVisible(tester), isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(tester.widget<DButton>(_swapButton).focusNode!.hasFocus, isTrue);
+        expect(_swapVisible(tester), isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_mainPanel).right, 1200);
+        final drag = await tester.startGesture(tester.getCenter(handle));
+        await drag.moveBy(const Offset(-40, 0));
+        await tester.pump();
+        expect(_swapVisible(tester), isFalse);
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets('mouse panel swaps retain editor focus, draft and selection', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell);
+    final focus = FocusNode();
+    final draft = TextEditingController.fromValue(
+      const TextEditingValue(
+        text: 'An unfinished reply',
+        selection: TextSelection(baseOffset: 3, extentOffset: 13),
+      ),
+    );
+    addTearDown(focus.dispose);
+    addTearDown(draft.dispose);
+    final editor = OverlayEntry(
+      builder: (_) => Positioned(
+        left: 20,
+        top: 100,
+        width: 250,
+        child: DCard(
+          child: DInput(
+            key: const ValueKey('swap-editor-draft'),
+            controller: draft,
+            focusNode: focus,
+            semanticLabel: 'Reply draft',
+          ),
+        ),
+      ),
+    );
+    Overlay.of(tester.element(find.byType(DesktopPanels))).insert(editor);
+    try {
+      await tester.pumpAndSettle();
+      focus.requestFocus();
+      await tester.pumpAndSettle();
+      final state = tester.state(
+        find.descendant(
+          of: find.byKey(const ValueKey('swap-editor-draft')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      final value = draft.value;
+      final active = shell.activeTabId;
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: const Offset(20, 20));
+      addTearDown(mouse.removePointer);
+      for (var i = 0; i < 2; i++) {
+        final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
+        await mouse.moveTo(Offset(tester.getCenter(handle).dx, 20));
+        await tester.pumpAndSettle();
+        await tester.tap(_swapButton, kind: PointerDeviceKind.mouse);
+        await tester.pumpAndSettle();
+        expect(focus.hasFocus, isTrue);
+        expect(draft.value, value);
+        expect(shell.activeTabId, active);
+        expect(
+          tester.state(
+            find.descendant(
+              of: find.byKey(const ValueKey('swap-editor-draft')),
+              matching: find.byType(EditableText),
+            ),
+          ),
+          same(state),
+        );
+      }
+    } finally {
+      editor.remove();
+      await tester.pumpAndSettle();
+      editor.dispose();
+    }
+  });
+
+  testWidgets('swap anchors a displayed main width above its preference', (
+    tester,
+  ) async {
+    final frame = ValueNotifier<Rect?>(const Rect.fromLTWH(100, 0, 1200, 850));
+    addTearDown(frame.dispose);
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell, windowFrame: frame);
+    frame.value = const Rect.fromLTWH(140, 0, 1160, 850);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_mainPanel).width, 440);
+    final layout = tester
+        .widget<DesktopPanels>(find.byType(DesktopPanels))
+        .layout!;
+    expect(layout.mainWidth.value, 412);
+    await _activateSwap(tester);
+    expect(tester.getRect(_mainPanel).width, 440);
+    expect(tester.getRect(_secondaryPanel).width, 748);
+    expect(layout.mainWidth.value, 412);
+    await _activateSwap(tester);
+    expect(tester.getRect(_mainPanel).width, 440);
+    expect(layout.mainWidth.value, 412);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('swapped narrow restore returns to its ordered split', (
+    tester,
+  ) async {
+    _openTopicTab(shell, _topic);
+    await _pump(tester, shell, reduceMotion: true);
+    await _activateSwap(tester);
+    final mainWidth = tester.getRect(_mainPanel).width;
+    final selected = shell.selectedTabIn(ForumPanel.secondary)!.id;
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-secondary')));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(600, 850);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
+    await tester.pumpAndSettle();
+    expect(shell.activeTabId, selected);
+    expect(_secondaryPanel, findsOneWidget);
+    expect(_swapButton, findsNothing);
+    tester.view.physicalSize = const Size(1200, 850);
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_mainPanel).width, mainWidth);
+    expect(tester.getRect(_secondaryPanel).left, 0);
+    expect(tester.getRect(_mainPanel).right, 1200);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('compact workspace keeps swap clear of grip at scale $scale', (
+      tester,
+    ) async {
+      _openTopicTab(shell, _topic);
+      await _pump(
+        tester,
+        shell,
+        size: Size(1200, scale == 1 ? 140 : 176),
+        textScale: scale,
+      );
+      expect(_swapButton, findsNothing);
+      expect(
+        tester.getSize(find.byKey(const ValueKey('main-panel-resize-handle'))),
+        const Size(4, 36),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'panel swap renders at text scale $scale with safe area and reduced motion',
+      (tester) async {
+        await tester.runAsync(() async {
+          await (FontLoader(
+            'PanelSwapReview',
+          )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
+          await (FontLoader('MaterialIcons')
+                ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf')))
+              .load();
+        });
+        _openTopicTab(shell, _topic);
+        await _pump(
+          tester,
+          shell,
+          reduceMotion: true,
+          textScale: scale,
+          fontFamily: 'PanelSwapReview',
+          safeArea: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+        );
+        final prefix = scale == 1 ? '' : 'scale-2-';
+        await _exportPanelSwap(tester, '${prefix}initial');
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(25, 30));
+        addTearDown(mouse.removePointer);
+        final handle = find.byKey(const ValueKey('main-panel-resize-handle'));
+        await mouse.moveTo(Offset(tester.getCenter(handle).dx, 32));
+        await tester.pumpAndSettle();
+        expect(_swapVisible(tester), isTrue);
+        expect(
+          tester.getRect(_swapButton).center.dx,
+          tester.getCenter(handle).dx,
+        );
+        expect(tester.getRect(_swapButton).top, 24 + 44);
+        expect(
+          tester.getRect(_swapButton).overlaps(tester.getRect(handle)),
+          isFalse,
+        );
+        await _exportPanelSwap(tester, '${prefix}hover-top');
+        await tester.tap(_swapButton);
+        await tester.pumpAndSettle();
+        await mouse.moveTo(const Offset(25, 30));
+        await tester.pumpAndSettle();
+        await _exportPanelSwap(tester, '${prefix}swapped');
+        await mouse.moveTo(Offset(tester.getCenter(handle).dx, 820));
+        await tester.pumpAndSettle();
+        expect(tester.getRect(_swapButton).bottom, 850 - 16 - 44);
+        expect(
+          tester.getRect(_swapButton).center.dx,
+          tester.getCenter(handle).dx,
+        );
+        await _exportPanelSwap(tester, '${prefix}hover-bottom');
+        await mouse.moveTo(const Offset(25, 30));
+        tester.widget<DButton>(_swapButton).focusNode!.requestFocus();
+        await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(_swapVisible(tester), isTrue);
+        await _exportPanelSwap(tester, '${prefix}keyboard-focus');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('desktop pages paint their workspace material only once', (
     tester,
@@ -1720,9 +2274,13 @@ Future<void> _pump(
   ShellController shell, {
   TextDirection direction = TextDirection.ltr,
   bool reduceMotion = false,
+  Size size = const Size(1200, 850),
+  double textScale = 1,
+  String? fontFamily,
+  EdgeInsets safeArea = EdgeInsets.zero,
   ValueListenable<Rect?>? windowFrame,
 }) async {
-  tester.view.physicalSize = const Size(1200, 850);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -1731,21 +2289,32 @@ Future<void> _pump(
   await tester.pumpWidget(
     ShellScope(
       controller: shell,
-      child: MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(disableAnimations: reduceMotion),
-            child: Directionality(
-              textDirection: direction,
-              child: TopicPresentationPreferences(
-                child: DToaster(
-                  child: Scaffold(
-                    body: DesktopPanels(
-                      layout: layout,
-                      windowFrame: windowFrame,
+      child: RepaintBoundary(
+        key: const ValueKey('panel-swap-render'),
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.forBrightness(
+            Brightness.light,
+            fontFamily: fontFamily,
+          ).copyWith(platform: TargetPlatform.macOS),
+          home: Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                disableAnimations: reduceMotion,
+                textScaler: TextScaler.linear(textScale),
+              ),
+              child: Directionality(
+                textDirection: direction,
+                child: TopicPresentationPreferences(
+                  child: DToaster(
+                    child: Scaffold(
+                      body: Padding(
+                        padding: safeArea,
+                        child: DesktopPanels(
+                          layout: layout,
+                          windowFrame: windowFrame,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1757,6 +2326,51 @@ Future<void> _pump(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+final _swapButton = find.byKey(const ValueKey('swap-panels'));
+
+bool _swapVisible(WidgetTester tester) => tester
+    .widget<Visibility>(
+      find.ancestor(of: _swapButton, matching: find.byType(Visibility)).first,
+    )
+    .visible;
+
+Future<void> _activateSwap(WidgetTester tester) async {
+  tester.widget<DButton>(_swapButton).focusNode!.requestFocus();
+  await tester.pumpAndSettle();
+  await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+  await tester.pumpAndSettle();
+}
+
+List<Element> _panelAncestry(WidgetTester tester, Finder panel) {
+  final chain = <Element>[];
+  tester.element(panel).visitAncestorElements((ancestor) {
+    if (ancestor.widget is DesktopPanels) return false;
+    chain.add(ancestor);
+    return true;
+  });
+  return chain;
+}
+
+Future<void> _exportPanelSwap(WidgetTester tester, String name) async {
+  final directory = Platform.environment['PANEL_SWAP_EXPORT_DIR'];
+  if (directory == null) return;
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(const ValueKey('panel-swap-render')),
+  );
+  await tester.runAsync(() async {
+    final image = await boundary.toImage();
+    try {
+      final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!;
+      await Directory(directory).create(recursive: true);
+      await File(
+        '$directory/$name.png',
+      ).writeAsBytes(bytes.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
 }
 
 void _toggleSplit(WidgetTester tester) => tester

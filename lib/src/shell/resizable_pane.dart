@@ -125,6 +125,8 @@ class ResizablePane extends StatefulWidget {
     this.dividerWidth = 1,
     this.gap = 0,
     this.focusedDividerWidth = 3,
+    this.onResizeStart,
+    this.onResizeEnd,
   }) : assert(!maximumWidth.isNaN),
        assert(gap.isFinite && gap >= 0),
        assert(keyboardStep.isFinite && keyboardStep > 0),
@@ -148,6 +150,8 @@ class ResizablePane extends StatefulWidget {
   /// Workspace space reserved inside the resizing edge.
   final double gap;
   final double focusedDividerWidth;
+  final VoidCallback? onResizeStart;
+  final VoidCallback? onResizeEnd;
 
   @override
   State<ResizablePane> createState() => _ResizablePaneState();
@@ -246,6 +250,7 @@ class _ResizablePaneState extends State<ResizablePane> {
                   valueFormatter: (value) =>
                       context.l10n.pixelsWide((value.round()).toString()),
                   onChangeStart: () {
+                    widget.onResizeStart?.call();
                     // An outer-window resize may be displaying a temporary
                     // width that differs from the saved preference. Start a
                     // seam drag at the width under the pointer, including
@@ -267,7 +272,10 @@ class _ResizablePaneState extends State<ResizablePane> {
                         ),
                     maximum: widget.maximumWidth,
                   ),
-                  onChangeEnd: () => unawaited(widget.controller.flush()),
+                  onChangeEnd: () {
+                    unawaited(widget.controller.flush());
+                    widget.onResizeEnd?.call();
+                  },
                 ),
               ),
           ],
