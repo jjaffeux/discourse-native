@@ -49,6 +49,75 @@ const _replacementUser = DiscourseUser(id: 99, username: 'replacement');
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('copy quote retains unpainted code and mixed source selections', (
+    tester,
+  ) async {
+    String? clipboard;
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        clipboard = (call.arguments as Map)['text'] as String;
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final lines = List.generate(1000, (index) => '  virtual_value_$index');
+    lines[1] = '';
+    final source = lines.join('\n');
+    final cooked =
+        '<p>Before code</p><pre><code class="lang-text">$source\n'
+        '</code></pre><p>After code</p>';
+    final post = Post(id: 22, postNumber: 2, username: 'sam', cooked: cooked);
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    final shell = await _pumpSelection(
+      tester,
+      post: post,
+      child: SizedBox(
+        height: 400,
+        child: DScrollArea(
+          controller: scroll,
+          child: CookedHtml(html: cooked, buildAsync: false),
+        ),
+      ),
+    );
+    addTearDown(shell.dispose);
+    expect(find.byType(DCodeViewer), findsOneWidget);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.down(
+      tester.getTopLeft(find.byType(DCodeViewer)) + const Offset(9, 14),
+    );
+    await mouse.moveBy(const Offset(80, 0));
+    await tester.pump();
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    await mouse.moveTo(
+      tester.getBottomLeft(find.byType(DCodeViewer)) + const Offset(500, -24),
+    );
+    await mouse.up();
+    await tester.pump(const Duration(milliseconds: 151));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
+    await tester.pumpAndSettle();
+    expect(clipboard, contains(source));
+    expect(clipboard, contains('```'));
+
+    tester
+        .state<SelectionAreaState>(find.byType(SelectionArea))
+        .selectableRegion
+        .selectAll(SelectionChangedCause.toolbar);
+    await tester.pump(const Duration(milliseconds: 151));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('copy-quote-selection')));
+    await tester.pumpAndSettle();
+    expect(clipboard, contains('Before code'));
+    expect(clipboard, contains(source));
+    expect(clipboard, contains('After code'));
+    await tester.pump(const Duration(milliseconds: 350));
+  });
+
   testWidgets('copy quote includes all progressively mounted paragraphs', (
     tester,
   ) async {

@@ -140,6 +140,179 @@ void main() {
   });
 
   group('CodeBlock', () {
+    testWidgets('long fences retain complete copy and fullscreen source', (
+      tester,
+    ) async {
+      final source = List.generate(
+        5000,
+        (index) => '  value $index',
+      ).join('\n');
+      String? copied;
+      final messenger = tester.binding.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: DScrollArea(
+              child: CodeBlock(
+                data: CodeBlockData.fromSource(source, language: 'text'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DCodeViewer), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('code-block-copy')));
+      await tester.pump();
+      expect(copied, source.trim());
+      await tester.tap(find.byKey(const ValueKey('code-block-fullscreen')));
+      await tester.pumpAndSettle();
+      final field = tester.widget<editor.CodeField>(
+        find.byType(editor.CodeField),
+      );
+      expect(field.controller.text, source);
+      expect(field.readOnly, isTrue);
+      await tester.tap(
+        find.byKey(const ValueKey('code-block-fullscreen-close')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DCodeViewer), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets(
+      'long numbered fences pass original line metadata to the viewer',
+      (tester) async {
+        final lines = List.generate(
+          500,
+          (index) => CodeLine(
+            tokens: [
+              CodeToken(index == 1 ? 'value 1\ncontinued' : 'value $index'),
+            ],
+            number: index == 1 ? null : index - 300,
+            isSelected: index == 2 || index == 499,
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: DScrollArea(
+                child: CodeBlock(data: CodeBlockData(lines: lines)),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final viewer = tester.widget<DCodeViewer>(find.byType(DCodeViewer));
+        expect(viewer.lineNumbers, [
+          -300,
+          null,
+          null,
+          ...List.generate(498, (index) => index - 298),
+        ]);
+        expect(viewer.highlightedLines, {3, 500});
+        expect(viewer.lineSpanBuilder!(2).toPlainText(), 'continued');
+        expect(viewer.source, endsWith('value 499'));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('hard-break rows retain token styles and numbered metadata', (
+      tester,
+    ) async {
+      final lines = [
+        const CodeLine(
+          tokens: [CodeToken('alpha\r', 'keyword')],
+          number: 78,
+          isSelected: true,
+        ),
+        const CodeLine(
+          tokens: [
+            CodeToken('beta\u2028gam', 'string'),
+            CodeToken('ma\vdelta\r', 'comment'),
+            CodeToken('\nepsilon', 'number'),
+          ],
+          number: 79,
+        ),
+        ...List.generate(
+          110,
+          (index) =>
+              CodeLine(tokens: [CodeToken('tail $index')], number: index + 80),
+        ),
+      ];
+      final data = CodeBlockData(lines: lines);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: DScrollArea(child: CodeBlock(data: data)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final viewer = tester.widget<DCodeViewer>(find.byType(DCodeViewer));
+      expect(viewer.source, data.text);
+      expect(viewer.lineNumbers!.take(6), [78, 79, null, null, null, 80]);
+      expect(viewer.highlightedLines, {0});
+      expect(viewer.lineSpanBuilder!(0).toPlainText(), 'alpha');
+      expect(viewer.lineSpanBuilder!(1).toPlainText(), 'beta');
+      expect(viewer.lineSpanBuilder!(2).toPlainText(), 'gamma');
+      expect(viewer.lineSpanBuilder!(3).toPlainText(), 'delta');
+      expect(viewer.lineSpanBuilder!(4).toPlainText(), 'epsilon');
+      final gamma = viewer.lineSpanBuilder!(2) as TextSpan;
+      expect(gamma.children!.length, 2);
+      expect(
+        gamma.children![0].style!.color,
+        isNot(gamma.children![1].style!.color),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('one numbered item with many physical lines is virtualized', (
+      tester,
+    ) async {
+      final source = List.generate(1000, (index) => 'row $index').join('\n');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: DScrollArea(
+              child: CodeBlock(
+                data: CodeBlockData(
+                  lines: [
+                    CodeLine(
+                      tokens: [CodeToken(source)],
+                      number: 78,
+                      isSelected: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final viewer = tester.widget<DCodeViewer>(find.byType(DCodeViewer));
+      expect(viewer.source, source);
+      expect(viewer.lineNumbers!.length, 1000);
+      expect(viewer.lineNumbers!.first, 78);
+      expect(viewer.lineNumbers!.skip(1), everyElement(isNull));
+      expect(viewer.highlightedLines.length, 1000);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('header fits a narrow chat bubble without losing its actions', (
       tester,
     ) async {

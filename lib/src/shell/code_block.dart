@@ -8,6 +8,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
+import '../ui/foundation/code_source.dart';
 import '../ui/foundation/code_typography.dart';
 import 'cooked_dom.dart';
 import 'search_words.dart';
@@ -275,6 +276,7 @@ class CodeBlock extends StatefulWidget {
   final bool showFullscreen;
 
   static const double _scrollbarLane = 12;
+  static const int _virtualLineThreshold = 100;
 
   @override
   State<CodeBlock> createState() => _CodeBlockState();
@@ -370,27 +372,71 @@ class _CodeBlockState extends State<CodeBlock> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _CodeBlockHeader(
-            language: data.language,
-            actions: [
-              _CodeCopyButton(text: data.clipboardText),
-              if (widget.showFullscreen)
-                DButton.iconOnly(
-                  key: const ValueKey('code-block-fullscreen'),
-                  onPressed: _openFullscreen,
-                  tooltip: context.l10n.viewCodeFullScreen,
-                  semanticLabel: context.l10n.viewCodeFullScreen,
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.small,
-                  icon: const DIcon(DIcons.expand),
-                ),
-            ],
+          SelectionContainer.disabled(
+            child: _CodeBlockHeader(
+              language: data.language,
+              actions: [
+                _CodeCopyButton(text: data.clipboardText),
+                if (widget.showFullscreen)
+                  DButton.iconOnly(
+                    key: const ValueKey('code-block-fullscreen'),
+                    onPressed: _openFullscreen,
+                    tooltip: context.l10n.viewCodeFullScreen,
+                    semanticLabel: context.l10n.viewCodeFullScreen,
+                    variant: DButtonVariant.ghost,
+                    size: DButtonSize.small,
+                    icon: const DIcon(DIcons.expand),
+                  ),
+              ],
+            ),
           ),
           // Code does not wrap — it scrolls, like every other code viewer,
           // since wrapping makes indentation lie about structure. The
           // scrollbar stays up whenever there is somewhere to scroll.
           LayoutBuilder(
             builder: (context, constraints) {
+              if (_requiresVirtualCodeLayout(data.lines)) {
+                final lines = [
+                  for (final (index, line) in data.lines.indexed)
+                    ..._physicalCodeLines(
+                      line,
+                      hasFollowingLine: index + 1 < data.lines.length,
+                    ),
+                ];
+                final numbers = [for (final line in lines) line.number];
+                final words = SearchWords.of(context);
+                final hitStyle = searchHitStyle(context);
+                return DCodeViewer(
+                  source: data.text,
+                  horizontalController: _horizontal,
+                  semanticLabel: context.l10n.postCode,
+                  lineNumbers: numbers.any((number) => number != null)
+                      ? numbers
+                      : null,
+                  highlightedLines: {
+                    for (final (index, line) in lines.indexed)
+                      if (line.isSelected) index,
+                  },
+                  lineSpanBuilder: (index) => TextSpan(
+                    children: [
+                      if (lines[index].text.isNotEmpty)
+                        for (final span in _codeLineSpans(
+                          lines[index],
+                          (scope) => scopeColor(scope, theme.code),
+                        ))
+                          for (final hit in searchTextSpans(
+                            span.text ?? '',
+                            words,
+                            hitStyle,
+                          ))
+                            TextSpan(
+                              text: hit.text,
+                              style: span.style?.merge(hit.style) ?? hit.style,
+                            ),
+                    ],
+                  ),
+                );
+              }
               final gutterWidth = _gutterWidth;
               return DScrollBar(
                 backgroundColor: theme.code.blockBackground,
@@ -701,7 +747,7 @@ class _Line extends StatelessWidget {
           Text.rich(
             TextSpan(
               children: [
-                for (final span in _spans)
+                for (final span in _codeLineSpans(line, scopeColor))
                   for (final hit in searchTextSpans(
                     span.text ?? '',
                     SearchWords.of(context),
@@ -720,20 +766,80 @@ class _Line extends StatelessWidget {
       ),
     );
   }
+}
 
-  List<TextSpan> get _spans {
-    // A zero-width space keeps an empty line the height of a full one.
-    if (line.text.isEmpty) return const [TextSpan(text: '​')];
+List<TextSpan> _codeLineSpans(
+  CodeLine line,
+  Color? Function(String?) scopeColor,
+) {
+  // A zero-width space keeps an empty line the height of a full one.
+  if (line.text.isEmpty) return const [TextSpan(text: '​')];
 
-    return [
-      for (final token in line.tokens)
-        TextSpan(
-          text: token.text,
-          style: switch (scopeColor(token.scope)) {
-            final color? => TextStyle(color: color),
-            null => null,
-          },
-        ),
-    ];
+  return [
+    for (final token in line.tokens)
+      TextSpan(
+        text: token.text,
+        style: switch (scopeColor(token.scope)) {
+          final color? => TextStyle(color: color),
+          null => null,
+        },
+      ),
+  ];
+}
+
+Iterable<CodeLine> _physicalCodeLines(
+  CodeLine line, {
+  required bool hasFollowingLine,
+}) sync* {
+  final text = line.text;
+  final source = CodeSource(
+    hasFollowingLine && text.endsWith('\r')
+        ? text.substring(0, text.length - 1)
+        : text,
+  );
+  if (source.lines.length == 1 && source.text == text) {
+    yield line;
+    return;
   }
+  var tokenIndex = 0;
+  var tokenStart = 0;
+  for (var row = 0; row < source.lines.length; row++) {
+    final start = source.starts[row];
+    final end = source.endOf(row);
+    while (tokenIndex < line.tokens.length &&
+        tokenStart + line.tokens[tokenIndex].text.length <= start) {
+      tokenStart += line.tokens[tokenIndex++].text.length;
+    }
+    final tokens = <CodeToken>[];
+    var position = tokenStart;
+    for (
+      var index = tokenIndex;
+      index < line.tokens.length && position < end;
+      index++
+    ) {
+      final token = line.tokens[index];
+      final from = (start - position).clamp(0, token.text.length);
+      final to = (end - position).clamp(0, token.text.length);
+      if (to > from) {
+        tokens.add(CodeToken(token.text.substring(from, to), token.scope));
+      }
+      position += token.text.length;
+    }
+    yield CodeLine(
+      tokens: tokens,
+      number: row == 0 ? line.number : null,
+      isSelected: line.isSelected,
+    );
+  }
+}
+
+bool _requiresVirtualCodeLayout(List<CodeLine> lines) {
+  var count = lines.length;
+  if (count > CodeBlock._virtualLineThreshold) return true;
+  for (final line in lines) {
+    for (final _ in CodeSource.lineRanges(line.text).skip(1)) {
+      if (++count > CodeBlock._virtualLineThreshold) return true;
+    }
+  }
+  return false;
 }

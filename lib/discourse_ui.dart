@@ -29,6 +29,7 @@ export 'src/ui/components/d_carousel.dart';
 export 'src/ui/components/d_chart.dart';
 export 'src/ui/components/d_checkbox.dart';
 export 'src/ui/components/d_code_editor.dart';
+export 'src/ui/components/d_code_viewer.dart';
 export 'src/ui/components/d_collapsible.dart';
 export 'src/ui/components/d_color_picker.dart';
 export 'src/ui/components/d_combobox.dart';
