@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/shell/topic_post_retention.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_platform_interface/webview_platform_interface.dart';
@@ -72,7 +74,12 @@ void main() {
       await tester.pump();
 
       expect(controller.operations, admitted);
-      expect(controller.documents, isEmpty);
+      expect(controller.documents, isNotEmpty);
+      expect(
+        controller.documents.every((d) => !d.html.contains('<iframe')),
+        isTrue,
+      );
+      expect(controller.channels, isEmpty);
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -102,7 +109,12 @@ void main() {
       await tester.pump();
 
       expect(oldController.operations, admitted);
-      expect(oldController.documents, isEmpty);
+      expect(oldController.documents, isNotEmpty);
+      expect(
+        oldController.documents.every((d) => !d.html.contains('<iframe')),
+        isTrue,
+      );
+      expect(oldController.channels, isEmpty);
       expect(find.byType(YoutubePlayerSurface), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
@@ -232,6 +244,229 @@ void main() {
       expect(launched, isEmpty);
     },
   );
+
+  testWidgets('hidden players pause without replacing their document', (
+    tester,
+  ) async {
+    final visible = ValueNotifier(true);
+    addTearDown(visible.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<bool>(
+          valueListenable: visible,
+          builder: (_, enabled, _) => TickerMode(
+            enabled: enabled,
+            child: YoutubePlayerSurface(data: _video, forumOrigin: _forum),
+          ),
+        ),
+      ),
+    );
+    final controller = platform.controllers.single;
+    visible.value = false;
+    await tester.pumpAndSettle();
+    expect(controller.scripts.last, contains('false'));
+    expect(controller.documents, hasLength(1));
+    visible.value = true;
+    await tester.pumpAndSettle();
+    expect(platform.controllers.single, same(controller));
+    expect(controller.documents, hasLength(1));
+    expect(controller.scripts.where((s) => s.contains('playVideo')), isEmpty);
+  });
+
+  testWidgets('backgrounding pauses but losing focus preserves playback', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpWidget(_player());
+    final controller = platform.controllers.single;
+    final before = controller.scripts.length;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(controller.scripts, hasLength(before));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pumpAndSettle();
+    expect(controller.scripts.last, contains('false'));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(platform.controllers.single, same(controller));
+    expect(controller.documents, hasLength(1));
+    expect(controller.scripts.where((s) => s.contains('playVideo')), isEmpty);
+  });
+
+  testWidgets('closing and replacing initialized players unloads the iframe', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_player());
+    final old = platform.controllers.single;
+    await tester.pumpWidget(_player(data: _replacementVideo));
+    await tester.pumpAndSettle();
+    expect(old.documents.last.html, isNot(contains('<iframe')));
+    final current = platform.controllers.last;
+    expect(current.documents.single.html, contains('/embed/second_video'));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(current.documents.last.html, isNot(contains('<iframe')));
+    expect(launched, isEmpty);
+  });
+
+  testWidgets(
+    'document readiness reapplies hidden state and ignores retired views',
+    (tester) async {
+      final visible = ValueNotifier(true);
+      addTearDown(visible.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ValueListenableBuilder<bool>(
+            valueListenable: visible,
+            builder: (_, enabled, _) => TickerMode(
+              enabled: enabled,
+              child: YoutubePlayerSurface(data: _video, forumOrigin: _forum),
+            ),
+          ),
+        ),
+      );
+      final controller = platform.controllers.single;
+      final ready = controller.channels['NativeYoutube']!;
+      visible.value = false;
+      await tester.pumpAndSettle();
+      controller.scripts.clear();
+      ready.onMessageReceived(const JavaScriptMessage(message: 'ready'));
+      await tester.pump();
+      expect(controller.scripts.single, contains('false'));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(controller.channels, isEmpty);
+      controller.scripts.clear();
+      ready.onMessageReceived(const JavaScriptMessage(message: 'ready'));
+      await tester.pump();
+      expect(controller.scripts, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'scrolling a retained player pauses it and preserves its document',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SingleChildScrollView(
+            controller: scroll,
+            child: Column(
+              children: [
+                YoutubeVideo(data: _video, siteUrl: _forum.toString()),
+                const SizedBox(height: 2500),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.bySemanticsLabel('Play video: First video'));
+      await tester.pumpAndSettle();
+      final controller = platform.controllers.single;
+      scroll.jumpTo(1500);
+      await tester.pumpAndSettle();
+      expect(controller.scripts.last, contains('false'));
+      expect(controller.documents, hasLength(1));
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(platform.controllers.single, same(controller));
+      expect(controller.documents, hasLength(1));
+      expect(controller.scripts.last, contains('true'));
+      expect(controller.scripts.where((s) => s.contains('playVideo')), isEmpty);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }),
+  );
+
+  testWidgets(
+    'activated players obey the outer post retention budget',
+    (tester) async {
+      final scroll = ScrollController();
+      final retention = TopicPostRetention(maxPosts: 2);
+      addTearDown(scroll.dispose);
+      addTearDown(retention.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ListView.builder(
+            controller: scroll,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+            itemExtent: 500,
+            itemCount: 40,
+            itemBuilder: (_, index) =>
+                _RetainedPlayerRow(key: ValueKey(index), retention: retention),
+          ),
+        ),
+      );
+      for (var index = 0; index < 30; index += 3) {
+        scroll.jumpTo(index * 500);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.bySemanticsLabel('Play video: First video').first,
+        );
+        await tester.pumpAndSettle();
+        final livePlayers = platform.controllers.where(
+          (c) =>
+              c.documents.isNotEmpty &&
+              c.documents.last.html.contains('<iframe'),
+        );
+        expect(livePlayers.length, lessThanOrEqualTo(2));
+      }
+      expect(platform.controllers, hasLength(10));
+      expect(
+        platform.controllers.first.documents.last.html,
+        isNot(contains('<iframe')),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(
+        platform.controllers.every(
+          (c) => !c.documents.last.html.contains('<iframe'),
+        ),
+        isTrue,
+      );
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }),
+  );
+}
+
+class _RetainedPlayerRow extends StatefulWidget {
+  const _RetainedPlayerRow({super.key, required this.retention});
+  final TopicPostRetention retention;
+
+  @override
+  State<_RetainedPlayerRow> createState() => _RetainedPlayerRowState();
+}
+
+class _RetainedPlayerRowState extends State<_RetainedPlayerRow>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => widget.retention.contains(this);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.retention.retain(this, 100);
+    widget.retention.addListener(updateKeepAlive);
+  }
+
+  @override
+  void dispose() {
+    widget.retention.removeListener(updateKeepAlive);
+    widget.retention.release(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return YoutubeVideo(data: _video, siteUrl: _forum.toString());
+  }
 }
 
 Widget _player({YoutubeVideoData data = _video, Uri? forum}) => MaterialApp(

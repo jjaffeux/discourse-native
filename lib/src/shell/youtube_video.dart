@@ -15,6 +15,7 @@ import 'package:webview_all/webview_all.dart';
 import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
+import '../foundation/foreground_lifecycle.dart';
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
 import '../ui/foundation/native_webview_scroll.dart';
@@ -30,6 +31,7 @@ const Set<String> _youtubeHosts = {
 };
 final RegExp _youtubeId = RegExp(r'^[A-Za-z0-9_-]+$');
 final RegExp _youtubeTime = RegExp(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$');
+const _youtubeVisibilityChannel = 'NativeYoutube';
 
 @immutable
 final class YoutubeVideoData {
@@ -253,8 +255,7 @@ class YoutubeVideo extends StatefulWidget {
   State<YoutubeVideo> createState() => _YoutubeVideoState();
 }
 
-class _YoutubeVideoState extends State<YoutubeVideo>
-    with AutomaticKeepAliveClientMixin {
+class _YoutubeVideoState extends State<YoutubeVideo> {
   final LayerLink _playerLink = LayerLink();
   final GlobalKey _playerAnchorKey = GlobalKey();
   final GlobalKey _playerSurfaceKey = GlobalKey();
@@ -269,9 +270,6 @@ class _YoutubeVideoState extends State<YoutubeVideo>
       defaultTargetPlatform == TargetPlatform.macOS;
 
   @override
-  bool get wantKeepAlive => _loaded;
-
-  @override
   void didUpdateWidget(YoutubeVideo oldWidget) {
     super.didUpdateWidget(oldWidget);
     final sourceChanged =
@@ -281,14 +279,12 @@ class _YoutubeVideoState extends State<YoutubeVideo>
     if (sourceChanged) {
       _releasePlayer();
       _loaded = false;
-      updateKeepAlive();
     }
   }
 
   void _load() {
     if (_loaded) return;
     setState(() => _loaded = true);
-    updateKeepAlive();
     if (_usesRootPlayerOverlay) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _insertPlayer());
     }
@@ -428,8 +424,6 @@ class _YoutubeVideoState extends State<YoutubeVideo>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-
     final video = Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: LayoutBuilder(
@@ -634,16 +628,99 @@ class YoutubePlayerSurface extends StatefulWidget {
   State<YoutubePlayerSurface> createState() => _YoutubePlayerSurfaceState();
 }
 
-class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
+class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
+    with WidgetsBindingObserver {
+  final GlobalKey _surfaceKey = GlobalKey();
   WebViewController? _controller;
+  ScrollableState? _scrollable;
+  ScrollPosition? _scrollPosition;
   Object? _error;
   int _generation = 0;
   bool _loadingDocument = true;
+  bool _tickerEnabled = true;
+  bool _appForeground = true;
+  bool _viewportVisible = true;
+  bool _viewportCheckScheduled = false;
+  bool? _requestedVisibility;
+  Future<void> _visibilityTail = Future<void>.value();
+
+  bool get _canPlay => _appForeground && _tickerEnabled && _viewportVisible;
 
   @override
   void initState() {
     super.initState();
+    _appForeground = isForegroundLifecycle(
+      WidgetsBinding.instance.lifecycleState,
+    );
+    WidgetsBinding.instance.addObserver(this);
     _initialize();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    final scrollable = Scrollable.maybeOf(context);
+    final position = scrollable?.position;
+    if (!identical(position, _scrollPosition)) {
+      _scrollPosition?.removeListener(_scheduleViewportCheck);
+      _scrollPosition = position;
+      position?.addListener(_scheduleViewportCheck);
+    }
+    _scrollable = scrollable;
+    _scheduleViewportCheck();
+    _syncPlaybackVisibility();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appForeground = isForegroundLifecycle(state);
+    _syncPlaybackVisibility();
+  }
+
+  void _scheduleViewportCheck() {
+    if (_viewportCheckScheduled) return;
+    _viewportCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _viewportCheckScheduled = false;
+      if (!mounted) return;
+      final surface = _surfaceKey.currentContext?.findRenderObject();
+      if (surface is! RenderBox || !surface.attached || !surface.hasSize) {
+        return;
+      }
+      final view = View.of(context);
+      var viewport = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+      final scrollViewport = _scrollable?.context.findRenderObject();
+      if (scrollViewport is RenderBox &&
+          scrollViewport.attached &&
+          scrollViewport.hasSize) {
+        viewport = viewport.intersect(
+          scrollViewport.localToGlobal(Offset.zero) & scrollViewport.size,
+        );
+      }
+      final bounds = surface.localToGlobal(Offset.zero) & surface.size;
+      final visible = !viewport.isEmpty && bounds.overlaps(viewport);
+      if (_viewportVisible == visible) return;
+      _viewportVisible = visible;
+      _syncPlaybackVisibility();
+    });
+  }
+
+  void _syncPlaybackVisibility({bool force = false}) {
+    final controller = _controller;
+    final generation = _generation;
+    if (controller == null || (!force && _requestedVisibility == _canPlay)) {
+      return;
+    }
+    _requestedVisibility = _canPlay;
+    _visibilityTail = _visibilityTail.then((_) async {
+      if (!_isCurrent(controller, generation)) return;
+      await _tryWebViewCommand(
+        () => controller.runJavaScript(
+          'window.nativeYoutubeSetVisible?.($_canPlay);',
+        ),
+      );
+    });
   }
 
   @override
@@ -656,7 +733,9 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
   }
 
   void _initialize() {
-    final generation = ++_generation;
+    _retire();
+    final generation = _generation;
+    _visibilityTail = Future<void>.value();
     _loadingDocument = true;
     _error = null;
 
@@ -674,8 +753,8 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
         ).catchError((Object error, StackTrace stack) {
           if (!_isCurrent(controller, generation)) return;
           _report(error, stack);
+          _retire();
           setState(() {
-            _controller = null;
             _error = error;
           });
         }),
@@ -698,60 +777,123 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
     Uri? forumOrigin,
     int generation,
   ) async {
-    final documentBase = forumOrigin ?? Uri.parse('https://www.youtube.com');
-    await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-    if (!_isCurrent(controller, generation)) return;
-    await controller.setBackgroundColor(Colors.black);
-    if (!_isCurrent(controller, generation)) return;
-    await controller.setNavigationDelegate(
-      NavigationDelegate(
-        onNavigationRequest: (request) {
-          if (!_isCurrent(controller, generation)) {
+    try {
+      final documentBase = forumOrigin ?? Uri.parse('https://www.youtube.com');
+      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      if (!_isCurrent(controller, generation)) return;
+      await controller.addJavaScriptChannel(
+        _youtubeVisibilityChannel,
+        onMessageReceived: (message) {
+          if (message.message == 'ready' &&
+              _isCurrent(controller, generation)) {
+            _syncPlaybackVisibility(force: true);
+          }
+        },
+      );
+      if (!_isCurrent(controller, generation)) return;
+      await controller.setBackgroundColor(Colors.black);
+      if (!_isCurrent(controller, generation)) return;
+      await controller.setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) {
+            if (!_isCurrent(controller, generation)) {
+              return request.url == 'about:blank'
+                  ? NavigationDecision.navigate
+                  : NavigationDecision.prevent;
+            }
+            if (!request.isMainFrame) return NavigationDecision.navigate;
+            if (_loadingDocument &&
+                (isYoutubeDocumentNavigation(request.url, documentBase) ||
+                    isYoutubeInitialEmbedNavigation(
+                      request.url,
+                      data,
+                      forumOrigin: forumOrigin,
+                    ))) {
+              return NavigationDecision.navigate;
+            }
+            unawaited(openExternalLink(request.url));
             return NavigationDecision.prevent;
-          }
-          if (!request.isMainFrame) return NavigationDecision.navigate;
-          if (_loadingDocument &&
-              (isYoutubeDocumentNavigation(request.url, documentBase) ||
-                  isYoutubeInitialEmbedNavigation(
-                    request.url,
-                    data,
-                    forumOrigin: forumOrigin,
-                  ))) {
-            return NavigationDecision.navigate;
-          }
-          unawaited(openExternalLink(request.url));
-          return NavigationDecision.prevent;
-        },
-        onPageFinished: (_) {
-          if (_isCurrent(controller, generation)) _loadingDocument = false;
-        },
-      ),
-    );
-    if (!_isCurrent(controller, generation)) return;
-    if (defaultTargetPlatform == TargetPlatform.macOS) {
-      if (controller.platform case final WebKitWebViewController webKit) {
-        // WKWebView disables the Fullscreen API by default. Enable it before
-        // YouTube detects player capabilities while loading the iframe.
-        await const MethodChannel(
-          'org.discourse.native/window',
-        ).invokeMethod<void>(
-          'enableYoutubeFullscreen',
-          webKit.webViewIdentifier,
-        );
-        if (!_isCurrent(controller, generation)) return;
-      }
-      await controller.addUserScript(
-        const WebViewUserScript(
-          source: youtubePlayerHoverScript,
-          forMainFrameOnly: false,
+          },
+          onPageFinished: (_) {
+            if (!_isCurrent(controller, generation)) return;
+            _loadingDocument = false;
+            _syncPlaybackVisibility(force: true);
+          },
         ),
       );
       if (!_isCurrent(controller, generation)) return;
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
+        if (controller.platform case final WebKitWebViewController webKit) {
+          // WKWebView disables the Fullscreen API by default. Enable it before
+          // YouTube detects player capabilities while loading the iframe.
+          await const MethodChannel(
+            'org.discourse.native/window',
+          ).invokeMethod<void>(
+            'enableYoutubeFullscreen',
+            webKit.webViewIdentifier,
+          );
+          if (!_isCurrent(controller, generation)) return;
+        }
+        await controller.addUserScript(
+          const WebViewUserScript(
+            source: youtubePlayerHoverScript,
+            forMainFrameOnly: false,
+          ),
+        );
+        if (!_isCurrent(controller, generation)) return;
+      }
+      await controller.loadHtmlString(
+        buildYoutubeEmbedHtml(
+          data,
+          forumOrigin: forumOrigin,
+          visible: _canPlay,
+        ),
+        baseUrl: documentBase.toString(),
+      );
+      if (_isCurrent(controller, generation)) {
+        _syncPlaybackVisibility(force: true);
+      }
+    } finally {
+      if (!_isCurrent(controller, generation)) await _release(controller);
     }
-    await controller.loadHtmlString(
-      buildYoutubeEmbedHtml(data, forumOrigin: forumOrigin),
-      baseUrl: documentBase.toString(),
+  }
+
+  void _retire() {
+    _generation++;
+    _requestedVisibility = null;
+    final controller = _controller;
+    _controller = null;
+    if (controller != null) unawaited(_release(controller));
+  }
+
+  Future<void> _release(WebViewController controller) async {
+    await _tryWebViewCommand(
+      () => controller.removeJavaScriptChannel(_youtubeVisibilityChannel),
     );
+    await _tryWebViewCommand(
+      () =>
+          controller.runJavaScript('window.nativeYoutubeSetVisible?.(false);'),
+    );
+    // Widget-attached controllers have no dispose API.
+    await _tryWebViewCommand(
+      () => controller.loadHtmlString('<!doctype html><html></html>'),
+    );
+  }
+
+  Future<void> _tryWebViewCommand(Future<void> Function() command) async {
+    try {
+      await command();
+    } on Object {
+      return;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollPosition?.removeListener(_scheduleViewportCheck);
+    _retire();
+    super.dispose();
   }
 
   void _report(Object error, StackTrace stackTrace) {
@@ -795,12 +937,18 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface> {
       );
     }
 
-    return Semantics(
-      label: context.l10n.youTubePlayer((widget.data.title).toString()),
-      child: WebViewWidget(
-        controller: controller,
-        gestureRecognizers: youtubePlayerGestureRecognizers,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _scheduleViewportCheck();
+        return Semantics(
+          key: _surfaceKey,
+          label: context.l10n.youTubePlayer((widget.data.title).toString()),
+          child: WebViewWidget(
+            controller: controller,
+            gestureRecognizers: youtubePlayerGestureRecognizers,
+          ),
+        );
+      },
     );
   }
 }
@@ -863,6 +1011,7 @@ Uri youtubeEmbedUri(YoutubeVideoData data, {Uri? forumOrigin}) {
     'autoplay': '1',
     'playsinline': '1',
     'rel': '0',
+    'enablejsapi': '1',
   };
   if (data.listId case final list?) query['list'] = list;
   if (data.startSeconds case final start?) query['start'] = '$start';
@@ -878,7 +1027,11 @@ Uri youtubeEmbedUri(YoutubeVideoData data, {Uri? forumOrigin}) {
   return Uri.https('www.youtube.com', path, query);
 }
 
-String buildYoutubeEmbedHtml(YoutubeVideoData data, {Uri? forumOrigin}) {
+String buildYoutubeEmbedHtml(
+  YoutubeVideoData data, {
+  Uri? forumOrigin,
+  bool visible = true,
+}) {
   final source = const HtmlEscape(
     HtmlEscapeMode.attribute,
   ).convert(youtubeEmbedUri(data, forumOrigin: forumOrigin).toString());
@@ -895,9 +1048,37 @@ String buildYoutubeEmbedHtml(YoutubeVideoData data, {Uri? forumOrigin}) {
   </style>
 </head>
 <body>
-  <iframe src="$source" title="$title" referrerpolicy="origin"
+  <iframe id="native-youtube-player" src="$source" title="$title" referrerpolicy="origin"
     allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
     allowfullscreen></iframe>
+  <script>
+    let nativeYoutubeVisible = $visible;
+    let nativeYoutubePlayer = null;
+    window.nativeYoutubeSetVisible = function(visible) {
+      nativeYoutubeVisible = visible === true;
+      if (!nativeYoutubeVisible && nativeYoutubePlayer &&
+          typeof nativeYoutubePlayer.pauseVideo === 'function') {
+        nativeYoutubePlayer.pauseVideo();
+      }
+    };
+    window.onYouTubeIframeAPIReady = function() {
+      nativeYoutubePlayer = new YT.Player('native-youtube-player', {
+        events: {
+          onReady: function(event) {
+            nativeYoutubePlayer = event.target;
+            if (!nativeYoutubeVisible) event.target.pauseVideo();
+          },
+          onStateChange: function(event) {
+            if (!nativeYoutubeVisible && event.data === YT.PlayerState.PLAYING) {
+              event.target.pauseVideo();
+            }
+          }
+        }
+      });
+    };
+    window.NativeYoutube?.postMessage('ready');
+  </script>
+  <script async src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>''';
 }

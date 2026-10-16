@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
     show EagerGestureRecognizer, PointerScrollEvent;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
@@ -195,6 +196,7 @@ void main() {
         'autoplay': '1',
         'playsinline': '1',
         'rel': '0',
+        'enablejsapi': '1',
         'list': 'PL_list',
         'start': '12',
         'end': '34',
@@ -598,50 +600,48 @@ void main() {
     }
 
     for (final platform in [TargetPlatform.android, TargetPlatform.macOS]) {
-      testWidgets(
-        'keeps the ${platform.name} player alive while it scrolls offscreen',
-        (tester) async {
-          await _withTargetPlatform(platform, () async {
-            final scroll = ScrollController();
-            addTearDown(scroll.dispose);
-            await tester.pumpWidget(
-              MaterialApp(
-                home: Scaffold(
-                  body: ListView(
-                    controller: scroll,
-                    children: [
-                      YoutubeVideo(
-                        data: _video,
-                        siteUrl: 'https://meta.discourse.org',
-                        playerBuilder: (_, _) => const ColoredBox(
-                          key: ValueKey('kept-youtube-player'),
-                          color: Colors.black,
-                        ),
+      testWidgets('recycles the ${platform.name} player with its lazy row', (
+        tester,
+      ) async {
+        await _withTargetPlatform(platform, () async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: ListView(
+                  controller: scroll,
+                  scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+                  children: [
+                    YoutubeVideo(
+                      data: _video,
+                      siteUrl: 'https://meta.discourse.org',
+                      playerBuilder: (_, _) => const ColoredBox(
+                        key: ValueKey('kept-youtube-player'),
+                        color: Colors.black,
                       ),
-                      for (var i = 0; i < 20; i++) const SizedBox(height: 200),
-                    ],
-                  ),
+                    ),
+                    for (var i = 0; i < 20; i++) const SizedBox(height: 200),
+                  ],
                 ),
               ),
-            );
-            await tester.tap(
-              find.bySemanticsLabel('Play video: A useful video'),
-            );
-            await tester.pumpAndSettle();
-            final player = find.byKey(const ValueKey('kept-youtube-player'));
-            final original = tester.element(player);
-            scroll.jumpTo(2000);
-            await tester.pump();
-            scroll.jumpTo(0);
-            await tester.pump();
-            expect(tester.element(player), same(original));
-            expect(
-              find.bySemanticsLabel('Play video: A useful video'),
-              findsNothing,
-            );
-          });
-        },
-      );
+            ),
+          );
+          await tester.tap(find.bySemanticsLabel('Play video: A useful video'));
+          await tester.pumpAndSettle();
+          final player = find.byKey(const ValueKey('kept-youtube-player'));
+          scroll.jumpTo(2000);
+          await tester.pumpAndSettle();
+          expect(player, findsNothing);
+          scroll.jumpTo(0);
+          await tester.pumpAndSettle();
+          expect(player, findsNothing);
+          expect(
+            find.bySemanticsLabel('Play video: A useful video'),
+            findsOneWidget,
+          );
+        });
+      });
     }
 
     testWidgets(
