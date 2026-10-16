@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -29,6 +32,46 @@ void main() {
   });
 
   group('file persistence and schema', () {
+    test('edits one large draft and restores every untouched draft', () async {
+      final original = {
+        for (var index = 0; index < 50; index++)
+          '${sitePrefix}topic_$index': 'é⛵' * 25000,
+      };
+      await file.parent.create(recursive: true);
+      await file.writeAsString(
+        jsonEncode({
+          'version': 1,
+          'values': original,
+          'blockedLegacyKeys': original.keys.toList()..sort(),
+          'blockedLegacyPrefixes': <String>[],
+        }),
+      );
+      final legacy = _LegacyDraftStorage();
+      final unsendable = ReceivePort();
+      addTearDown(unsendable.close);
+      legacy.readError = unsendable;
+      final storage = AppleFileDraftPersistence(
+        file: file,
+        legacyStorage: legacy,
+      );
+      final edited = '${original[key]}a';
+
+      final write = storage.write(key, edited);
+      final read = storage.read(key);
+      await write;
+      expect(await read, (value: edited, allowPreferenceFallback: false));
+
+      final persisted =
+          jsonDecode(await file.readAsString()) as Map<String, Object?>;
+      expect(persisted['values'], {...original, key: edited});
+      expect(legacy.events, isEmpty);
+      final oldStamp = DateTime(2001);
+      await file.setLastModified(oldStamp);
+      final before = (await file.stat()).modified;
+      await storage.write(key, edited);
+      expect((await file.stat()).modified, before);
+    });
+
     test('retains drafts across reopened instances', () async {
       final storage = AppleFileDraftPersistence(file: file);
       await storage.write(key, 'unfinished thought');
@@ -301,6 +344,27 @@ void main() {
   });
 
   group('corrupt file handling', () {
+    test('preserves the caller locale for background codec errors', () async {
+      await file.parent.create(recursive: true);
+      await file.writeAsString('[]');
+      final storage = AppleFileDraftPersistence(file: file);
+
+      await Intl.withLocale('fr', () async {
+        final expected = appL10n.invalidDraftStorageFormat;
+        await expectLater(
+          storage.write(key, 'new'),
+          throwsA(
+            isA<FormatException>().having(
+              (error) => error.message,
+              'localized message',
+              expected,
+            ),
+          ),
+        );
+      });
+      expect(await file.readAsString(), '[]');
+    });
+
     test('preserves the corrupt file when a write fails', () async {
       await file.parent.create(recursive: true);
       await file.writeAsString('not json');

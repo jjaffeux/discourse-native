@@ -35,6 +35,7 @@ final class PrivateFileResult<R> {
 /// [read] and [update] callbacks are synchronous by design. Network, platform,
 /// or interactive work must happen outside the transaction so it never holds
 /// the file lock while waiting on another system or a person.
+/// Codecs may finish asynchronously and remain inside the transaction's lock.
 ///
 /// A document [decode] rejects with a [FormatException] fails its transaction
 /// and is never replaced, unless [setAsideUndecodable] is given. Then the
@@ -49,8 +50,8 @@ final class PrivateFileDocument<T> {
   factory PrivateFileDocument({
     required PrivateFileResolver target,
     required T Function() empty,
-    required T Function(String contents) decode,
-    required String Function(T value) encode,
+    required FutureOr<T> Function(String contents) decode,
+    required FutureOr<String> Function(T value) encode,
     void Function(File damaged)? setAsideUndecodable,
   }) =>
       PrivateFileDocument._(target, empty, decode, encode, setAsideUndecodable);
@@ -65,8 +66,8 @@ final class PrivateFileDocument<T> {
 
   final PrivateFileResolver _target;
   final T Function() _empty;
-  final T Function(String contents) _decode;
-  final String Function(T value) _encode;
+  final FutureOr<T> Function(String contents) _decode;
+  final FutureOr<String> Function(T value) _encode;
   final void Function(File damaged)? _setAsideUndecodable;
 
   /// The decoded value is transaction-local and must not escape through
@@ -80,9 +81,9 @@ final class PrivateFileDocument<T> {
   Future<R> update<R>(PrivateFileResult<R> Function(T value) mutate) =>
       _transact((target) async {
         final value = await _read(target);
-        final before = _encode(value);
+        final before = await _encode(value);
         final result = mutate(value);
-        final after = _encode(value);
+        final after = await _encode(value);
         if (after != before) await _replace(target, after);
         return result.value;
       });
@@ -93,7 +94,7 @@ final class PrivateFileDocument<T> {
     final setAside = _setAsideUndecodable;
     if (setAside == null) return _decode(await target.readAsString());
     try {
-      return _decode(utf8.decode(await target.readAsBytes()));
+      return await _decode(utf8.decode(await target.readAsBytes()));
     } on FormatException {
       setAside(await _moveAside(target));
       return _empty();

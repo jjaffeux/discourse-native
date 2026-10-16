@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -55,6 +56,66 @@ void main() {
   });
 
   group('write coordination', () {
+    test('awaits codecs before releasing the transaction to a read', () async {
+      await target.writeAsString('{"kept":"original"}');
+      final decoding = Completer<void>();
+      final resume = Completer<void>();
+      addTearDown(() {
+        if (!resume.isCompleted) resume.complete();
+      });
+      var mutations = 0;
+      final document = PrivateFileDocument<Map<String, String>>(
+        target: () => target,
+        empty: () => <String, String>{},
+        decode: (contents) async {
+          if (!decoding.isCompleted) {
+            decoding.complete();
+            await resume.future;
+          }
+          return _decodeMap(contents);
+        },
+        encode: (values) async => _encodeMap(values),
+      );
+
+      final write = document.update<void>((values) {
+        mutations++;
+        values['kept'] = 'committed';
+        return PrivateFileResult.done;
+      });
+      await decoding.future;
+      final read = document.read((values) => PrivateFileResult(values['kept']));
+      expect(mutations, 0);
+      expect(await target.readAsString(), '{"kept":"original"}');
+      resume.complete();
+
+      await write;
+      expect(await read, 'committed');
+      expect(mutations, 1);
+    });
+
+    test('coordinates separate processes through the sidecar lock', () async {
+      await target.writeAsString('{}');
+      final processes = await Future.wait([
+        for (final series in ['first', 'second'])
+          Process.run('dart', [
+            '--packages=.dart_tool/package_config.json',
+            'test/fixtures/private_document_writer.dart',
+            target.path,
+            series,
+          ]),
+      ]);
+      for (final process in processes) {
+        expect(process.exitCode, 0, reason: '${process.stderr}');
+      }
+      final values = await _mapDocument(
+        target.path,
+      ).read((values) => PrivateFileResult(Map.of(values)));
+      expect(values, {
+        for (final series in ['first', 'second'])
+          for (var index = 0; index < 12; index++) '$series-$index': '$index',
+      });
+    });
+
     test('serializes document instances targeting one path', () async {
       final first = _mapDocument(target.path);
       final second = _mapDocument(target.path);
@@ -105,7 +166,7 @@ void main() {
           target: () => target,
           empty: () => <String, String>{},
           decode: _decodeMap,
-          encode: (values) {
+          encode: (values) async {
             if (values.containsKey('refused')) {
               throw StateError('encoding refused');
             }
@@ -292,8 +353,8 @@ PrivateFileDocument<Map<String, String>> _mapDocument(
 }) => PrivateFileDocument(
   target: () => File(path),
   empty: () => <String, String>{},
-  decode: _decodeMap,
-  encode: _encodeMap,
+  decode: (contents) async => _decodeMap(contents),
+  encode: (values) async => _encodeMap(values),
   setAsideUndecodable: setAsideUndecodable,
 );
 

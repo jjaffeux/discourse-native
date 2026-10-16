@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -86,8 +88,8 @@ final class AppleFileDraftPersistence implements DraftPersistence {
       PrivateFileDocument(
         target: _file,
         empty: _DraftFileState.new,
-        decode: _decodeState,
-        encode: (state) => jsonEncode(state.toJson()),
+        decode: _decodeDraftFileState,
+        encode: _encodeDraftFileState,
       );
 
   @override
@@ -156,17 +158,43 @@ final class AppleFileDraftPersistence implements DraftPersistence {
     final support = await getApplicationSupportDirectory();
     return File('${support.path}/$directoryName/$fileName');
   }
+}
 
-  _DraftFileState _decodeState(String contents) {
-    final Object? decoded;
+Future<_DraftFileState> _decodeDraftFileState(String contents) {
+  final locale = Intl.getCurrentLocale();
+  return _DraftFileCodecs.run(
+    () =>
+        Intl.withLocale<_DraftFileState>(locale, () {
+              final Object? decoded;
+              try {
+                decoded = jsonDecode(contents);
+              } on FormatException catch (error) {
+                throw FormatException(
+                  appL10n.invalidDraftStorage((error.message).toString()),
+                );
+              }
+              return _DraftFileState.decode(decoded);
+            })
+            as _DraftFileState,
+  );
+}
+
+Future<String> _encodeDraftFileState(_DraftFileState state) =>
+    _DraftFileCodecs.run(() => jsonEncode(state.toJson()));
+
+abstract final class _DraftFileCodecs {
+  static Future<void> _tail = Future<void>.value();
+
+  static Future<T> run<T>(T Function() computation) async {
+    final previous = _tail;
+    final released = Completer<void>();
+    _tail = released.future;
+    await previous;
     try {
-      decoded = jsonDecode(contents);
-    } on FormatException catch (error) {
-      throw FormatException(
-        appL10n.invalidDraftStorage((error.message).toString()),
-      );
+      return await Isolate.run(computation, debugName: 'draft-file-codec');
+    } finally {
+      released.complete();
     }
-    return _DraftFileState.decode(decoded);
   }
 }
 
