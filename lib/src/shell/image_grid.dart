@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../foundation/diagnostic_errors.dart';
@@ -189,7 +190,7 @@ Widget? imageGridWidgetBuilder(dom.Element element, {String? siteUrl}) {
   };
 }
 
-class ImageGridMosaic extends StatelessWidget {
+class ImageGridMosaic extends StatefulWidget {
   const ImageGridMosaic({super.key, required this.data, this.siteUrl});
 
   final ImageGridData data;
@@ -224,21 +225,120 @@ class ImageGridMosaic extends StatelessWidget {
   }
 
   @override
+  State<ImageGridMosaic> createState() => _ImageGridMosaicState();
+}
+
+class _ImageGridMosaicState extends State<ImageGridMosaic> {
+  final _gridKey = GlobalKey();
+  final Set<dom.Element> _hydratedImages = Set.identity();
+  final Map<dom.Element, Rect> _pendingBounds = Map.identity();
+  bool _checkScheduled = false;
+  bool _tickerEnabled = true;
+
+  static bool _isImage(ImageGridItem item) =>
+      item.isLightbox || item.plainSrc != null;
+
+  bool get _hasPendingImages => widget.data.items.any(
+    (item) => _isImage(item) && !_hydratedImages.contains(item.element),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleCheck();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _scheduleCheck();
+  }
+
+  @override
+  void didUpdateWidget(ImageGridMosaic oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final elements = Set<dom.Element>.identity()
+      ..addAll(widget.data.items.map((item) => item.element));
+    _hydratedImages.removeWhere((element) => !elements.contains(element));
+    _scheduleCheck();
+  }
+
+  void _scheduleCheck() {
+    if (_checkScheduled || !_hasPendingImages) return;
+    _checkScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkScheduled = false;
+      if (!mounted) return;
+      if (_tickerEnabled) _hydrateImages();
+      // Observe final geometry on naturally produced frames, including
+      // ancestor-only layout shifts through repaint boundaries. Registering
+      // this callback does not request another frame or create an idle loop.
+      _scheduleCheck();
+    });
+  }
+
+  void _hydrateImages() {
+    final grid = _gridKey.currentContext?.findRenderObject();
+    if (grid is! RenderBox || !grid.attached || !grid.hasSize) return;
+    final view = View.of(context);
+    var viewport = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+    RenderObject child = grid;
+    for (var parent = child.parent; parent != null; parent = child.parent) {
+      // Offstage and sliver-kept-alive children can retain stale on-screen
+      // geometry even though their ancestors do not paint them.
+      if (!parent.paintsChild(child)) return;
+      if (parent is RenderAbstractViewport && parent is RenderBox) {
+        viewport = viewport.intersect(
+          MatrixUtils.transformRect(
+            parent.getTransformTo(null),
+            parent.paintBounds,
+          ),
+        );
+      }
+      child = parent;
+    }
+    if (!viewport.isFinite || viewport.isEmpty) return;
+    final cache = Rect.fromLTRB(
+      viewport.left,
+      viewport.top - viewport.height,
+      viewport.right,
+      viewport.bottom + viewport.height,
+    );
+    final transform = grid.getTransformTo(null);
+    final newlyHydrated = <dom.Element>[];
+    for (final entry in _pendingBounds.entries) {
+      final bounds = MatrixUtils.transformRect(transform, entry.value);
+      if (bounds.isFinite && bounds.overlaps(cache)) {
+        newlyHydrated.add(entry.key);
+      }
+    }
+    if (newlyHydrated.isEmpty) return;
+    setState(() => _hydratedImages.addAll(newlyHydrated));
+  }
+
+  @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final count = columnCount(constraints.maxWidth);
+        _pendingBounds.clear();
+        final data = widget.data;
+        final count = widget.columnCount(constraints.maxWidth);
+        const gap = ImageGridMosaic.gap;
         final columnWidth = (constraints.maxWidth - gap * (count - 1)) / count;
         if (columnWidth <= 0) return const SizedBox.shrink();
 
-        final columns = distribute([
+        final columns = ImageGridMosaic.distribute([
           for (final item in data.items) item.mosaicHeightUnit,
         ], count);
 
         // What each item would be at its own aspect ratio, before the stretch.
         final natural = [
           for (final item in data.items)
-            math.min(columnWidth * item.mosaicHeightUnit, maxItemHeight),
+            math.min(
+              columnWidth * item.mosaicHeightUnit,
+              ImageGridMosaic.maxItemHeight,
+            ),
         ];
 
         // Every item carries a bottom margin, including the last in a column,
@@ -251,9 +351,38 @@ class ImageGridMosaic extends StatelessWidget {
             .map(naturalColumnHeight)
             .fold<double>(0, math.max);
 
+        final slacks = [
+          for (final column in columns)
+            column.isEmpty
+                ? 0.0
+                : (gridHeight - naturalColumnHeight(column)) / column.length,
+        ];
+        final rightToLeft = Directionality.of(context) == TextDirection.rtl;
+        for (final (columnIndex, column) in columns.indexed) {
+          var top = 0.0;
+          for (final index in column) {
+            final item = data.items[index];
+            final height = natural[index] + slacks[columnIndex];
+            if (_isImage(item) && !_hydratedImages.contains(item.element)) {
+              _pendingBounds[item.element] = Rect.fromLTWH(
+                rightToLeft
+                    ? constraints.maxWidth -
+                          columnWidth -
+                          columnIndex * (columnWidth + gap)
+                    : columnIndex * (columnWidth + gap),
+                top,
+                columnWidth,
+                height,
+              );
+            }
+            top += height + gap;
+          }
+        }
+
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: SizedBox(
+            key: _gridKey,
             height: gridHeight,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,10 +396,7 @@ class ImageGridMosaic extends StatelessWidget {
                       natural,
                       // `flex-grow: 1` on every item: the slack is shared out
                       // evenly, not in proportion to what is already there.
-                      slack: column.isEmpty
-                          ? 0
-                          : (gridHeight - naturalColumnHeight(column)) /
-                                column.length,
+                      slack: slacks[index],
                     ),
                   ),
                 ],
@@ -291,11 +417,19 @@ class ImageGridMosaic extends StatelessWidget {
       children: [
         for (final index in column)
           Padding(
-            padding: const EdgeInsets.only(bottom: gap),
+            key: ObjectKey(widget.data.items[index].element),
+            padding: const EdgeInsets.only(bottom: ImageGridMosaic.gap),
             child: SizedBox(
               height: natural[index] + slack,
               width: double.infinity,
-              child: ImageGridTile(item: data.items[index], siteUrl: siteUrl),
+              child:
+                  !_isImage(widget.data.items[index]) ||
+                      _hydratedImages.contains(widget.data.items[index].element)
+                  ? ImageGridTile(
+                      item: widget.data.items[index],
+                      siteUrl: widget.siteUrl,
+                    )
+                  : null,
             ),
           ),
       ],

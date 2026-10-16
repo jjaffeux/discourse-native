@@ -1,6 +1,9 @@
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/site_image_repository.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/image_grid.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
@@ -10,10 +13,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
-import 'cooked_html_test.dart' show pumpCooked;
+import 'cooked_html_test.dart' show onePixelGif, pumpCooked, pumpCookedInShell;
+import 'support/blank_png.dart';
+import 'support/fakes.dart';
 import 'support/finders.dart';
 
 String item(String name, {int width = 600, int height = 400}) =>
@@ -45,6 +53,78 @@ Future<void> pumpGrid(
   addTearDown(tester.view.reset);
   await pumpCooked(tester, source);
   await tester.pumpAndSettle();
+}
+
+Future<void> pumpHydrationGrid(
+  WidgetTester tester,
+  String source,
+  List<Uri> requests, {
+  Widget Function(Widget grid)? wrap,
+  double devicePixelRatio = 1,
+}) async {
+  final deterministicLoading = WidgetFactory.debugDeterministicLoadingWidget;
+  WidgetFactory.debugDeterministicLoadingWidget = true;
+  addTearDown(() {
+    WidgetFactory.debugDeterministicLoadingWidget = deterministicLoading;
+  });
+  tester.view.physicalSize = Size(
+    800 * devicePixelRatio,
+    600 * devicePixelRatio,
+  );
+  tester.view.devicePixelRatio = devicePixelRatio;
+  addTearDown(tester.view.reset);
+  final bytes = blankPng(width: 8, height: 8);
+  final lifecycle = SiteLifecycle();
+  final repository = SiteImageRepository(
+    credentials: FakeApiCredentialReader(),
+    lifecycle: lifecycle,
+    client: MockClient((request) async {
+      requests.add(request.url);
+      return http.Response.bytes(
+        request.url.path.endsWith('.gif') ? onePixelGif : bytes,
+        200,
+      );
+    }),
+  );
+  // Parsing is synchronous so the fixture isolates mounting and repository
+  // submissions rather than the HTML package's background parse scheduling.
+  final cooked = CookedHtml(
+    html: source,
+    siteUrl: 'https://example.com',
+    buildAsync: false,
+  );
+  await pumpCookedInShell(
+    tester,
+    '',
+    lifecycle: lifecycle,
+    siteImages: repository,
+    child: wrap?.call(cooked) ?? cooked,
+  );
+}
+
+Finder gridImage(String name) => find.byWidgetPredicate(
+  (widget) => widget is SiteImage && widget.url.endsWith('/$name'),
+);
+
+class _KeptAliveGrid extends StatefulWidget {
+  const _KeptAliveGrid({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeptAliveGrid> createState() => _KeptAliveGridState();
+}
+
+class _KeptAliveGridState extends State<_KeptAliveGrid>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
 }
 
 void main() {
@@ -210,6 +290,390 @@ void main() {
   });
 
   group('the mosaic', () {
+    testWidgets(
+      'a 100-image cooked grid hydrates only its initial cache region',
+      (tester) async {
+        final requests = <Uri>[];
+        await pumpHydrationGrid(tester, grid(100), requests);
+        expect(find.byType(ImageGridMosaic), findsOneWidget);
+        expect(
+          tester
+              .widget<ImageGridMosaic>(find.byType(ImageGridMosaic))
+              .data
+              .items,
+          hasLength(100),
+        );
+
+        final mounted = tester.widgetList<SiteImage>(find.byType(SiteImage));
+        debugPrint(
+          'F07 initial mounted=${mounted.length} requests=${requests.length}',
+        );
+        expect(mounted.length, inInclusiveRange(9, 21));
+        expect(requests.length, mounted.length);
+        expect(requests.any((url) => url.path == '/img99-t.png'), isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('jumping hydrates the tail without changing grid extent', (
+      tester,
+    ) async {
+      final requests = <Uri>[];
+      await pumpHydrationGrid(tester, grid(100), requests);
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      final extent = position.maxScrollExtent;
+      final size = tester.getSize(find.byType(ImageGridMosaic));
+      final first = tester.element(gridImage('img0-t.png'));
+
+      final initialRequests = requests.length;
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      expect(position.pixels, greaterThan(0));
+      expect(requests.length, greaterThan(initialRequests));
+      expect(gridImage('img99-t.png'), findsNothing);
+
+      position.jumpTo(extent);
+      await tester.pumpAndSettle();
+
+      expect(gridImage('img99-t.png'), findsOneWidget);
+      expect(gridImage('img45-t.png'), findsNothing);
+      expect(tester.element(gridImage('img0-t.png')), same(first));
+      expect(tester.getSize(find.byType(ImageGridMosaic)), size);
+      expect(position.maxScrollExtent, extent);
+      final visitedRequests = requests.length;
+      position.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(requests.length, visitedRequests);
+      expect(tester.element(gridImage('img0-t.png')), same(first));
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      await tester.pump();
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'a hydrated thumbnail opens every image in original DOM order',
+      (tester) async {
+        final requests = <Uri>[];
+        await pumpHydrationGrid(tester, grid(100), requests);
+        expect(gridImage('img99-t.png'), findsNothing);
+        final tile = find.ancestor(
+          of: gridImage('img3-t.png'),
+          matching: find.byType(ImageGridTile),
+        );
+        await tester.tap(
+          find.descendant(of: tile, matching: find.byType(InkWell)),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pump();
+        try {
+          final gallery = tester.widget<LightboxGallery>(
+            find.byType(LightboxGallery),
+          );
+          expect(gallery.initialIndex, 3);
+          expect(gallery.images.map((image) => image.title), [
+            for (var index = 0; index < 100; index++) 'img$index.png',
+          ]);
+          expect(find.text('4 / 100'), findsOneWidget);
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+          await tester.pump();
+          expect(find.text('5 / 100'), findsOneWidget);
+          tester
+              .widget<PageView>(find.byType(PageView))
+              .controller!
+              .jumpToPage(99);
+          await tester.pump();
+          await tester.pump();
+          expect(find.text('100 / 100'), findsOneWidget);
+          expect(find.text('img99.png'), findsOneWidget);
+          expect(requests.any((url) => url.path == '/img99.png'), isTrue);
+        } finally {
+          Navigator.of(tester.element(find.byType(LightboxGallery))).pop();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+          await tester.pump();
+        }
+      },
+    );
+
+    testWidgets('newly hydrated plain images keep srcset and GIF pause state', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        final requests = <Uri>[];
+        final source = grid(100)
+            .replaceFirst(
+              item('img99'),
+              '<img src="https://example.com/plain.png" width="600" height="400" '
+              'srcset="https://example.com/plain.png, https://example.com/plain_2x.png 2x" '
+              'alt="The final diagram">',
+            )
+            .replaceFirst(
+              item('img0'),
+              item('img0').replaceAll('.png', '.gif'),
+            );
+        await pumpHydrationGrid(tester, source, requests, devicePixelRatio: 2);
+        await tester.tap(find.bySemanticsLabel('Pause GIF'));
+        await tester.pump();
+        final gif = tester.element(gridImage('img0-t.gif'));
+        expect(find.bySemanticsLabel('Play GIF'), findsOneWidget);
+        expect(gridImage('plain.png'), findsNothing);
+        final position = tester
+            .state<ScrollableState>(find.byType(Scrollable))
+            .position;
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        expect(gridImage('plain_2x.png'), findsOneWidget);
+        final plain = tester.widget<SiteImage>(gridImage('plain_2x.png'));
+        expect(plain.cacheWidth, lessThanOrEqualTo(600));
+        expect(plain.gifPlaybackControls, isTrue);
+        expect(find.bySemanticsLabel('The final diagram'), findsOneWidget);
+        position.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(tester.element(gridImage('img0-t.gif')), same(gif));
+        expect(find.bySemanticsLabel('Play GIF'), findsOneWidget);
+        expect(find.bySemanticsLabel('Pause GIF'), findsNothing);
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets(
+      'ancestor layout shifts and view resizing hydrate new regions',
+      (tester) async {
+        final prefix = ValueNotifier<double>(2000);
+        addTearDown(prefix.dispose);
+        final requests = <Uri>[];
+        await pumpHydrationGrid(
+          tester,
+          grid(100),
+          requests,
+          wrap: (cooked) => ValueListenableBuilder<double>(
+            valueListenable: prefix,
+            child: RepaintBoundary(child: cooked),
+            builder: (context, height, child) => Column(
+              children: [
+                SizedBox(height: height),
+                child!,
+              ],
+            ),
+          ),
+        );
+        expect(requests, isEmpty);
+        final position = tester
+            .state<ScrollableState>(find.byType(Scrollable))
+            .position;
+        expect(position.pixels, 0);
+        prefix.value = 0;
+        await tester.pumpAndSettle();
+        expect(gridImage('img0-t.png'), findsOneWidget);
+        expect(position.pixels, 0);
+        final initialRequests = requests.length;
+        tester.view.physicalSize = const Size(800, 1200);
+        await tester.pumpAndSettle();
+        expect(requests.length, greaterThan(initialRequests));
+        expect(gridImage('img99-t.png'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'nested viewports and replaced scroll positions bound hydration',
+      (tester) async {
+        final inner = ScrollController();
+        final replacement = ScrollController(initialScrollOffset: 4000);
+        addTearDown(inner.dispose);
+        addTearDown(replacement.dispose);
+        final controller = ValueNotifier<ScrollController>(inner);
+        addTearDown(controller.dispose);
+        final requests = <Uri>[];
+        await pumpHydrationGrid(
+          tester,
+          grid(100),
+          requests,
+          wrap: (cooked) => Column(
+            children: [
+              const SizedBox(height: 900),
+              SizedBox(
+                height: 300,
+                child: ValueListenableBuilder<ScrollController>(
+                  valueListenable: controller,
+                  child: cooked,
+                  builder: (context, scroll, child) => SingleChildScrollView(
+                    controller: scroll,
+                    physics: identical(scroll, inner)
+                        ? const ClampingScrollPhysics()
+                        : const BouncingScrollPhysics(),
+                    child: child,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        expect(
+          requests,
+          isEmpty,
+          reason: 'the inner viewport is entirely clipped',
+        );
+        final outer = tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position;
+        outer.jumpTo(outer.maxScrollExtent);
+        await tester.pumpAndSettle();
+        expect(requests.length, inInclusiveRange(3, 12));
+        expect(gridImage('img60-t.png'), findsNothing);
+        final originalPosition = inner.position;
+        controller.value = replacement;
+        await tester.pump();
+        expect(replacement.position, isNot(same(originalPosition)));
+        replacement.jumpTo(4000);
+        await tester.pumpAndSettle();
+        expect(gridImage('img69-t.png'), findsOneWidget);
+        expect(gridImage('img99-t.png'), findsNothing);
+      },
+    );
+
+    testWidgets('unvisited mixed text remains registered for selection', (
+      tester,
+    ) async {
+      final requests = <Uri>[];
+      String? selected;
+      final source = grid(100).replaceFirst(
+        item('img99'),
+        '<blockquote>Selectable tail text</blockquote>',
+      );
+      await pumpHydrationGrid(
+        tester,
+        source,
+        requests,
+        wrap: (cooked) => SelectionArea(
+          onSelectionChanged: (content) => selected = content?.plainText,
+          child: cooked,
+        ),
+      );
+      final text = find.text('Selectable tail text', findRichText: true);
+      expect(text, findsOneWidget);
+      final element = tester.element(text);
+      final selection = tester.state<SelectionAreaState>(
+        find.byType(SelectionArea),
+      );
+      selection.selectableRegion.selectAll(SelectionChangedCause.keyboard);
+      await tester.pump();
+      expect(selected, contains('Selectable tail text'));
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(tester.element(text), same(element));
+      expect(selected, contains('Selectable tail text'));
+    });
+
+    testWidgets('offstage grids defer hydration until they are shown', (
+      tester,
+    ) async {
+      final hidden = ValueNotifier<bool>(true);
+      addTearDown(hidden.dispose);
+      final requests = <Uri>[];
+      await pumpHydrationGrid(
+        tester,
+        grid(100),
+        requests,
+        wrap: (cooked) => ValueListenableBuilder<bool>(
+          valueListenable: hidden,
+          child: cooked,
+          builder: (context, offstage, child) =>
+              Offstage(offstage: offstage, child: child),
+        ),
+      );
+      expect(requests, isEmpty);
+      hidden.value = false;
+      await tester.pumpAndSettle();
+      expect(requests.length, inInclusiveRange(9, 21));
+    });
+
+    testWidgets(
+      'sliver-kept-alive grids do not hydrate stale viewport geometry',
+      (tester) async {
+        final scroll = ScrollController();
+        addTearDown(scroll.dispose);
+        final requests = <Uri>[];
+        await pumpHydrationGrid(
+          tester,
+          grid(100),
+          requests,
+          wrap: (cooked) => SizedBox(
+            height: 600,
+            child: ListView.builder(
+              controller: scroll,
+              itemCount: 2,
+              itemBuilder: (context, index) => index == 0
+                  ? _KeptAliveGrid(child: cooked)
+                  : const SizedBox(height: 2000),
+            ),
+          ),
+        );
+        final initialRequests = requests.length;
+        final first = tester.element(gridImage('img0-t.png'));
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(ImageGridMosaic, skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(requests.length, initialRequests);
+        await tester.pump();
+        expect(requests.length, initialRequests);
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(tester.element(gridImage('img0-t.png')), same(first));
+        expect(requests.length, initialRequests);
+      },
+    );
+
+    testWidgets(
+      'edited grids hydrate new DOM identities after a complete grid',
+      (tester) async {
+        final count = ValueNotifier<int>(3);
+        addTearDown(count.dispose);
+        final requests = <Uri>[];
+        await pumpHydrationGrid(
+          tester,
+          '',
+          requests,
+          wrap: (_) => ValueListenableBuilder<int>(
+            valueListenable: count,
+            builder: (context, value, child) => ImageGridMosaic(
+              data: parse(grid(value).replaceAll('/img', '/edited$value')),
+              siteUrl: 'https://example.com',
+            ),
+          ),
+        );
+        expect(find.byType(SiteImage), findsNWidgets(3));
+        final originalState = tester.state(find.byType(ImageGridMosaic));
+        count.value = 100;
+        await tester.pumpAndSettle();
+        expect(tester.state(find.byType(ImageGridMosaic)), same(originalState));
+        expect(gridImage('edited1000-t.png'), findsOneWidget);
+        expect(gridImage('edited10099-t.png'), findsNothing);
+        expect(
+          find.byType(SiteImage).evaluate().length,
+          inInclusiveRange(9, 21),
+        );
+      },
+    );
+
     testWidgets('draws a grid instead of a stack of images', (tester) async {
       await pumpGrid(tester, grid(3));
 
