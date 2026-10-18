@@ -7724,9 +7724,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeTable => 'Remove table';
 
   @override
-  String get restorePanel => 'Restore panel';
-
-  @override
   String get closeATabBeforeOpeningAnother =>
       'Close a tab before opening another';
 

@@ -19,7 +19,6 @@ import 'avatar_image.dart';
 import 'destination_bookmark_ui.dart';
 import 'emoji.dart';
 import 'open_link.dart';
-import 'panel_rail.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
@@ -2184,90 +2183,4 @@ ForumTabItem _forumTabItem(
     icon: route.icon,
     color: route.color,
   );
-}
-
-/// A minimized panel's tabs, docked as a [PanelRail] where the panel was.
-class CurrentForumTabsRail extends StatelessWidget {
-  const CurrentForumTabsRail({
-    super.key,
-    required this.panel,
-    required this.semanticLabel,
-    required this.onRestore,
-    required this.onSelect,
-    required this.onNewTab,
-    this.opensTowardStart = false,
-  });
-
-  final ForumPanel panel;
-  final String semanticLabel;
-  final VoidCallback onRestore;
-  final ValueChanged<String> onSelect;
-  final VoidCallback onNewTab;
-  final bool opensTowardStart;
-
-  @override
-  Widget build(BuildContext context) =>
-      ShellSelector<_CurrentForumTabsSnapshot>(
-        select: _CurrentForumTabsSnapshot.of,
-        builder: (context, state, _) {
-          final controller = ShellScope.read(context);
-          final siteUrl = state.siteUrl;
-          Widget rail(List<PanelRailTab> tabs) => PanelRail(
-            semanticLabel: semanticLabel,
-            tabs: tabs,
-            onRestore: onRestore,
-            onSelect: onSelect,
-            onNewTab: controller.canCreateTab ? onNewTab : null,
-            opensTowardStart: opensTowardStart,
-          );
-          if (siteUrl == null) return rail(const []);
-          final selectedId = controller.selectedTabIn(panel)?.id;
-          final registry = PluginScope.of(context).registry;
-          return ListenableBuilder(
-            listenable: Listenable.merge(
-              registry.forumTabListenables(context, siteUrl),
-            ),
-            builder: (context, _) => rail([
-              for (final tab in state.tabs)
-                if (tab.panel == panel)
-                  _railTab(
-                    _forumTabItem(
-                      context,
-                      controller: controller,
-                      registry: registry,
-                      siteUrl: siteUrl,
-                      tab: tab,
-                    ),
-                    selected: tab.id == selectedId,
-                  ),
-            ]),
-          );
-        },
-      );
-
-  static PanelRailTab _railTab(ForumTabItem item, {required bool selected}) =>
-      PanelRailTab(
-        id: item.id,
-        title: item.title,
-        selected: selected,
-        icon: Builder(
-          builder: (context) =>
-              _tabPrefix(
-                context,
-                item,
-                IconTheme.of(context).color ?? DTokens.of(context).foreground,
-                size: 13,
-              ) ??
-              const DIcon(DIcons.farFileLines),
-        ),
-        label: switch (item.siteUrl) {
-          final siteUrl? => SiteEmojiText.plain(
-            item.title,
-            siteUrl: siteUrl,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          null => null,
-        },
-      );
 }

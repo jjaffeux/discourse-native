@@ -239,7 +239,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
 
   // Restoring a panel leaves input where it is, so a reply being written
   // beside it keeps its place; picking one of the panel's tabs moves it.
-  void _restore(ForumPanel panel, {String? tabId, bool newTab = false}) {
+  void _restore(ForumPanel panel) {
     final shell = ShellScope.read(context);
     final canSplit =
         (context.size?.width ?? double.infinity) >= 640 + workspacePanelGap;
@@ -259,11 +259,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
       }
       _move(panel, away: false);
     });
-    if (newTab) {
-      shell.createTab(panel: panel);
-    } else if (tabId != null) {
-      shell.selectTab(tabId);
-    } else if (!canSplit) {
+    if (!canSplit) {
       // Two full panels cannot fit here. Show the requested panel in the
       // single-panel layout instead of leaving its restore button inert.
       final selected = shell.selectedTabIn(panel);

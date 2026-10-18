@@ -75,9 +75,9 @@ void main() {
         },
         // A saved bookmark keeps the neutral outline and accents its artwork.
         'lib/src/shell/topic_actions.dart': {
-          'backgroundColor': 2,
-          'foregroundColor': 2,
-          'interactiveBackgroundColor': 2,
+          'backgroundColor': 1,
+          'foregroundColor': 1,
+          'interactiveBackgroundColor': 1,
         },
         // Header notification capsules use a circular/pill shape and core color.
         'lib/src/shell/header_notification_button.dart': {
@@ -159,15 +159,6 @@ void main() {
         'lib/src/plugins/chat/chat_header_button.dart': {'shape': 1},
         'lib/src/plugins/local_dates/local_date_preview_sheet.dart': {
           'shape': 1,
-        },
-        // A minimized panel's rail stands in for its tab strip: the selected
-        // tab keeps the selected document tab's raised fill and outline, on
-        // the reference's circular slots, in the rail and in its read-out.
-        'lib/src/shell/panel_rail.dart': {
-          'shape': 1,
-          'backgroundColor': 2,
-          'borderColor': 2,
-          'foregroundColor': 2,
         },
       },
       reason:

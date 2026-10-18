@@ -13255,12 +13255,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/panel_rail.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Restore panel'**
-  String get restorePanel;
-
-  /// English UI message used by shell/panel_rail.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Close a tab before opening another'**
   String get closeATabBeforeOpeningAnother;
 

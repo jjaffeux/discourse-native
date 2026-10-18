@@ -10226,10 +10226,6 @@
   "@removeTable": {
     "description": "English UI message used by shell/composer_table.dart. Keep placeholders intact."
   },
-  "restorePanel": "Restore panel",
-  "@restorePanel": {
-    "description": "English UI message used by shell/panel_rail.dart. Keep placeholders intact."
-  },
   "closeATabBeforeOpeningAnother": "Close a tab before opening another",
   "@closeATabBeforeOpeningAnother": {
     "description": "English UI message used by shell/panel_rail.dart. Keep placeholders intact."
