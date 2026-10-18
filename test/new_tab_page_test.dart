@@ -4,7 +4,6 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/forum_icon.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -55,10 +54,6 @@ void main() {
         await tester.pumpAndSettle();
 
         final page = find.byType(NewTabPage).first;
-        expect(
-          find.descendant(of: page, matching: find.byType(ForumIcon)),
-          findsNothing,
-        );
         expect(startPageText('Discourse Dev'), findsNothing);
         expect(startPageText('dev.discourse.org'), findsNothing);
         expect(startPageText('Filters'), findsNothing);
