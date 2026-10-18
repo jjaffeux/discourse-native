@@ -83,6 +83,37 @@ void main() {
 
   tearDown(() => popup.dispose());
 
+  for (final length in [2, ComposerAutocomplete.maxSuggestions + 1]) {
+    testWidgets('publishes an immutable snapshot of $length provider rows', (
+      tester,
+    ) async {
+      final offered = List.generate(length, (index) => user('reader$index'));
+      people['sa'] = offered;
+      popup.update(typed('@sa'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      final published = popup.suggestions.toList();
+      expect(published.map((row) => row.value), [
+        for (
+          var index = 0;
+          index < length && index < ComposerAutocomplete.maxSuggestions;
+          index++
+        )
+          'reader$index',
+      ]);
+      popup.moveSelection(1);
+
+      offered
+        ..clear()
+        ..add(user('replacement'));
+
+      expect(popup.suggestions, published);
+      expect(popup.selected, same(published[1]));
+      expect(popup.canAccept(published[1]), isTrue);
+      expect(() => popup.suggestions.clear(), throwsUnsupportedError);
+      expect(popup.suggestions, published);
+    });
+  }
+
   group('retained row acceptance', () {
     testWidgets('waits for rows for the new query before accepting', (
       tester,

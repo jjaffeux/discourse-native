@@ -232,7 +232,7 @@ class ComposerAutocomplete extends ChangeNotifier {
     // a dismissed popup, an accepted suggestion, a disposed composer.
     if (_disposed || request.epoch != _epoch) return;
 
-    _suggestions = _take(found);
+    _suggestions = List.unmodifiable(found.take(maxSuggestions));
     _suggestionsQuery = (asked.kind, asked.query);
     _selected = 0;
     _loading = false;
@@ -302,9 +302,6 @@ class ComposerAutocomplete extends ChangeNotifier {
     _failed = false;
     if (!_disposed) notifyListeners();
   }
-
-  List<ComposerSuggestion> _take(List<ComposerSuggestion> found) =>
-      found.length <= maxSuggestions ? found : found.sublist(0, maxSuggestions);
 
   @override
   void dispose() {
