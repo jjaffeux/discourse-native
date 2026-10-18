@@ -612,8 +612,8 @@ final class ShellTabContext {
         tab.currentContent.isTopic &&
         sourceIndex >= 0 &&
         tab.contentStack[sourceIndex].isTopicList;
-    shell._pendingHomepageTabs.remove(tab.id);
-    shell._replaceTab(
+    shell._workspace.consumeHomepage(tab.id);
+    shell._workspace.replaceTab(
       siteUrl!,
       tab.navigate(
         rootDestinationId: route.isMessages ? 'messages' : 'latest',
@@ -879,7 +879,7 @@ final class ShellTabContext {
     }
     if (canPopContent) {
       final tab = activeTab!;
-      shell._replaceTab(siteUrl!, tab.goBack());
+      shell._workspace.replaceTab(siteUrl!, tab.goBack());
       shell._syncTopicChannels();
       shell._notify();
       if (_instance case final instance?) shell._hydrateTab(instance, this);
@@ -906,7 +906,7 @@ final class ShellTabContext {
     if (shell._rootMode != ShellRootMode.forum || tab?.canGoForward != true) {
       return false;
     }
-    shell._replaceTab(siteUrl!, tab!.goForward());
+    shell._workspace.replaceTab(siteUrl!, tab!.goForward());
     shell._mobilePane = MobilePane.content;
     shell._syncTopicChannels();
     shell._notify();
@@ -951,7 +951,7 @@ final class ShellTabContext {
         !active.currentContent.isTopic) {
       return;
     }
-    shell._replaceTab(siteUrl!, shell._closeTopicRoute(active));
+    shell._workspace.replaceTab(siteUrl!, shell._closeTopicRoute(active));
     shell._syncTopicChannels();
     shell._notify();
     if (_instance case final instance?) shell._hydrateTab(instance, this);

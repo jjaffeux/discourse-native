@@ -150,6 +150,7 @@ import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
 part 'shell_tab_context.dart';
+part 'workspace_controller.dart';
 
 enum MobilePane { sidebar, content }
 
@@ -1575,51 +1576,25 @@ class ShellController extends FrameSafeNotifier
     return instance == null ? null : _workspaceAccountIdentity(instance);
   }
 
-  final Map<String, ForumWorkspace> _forumWorkspaces = {};
+  late final _workspace = _WorkspaceController(this);
 
   /// The workspace an account-session operation rotated away, until that
   /// operation settles. Only a rollback to the account that owned it may put
   /// it back; every other outcome lets it go.
   final Map<String, ForumWorkspace> _rotatedWorkspaces = {};
-  final List<_ClosedForumTab> _closedForumTabs = [];
-  final Map<_PluginPaneKey, ForumTab> _mainPaneTabs = {};
-  final Map<_PluginPaneKey, ForumTab> _pluginPaneTabs = {};
-  final Map<_PluginPaneStateKey, PluginId> _activePluginPanes = {};
-  final Set<_PluginPaneStateKey> _coldPluginPanes = {};
-  int _tabSequence = 0;
-  ({String siteUrl, String tabId})? _pendingTabSelection;
-  bool _tabSelectionSettlementScheduled = false;
-  bool _tabSelectionPersistencePending = false;
-  Timer? _anchorPersistTimer;
-  bool _anchorPersistencePending = false;
-
-  /// Settles with the newest workspace write. Those writes are serial, so
-  /// every earlier one has settled by then too.
-  Future<void> _workspacesSaved = Future<void>.value();
-
   ForumWorkspace? get currentWorkspace {
     final siteUrl = currentInstance?.url;
-    return siteUrl == null ? null : _forumWorkspaces[siteUrl];
+    return siteUrl == null ? null : _workspace.forSite(siteUrl);
   }
 
-  ForumWorkspace? workspaceFor(String siteUrl) => _forumWorkspaces[siteUrl];
+  ForumWorkspace? workspaceFor(String siteUrl) => _workspace.forSite(siteUrl);
 
   bool _desktopTopicTabs = false;
   bool get desktopTopicTabs => _desktopTopicTabs;
   set desktopTopicTabs(bool value) {
     if (_desktopTopicTabs == value) return;
     _desktopTopicTabs = value;
-    if (value) {
-      for (final workspace in _forumWorkspaces.values.toList()) {
-        _putWorkspace(workspace);
-      }
-      scheduleMicrotask(() {
-        if (!isDisposed && desktopPanelsEnabled && currentInstance != null) {
-          _hydrateActiveTab(currentInstance!);
-          _syncTopicChannels();
-        }
-      });
-    }
+    if (value) _workspace.configureDesktopPanels();
   }
 
   /// Whether the desktop workspace currently has room for both panels.
@@ -1648,6 +1623,7 @@ class ShellController extends FrameSafeNotifier
       currentWorkspace?.selectedTabIn(panel);
 
   bool get _tabContextDisposed => isDisposed;
+  bool get _workspaceHasListeners => hasListeners;
 
   ShellTabContext tabContext(String? tabId) => ShellTabContext._(this, tabId);
   ShellTabContext get focusedTabContext => tabContext(activeTabId);
@@ -1656,22 +1632,10 @@ class ShellController extends FrameSafeNotifier
   @override
   String? get activeTabId => activeTab?.id;
   List<ForumTab> get tabsForCurrentForum => currentWorkspace?.tabs ?? const [];
-  List<ForumTab> get recentlyClosedTabsForCurrentForum {
-    final workspace = currentWorkspace;
-    if (workspace == null) return const [];
-    final openIds = {for (final tab in workspace.tabs) tab.id};
-    return List.unmodifiable([
-      for (final closed in _closedForumTabs.reversed)
-        if (closed.siteUrl == workspace.siteUrl &&
-            closed.accountIdentity == workspace.accountIdentity &&
-            !openIds.contains(closed.tab.id))
-          closed.tab,
-    ]);
-  }
+  List<ForumTab> get recentlyClosedTabsForCurrentForum =>
+      _workspace.recentlyClosed;
 
-  bool get canCreateTab =>
-      forumTabsEnabled &&
-      (currentWorkspace?.tabs.length ?? 0) < ForumWorkspace.maximumTabs;
+  bool get canCreateTab => _workspace.canCreateTab;
 
   String? get destinationId => activeTab?.rootDestinationId;
 
@@ -1862,10 +1826,10 @@ class ShellController extends FrameSafeNotifier
       }
       if (target.id != activeTabId) selectTab(target.id);
     }
-    _preparePluginPaneForRoute(route);
+    _workspace.preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return TabOpenResult.unsupported;
-    _replaceActiveTab(
+    _workspace.replaceActiveTab(
       tab.navigate(rootDestinationId: route.id, contentStack: [route]),
     );
     _setForumContentRoot();
@@ -2079,23 +2043,6 @@ class ShellController extends FrameSafeNotifier
       ? 'anonymous'
       : 'user:${instance.user!.username.toLowerCase()}';
 
-  String _nextTabId() {
-    final held = <String>{
-      for (final workspace in _forumWorkspaces.values)
-        for (final tab in workspace.tabs) tab.id,
-    };
-    late String id;
-    do {
-      _tabSequence++;
-      id =
-          'tab-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}-'
-          '${_tabSequence.toRadixString(36)}';
-    } while (held.contains(id));
-    return id;
-  }
-
-  final Set<String> _pendingHomepageTabs = {};
-
   HomepagePlugin? _registeredHomepage(String id) => plugins.registry.plugins
       .whereType<HomepagePlugin>()
       .where((plugin) => plugin.homepageId == id)
@@ -2112,182 +2059,6 @@ class ShellController extends FrameSafeNotifier
             )?.homepage(config, instance.user)
           : null,
     );
-  }
-
-  ForumTab _newDefaultTab() {
-    final id = _nextTabId();
-    return ForumTab(
-      id: id,
-      rootDestinationId: 'new-tab',
-      contentStack: [ContentRoute.newTab()],
-    );
-  }
-
-  ForumWorkspace _newWorkspace(DiscourseInstance instance) {
-    final id = _nextTabId();
-    final tab = ForumTab(
-      id: id,
-      rootDestinationId: instance.defaultDestination.id,
-      contentStack: [_homepageFor(instance)],
-    );
-    _pendingHomepageTabs.add(id);
-    return ForumWorkspace(
-      siteUrl: instance.url,
-      accountIdentity: _workspaceAccountIdentity(instance),
-      tabs: [tab],
-      activeTabId: tab.id,
-    );
-  }
-
-  ForumWorkspace _normalizeWorkspace(ForumWorkspace workspace) {
-    if (!forumTabsEnabled && workspace.tabs.length > 1) {
-      return workspace.copyWith(tabs: [workspace.activeTab]);
-    }
-    if (forumTabsEnabled) {
-      final limit = desktopPanelsEnabled
-          ? ForumWorkspace.maximumWorkspaceTabs
-          : ForumWorkspace.maximumTabs;
-      for (final panel in ForumPanel.values) {
-        if (panel == ForumPanel.secondary && !desktopPanelsEnabled) continue;
-        if (workspace.tabsIn(panel).isEmpty && workspace.tabs.length < limit) {
-          final tab = _newDefaultTab().copyWith(panel: panel);
-          workspace = workspace.copyWith(tabs: [...workspace.tabs, tab]);
-        }
-      }
-    }
-    return workspace;
-  }
-
-  ForumWorkspace _ensureWorkspace(
-    DiscourseInstance instance, {
-    bool persist = true,
-  }) {
-    final existing = _forumWorkspaces[instance.url];
-    if (existing != null &&
-        existing.accountIdentity == _workspaceAccountIdentity(instance)) {
-      return existing;
-    }
-    _forgetPluginPaneTabs(instance.url);
-    final workspace = _normalizeWorkspace(_newWorkspace(instance));
-    _forumWorkspaces[instance.url] = workspace;
-    _retainSearchTabState();
-    if (persist) _persistWorkspaces();
-    return workspace;
-  }
-
-  void _putWorkspace(ForumWorkspace workspace, {bool persist = true}) {
-    final normalized = _normalizeWorkspace(workspace);
-    _forumWorkspaces[normalized.siteUrl] = normalized;
-    _retainSearchTabState();
-    final liveTabIds = {for (final tab in normalized.tabs) tab.id};
-    _postWindowCaches.removeWhere(
-      (key, _) => key.$1 == normalized.siteUrl && !liveTabIds.contains(key.$2),
-    );
-    _postWindowCacheKeys.removeWhere(
-      (key, _) => key.$1 == normalized.siteUrl && !liveTabIds.contains(key.$2),
-    );
-    _mainPaneTabs.removeWhere(
-      (key, _) =>
-          key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
-    );
-    _pluginPaneTabs.removeWhere(
-      (key, _) =>
-          key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
-    );
-    _activePluginPanes.removeWhere(
-      (key, _) =>
-          key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
-    );
-    _coldPluginPanes.removeWhere(
-      (key) =>
-          key.siteUrl == normalized.siteUrl && !liveTabIds.contains(key.tabId),
-    );
-    if (persist) _persistWorkspaces();
-  }
-
-  void _retainSearchTabState() => search.retainTabs({
-    for (final workspace in _forumWorkspaces.values)
-      for (final tab in workspace.tabs)
-        (siteUrl: workspace.siteUrl, tabId: tab.id),
-    for (final closed in _closedForumTabs)
-      (siteUrl: closed.siteUrl, tabId: closed.tab.id),
-  });
-
-  void _removeWorkspace(String siteUrl, {bool persist = true}) {
-    _forgetPluginPaneTabs(siteUrl);
-    final removed = _forumWorkspaces.remove(siteUrl);
-    if (removed == null) return;
-    // A homepage still waiting for its config can no longer hydrate a tab
-    // that has left the workspace map.
-    for (final tab in removed.tabs) {
-      _pendingHomepageTabs.remove(tab.id);
-    }
-    if (persist) _persistWorkspaces();
-  }
-
-  void _forgetPluginPaneTabs(String siteUrl) {
-    _mainPaneTabs.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _pluginPaneTabs.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _activePluginPanes.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _coldPluginPanes.removeWhere((key) => key.siteUrl == siteUrl);
-  }
-
-  void _persistWorkspaces() {
-    _tabSelectionPersistencePending = false;
-    // Any full write already carries the in-memory anchors, so a waiting
-    // anchor window has nothing left to add.
-    _anchorPersistencePending = false;
-    // The store reports its own failures; this only records when it is done.
-    _workspacesSaved = forumTabs
-        .save(_forumWorkspaces.values, selectedSiteUrl: currentInstance?.url)
-        .then<void>((_) {}, onError: (Object _, StackTrace _) {});
-  }
-
-  void _schedulePersistAnchors() {
-    _anchorPersistencePending = true;
-    if (_anchorPersistTimer != null) return;
-    _anchorPersistTimer = Timer(anchorPersistDebounce, () {
-      _anchorPersistTimer = null;
-      if (isDisposed || !_anchorPersistencePending) return;
-      _persistWorkspaces();
-    });
-  }
-
-  void _flushPendingAnchorPersist() {
-    _anchorPersistTimer?.cancel();
-    _anchorPersistTimer = null;
-    if (_anchorPersistencePending) _persistWorkspaces();
-  }
-
-  void flushAnchorPersist() {
-    if (isDisposed) return;
-    _flushPendingAnchorPersist();
-  }
-
-  void _replaceTab(
-    String siteUrl,
-    ForumTab replacement, {
-    bool persist = true,
-  }) {
-    final workspace = _forumWorkspaces[siteUrl];
-    if (workspace == null || workspace.tabById(replacement.id) == null) return;
-    _putWorkspace(
-      workspace.copyWith(
-        tabs: [
-          for (final tab in workspace.tabs)
-            if (tab.id == replacement.id) replacement else tab,
-        ],
-      ),
-      persist: persist,
-    );
-  }
-
-  void _replaceActiveTab(ForumTab replacement, {bool persist = true}) {
-    _pendingHomepageTabs.remove(replacement.id);
-    final siteUrl = currentInstance?.url;
-    if (siteUrl != null) {
-      _replaceTab(siteUrl, replacement, persist: persist);
-    }
   }
 
   Future<void>? _loadTask;
@@ -2388,19 +2159,7 @@ class ShellController extends FrameSafeNotifier
       (instance) => instance.url == forumTabs.selectedSiteUrl,
     );
     _instanceIndex = selectedIndex < 0 ? 0 : selectedIndex;
-    _forumWorkspaces.clear();
-    var workspacesNormalized = false;
-    for (final workspace in workspaces) {
-      final normalized = _normalizeWorkspace(workspace);
-      workspacesNormalized =
-          workspacesNormalized || !identical(normalized, workspace);
-      final instance = _instanceAt(workspace.siteUrl);
-      if (instance != null &&
-          workspace.accountIdentity == _workspaceAccountIdentity(instance)) {
-        _forumWorkspaces[workspace.siteUrl] = normalized;
-      }
-    }
-    _retainSearchTabState();
+    final workspacesNormalized = _workspace.restore(workspaces);
     // Only forums on the rail keep Start page visits: a removal may have ended
     // before its visits were saved away, and older builds kept them. An empty
     // rail may be a list that could not be decoded, so it must not erase every
@@ -2412,7 +2171,7 @@ class ShellController extends FrameSafeNotifier
         });
     // Existing installations have tab history but no separate Start page
     // visits yet. Seed it once so those visits appear after the upgrade.
-    for (final workspace in _forumWorkspaces.values) {
+    for (final workspace in _workspace.values) {
       if (recentDestinations.hasVisits(
         workspace.siteUrl,
         workspace.accountIdentity,
@@ -2435,7 +2194,7 @@ class ShellController extends FrameSafeNotifier
       }
     }
     if (recentDestinationsChanged) unawaited(recentDestinations.save());
-    if (workspacesNormalized) _persistWorkspaces();
+    if (workspacesNormalized) _workspace.persist();
     final initialInstance = currentInstance;
     // A persisted palette is already good enough for the first frame. Its
     // expensive stylesheet refresh follows the selected account's small JSON
@@ -3815,7 +3574,7 @@ class ShellController extends FrameSafeNotifier
       closeTab(active.id);
       return;
     }
-    _replaceActiveTab(_closeTopicRoute(active));
+    _workspace.replaceActiveTab(_closeTopicRoute(active));
     _syncTopicChannels();
     _notify();
     if (currentInstance case final instance?) _hydrateActiveTab(instance);
@@ -4592,7 +4351,7 @@ class ShellController extends FrameSafeNotifier
     topicFeeds.saveScrollRow(instance.url, destinationId, row);
     final previous = tab.anchors[destinationId];
     if (previous?.kind == 'feed' && previous?.itemId == row) return;
-    _replaceTab(
+    _workspace.replaceTab(
       instance.url,
       tab.copyWith(
         anchors: {
@@ -4602,7 +4361,7 @@ class ShellController extends FrameSafeNotifier
       ),
       persist: false,
     );
-    _schedulePersistAnchors();
+    _workspace.schedulePersistAnchors();
   }
 
   int? topicScrollPostNumber(int topicId, {String? tabId}) {
@@ -4637,7 +4396,7 @@ class ShellController extends FrameSafeNotifier
         previous?.offset == viewportOffset) {
       return;
     }
-    _replaceTab(
+    _workspace.replaceTab(
       currentInstance!.url,
       tab.copyWith(
         anchors: {
@@ -4651,7 +4410,7 @@ class ShellController extends FrameSafeNotifier
       ),
       persist: false,
     );
-    _schedulePersistAnchors();
+    _workspace.schedulePersistAnchors();
   }
 
   final Map<String, SiteTracker> _trackers = {};
@@ -6545,13 +6304,13 @@ class ShellController extends FrameSafeNotifier
   /// sites' copies of the drafts are left to finish on their own.
   Future<void> flushForExit() async {
     if (isDisposed) return;
-    _flushPendingAnchorPersist();
-    if (_tabSelectionPersistencePending) _persistWorkspaces();
+    _workspace.flushAnchors();
+    _workspace.flushSelection();
     for (final composer in _composers) {
       unawaited(composer.flushDraftOnBackground());
     }
     await Future.wait([
-      _workspacesSaved,
+      _workspace.writesSettled,
       _composerDrafts.localWritesSettled(),
       destinationBookmarks.flush(),
     ]);
@@ -6565,7 +6324,7 @@ class ShellController extends FrameSafeNotifier
     _backgroundedAt = foreground ? null : _clock();
     // The OS may suspend the process before a debounce timer fires again.
     if (!foreground) {
-      _flushPendingAnchorPersist();
+      _workspace.flushAnchors();
       for (final composer in _composers) {
         unawaited(composer.flushDraftOnBackground());
       }
@@ -7227,7 +6986,7 @@ class ShellController extends FrameSafeNotifier
     if (resetScrollPosition &&
         tab != null &&
         tab.anchors.containsKey(route.id)) {
-      _replaceTab(
+      _workspace.replaceTab(
         document.siteUrl!,
         tab.copyWith(
           anchors: Map<String, ForumTabAnchor>.of(tab.anchors)
@@ -7260,8 +7019,8 @@ class ShellController extends FrameSafeNotifier
                 ],
               )
             : sourceTab.push(route);
-        _pendingHomepageTabs.remove(replacement.id);
-        _replaceTab(document.siteUrl!, replacement);
+        _workspace.consumeHomepage(replacement.id);
+        _workspace.replaceTab(document.siteUrl!, replacement);
         _setForumContentRoot();
         _mobilePane = MobilePane.content;
         _syncTopicChannels();
@@ -7569,166 +7328,6 @@ class ShellController extends FrameSafeNotifier
     return (route: route, siteUrl: instance.url);
   }
 
-  TabOpenResult openContentInNewTab(
-    ContentRoute route, {
-    String? siteUrl,
-    ForumPanel? panel,
-    int? index,
-    bool? select,
-    String? rootDestinationId,
-    ForumTab? source,
-  }) {
-    if (!forumTabsEnabled) return TabOpenResult.unsupported;
-    final instance = siteUrl == null
-        ? currentInstance
-        : _instances.where((site) => site.url == siteUrl).firstOrNull;
-    if (instance == null) return TabOpenResult.unsupported;
-    final workspace = _ensureWorkspace(instance);
-    if (workspace.tabs.length >= ForumWorkspace.maximumTabs) {
-      return TabOpenResult.limitReached;
-    }
-    final root = _newDefaultTab();
-    final tab =
-        (source != null
-                ? ForumTab(
-                    id: root.id,
-                    rootDestinationId: source.rootDestinationId,
-                    contentStack: [
-                      ...source.contentStack
-                          .where(
-                            (item) =>
-                                !item.sameDestinationAs(route) &&
-                                (!route.isTopic || !item.isTopic),
-                          )
-                          .take(ForumTab.maximumContentRoutes - 1),
-                      route,
-                    ],
-                  )
-                : root.copyWith(
-                    rootDestinationId: rootDestinationId ?? route.id,
-                    contentStack: [route],
-                  ))
-            .copyWith(
-              panel: panel ?? workspace.activeTab.panel,
-              rootDestinationId: rootDestinationId,
-            );
-    final activate = select ?? desktopTopicTabs;
-    _pendingHomepageTabs.remove(tab.id);
-    final tabs = [...workspace.tabs];
-    if (index == null) {
-      tabs.add(tab);
-    } else {
-      final destinationTabs = tabs
-          .where((item) => item.panel == tab.panel)
-          .toList();
-      final position = index.clamp(0, destinationTabs.length);
-      final insertion = position < destinationTabs.length
-          ? tabs.indexOf(destinationTabs[position])
-          : destinationTabs.isEmpty
-          ? tabs.length
-          : tabs.indexOf(destinationTabs.last) + 1;
-      tabs.insert(insertion, tab);
-    }
-    _putWorkspace(
-      workspace.copyWith(tabs: tabs, activeTabId: activate ? tab.id : null),
-    );
-    _rememberRoute(instance.url, workspace.accountIdentity, route);
-    if (activate && currentInstance?.url == instance.url) {
-      _mobilePane = MobilePane.content;
-      _hydrateActiveTab(instance);
-    }
-    _syncTopicChannels();
-    _notify();
-    return TabOpenResult.opened;
-  }
-
-  TabOpenResult openContentInPanel(
-    ContentRoute route, {
-    required ForumPanel panel,
-    bool resetScrollPosition = false,
-    ShellTabContext? context,
-  }) {
-    final instance = currentInstance;
-    final workspace = currentWorkspace;
-    if (context != null &&
-        (!identical(context.shell, this) || !context.isCurrent)) {
-      return TabOpenResult.unsupported;
-    }
-    final source = context == null ? activeTab : context.tab;
-    if (instance == null || workspace == null || source == null) {
-      return TabOpenResult.unsupported;
-    }
-    if (source.panel == panel && context != null && source.id != activeTabId) {
-      final anchors = Map<String, ForumTabAnchor>.of(source.anchors);
-      if (resetScrollPosition) anchors.remove(route.id);
-      _pendingHomepageTabs.remove(source.id);
-      _replaceTab(instance.url, source.copyWith(anchors: anchors).push(route));
-      _setForumContentRoot();
-      _syncTopicChannels();
-      _notify();
-      _hydrateTab(instance, context);
-      return TabOpenResult.opened;
-    }
-    if (source.panel == panel) {
-      if (resetScrollPosition && source.anchors.containsKey(route.id)) {
-        _replaceActiveTab(
-          source.copyWith(
-            anchors: Map<String, ForumTabAnchor>.of(source.anchors)
-              ..remove(route.id),
-          ),
-          persist: false,
-        );
-      }
-      pushContent(route);
-      _hydrateActiveTab(instance);
-      return TabOpenResult.opened;
-    }
-    final selected = workspace.selectedTabIn(panel);
-    if (selected == null) {
-      return openContentInNewTab(
-        route,
-        panel: panel,
-        select: true,
-        source: source,
-      );
-    }
-
-    final target = selected.navigate(
-      rootDestinationId: source.rootDestinationId,
-      contentStack: [
-        ...source.contentStack
-            .where(
-              (item) =>
-                  !item.sameDestinationAs(route) &&
-                  (!route.isTopic || !item.isTopic),
-            )
-            .take(ForumTab.maximumContentRoutes - 1),
-        route,
-      ],
-    );
-    final updated = resetScrollPosition
-        ? target.copyWith(
-            anchors: Map<String, ForumTabAnchor>.of(target.anchors)
-              ..remove(route.id),
-          )
-        : target;
-    _pendingHomepageTabs.remove(updated.id);
-    _putWorkspace(
-      workspace.copyWith(
-        tabs: [
-          for (final tab in workspace.tabs)
-            if (tab.id == updated.id) updated else tab,
-        ],
-        activeTabId: updated.id,
-      ),
-    );
-    _setForumContentRoot();
-    _syncTopicChannels();
-    _notify();
-    _hydrateActiveTab(instance);
-    return TabOpenResult.opened;
-  }
-
   bool openBadgeUrl(String url, {String? title, bool refresh = false}) {
     final destination = _routeForLink(url, title: title);
     if (destination == null ||
@@ -7855,7 +7454,7 @@ class ShellController extends FrameSafeNotifier
         color: route.color,
       );
       _topicNavigationRevisions[tab.id] = document.topicNavigationRevision + 1;
-      _replaceTab(
+      _workspace.replaceTab(
         document.siteUrl!,
         tab.copyWith(
           contentStack: [
@@ -8079,7 +7678,7 @@ class ShellController extends FrameSafeNotifier
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
     if (route.sameDestinationAs(currentContent)) {
-      _pendingHomepageTabs.remove(activeTabId);
+      _workspace.consumeHomepage(activeTabId);
       if (rootChanged) _notify();
       return true;
     }
@@ -8507,7 +8106,7 @@ class ShellController extends FrameSafeNotifier
     TopicDetail detail,
   ) {
     if (!detail.privateMessage) return;
-    final workspace = _forumWorkspaces[siteUrl];
+    final workspace = _workspace.forSite(siteUrl);
     final tab = workspace?.tabs.where((tab) => tab.id == tabId).firstOrNull;
     if (workspace == null ||
         tab == null ||
@@ -8526,7 +8125,7 @@ class ShellController extends FrameSafeNotifier
     }
 
     final messages = ContentRoute.messages();
-    _putWorkspace(
+    _workspace.put(
       workspace.copyWith(
         tabs: [
           for (final candidate in workspace.tabs)
@@ -8604,7 +8203,7 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     ContentRoute Function(ContentRoute route) rewrite,
   ) {
-    final workspace = _forumWorkspaces[siteUrl];
+    final workspace = _workspace.forSite(siteUrl);
     if (workspace == null) return false;
     var changed = false;
     final tabs = <ForumTab>[];
@@ -8613,7 +8212,7 @@ class ShellController extends FrameSafeNotifier
       changed = changed || !identical(updated, tab);
       tabs.add(updated);
     }
-    if (changed) _putWorkspace(workspace.copyWith(tabs: tabs));
+    if (changed) _workspace.put(workspace.copyWith(tabs: tabs));
     return changed;
   }
 
@@ -14636,8 +14235,9 @@ class ShellController extends FrameSafeNotifier
     final whisper = composer.whisper;
     final lease = lifecycle.capture(target.siteUrl);
     if (target.createsTopic) {
-      _composerSubmissionTabs[composer] =
-          _forumWorkspaces[target.siteUrl]?.activeTabId;
+      _composerSubmissionTabs[composer] = _workspace
+          .forSite(target.siteUrl)
+          ?.activeTabId;
     }
 
     if (target.isEdit) {
@@ -15472,7 +15072,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (!wasRetained) return;
     final origin = target.originFeedId;
-    final workspace = _forumWorkspaces[target.siteUrl];
+    final workspace = _workspace.forSite(target.siteUrl);
     final submittedTabId = _composerSubmissionTabs[composer];
     final tabId =
         workspace?.tabById(submittedTabId ?? '')?.id ?? workspace?.activeTabId;
@@ -15482,9 +15082,9 @@ class ShellController extends FrameSafeNotifier
         unawaited(loadFeed(origin, force: true));
       }
     } else if (tabId != null) {
-      final tab = _forumWorkspaces[target.siteUrl]?.tabById(tabId);
+      final tab = _workspace.forSite(target.siteUrl)?.tabById(tabId);
       if (tab != null) {
-        _replaceTab(
+        _workspace.replaceTab(
           target.siteUrl,
           tab.push(
             ContentRoute.topic(topicId: topicId, slug: slug, title: title),
@@ -16629,7 +16229,8 @@ class ShellController extends FrameSafeNotifier
   void clearAccountSessionState(String siteUrl) {
     // An operation rotates more than once; keep the workspace from before
     // its first rotation, not one opened on its signed-out boundary since.
-    final workspace = _rotatedWorkspaces[siteUrl] ?? _forumWorkspaces[siteUrl];
+    final workspace =
+        _rotatedWorkspaces[siteUrl] ?? _workspace.forSite(siteUrl);
     _forgetSiteState(siteUrl, invalidateLifecycle: false);
     if (workspace != null) _rotatedWorkspaces[siteUrl] = workspace;
   }
@@ -16676,7 +16277,7 @@ class ShellController extends FrameSafeNotifier
             rotated?.accountIdentity == _workspaceAccountIdentity(applied)
         ? rotated
         : null;
-    if (restoredWorkspace != null) _putWorkspace(restoredWorkspace);
+    if (restoredWorkspace != null) _workspace.put(restoredWorkspace);
 
     _replaceInstance(held, applied);
     if (currentInstance?.url == replacement.url) {
@@ -16712,7 +16313,7 @@ class ShellController extends FrameSafeNotifier
     siteImages.forget(siteUrl);
     videoThumbnails.forget(siteUrl);
     pdfThumbnails.forget(siteUrl);
-    _removeWorkspace(siteUrl);
+    _workspace.remove(siteUrl);
     _rotatedWorkspaces.remove(siteUrl);
     search.forget(siteUrl);
     _composerDrafts.forgetSite(siteUrl);
@@ -16892,7 +16493,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    _ensureWorkspace(instance);
+    _workspace.ensure(instance);
     _activateInstanceWorkspace(
       instance,
       refreshAppearance: refreshAppearance,
@@ -16908,7 +16509,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    _putWorkspace(_newWorkspace(instance));
+    _workspace.reset(instance);
     _activateInstanceWorkspace(instance, refreshAppearance: refreshAppearance);
   }
 
@@ -16983,12 +16584,12 @@ class ShellController extends FrameSafeNotifier
     }
     if (isDisposed ||
         currentInstance?.url != instance.url ||
-        !_pendingHomepageTabs.contains(initialTab.id) ||
+        !_workspace.awaitsHomepage(initialTab.id) ||
         !identical(currentWorkspace?.tabById(initialTab.id), initialTab)) {
       return;
     }
-    _pendingHomepageTabs.remove(initialTab.id);
-    _replaceTab(
+    _workspace.consumeHomepage(initialTab.id);
+    _workspace.replaceTab(
       instance.url,
       initialTab.navigate(
         rootDestinationId: initialTab.rootDestinationId,
@@ -17012,7 +16613,7 @@ class ShellController extends FrameSafeNotifier
 
   void _hydrateTab(DiscourseInstance instance, ShellTabContext context) {
     final initialTab = context.tab;
-    if (initialTab != null && _pendingHomepageTabs.contains(initialTab.id)) {
+    if (initialTab != null && _workspace.awaitsHomepage(initialTab.id)) {
       unawaited(_hydrateHomepage(instance, initialTab));
       return;
     }
@@ -17175,11 +16776,13 @@ class ShellController extends FrameSafeNotifier
   @override
   void selectDestination(SidebarDestination destination) {
     if (!desktopPanelsEnabled) {
-      _preparePluginPaneForRoute(ContentRoute.fromDestination(destination));
+      _workspace.preparePluginPaneForRoute(
+        ContentRoute.fromDestination(destination),
+      );
     }
     final instance = currentInstance;
     if (instance == null) return;
-    final workspace = _ensureWorkspace(instance);
+    final workspace = _workspace.ensure(instance);
     final tab = workspace.activeTab;
     // Tapping what you are already looking at asks for it again — the cache
     // otherwise holds a list for the life of the session, and a mouse cannot
@@ -17202,7 +16805,7 @@ class ShellController extends FrameSafeNotifier
       rootDestinationId: destination.id,
       contentStack: [content],
     );
-    _replaceActiveTab(updated);
+    _workspace.replaceActiveTab(updated);
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -17418,354 +17021,67 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// Switches sidebar panels in a fresh tab, retaining both pane histories.
-  void switchSidebarPanel(VoidCallback switchPanel) {
-    if (!forumTabsEnabled || desktopPanelsEnabled) {
-      switchPanel();
-      return;
-    }
-    final instance = currentInstance;
-    final workspace = currentWorkspace;
-    final source = activeTab;
-    if (!canCreateTab ||
-        instance == null ||
-        workspace == null ||
-        source == null) {
-      return;
-    }
-
-    final id = _nextTabId();
-    ForumTab copyTab(ForumTab tab) => ForumTab(
-      id: id,
-      panel: tab.panel,
-      rootDestinationId: tab.rootDestinationId,
-      contentStack: tab.contentStack,
-      backHistory: tab.backHistory,
-      forwardHistory: tab.forwardHistory,
-      anchors: tab.anchors,
-    );
-
-    for (final panes in [_mainPaneTabs, _pluginPaneTabs]) {
-      final entries = panes.entries
-          .where(
-            (entry) =>
-                entry.key.siteUrl == instance.url &&
-                entry.key.tabId == source.id,
-          )
-          .toList();
-      for (final entry in entries) {
-        panes[(siteUrl: instance.url, tabId: id, owner: entry.key.owner)] =
-            copyTab(entry.value);
-      }
-    }
-    final sourceKey = (siteUrl: instance.url, tabId: source.id);
-    final targetKey = (siteUrl: instance.url, tabId: id);
-    if (_activePluginPanes[sourceKey] case final owner?) {
-      _activePluginPanes[targetKey] = owner;
-    }
-    if (_coldPluginPanes.contains(sourceKey)) {
-      _coldPluginPanes.add(targetKey);
-    }
-    _putWorkspace(
-      workspace.copyWith(
-        tabs: [...workspace.tabs, copyTab(source)],
-        activeTabId: id,
-      ),
-    );
-    _mobilePane = MobilePane.content;
-    _syncTopicChannels();
-    _notify();
-    switchPanel();
+  void flushAnchorPersist() {
+    if (isDisposed) return;
+    _workspace.flushAnchors();
   }
 
-  void createTab({ForumPanel? panel}) {
-    if (!canCreateTab) return;
-    final instance = currentInstance;
-    if (instance == null) return;
-    final workspace = _ensureWorkspace(instance);
-    final tab = _newDefaultTab().copyWith(
-      panel: panel ?? workspace.activeTab.panel,
-    );
-    _putWorkspace(
-      workspace.copyWith(tabs: [...workspace.tabs, tab], activeTabId: tab.id),
-    );
-    _mobilePane = MobilePane.content;
-    _syncTopicChannels();
-    _notify();
-    _hydrateActiveTab(instance);
-  }
+  void switchSidebarPanel(VoidCallback switchPanel) =>
+      _workspace.switchSidebarPanel(switchPanel);
 
-  void selectTab(String id) {
-    if (!forumTabsEnabled) return;
-    final instance = currentInstance;
-    final workspace = currentWorkspace;
-    if (instance == null || workspace?.tabById(id) == null) return;
-    if (workspace!.activeTabId != id) {
-      _putWorkspace(workspace.copyWith(activeTabId: id), persist: false);
-      _tabSelectionPersistencePending = true;
-      _mobilePane = MobilePane.content;
-      _notify();
-      _scheduleTabSelectionSettlement(instance.url, id);
-    }
-  }
+  void createTab({ForumPanel? panel}) => _workspace.createTab(panel: panel);
 
-  /// Moves a tab without replacing its route, history, anchors or identity.
-  void moveTabToPanel(String id, ForumPanel panel, {int? index}) {
-    if (!desktopTopicTabs || !forumTabsEnabled) return;
-    final workspace = currentWorkspace;
-    final tab = workspace?.tabById(id);
-    if (workspace == null || tab == null) return;
-    final sourceWillBeEmpty =
-        tab.panel != panel && workspace.tabsIn(tab.panel).length == 1;
-    if (sourceWillBeEmpty &&
-        workspace.tabs.length >= ForumWorkspace.maximumTabs) {
-      return;
-    }
-    final tabs = [...workspace.tabs]..removeWhere((item) => item.id == id);
-    final destinationTabs = tabs.where((item) => item.panel == panel).toList();
-    final offset = (index ?? destinationTabs.length).clamp(
-      0,
-      destinationTabs.length,
-    );
-    final insertion = offset < destinationTabs.length
-        ? tabs.indexOf(destinationTabs[offset])
-        : destinationTabs.isEmpty
-        ? tabs.length
-        : tabs.indexOf(destinationTabs.last) + 1;
-    tabs.insert(insertion, tab.copyWith(panel: panel));
-    if (sourceWillBeEmpty) {
-      tabs.add(_newDefaultTab().copyWith(panel: tab.panel));
-    }
-    _putWorkspace(workspace.copyWith(tabs: tabs, activeTabId: id));
-    _syncTopicChannels();
-    _notify();
-    if (currentInstance case final instance?) _hydrateActiveTab(instance);
-  }
+  void selectTab(String id) => _workspace.selectTab(id);
 
-  void moveTab(String id, int newIndex) {
-    if (!forumTabsEnabled) return;
-    final workspace = currentWorkspace;
-    if (workspace == null || workspace.tabs.length < 2) return;
-    final oldIndex = workspace.tabs.indexWhere((tab) => tab.id == id);
-    if (oldIndex < 0) return;
-    final destination = newIndex.clamp(0, workspace.tabs.length - 1);
-    if (oldIndex == destination) return;
+  void moveTabToPanel(String id, ForumPanel panel, {int? index}) =>
+      _workspace.moveTabToPanel(id, panel, index: index);
 
-    final reordered = List<ForumTab>.of(workspace.tabs);
-    final moved = reordered.removeAt(oldIndex);
-    reordered.insert(destination, moved);
-    _putWorkspace(workspace.copyWith(tabs: reordered));
-    _notify();
-  }
+  void moveTab(String id, int newIndex) => _workspace.moveTab(id, newIndex);
 
-  void _scheduleTabSelectionSettlement(String siteUrl, String tabId) {
-    _pendingTabSelection = (siteUrl: siteUrl, tabId: tabId);
+  void closeTab(String id) => _workspace.closeTab(id);
 
-    // Controller-only consumers have nothing to paint. Preserve their
-    // synchronous hydration/persistence semantics rather than leaving a task
-    // waiting for a test or headless binding to produce a frame.
-    if (!hasListeners) {
-      _settlePendingTabSelection();
-      return;
-    }
-    if (_tabSelectionSettlementScheduled) return;
-    _tabSelectionSettlementScheduled = true;
+  bool reopenClosedTab([String? id]) => _workspace.reopenClosedTab(id);
 
-    final phase = SchedulerBinding.instance.schedulerPhase;
-    final needsAnotherFrame =
-        phase == SchedulerPhase.persistentCallbacks ||
-        phase == SchedulerPhase.postFrameCallbacks;
-    unawaited(() async {
-      // endOfFrame schedules a frame when called while idle. Unlike a zero
-      // duration timer, it guarantees the selected indicator, header and
-      // cached viewport have had an opportunity to paint first.
-      await SchedulerBinding.instance.endOfFrame;
-      // A selection raised while layout/paint or another post-frame callback
-      // is running cannot notify its widgets until the following frame.
-      if (needsAnotherFrame) await SchedulerBinding.instance.endOfFrame;
-      if (!isDisposed) _settlePendingTabSelection();
-    }());
-  }
+  void closeOtherTabs(String id, {bool? reading, ForumPanel? panel}) =>
+      _workspace.closeOtherTabs(id, reading: reading, panel: panel);
 
-  void _settlePendingTabSelection() {
-    final target = _pendingTabSelection;
-    _pendingTabSelection = null;
-    _tabSelectionSettlementScheduled = false;
-    if (_tabSelectionPersistencePending) _persistWorkspaces();
-    if (target == null ||
-        currentInstance?.url != target.siteUrl ||
-        activeTabId != target.tabId) {
-      return;
-    }
+  TabOpenResult openContentInNewTab(
+    ContentRoute route, {
+    String? siteUrl,
+    ForumPanel? panel,
+    int? index,
+    bool? select,
+    String? rootDestinationId,
+    ForumTab? source,
+  }) => _workspace.openContentInNewTab(
+    route,
+    siteUrl: siteUrl,
+    panel: panel,
+    index: index,
+    select: select,
+    rootDestinationId: rootDestinationId,
+    source: source,
+  );
 
-    final instance = _instanceAt(target.siteUrl);
-    if (instance == null) return;
-    _syncTopicChannels();
-    _hydrateActiveTab(instance);
-  }
+  TabOpenResult openContentInPanel(
+    ContentRoute route, {
+    required ForumPanel panel,
+    bool resetScrollPosition = false,
+    ShellTabContext? context,
+  }) => _workspace.openContentInPanel(
+    route,
+    panel: panel,
+    resetScrollPosition: resetScrollPosition,
+    context: context,
+  );
 
-  void closeTab(String id) {
-    if (!forumTabsEnabled) return;
-    final instance = currentInstance;
-    final workspace = currentWorkspace;
-    if (instance == null || workspace == null) return;
-    final index = workspace.tabs.indexWhere((tab) => tab.id == id);
-    if (index < 0) return;
+  @override
+  bool activatePluginPane(PluginId owner) =>
+      _workspace.activatePluginPane(owner);
 
-    final closedActive = workspace.activeTabId == id;
-    final closedVisible = isTabVisible(id);
-    _rememberClosedForumTab(
-      siteUrl: workspace.siteUrl,
-      accountIdentity: workspace.accountIdentity,
-      tab: workspace.tabs[index],
-      index: index,
-    );
-    late ForumWorkspace replacement;
-    if (workspace.tabs.length == 1) {
-      final fresh = _newDefaultTab().copyWith(
-        panel: workspace.tabs[index].panel,
-      );
-      replacement = workspace.copyWith(tabs: [fresh], activeTabId: fresh.id);
-    } else {
-      final remaining = [
-        for (final tab in workspace.tabs)
-          if (tab.id != id) tab,
-      ];
-      final neighbours = [
-        ...workspace.tabs.skip(index + 1),
-        ...workspace.tabs.take(index).toList().reversed,
-      ];
-      final neighbour = neighbours
-          .where((tab) => tab.panel == workspace.tabs[index].panel)
-          .firstOrNull;
-      final fresh = neighbour == null
-          ? _newDefaultTab().copyWith(panel: workspace.tabs[index].panel)
-          : null;
-      if (fresh != null) remaining.add(fresh);
-      final activeId = closedActive
-          ? (neighbour ?? fresh ?? remaining.first).id
-          : workspace.activeTabId;
-      replacement = workspace.copyWith(
-        tabs: remaining,
-        activeTabId: activeId,
-        mainTabId: workspace.selectedTabIn(ForumPanel.main)?.id == id
-            ? (neighbour ?? fresh)?.id
-            : null,
-        secondaryTabId: workspace.selectedTabIn(ForumPanel.secondary)?.id == id
-            ? (neighbour ?? fresh)?.id
-            : null,
-      );
-    }
-
-    _putWorkspace(replacement);
-    if (closedVisible) {
-      _syncTopicChannels();
-      _hydrateActiveTab(instance);
-    }
-    _notify();
-  }
-
-  bool reopenClosedTab([String? id]) {
-    if (!forumTabsEnabled || !canCreateTab) return false;
-    final instance = currentInstance;
-    final workspace = currentWorkspace;
-    if (instance == null || workspace == null) return false;
-
-    for (var index = _closedForumTabs.length - 1; index >= 0; index--) {
-      final closed = _closedForumTabs[index];
-      if (closed.siteUrl != workspace.siteUrl ||
-          closed.accountIdentity != workspace.accountIdentity ||
-          (id != null && closed.tab.id != id)) {
-        continue;
-      }
-      _closedForumTabs.removeAt(index);
-      if (workspace.tabById(closed.tab.id) != null) continue;
-
-      final tabs = List<ForumTab>.of(workspace.tabs);
-      tabs.insert(closed.index.clamp(0, tabs.length), closed.tab);
-      _putWorkspace(workspace.copyWith(tabs: tabs, activeTabId: closed.tab.id));
-      _mobilePane = MobilePane.content;
-      _syncTopicChannels();
-      _notify();
-      _hydrateActiveTab(instance);
-      return true;
-    }
-    return false;
-  }
-
-  void _rememberClosedForumTab({
-    required String siteUrl,
-    required String accountIdentity,
-    required ForumTab tab,
-    required int index,
-  }) {
-    if (tab.currentContent.isNewTab) return;
-    _closedForumTabs.removeWhere(
-      (closed) =>
-          closed.siteUrl == siteUrl &&
-          closed.accountIdentity == accountIdentity &&
-          closed.tab.id == tab.id,
-    );
-    _closedForumTabs.add((
-      siteUrl: siteUrl,
-      accountIdentity: accountIdentity,
-      tab: tab,
-      index: index,
-    ));
-    if (_closedForumTabs.length > ForumWorkspace.maximumTabs) {
-      _closedForumTabs.removeAt(0);
-    }
-  }
-
-  void closeOtherTabs(String id, {bool? reading, ForumPanel? panel}) {
-    if (!forumTabsEnabled) return;
-    final instance = currentInstance;
-    final workspace = currentWorkspace;
-    if (instance == null || workspace == null || workspace.tabs.length == 1) {
-      return;
-    }
-    final kept = workspace.tabById(id);
-    if (kept == null) return;
-
-    // Remembered right to left so that reopening restores the leftmost tab
-    // first, and every reopen lands at the position it left.
-    for (var index = workspace.tabs.length - 1; index >= 0; index--) {
-      final tab = workspace.tabs[index];
-      if (tab.id == id ||
-          (panel != null
-              ? tab.panel != panel
-              : reading != null && tab.currentContent.isTopic != reading)) {
-        continue;
-      }
-      _rememberClosedForumTab(
-        siteUrl: workspace.siteUrl,
-        accountIdentity: workspace.accountIdentity,
-        tab: tab,
-        index: index,
-      );
-    }
-    final activeChanged = workspace.activeTabId != id;
-    final remaining = [
-      for (final tab in workspace.tabs)
-        if (tab.id == id ||
-            (panel != null
-                ? tab.panel != panel
-                : reading != null && tab.currentContent.isTopic != reading))
-          tab,
-    ];
-    for (final panel in ForumPanel.values) {
-      if (workspace.tabsIn(panel).isNotEmpty &&
-          !remaining.any((tab) => tab.panel == panel)) {
-        remaining.add(_newDefaultTab().copyWith(panel: panel));
-      }
-    }
-    _putWorkspace(workspace.copyWith(tabs: remaining, activeTabId: id));
-    if (activeChanged) {
-      _syncTopicChannels();
-      _hydrateActiveTab(instance);
-    }
-    _notify();
-  }
+  @override
+  void deactivatePluginPane(PluginId owner) =>
+      _workspace.deactivatePluginPane(owner);
 
   void openDrafts(String siteUrl) {
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
@@ -17949,11 +17265,11 @@ class ShellController extends FrameSafeNotifier
       openContentInPanel(route, panel: requestedPanel);
       return;
     }
-    final startsPluginPane = _preparePluginPaneForRoute(route);
+    final startsPluginPane = _workspace.preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
-    _replaceActiveTab(
+    _workspace.replaceActiveTab(
       startsPluginPane
           ? tab.copyWith(
               rootDestinationId: route.id,
@@ -17980,11 +17296,11 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void replaceCurrentContent(ContentRoute route) {
-    final startsPluginPane = _preparePluginPaneForRoute(route);
+    final startsPluginPane = _workspace.preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
-    _replaceActiveTab(
+    _workspace.replaceActiveTab(
       startsPluginPane
           ? tab.copyWith(
               rootDestinationId: route.id,
@@ -18013,191 +17329,6 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  @override
-  bool activatePluginPane(PluginId owner) {
-    if (mobileNavigationEnabled || desktopPanelsEnabled) return false;
-    final instance = currentInstance;
-    var tab = activeTab;
-    if (instance == null || tab == null) return false;
-
-    var stateKey = (siteUrl: instance.url, tabId: tab.id);
-    var activeOwner = _activePluginPanes[stateKey];
-    if (activeOwner == null &&
-        tab.currentContent.destination is ExtensionDestination) {
-      final currentRouteId = tab.currentContent.id;
-      final restoredPolicy = _pluginSession
-          .capabilities<PluginPaneRoutePolicy>()
-          .where(
-            (policy) =>
-                policy.ownsPluginPaneRoute(currentRouteId) &&
-                policy.separatesPluginPane(currentRouteId),
-          )
-          .firstOrNull;
-      if (restoredPolicy != null) {
-        activeOwner = restoredPolicy.pluginPaneOwner;
-        _activePluginPanes[stateKey] = activeOwner;
-      }
-    }
-    if (activeOwner == owner) {
-      return !_coldPluginPanes.contains(stateKey);
-    }
-    if (activeOwner != null) {
-      _deactivatePluginPane(activeOwner, notifyAndHydrate: false);
-      tab = activeTab;
-      if (tab == null) return false;
-      stateKey = (siteUrl: instance.url, tabId: tab.id);
-    }
-    final key = (siteUrl: instance.url, tabId: tab.id, owner: owner);
-    _activePluginPanes[stateKey] = owner;
-    _mainPaneTabs[key] = tab;
-    final pluginTab = _pluginPaneTabs[key];
-    if (pluginTab == null) {
-      _coldPluginPanes.add(stateKey);
-      return false;
-    }
-
-    _coldPluginPanes.remove(stateKey);
-    _restorePluginPaneTab(instance, pluginTab);
-    return true;
-  }
-
-  @override
-  void deactivatePluginPane(PluginId owner) {
-    if (mobileNavigationEnabled) {
-      handleBack();
-      return;
-    }
-    if (desktopPanelsEnabled) {
-      final instance = currentInstance;
-      final active = activeTab;
-      if (instance == null || active == null) return;
-      final policies = _pluginSession.capabilities<PluginPaneRoutePolicy>();
-      final source = tabsForCurrentForum.reversed
-          .where(
-            (tab) =>
-                tab.panel == activeTab?.panel &&
-                (tab.currentContent.destination is! ExtensionDestination ||
-                    policies.every(
-                      (policy) =>
-                          !policy.ownsPluginPaneRoute(tab.currentContent.id),
-                    )),
-          )
-          .firstOrNull;
-      _replaceActiveTab(
-        active.navigate(
-          rootDestinationId:
-              source?.rootDestinationId ?? instance.defaultDestination.id,
-          contentStack: [source?.currentContent ?? _homepageFor(instance)],
-        ),
-      );
-      _mobilePane = MobilePane.content;
-      _syncTopicChannels();
-      _notify();
-      _hydrateActiveTab(instance);
-      return;
-    }
-    _deactivatePluginPane(owner, notifyAndHydrate: true);
-  }
-
-  void _deactivatePluginPane(PluginId owner, {required bool notifyAndHydrate}) {
-    final instance = currentInstance;
-    final tab = activeTab;
-    if (instance == null || tab == null) return;
-
-    final stateKey = (siteUrl: instance.url, tabId: tab.id);
-    final activeOwner = _activePluginPanes[stateKey];
-    if (activeOwner != null && activeOwner != owner) return;
-    _activePluginPanes.remove(stateKey);
-    final wasCold = _coldPluginPanes.remove(stateKey);
-    final key = (siteUrl: instance.url, tabId: tab.id, owner: owner);
-    if (!wasCold) _pluginPaneTabs[key] = tab;
-    final mainTab =
-        _mainPaneTabs.remove(key) ??
-        ForumTab(
-          id: tab.id,
-          rootDestinationId: instance.defaultDestination.id,
-          contentStack: [_homepageFor(instance)],
-        );
-    _restorePluginPaneTab(
-      instance,
-      mainTab,
-      notifyAndHydrate: notifyAndHydrate,
-    );
-  }
-
-  bool _preparePluginPaneForRoute(ContentRoute route) {
-    final routeId = route.id;
-    final isExtension = route.destination is ExtensionDestination;
-    if (mobileNavigationEnabled || desktopPanelsEnabled) return false;
-    final instance = currentInstance;
-    final tab = activeTab;
-    if (instance == null || tab == null) return false;
-
-    final stateKey = (siteUrl: instance.url, tabId: tab.id);
-    final policies = _pluginSession
-        .capabilities<PluginPaneRoutePolicy>()
-        .toList(growable: false);
-    var owner = _activePluginPanes[stateKey];
-    if (owner == null &&
-        tab.currentContent.destination is ExtensionDestination) {
-      final currentRouteId = tab.currentContent.id;
-      final currentPolicy = policies
-          .where(
-            (policy) =>
-                policy.ownsPluginPaneRoute(currentRouteId) &&
-                policy.separatesPluginPane(currentRouteId),
-          )
-          .firstOrNull;
-      if (currentPolicy != null) {
-        owner = currentPolicy.pluginPaneOwner;
-        _activePluginPanes[stateKey] = owner;
-      }
-    }
-
-    if (owner != null) {
-      final staysInPane =
-          isExtension &&
-          policies.any(
-            (policy) =>
-                policy.pluginPaneOwner == owner &&
-                policy.ownsPluginPaneRoute(routeId) &&
-                policy.separatesPluginPane(routeId),
-          );
-      if (staysInPane) return _coldPluginPanes.remove(stateKey);
-      _deactivatePluginPane(owner, notifyAndHydrate: false);
-    }
-
-    final targetPolicy = isExtension
-        ? policies
-              .where(
-                (policy) =>
-                    policy.ownsPluginPaneRoute(routeId) &&
-                    policy.separatesPluginPane(routeId),
-              )
-              .firstOrNull
-        : null;
-    if (targetPolicy != null) {
-      activatePluginPane(targetPolicy.pluginPaneOwner);
-      return _coldPluginPanes.remove(stateKey);
-    }
-    return false;
-  }
-
-  void _restorePluginPaneTab(
-    DiscourseInstance instance,
-    ForumTab tab, {
-    bool notifyAndHydrate = true,
-  }) {
-    _setForumContentRoot();
-    _replaceActiveTab(tab);
-    _mobilePane = MobilePane.content;
-    _syncTopicChannels();
-    if (notifyAndHydrate) {
-      _notify();
-      _hydrateActiveTab(instance);
-    }
-  }
-
   bool handleBack({bool canReturnToSidebar = true}) =>
       focusedTabContext.handleBack(canReturnToSidebar: canReturnToSidebar);
 
@@ -18209,7 +17340,7 @@ class ShellController extends FrameSafeNotifier
 
   void _notifyCurrentWorkspace() {
     if (loaded && forumTabs.selectedSiteUrl != currentInstance?.url) {
-      _persistWorkspaces();
+      _workspace.persist();
     }
     _rememberCurrentContent();
     _topicPrefetch.validate();
@@ -18272,7 +17403,7 @@ class ShellController extends FrameSafeNotifier
     if (mobileNavigation.atRoot) {
       _mobilePane = MobilePane.sidebar;
     } else if (tab != null && location != null) {
-      _replaceActiveTab(
+      _workspace.replaceActiveTab(
         tab.copyWith(
           rootDestinationId: location.rootDestinationId,
           contentStack: location.contentStack,
@@ -18305,21 +17436,14 @@ class ShellController extends FrameSafeNotifier
     // A window can close in the frame immediately after a selection or a
     // scroll. Keep the latest local choice and anchor durable, but never start
     // hydration while tearing the controller down.
-    _pendingTabSelection = null;
-    _tabSelectionSettlementScheduled = false;
-    _anchorPersistTimer?.cancel();
-    _anchorPersistTimer = null;
+    _workspace.dispose();
     _topicPostHighlightTimer?.cancel();
     _topicPostHighlightTimer = null;
     _topicPostHighlight = null;
     _topicPostHighlightVisible = false;
-    if (_tabSelectionPersistencePending || _anchorPersistencePending) {
-      _persistWorkspaces();
-    }
     _topicPropertyRequests.dispose();
     unawaited(_topicListRevealRequests.close());
     _topicNotificationWrites.clear();
-    _closedForumTabs.clear();
     _topicNotificationTails.clear();
     _categoryNotificationWrites.clear();
     _categoryNotificationTails.clear();
