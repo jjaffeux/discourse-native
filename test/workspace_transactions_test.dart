@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -113,6 +114,13 @@ void main() {
   testWidgets(
     'post-frame selection defers settlement across the frame boundary',
     (tester) async {
+      await tester.pumpWidget(
+        ListenableBuilder(
+          listenable: shell,
+          builder: (context, child) =>
+              Text(shell.activeTabId!, textDirection: TextDirection.ltr),
+        ),
+      );
       final saves = tabs.saveCount;
       tester.binding.addPostFrameCallback((_) => shell.selectTab('second'));
       tester.binding.scheduleFrame();
@@ -120,10 +128,12 @@ void main() {
       await tester.pump();
 
       expect(shell.activeTabId, 'second');
+      expect(find.text('latest'), findsOneWidget);
       expect(tabs.saveCount, saves);
       expect(api.feedPaths, isNot(contains('/second.json')));
 
       await tester.pump();
+      expect(find.text('second'), findsOneWidget);
       await tester.pump();
 
       expect(tabs.saveCount, saves + 1);
