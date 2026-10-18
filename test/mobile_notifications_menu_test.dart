@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
@@ -385,47 +383,6 @@ void main() {
       }
     });
   }
-
-  testWidgets('touch section list counts grouped unread notifications', (
-    tester,
-  ) async {
-    final controller = await _mount(tester);
-    unawaited(showUserMenuSheet(tester.element(find.byType(UserMenuButton))));
-    await tester.pumpAndSettle();
-    controller.accountActivity.applyLiveNotificationState(
-      'https://meta.example',
-      const {
-        'all_unread_notifications_count': 0,
-        'new_personal_messages_notifications_count': 0,
-        'grouped_unread_notifications': {'2': 3, '6': 2, '24': 1},
-      },
-    );
-    await tester.pumpAndSettle();
-
-    final sheet = find.byKey(const ValueKey('user-menu-sheet'));
-    for (final (label, count) in [
-      ('Replies', '3'),
-      ('Messages', '2'),
-      ('Bookmarks', '1'),
-    ]) {
-      final tile = find.ancestor(
-        of: find.descendant(of: sheet, matching: find.text(label)),
-        matching: find.byType(DItem),
-      );
-      expect(
-        find.descendant(
-          of: tile,
-          matching: find.descendant(
-            of: find.byType(DBadge),
-            matching: find.text(count),
-          ),
-        ),
-        findsOneWidget,
-        reason: label,
-      );
-    }
-    expect(tester.takeException(), isNull);
-  });
 }
 
 Finder _tab(String id) => find.descendant(

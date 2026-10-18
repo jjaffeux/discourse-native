@@ -18411,24 +18411,6 @@ abstract class AppLocalizations {
   /// **'Toggle presence features'**
   String get togglePresenceFeatures;
 
-  /// English UI message used by shell/user_menu.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'This site is no longer available.'**
-  String get thisSiteIsNoLongerAvailable;
-
-  /// English UI message used by shell/user_menu.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'This account is no longer connected.'**
-  String get thisAccountIsNoLongerConnected;
-
-  /// English UI message used by shell/user_menu.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'This section is no longer available.'**
-  String get thisSectionIsNoLongerAvailable;
-
   /// English UI message used by shell/topic_share.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

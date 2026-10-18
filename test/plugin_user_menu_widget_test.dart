@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
@@ -306,11 +304,13 @@ void main() {
         ),
       ]),
       totals: const NotificationTotals(unreadNotifications: 3),
+      platform: TargetPlatform.iOS,
     );
 
-    unawaited(showUserMenuSheet(tester.element(find.byType(UserMenuPanel))));
+    final tab = find.byKey(_alphaTabKey);
+    await tester.ensureVisible(tab);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Alpha activity').last);
+    await tester.tap(tab);
     await tester.pumpAndSettle();
     expect(find.text('Unread: 3'), findsOneWidget);
 

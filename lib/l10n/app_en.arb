@@ -14406,18 +14406,6 @@
   "@togglePresenceFeatures": {
     "description": "English UI message used by shell/user_menu.dart. Keep placeholders intact."
   },
-  "thisSiteIsNoLongerAvailable": "This site is no longer available.",
-  "@thisSiteIsNoLongerAvailable": {
-    "description": "English UI message used by shell/user_menu.dart. Keep placeholders intact."
-  },
-  "thisAccountIsNoLongerConnected": "This account is no longer connected.",
-  "@thisAccountIsNoLongerConnected": {
-    "description": "English UI message used by shell/user_menu.dart. Keep placeholders intact."
-  },
-  "thisSectionIsNoLongerAvailable": "This section is no longer available.",
-  "@thisSectionIsNoLongerAvailable": {
-    "description": "English UI message used by shell/user_menu.dart. Keep placeholders intact."
-  },
   "continueTheDiscussionFrom": "Continue the discussion from [{escaped}]({url})",
   "@continueTheDiscussionFrom": {
     "description": "English UI message used by shell/topic_share.dart. Keep placeholders intact.",

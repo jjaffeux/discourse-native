@@ -148,7 +148,7 @@ void main() {
         'lib/src/shell/title_bar.dart': {'shape': 2},
         'lib/src/shell/global_search_panel.dart': {'shape': 1},
         'lib/src/shell/main_content.dart': {'shape': 1},
-        'lib/src/shell/user_menu.dart': {'shape': 2, 'foregroundColor': 1},
+        'lib/src/shell/user_menu.dart': {'shape': 1, 'foregroundColor': 1},
         // Creation and drafting actions use the established pill artwork.
         'lib/src/shell/topic_create_button.dart': {'shape': 1},
         'lib/src/shell/composer/draft_tabs.dart': {'shape': 1},

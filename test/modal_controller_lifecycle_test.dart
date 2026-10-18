@@ -23,7 +23,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/shell_sheet.dart';
 import 'package:discourse_native/src/shell/update_sheet.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
-import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart' show kSecondaryButton;
@@ -134,7 +133,7 @@ void main() {
     });
   });
 
-  group('account and update sheets', () {
+  group('update sheets', () {
     testWidgets('an open update sheet follows a replacement controller', (
       tester,
     ) async {
@@ -167,61 +166,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Following the stable channel.'), findsOneWidget);
       expect(find.text('Following the canary channel.'), findsNothing);
-    });
-
-    testWidgets('an open account sheet follows its source site by identity', (
-      tester,
-    ) async {
-      const firstUser = DiscourseUser(username: 'first', name: 'First User');
-      const secondUser = DiscourseUser(username: 'second', name: 'Second User');
-      final first = await _loadedController(
-        api: FakeDiscourseApi(user: firstUser),
-        instances: [instance('meta.example').copyWith(user: firstUser)],
-      );
-      final second = await _loadedController(
-        api: FakeDiscourseApi(user: secondUser),
-        instances: [instance('meta.example').copyWith(user: secondUser)],
-      );
-      addTearDown(first.dispose);
-      addTearDown(second.dispose);
-
-      await tester.pumpWidget(_host(first, showUserMenuSheet));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      expect(find.text('@first · meta.example'), findsOneWidget);
-
-      await tester.pumpWidget(_host(second, showUserMenuSheet));
-      await tester.pumpAndSettle();
-      expect(find.text('@second · meta.example'), findsOneWidget);
-      expect(find.text('@first · meta.example'), findsNothing);
-    });
-
-    testWidgets('an open account sheet follows same-site account changes', (
-      tester,
-    ) async {
-      const firstUser = DiscourseUser(username: 'first', name: 'First User');
-      const secondUser = DiscourseUser(username: 'second', name: 'Second User');
-      final controller = _controller(
-        api: FakeDiscourseApi(user: secondUser),
-        instances: [instance('meta.example').copyWith(user: firstUser)],
-      );
-      await controller.load();
-      addTearDown(controller.dispose);
-
-      await tester.pumpWidget(_host(controller, showUserMenuSheet));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      expect(find.text('@first · meta.example'), findsOneWidget);
-
-      await controller.connectCurrentInstance();
-      await tester.pumpAndSettle();
-      expect(find.text('@second · meta.example'), findsOneWidget);
-      expect(find.text('@first · meta.example'), findsNothing);
-
-      await controller.disconnectCurrentInstance();
-      await tester.pumpAndSettle();
-      expect(find.text('This account is no longer connected.'), findsOneWidget);
-      expect(find.text('@second · meta.example'), findsNothing);
     });
   });
 

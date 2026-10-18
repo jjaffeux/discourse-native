@@ -10742,17 +10742,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get togglePresenceFeatures => 'Toggle presence features';
 
   @override
-  String get thisSiteIsNoLongerAvailable => 'This site is no longer available.';
-
-  @override
-  String get thisAccountIsNoLongerConnected =>
-      'This account is no longer connected.';
-
-  @override
-  String get thisSectionIsNoLongerAvailable =>
-      'This section is no longer available.';
-
-  @override
   String continueTheDiscussionFrom(String escaped, String url) {
     return 'Continue the discussion from [$escaped]($url)';
   }

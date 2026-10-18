@@ -267,33 +267,24 @@ void main() {
       await _pump(
         tester,
         shell,
-        platform == TargetPlatform.android
-            ? Builder(
-                builder: (context) => DButton(
-                  label: const Text('Account'),
-                  onPressed: () =>
-                      showUserMenuSheet(context, view: UserMenuView.profile),
-                ),
-              )
-            : Center(
-                child: DDropdownMenu(
-                  controller: menu,
-                  content: DDropdownMenuContent(
-                    children: [
-                      UserProfileMenuItems(
-                        siteUrl: _site,
-                        onDismiss: menu.close,
-                      ),
-                    ],
-                  ),
-                  child: DDropdownMenuTrigger(
-                    builder: (context, state) => DButton(
-                      label: const Text('Account'),
-                      onPressed: state.toggle,
-                    ),
-                  ),
-                ),
+        Center(
+          child: DDropdownMenu(
+            controller: menu,
+            sheetOnMobile: true,
+            mobileSheetVariant: DSheetVariant.adaptiveMenu,
+            content: DDropdownMenuContent(
+              children: [
+                UserProfileMenuItems(siteUrl: _site, onDismiss: menu.close),
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (context, state) => DButton(
+                label: const Text('Account'),
+                onPressed: state.toggle,
               ),
+            ),
+          ),
+        ),
         platform: platform,
       );
       await tester.tap(find.text('Account'));
