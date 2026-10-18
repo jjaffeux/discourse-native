@@ -480,8 +480,6 @@ extension ChatSiteConfigData on SiteConfig {
 
   bool get chatSearchEnabled => chatSettings.searchEnabled;
 
-  ChatPreferredIndex get chatPreferredIndex => chatSettings.preferredIndex;
-
   int get chatChannelRetentionDays => chatSettings.channelRetentionDays;
 
   int get chatDmRetentionDays => chatSettings.directMessageRetentionDays;
@@ -501,10 +499,6 @@ extension ChatDiscourseUserData on DiscourseUser {
   bool? get canChat => chatCurrentUser?.canChat;
 
   bool? get canDirectMessage => chatCurrentUser?.canDirectMessage;
-
-  ChatHeaderIndicatorPreference get chatHeaderIndicatorPreference =>
-      chatCurrentUser?.headerIndicatorPreference ??
-      ChatHeaderIndicatorPreference.allNew;
 
   ChatSeparateSidebarMode get chatSeparateSidebarMode =>
       chatCurrentUser?.separateSidebarMode ??

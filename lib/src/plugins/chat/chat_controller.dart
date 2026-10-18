@@ -1757,10 +1757,6 @@ class ChatController extends FrameSafeNotifier {
 
   bool myThreadsLoaded(String siteUrl) => _myThreadIds.containsKey(siteUrl);
 
-  bool myThreadsLoading(String siteUrl) =>
-      _myThreadRequests.containsKey(_myThreadsKey(siteUrl)) &&
-      !myThreadsLoaded(siteUrl);
-
   bool myThreadsLoadingMore(String siteUrl) =>
       _myThreadRequests.containsKey(_myThreadsKey(siteUrl)) &&
       myThreadsLoaded(siteUrl);
