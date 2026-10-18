@@ -7728,9 +7728,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Close a tab before opening another';
 
   @override
-  String get newTab => 'New tab';
-
-  @override
   String dismissPicker(String title) {
     return 'Dismiss $title picker';
   }

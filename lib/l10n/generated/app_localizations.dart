@@ -13252,17 +13252,11 @@ abstract class AppLocalizations {
   /// **'Remove table'**
   String get removeTable;
 
-  /// English UI message used by shell/panel_rail.dart. Keep placeholders intact.
+  /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
   /// **'Close a tab before opening another'**
   String get closeATabBeforeOpeningAnother;
-
-  /// English UI message used by shell/panel_rail.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'New tab'**
-  String get newTab;
 
   /// English UI message used by shell/topic_taxonomy_picker.dart. Keep placeholders intact.
   ///
@@ -16003,7 +15997,7 @@ abstract class AppLocalizations {
   /// **'Private category'**
   String get privateCategory;
 
-  /// English UI message used by shell/composer_quote_component.dart. Keep placeholders intact.
+  /// English UI message used by shell/composer_quotes.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
   /// **'Quote from {title}'**

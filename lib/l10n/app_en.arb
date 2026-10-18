@@ -10228,11 +10228,7 @@
   },
   "closeATabBeforeOpeningAnother": "Close a tab before opening another",
   "@closeATabBeforeOpeningAnother": {
-    "description": "English UI message used by shell/panel_rail.dart. Keep placeholders intact."
-  },
-  "newTab": "New tab",
-  "@newTab": {
-    "description": "English UI message used by shell/panel_rail.dart. Keep placeholders intact."
+    "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
   },
   "dismissPicker": "Dismiss {title} picker",
   "@dismissPicker": {
@@ -12437,7 +12433,7 @@
   },
   "quoteFrom": "Quote from {title}",
   "@quoteFrom": {
-    "description": "English UI message used by shell/composer_quote_component.dart. Keep placeholders intact.",
+    "description": "English UI message used by shell/composer_quotes.dart. Keep placeholders intact.",
     "placeholders": {
       "title": {
         "type": "String"
