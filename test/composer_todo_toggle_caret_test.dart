@@ -1,6 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_list_editor.dart';
+import 'package:discourse_native/src/shell/composer/components/list.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../models/composer_placement.dart';
 import '../theme/app_theme.dart';
-import 'composer_presentation.dart';
+import 'composer/presentation.dart';
 import 'forum_theme_surfaces.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';

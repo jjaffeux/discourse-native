@@ -14,7 +14,7 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
-import '../shell/composer_controller.dart';
+import '../shell/composer/controller.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';

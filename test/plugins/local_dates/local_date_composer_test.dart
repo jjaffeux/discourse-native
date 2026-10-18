@@ -1,10 +1,10 @@
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_editor.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
-import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
+import 'package:discourse_native/src/plugins/poll/poll_composer.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
-import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
-import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
+import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

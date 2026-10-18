@@ -5,7 +5,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/discourse_mermaid/discourse_mermaid_module.dart';
 import 'package:discourse_native/src/plugins/discourse_mermaid/discourse_mermaid_plugin.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

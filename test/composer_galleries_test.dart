@@ -1,8 +1,8 @@
 import 'dart:math';
 
-import 'package:discourse_native/src/shell/composer_galleries.dart';
-import 'package:discourse_native/src/shell/composer_images.dart';
-import 'package:discourse_native/src/shell/markdown_highlight.dart';
+import 'package:discourse_native/src/shell/composer/components/gallery_source.dart';
+import 'package:discourse_native/src/shell/composer/components/image_source.dart';
+import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

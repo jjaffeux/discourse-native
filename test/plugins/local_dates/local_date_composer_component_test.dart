@@ -1,9 +1,9 @@
 import 'package:discourse_native/src/plugin_api/composer_component.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_component.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_pill.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
-import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

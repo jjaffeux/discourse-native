@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_parser.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';

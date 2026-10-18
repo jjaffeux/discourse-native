@@ -1,0 +1,671 @@
+import 'dart:math' as math;
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../site_image.dart';
+import '../block_surface.dart';
+import '../source_projection.dart';
+import 'gallery_source.dart';
+import 'image_source.dart';
+
+List<InlineSpan> buildComposerGallerySpans({
+  required String source,
+  required ComposerImageGalleryBlock gallery,
+  required TextStyle baseStyle,
+  required Key galleryKey,
+  required String? siteUrl,
+  required bool highlighted,
+  required bool trailingCaretLine,
+  required String? Function(ComposerImageBlock) resolveUrl,
+  required Key Function(ComposerImageBlock) imageKey,
+  required bool Function(ComposerImageBlock) imageHighlighted,
+  required void Function(ComposerImageBlock, Size) onNaturalSize,
+  required VoidCallback? onEdit,
+  required void Function(ComposerImageBlock, int)? onReorder,
+  required ValueChanged<ComposerImageBlock> onReorderStarted,
+  required ValueChanged<ComposerImageBlock> onReorderEnded,
+}) => [
+  WidgetSpan(
+    alignment: PlaceholderAlignment.top,
+    style: baseStyle,
+    child: KeyedSubtree(
+      key: galleryKey,
+      child: ComposerImageGalleryPreview(
+        gallery: gallery,
+        items: [
+          for (final image in gallery.images)
+            ComposerImageGalleryItem(
+              image: image,
+              url: resolveUrl(image),
+              imageKey: imageKey(image),
+              highlighted: imageHighlighted(image),
+              onNaturalSize: (size) => onNaturalSize(image, size),
+            ),
+        ],
+        siteUrl: siteUrl,
+        highlighted: highlighted,
+        onEdit: onEdit,
+        onReorder: onReorder,
+        onReorderStarted: onReorderStarted,
+        onReorderEnded: onReorderEnded,
+      ),
+    ),
+  ),
+  ...composerCollapsedBlockSourceTail(
+    source: source,
+    start: gallery.start,
+    end: gallery.end,
+    baseStyle: baseStyle,
+    trailingCaretLine: trailingCaretLine,
+  ),
+];
+
+@immutable
+class ComposerImageGalleryItem {
+  const ComposerImageGalleryItem({
+    required this.image,
+    required this.url,
+    required this.imageKey,
+    required this.highlighted,
+    this.onNaturalSize,
+  });
+
+  final ComposerImageBlock image;
+  final String? url;
+
+  final Key imageKey;
+  final bool highlighted;
+  final ValueChanged<Size>? onNaturalSize;
+}
+
+class ComposerImageGalleryPreview extends StatelessWidget {
+  const ComposerImageGalleryPreview({
+    super.key,
+    required this.gallery,
+    required this.items,
+    this.siteUrl,
+    this.highlighted = false,
+    this.onEdit,
+    this.onReorder,
+    this.onReorderStarted,
+    this.onReorderEnded,
+  });
+
+  final ComposerImageGalleryBlock gallery;
+  final List<ComposerImageGalleryItem> items;
+  final String? siteUrl;
+  final bool highlighted;
+  final VoidCallback? onEdit;
+  final void Function(ComposerImageBlock image, int newIndex)? onReorder;
+  final ValueChanged<ComposerImageBlock>? onReorderStarted;
+  final ValueChanged<ComposerImageBlock>? onReorderEnded;
+
+  static const double tileExtent = 80;
+  static const double gap = 6;
+  static const double inset = 8;
+
+  static const int maximumGridColumns = 3;
+
+  static double _tileStripWidth(int itemCount) =>
+      itemCount == 0 ? 0 : tileExtent * itemCount + gap * (itemCount - 1);
+
+  static int renderedGridColumnCount(int itemCount) {
+    if (itemCount == 0) return 0;
+    // Core renders two- and four-item galleries with two columns; all other
+    // galleries use at most three columns on a wide viewport.
+    if (itemCount == 2 || itemCount == 4) return 2;
+    return math.min(itemCount, maximumGridColumns);
+  }
+
+  static double displayHeight(
+    int itemCount, {
+    ComposerGalleryMode mode = ComposerGalleryMode.grid,
+    int? gridColumns,
+  }) {
+    final contentHeight = switch (mode) {
+      ComposerGalleryMode.carousel => itemCount == 0 ? 0 : tileExtent,
+      ComposerGalleryMode.grid => _gridHeight(
+        itemCount,
+        gridColumns ?? renderedGridColumnCount(itemCount),
+      ),
+    };
+    return inset * 2 +
+        math.max(contentHeight, ComposerImageGalleryControl.extent);
+  }
+
+  static double _gridHeight(int itemCount, int columns) {
+    if (itemCount == 0 || columns == 0) return 0;
+    final rows = (itemCount / columns).ceil();
+    return rows * tileExtent + (rows - 1) * gap;
+  }
+
+  static int _fittingGridColumnCount(int itemCount, double availableWidth) {
+    final renderedColumns = renderedGridColumnCount(itemCount);
+    if (renderedColumns == 0 || !availableWidth.isFinite) {
+      return renderedColumns;
+    }
+    final fittingColumns = ((availableWidth + gap) / (tileExtent + gap))
+        .floor()
+        .clamp(1, renderedColumns);
+    return math.min(renderedColumns, fittingColumns);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return DragTarget<ComposerImageBlock>(
+      onWillAcceptWithDetails: (details) =>
+          onReorder != null &&
+          !gallery.images.any(
+            (image) =>
+                image.start == details.data.start &&
+                image.end == details.data.end,
+          ),
+      onAcceptWithDetails: (details) =>
+          onReorder?.call(details.data, items.length),
+      builder: (context, candidates, rejected) => LayoutBuilder(
+        builder: (context, constraints) {
+          final availableTileWidth = math.max(
+            0.0,
+            constraints.maxWidth -
+                inset * 2 -
+                ComposerImageGalleryControl.extent -
+                (items.isEmpty ? 0 : gap),
+          );
+          final gridColumns = _fittingGridColumnCount(
+            items.length,
+            availableTileWidth,
+          );
+          final height = displayHeight(
+            items.length,
+            mode: gallery.mode,
+            gridColumns: gridColumns,
+          );
+
+          return SizedBox(
+            width: double.infinity,
+            height: height,
+            child: Semantics(
+              container: true,
+              explicitChildNodes: true,
+              label: context.l10n.imageGalleryComposerimagegallery(
+                items.length,
+              ),
+              selected: highlighted,
+              child: CustomPaint(
+                foregroundPainter: _GalleryBorder(
+                  color: highlighted || candidates.isNotEmpty
+                      ? scheme.primary
+                      : scheme.outlineVariant,
+                  highlighted: highlighted || candidates.isNotEmpty,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  height: height,
+                  padding: const EdgeInsets.all(inset),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (items.isNotEmpty) ...[
+                        Expanded(
+                          child: switch (gallery.mode) {
+                            ComposerGalleryMode.grid => Align(
+                              alignment: Alignment.centerLeft,
+                              child: SizedBox(
+                                width: _tileStripWidth(gridColumns),
+                                child: Wrap(
+                                  spacing: gap,
+                                  runSpacing: gap,
+                                  children: [
+                                    for (final (index, item) in items.indexed)
+                                      _galleryTile(item, index),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            ComposerGalleryMode.carousel =>
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: SizedBox(
+                                  width: _tileStripWidth(items.length),
+                                  height: tileExtent,
+                                  child: Row(
+                                    children: [
+                                      for (final (index, item)
+                                          in items.indexed) ...[
+                                        if (index > 0)
+                                          const SizedBox(width: gap),
+                                        _galleryTile(item, index),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          },
+                        ),
+                        const SizedBox(width: gap),
+                      ],
+                      ComposerImageGalleryControl(
+                        key: const ValueKey('composer-gallery-control'),
+                        imageCount: items.length,
+                        onEdit: onEdit,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _galleryTile(ComposerImageGalleryItem item, int index) =>
+      _ReorderableGalleryTile(
+        item: item,
+        index: index,
+        siteUrl: siteUrl,
+        onReorder: onReorder,
+        onReorderStarted: onReorderStarted,
+        onReorderEnded: onReorderEnded,
+      );
+}
+
+class ComposerImageGalleryControl extends StatelessWidget {
+  const ComposerImageGalleryControl({
+    super.key,
+    required this.imageCount,
+    this.onEdit,
+  });
+
+  final int imageCount;
+  final VoidCallback? onEdit;
+
+  static const double extent = DControlStyle.regularHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = context.l10n.messageComposerimagegallery(imageCount);
+
+    return MergeSemantics(
+      child: Semantics(
+        hint: context.l10n.addOrRemoveImages((count).toString()),
+        child: DButton.iconOnly(
+          onPressed: onEdit,
+          tooltip: context.l10n.galleryOptions,
+          semanticLabel: context.l10n.galleryOptions,
+          variant: DButtonVariant.ghost,
+          icon: const Icon(Icons.tune),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReorderableGalleryTile extends StatelessWidget {
+  const _ReorderableGalleryTile({
+    required this.item,
+    required this.index,
+    required this.siteUrl,
+    required this.onReorder,
+    required this.onReorderStarted,
+    required this.onReorderEnded,
+  });
+
+  final ComposerImageGalleryItem item;
+  final int index;
+  final String? siteUrl;
+  final void Function(ComposerImageBlock image, int newIndex)? onReorder;
+  final ValueChanged<ComposerImageBlock>? onReorderStarted;
+  final ValueChanged<ComposerImageBlock>? onReorderEnded;
+
+  @override
+  Widget build(BuildContext context) => DragTarget<ComposerImageBlock>(
+    onWillAcceptWithDetails: (details) =>
+        onReorder != null &&
+        (details.data.start != item.image.start ||
+            details.data.end != item.image.end),
+    onAcceptWithDetails: (details) => onReorder?.call(details.data, index),
+    builder: (context, candidates, _) {
+      final tile = ComposerImageGalleryTile(
+        item: item,
+        siteUrl: siteUrl,
+        dropTarget: candidates.isNotEmpty,
+      );
+      if (onReorder == null) return tile;
+      return ComposerBlockSurface.ownsLongPress(
+        child: DContentDrag<ComposerImageBlock>(
+          data: item.image,
+          onDragStarted: () => onReorderStarted?.call(item.image),
+          onDragEnd: () => onReorderEnded?.call(item.image),
+          feedback: ComposerImageGalleryTile(
+            item: ComposerImageGalleryItem(
+              image: item.image,
+              url: item.url,
+              imageKey: UniqueKey(),
+              highlighted: false,
+            ),
+            siteUrl: siteUrl,
+          ),
+          child: tile,
+        ),
+      );
+    },
+  );
+}
+
+class ComposerImageGalleryTile extends StatelessWidget {
+  const ComposerImageGalleryTile({
+    super.key,
+    required this.item,
+    this.siteUrl,
+    this.dropTarget = false,
+  });
+
+  final ComposerImageGalleryItem item;
+  final String? siteUrl;
+  final bool dropTarget;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = item.image;
+    final source = item.url;
+    final scheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(6);
+
+    return KeyedSubtree(
+      key: item.imageKey,
+      child: Semantics(
+        image: true,
+        label: image.alt.isEmpty ? context.l10n.image : image.alt,
+        selected: item.highlighted,
+        child: Container(
+          width: ComposerImageGalleryPreview.tileExtent,
+          height: ComposerImageGalleryPreview.tileExtent,
+          padding: const EdgeInsets.all(2),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: radius,
+          ),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: item.highlighted || dropTarget
+                  ? scheme.primary
+                  : scheme.outlineVariant,
+              width: item.highlighted || dropTarget ? 2 : 1,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: radius.subtract(BorderRadius.circular(2)),
+            child: source == null
+                ? ExcludeSemantics(
+                    child: Center(
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: 22,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : SiteImage(
+                    url: source,
+                    siteUrl: siteUrl,
+                    width: ComposerImageGalleryPreview.tileExtent,
+                    height: ComposerImageGalleryPreview.tileExtent,
+                    fit: BoxFit.cover,
+                    coverDecodeSize: const Size.square(
+                      ComposerImageGalleryPreview.tileExtent,
+                    ),
+                    onNaturalSize: image.hasDimensions
+                        ? null
+                        : item.onNaturalSize,
+                    excludeFromSemantics: true,
+                    loadingBuilder: (_) => const Center(child: DSpinner()),
+                    errorBuilder: (_, _, _) => ExcludeSemantics(
+                      child: Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          size: 22,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GalleryBorder extends CustomPainter {
+  const _GalleryBorder({required this.color, required this.highlighted});
+
+  final Color color;
+  final bool highlighted;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final strokeWidth = highlighted ? 2.5 : 1.5;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Offset.zero & size,
+          const Radius.circular(8),
+        ).deflate(strokeWidth / 2),
+      );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    if (highlighted) {
+      canvas.drawPath(path, paint);
+      return;
+    }
+
+    const dash = 5.0;
+    const gap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var offset = 0.0;
+      while (offset < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(offset, math.min(offset + dash, metric.length)),
+          paint,
+        );
+        offset += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GalleryBorder oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.highlighted != highlighted;
+}
+
+enum _GalleryAddChoice { upload, existing }
+
+class ComposerGalleryMenu extends StatelessWidget {
+  static double controlExtent(BuildContext context) =>
+      DControlStyle.scaledHeight(
+        DControlSize.regular,
+        MediaQuery.textScalerOf(context),
+        context: context,
+      );
+
+  const ComposerGalleryMenu({
+    super.key,
+    required this.width,
+    required this.gallery,
+    required this.hasStandaloneImages,
+    required this.pickingImages,
+    required this.canUpload,
+    required this.onMode,
+    required this.onUploadImages,
+    required this.onAddExistingImages,
+    required this.onUnwrap,
+    required this.onDismiss,
+  });
+
+  final double width;
+  final ComposerImageGalleryBlock gallery;
+  final bool hasStandaloneImages;
+  final bool pickingImages;
+  final bool canUpload;
+  final ValueChanged<ComposerGalleryMode> onMode;
+  final VoidCallback onUploadImages;
+  final VoidCallback onAddExistingImages;
+  final VoidCallback onUnwrap;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): onDismiss},
+      child: TextFieldTapRegion(
+        child: Material(
+          key: const ValueKey('composer-gallery-toolbar'),
+          elevation: 5,
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: width,
+            height: controlExtent(context),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: controlExtent(context) * 4,
+                height: controlExtent(context),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    DToggleGroup<ComposerGalleryMode>(
+                      values: [gallery.mode],
+                      onChanged: (values) {
+                        if (values case [final mode]) onMode(mode);
+                      },
+                      allowEmptySelection: false,
+                      spacing: 0,
+                      variant: DToggleVariant.standard,
+                      semanticLabel: context.l10n.galleryMode,
+                      scrollable: false,
+                      items: [
+                        DToggleGroupItem.iconOnly(
+                          value: ComposerGalleryMode.grid,
+                          semanticLabel: context.l10n.gridGalleryMode,
+                          tooltip: context.l10n.gridGalleryMode,
+                          icon: const Icon(Icons.grid_view_outlined, size: 18),
+                          selectedIcon: const Icon(Icons.grid_view, size: 18),
+                          visualStyle: const DToggleVisualStyle(),
+                        ),
+                        DToggleGroupItem.iconOnly(
+                          value: ComposerGalleryMode.carousel,
+                          semanticLabel: context.l10n.carouselGalleryMode,
+                          tooltip: context.l10n.carouselGalleryMode,
+                          icon: const Icon(
+                            Icons.view_carousel_outlined,
+                            size: 18,
+                          ),
+                          selectedIcon: const Icon(
+                            Icons.view_carousel,
+                            size: 18,
+                          ),
+                          visualStyle: const DToggleVisualStyle(),
+                        ),
+                      ],
+                    ),
+                    Builder(
+                      builder: (menuContext) {
+                        void onSelect(Object? choice) {
+                          switch (choice) {
+                            case _GalleryAddChoice.upload:
+                              onUploadImages();
+                            case _GalleryAddChoice.existing:
+                              onAddExistingImages();
+                          }
+                        }
+
+                        return Semantics(
+                          container: true,
+                          explicitChildNodes: true,
+                          child: DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              semanticLabel: context.l10n.addImagesToGallery,
+                              width: 280,
+                              children: [
+                                DDropdownMenuItem(
+                                  onPressed: canUpload
+                                      ? () => onSelect(_GalleryAddChoice.upload)
+                                      : null,
+                                  leading: const Icon(Icons.upload_outlined),
+                                  child: Text(context.l10n.uploadNewImages),
+                                ),
+                                DDropdownMenuItem(
+                                  onPressed: hasStandaloneImages
+                                      ? () =>
+                                            onSelect(_GalleryAddChoice.existing)
+                                      : null,
+                                  leading: const Icon(
+                                    Icons.photo_library_outlined,
+                                  ),
+                                  child: Text(
+                                    context.l10n.addExistingDraftImages,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (triggerContext, state) =>
+                                  DButton.iconOnly(
+                                    tooltip: context.l10n.addImagesToGallery,
+                                    variant: DButtonVariant.ghost,
+                                    icon: pickingImages
+                                        ? const SizedBox.square(
+                                            dimension: 18,
+                                            child: DSpinner(),
+                                          )
+                                        : const Icon(
+                                            Icons.add_photo_alternate_outlined,
+                                            size: 18,
+                                          ),
+                                    focusNode: state.focusNode,
+                                    hasPopup: true,
+                                    expanded: state.open,
+                                    onPressed: !pickingImages
+                                        ? state.toggle
+                                        : null,
+                                  ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    DButton.iconOnly(
+                      onPressed: onUnwrap,
+                      variant: DButtonVariant.ghost,
+                      tooltip: context.l10n.removeGalleryKeepImages,
+                      icon: const Icon(Icons.grid_off_outlined),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

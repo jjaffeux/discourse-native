@@ -1,8 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/composer_blocks.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
-import 'package:discourse_native/src/shell/composer_todos.dart';
+import 'package:discourse_native/src/shell/composer/blocks.dart';
+import 'package:discourse_native/src/shell/composer/components/todo.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

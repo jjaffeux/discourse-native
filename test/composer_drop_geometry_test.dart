@@ -1,7 +1,7 @@
 import 'dart:ui';
 
-import 'package:discourse_native/src/shell/composer_blocks.dart';
-import 'package:discourse_native/src/shell/composer_drop_geometry.dart';
+import 'package:discourse_native/src/shell/composer/blocks.dart';
+import 'package:discourse_native/src/shell/composer/drop_geometry.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

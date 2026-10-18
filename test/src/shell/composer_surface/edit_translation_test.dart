@@ -1,9 +1,9 @@
-import 'package:discourse_native/src/shell/composer_document/component.dart';
-import 'package:discourse_native/src/shell/composer_document/document.dart';
-import 'package:discourse_native/src/shell/composer_document/selection.dart';
-import 'package:discourse_native/src/shell/composer_document/source.dart';
-import 'package:discourse_native/src/shell/composer_surface/edit_translation.dart';
-import 'package:discourse_native/src/shell/composer_surface/projection.dart';
+import 'package:discourse_native/src/shell/composer/document/component.dart';
+import 'package:discourse_native/src/shell/composer/document/document.dart';
+import 'package:discourse_native/src/shell/composer/document/selection.dart';
+import 'package:discourse_native/src/shell/composer/document/source.dart';
+import 'package:discourse_native/src/shell/composer/surface/edit_translation.dart';
+import 'package:discourse_native/src/shell/composer/surface/projection.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

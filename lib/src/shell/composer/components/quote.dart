@@ -1,0 +1,592 @@
+import 'dart:math' as math;
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../theme/d_icons.dart';
+import '../block_selection.dart';
+import '../markdown_highlight.dart';
+import '../markdown_style.dart';
+import '../source_projection.dart';
+
+List<InlineSpan> buildComposerQuoteSpans({
+  required String source,
+  required ComposerQuoteBlock block,
+  required String contents,
+  required TextStyle baseStyle,
+  required Key quoteKey,
+  required GlobalKey removeKey,
+  required bool selected,
+  required VoidCallback? onRemove,
+}) => [
+  WidgetSpan(
+    alignment: PlaceholderAlignment.top,
+    style: baseStyle,
+    child: KeyedSubtree(
+      key: quoteKey,
+      child: ComposerBlockSelection(
+        selected: selected,
+        child: IgnorePointer(
+          child: ComposerQuotePreview(
+            block: block,
+            onRemove: onRemove,
+            contents: contents,
+            baseStyle: baseStyle,
+            removeKey: removeKey,
+          ),
+        ),
+      ),
+    ),
+  ),
+  ...composerCollapsedBlockSourceTail(
+    source: source,
+    start: block.start,
+    end: block.contentEnd,
+    baseStyle: baseStyle,
+  ),
+];
+
+@immutable
+class ComposerQuoteBlock {
+  const ComposerQuoteBlock({
+    required this.start,
+    required this.end,
+    required this.source,
+    required this.contents,
+    required this.username,
+    required this.displayName,
+    required this.postNumber,
+    required this.topicId,
+    required this.full,
+  });
+
+  final int start;
+  final int end;
+  final String source;
+  final String contents;
+  final String? username;
+  final String? displayName;
+  final int? postNumber;
+  final int? topicId;
+  final bool full;
+
+  /// The closing tag boundary, before any owned separator whitespace.
+  int get contentEnd => start + source.trimRight().length;
+
+  int get length => end - start;
+  String? get title => displayName ?? username;
+
+  bool containsOffset(int offset, {bool includeEnd = false}) =>
+      offset >= start && (includeEnd ? offset <= end : offset < end);
+}
+
+typedef ComposerQuoteContentsFormatter =
+    String Function(ComposerQuoteBlock block);
+
+typedef ComposerQuoteContentsResolver =
+    String? Function(ComposerQuoteBlock block);
+
+List<ComposerQuoteBlock> parseComposerQuotes(
+  String source, {
+  CodeRanges? knownCodeRanges,
+}) {
+  if (source.isEmpty ||
+      !RegExp(r'\[quote', caseSensitive: false).hasMatch(source)) {
+    return const [];
+  }
+
+  final codeRanges = knownCodeRanges ?? markdownCodeRanges(source);
+  final tags = _QuoteTagScanner(source);
+  final blocks = <ComposerQuoteBlock>[];
+  var offset = 0;
+
+  while (offset < source.length) {
+    final opening = source.indexOf('[', offset);
+    if (opening == -1) break;
+    if (codeRanges.contains(opening) || !_startsBlock(source, opening)) {
+      offset = opening + 1;
+      continue;
+    }
+
+    final openTag = tags.at(opening);
+    if (openTag == null || openTag.closing) {
+      offset = opening + 1;
+      continue;
+    }
+
+    final closeTag = tags.matchingClose(openTag.end, codeRanges);
+    if (closeTag == null) {
+      // As in core, an unmatched outer opener makes the rest ambiguous. Do
+      // not turn a plausible inner quote into an editable-looking fragment.
+      break;
+    }
+
+    final metadata = _metadata(openTag.value);
+    final end = _blockEnd(source, closeTag.end);
+    blocks.add(
+      ComposerQuoteBlock(
+        start: opening,
+        end: end,
+        source: source.substring(opening, end),
+        contents: source.substring(openTag.end, closeTag.start).trim(),
+        username: metadata.username,
+        displayName: metadata.displayName,
+        postNumber: metadata.postNumber,
+        topicId: metadata.topicId,
+        full: metadata.full,
+      ),
+    );
+    offset = end;
+  }
+
+  return List.unmodifiable(blocks);
+}
+
+int _blockEnd(String source, int tagEnd) {
+  var end = tagEnd;
+  for (var line = 0; line < 2; line++) {
+    var cursor = end;
+    while (cursor < source.length &&
+        (source[cursor] == ' ' || source[cursor] == '\t')) {
+      cursor++;
+    }
+    if (cursor < source.length && source[cursor] == '\r') cursor++;
+    if (cursor >= source.length || source[cursor] != '\n') break;
+    end = cursor + 1;
+  }
+  return end;
+}
+
+ComposerQuoteBlock? quoteAtComposerOffset(
+  Iterable<ComposerQuoteBlock> blocks,
+  int offset,
+) {
+  for (final block in blocks) {
+    if (block.containsOffset(offset)) return block;
+  }
+  return null;
+}
+
+bool selectionTouchesComposerQuote(
+  Iterable<ComposerQuoteBlock> blocks,
+  TextSelection selection,
+) {
+  if (!selection.isValid) return false;
+  for (final block in blocks) {
+    if (selection.isCollapsed) {
+      final offset = selection.extentOffset;
+      if (offset >= block.start && offset < block.end) return true;
+    } else if (selection.start < block.end && selection.end >= block.start) {
+      return true;
+    }
+  }
+  return false;
+}
+
+TextSelection quoteSafeSelection(
+  Iterable<ComposerQuoteBlock> blocks,
+  TextSelection selection,
+  TextSelection previous,
+) {
+  if (!selection.isValid) return selection;
+  if (selection.isCollapsed) {
+    final offset = selection.extentOffset;
+    for (final block in blocks) {
+      if (offset <= block.start || offset >= block.contentEnd) continue;
+      final oldOffset = previous.isValid ? previous.extentOffset : block.end;
+      final boundary = oldOffset <= block.start
+          ? block.end
+          : oldOffset >= block.end
+          ? block.start
+          : block.end;
+      return TextSelection.collapsed(offset: boundary);
+    }
+    return selection;
+  }
+
+  var start = selection.start;
+  var end = selection.end;
+  for (final block in blocks) {
+    if (start >= block.end || end <= block.start) continue;
+    start = math.min(start, block.start);
+    end = math.max(end, block.end);
+  }
+  if (start == selection.start && end == selection.end) return selection;
+  return selection.isDirectional &&
+          selection.baseOffset > selection.extentOffset
+      ? TextSelection(baseOffset: end, extentOffset: start, isDirectional: true)
+      : TextSelection(
+          baseOffset: start,
+          extentOffset: end,
+          isDirectional: selection.isDirectional,
+        );
+}
+
+class ComposerQuoteInputFormatter extends TextInputFormatter {
+  const ComposerQuoteInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (oldValue.text == newValue.text) return newValue;
+    final blocks = parseComposerQuotes(oldValue.text);
+    if (blocks.isEmpty) return newValue;
+
+    var prefix = 0;
+    final shared = math.min(oldValue.text.length, newValue.text.length);
+    while (prefix < shared &&
+        oldValue.text.codeUnitAt(prefix) == newValue.text.codeUnitAt(prefix)) {
+      prefix++;
+    }
+    var suffix = 0;
+    while (suffix < oldValue.text.length - prefix &&
+        suffix < newValue.text.length - prefix &&
+        oldValue.text.codeUnitAt(oldValue.text.length - suffix - 1) ==
+            newValue.text.codeUnitAt(newValue.text.length - suffix - 1)) {
+      suffix++;
+    }
+    var replacedEnd = oldValue.text.length - suffix;
+
+    // Shared delimiters can make a whole-selection replacement look like an
+    // interior edit. Trust the selection only when the unchanged text on both
+    // sides still fits, without overlap, in the proposed value.
+    final selection = oldValue.selection;
+    if (selection.isValid &&
+        !selection.isCollapsed &&
+        selection.end <= oldValue.text.length &&
+        newValue.text.length >=
+            oldValue.text.length - (selection.end - selection.start) &&
+        newValue.text.startsWith(oldValue.text.substring(0, selection.start)) &&
+        newValue.text.endsWith(oldValue.text.substring(selection.end))) {
+      prefix = selection.start;
+      replacedEnd = selection.end;
+    }
+
+    for (final block in blocks) {
+      if (prefix == replacedEnd) {
+        if (prefix > block.start && prefix < block.contentEnd) return oldValue;
+        continue;
+      }
+      if (prefix >= block.contentEnd || replacedEnd <= block.start) continue;
+      final coversWholeBlock =
+          prefix <= block.start && replacedEnd >= block.end;
+      if (!coversWholeBlock) return oldValue;
+    }
+    return newValue;
+  }
+}
+
+class ComposerQuotePreview extends StatefulWidget {
+  const ComposerQuotePreview({
+    super.key,
+    required this.block,
+    required this.contents,
+    required this.baseStyle,
+    this.removeKey,
+    this.onRemove,
+  });
+
+  final ComposerQuoteBlock block;
+  final String contents;
+  final TextStyle baseStyle;
+  final Key? removeKey;
+  final VoidCallback? onRemove;
+
+  @visibleForTesting
+  static int scans = 0;
+
+  @override
+  State<ComposerQuotePreview> createState() => _ComposerQuotePreviewState();
+}
+
+class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
+  String? _scanned;
+  List<MarkdownRun> _runs = const [];
+
+  List<MarkdownRun> get _contentRuns {
+    if (_scanned == widget.contents) return _runs;
+    _scanned = widget.contents;
+    ComposerQuotePreview.scans += 1;
+    return _runs = scanMarkdown(widget.contents);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final block = widget.block;
+    final contents = widget.contents;
+    final baseStyle = widget.baseStyle;
+    final removeKey = widget.removeKey;
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final title = block.title;
+    final bodyStyle = theme.textTheme.bodyMedium
+        ?.merge(baseStyle)
+        .copyWith(color: muted);
+    final quoteBodyStyle = bodyStyle ?? baseStyle.copyWith(color: muted);
+    final quoteBody = Text.rich(
+      TextSpan(
+        children: [
+          for (final run in _contentRuns)
+            if (!run.has(Md.marker))
+              TextSpan(
+                text: contents.substring(run.start, run.end),
+                style: markdownStyle(
+                  run.mask,
+                  run.detail,
+                  quoteBodyStyle,
+                  theme,
+                ),
+              ),
+        ],
+      ),
+      style: quoteBodyStyle,
+    );
+
+    return Semantics(
+      container: true,
+      label: title == null
+          ? context.l10n.quote
+          : context.l10n.quoteFrom((title).toString()),
+      hint: widget.onRemove == null
+          ? null
+          : context.l10n.readOnlyUseTheRemoveQuoteButtonToDeleteIt,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: DQuote(
+          header: Text(
+            title ?? context.l10n.quote,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: muted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          trailing: widget.onRemove == null
+              ? null
+              : DButton.iconOnly(
+                  key: removeKey,
+                  tooltip: context.l10n.removeQuote,
+                  semanticLabel: context.l10n.removeQuote,
+                  size: DButtonSize.tabAction,
+                  variant: DButtonVariant.ghost,
+                  icon: const DIcon(DIcons.xmark),
+                  onPressed: widget.onRemove,
+                ),
+          child: quoteBody,
+        ),
+      ),
+    );
+  }
+}
+
+class _QuoteTag {
+  const _QuoteTag({
+    required this.start,
+    required this.end,
+    required this.closing,
+    this.value,
+  });
+
+  final int start;
+  final int end;
+  final bool closing;
+  final String? value;
+}
+
+class _QuoteTagScanner {
+  _QuoteTagScanner(this.source);
+
+  final String source;
+  final _nextDelimiters = <String, int>{};
+  final _quotedEnds = <String, ({int quote, int end})>{};
+
+  // Both callers visit tag starts in increasing order. Retain the next match
+  // (including a missing one) so malformed values cannot rescan the same suffix.
+  int _next(String delimiter, int offset) {
+    final cached = _nextDelimiters[delimiter];
+    if (cached != null && (cached == -1 || cached >= offset)) return cached;
+    return _nextDelimiters[delimiter] = source.indexOf(delimiter, offset);
+  }
+
+  int _quotedEnd(String closeQuote, int quote) {
+    final cached = _quotedEnds[closeQuote];
+    if (cached != null && cached.quote == quote) return cached.end;
+
+    // Many unfinished openers can share this closing mark. Validate its tail
+    // once, without copying it, and keep trim's Unicode whitespace semantics.
+    var end = -1;
+    for (var offset = quote + 1; offset < source.length; offset++) {
+      final character = source[offset];
+      if (character == ']') {
+        end = offset + 1;
+        break;
+      }
+      if (character == '\r' ||
+          character == '\n' ||
+          character.trim().isNotEmpty) {
+        break;
+      }
+    }
+    _quotedEnds[closeQuote] = (quote: quote, end: end);
+    return end;
+  }
+
+  _QuoteTag? at(int start) {
+    if (start < 0 || start >= source.length || source[start] != '[') {
+      return null;
+    }
+    final closing = start + 1 < source.length && source[start + 1] == '/';
+    final nameStart = start + (closing ? 2 : 1);
+    const name = 'quote';
+    final nameEnd = nameStart + name.length;
+    if (nameEnd > source.length ||
+        source.substring(nameStart, nameEnd).toLowerCase() != name) {
+      return null;
+    }
+
+    if (closing) {
+      if (nameEnd >= source.length || source[nameEnd] != ']') return null;
+      return _QuoteTag(start: start, end: nameEnd + 1, closing: true);
+    }
+    if (nameEnd >= source.length) return null;
+    if (source[nameEnd] == ']') {
+      return _QuoteTag(start: start, end: nameEnd + 1, closing: false);
+    }
+    if (source[nameEnd] != '=') return null;
+
+    final valueStart = nameEnd + 1;
+    final closeQuote = valueStart < source.length
+        ? _closingQuote(source[valueStart])
+        : null;
+    final offset = valueStart + (closeQuote == null ? 0 : 1);
+    final delimiter = _next(closeQuote ?? ']', offset);
+    if (delimiter == -1) return null;
+    final cr = _next('\r', offset);
+    final lf = _next('\n', offset);
+    if ((cr != -1 && cr < delimiter) || (lf != -1 && lf < delimiter)) {
+      return null;
+    }
+
+    final end = closeQuote == null
+        ? delimiter + 1
+        : _quotedEnd(closeQuote, delimiter);
+    if (end == -1) return null;
+    return _QuoteTag(
+      start: start,
+      end: end,
+      closing: false,
+      value: closeQuote == null
+          ? source.substring(valueStart, delimiter).trim()
+          : source.substring(valueStart + 1, delimiter),
+    );
+  }
+
+  _QuoteTag? matchingClose(int offset, CodeRanges codeRanges) {
+    var depth = 1;
+    while (offset < source.length) {
+      final next = source.indexOf('[', offset);
+      if (next == -1) return null;
+      offset = next + 1;
+      if (codeRanges.contains(next)) continue;
+      final tag = at(next);
+      if (tag == null) continue;
+      if (tag.closing) {
+        depth--;
+        if (depth == 0) return tag;
+      } else if (_startsBlock(source, next)) {
+        depth++;
+      }
+      offset = tag.end;
+    }
+    return null;
+  }
+}
+
+String? _closingQuote(String character) => switch (character) {
+  '"' => '"',
+  "'" => "'",
+  '“' || '„' || '”' => '”',
+  '‘' || '‚' => '’',
+  '«' => '»',
+  '‹' => '›',
+  _ => null,
+};
+
+bool _startsBlock(String source, int offset) {
+  final earliest = offset < 3 ? 0 : offset - 3;
+  for (var index = offset - 1; index >= earliest; index--) {
+    final character = source[index];
+    if (character == '\n') return true;
+    if (character.trim().isNotEmpty) return false;
+  }
+  return earliest == 0;
+}
+
+class _QuoteMetadata {
+  const _QuoteMetadata({
+    required this.username,
+    required this.displayName,
+    required this.postNumber,
+    required this.topicId,
+    required this.full,
+  });
+
+  final String? username;
+  final String? displayName;
+  final int? postNumber;
+  final int? topicId;
+  final bool full;
+}
+
+_QuoteMetadata _metadata(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return const _QuoteMetadata(
+      username: null,
+      displayName: null,
+      postNumber: null,
+      topicId: null,
+      full: false,
+    );
+  }
+  final parts = value.split(RegExp(r',\s*'));
+  String? username = parts.first.trim();
+  String? displayName;
+  int? postNumber;
+  int? topicId;
+  var full = false;
+  var postIndex = -1;
+
+  for (var index = 1; index < parts.length; index++) {
+    final part = parts[index].trim();
+    final lower = part.toLowerCase();
+    if (lower.startsWith('post:')) {
+      postNumber = int.tryParse(part.substring(part.indexOf(':') + 1).trim());
+      postIndex = index;
+    } else if (lower.startsWith('topic:')) {
+      topicId = int.tryParse(part.substring(part.indexOf(':') + 1).trim());
+    } else if (RegExp(r'^full:\s*true$', caseSensitive: false).hasMatch(part)) {
+      full = true;
+    } else if (lower.startsWith('username:')) {
+      if (postIndex > 0) displayName = parts.take(postIndex).join(', ').trim();
+      username = part.substring(part.indexOf(':') + 1).trim();
+    }
+  }
+
+  return _QuoteMetadata(
+    username: _nullIfEmpty(username),
+    displayName: _nullIfEmpty(displayName),
+    postNumber: postNumber,
+    topicId: topicId,
+    full: full,
+  );
+}
+
+String? _nullIfEmpty(String? value) {
+  final trimmed = value?.trim() ?? '';
+  return trimmed.isEmpty ? null : trimmed;
+}

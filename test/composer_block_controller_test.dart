@@ -1,6 +1,6 @@
-import 'package:discourse_native/src/shell/composer_block_controller.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_edit_history.dart';
+import 'package:discourse_native/src/shell/composer/block_controller.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/edit_history.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

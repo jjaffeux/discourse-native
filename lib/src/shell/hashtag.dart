@@ -8,7 +8,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
-import 'composer_autocomplete.dart';
+import 'composer/autocomplete.dart';
 import 'emoji.dart';
 import 'open_link.dart';
 import 'pill.dart';

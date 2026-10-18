@@ -2,11 +2,11 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/src/plugin_api/composer_component.dart';
 import 'package:discourse_native/src/plugin_api/composer_syntax.dart';
-import 'package:discourse_native/src/shell/composer_document/selection.dart';
-import 'package:discourse_native/src/shell/composer_hybrid/component_registration.dart';
-import 'package:discourse_native/src/shell/composer_hybrid/field.dart';
-import 'package:discourse_native/src/shell/composer_hybrid/session.dart';
-import 'package:discourse_native/src/shell/composer_surface/composer_surface.dart';
+import 'package:discourse_native/src/shell/composer/document/selection.dart';
+import 'package:discourse_native/src/shell/composer/hybrid/component_registration.dart';
+import 'package:discourse_native/src/shell/composer/hybrid/field.dart';
+import 'package:discourse_native/src/shell/composer/hybrid/session.dart';
+import 'package:discourse_native/src/shell/composer/surface/composer_surface.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

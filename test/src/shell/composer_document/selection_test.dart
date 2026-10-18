@@ -1,7 +1,7 @@
-import 'package:discourse_native/src/shell/composer_document/component.dart';
-import 'package:discourse_native/src/shell/composer_document/projection.dart';
-import 'package:discourse_native/src/shell/composer_document/selection.dart';
-import 'package:discourse_native/src/shell/composer_document/source.dart';
+import 'package:discourse_native/src/shell/composer/document/component.dart';
+import 'package:discourse_native/src/shell/composer/document/projection.dart';
+import 'package:discourse_native/src/shell/composer/document/selection.dart';
+import 'package:discourse_native/src/shell/composer/document/source.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

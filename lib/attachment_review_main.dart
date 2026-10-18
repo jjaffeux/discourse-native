@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'src/models/composer_upload.dart';
 import 'src/plugins/chat/chat_message.dart';
 import 'src/plugins/chat/chat_uploads.dart';
-import 'src/shell/composer_controller.dart';
-import 'src/shell/composer_panel.dart';
+import 'src/shell/composer/controller.dart';
+import 'src/shell/composer/panel.dart';
 import 'src/styleguide/examples/attachment_examples.dart';
 import 'src/theme/app_theme.dart';
 

@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/composer_blocks.dart';
-import 'package:discourse_native/src/shell/composer_list_source.dart';
-import 'package:discourse_native/src/shell/composer_lists.dart';
+import 'package:discourse_native/src/shell/composer/blocks.dart';
+import 'package:discourse_native/src/shell/composer/components/list_formatting.dart';
+import 'package:discourse_native/src/shell/composer/components/list_source.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

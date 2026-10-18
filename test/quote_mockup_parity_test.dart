@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:discourse_native/src/shell/composer_quotes.dart';
+import 'package:discourse_native/src/shell/composer/components/quote.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/shell/composer_image.dart';
-import 'package:discourse_native/src/shell/composer_images.dart';
-import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
+import 'package:discourse_native/src/shell/composer/components/image.dart';
+import 'package:discourse_native/src/shell/composer/components/image_source.dart';
+import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

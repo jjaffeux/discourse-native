@@ -48,7 +48,7 @@ void main() {
         // Contextual actions use Native's existing pill shape API.
         'lib/src/shell/message_create_button.dart': {'shape': 3},
         // Composer gutter actions retain the documented transparent surface.
-        'lib/src/shell/composer_block_surface.dart': {'backgroundColor': 1},
+        'lib/src/shell/composer/block_surface.dart': {'backgroundColor': 1},
         // Topic progress uses Native timeline artwork and the existing pill shape.
         'lib/src/shell/topic_progress.dart': {'shape': 1},
         // X embeds retain provider identity and the reference's pill reply link,
@@ -95,7 +95,7 @@ void main() {
         // Composer tools use the mockup's muted tool foreground; discarding a
         // draft uses a destructive tint rather than the solid kit fill. Image
         // and gallery actions use the same pill shape as the discard control.
-        'lib/src/shell/composer_panel.dart': {
+        'lib/src/shell/composer/panel.dart': {
           'foregroundColor': 13,
           'shape': 3,
           'backgroundColor': 1,
@@ -129,7 +129,7 @@ void main() {
           'borderColor': 1,
         },
         // Composer and sheet close actions share the existing pill shape.
-        'lib/src/shell/composer_header.dart': {'shape': 1},
+        'lib/src/shell/composer/header.dart': {'shape': 1},
         'lib/src/plugin_api/composer_sheet_header.dart': {'shape': 1},
         // Message hover actions sit on the row's own hover fill.
         'lib/src/plugins/chat/chat_message_tile.dart': {
@@ -151,7 +151,7 @@ void main() {
         'lib/src/shell/user_menu.dart': {'shape': 2, 'foregroundColor': 1},
         // Creation and drafting actions use the established pill artwork.
         'lib/src/shell/topic_create_button.dart': {'shape': 1},
-        'lib/src/shell/composer_draft_tabs.dart': {'shape': 1},
+        'lib/src/shell/composer/draft_tabs.dart': {'shape': 1},
         // Shared category paths and list filters supply their quiet selection fill.
         // Topic metadata actions retain the metadata row's text foreground.
         'lib/src/shell/topic_card_metadata.dart': {'foregroundColor': 2},

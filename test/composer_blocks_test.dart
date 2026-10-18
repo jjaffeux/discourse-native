@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:discourse_native/src/shell/composer_blocks.dart';
+import 'package:discourse_native/src/shell/composer/blocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/scaling_benchmark.dart';

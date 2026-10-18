@@ -11,7 +11,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import 'composer_presentation.dart';
+import 'composer/presentation.dart';
 import 'desktop_panels.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';

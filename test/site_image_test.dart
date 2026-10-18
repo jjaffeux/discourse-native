@@ -5,8 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/shell/composer_image.dart';
-import 'package:discourse_native/src/shell/composer_images.dart';
+import 'package:discourse_native/src/shell/composer/components/image.dart';
+import 'package:discourse_native/src/shell/composer/components/image_source.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

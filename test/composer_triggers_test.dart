@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/shell/composer_triggers.dart';
+import 'package:discourse_native/src/shell/composer/triggers.dart';
 import 'package:flutter/widgets.dart' show TextEditingValue, TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 

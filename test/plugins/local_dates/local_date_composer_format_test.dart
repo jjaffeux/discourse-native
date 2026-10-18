@@ -1,10 +1,11 @@
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_editor.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_parser.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_sheet.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
-import 'package:discourse_native/src/plugins/local_dates/local_dates_plugin.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

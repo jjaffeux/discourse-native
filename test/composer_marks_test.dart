@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:discourse_native/src/shell/composer_marks.dart';
+import 'package:discourse_native/src/shell/composer/marks.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

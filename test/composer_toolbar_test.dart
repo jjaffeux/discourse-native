@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_link.dart';
-import 'package:discourse_native/src/shell/composer_marks.dart';
+import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/marks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

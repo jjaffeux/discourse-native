@@ -1,5 +1,5 @@
-import 'dart:ui' show PointerDeviceKind;
 import 'dart:ui' as ui;
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
