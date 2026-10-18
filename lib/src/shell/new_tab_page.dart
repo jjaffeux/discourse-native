@@ -370,9 +370,16 @@ String? _recentRouteUrl(String? siteUrl, ContentRoute route) {
     return resolveSiteRootPath(siteUrl, '/t/${route.slug ?? 'topic'}/$id');
   }
   if (route.feedPath case final path?) {
+    final uri = Uri.parse(path);
     return resolveSiteRootPath(
       siteUrl,
-      path.endsWith('.json') ? path.substring(0, path.length - 5) : path,
+      uri
+          .replace(
+            path: uri.path.endsWith('.json')
+                ? uri.path.substring(0, uri.path.length - 5)
+                : uri.path,
+          )
+          .toString(),
     );
   }
   final channel = route.destination is ExtensionDestination

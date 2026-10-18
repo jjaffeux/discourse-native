@@ -532,6 +532,74 @@ void main() {
     );
   }
 
+  testWidgets('dragging a closed filtered category keeps its native route', (
+    tester,
+  ) async {
+    final previousPlatform = debugDefaultTargetPlatformOverride;
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      SharedPreferences.setMockInitialValues({
+        'discourse_native.panel_tutorial_dismissed': true,
+      });
+      const site = 'https://forum.example/forum';
+      await pumpShell(
+        tester,
+        desktop,
+        instances: [instance('forum.example/forum')],
+        api: _apiWithLatestTopic(),
+      );
+      final launched = watchBrowser(tester);
+      final shell = ShellScope.read(
+        tester.element(find.byType(MainContent).first),
+      );
+      shell.createTab(panel: ForumPanel.main);
+      expect(
+        shell.openListUrl(
+          '$site/c/support/12?status=open&tags[]=help%20wanted',
+        ),
+        isTrue,
+      );
+      final route = shell.currentContent!;
+      final closedId = shell.activeTabId!;
+      shell.closeTab(closedId);
+      shell.pushContent(ContentRoute.newTab());
+      await tester.pumpAndSettle();
+      final before = shell.tabsForCurrentForum.length;
+      final existingIds = shell.tabsForCurrentForum
+          .map((tab) => tab.id)
+          .toSet();
+      final source = startPageItem(
+        ValueKey('start-page-recent-closed-$closedId'),
+      );
+      expect(source, findsOneWidget);
+      final gesture = await tester.startGesture(tester.getCenter(source));
+      await gesture.moveTo(
+        tester.getCenter(find.byType(CurrentForumTabsBar).first),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('forum-tab-drop-placeholder')),
+        findsOneWidget,
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(launched, isEmpty);
+      expect(shell.tabsForCurrentForum, hasLength(before + 1));
+      final opened = shell.tabsForCurrentForum
+          .singleWhere((tab) => !existingIds.contains(tab.id))
+          .currentContent;
+      expect(opened.feedPath, route.feedPath);
+      expect(opened.categoryId, 12);
+      expect(Uri.parse(opened.feedPath!).queryParametersAll, {
+        'status': ['open'],
+        'tags[]': ['help wanted'],
+      });
+    } finally {
+      debugDefaultTargetPlatformOverride = previousPlatform;
+    }
+  });
+
   testWidgets('releasing a Start page link below the tab bar opens no tab', (
     tester,
   ) async {
