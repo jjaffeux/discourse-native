@@ -113,13 +113,7 @@ class UserMenuSection {
 
 @immutable
 class UserMenuRow {
-  const UserMenuRow(
-    this.icon,
-    this.title, {
-    this.id,
-    this.status,
-    this.userId,
-  });
+  const UserMenuRow(this.icon, this.title, {this.id, this.status, this.userId});
 
   final DIconData icon;
   final String title;
@@ -177,10 +171,7 @@ List<UserMenuSection> userMenuSections(
       badge: bookmarksBadge,
     ),
     if (user?.canInviteToForum == true)
-      UserMenuSection(
-        id: UserMenuSection.invitesId,
-        label: appL10n.invites,
-      ),
+      UserMenuSection(id: UserMenuSection.invitesId, label: appL10n.invites),
     for (final contribution in pluginSections)
       UserMenuSection(
         id: contribution.id.id,

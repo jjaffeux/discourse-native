@@ -56,10 +56,7 @@ final class LocalDatesModule implements PluginModule {
           ),
         ],
       ),
-      requires: const [
-        corePluginSiteStatePort,
-        corePluginCurrentSitePort,
-      ],
+      requires: const [corePluginSiteStatePort, corePluginCurrentSitePort],
     );
   }
 }

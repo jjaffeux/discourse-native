@@ -18438,10 +18438,8 @@ typedef _CookingSourceStamp = ({
 
 /// Active draft observers own only the bounded refs their source mentions.
 final class _CookingWatch {
-  _CookingWatch({
-    required this.read,
-    required this.onChanged,
-  }) : _stamp = read();
+  _CookingWatch({required this.read, required this.onChanged})
+    : _stamp = read();
 
   final _CookingSourceStamp Function() read;
   final VoidCallback onChanged;

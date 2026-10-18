@@ -58,11 +58,7 @@ Widget _restoringRow(BuildContext context) => DSkeletonRegion(
 );
 
 class TopicListView extends StatefulWidget {
-  const TopicListView({
-    super.key,
-    required this.feed,
-    this.inbox = false,
-  });
+  const TopicListView({super.key, required this.feed, this.inbox = false});
 
   final TopicFeed feed;
   final bool inbox;
