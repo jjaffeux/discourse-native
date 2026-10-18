@@ -96,7 +96,6 @@ class InlineTopicTitleEditor extends StatefulWidget {
     this.maxLines = 1,
     this.showEditingFrame = false,
     this.autofocus = false,
-    this.onEditingChanged,
   });
 
   final String title;
@@ -109,9 +108,6 @@ class InlineTopicTitleEditor extends StatefulWidget {
 
   /// Requests editing focus on insertion or when changed to true.
   final bool autofocus;
-
-  /// Keeps the title editor available while editing or saving.
-  final ValueChanged<bool>? onEditingChanged;
 
   @override
   State<InlineTopicTitleEditor> createState() => _InlineTopicTitleEditorState();
@@ -218,7 +214,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
       }
       return;
     }
-    widget.onEditingChanged?.call(_focus.hasFocus || _saving);
     if (_focus.hasFocus) {
       _ensureEmojiCatalog();
       return;
@@ -241,7 +236,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     }
 
     setState(() => _saving = true);
-    widget.onEditingChanged?.call(true);
     final error = await widget.onSave(title, originalTitle: originalTitle);
     if (!mounted) return false;
     if (error == null) {
@@ -249,9 +243,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
       _originalTitle = null;
       if (_controller.text != title) _replaceText(title);
       setState(() => _saving = false);
-      if (!widget.showEditingFrame) {
-        widget.onEditingChanged?.call(_focus.hasFocus);
-      }
       return true;
     }
 
@@ -276,7 +267,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
     _skipBlurSave = false;
     _originalTitle = _savedTitle;
     setState(() => _editing = true);
-    widget.onEditingChanged?.call(true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _editing) _focus.requestFocus();
     });
@@ -285,7 +275,6 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   void _finishFramedEditing({bool restoreFocus = true}) {
     setState(() => _editing = false);
     _focus.unfocus();
-    widget.onEditingChanged?.call(false);
     if (restoreFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _triggerFocus.canRequestFocus) {
