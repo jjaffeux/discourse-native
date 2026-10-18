@@ -297,7 +297,6 @@ final class _Port extends ChangeNotifier implements GroupPagesPort {
     detail: GroupDetail(group: group),
     members: GroupMembersPage(members: members, total: members.length),
     mutating: mutating,
-    loaded: true,
   );
 
   @override

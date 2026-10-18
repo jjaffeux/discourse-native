@@ -291,11 +291,11 @@ final class ShellGroupPagesPort implements GroupPagesPort {
       mentionsEnabled: config.mentionsEnabled,
       smtpEnabled: config.smtpEnabled,
       taggingEnabled: config.taggingEnabled,
-      loading: detail.loading,
+
       sectionLoading: sectionLoading,
       loadingMore: loadingMore,
       mutating: detail.mutating,
-      loaded: detail.loaded,
+
       error: detail.error,
       sectionError: sectionError,
       hasMore: hasMore,

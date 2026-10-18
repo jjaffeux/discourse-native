@@ -56,11 +56,9 @@ final class GroupPageData {
     this.mentionsEnabled = true,
     this.smtpEnabled = false,
     this.taggingEnabled = true,
-    this.loading = false,
     this.sectionLoading = false,
     this.loadingMore = false,
     this.mutating = false,
-    this.loaded = false,
     this.error,
     this.sectionError,
     this.hasMore = false,
@@ -83,11 +81,9 @@ final class GroupPageData {
   final bool mentionsEnabled;
   final bool smtpEnabled;
   final bool taggingEnabled;
-  final bool loading;
   final bool sectionLoading;
   final bool loadingMore;
   final bool mutating;
-  final bool loaded;
   final String? error;
   final String? sectionError;
   final bool hasMore;

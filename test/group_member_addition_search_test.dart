@@ -124,7 +124,6 @@ Future<void> _pump(
           data: const GroupPageData(
             detail: GroupDetail(group: _group),
             members: GroupMembersPage(members: [], total: 0),
-            loaded: true,
           ),
           onOpenMember: (_, _) {},
           onSearchUsers: searchUsers,

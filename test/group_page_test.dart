@@ -71,7 +71,7 @@ void main() {
             registry: PluginRegistry.empty,
             data: GroupPageData(
               detail: _detail,
-              loaded: true,
+
               activity: GroupActivityPage(
                 posts: [
                   for (var id = 1; id <= 40; id++)
@@ -139,7 +139,6 @@ void main() {
                     activity: GroupActivityPage(),
                     canInviteToForum: true,
                     isAdmin: true,
-                    loaded: true,
                   ),
                   onOpenMember: _ignoreMember,
                   onDeleteGroup: () async => true,
@@ -305,7 +304,6 @@ void main() {
           members: GroupMembersPage(members: [_member], total: 1),
           canSendPrivateMessages: true,
           isAdmin: true,
-          loaded: true,
         ),
         onMembershipAction: (action) async => membership = action,
         onMessageGroup: () => messaged = true,
@@ -376,7 +374,6 @@ void main() {
               members: GroupMembersPage(members: members, total: 48),
               loadingMore: loadingMore,
               hasMore: true,
-              loaded: true,
             ),
             onOpenMember: _ignoreMember,
             onLoadMore: () {
@@ -430,11 +427,7 @@ void main() {
           siteUrl: 'https://meta.discourse.org',
           route: GroupRoute.detail('support', section: GroupRoute.permissions),
           registry: PluginRegistry.empty,
-          data: GroupPageData(
-            detail: _detail,
-            loaded: true,
-            sectionError: error,
-          ),
+          data: GroupPageData(detail: _detail, sectionError: error),
           onOpenMember: _ignoreMember,
         ),
       );
@@ -453,7 +446,7 @@ void main() {
         registry: PluginRegistry.empty,
         data: const GroupPageData(
           detail: _detail,
-          loaded: true,
+
           permissions: [
             GroupPermission(
               category: TopicCategory(
@@ -526,7 +519,6 @@ void main() {
             ],
           ),
           canSendPrivateMessages: true,
-          loaded: true,
         ),
         topicFeed: const Text('Topic feed slot'),
         onSelectRoute: (route) => selected = route,
@@ -554,7 +546,6 @@ void main() {
             ],
             total: 1,
           ),
-          loaded: true,
         ),
         onRequestAction: (requester, action) async => requestAction = action,
       ),
@@ -578,7 +569,6 @@ void main() {
         data: const GroupPageData(
           detail: _detail,
           canSendPrivateMessages: true,
-          loaded: true,
         ),
         messageFeed: const Text('Message feed slot'),
       ),
@@ -609,7 +599,6 @@ void main() {
         data: const GroupPageData(
           detail: _detail,
           canSendPrivateMessages: true,
-          loaded: true,
         ),
         messageFeed: Center(child: Text('${route.subsection} message feed')),
         onSelectRoute: (selected) => setState(() => route = selected),
@@ -676,7 +665,6 @@ void main() {
           data: const GroupPageData(
             detail: _detail,
             activity: GroupActivityPage(),
-            loaded: true,
           ),
           topicFeed: const Center(child: Text('Topic feed slot')),
           onSelectRoute: (selected) => update(() => route = selected),
@@ -757,7 +745,6 @@ void main() {
           members: GroupMembersPage(members: [member], total: 1),
           canInviteToForum: true,
           currentUserStaff: true,
-          loaded: true,
         ),
         onMemberFilterChanged: (value) => filtered = value,
         onMemberSortChanged: (_, _) {},
@@ -870,7 +857,6 @@ void main() {
               memberOrder: order,
               memberAscending: ascending,
               canInviteToForum: true,
-              loaded: true,
             ),
             onMemberSortChanged: (value, direction) => setState(() {
               changes.add((value, direction));
@@ -926,10 +912,7 @@ void main() {
             siteUrl: 'https://meta.discourse.org/forum',
             route: GroupRoute.detail('support'),
             registry: PluginRegistry.empty,
-            data: GroupPageData(
-              detail: GroupDetail(group: group),
-              loaded: true,
-            ),
+            data: GroupPageData(detail: GroupDetail(group: group)),
             onOpenMember: _ignoreMember,
           ),
         );
@@ -973,7 +956,6 @@ void main() {
           detail: _detail,
           members: GroupMembersPage(members: [_member], total: 1),
           isAdmin: true,
-          loaded: true,
         ),
         onDeleteGroup: () async {
           deleted = true;
@@ -1042,7 +1024,6 @@ void main() {
           smtpEnabled: true,
           taggingEnabled: true,
           isAdmin: true,
-          loaded: true,
         ),
         onSaveManage: (update) async {
           saved = update;
@@ -1096,11 +1077,7 @@ void main() {
           route: route,
           registry: PluginRegistry.empty,
           onOpenMember: _ignoreMember,
-          data: const GroupPageData(
-            detail: _detail,
-            taggingEnabled: true,
-            loaded: true,
-          ),
+          data: const GroupPageData(detail: _detail, taggingEnabled: true),
           onSelectRoute: (selected) => update(() => route = selected),
           onSaveManage: (_) async => true,
         );
@@ -1185,7 +1162,6 @@ void main() {
           detail: GroupDetail(group: automaticGroup),
           smtpEnabled: true,
           taggingEnabled: false,
-          loaded: true,
         ),
         onSaveManage: (_) async => true,
       ),
@@ -1227,11 +1203,7 @@ void main() {
           ),
           registry: PluginRegistry.empty,
           onOpenMember: _ignoreMember,
-          data: const GroupPageData(
-            detail: _detail,
-            loaded: true,
-            currentUserStaff: true,
-          ),
+          data: const GroupPageData(detail: _detail, currentUserStaff: true),
           onSaveManage: (_) async {
             submissions += 1;
             return true;
@@ -1288,11 +1260,7 @@ void main() {
         ),
         registry: PluginRegistry.empty,
         onOpenMember: _ignoreMember,
-        data: const GroupPageData(
-          detail: _detail,
-          loaded: true,
-          currentUserStaff: true,
-        ),
+        data: const GroupPageData(detail: _detail, currentUserStaff: true),
         onSaveManage: (_) async => true,
       ),
     );
@@ -1336,7 +1304,7 @@ void main() {
         ),
         registry: registry,
         onOpenMember: _ignoreMember,
-        data: const GroupPageData(detail: _detail, loaded: true),
+        data: const GroupPageData(detail: _detail),
         onSelectRoute: (route) => selected = route,
       ),
     );

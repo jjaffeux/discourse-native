@@ -71,7 +71,6 @@ void main() {
               ),
               registry: PluginRegistry.empty,
               data: const GroupPageData(
-                loaded: true,
                 detail: GroupDetail(
                   group: Group(
                     id: 1,

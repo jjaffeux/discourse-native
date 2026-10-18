@@ -471,7 +471,7 @@ void main() {
                 detail: const GroupDetail(
                   group: Group(id: 9, name: 'support', canAdminGroup: true),
                 ),
-                loaded: true,
+
                 currentUserStaff: isStaff,
               ),
               onOpenMember: (_, _) {},
@@ -849,7 +849,7 @@ class _GroupServer {
             registry: PluginRegistry.empty,
             data: GroupPageData(
               detail: detail,
-              loaded: true,
+
               currentUserStaff: staff,
               isAdmin: admin,
               smtpEnabled: smtpEnabled,

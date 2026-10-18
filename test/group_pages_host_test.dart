@@ -107,7 +107,6 @@ void main() {
             ),
           ),
           canSendPrivateMessages: true,
-          loaded: true,
         )
         ..feed = const TopicFeed(loaded: true);
       addTearDown(port.dispose);
@@ -229,7 +228,6 @@ void main() {
             ),
           ),
           canSendPrivateMessages: canSendPrivateMessages,
-          loaded: true,
         );
       addTearDown(port.dispose);
       final coordinator = GroupPagesCoordinator();
@@ -660,11 +658,7 @@ void main() {
 
 final class _MembershipHost {
   _MembershipHost(Group group)
-    : port = _Port()
-        ..group = GroupPageData(
-          detail: GroupDetail(group: group),
-          loaded: true,
-        );
+    : port = _Port()..group = GroupPageData(detail: GroupDetail(group: group));
 
   final coordinator = GroupPagesCoordinator();
   final _Port port;
@@ -908,7 +902,6 @@ final class _Port implements GroupPagesPort {
           ),
         ),
         isAdmin: true,
-        loaded: true,
       );
 
   @override
