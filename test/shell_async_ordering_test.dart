@@ -2005,6 +2005,133 @@ void main() {
     });
   });
 
+  group('ID page freshness', () {
+    final stream = [for (var id = 1; id <= 45; id++) id];
+
+    Future<
+      ({
+        ShellController shell,
+        _PostOrderingApi api,
+        _PendingPostRequest page,
+        Future<void> paging,
+      })
+    >
+    openPendingPage({bool earlier = false}) async {
+      final api = _PostOrderingApi();
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      api.topics[7] = topicPayload(
+        id: 7,
+        posts: [
+          for (var id = earlier ? 26 : 1; id <= (earlier ? 45 : 20); id++)
+            _streamPost(id),
+        ],
+        stream: stream,
+        postsCount: stream.length,
+      );
+      final shell = await _loadShell(api, plugins: plugins);
+      addTearDown(shell.dispose);
+      shell.pushContent(
+        ContentRoute.topic(
+          topicId: 7,
+          slug: 'a-topic',
+          title: 'A topic',
+          postNumber: earlier ? 40 : null,
+        ),
+      );
+      await shell.loadTopic(7, 'a-topic', postNumber: earlier ? 40 : null);
+      final paging = earlier ? shell.loadEarlierPosts() : shell.loadMorePosts();
+      await api.waitForPostRequests(1);
+      final page = api.postRequests.single;
+      addTearDown(() {
+        if (!page.response.isCompleted) page.response.complete([]);
+      });
+      return (shell: shell, api: api, page: page, paging: paging);
+    }
+
+    for (final earlier in [false, true]) {
+      for (final graceEdit in [false, true]) {
+        test(
+          'a late ${earlier ? 'earlier' : 'later'} page preserves a newer ${graceEdit ? 'grace-period' : 'versioned'} post edit',
+          () async {
+            final (:shell, :api, :page, :paging) = await openPendingPage(
+              earlier: earlier,
+            );
+            final target = earlier ? 25 : 21;
+            expect(page.ids, contains(target));
+            final fresh = _streamPost(target).copyWith(
+              cooked: 'Edited post $target',
+              version: graceEdit ? 1 : 2,
+              updatedAt: DateTime.utc(2026, 10, 18, 12),
+            );
+            api.topics[7] = topicPayload(
+              id: 7,
+              posts: [fresh],
+              stream: stream,
+              postsCount: stream.length,
+            );
+            shell.openCurrentTopicPost(target);
+            await pumpEventQueue();
+            expect(shell.store.read<Post>(_siteUrl, target), fresh);
+
+            page.response.complete([
+              for (final id in page.ids) _streamPost(id),
+            ]);
+            await paging;
+
+            expect(
+              shell.store.read<Post>(_siteUrl, target)?.cooked,
+              fresh.cooked,
+            );
+            expect(shell.store.read<Post>(_siteUrl, target), fresh);
+            final other = page.ids.firstWhere((id) => id != target);
+            expect(shell.store.read<Post>(_siteUrl, other), _streamPost(other));
+          },
+        );
+      }
+    }
+
+    for (final removed in [false, true]) {
+      test(
+        'a late page preserves a direct post ${removed ? 'removal' : 'refresh'}',
+        () async {
+          final (:shell, :api, :page, :paging) = await openPendingPage();
+          final fresh = _streamPost(
+            21,
+          ).copyWith(cooked: 'Accepted direct refresh');
+          final refreshing = shell.refreshPluginPost(
+            _siteUrl,
+            7,
+            21,
+            'api-key',
+            shell.lifecycle.capture(_siteUrl),
+          );
+          await api.waitForPostRequests(2);
+          expect(api.postRequests[1].ids, [21]);
+          api.postRequests[1].response.complete(removed ? [] : [fresh]);
+          await refreshing;
+          expect(api.topicsOpened, hasLength(1));
+          expect(
+            shell.store.read<Post>(_siteUrl, 21),
+            removed ? isNull : fresh,
+          );
+
+          page.response.complete([for (final id in page.ids) _streamPost(id)]);
+          await paging;
+
+          if (removed) {
+            expect(shell.store.containsRecord<Post>(_siteUrl, 21), isFalse);
+            expect(shell.currentTopic?.stream, isNot(contains(21)));
+          } else {
+            expect(shell.store.read<Post>(_siteUrl, 21)?.cooked, fresh.cooked);
+            expect(shell.store.read<Post>(_siteUrl, 21), fresh);
+          }
+          expect(shell.store.read<Post>(_siteUrl, 22), _streamPost(22));
+        },
+      );
+    }
+  });
+
   group('posts the site no longer serves', () {
     // The stream was read before a moderator deleted one of its posts, and
     // this reader cannot see deleted posts: reading it by id leaves it out.

@@ -9716,6 +9716,32 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  void _putUnloadedPagePosts(
+    String siteUrl,
+    int topicId,
+    Iterable<Post> incoming, {
+    required int bookmarkVersionAtDispatch,
+    required int removalVersionAtDispatch,
+  }) {
+    final removed = _topicPostsRemovedSince(
+      siteUrl,
+      topicId,
+      removalVersionAtDispatch,
+    );
+    final unloaded = [
+      for (final post in incoming)
+        if (!removed.contains(post.id) &&
+            !store.containsRecord<Post>(siteUrl, post.id))
+          post,
+    ];
+    _putTopicPosts(
+      siteUrl,
+      topicId,
+      unloaded,
+      bookmarkVersionAtDispatch: bookmarkVersionAtDispatch,
+    );
+  }
+
   /// A page that leaves out a post it asked for is answered by a site that no
   /// longer serves that post to this reader: deleted, moved or made a whisper
   /// since the stream was read. The loaded window ends at the first post it
@@ -9876,6 +9902,7 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(instance.url);
     final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
     final streamReadVersion = _topicStreamReadVersion(instance.url, topicId);
+    final removalVersion = _topicPostRemovalVersion(instance.url, topicId);
 
     _postsLoading.add(key);
     _notify();
@@ -9903,11 +9930,12 @@ class ShellController extends FrameSafeNotifier
               recommendations: null,
             );
       lease.commit(() {
-        _putTopicPosts(
+        _putUnloadedPagePosts(
           instance.url,
           topicId,
           page.posts,
           bookmarkVersionAtDispatch: bookmarkVersion,
+          removalVersionAtDispatch: removalVersion,
         );
         _removeOmittedTopicPosts(
           instance.url,
@@ -9974,6 +10002,7 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(instance.url);
     final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
     final streamReadVersion = _topicStreamReadVersion(instance.url, topicId);
+    final removalVersion = _topicPostRemovalVersion(instance.url, topicId);
 
     _earlierPostsLoading.add(key);
     _notify();
@@ -9991,11 +10020,12 @@ class ShellController extends FrameSafeNotifier
         apiKey: credential.value,
       );
       lease.commit(() {
-        _putTopicPosts(
+        _putUnloadedPagePosts(
           instance.url,
           topicId,
           posts,
           bookmarkVersionAtDispatch: bookmarkVersion,
+          removalVersionAtDispatch: removalVersion,
         );
         _removeOmittedTopicPosts(
           instance.url,
