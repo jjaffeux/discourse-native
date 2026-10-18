@@ -626,6 +626,9 @@ final class AccountActivityController extends FrameSafeNotifier {
       if (source != null) {
         await _refreshLoadedPluginNotifications(instance, source, lease);
       } else {
+        final active = _notificationTasks[siteUrl];
+        if (active != null) await active;
+        if (isDisposed || !lease.isCurrent) return;
         await loadNotifications(instance);
       }
 

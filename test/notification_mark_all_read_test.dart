@@ -63,6 +63,58 @@ void main() {
     expect(shell.notificationsFor(_site).notifications.single.isUnread, isTrue);
   });
 
+  test('bulk read reconciles a pending pre-write initial feed', () async {
+    final gate = Completer<List<DiscourseNotification>>();
+    final api = _BulkApi()..initialFeedGate = gate;
+    final shell = await _shell(api);
+    addTearDown(shell.dispose);
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete([]);
+    });
+    final loading = shell.loadNotifications(_site);
+    await api.initialFeedEntered.future;
+    final reading = shell.markAllNotificationsRead(_site);
+    await api.bulkFinished.future;
+    await pumpEventQueue();
+
+    gate.complete([_oldRow]);
+    await loading;
+    await reading;
+
+    expect(
+      shell.notificationsFor(_site).notifications.single.isUnread,
+      isFalse,
+    );
+    expect(api.notificationReads, 2);
+  });
+
+  test('bulk reconciliation wait preserves a replacement account', () async {
+    final gate = Completer<List<DiscourseNotification>>();
+    final api = _BulkApi()..initialFeedGate = gate;
+    final shell = await _shell(api);
+    addTearDown(shell.dispose);
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete([]);
+    });
+    final loading = shell.loadNotifications(_site);
+    await api.initialFeedEntered.future;
+    final reading = shell.markAllNotificationsRead(_site);
+    await api.bulkFinished.future;
+    await pumpEventQueue();
+
+    shell.lifecycle.invalidate(_site);
+    shell.clearAccountSessionState(_site);
+    api.rows = [_newRow];
+    await shell.loadNotifications(_site);
+    gate.complete([_oldRow]);
+    await loading;
+    await reading;
+
+    expect(shell.notificationsFor(_site).notifications.single.id, 2);
+    expect(shell.notificationsFor(_site).notifications.single.isUnread, isTrue);
+    expect(api.notificationReads, 2);
+  });
+
   test(
     'failed bulk read leaves cached unread state available to retry',
     () async {
@@ -111,6 +163,10 @@ class _BulkApi extends FakeDiscourseApi {
   List<DiscourseNotification> rows = [_oldRow];
   Completer<void>? bulkGate;
   final entered = Completer<void>();
+  final bulkFinished = Completer<void>();
+  Completer<List<DiscourseNotification>>? initialFeedGate;
+  final initialFeedEntered = Completer<void>();
+  var notificationReads = 0;
 
   @override
   Future<List<DiscourseNotification>> notifications({
@@ -119,7 +175,15 @@ class _BulkApi extends FakeDiscourseApi {
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
     String? clientId,
-  }) async => rows;
+  }) async {
+    notificationReads++;
+    final gate = initialFeedGate;
+    if (notificationReads == 1 && gate != null) {
+      initialFeedEntered.complete();
+      return gate.future;
+    }
+    return rows;
+  }
 
   @override
   Future<void> markNotificationsRead({
@@ -144,5 +208,6 @@ class _BulkApi extends FakeDiscourseApi {
           DiscourseNotification.fromJson({...row.toJson(), 'read': true}),
       ];
     }
+    bulkFinished.complete();
   }
 }
