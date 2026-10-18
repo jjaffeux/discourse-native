@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/composer_controller.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
 import 'package:discourse_native/src/shell/composer_upload_placeholder.dart';
+import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +17,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/scaling_benchmark.dart';
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets('completed video upload shows a player (dark: $dark)', (
+      tester,
+    ) async {
+      final request = Completer<ComposerUploadResult>();
+      final composer = ComposerController(
+        _target,
+        imageUploader: (file, {required onProgress, required abortTrigger}) =>
+            request.future,
+      );
+      addTearDown(composer.dispose);
+      await _pump(tester, composer, dark: dark);
+      composer.addFiles([
+        ComposerUploadFile(
+          name: 'screen.mp4',
+          length: () async => 3,
+          openRead: () => Stream.value([1, 2, 3]),
+        ),
+      ], 0);
+      await tester.pump();
+      expect(find.byType(DAttachment), findsOneWidget);
+      request.complete(
+        const ComposerUploadResult(
+          id: 2,
+          originalFilename: 'screen.mp4',
+          shortUrl: 'upload://screen.mp4',
+          url: 'https://example.test/uploads/screen.mp4',
+          thumbnailUrl: 'https://example.test/uploads/screen.jpg',
+          width: 1920,
+          height: 1080,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DAttachment), findsNothing);
+      expect(find.byType(InlineVideo), findsOneWidget);
+      final video = tester.widget<InlineVideo>(find.byType(InlineVideo));
+      expect(
+        video.data.source.toString(),
+        'https://example.test/uploads/screen.mp4',
+      );
+      expect(find.bySemanticsLabel('Play video: screen'), findsOneWidget);
+      expect(composer.raw.trim(), '![screen|video](upload://screen.mp4)');
+      expect(composer.text.imageBlocks, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('a pending upload completes at its reordered block position', (
     tester,
   ) async {

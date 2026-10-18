@@ -4,6 +4,7 @@ import '../models/composer_upload.dart';
 import 'composer_controller.dart';
 import 'composer_details_blocks.dart';
 import 'composer_galleries.dart';
+import 'composer_images.dart';
 import 'composer_upload_placeholder.dart';
 
 /// A rich editor over one details body. The enclosing draft owns uploads and
@@ -40,7 +41,7 @@ class ComposerDetailsBodyController extends ComposerController {
       text: _localBody,
       selection: TextSelection.collapsed(offset: _localBody.length),
     );
-    _copyImageUrls();
+    _copyUploadUrls();
     text.addListener(_writeBody);
     parent.text.addListener(_readParent);
     parent.addListener(_parentStateChanged);
@@ -95,17 +96,20 @@ class ComposerDetailsBodyController extends ComposerController {
     notifyListeners();
   }
 
-  void _copyImageUrls() {
-    for (final image in text.imageBlocks) {
-      final resolved = parent.text.resolvedImageUrl(image);
-      if (resolved != null) text.cacheImageUrl(image.url, resolved);
+  void _copyUploadUrls() {
+    for (final url in [
+      for (final image in text.imageBlocks) image.url,
+      for (final video in parseComposerVideos(text.text)) video.url,
+    ]) {
+      final resolved = parent.text.resolvedUploadUrl(url);
+      if (resolved != null) text.cacheImageUrl(url, resolved);
     }
   }
 
   void _readParent() {
     if (_syncing || isDisposed || _retired) return;
     if (_matchesParent) {
-      _copyImageUrls();
+      _copyUploadUrls();
       return;
     }
     final next = parseComposerDetails(
@@ -126,7 +130,7 @@ class ComposerDetailsBodyController extends ComposerController {
       if (text.text != _localBody) {
         text.value = _replaceBodyValue(text.value, _localBody);
       }
-      _copyImageUrls();
+      _copyUploadUrls();
     } finally {
       _syncing = false;
     }

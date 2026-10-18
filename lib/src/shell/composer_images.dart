@@ -39,6 +39,23 @@ class ComposerImageBlock {
   }
 }
 
+@immutable
+final class ComposerVideoBlock {
+  const ComposerVideoBlock({
+    required this.start,
+    required this.end,
+    required this.source,
+    required this.title,
+    required this.url,
+  });
+
+  final int start;
+  final int end;
+  final String source;
+  final String title;
+  final String url;
+}
+
 // Let `\\.` own backslashes. Matching them in both branches causes explosive
 // backtracking and misreads CommonMark's escaped `\]`.
 final RegExp _imageAltPattern = RegExp(r'!\[((?:\\.|[^\\\]\n])*)');
@@ -68,16 +85,22 @@ final RegExp _dataAttributeSuffixPattern = RegExp(r'[\w\-:.]*=');
 // ending its alt starts with `video` or `audio` (`isKnownImageSuffix` in
 // discourse-markdown-it's engine). As an image block that media would be
 // fetched as a picture, and rewriting the block would drop the suffix, so it
-// stays raw source.
-bool _isPlayableMediaLabel(String label) {
-  if (!label.contains('|')) return false;
+// stays out of image projections.
+({String title, String media})? _playableMediaLabel(String label) {
+  if (!label.contains('|')) return null;
   final segments = label.split('|');
   var first = segments.length;
   while (first > 1 && _isKnownImageSuffix(segments[first - 1])) {
     first -= 1;
   }
-  return first < segments.length &&
-      (segments[first] == 'video' || segments[first] == 'audio');
+  if (first == segments.length ||
+      (segments[first] != 'video' && segments[first] != 'audio')) {
+    return null;
+  }
+  return (
+    title: unescapeImageAlt(segments.take(first).join('|')),
+    media: segments[first],
+  );
 }
 
 bool _isKnownImageSuffix(String segment) =>
@@ -91,10 +114,69 @@ List<ComposerImageBlock> parseComposerImages(
   String source, {
   CodeRanges? codeRanges,
 }) {
-  // Every image starts with its opener; without one, skip the markdown scan.
   if (!source.contains('![')) return const [];
-  final code = codeRanges ?? markdownCodeRanges(source);
   final images = <ComposerImageBlock>[];
+  for (final token in _imageTokens(source, codeRanges: codeRanges)) {
+    if (_playableMediaLabel(token.label) != null) continue;
+    final label = _labelPattern.firstMatch(token.label);
+    if (label == null) continue;
+    final width = int.tryParse(label.group(2) ?? '');
+    final height = int.tryParse(label.group(3) ?? '');
+    final hasValidDimensions =
+        width != null && width > 0 && height != null && height > 0;
+    final scale = int.tryParse(label.group(4) ?? '');
+    images.add(
+      ComposerImageBlock(
+        start: token.start,
+        end: token.end,
+        source: token.source,
+        alt: unescapeImageAlt(label.group(1)!),
+        url: token.url,
+        width: hasValidDimensions ? width : null,
+        height: hasValidDimensions ? height : null,
+        scale: scale != null && scale >= 1 && scale <= 100 ? scale : null,
+      ),
+    );
+  }
+  return List.unmodifiable(images);
+}
+
+List<ComposerVideoBlock> parseComposerVideos(
+  String source, {
+  CodeRanges? codeRanges,
+}) {
+  if (!source.contains('|video')) return const [];
+  return List.unmodifiable([
+    for (final token in _imageTokens(source, codeRanges: codeRanges))
+      if (!token.escaped)
+        if (_playableMediaLabel(token.label) case final label?
+            when label.media == 'video')
+          ComposerVideoBlock(
+            start: token.start,
+            end: token.end,
+            source: token.source,
+            title: label.title,
+            url: token.url,
+          ),
+  ]);
+}
+
+typedef _ImageToken = ({
+  int start,
+  int end,
+  String source,
+  String label,
+  String url,
+  bool escaped,
+});
+
+Iterable<_ImageToken> _imageTokens(
+  String source, {
+  CodeRanges? codeRanges,
+}) sync* {
+  // Every image starts with its opener; without one, skip the markdown scan.
+  if (!source.contains('![')) return;
+  final code = codeRanges ?? markdownCodeRanges(source);
   var offset = 0;
   var urlEnd = -1;
   var end = -1;
@@ -127,29 +209,19 @@ List<ComposerImageBlock> parseComposerImages(
 
     offset = end;
     if (code.overlaps(start, end)) continue;
-    final rawLabel = alt.group(1)!;
-    if (_isPlayableMediaLabel(rawLabel)) continue;
-    final label = _labelPattern.firstMatch(rawLabel);
-    if (label == null) continue;
-    final width = int.tryParse(label.group(2) ?? '');
-    final height = int.tryParse(label.group(3) ?? '');
-    final hasValidDimensions =
-        width != null && width > 0 && height != null && height > 0;
-    final scale = int.tryParse(label.group(4) ?? '');
-    images.add(
-      ComposerImageBlock(
-        start: start,
-        end: end,
-        source: source.substring(start, end),
-        alt: unescapeImageAlt(label.group(1)!),
-        url: source.substring(bracket + 2, urlEnd),
-        width: hasValidDimensions ? width : null,
-        height: hasValidDimensions ? height : null,
-        scale: scale != null && scale >= 1 && scale <= 100 ? scale : null,
-      ),
+    var slashes = 0;
+    for (var at = start - 1; at >= 0 && source.codeUnitAt(at) == 0x5c; at--) {
+      slashes++;
+    }
+    yield (
+      start: start,
+      end: end,
+      source: source.substring(start, end),
+      label: alt.group(1)!,
+      url: source.substring(bracket + 2, urlEnd),
+      escaped: slashes.isOdd,
     );
   }
-  return List.unmodifiable(images);
 }
 
 ComposerImageBlock? imageAtComposerOffset(
@@ -169,6 +241,9 @@ final RegExp _audioFilenamePattern = RegExp(
   caseSensitive: false,
 );
 
+bool isComposerVideoFilename(String filename) =>
+    _videoFilenamePattern.hasMatch(filename);
+
 /// Mirrors core's `getUploadMarkdown`, except that other files stay plain
 /// links: core writes `[name|attachment](url) (size)`, and the composer draws
 /// a link's label verbatim, marker included.
@@ -177,7 +252,7 @@ String uploadFileMarkdown(ComposerUploadResult upload) {
   if (SiteConfig.isImageFilename(filename)) return uploadImageMarkdown(upload);
   final media = _audioFilenamePattern.hasMatch(filename)
       ? 'audio'
-      : _videoFilenamePattern.hasMatch(filename)
+      : isComposerVideoFilename(filename)
       ? 'video'
       : null;
   if (media == null) {

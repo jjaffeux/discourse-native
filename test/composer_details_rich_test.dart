@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/composer_details.dart';
 import 'package:discourse_native/src/shell/composer_details_blocks.dart';
 import 'package:discourse_native/src/shell/composer_image.dart';
 import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -307,6 +308,16 @@ void main() {
     );
     expect(fixture.root.raw, startsWith('Before\n\n[details]'));
     expect(fixture.root.raw, endsWith('[/details]\n\nAfter'));
+    expect(find.byType(InlineVideo), findsOneWidget);
+    expect(
+      tester
+          .widget<InlineVideo>(find.byType(InlineVideo))
+          .data
+          .source
+          .toString(),
+      'https://example.test/clip.mp4',
+    );
+    expect(find.bySemanticsLabel('Play video: clip'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
