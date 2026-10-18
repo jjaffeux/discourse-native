@@ -19,7 +19,6 @@ final class FavoriteSiteEmoji {
   final EmojiSkinTone tone;
 
   String get code => emoji.codeFor(tone);
-  String get url => emoji.urlFor(tone);
 }
 
 final class EmojiPickerController extends ChangeNotifier {

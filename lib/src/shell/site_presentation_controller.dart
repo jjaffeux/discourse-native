@@ -652,8 +652,6 @@ final class _RetryingSiteCache<T> {
 
   T? operator [](String siteUrl) => _values[siteUrl];
 
-  bool contains(String siteUrl) => _values.containsKey(siteUrl);
-
   bool start(String siteUrl, int maxAttempts, {bool refresh = false}) {
     if (_loading.contains(siteUrl)) return false;
     if (!refresh && _values.containsKey(siteUrl)) return false;
