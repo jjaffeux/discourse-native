@@ -475,7 +475,6 @@ class _MainContentBody extends StatelessWidget {
               bookmarkBusy: state.bookmarkBusy,
               registry: registry,
               pluginContent: pluginContent,
-              filterCategories: state.filterCategories,
               categoryFeed: state.categoryFeed,
               groupPages: groupPages,
               groupPagesPort: groupPagesPort,
@@ -738,7 +737,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     ),
               child: _FeedBackedContent(
                 route: sourceRoute,
-                siteUrl: state.siteUrl,
                 inbox: true,
                 keepTopicOpen: split,
                 topicListActions: headingActions,
@@ -895,7 +893,6 @@ class _ContentViewport extends StatelessWidget {
     required this.bookmarkBusy,
     required this.registry,
     required this.pluginContent,
-    required this.filterCategories,
     required this.categoryFeed,
     required this.groupPages,
     required this.groupPagesPort,
@@ -911,7 +908,6 @@ class _ContentViewport extends StatelessWidget {
   final bool bookmarkBusy;
   final PluginRegistry registry;
   final Widget? pluginContent;
-  final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
   final GroupPagesCoordinator groupPages;
   final GroupPagesPort groupPagesPort;
@@ -972,8 +968,6 @@ class _ContentViewport extends StatelessWidget {
     if (!route.isTopic && route.id == 'filter' && siteUrl != null) {
       return _FeedBackedContent(
         route: route,
-        siteUrl: siteUrl!,
-        filterCategories: filterCategories,
         fallback: pluginContent,
       );
     }
@@ -994,7 +988,6 @@ class _ContentViewport extends StatelessWidget {
 
     return _FeedBackedContent(
       route: route,
-      siteUrl: siteUrl,
       topicListActions: topicListActions,
     );
   }
@@ -1003,8 +996,6 @@ class _ContentViewport extends StatelessWidget {
 class _FeedBackedContent extends StatelessWidget {
   const _FeedBackedContent({
     required this.route,
-    required this.siteUrl,
-    this.filterCategories = const [],
     this.fallback,
     this.topicListActions,
     this.topicListHeadingBuilder,
@@ -1013,8 +1004,6 @@ class _FeedBackedContent extends StatelessWidget {
   });
 
   final ContentRoute route;
-  final String? siteUrl;
-  final List<TopicCategory> filterCategories;
   final Widget? fallback;
   final Widget? topicListActions;
   final TopicListHeadingBuilder? topicListHeadingBuilder;
@@ -1818,7 +1807,6 @@ class _MainContentSnapshot {
     required this.canReply,
     required this.bookmarkBusy,
     required this.isConnected,
-    required this.filterCategories,
     required this.categoryFeed,
     required this.groupAccountIdentity,
     required this.groupSessionIdentity,
@@ -1849,10 +1837,6 @@ class _MainContentSnapshot {
         _ => false,
       },
       isConnected: controller.currentInstance?.isConnected == true,
-      filterCategories: switch ((route?.id, controller.currentInstance?.url)) {
-        ('filter', final siteUrl?) => controller.filterCategoriesFor(siteUrl),
-        _ => const [],
-      },
       categoryFeed: switch ((route?.id, controller.currentInstance?.url)) {
         ('all-categories', final siteUrl?) => controller.categoryFeedFor(
           siteUrl,
@@ -1876,7 +1860,6 @@ class _MainContentSnapshot {
   final bool canReply;
   final bool bookmarkBusy;
   final bool isConnected;
-  final List<TopicCategory> filterCategories;
   final CategoryFeed? categoryFeed;
   final String? groupAccountIdentity;
   final Object groupSessionIdentity;
@@ -1892,7 +1875,6 @@ class _MainContentSnapshot {
       canReply == other.canReply &&
       bookmarkBusy == other.bookmarkBusy &&
       isConnected == other.isConnected &&
-      identical(filterCategories, other.filterCategories) &&
       identical(categoryFeed, other.categoryFeed) &&
       groupAccountIdentity == other.groupAccountIdentity &&
       identical(groupSessionIdentity, other.groupSessionIdentity);
@@ -1907,7 +1889,6 @@ class _MainContentSnapshot {
     canReply,
     bookmarkBusy,
     isConnected,
-    identityHashCode(filterCategories),
     identityHashCode(categoryFeed),
     groupAccountIdentity,
     identityHashCode(groupSessionIdentity),
