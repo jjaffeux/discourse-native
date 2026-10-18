@@ -966,10 +966,7 @@ class _ContentViewport extends StatelessWidget {
       return TagsPage(siteUrl: siteUrl!);
     }
     if (!route.isTopic && route.id == 'filter' && siteUrl != null) {
-      return _FeedBackedContent(
-        route: route,
-        fallback: pluginContent,
-      );
+      return _FeedBackedContent(route: route, fallback: pluginContent);
     }
     if (route.isTopic) {
       return DesktopTopicPage(
@@ -986,10 +983,7 @@ class _ContentViewport extends StatelessWidget {
     }
     if (pluginContent case final content?) return content;
 
-    return _FeedBackedContent(
-      route: route,
-      topicListActions: topicListActions,
-    );
+    return _FeedBackedContent(route: route, topicListActions: topicListActions);
   }
 }
 
@@ -1039,7 +1033,6 @@ class _FeedBackedContent extends StatelessWidget {
 
         if (TopicListMode.fromRoute(route) != null || route.isTopicListFilter) {
           return TopicListNavigation(
-            stacked: inbox,
             keepTopicOpen: keepTopicOpen,
             trailing: topicListActions,
             headingBuilder: topicListHeadingBuilder,

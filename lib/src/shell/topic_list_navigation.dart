@@ -77,14 +77,12 @@ class TopicListNavigation extends StatelessWidget {
     required this.child,
     this.trailing,
     this.headingBuilder,
-    this.stacked = false,
     this.keepTopicOpen = false,
   });
 
   final Widget child;
   final Widget? trailing;
   final TopicListHeadingBuilder? headingBuilder;
-  final bool stacked;
   final bool keepTopicOpen;
 
   @override
@@ -138,7 +136,6 @@ class TopicListNavigation extends StatelessWidget {
         showsFilters: showsFilters,
         trailing: trailing,
         headingBuilder: headingBuilder,
-        stacked: stacked,
         keepTopicOpen: keepTopicOpen,
       );
       if (headingBuilder == null) {
@@ -164,7 +161,6 @@ class _TopicListNavigationControls extends StatelessWidget {
     required this.showsFilters,
     required this.trailing,
     required this.headingBuilder,
-    required this.stacked,
     required this.keepTopicOpen,
   });
 
@@ -173,7 +169,6 @@ class _TopicListNavigationControls extends StatelessWidget {
   final bool showsFilters;
   final Widget? trailing;
   final TopicListHeadingBuilder? headingBuilder;
-  final bool stacked;
   final bool keepTopicOpen;
 
   @override
