@@ -5,13 +5,8 @@ import 'shell_scope.dart';
 
 /// Reports the painted reader, excluding navigation and the app-level composer.
 class ReaderContentBounds extends StatefulWidget {
-  const ReaderContentBounds({
-    super.key,
-    this.enabled = true,
-    required this.child,
-  });
+  const ReaderContentBounds({super.key, required this.child});
 
-  final bool enabled;
   final Widget child;
 
   @override
@@ -22,7 +17,7 @@ class _ReaderContentBoundsState extends State<ReaderContentBounds> {
   final _viewportKey = GlobalKey();
 
   void _report() {
-    if (!mounted || !widget.enabled) return;
+    if (!mounted) return;
     final render = _viewportKey.currentContext?.findRenderObject();
     if (render is RenderBox && render.attached && render.hasSize) {
       ShellScope.read(context).reportReaderContentBounds(
@@ -41,9 +36,7 @@ class _ReaderContentBoundsState extends State<ReaderContentBounds> {
     ]),
     builder: (context, _) => LayoutBuilder(
       builder: (context, bounds) {
-        if (widget.enabled) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _report());
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) => _report());
         return SizedBox.expand(key: _viewportKey, child: widget.child);
       },
     ),

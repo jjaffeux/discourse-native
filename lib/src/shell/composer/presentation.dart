@@ -363,9 +363,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     }
     _entries.removeWhere((composer, _) => !live.contains(composer));
     final current = _presentableComposer;
-    _activeDock = _docks
-        .where((dock) => dock.mounted && dock.widget.enabled)
-        .lastOrNull;
+    _activeDock = _docks.where((dock) => dock.mounted).lastOrNull;
     final mobileSheet = _mobileSheetEntry;
     return _ComposerPresentationScope(
       owner: this,
@@ -473,11 +471,9 @@ class ComposerDock extends StatefulWidget {
     super.key,
     required this.child,
     this.appWorkspace = false,
-    this.enabled = true,
   });
   final Widget child;
   final bool appWorkspace;
-  final bool enabled;
 
   /// Space for mobile chrome above a minimized composer that overlays the page.
   static double bottomOverlayInsetOf(BuildContext context) =>
@@ -524,12 +520,6 @@ class _ComposerDockState extends State<ComposerDock> {
   double? _resizeProposal;
   _ComposerPresentationHostState? _owner;
   ComposerController? _visibleComposer;
-
-  @override
-  void didUpdateWidget(ComposerDock oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.enabled != widget.enabled) _owner?._syncDocks();
-  }
 
   @override
   void didChangeDependencies() {
