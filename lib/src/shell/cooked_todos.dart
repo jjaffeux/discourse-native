@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../models/post_checklist.dart';
+import 'cooked_document.dart';
+import 'cooked_dom.dart';
 
 bool _isCheckbox(dom.Node node) =>
     node is dom.Element &&
@@ -31,7 +32,9 @@ Map<String, String>? cookedTodoStyles(dom.Element element) {
     return const {'list-style-type': 'none'};
   }
   if (element.localName == 'ul') {
-    final items = element.children.where((child) => child.localName == 'li');
+    final items = childElements(
+      element,
+    ).where((child) => child.localName == 'li');
     if (items.isNotEmpty &&
         items.every((item) => cookedTodoListMarker(item) != null)) {
       // The Native checkbox supplies the marker gutter for a task list.
@@ -44,21 +47,13 @@ Map<String, String>? cookedTodoStyles(dom.Element element) {
 /// Renders the Checklist plugin's cooked HTML through the Native UI kit.
 Widget? cookedTodoWidgetBuilder(
   dom.Element element, {
-  required Widget Function(String html, TextStyle? style) contentBuilder,
+  required CookedContent content,
   required TextStyle? style,
-  PostChecklistDocument? checklist,
-  void Function(PostChecklistTarget, bool)? onToggle,
 }) {
   Widget checkbox(dom.Element box, String label) {
-    final index = int.tryParse(
-      box.attributes[PostChecklistDocument.indexAttribute] ?? '',
-    );
-    final targets = checklist?.targets;
-    final target =
-        index != null && targets != null && index >= 0 && index < targets.length
-        ? targets[index]
-        : null;
-    final interactive = target != null && !target.permanent && onToggle != null;
+    final target = content.targetFor(box);
+    final interactive =
+        target != null && !target.permanent && content.onToggle != null;
     return Builder(
       builder: (context) => DCheckbox(
         inline: true,
@@ -69,7 +64,7 @@ Widget? cookedTodoWidgetBuilder(
         readOnly: !interactive,
         semanticLabel: label.isEmpty ? appL10n.toDo : label,
         onChanged: (checked) {
-          if (interactive) onToggle(target, checked == true);
+          if (interactive) content.onToggle!(target, checked == true);
         },
       ),
     );
@@ -115,7 +110,9 @@ Widget? cookedTodoWidgetBuilder(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             checkbox(marker, label),
-            Expanded(child: contentBuilder(fragment.outerHtml.trim(), style)),
+            Expanded(
+              child: content(context, fragment.outerHtml.trim(), style: style),
+            ),
           ],
         );
       },
@@ -156,9 +153,10 @@ Widget? cookedTodoWidgetBuilder(
               fragment.append(node.clone(true));
             }
             if (!isTodo) {
-              return contentBuilder(
+              return content(
+                context,
                 fragment.outerHtml.isEmpty ? '<br>' : fragment.outerHtml,
-                style,
+                style: style,
               );
             }
             final label = fragment.text?.trim() ?? '';
@@ -167,9 +165,10 @@ Widget? cookedTodoWidgetBuilder(
               children: [
                 checkbox(line.first as dom.Element, label),
                 Expanded(
-                  child: contentBuilder(
+                  child: content(
+                    context,
                     fragment.outerHtml.trim(),
-                    checked
+                    style: checked
                         ? (style ?? DefaultTextStyle.of(context).style)
                               .copyWith(
                                 color: DTokens.of(context).mutedForeground,

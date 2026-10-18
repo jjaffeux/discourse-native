@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/cooked_document.dart';
 import 'package:discourse_native/src/shell/cooked_table.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,7 +19,9 @@ void main() {
           .querySelector('table')!;
       final table = cookedTableWidgetBuilder(
         element,
-        cellBuilder: (_, content) => Text(html.parse(content).body!.text),
+        content: CookedDocument(element.outerHtml).bind(
+          (_, fragment, style) => Text(html.parse(fragment.html).body!.text),
+        ),
       )!;
       await tester.pumpWidget(
         MaterialApp(

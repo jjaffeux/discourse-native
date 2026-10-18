@@ -11,6 +11,7 @@ import 'package:discourse_native/src/plugins/local_dates/local_date_environment.
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_details.dart';
+import 'package:discourse_native/src/shell/cooked_document.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/cooked_spoiler.dart';
 import 'package:discourse_native/src/shell/cooked_table.dart';
@@ -471,7 +472,9 @@ const _drawn = [
 
 final _builderCall = RegExp(r'\b(\w+WidgetBuilder)\(');
 
-Widget _nested(BuildContext context, String html) => const SizedBox.shrink();
+final _nested = CookedDocument(
+  '',
+).bind((context, fragment, style) => const SizedBox.shrink());
 
 void main() {
   final localDateFormatter = LocalDateFormatter(
@@ -506,16 +509,13 @@ void main() {
         for (final element in _descendants(root)) {
           probe(
             'todo',
-            () => cookedTodoWidgetBuilder(
-              element,
-              style: null,
-              contentBuilder: (html, style) => const SizedBox.shrink(),
-            ),
+            () =>
+                cookedTodoWidgetBuilder(element, style: null, content: _nested),
             element,
           );
           probe(
             'spoiler',
-            () => cookedSpoilerWidgetBuilder(element, contentBuilder: _nested),
+            () => cookedSpoilerWidgetBuilder(element, content: _nested),
             element,
           );
           probe(
@@ -535,12 +535,12 @@ void main() {
           );
           probe(
             'details',
-            () => cookedDetailsWidgetBuilder(element, contentBuilder: _nested),
+            () => cookedDetailsWidgetBuilder(element, content: _nested),
             element,
           );
           probe(
             'table',
-            () => cookedTableWidgetBuilder(element, cellBuilder: _nested),
+            () => cookedTableWidgetBuilder(element, content: _nested),
             element,
           );
           probe(

@@ -7,24 +7,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../models/post_checklist.dart';
 import '../theme/d_icons.dart';
+import 'cooked_document.dart';
+import 'cooked_dom.dart';
 
 /// Adapts ordinary cooked Markdown tables. Document tables with merged cells,
 /// multiple headers or footers retain the HTML renderer's structural support.
 Widget? cookedTableWidgetBuilder(
   dom.Element element, {
-  required Widget Function(BuildContext, String) cellBuilder,
+  required CookedContent content,
 }) {
   if (element.localName != 'table') return null;
   final rows = element.querySelectorAll('tr');
   if (rows.isEmpty ||
       element.querySelector('table, tfoot') != null ||
-      rows.first.children.isEmpty ||
-      rows.first.children.any((cell) => cell.localName != 'th')) {
+      childElements(rows.first).isEmpty ||
+      childElements(rows.first).any((cell) => cell.localName != 'th')) {
     return null;
   }
-  final headers = rows.first.children;
+  final headers = childElements(rows.first);
   // Interactive header content must keep its original targets.
   if (headers.any(
     (cell) => cell.querySelector('a, img, button, input') != null,
@@ -32,8 +33,8 @@ Widget? cookedTableWidgetBuilder(
     return null;
   }
   for (final (index, row) in rows.indexed) {
-    if (row.children.length != headers.length ||
-        row.children.any(
+    if (childElements(row).length != headers.length ||
+        childElements(row).any(
           (cell) =>
               cell.localName != (index == 0 ? 'th' : 'td') ||
               !{null, '1'}.contains(cell.attributes['colspan']) ||
@@ -43,14 +44,14 @@ Widget? cookedTableWidgetBuilder(
     }
   }
   return _CookedTable(
-    key: ValueKey(PostChecklistDocument.contentKey(element.outerHtml)),
+    key: ValueKey(content.stateKey(element)),
     headers: [for (final cell in headers) _Cell(cell)],
     rows: [
       for (final row in rows.skip(1))
-        [for (final cell in row.children) _Cell(cell)],
+        [for (final cell in childElements(row)) _Cell(cell)],
     ],
     caption: element.querySelector('caption')?.innerHtml,
-    cellBuilder: cellBuilder,
+    content: content,
   );
 }
 
@@ -83,13 +84,13 @@ class _CookedTable extends StatefulWidget {
     required this.headers,
     required this.rows,
     required this.caption,
-    required this.cellBuilder,
+    required this.content,
   });
 
   final List<_Cell> headers;
   final List<List<_Cell>> rows;
   final String? caption;
-  final Widget Function(BuildContext, String) cellBuilder;
+  final CookedContent content;
 
   @override
   State<_CookedTable> createState() => _CookedTableState();
@@ -184,9 +185,10 @@ class _CookedTableState extends State<_CookedTable> {
               fontWeight: index == 0 ? FontWeight.w600 : FontWeight.w400,
             ),
             child: Builder(
-              builder: (context) => widget.cellBuilder(
+              builder: (context) => widget.content(
                 context,
                 widget.rows[cell.row][index].html,
+                style: DefaultTextStyle.of(context).style,
               ),
             ),
           ),
@@ -244,7 +246,13 @@ class _CookedTableState extends State<_CookedTable> {
           ),
         ],
         if (widget.caption case final caption?)
-          DTableCaption(child: widget.cellBuilder(context, caption)),
+          DTableCaption(
+            child: widget.content(
+              context,
+              caption,
+              style: DefaultTextStyle.of(context).style,
+            ),
+          ),
       ],
     );
   }

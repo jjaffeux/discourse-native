@@ -442,21 +442,25 @@ final class SiteImageUnavailableException implements Exception {
   String toString() => appL10n.siteImageIsUnavailable((url).toString());
 }
 
+typedef SiteImageFactoryConfiguration = ({
+  String? siteUrl,
+  PluginRegistry registry,
+  ValueChanged<String>? onMiddleClickUrl,
+  RenderMode? columnBodyMode,
+});
+
 final class SiteImageWidgetFactory extends WidgetFactory {
-  SiteImageWidgetFactory({
-    required this.siteUrl,
-    this.registry = PluginRegistry.empty,
-    this.onMiddleClickUrl,
-    this.columnBodyMode,
-  });
+  SiteImageWidgetFactory({required this.configuration});
 
-  final String? siteUrl;
-  final PluginRegistry registry;
-  final ValueChanged<String>? onMiddleClickUrl;
+  // HtmlWidget creates its factory only once. Resolve current values when a
+  // body is rebuilt so site/registry/mode changes keep existing subtree state.
+  final SiteImageFactoryConfiguration Function() configuration;
 
-  /// Replaces only the normalized root column, preserving CSS wrappers that
-  /// the HTML library otherwise unwraps for sliver/list render modes.
-  final RenderMode? columnBodyMode;
+  String? get siteUrl => configuration().siteUrl;
+  PluginRegistry get registry => configuration().registry;
+  ValueChanged<String>? get onMiddleClickUrl =>
+      configuration().onMiddleClickUrl;
+  RenderMode? get columnBodyMode => configuration().columnBodyMode;
 
   @override
   Widget buildBodyWidget(BuildContext context, Widget child) {

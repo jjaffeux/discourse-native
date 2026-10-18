@@ -1065,57 +1065,74 @@ void main() {
     expect(elements.calls, greaterThan(recounted));
   });
 
-  testWidgets('a reaction keeps the parsed body that a body record rebuilds', (
-    tester,
-  ) async {
-    const html = '<p>Results so far:</p><div class="tally"></div>';
-    final elements = _CountingCookedElements();
-    final registry = PluginRegistry([
-      elements,
-      const ReactionsPlugin(),
-      const _TallyPlugin(),
-    ]);
-    Post read({int hearts = 1, String tally = 'Three votes'}) => Post(
-      id: 1,
-      postNumber: 1,
-      username: 'sam',
-      cooked: html,
-      plugins: PluginData.none
-          .withValue(
-            reactionsDataKey,
-            Reactions(
-              entries: [Reaction(id: 'heart', count: hearts)],
-              userCount: hearts,
-            ),
-          )
-          .withValue(_tallyRecord, tally),
-    );
-    Future<void> show(Post post) => pumpCooked(
+  for (final kind in ['root', 'details', 'spoiler', 'table']) {
+    testWidgets('a reaction reuses $kind while a body record rebuilds it', (
       tester,
-      html,
-      registry: registry,
-      post: post,
-      siteUrl: 'https://meta.discourse.org',
-    );
+    ) async {
+      const body = '<p>Results so far:</p><div class="tally"></div>';
+      final html = switch (kind) {
+        'details' => '<details><summary>Results</summary>$body</details>',
+        'spoiler' => '<div class="spoiler">$body</div>',
+        'table' =>
+          '<table><tr><th>Results</th></tr><tr><td>$body</td></tr></table>',
+        _ => body,
+      };
+      final elements = _CountingCookedElements();
+      final registry = PluginRegistry([
+        elements,
+        const ReactionsPlugin(),
+        const _TallyPlugin(),
+      ]);
+      Post read({int hearts = 1, String tally = 'Three votes'}) => Post(
+        id: 1,
+        postNumber: 1,
+        username: 'sam',
+        cooked: html,
+        plugins: PluginData.none
+            .withValue(
+              reactionsDataKey,
+              Reactions(
+                entries: [Reaction(id: 'heart', count: hearts)],
+                userCount: hearts,
+              ),
+            )
+            .withValue(_tallyRecord, tally),
+      );
+      Future<void> show(Post post) => pumpCooked(
+        tester,
+        html,
+        registry: registry,
+        post: post,
+        siteUrl: 'https://meta.discourse.org',
+      );
 
-    final original = read();
-    await show(original);
-    final parsed = elements.calls;
-    expect(parsed, greaterThan(0));
-    expect(find.text('Three votes'), findsOneWidget);
+      final original = read();
+      await show(original);
+      if (kind == 'details' || kind == 'spoiler') {
+        await tester.tap(
+          kind == 'details'
+              ? find.text('Results')
+              : find.bySemanticsLabel('Spoiler'),
+        );
+        await tester.pumpAndSettle();
+      }
+      final parsed = elements.calls;
+      expect(parsed, greaterThan(0));
+      expect(find.text('Three votes'), findsOneWidget);
 
-    // Someone reacted: the footer's record moved, nothing the body draws did.
-    final reacted = read(hearts: 2);
-    expect(reacted.plugins, isNot(original.plugins));
-    await show(reacted);
-    expect(elements.calls, parsed);
-    expect(find.text('Three votes'), findsOneWidget);
+      // Someone reacted: the footer's record moved, nothing the body draws did.
+      final reacted = read(hearts: 2);
+      expect(reacted.plugins, isNot(original.plugins));
+      await show(reacted);
+      expect(elements.calls, parsed);
+      expect(find.text('Three votes'), findsOneWidget);
 
-    await show(read(hearts: 2, tally: 'Four votes'));
-    expect(elements.calls, greaterThan(parsed));
-    expect(find.text('Three votes'), findsNothing);
-    expect(find.text('Four votes'), findsOneWidget);
-  });
+      await show(read(hearts: 2, tally: 'Four votes'));
+      expect(elements.calls, greaterThan(parsed));
+      expect(find.text('Three votes'), findsNothing);
+      expect(find.text('Four votes'), findsOneWidget);
+    });
+  }
 
   group('links', () {
     testWidgets('right-click selects the inline link under the pointer', (

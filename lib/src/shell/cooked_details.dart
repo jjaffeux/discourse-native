@@ -3,25 +3,24 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../models/post_checklist.dart';
+import 'cooked_document.dart';
+import 'cooked_dom.dart';
 
 /// Keeps the post's rendering context inside each disclosure, including nested
 /// details, plugin content, relative links and authenticated images.
 Widget? cookedDetailsWidgetBuilder(
   dom.Element element, {
-  required Widget Function(BuildContext, String) contentBuilder,
+  required CookedContent content,
 }) {
   if (element.localName != 'details') return null;
-  final summary = element.children
-      .where((child) => child.localName == 'summary')
-      .firstOrNull;
+  final summary = childWhere(element, (child) => child.localName == 'summary');
   final title = _summaryLabel(summary);
   final body = dom.Element.tag('div');
   for (final node in element.nodes) {
     if (!identical(node, summary)) body.append(node.clone(true));
   }
   return DAccordion<int>(
-    key: ValueKey(PostChecklistDocument.contentKey(element.outerHtml)),
+    key: ValueKey(content.stateKey(element)),
     defaultValues: element.attributes.containsKey('open')
         ? const [0]
         : const [],
@@ -38,7 +37,7 @@ Widget? cookedDetailsWidgetBuilder(
             ),
             DAccordionContent(
               child: Builder(
-                builder: (context) => contentBuilder(context, body.innerHtml),
+                builder: (context) => content(context, body.innerHtml),
               ),
             ),
           ],

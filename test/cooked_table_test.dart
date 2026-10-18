@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/cooked_document.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/cooked_table.dart';
 import 'package:discourse_native/src/shell/inline_code.dart';
@@ -228,7 +229,9 @@ void main() {
                     child: Builder(
                       builder: (context) => cookedTableWidgetBuilder(
                         html_parser.parseFragment(html).querySelector('table')!,
-                        cellBuilder: (_, _) => const SizedBox(height: 1),
+                        content: CookedDocument(html).bind(
+                          (_, fragment, style) => const SizedBox(height: 1),
+                        ),
                       )!,
                     ),
                   ),

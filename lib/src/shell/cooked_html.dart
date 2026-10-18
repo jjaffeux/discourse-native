@@ -1,11 +1,9 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../foundation/bounded_lru_cache.dart';
 import '../foundation/short_number.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
@@ -16,6 +14,8 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import 'code_block.dart';
 import 'cooked_details.dart';
+import 'cooked_document.dart';
+import 'cooked_render_context.dart';
 import 'cooked_spoiler.dart';
 import 'cooked_table.dart';
 import 'cooked_todos.dart';
@@ -53,7 +53,35 @@ class CookedHtml extends StatelessWidget {
     this.revisionDiff = false,
     this.checklistDocument,
     this.mentionedUserStatuses = const {},
-  });
+  }) : _inheritedContext = null,
+       _fragment = null;
+
+  CookedHtml._fragment(
+    CookedRenderContext inherited,
+    CookedFragment fragment,
+    TextStyle? style,
+  ) : html = fragment.html,
+      textStyle = style,
+      linkStyle = inherited.linkStyle,
+      siteUrl = inherited.siteUrl,
+      post = inherited.post,
+      containingTopic = inherited.topic,
+      registry = inherited.registry,
+      buildAsync = false,
+      renderMode = RenderMode.column,
+      compactParagraphs = false,
+      contentSized = false,
+      revisionDiff = inherited.revisionDiff,
+      checklistDocument = inherited.document.checklist,
+      mentionedUserStatuses = inherited.body.mentionedUserStatuses,
+      _inheritedContext = inherited,
+      _fragment = fragment;
+
+  final CookedRenderContext? _inheritedContext;
+  final CookedFragment? _fragment;
+
+  @override
+  Widget build(BuildContext context) => _CookedHtmlBody(this);
 
   final String html;
   final TextStyle? textStyle;
@@ -94,19 +122,16 @@ class CookedHtml extends StatelessWidget {
   static Widget? Function(dom.Element) _customWidget(
     BuildContext context,
     TextStyle? textStyle,
-    String? siteUrl,
-    Post? post,
-    PluginContainingTopic? containingTopic,
-    PluginRegistry registry,
-    Map<String, UserStatusReference> mentionedUserStatuses,
-    Widget Function(BuildContext, String, TextStyle?) nestedContentBuilder,
-    PostChecklistDocument? checklist,
-    void Function(PostChecklistTarget, bool)? onToggle,
+    CookedRenderContext render,
+    CookedContent content,
   ) {
-    final counts = post?.linkCounts;
-    final linkCounts = counts == null || counts.isEmpty
-        ? null
-        : _LinkCountIndex(counts);
+    final siteUrl = render.siteUrl;
+    final post = render.post;
+    final containingTopic = render.topic;
+    final registry = render.registry;
+    final mentionedUserStatuses = render.body.mentionedUserStatuses;
+    final counts = render.body.linkCounts;
+    final linkCounts = counts.isEmpty ? null : _LinkCountIndex(counts);
     return (element) {
       if (linkCounts != null) {
         _decorateLinkCount(element, linkCounts);
@@ -115,16 +140,12 @@ class CookedHtml extends StatelessWidget {
       return cookedTodoWidgetBuilder(
             element,
             style: textStyle,
-            checklist: checklist,
-            onToggle: onToggle,
-            contentBuilder: (html, style) =>
-                nestedContentBuilder(context, html, style),
+            content: content,
           ) ??
           cookedSpoilerWidgetBuilder(
             element,
             textStyle: textStyle,
-            contentBuilder: (context, html) =>
-                nestedContentBuilder(context, html, textStyle),
+            content: content,
           ) ??
           _pluginWidget(
             context,
@@ -160,19 +181,8 @@ class CookedHtml extends StatelessWidget {
           youtubeVideoWidgetBuilder(element, siteUrl: siteUrl) ??
           oneboxWidgetBuilder(element, siteUrl: siteUrl) ??
           quoteWidgetBuilder(element, siteUrl: siteUrl) ??
-          cookedDetailsWidgetBuilder(
-            element,
-            contentBuilder: (context, html) =>
-                nestedContentBuilder(context, html, textStyle),
-          ) ??
-          cookedTableWidgetBuilder(
-            element,
-            cellBuilder: (context, html) => nestedContentBuilder(
-              context,
-              html,
-              DefaultTextStyle.of(context).style,
-            ),
-          ) ??
+          cookedDetailsWidgetBuilder(element, content: content) ??
+          cookedTableWidgetBuilder(element, content: content) ??
           codeBlockWidgetBuilder(element) ??
           inlineCodeWidgetBuilder(element, textStyle);
     };
@@ -289,9 +299,63 @@ class CookedHtml extends StatelessWidget {
 
     return styles.isEmpty ? null : styles;
   }
+}
+
+class _CookedHtmlBody extends StatefulWidget {
+  const _CookedHtmlBody(this.options);
+
+  final CookedHtml options;
+
+  @override
+  State<_CookedHtmlBody> createState() => _CookedHtmlState();
+}
+
+class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
+  CookedHtml get options => widget.options;
+  late CookedRenderContext _render;
+  CookedDocument? _document;
+  (String, String?, bool, PostChecklistDocument?)? _documentKey;
+
+  @override
+  Future<bool> openUrl(String url, {bool newTab = false}) =>
+      openLink(context, url, siteUrl: _render.siteUrl, newTab: newTab);
+
+  @override
+  Future<void> toggleChecklist(PostChecklistTarget target, bool checked) async {
+    if (!mounted || !_render.canToggle) return;
+    final render = _render;
+    final shell = ShellScope.maybeRead(context);
+    if (shell?.instanceFor(render.siteUrl!)?.isConnected != true) return;
+    final error = await shell!.togglePostChecklist(
+      siteUrl: render.siteUrl!,
+      topicId: render.topic!.id,
+      post: render.post!,
+      target: target,
+      checked: checked,
+    );
+    if (mounted && error != null) {
+      DToast.show(context, error, type: DToastType.error);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final CookedHtml(
+      :html,
+      :textStyle,
+      :linkStyle,
+      :siteUrl,
+      :post,
+      :containingTopic,
+      :registry,
+      :buildAsync,
+      :renderMode,
+      :compactParagraphs,
+      :contentSized,
+      :revisionDiff,
+      :checklistDocument,
+      :mentionedUserStatuses,
+    ) = options;
     final theme = Theme.of(context);
     final style = theme.textTheme.bodyLarge?.merge(textStyle) ?? textStyle;
     final surface = theme.colorScheme.surface;
@@ -335,42 +399,77 @@ class CookedHtml extends StatelessWidget {
         ? _CompactParagraphMargins()
         : null;
 
-    // Nested renderers, one per task, table cell and disclosure body, inherit
-    // the outer document: parsing the whole post again in each would make a
-    // checklist's first frame quadratic in its length.
-    final checklist = revisionDiff
-        ? null
-        : checklistDocument ?? _displayedChecklist(html, post);
+    final CookedDocument document;
+    if (options._inheritedContext case final inherited?) {
+      document = inherited.document;
+    } else {
+      final key = (html, post?.cooked, revisionDiff, checklistDocument);
+      if (key != _documentKey) {
+        _document = CookedDocument(
+          html,
+          savedHtml: key.$2,
+          revisionDiff: revisionDiff,
+          checklist: checklistDocument,
+        );
+        _documentKey = key;
+      }
+      document = _document!;
+    }
     final shell = ShellScope.maybeRead(context);
     final canToggle =
-        checklist != null &&
+        document.checklist != null &&
         post?.canEdit == true &&
         post?.isLocalized != true &&
         post?.isDeleted != true &&
         shell?.instanceFor(resolvedSiteUrl ?? '')?.isConnected == true &&
         containingTopic != null &&
         resolvedSiteUrl != null;
-    void toggle(PostChecklistTarget target, bool checked) async {
-      final error = await shell!.togglePostChecklist(
-        siteUrl: resolvedSiteUrl!,
-        topicId: containingTopic!.id,
-        post: post!,
-        target: target,
-        checked: checked,
-      );
-      if (context.mounted && error != null) {
-        DToast.show(context, error, type: DToastType.error);
-      }
-    }
+    final render = _render =
+        options._inheritedContext ??
+        CookedRenderContext(
+          document: document,
+          siteUrl: resolvedSiteUrl,
+          post: post,
+          topic: containingTopic,
+          registry: resolvedRegistry,
+          linkStyle: linkStyle,
+          revisionDiff: revisionDiff,
+          canToggle: canToggle,
+          actions: this,
+          mentionedUserStatuses: mentionedUserStatuses,
+        );
+    final content = document.bind(
+      (context, fragment, nestedStyle) =>
+          CookedHtml._fragment(render, fragment, nestedStyle ?? style),
+      onToggle: render.canToggle ? render.actions.toggleChecklist : null,
+    );
+    final searchQuery = SearchWords.of(context);
+    final searchColor = DTokens.of(context).primary;
+    final CookedRenderInputs inputs = (
+      body: render.body,
+      style: style,
+      textScaler: MediaQuery.textScalerOf(context),
+      locale: Localizations.localeOf(context),
+      direction: Directionality.of(context),
+      searchWords: searchQuery,
+      searchColor: searchColor,
+      mutedForeground: DTokens.of(context).mutedForeground,
+      renderMode: renderMode,
+      compactParagraphs: compactParagraphs,
+      contentSized: contentSized,
+      horizontalRuleColor: horizontalRuleColor,
+      insertedBackground: insertedBackground,
+      deletedBackground: deletedBackground,
+      linkCountBackground: linkCountBackground,
+      linkCountForeground: linkCountForeground,
+    );
 
     return PluginRegistryScope(
       registry: resolvedRegistry,
       child: HtmlWidget(
         highlightSearchHtml(
-          checklistDocument == null && checklist != null
-              ? checklist.annotatedHtml
-              : html,
-          SearchWords.of(context),
+          options._fragment?.html ?? document.root.html,
+          searchQuery,
         ),
         buildAsync: buildAsync,
         baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
@@ -380,46 +479,30 @@ class CookedHtml extends StatelessWidget {
             ? RenderMode.column
             : renderMode,
         factoryBuilder: () => SiteImageWidgetFactory(
-          columnBodyMode: renderMode is ProgressiveHtmlMode ? renderMode : null,
-          siteUrl: resolvedSiteUrl,
-          registry: resolvedRegistry,
-          onMiddleClickUrl: (url) =>
-              openLink(context, url, siteUrl: resolvedSiteUrl, newTab: true),
+          configuration: () => (
+            columnBodyMode: options.renderMode is ProgressiveHtmlMode
+                ? options.renderMode
+                : null,
+            siteUrl: _render.siteUrl,
+            registry: _render.registry,
+            onMiddleClickUrl: (url) =>
+                _render.actions.openUrl(url, newTab: true),
+          ),
         ),
-        customWidgetBuilder: _customWidget(
+        customWidgetBuilder: CookedHtml._customWidget(
           context,
           style,
-          resolvedSiteUrl,
-          post,
-          containingTopic,
-          resolvedRegistry,
-          mentionedUserStatuses,
-          (context, html, nestedStyle) => CookedHtml(
-            html: html,
-            textStyle: nestedStyle,
-            linkStyle: linkStyle,
-            siteUrl: resolvedSiteUrl,
-            post: post,
-            containingTopic: containingTopic,
-            registry: resolvedRegistry,
-            buildAsync: false,
-            revisionDiff: revisionDiff,
-            checklistDocument: checklist,
-            mentionedUserStatuses: mentionedUserStatuses,
-          ),
-          checklist,
-          canToggle ? toggle : null,
+          render,
+          content,
         ),
         customStylesBuilder: (element) {
           if (element.classes.contains('native-search-hit')) {
             return {
-              'color': _cssColor(DTokens.of(context).primary),
-              'background-color': _cssColor(
-                DTokens.of(context).primary.withValues(alpha: .13),
-              ),
+              'color': _cssColor(searchColor),
+              'background-color': _cssColor(searchColor.withValues(alpha: .13)),
             };
           }
-          final styles = _customStyles(
+          final styles = CookedHtml._customStyles(
             element,
             paragraphMargins,
             horizontalRuleColor,
@@ -436,117 +519,11 @@ class CookedHtml extends StatelessWidget {
           // nested quote/onebox paragraphs.
           return styles;
         },
-        // The builders close over the style and resolved site, and [HtmlWidget]
-        // caches what they built — so a change to either has to say so to reach
-        // the inline code and the emoji. Text scaling must refresh cached spans
-        // as well when the system preference changes while a body stays mounted.
-        rebuildTriggers: [
-          SearchWords.of(context),
-          renderMode,
-          style,
-          MediaQuery.textScalerOf(context),
-          linkStyle,
-          resolvedSiteUrl,
-          // Only a body plugin's own records reach the builders: a reaction or
-          // an assignment changes far more often than the body it sits under.
-          _ListTrigger(
-            resolvedRegistry.postBodyRecords(post?.plugins ?? PluginData.none),
-          ),
-          post?.canEdit,
-          post?.isLocalized,
-          canToggle,
-          containingTopic,
-          resolvedRegistry,
-          compactParagraphs,
-          contentSized,
-          revisionDiff,
-          horizontalRuleColor,
-          insertedBackground,
-          deletedBackground,
-          _ListTrigger(post?.linkCounts ?? const <PostLinkCount>[]),
-          linkCountBackground,
-          linkCountForeground,
-          _MapTrigger(mentionedUserStatuses),
-        ],
-        onTapUrl: (url) => openLink(context, url, siteUrl: resolvedSiteUrl),
+        rebuildTriggers: [inputs],
+        onTapUrl: (url) => render.actions.openUrl(url),
       ),
     );
   }
-}
-
-// [HtmlWidget] compares rebuild triggers with `==`, which is identity for a
-// collection, and every post read from the wire builds fresh ones: compared
-// directly, an unrelated change such as a like would reparse the whole body.
-@immutable
-final class _ListTrigger<T> {
-  const _ListTrigger(this.values);
-
-  final List<T> values;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _ListTrigger<T> && listEquals(other.values, values);
-
-  @override
-  int get hashCode => Object.hashAll(values);
-}
-
-@immutable
-final class _MapTrigger<K, V> {
-  const _MapTrigger(this.values);
-
-  final Map<K, V> values;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _MapTrigger<K, V> && mapEquals(other.values, values);
-
-  @override
-  int get hashCode => Object.hashAllUnordered([
-    for (final MapEntry(:key, :value) in values.entries)
-      Object.hash(key, value),
-  ]);
-}
-
-// A row scrolled back into a lazily built list, rebuilt for an unrelated
-// reason, or handed the post again after a reaction, a like or a live refresh
-// renders the same body; deriving its checklist anew would parse the whole
-// body on the UI thread, even one long enough for HtmlWidget to parse off it.
-// The result depends on nothing but the displayed and the saved markup, which
-// are compared by value because a re-read post and a wrapping presentation
-// both bring new strings, and only the most recently rendered bodies are kept.
-final _displayedChecklists =
-    BoundedLruCache<(String, String), ({PostChecklistDocument? checklist})>(32);
-
-/// Displayed markup keeps the saved post's checkbox indices only while it
-/// presents the same targets in the same order.
-PostChecklistDocument? _displayedChecklist(String html, Post? post) {
-  if (post == null || !html.contains('chcklst-box')) return null;
-  final saved = post.cooked;
-  final key = (html, saved);
-  if (_displayedChecklists.read(key) case (:final checklist)) return checklist;
-  final checklist = _checklistFor(html, saved);
-  _displayedChecklists.put(key, (checklist: checklist));
-  return checklist;
-}
-
-PostChecklistDocument? _checklistFor(String html, String savedHtml) {
-  if (!savedHtml.contains('chcklst-box')) return null;
-  final document = PostChecklistDocument(html);
-  // Identical markup has identical targets, so it needs no second parse.
-  if (html == savedHtml) return document;
-  final displayedTargets = document.targets;
-  final savedTargets = PostChecklistDocument(savedHtml).targets;
-  final sameTargets =
-      displayedTargets.length == savedTargets.length &&
-      displayedTargets.indexed.every((entry) {
-        final (index, displayed) = entry;
-        final saved = savedTargets[index];
-        return displayed.checked == saved.checked &&
-            displayed.permanent == saved.permanent &&
-            displayed.source == saved.source;
-      });
-  return sameTargets ? document : null;
 }
 
 class _CompactParagraphMargins {
