@@ -6,6 +6,47 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
+  final malformedInputs = <String, Future<Object?> Function()>{
+    'text decoding': () => decodeJsonResponse('{'),
+    'byte decoding': () =>
+        decodeJsonResponseBytes(http.Response('{', 200).bodyBytes),
+    'HTTP decoding': () => decodeJsonHttpResponse(http.Response('{', 200)),
+    'projection': () => decodeAndProjectJsonHttpResponse(
+      http.Response('{', 200),
+      project: (value) => value,
+    ),
+  };
+  for (final entry in malformedInputs.entries) {
+    test(
+      '${entry.key} reports malformed small input through its Future',
+      () async {
+        late final Future<Object?> result;
+
+        expect(() => result = entry.value(), returnsNormally);
+
+        await expectLater(result, throwsFormatException);
+      },
+    );
+  }
+
+  test(
+    'a small response reports projection failure through its Future',
+    () async {
+      late final Future<Object?> result;
+      final failure = StateError('projection failed');
+
+      expect(
+        () => result = decodeAndProjectJsonHttpResponse(
+          http.Response('{}', 200),
+          project: (_) => throw failure,
+        ),
+        returnsNormally,
+      );
+
+      await expectLater(result, throwsA(same(failure)));
+    },
+  );
+
   test('decodes small responses without requiring a worker isolate', () async {
     expect(await decodeJsonResponse('{"topic":{"id":42}}'), {
       'topic': {'id': 42},

@@ -13,7 +13,7 @@ Future<Object?> decodeJsonResponse(
   int backgroundThreshold = backgroundJsonDecodeThreshold,
 }) {
   if (source.length < backgroundThreshold) {
-    return Future<Object?>.value(jsonDecode(source));
+    return Future<Object?>.sync(() => jsonDecode(source));
   }
   return compute<String, Object?>(
     _decodeJson,
@@ -47,7 +47,7 @@ Future<T> decodeAndProjectJsonHttpResponse<T>(
     project: project,
   );
   if (response.bodyBytes.length < backgroundThreshold) {
-    return Future<T>.value(_decodeAndProjectEncodedJson(input));
+    return Future<T>.sync(() => _decodeAndProjectEncodedJson(input));
   }
   return compute<_ProjectedEncodedJson<T>, T>(
     _decodeAndProjectEncodedJson<T>,
@@ -62,8 +62,8 @@ Future<Object?> decodeJsonResponseBytes(
   int backgroundThreshold = backgroundJsonDecodeThreshold,
 }) {
   if (bytes.length < backgroundThreshold) {
-    return Future<Object?>.value(
-      jsonDecode(_encoding(encodingName).decode(bytes)),
+    return Future<Object?>.sync(
+      () => jsonDecode(_encoding(encodingName).decode(bytes)),
     );
   }
   return compute<_EncodedJson, Object?>(_decodeEncodedJson, (
