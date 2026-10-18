@@ -26,12 +26,14 @@ final class DiscourseGetRequestKey {
     required Map<String, String> headers,
     required this.timeout,
     required this.maxResponseBytes,
+    this.session,
   }) : _headers = Map.unmodifiable({
          for (final entry in headers.entries)
            entry.key.toLowerCase(): entry.value,
        });
 
   final Uri url;
+  final Object? session;
   final Map<String, String> _headers;
   final Duration timeout;
   final int maxResponseBytes;
@@ -40,6 +42,7 @@ final class DiscourseGetRequestKey {
   bool operator ==(Object other) =>
       other is DiscourseGetRequestKey &&
       other.url == url &&
+      identical(other.session, session) &&
       other.timeout == timeout &&
       other.maxResponseBytes == maxResponseBytes &&
       other._headers.length == _headers.length &&
@@ -50,6 +53,7 @@ final class DiscourseGetRequestKey {
   @override
   int get hashCode => Object.hash(
     url,
+    session,
     timeout,
     maxResponseBytes,
     Object.hashAllUnordered(
@@ -136,19 +140,14 @@ final class DiscourseRequestCoordinator {
       return Future.error(StateError('Request coordinator is closed.'));
     }
 
-    if (coalesce case final key? when abortTrigger == null && !transfer) {
-      final active = _gets[key];
-      if (active != null) {
-        active.intent.join(source);
-        return active.future;
-      }
-
-      final group = _SharedGet(source);
-      group.future = _enqueue(_gate, url, send, group.intent).whenComplete(() {
-        if (identical(_gets[key], group)) _gets.remove(key);
-      });
-      _gets[key] = group;
-      return group.future;
+    if (coalesce case final key? when !transfer) {
+      return runGet(
+        url,
+        (_) => send(),
+        coalesce: key,
+        abortTrigger: abortTrigger,
+        intent: source,
+      );
     }
 
     return _enqueue(
@@ -158,6 +157,41 @@ final class DiscourseRequestCoordinator {
       source,
       abortTrigger: abortTrigger,
     );
+  }
+
+  /// Each caller owns a waiter; only the last departing waiter aborts HTTP.
+  Future<http.Response> runGet(
+    Uri url,
+    Future<http.Response> Function(Future<void> abortTrigger) send, {
+    required DiscourseGetRequestKey coalesce,
+    Future<void>? abortTrigger,
+    RequestIntent? intent,
+  }) {
+    final source = intent ?? RequestIntent.current;
+    if (_gate.isClosed) {
+      return Future.error(StateError('Request coordinator is closed.'));
+    }
+    var shared = _gets[coalesce];
+    if (shared == null) {
+      late final _SharedGet created;
+      created = _SharedGet(url, () {
+        if (identical(_gets[coalesce], created)) _gets.remove(coalesce);
+      }, source);
+      shared = created;
+      _gets[coalesce] = shared;
+      final result = shared.join(abortTrigger, source);
+      unawaited(
+        _enqueue(
+          _gate,
+          url,
+          () => send(created.abort.future),
+          created.intent,
+          abortTrigger: created.abort.future,
+        ).then(created.complete, onError: created.fail),
+      );
+      return result;
+    }
+    return shared.join(abortTrigger, source);
   }
 
   Future<http.Response> _enqueue(
@@ -197,7 +231,7 @@ final class DiscourseRequestCoordinator {
     try {
       return await operation;
     } on OriginRequestGateCancelledException {
-      throw http.RequestAbortedException(url);
+      throw DiscourseQueuedRequestCancelledException(url);
     } on OriginRequestGateOverloadException catch (error) {
       throw DiscourseRequestOverloadException(error.origin, error.maxQueued);
     } on OriginRequestGateClosedException {
@@ -293,9 +327,62 @@ final class DiscourseRequestOverloadException implements Exception {
   );
 }
 
+/// The gate withdrew the request before its send callback could start.
+final class DiscourseQueuedRequestCancelledException
+    extends http.RequestAbortedException {
+  DiscourseQueuedRequestCancelledException(super.uri);
+}
+
 final class _SharedGet {
-  _SharedGet(RequestIntent source) : intent = RequestIntentGroup(source);
+  _SharedGet(this.url, this.remove, RequestIntent source)
+    : intent = RequestIntentGroup(source);
 
   final RequestIntentGroup intent;
-  late final Future<http.Response> future;
+  final Uri url;
+  final void Function() remove;
+  final Completer<void> abort = Completer<void>();
+  final Map<Object, ({Completer<http.Response> result, RequestIntent source})>
+  _waiters = {};
+
+  Future<http.Response> join(Future<void>? cancellation, RequestIntent source) {
+    intent.join(source);
+    final owner = Object();
+    final result = Completer<http.Response>();
+    _waiters[owner] = (result: result, source: source);
+    unawaited(
+      cancellation?.then((_) {
+        final waiter = _waiters.remove(owner);
+        if (waiter == null) return;
+        if (!_waiters.values.any((held) => identical(held.source, source))) {
+          intent.leave(source);
+        }
+        if (_waiters.isEmpty) {
+          remove();
+          abort.complete();
+        }
+        waiter.result.completeError(http.RequestAbortedException(url));
+      }),
+    );
+    return result.future;
+  }
+
+  void complete(http.Response response) {
+    remove();
+    final waiters = _waiters.values.toList();
+    _waiters.clear();
+    for (final waiter in waiters) {
+      intent.leave(waiter.source);
+      waiter.result.complete(response);
+    }
+  }
+
+  void fail(Object error, StackTrace stack) {
+    remove();
+    final waiters = _waiters.values.toList();
+    _waiters.clear();
+    for (final waiter in waiters) {
+      intent.leave(waiter.source);
+      waiter.result.completeError(error, stack);
+    }
+  }
 }

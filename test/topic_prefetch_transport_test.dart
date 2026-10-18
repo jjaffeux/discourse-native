@@ -153,7 +153,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       final navigation = api.topic(siteUrl: site, slug: 'topic', id: 1);
       await Future<void>.delayed(Duration.zero);
-      expect(client.requests, hasLength(2));
+      expect(client.requests, hasLength(1));
       abort.complete();
       await cancelled;
       expect(client.requests.last.aborted, isFalse);

@@ -203,12 +203,14 @@ class ReactionsController extends FrameSafeNotifier {
     try {
       final credentials = await _requestHost.credentialsFor(siteUrl);
       if (!_canSend(lease, key, request)) return;
-      final fetched = await _api.postReactors(
-        siteUrl: siteUrl,
-        postId: postId,
-        reaction: filter,
-        apiKey: credentials.apiKey,
-        clientId: credentials.clientId,
+      final fetched = await credentials.run(
+        () => _api.postReactors(
+          siteUrl: siteUrl,
+          postId: postId,
+          reaction: filter,
+          apiKey: credentials.apiKey,
+          clientId: credentials.clientId,
+        ),
       );
       if (!_canSend(lease, key, request)) return;
       lease.commit(() {

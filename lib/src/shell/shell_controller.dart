@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show HardwareKeyboard;
 
+import '../data/account_request_session.dart';
 import '../data/account_session_coordinator.dart';
 import '../data/api_credentials.dart';
 import '../data/app_settings_store.dart';
@@ -8273,8 +8274,8 @@ class ShellController extends FrameSafeNotifier
         final postRemovalVersion = _topicPostRemovalVersion(siteUrl, topic.id);
         try {
           final credential = await _awaitTopicLoadStage(
-            Future.any<_SessionValue<String?>?>([
-              _readSessionValue(lease, () => credentials.apiKeyFor(siteUrl)),
+            Future.any<AccountRequestCredentials?>([
+              AccountRequestSession(siteUrl, lease).credentials(credentials),
               cancellation.trigger.then((_) => null),
             ]),
             elapsed,
@@ -8286,13 +8287,16 @@ class ShellController extends FrameSafeNotifier
             return null;
           }
           final payload = await _awaitTopicLoadStage(
-            api.topicContent.topic(
-              siteUrl: siteUrl,
-              slug: topic.slug,
-              id: topic.id,
-              postNumber: postNumber,
-              apiKey: credential.value,
-              abortTrigger: cancellation.trigger,
+            credential.run(
+              () => api.topicContent.topic(
+                siteUrl: siteUrl,
+                slug: topic.slug,
+                id: topic.id,
+                postNumber: postNumber,
+                apiKey: credential.apiKey,
+                clientId: credential.clientId,
+                abortTrigger: cancellation.trigger,
+              ),
             ),
             elapsed,
             'prefetching topic ${topic.id}',
@@ -8453,11 +8457,11 @@ class ShellController extends FrameSafeNotifier
     int? replayPostNumber;
     try {
       final credential = await _awaitTopicLoadStage(
-        _readSessionValue(lease, () => credentials.apiKeyFor(instance.url)),
+        AccountRequestSession(instance.url, lease).credentials(credentials),
         elapsed,
         'reading credentials for topic $topicId',
       );
-      if (credential == null || !lease.isCurrent) return;
+      if (!lease.isCurrent) return;
       final warmed = prefetched == null
           ? null
           : await _awaitTopicLoadStage(
@@ -8475,12 +8479,15 @@ class ShellController extends FrameSafeNotifier
       final fetched =
           warmed?.payload ??
           await _awaitTopicLoadStage<TopicPayload>(
-            api.topicContent.topic(
-              siteUrl: instance.url,
-              slug: slug,
-              id: topicId,
-              postNumber: requestedPostNumber,
-              apiKey: credential.value,
+            credential.run(
+              () => api.topicContent.topic(
+                siteUrl: instance.url,
+                slug: slug,
+                id: topicId,
+                postNumber: requestedPostNumber,
+                apiKey: credential.apiKey,
+                clientId: credential.clientId,
+              ),
             ),
             elapsed,
             'loading topic $topicId',
@@ -8489,7 +8496,7 @@ class ShellController extends FrameSafeNotifier
       SurfaceOpeningTrace.mark('topic.response');
       try {
         await _awaitTopicLoadStage(
-          _ensureCategoryIds(instance, credential.value, [
+          _ensureCategoryIds(instance, credential.apiKey, [
             ?fetched.detail.categoryId,
             for (final source
                 in fetched.detail.recommendations?.sources ??
@@ -10218,17 +10225,20 @@ class ShellController extends FrameSafeNotifier
     _notify();
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        instance.url,
         lease,
-        () => credentials.apiKeyFor(instance.url),
-      );
-      if (credential == null || !lease.isCurrent) return null;
-      final response = await api.topicContent.topic(
-        siteUrl: instance.url,
-        slug: currentContent?.slug ?? '',
-        id: topic.id,
-        summary: true,
-        apiKey: credential.value,
+      ).credentials(credentials);
+      if (!lease.isCurrent) return null;
+      final response = await credential.run(
+        () => api.topicContent.topic(
+          siteUrl: instance.url,
+          slug: currentContent?.slug ?? '',
+          id: topic.id,
+          summary: true,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       lease.commit(() {
         final payload = _withoutPostsRemovedSince(
@@ -14141,16 +14151,19 @@ class ShellController extends FrameSafeNotifier
     _advanceBookmarkVersion(siteUrl, topicId);
     final version = _bookmarkVersion(siteUrl, topicId);
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final payload = await api.topicContent.topic(
-        siteUrl: siteUrl,
-        slug: slug,
-        id: topicId,
-        apiKey: credential.value,
+      ).credentials(credentials);
+      if (!lease.isCurrent) return;
+      final payload = await credential.run(
+        () => api.topicContent.topic(
+          siteUrl: siteUrl,
+          slug: slug,
+          id: topicId,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       lease.commit(() {
         if (version != _bookmarkVersion(siteUrl, topicId)) return;
@@ -15573,17 +15586,20 @@ class ShellController extends FrameSafeNotifier
     _topicsLoading.add(key);
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final topic = await api.topicContent.topic(
-        siteUrl: siteUrl,
-        slug: slug,
-        id: topicId,
-        postNumber: postNumber,
-        apiKey: credential.value,
+      ).credentials(credentials);
+      if (!lease.isCurrent) return;
+      final topic = await credential.run(
+        () => api.topicContent.topic(
+          siteUrl: siteUrl,
+          slug: slug,
+          id: topicId,
+          postNumber: postNumber,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       lease.commit(
         () => _absorb(
@@ -18595,10 +18611,14 @@ final class _ShellPluginRequestHost implements PluginRequestHost {
 
   @override
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) async {
-    final apiKey = await _shell.credentials.apiKeyFor(siteUrl);
+    final snapshot = await AccountRequestSession(
+      siteUrl,
+      _shell.lifecycle.capture(siteUrl),
+    ).credentials(_shell.credentials);
     return PluginRequestCredentials(
-      apiKey: apiKey,
-      clientId: apiKey == null ? '' : await _shell.credentials.clientId(),
+      apiKey: snapshot.apiKey,
+      clientId: snapshot.clientId,
+      execute: snapshot.run,
     );
   }
 

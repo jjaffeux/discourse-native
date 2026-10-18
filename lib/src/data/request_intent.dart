@@ -34,6 +34,8 @@ final class RequestIntentGroup extends RequestIntent {
     if (!identical(source, this)) _sources.add(source);
   }
 
+  void leave(RequestIntent source) => _sources.remove(source);
+
   @override
   bool get isInteractive {
     final visited = <RequestIntent>{};

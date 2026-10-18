@@ -92,11 +92,13 @@ final class AiConversationsService implements PluginLinkHandler {
       throw const AiConversationsUnavailable();
     }
     try {
-      final json = await transport.pluginGetJson(
-        siteUrl: siteUrl,
-        path: '/discourse-ai/ai-bot/conversations.json?page=$page',
-        apiKey: credentials.apiKey,
-        clientId: credentials.clientId,
+      final json = await credentials.run(
+        () => transport.pluginGetJson(
+          siteUrl: siteUrl,
+          path: '/discourse-ai/ai-bot/conversations.json?page=$page',
+          apiKey: credentials.apiKey,
+          clientId: credentials.clientId,
+        ),
       );
       if (!lease.isCurrent) return null;
       if (!available(siteUrl)) throw const AiConversationsUnavailable();

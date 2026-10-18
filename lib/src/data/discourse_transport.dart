@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/json.dart';
 import '../models/site_appearance.dart';
+import 'account_request_session.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
@@ -190,20 +191,42 @@ final class DiscourseTransport {
     try {
       requireSafeHttpUrl(request.url);
       request.headers.putIfAbsent('User-Agent', () => userAgent);
+      final scope = AccountRequestScope.current;
+      scope?.validateRequest(request.url, request.headers);
+      final explicitAbort = switch (request) {
+        http.Abortable(:final abortTrigger) => abortTrigger,
+        _ => null,
+      };
+      final abort = _either(explicitAbort, scope?.retired);
+      final safeRead = request.method == 'GET' || request.method == 'HEAD';
+      final outgoing = safeRead && abort != null && request is http.Request
+          ? (http.AbortableRequest(
+                request.method,
+                request.url,
+                abortTrigger: abort,
+              )
+              ..headers.addAll(request.headers)
+              ..bodyBytes = request.bodyBytes
+              ..followRedirects = request.followRedirects
+              ..maxRedirects = request.maxRedirects
+              ..persistentConnection = request.persistentConnection)
+          : request;
       return await coordinator.run(
         request.url,
-        () => sendBoundedHttpRequest(
-          _client,
-          request,
-          timeout: requestTimeout ?? timeout,
-          maxBodyBytes: _maxResponseBytes,
-        ),
+        () {
+          if (scope != null && !scope.isCurrent) {
+            throw DiscourseQueuedRequestCancelledException(request.url);
+          }
+          return sendBoundedHttpRequest(
+            _client,
+            outgoing,
+            timeout: requestTimeout ?? timeout,
+            maxBodyBytes: _maxResponseBytes,
+          );
+        },
         // The HTTP client only sees the trigger once the request is admitted;
         // until then only the gate can withdraw it from the origin's backlog.
-        abortTrigger: switch (request) {
-          http.Abortable(:final abortTrigger) => abortTrigger,
-          _ => null,
-        },
+        abortTrigger: abort,
         transfer: transfer,
         intent: intent,
       );
@@ -229,6 +252,7 @@ final class DiscourseTransport {
   }) async {
     try {
       _requireCredentialOrigin(request.url, siteUrl);
+      AccountRequestScope.current?.validate(siteUrl, apiKey, clientId);
       request.headers.addAll(authHeaders(apiKey, clientId: clientId));
       return await send(
         request,
@@ -261,46 +285,53 @@ final class DiscourseTransport {
     assert(effectiveTimeout > Duration.zero);
     late http.Response response;
     try {
+      final scope = AccountRequestScope.current;
+      scope?.validate(siteUrl, apiKey, clientId);
+      final cancellation = _either(abortTrigger, scope?.retired);
       var aborted = false;
-      unawaited(abortTrigger?.then((_) => aborted = true));
-      if (abortTrigger != null) await Future<void>.value();
+      unawaited(cancellation?.then((_) => aborted = true));
+      if (cancellation != null) await Future<void>.value();
       var current = url;
       for (var redirects = 0; ; redirects++) {
         final requestUrl = requireSafeHttpUrl(current);
         if (apiKey != null) _requireCredentialOrigin(requestUrl, siteUrl);
-        if (aborted) throw http.RequestAbortedException(requestUrl);
-        final request = abortTrigger == null
-            ? http.Request('GET', requestUrl)
-            : http.AbortableRequest(
-                'GET',
-                requestUrl,
-                abortTrigger: abortTrigger,
-              );
+        if (aborted || (scope != null && !scope.isCurrent)) {
+          throw http.RequestAbortedException(requestUrl);
+        }
+        final request = http.Request('GET', requestUrl);
         request.headers['User-Agent'] = userAgent;
         if (accept != null) request.headers['Accept'] = accept;
         if (apiKey != null) {
           request.headers.addAll(authHeaders(apiKey, clientId: clientId));
         }
-        response = await coordinator.run(
+        scope?.validateRequest(requestUrl, request.headers);
+        response = await coordinator.runGet(
           requestUrl,
-          () => sendBoundedHttpRequest(
-            _client,
-            request,
+          (sharedAbort) {
+            if (scope != null && !scope.isCurrent) {
+              throw DiscourseQueuedRequestCancelledException(requestUrl);
+            }
+            final outgoing = http.AbortableRequest(
+              'GET',
+              requestUrl,
+              abortTrigger: sharedAbort,
+            )..headers.addAll(request.headers);
+            return sendBoundedHttpRequest(
+              _client,
+              outgoing,
+              timeout: effectiveTimeout,
+              maxBodyBytes: _maxResponseBytes,
+            );
+          },
+          abortTrigger: cancellation,
+          coalesce: DiscourseGetRequestKey(
+            requestUrl,
+            headers: request.headers,
             timeout: effectiveTimeout,
-            maxBodyBytes: _maxResponseBytes,
+            maxResponseBytes: _maxResponseBytes,
+            session: scope?.session,
           ),
-          abortTrigger: abortTrigger,
           intent: intent,
-          // Speculative requests have one owner; sharing their cancellation
-          // with ordinary GET consumers would cancel real navigation.
-          coalesce: abortTrigger != null
-              ? null
-              : DiscourseGetRequestKey(
-                  requestUrl,
-                  headers: request.headers,
-                  timeout: effectiveTimeout,
-                  maxResponseBytes: _maxResponseBytes,
-                ),
         );
 
         final location = response.headers['location'];
@@ -376,6 +407,13 @@ final class DiscourseTransport {
       );
     }
   }
+
+  static Future<void>? _either(Future<void>? first, Future<void>? second) =>
+      first == null
+      ? second
+      : second == null
+      ? first
+      : Future.any([first, second]);
 
   /// Core uses POST here to keep a potentially private search term out of URLs.
   Future<Map<String, dynamic>> postObject(
@@ -518,7 +556,9 @@ final class DiscourseTransport {
   /// ambiguous.
   static bool _neverSent(Object error) => switch (error) {
     // The origin's backlog refused it before it was ever started.
-    DiscourseRequestOverloadException() => true,
+    DiscourseRequestOverloadException() ||
+    DiscourseQueuedRequestCancelledException() ||
+    AccountRequestRetiredException() => true,
     // TLS is negotiated before the first byte of the request is written.
     HandshakeException() => true,
     // Dart's own words, unlike an OS error's text, so no locale changes them.

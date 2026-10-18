@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
 import '../models/discourse_instance.dart';
+import 'account_request_session.dart';
 import 'authenticator.dart';
 import 'discourse_api_contracts.dart';
 import 'draft_store.dart';
@@ -732,7 +733,9 @@ final class AccountSessionCoordinator {
   }) async {
     if (ifCurrent?.call() == false) return;
     try {
-      await api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
+      await AccountRequestScope.withoutSession(
+        () => api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey),
+      );
     } catch (error, stackTrace) {
       if (ifCurrent?.call() != false) {
         _reportError(error, stackTrace, operation, warning: true);

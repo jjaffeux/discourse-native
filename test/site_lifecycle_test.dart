@@ -27,4 +27,21 @@ void main() {
     expect(firstSite.commit(() {}), isFalse);
     expect(secondSite.commit(() {}), isTrue);
   });
+  test('retirement observers see a stale lease and can detach', () {
+    final lifecycle = SiteLifecycle();
+    final lease = lifecycle.capture('https://forum.example');
+    var called = 0;
+    lease.onRetire(() {
+      expect(lease.isCurrent, isFalse);
+      called++;
+    });
+    final detach = lease.onRetire(() => fail('Detached observer ran.'));
+    detach();
+    lifecycle.invalidate('https://forum.example');
+    lifecycle.invalidate('https://forum.example');
+    expect(called, 1);
+    var alreadyRetired = false;
+    lease.onRetire(() => alreadyRetired = true);
+    expect(alreadyRetired, isTrue);
+  });
 }

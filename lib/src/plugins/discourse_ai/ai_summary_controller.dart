@@ -84,11 +84,13 @@ final class AiSummaryController {
       if (!request._checkCurrent()) return;
 
       if (hasCachedSummary && !regenerate) {
-        final summary = await api.cached(
-          siteUrl: siteUrl,
-          topicId: topicId,
-          apiKey: credentials.apiKey,
-          clientId: credentials.clientId,
+        final summary = await credentials.run(
+          () => api.cached(
+            siteUrl: siteUrl,
+            topicId: topicId,
+            apiKey: credentials.apiKey,
+            clientId: credentials.clientId,
+          ),
         );
         if (request._checkCurrent()) request._complete(summary);
         return;
@@ -103,13 +105,15 @@ final class AiSummaryController {
         request._subscribe(tracker, topicId);
         if (!request._checkCurrent()) return;
       }
-      final response = await api.generate(
-        siteUrl: siteUrl,
-        topicId: topicId,
-        apiKey: apiKey,
-        clientId: credentials.clientId,
-        stream: tracker != null,
-        regenerate: regenerate,
+      final response = await credentials.run(
+        () => api.generate(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          apiKey: apiKey,
+          clientId: credentials.clientId,
+          stream: tracker != null,
+          regenerate: regenerate,
+        ),
       );
       if (!request._checkCurrent()) return;
       if (AiTopicSummary.fromJson(response) case final summary?) {

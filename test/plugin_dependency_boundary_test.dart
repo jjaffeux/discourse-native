@@ -54,6 +54,7 @@ const _forbiddenPluginShellTargets = <String>{
 };
 
 const _forbiddenRawHostAuthorityTargets = <String>{
+  'lib/src/data/account_request_session.dart',
   'lib/src/data/api_credentials.dart',
   'lib/src/data/authenticator.dart',
   'lib/src/data/site_lifecycle.dart',

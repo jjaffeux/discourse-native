@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
@@ -142,6 +143,7 @@ final class _SessionApi extends FakeDiscourseApi {
   final lookupStarted = Completer<void>();
   final firstRevocationStarted = Completer<void>();
   int revocationCount = 0;
+  final revocationScopes = <AccountRequestScope?>[];
 
   @override
   Future<DiscourseUser> currentUser({
@@ -165,6 +167,7 @@ final class _SessionApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     revocationCount++;
+    revocationScopes.add(AccountRequestScope.current);
     events.add('credential:revoke:$apiKey');
     if (revocationCount == 1 && firstRevocationGate != null) {
       firstRevocationStarted.complete();
@@ -367,6 +370,21 @@ final class _RealStoreFixture {
 }
 
 void main() {
+  test('revocation leaves the retired ambient request scope', () async {
+    final fixture = _Fixture();
+    final snapshot = await AccountRequestSession(
+      _siteUrl,
+      fixture.lifecycle.capture(_siteUrl),
+    ).credentials(fixture.authenticator);
+    final result = await snapshot.run(
+      () => fixture.coordinator.disconnect(_siteUrl),
+    );
+    expect(result.outcome, AccountDisconnectionOutcome.disconnected);
+    expect(fixture.api.revocationCount, 1);
+    expect(fixture.api.revocationScopes, [null]);
+    expect(fixture.events, contains('credential:revoke:$_oldKey'));
+  });
+
   group('AccountSessionCoordinator connect', () {
     test('commits the replacement account in durable privacy order', () async {
       final fixture = _Fixture();

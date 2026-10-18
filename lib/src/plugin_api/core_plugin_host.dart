@@ -55,12 +55,23 @@ typedef PluginEmojiSearchAliasLoader =
 /// Plugins receive this snapshot instead of the process-wide credential
 /// reader, so they cannot retain the authenticator or ask for a client id
 /// independently of the site request they are about to make.
+typedef PluginRequestExecutor =
+    Future<T> Function<T>(Future<T> Function() request);
+
 @immutable
 final class PluginRequestCredentials {
   const PluginRequestCredentials({
     required this.apiKey,
     required this.clientId,
-  });
+    PluginRequestExecutor? execute,
+    // ignore: prefer_initializing_formals
+  }) : _execute = execute;
+
+  final PluginRequestExecutor? _execute;
+
+  /// Execute API work under the account that supplied this snapshot.
+  Future<T> run<T>(Future<T> Function() request) =>
+      _execute == null ? Future<T>.sync(request) : _execute<T>(request);
 
   final String? apiKey;
 
