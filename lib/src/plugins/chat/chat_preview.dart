@@ -484,9 +484,7 @@ List<ChatPreviewNode> _buildDocument(
 
     final range = SourceRange(offset, end);
     if (run.has(Md.marker)) {
-      nodes.add(
-        ChatPreviewSyntax(range: range, source: source.substring(offset, end)),
-      );
+      nodes.add(ChatPreviewSyntax(range: range));
     } else {
       nodes.add(
         ChatPreviewText(

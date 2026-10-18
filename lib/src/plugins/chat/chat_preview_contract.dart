@@ -119,9 +119,7 @@ final class ChatPreviewLineBreak extends ChatPreviewNode {
 
 @immutable
 final class ChatPreviewSyntax extends ChatPreviewNode {
-  const ChatPreviewSyntax({required super.range, required this.source});
-
-  final String source;
+  const ChatPreviewSyntax({required super.range});
 }
 
 @immutable
