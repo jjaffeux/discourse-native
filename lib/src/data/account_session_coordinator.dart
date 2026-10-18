@@ -729,14 +729,13 @@ final class AccountSessionCoordinator {
     String apiKey, {
     required String operation,
     bool Function()? ifCurrent,
-    bool warning = true,
   }) async {
     if (ifCurrent?.call() == false) return;
     try {
       await api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey);
     } catch (error, stackTrace) {
       if (ifCurrent?.call() != false) {
-        _reportError(error, stackTrace, operation, warning: warning);
+        _reportError(error, stackTrace, operation, warning: true);
       }
     }
   }

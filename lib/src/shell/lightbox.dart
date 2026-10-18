@@ -567,10 +567,10 @@ class _LightboxGalleryState extends State<LightboxGallery> {
     return (minimum: contained, maximum: math.max(contained, covered * 3));
   }
 
-  void _zoomCurrent(double factor, {Offset? focalPoint}) {
+  void _zoomCurrent(double factor) {
     final viewport = _viewportSize;
     if (viewport == null) return;
-    _zoom(_index, factor, viewport: viewport, focalPoint: focalPoint);
+    _zoom(_index, factor, viewport: viewport);
   }
 
   void _zoom(
