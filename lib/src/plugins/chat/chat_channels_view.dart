@@ -22,12 +22,10 @@ class ChatChannelsView extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.kind,
-    this.header,
   });
 
   final String siteUrl;
   final ChatChannelListKind kind;
-  final Widget? header;
 
   @override
   Widget build(BuildContext context) {
@@ -101,42 +99,40 @@ class ChatChannelsView extends StatelessWidget {
                   minHeight: MediaQuery.textScalerOf(context).scale(36),
                 ),
                 child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final heading =
-                        header ??
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                switch (kind) {
-                                  ChatChannelListKind.channels =>
-                                    context.l10n.channels,
-                                  ChatChannelListKind.starred =>
-                                    context.l10n.starred,
-                                  ChatChannelListKind.directMessages =>
-                                    context.l10n.directMessages,
-                                },
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            if (loading)
-                              DSkeleton(
-                                width: 20,
-                                height: 12,
-                                color: skeletonFill(context),
-                              )
-                            else
-                              Text(
-                                '${channels.length}',
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: colors.onSurfaceVariant),
-                              ),
-                          ],
-                        );
+                  builder: (context, _) {
+                    final heading = Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            switch (kind) {
+                              ChatChannelListKind.channels =>
+                                context.l10n.channels,
+                              ChatChannelListKind.starred =>
+                                context.l10n.starred,
+                              ChatChannelListKind.directMessages =>
+                                context.l10n.directMessages,
+                            },
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (loading)
+                          DSkeleton(
+                            width: 20,
+                            height: 12,
+                            color: skeletonFill(context),
+                          )
+                        else
+                          Text(
+                            '${channels.length}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colors.onSurfaceVariant),
+                          ),
+                      ],
+                    );
                     final actions = loading
                         ? <Widget>[]
                         : <Widget>[
@@ -150,23 +146,6 @@ class ChatChannelsView extends StatelessWidget {
                               action,
                             ],
                           ];
-                    if (header != null &&
-                        constraints.maxWidth <
-                            MediaQuery.textScalerOf(context).scale(320)) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          heading,
-                          Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: actions,
-                            ),
-                          ),
-                        ],
-                      );
-                    }
                     return Row(
                       children: [
                         Expanded(child: heading),

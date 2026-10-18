@@ -33,14 +33,12 @@ class ChatChannelView extends StatelessWidget {
     this.autofocusMessageStream = true,
     this.autofocusComposer = true,
     this.showHeader = true,
-    this.header,
   });
 
   final int channelId;
   final bool autofocusMessageStream;
   final bool autofocusComposer;
   final bool showHeader;
-  final Widget? header;
 
   @override
   Widget build(BuildContext context) =>
@@ -59,7 +57,6 @@ class ChatChannelView extends StatelessWidget {
             autofocusMessageStream: autofocusMessageStream,
             autofocusComposer: autofocusComposer,
             showHeader: showHeader,
-            header: header,
           );
         },
       );
@@ -104,7 +101,6 @@ class _ChatChannelBody extends StatefulWidget {
     required this.autofocusMessageStream,
     required this.autofocusComposer,
     required this.showHeader,
-    required this.header,
   });
 
   final String siteUrl;
@@ -114,7 +110,6 @@ class _ChatChannelBody extends StatefulWidget {
   final bool autofocusMessageStream;
   final bool autofocusComposer;
   final bool showHeader;
-  final Widget? header;
 
   @override
   State<_ChatChannelBody> createState() => _ChatChannelBodyState();
@@ -341,7 +336,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ?widget.header,
                     if (widget.showHeader)
                       ChatChannelHeader(
                         siteUrl: widget.siteUrl,
