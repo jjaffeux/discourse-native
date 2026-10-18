@@ -82,6 +82,57 @@ void main() {
     expect(store.collapsedFor(meta), isNull);
     expect(store.collapsedFor(team), isTrue);
   });
+
+  test(
+    'forgetting a forum retires queued choices across shared stores',
+    () async {
+      const site = 'https://meta.discourse.org';
+      const other = 'https://team.discourse.org';
+      final persistence = _HeldWritePersistence();
+      final first = TopicSidebarStore(persistence: persistence);
+      final replacement = TopicSidebarStore(persistence: persistence);
+      final active = first.write(siteUrl: site, collapsed: false);
+      await persistence.writeStarted.future;
+      final retired = replacement.write(siteUrl: site, collapsed: true);
+
+      first.forgetSites(ForgottenSites.removed(site, keeping: const [other]));
+      persistence.values.remove(site);
+      expect(first.collapsedFor(site), isNull);
+      await first.write(siteUrl: other, collapsed: true);
+      final fresh = replacement.write(siteUrl: site, collapsed: false);
+      persistence.releaseWrite.complete();
+      await Future.wait([active, retired, fresh]);
+
+      expect(persistence.writes, [(site, false), (other, true), (site, false)]);
+      expect(await first.read(siteUrl: site), isFalse);
+      expect(await replacement.read(siteUrl: other), isTrue);
+    },
+  );
+}
+
+final class _HeldWritePersistence implements TopicSidebarPersistence {
+  final values = <String, bool>{};
+  final writes = <(String, bool)>[];
+  final writeStarted = Completer<void>();
+  final releaseWrite = Completer<void>();
+
+  @override
+  Future<bool?> readCollapsed({required String siteUrl}) async =>
+      values[siteUrl];
+
+  @override
+  Future<bool> writeCollapsed({
+    required String siteUrl,
+    required bool collapsed,
+  }) async {
+    writes.add((siteUrl, collapsed));
+    values[siteUrl] = collapsed;
+    if (!writeStarted.isCompleted) {
+      writeStarted.complete();
+      await releaseWrite.future;
+    }
+    return true;
+  }
 }
 
 final class _HeldReadPersistence implements TopicSidebarPersistence {
