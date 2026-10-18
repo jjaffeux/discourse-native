@@ -11,6 +11,7 @@ import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
+import 'request_intent.dart';
 import 'site_appearance_loader.dart';
 
 final class DiscourseHeadResponse {
@@ -185,6 +186,7 @@ final class DiscourseTransport {
     Duration? requestTimeout,
     bool transfer = false,
   }) async {
+    final intent = RequestIntent.current;
     try {
       requireSafeHttpUrl(request.url);
       request.headers.putIfAbsent('User-Agent', () => userAgent);
@@ -203,6 +205,7 @@ final class DiscourseTransport {
           _ => null,
         },
         transfer: transfer,
+        intent: intent,
       );
     } on UnsafeHttpTransportException catch (error, stackTrace) {
       throw SiteLookupException(
@@ -253,6 +256,7 @@ final class DiscourseTransport {
     Duration? requestTimeout,
     Future<void>? abortTrigger,
   }) async {
+    final intent = RequestIntent.current;
     final effectiveTimeout = requestTimeout ?? timeout;
     assert(effectiveTimeout > Duration.zero);
     late http.Response response;
@@ -286,6 +290,7 @@ final class DiscourseTransport {
             maxBodyBytes: _maxResponseBytes,
           ),
           abortTrigger: abortTrigger,
+          intent: intent,
           // Speculative requests have one owner; sharing their cancellation
           // with ordinary GET consumers would cancel real navigation.
           coalesce: abortTrigger != null

@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
+import 'package:discourse_native/src/data/request_intent.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -13,6 +14,55 @@ import 'package:http/testing.dart';
 import 'support/manual_scheduler.dart';
 
 void main() {
+  test(
+    'redirect hops retain a source promoted while the first hop is active',
+    () async {
+      final responses = <String, Completer<http.Response>>{};
+      final order = <String>[];
+      final transport = DiscourseTransport(
+        SafeHttpClient.owned(
+          MockClient((request) {
+            final path = request.url.path;
+            order.add(path);
+            return (responses[path] = Completer<http.Response>()).future;
+          }),
+        ),
+        const Duration(seconds: 10),
+        4096,
+        maxConcurrentPerOrigin: 1,
+      );
+      addTearDown(transport.close);
+      const site = 'https://example.com';
+      final source = RequestIntent.background();
+      final redirect = source.run(
+        () => transport.get(Uri.parse('$site/old'), siteUrl: site),
+      );
+      final background = RequestIntent.background().run(
+        () => transport.get(Uri.parse('$site/background'), siteUrl: site),
+      );
+      final navigation = transport.get(
+        Uri.parse('$site/navigation'),
+        siteUrl: site,
+      );
+      await pumpEventQueue();
+      source.promote();
+      responses['/old']!.complete(
+        http.Response('', 302, headers: {'location': '/target'}),
+      );
+      await pumpEventQueue();
+      expect(order, ['/old', '/navigation']);
+      responses['/navigation']!.complete(http.Response('{}', 200));
+      await navigation;
+      await pumpEventQueue();
+      expect(order, ['/old', '/navigation', '/target']);
+      responses['/target']!.complete(http.Response('{}', 200));
+      await redirect;
+      await pumpEventQueue();
+      responses['/background']!.complete(http.Response('{}', 200));
+      await background;
+    },
+  );
+
   group('GET redirects', () {
     for (final apiKey in [null, 'secret']) {
       test('loads a category feed after a 301 with '

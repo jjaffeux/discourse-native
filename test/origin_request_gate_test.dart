@@ -7,6 +7,152 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/manual_scheduler.dart';
 
 void main() {
+  for (final aggregate in [false, true]) {
+    test(
+      'bounds interactive overtakes in ${aggregate ? 'aggregate' : 'origin'} contention',
+      () async {
+        final gate = OriginRequestGate(
+          maxConcurrent: aggregate ? 1 : null,
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: 12,
+          cooldownPolicy: OriginRequestCooldownPolicy.wait,
+        );
+        addTearDown(gate.close);
+        final origin = Uri.parse('https://first.example');
+        final other = Uri.parse('https://second.example');
+        final active = await gate.acquire(origin);
+        final order = <String>[];
+        Future<void> enqueue(
+          String name,
+          Uri url,
+          OriginRequestPriority priority,
+        ) => gate.run(url, (_) async {
+          order.add(name);
+        }, priority: priority);
+        final background = enqueue(
+          'background',
+          origin,
+          OriginRequestPriority.normal,
+        );
+        final requests = <Future<void>>[];
+        for (var i = 0; i < 6; i++) {
+          requests.add(
+            enqueue(
+              'interactive-$i',
+              aggregate && i.isOdd ? other : origin,
+              OriginRequestPriority.interactive,
+            ),
+          );
+          if (!aggregate) {
+            await enqueue(
+              'independent-$i',
+              other,
+              OriginRequestPriority.interactive,
+            );
+          }
+        }
+        order.clear();
+        active.release();
+        await Future.wait([background, ...requests]);
+        expect(order, [
+          'interactive-0',
+          'interactive-1',
+          'interactive-2',
+          'background',
+          'interactive-3',
+          'interactive-4',
+          'interactive-5',
+        ]);
+      },
+    );
+  }
+
+  test(
+    'another origin cannot reset a waiting origin fairness allowance',
+    () async {
+      final gate = OriginRequestGate(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 12,
+        cooldownPolicy: OriginRequestCooldownPolicy.wait,
+      );
+      addTearDown(gate.close);
+      final origin = Uri.parse('https://first.example');
+      final other = Uri.parse('https://second.example');
+      final first = await gate.acquire(origin);
+      final order = <String>[];
+      final background = gate.acquire(origin).then((lease) {
+        order.add('background');
+        return lease;
+      });
+      final urgent = List.generate(
+        4,
+        (i) => gate
+            .acquire(origin, priority: OriginRequestPriority.interactive)
+            .then((lease) {
+              order.add('interactive-$i');
+              return lease;
+            }),
+      );
+      first.release();
+      for (var i = 0; i < 3; i++) {
+        final lease = await urgent[i];
+        final independent = await gate.acquire(other);
+        independent.release();
+        lease.release();
+      }
+      (await background).release();
+      (await urgent.last).release();
+      expect(order, [
+        'interactive-0',
+        'interactive-1',
+        'interactive-2',
+        'background',
+        'interactive-3',
+      ]);
+    },
+  );
+
+  test(
+    'promotion keeps original FIFO position and respects cooldown',
+    () async {
+      final scheduler = ManualScheduler();
+      final gate = OriginRequestGate(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 4,
+        cooldownPolicy: OriginRequestCooldownPolicy.wait,
+        cooldownFactory: () => OriginCooldown(
+          clock: scheduler.now,
+          timerFactory: scheduler.createTimer,
+        ),
+      );
+      addTearDown(gate.close);
+      final origin = Uri.parse('https://first.example');
+      final active = await gate.acquire(origin);
+      var promoted = false;
+      final order = <String>[];
+      final older = gate.run(
+        origin,
+        (_) async {
+          order.add('older');
+        },
+        resolvePriority: () => promoted
+            ? OriginRequestPriority.interactive
+            : OriginRequestPriority.normal,
+      );
+      final newer = gate.run(origin, (_) async {
+        order.add('newer');
+      }, priority: OriginRequestPriority.interactive);
+      active.extendCooldown(const Duration(seconds: 2));
+      active.release();
+      promoted = true;
+      scheduler.advance(const Duration(seconds: 1));
+      expect(order, isEmpty);
+      scheduler.advance(const Duration(seconds: 1));
+      await Future.wait([older, newer]);
+      expect(order, ['older', 'newer']);
+    },
+  );
+
   group('OriginRequestGate', () {
     test(
       'bounds a FIFO backlog independently for each normalized origin',

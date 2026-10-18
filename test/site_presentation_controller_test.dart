@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
+import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
+import 'package:discourse_native/src/data/request_intent.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -9,10 +11,61 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/site_presentation_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
 import 'support/site_appearance_fixtures.dart';
 
 void main() {
+  for (final kind in ['config', 'appearance', 'custom', 'catalog', 'aliases']) {
+    test(
+      'interactive $kind join promotes its held operation without promoting siblings',
+      () async {
+        final coordinator = DiscourseRequestCoordinator(
+          maxConcurrentPerOrigin: 1,
+        );
+        addTearDown(coordinator.close);
+        final origin = Uri.parse('https://meta.example');
+        final hold = Completer<http.Response>();
+        final active = coordinator.run(origin, () => hold.future);
+        final order = <String>[];
+        Future<void> request(String name) async {
+          await coordinator.run(origin.resolve('/$name'), () async {
+            order.add(name);
+            return http.Response('{}', 200);
+          });
+        }
+
+        final api = _PresentationApi()..beforeLoad = request;
+        final controller = _controller(api);
+        Future<void> ensure() async {
+          switch (kind) {
+            case 'config':
+              await controller.ensureConfig(origin.toString());
+            case 'appearance':
+              await controller.ensureAppearance(origin.toString());
+            case 'custom':
+              await controller.ensureCustomEmojis(origin.toString());
+            case 'catalog':
+              await controller.ensureEmojiCatalog(origin.toString());
+            case 'aliases':
+              await controller.ensureEmojiSearchAliases(origin.toString());
+          }
+        }
+
+        final source = RequestIntent.background();
+        final sibling = source.run(() => request('sibling'));
+        final warm = source.run(ensure);
+        await pumpEventQueue();
+        final joined = ensure();
+        final navigation = request('navigation');
+        expect(source.isInteractive, isFalse);
+        hold.complete(http.Response('{}', 200));
+        await Future.wait([active, sibling, warm, joined, navigation]);
+        expect(order, [kind, 'navigation', 'sibling']);
+      },
+    );
+  }
+
   TestWidgetsFlutterBinding.ensureInitialized();
   const site = 'https://meta.example';
 
@@ -896,6 +949,7 @@ final class _Credentials implements ApiCredentialReader {
 }
 
 final class _PresentationApi {
+  Future<void> Function(String)? beforeLoad;
   SiteAppearance? appearance;
   Object? appearanceError;
   Completer<SiteAppearance?>? appearanceGate;
@@ -929,6 +983,7 @@ final class _PresentationApi {
     String? clientId,
   }) async {
     appearanceCalls++;
+    await beforeLoad?.call('appearance');
     if (!appearanceRequestStarted.isCompleted) {
       appearanceRequestStarted.complete();
     }
@@ -943,6 +998,7 @@ final class _PresentationApi {
     String? clientId,
   }) async {
     configCalls++;
+    await beforeLoad?.call('config');
     if (!configRequestStarted.isCompleted) configRequestStarted.complete();
     if (configGate case final gate?) return gate.future;
     if (configError case final error?) throw error;
@@ -955,6 +1011,7 @@ final class _PresentationApi {
     String? clientId,
   }) async {
     customCalls++;
+    await beforeLoad?.call('custom');
     if (customError case final error?) throw error;
     return custom;
   }
@@ -965,6 +1022,7 @@ final class _PresentationApi {
     String? clientId,
   }) async {
     emojiCalls++;
+    await beforeLoad?.call('catalog');
     if (!emojiRequestStarted.isCompleted) emojiRequestStarted.complete();
     if (emojiError case final error?) throw error;
     final flat = await (emojiGate?.future ?? Future.value(emojis));
@@ -979,6 +1037,7 @@ final class _PresentationApi {
     String? clientId,
   }) async {
     emojiAliasCalls++;
+    await beforeLoad?.call('aliases');
     if (!emojiAliasRequestStarted.isCompleted) {
       emojiAliasRequestStarted.complete();
     }

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../models/json.dart';
 import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
+import 'request_intent.dart';
 import 'retry_after.dart';
 
 /// Identity of one safe GET hop for in-flight request sharing.
@@ -116,7 +117,7 @@ final class DiscourseRequestCoordinator {
 
   final OriginRequestGate _gate;
   final OriginRequestGate _transfers;
-  final Map<DiscourseGetRequestKey, Future<http.Response>> _gets = {};
+  final Map<DiscourseGetRequestKey, _SharedGet> _gets = {};
 
   /// [transfer] routes a request whose body or response takes minutes to move
   /// into the transfer lane. Transfers are never shared, so [coalesce] is not
@@ -127,7 +128,9 @@ final class DiscourseRequestCoordinator {
     DiscourseGetRequestKey? coalesce,
     Future<void>? abortTrigger,
     bool transfer = false,
+    RequestIntent? intent,
   }) {
+    final source = intent ?? RequestIntent.current;
     assert(!transfer || coalesce == null);
     if (_gate.isClosed) {
       return Future.error(StateError('Request coordinator is closed.'));
@@ -135,23 +138,24 @@ final class DiscourseRequestCoordinator {
 
     if (coalesce case final key? when abortTrigger == null && !transfer) {
       final active = _gets[key];
-      if (active != null) return active;
+      if (active != null) {
+        active.intent.join(source);
+        return active.future;
+      }
 
-      late final Future<http.Response> request;
-      request = _enqueue(_gate, url, send).whenComplete(() {
-        if (identical(_gets[key], request)) {
-          final removed = _gets.remove(key);
-          assert(identical(removed, request));
-        }
+      final group = _SharedGet(source);
+      group.future = _enqueue(_gate, url, send, group.intent).whenComplete(() {
+        if (identical(_gets[key], group)) _gets.remove(key);
       });
-      _gets[key] = request;
-      return request;
+      _gets[key] = group;
+      return group.future;
     }
 
     return _enqueue(
       transfer ? _transfers : _gate,
       url,
       send,
+      source,
       abortTrigger: abortTrigger,
     );
   }
@@ -159,25 +163,33 @@ final class DiscourseRequestCoordinator {
   Future<http.Response> _enqueue(
     OriginRequestGate lane,
     Uri url,
-    Future<http.Response> Function() send, {
+    Future<http.Response> Function() send,
+    RequestIntent intent, {
     Future<void>? abortTrigger,
   }) => _translateGateErrors(
-    lane.run(url, (lease) async {
-      final response = await send();
-      if (response.statusCode == 429 && _pausesOrigin(response)) {
-        final delay =
-            explicitRetryAfter(response, now: _clock()) ??
-            defaultRateLimitCooldown;
-        lease.extendCooldown(delay);
-        // A request-wide limiter counts the site's requests whichever lane
-        // sent them, so the other lane must wait out the same delay.
-        (identical(lane, _gate) ? _transfers : _gate).extendCooldown(
-          url,
-          delay,
-        );
-      }
-      return response;
-    }, abortTrigger: abortTrigger),
+    lane.run(
+      url,
+      (lease) async {
+        final response = await send();
+        if (response.statusCode == 429 && _pausesOrigin(response)) {
+          final delay =
+              explicitRetryAfter(response, now: _clock()) ??
+              defaultRateLimitCooldown;
+          lease.extendCooldown(delay);
+          // A request-wide limiter counts the site's requests whichever lane
+          // sent them, so the other lane must wait out the same delay.
+          (identical(lane, _gate) ? _transfers : _gate).extendCooldown(
+            url,
+            delay,
+          );
+        }
+        return response;
+      },
+      resolvePriority: () => intent.isInteractive
+          ? OriginRequestPriority.interactive
+          : OriginRequestPriority.normal,
+      abortTrigger: abortTrigger,
+    ),
     url,
   );
 
@@ -279,4 +291,11 @@ final class DiscourseRequestOverloadException implements Exception {
     (origin).toString(),
     (maxQueued).toString(),
   );
+}
+
+final class _SharedGet {
+  _SharedGet(RequestIntent source) : intent = RequestIntentGroup(source);
+
+  final RequestIntentGroup intent;
+  late final Future<http.Response> future;
 }

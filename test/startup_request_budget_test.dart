@@ -1,10 +1,15 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/request_intent.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
+import 'package:discourse_native/src/models/site_basic_info.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -15,6 +20,41 @@ import 'support/fakes.dart';
 import 'support/site_appearance_fixtures.dart';
 
 void main() {
+  test(
+    'startup warms remain background until a reader joins their held futures',
+    () async {
+      const site = 'https://first.example';
+      final api = _IntentStartupApi();
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([_connected(site)]),
+        api: api,
+        authenticator: FakeAuthenticator()..keys[site] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: installedPlugins,
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      await pumpEventQueue();
+      expect(api.categoryIntent?.isInteractive, isFalse);
+      expect(api.catalogIntent?.isInteractive, isFalse);
+      expect(api.basicInfoIntent?.isInteractive, isFalse);
+      expect(RequestIntent.current.isInteractive, isTrue);
+
+      final catalog = shell.ensureEmojiCatalog(site);
+      expect(api.catalogIntent?.isInteractive, isTrue);
+      expect(api.categoryIntent?.isInteractive, isFalse);
+      final categories = shell.loadCategories(site);
+      await pumpEventQueue();
+      expect(api.categoryIntent?.isInteractive, isTrue);
+      api.categoriesReady.complete();
+      api.catalogReady.complete();
+      await Future.wait([categories, catalog]);
+      expect(api.categoryRequests, [site]);
+      expect(api.emojisRequested, [site]);
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('cold start fully hydrates only the selected site', () async {
@@ -363,5 +403,53 @@ final class _StartupApi extends FakeDiscourseApi {
     totalsSites.add(siteUrl);
     if (siteUrl == firstUrl) return firstTotals.future;
     return Future.value(const NotificationTotals());
+  }
+}
+
+final class _IntentStartupApi extends FakeDiscourseApi {
+  _IntentStartupApi()
+    : super(siteConfigs: {'https://first.example': const SiteConfig()});
+  RequestIntent? categoryIntent;
+  RequestIntent? catalogIntent;
+  RequestIntent? basicInfoIntent;
+  final categoriesReady = Completer<void>();
+  final catalogReady = Completer<void>();
+
+  @override
+  Future<SiteBasicInfo> basicInfo(String siteUrl) {
+    basicInfoIntent = RequestIntent.current;
+    return super.basicInfo(siteUrl);
+  }
+
+  @override
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+    int page = 1,
+  }) async {
+    categoryIntent = RequestIntent.current;
+    await categoriesReady.future;
+    return super.loadCategories(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      page: page,
+    );
+  }
+
+  @override
+  Future<SiteEmojiCatalog> emojiCatalog({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    catalogIntent = RequestIntent.current;
+    await catalogReady.future;
+    return super.emojiCatalog(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
   }
 }

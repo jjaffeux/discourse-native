@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/api_credentials.dart';
+import '../data/request_intent.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
@@ -105,13 +106,16 @@ final class SitePresentationController extends FrameSafeNotifier {
   }
 
   final _configs = _RetryingSiteCache<SiteConfig>();
-  final Map<String, Future<void>> _configRequests = {};
+  final Map<String, RequestIntentOperation<void>> _configRequests = {};
+  final Map<String, RequestIntentOperation<void>> _appearanceRequests = {};
+  final Map<String, RequestIntentOperation<void>> _customEmojiRequests = {};
   final _customEmojis = _RetryingSiteCache<Map<String, String>>();
   final _emojiCatalogs = _RetryingSiteCache<SiteEmojiCatalog>();
   final _emojiSearchAliases = _RetryingSiteCache<Map<String, List<String>>>();
-  final Map<String, Future<SiteEmojiCatalog?>> _emojiCatalogRequests = {};
-  final Map<String, Future<Map<String, List<String>>?>> _emojiAliasRequests =
-      {};
+  final Map<String, RequestIntentOperation<SiteEmojiCatalog?>>
+  _emojiCatalogRequests = {};
+  final Map<String, RequestIntentOperation<Map<String, List<String>>?>>
+  _emojiAliasRequests = {};
   final Set<String> _failedEmojiCatalogs = {};
   final Set<String> _failedEmojiSearchAliases = {};
   static final Object _unchangedPresentation = Object();
@@ -134,10 +138,25 @@ final class SitePresentationController extends FrameSafeNotifier {
   bool cookingSettingsAreStale(String siteUrl) => _configs[siteUrl] == null;
 
   Future<void> ensureAppearance(String siteUrl) =>
-      _ensureAppearance(siteUrl, refresh: false);
+      _appearanceRequest(siteUrl, refresh: false);
 
   Future<void> refreshAppearance(String siteUrl) =>
-      _ensureAppearance(siteUrl, refresh: true);
+      _appearanceRequest(siteUrl, refresh: true);
+
+  Future<void> _appearanceRequest(String siteUrl, {required bool refresh}) {
+    final active = _appearanceRequests[siteUrl];
+    if (active != null) return active.join();
+    late final RequestIntentOperation<void> request;
+    request = RequestIntentOperation(
+      () => _ensureAppearance(siteUrl, refresh: refresh).whenComplete(() {
+        if (identical(_appearanceRequests[siteUrl], request)) {
+          _appearanceRequests.remove(siteUrl);
+        }
+      }),
+    );
+    _appearanceRequests[siteUrl] = request;
+    return request.future;
+  }
 
   Future<void> _ensureAppearance(
     String siteUrl, {
@@ -217,7 +236,7 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   Future<void> warmConfig(String siteUrl) {
     _configs.forgiveAttempts(siteUrl);
-    return ensureConfig(siteUrl);
+    return RequestIntent.background().run(() => ensureConfig(siteUrl));
   }
 
   Future<SiteConfig?> resolveConfig(String siteUrl) async {
@@ -233,17 +252,19 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   Future<void> _configRequest(String siteUrl, {required bool refresh}) {
     final active = _configRequests[siteUrl];
-    if (active != null) return active;
+    if (active != null) return active.join();
 
-    late final Future<void> request;
-    request = _ensureConfig(siteUrl, refresh: refresh).whenComplete(() {
-      if (identical(_configRequests[siteUrl], request)) {
-        final removed = _configRequests.remove(siteUrl);
-        assert(identical(removed, request));
-      }
-    });
+    late final RequestIntentOperation<void> request;
+    request = RequestIntentOperation(
+      () => _ensureConfig(siteUrl, refresh: refresh).whenComplete(() {
+        if (identical(_configRequests[siteUrl], request)) {
+          final removed = _configRequests.remove(siteUrl);
+          assert(identical(removed, request));
+        }
+      }),
+    );
     _configRequests[siteUrl] = request;
-    return request;
+    return request.future;
   }
 
   Future<void> _ensureConfig(String siteUrl, {required bool refresh}) async {
@@ -282,7 +303,22 @@ final class SitePresentationController extends FrameSafeNotifier {
     }
   }
 
-  Future<void> ensureCustomEmojis(String siteUrl) async {
+  Future<void> ensureCustomEmojis(String siteUrl) {
+    final active = _customEmojiRequests[siteUrl];
+    if (active != null) return active.join();
+    late final RequestIntentOperation<void> request;
+    request = RequestIntentOperation(
+      () => _ensureCustomEmojis(siteUrl).whenComplete(() {
+        if (identical(_customEmojiRequests[siteUrl], request)) {
+          _customEmojiRequests.remove(siteUrl);
+        }
+      }),
+    );
+    _customEmojiRequests[siteUrl] = request;
+    return request.future;
+  }
+
+  Future<void> _ensureCustomEmojis(String siteUrl) async {
     if (isDisposed || !_customEmojis.start(siteUrl, maxAttempts)) return;
     final lease = lifecycle.capture(siteUrl);
 
@@ -315,7 +351,7 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   Future<void> warmCustomEmojis(String siteUrl) {
     _customEmojis.forgiveAttempts(siteUrl);
-    return ensureCustomEmojis(siteUrl);
+    return RequestIntent.background().run(() => ensureCustomEmojis(siteUrl));
   }
 
   SiteEmojiCatalog? emojiCatalogFor(String siteUrl) => _emojiCatalogs[siteUrl];
@@ -329,7 +365,7 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<SiteEmojiCatalog?> warmEmojiCatalog(String siteUrl) {
     final held = _emojiCatalogs[siteUrl];
     if (held != null) return Future.value(held);
-    return refreshEmojiCatalog(siteUrl);
+    return RequestIntent.background().run(() => refreshEmojiCatalog(siteUrl));
   }
 
   Future<SiteEmojiCatalog?> refreshEmojiCatalog(String siteUrl) =>
@@ -343,21 +379,23 @@ final class SitePresentationController extends FrameSafeNotifier {
     final cached = _emojiCatalogs[siteUrl];
     if (!refresh && cached != null) return Future.value(cached);
     final active = _emojiCatalogRequests[siteUrl];
-    if (active != null) return active;
+    if (active != null) return active.join();
     if (!refresh && _failedEmojiCatalogs.contains(siteUrl)) {
       return Future.value(null);
     }
     if (refresh) _failedEmojiCatalogs.remove(siteUrl);
 
-    late final Future<SiteEmojiCatalog?> request;
-    request = _loadEmojiCatalog(siteUrl, refresh: refresh).whenComplete(() {
-      if (identical(_emojiCatalogRequests[siteUrl], request)) {
-        final removed = _emojiCatalogRequests.remove(siteUrl);
-        assert(identical(removed, request));
-      }
-    });
+    late final RequestIntentOperation<SiteEmojiCatalog?> request;
+    request = RequestIntentOperation(
+      () => _loadEmojiCatalog(siteUrl, refresh: refresh).whenComplete(() {
+        if (identical(_emojiCatalogRequests[siteUrl], request)) {
+          final removed = _emojiCatalogRequests.remove(siteUrl);
+          assert(identical(removed, request));
+        }
+      }),
+    );
     _emojiCatalogRequests[siteUrl] = request;
-    return request;
+    return request.future;
   }
 
   Future<SiteEmojiCatalog?> _loadEmojiCatalog(
@@ -412,23 +450,23 @@ final class SitePresentationController extends FrameSafeNotifier {
     final cached = _emojiSearchAliases[siteUrl];
     if (!refresh && cached != null) return Future.value(cached);
     final active = _emojiAliasRequests[siteUrl];
-    if (active != null) return active;
+    if (active != null) return active.join();
     if (!refresh && _failedEmojiSearchAliases.contains(siteUrl)) {
       return Future.value(null);
     }
     if (refresh) _failedEmojiSearchAliases.remove(siteUrl);
 
-    late final Future<Map<String, List<String>>?> request;
-    request = _loadEmojiSearchAliases(siteUrl, refresh: refresh).whenComplete(
-      () {
+    late final RequestIntentOperation<Map<String, List<String>>?> request;
+    request = RequestIntentOperation(
+      () => _loadEmojiSearchAliases(siteUrl, refresh: refresh).whenComplete(() {
         if (identical(_emojiAliasRequests[siteUrl], request)) {
           final removed = _emojiAliasRequests.remove(siteUrl);
           assert(identical(removed, request));
         }
-      },
+      }),
     );
     _emojiAliasRequests[siteUrl] = request;
-    return request;
+    return request.future;
   }
 
   Future<Map<String, List<String>>?> _loadEmojiSearchAliases(
@@ -554,15 +592,17 @@ final class SitePresentationController extends FrameSafeNotifier {
     // just disconnected, so it must not regain warm-start status.
     _invalidatedPersistedAppearances.add(siteUrl);
     _invalidatedPersistedConfigs.add(siteUrl);
+    _appearanceRequests.remove(siteUrl)?.future.ignore();
+    _customEmojiRequests.remove(siteUrl)?.future.ignore();
     final configRequest = _configRequests.remove(siteUrl);
-    configRequest?.ignore();
+    configRequest?.future.ignore();
     final oldAppearance = appearanceFor(siteUrl);
     final oldConfig = configFor(siteUrl);
     final customChanged = _customEmojis[siteUrl]?.isNotEmpty ?? false;
     final catalogRequest = _emojiCatalogRequests.remove(siteUrl);
-    catalogRequest?.ignore();
+    catalogRequest?.future.ignore();
     final aliasRequest = _emojiAliasRequests.remove(siteUrl);
-    aliasRequest?.ignore();
+    aliasRequest?.future.ignore();
 
     _appearances.forget(siteUrl);
     _configs.forget(siteUrl);

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
+import 'package:discourse_native/src/data/request_intent.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -12,6 +13,84 @@ import 'package:http/http.dart' as http;
 import 'support/manual_scheduler.dart';
 
 void main() {
+  test(
+    'full safe GET backlog promotes only the joined exchange and preserves zones',
+    () async {
+      final coordinator = DiscourseRequestCoordinator(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 3,
+      );
+      addTearDown(coordinator.close);
+      final origin = Uri.parse('https://forum.example');
+      final blocker = Completer<http.Response>();
+      final active = coordinator.run(
+        origin.resolve('/active'),
+        () => blocker.future,
+      );
+      final order = <String>[];
+      final source = RequestIntent.background();
+      final zoneKey = Object();
+      Future<http.Response> send(String name, {DiscourseGetRequestKey? key}) =>
+          coordinator.run(origin.resolve('/$name'), () async {
+            order.add('$name:${Zone.current[zoneKey]}');
+            return http.Response(name, 200);
+          }, coalesce: key);
+      final key = DiscourseGetRequestKey(
+        origin.resolve('/shared'),
+        headers: const {'user-api-key': 'secret'},
+        timeout: const Duration(seconds: 10),
+        maxResponseBytes: 100,
+      );
+      final sibling = source.run(() => send('sibling'));
+      final original = runZoned(
+        () => source.run(() => send('shared', key: key)),
+        zoneValues: {zoneKey: 'sender'},
+      );
+      final navigation = send('navigation');
+      final joined = runZoned(() async {
+        final result = await send('shared', key: key);
+        expect(Zone.current[zoneKey], 'waiter');
+        return result;
+      }, zoneValues: {zoneKey: 'waiter'});
+      expect(source.isInteractive, isFalse);
+      expect(order, isEmpty);
+      blocker.complete(http.Response('active', 200));
+      await Future.wait([active, sibling, original, navigation, joined]);
+      expect(order, ['shared:sender', 'navigation:null', 'sibling:null']);
+      expect(await joined, same(await original));
+    },
+  );
+
+  test('a joined background source can promote after joining', () async {
+    final coordinator = DiscourseRequestCoordinator(maxConcurrentPerOrigin: 1);
+    addTearDown(coordinator.close);
+    final origin = Uri.parse('https://forum.example');
+    final blocker = Completer<http.Response>();
+    final active = coordinator.run(origin, () => blocker.future);
+    final order = <String>[];
+    final source = RequestIntent.background();
+    final joiningSource = RequestIntent.background();
+    final key = DiscourseGetRequestKey(
+      origin.resolve('/shared'),
+      headers: const {},
+      timeout: const Duration(seconds: 10),
+      maxResponseBytes: 100,
+    );
+    Future<http.Response> send(String name, {DiscourseGetRequestKey? key}) =>
+        coordinator.run(origin.resolve('/$name'), () async {
+          order.add(name);
+          return http.Response(name, 200);
+        }, coalesce: key);
+    final sibling = source.run(() => send('sibling'));
+    final original = source.run(() => send('shared', key: key));
+    final joined = joiningSource.run(() => send('shared', key: key));
+    joiningSource.promote();
+    blocker.complete(http.Response('', 200));
+    await Future.wait([active, sibling, original, joined]);
+    expect(order, ['shared', 'sibling']);
+    expect(source.isInteractive, isFalse);
+  });
+
   const cooldownCases = [
     (
       name: 'without a Date header',

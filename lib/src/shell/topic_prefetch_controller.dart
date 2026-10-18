@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../data/request_intent.dart';
 import '../diagnostics/topic_prefetch_trace.dart';
 import '../models/post.dart';
 
@@ -96,6 +97,7 @@ final class TopicPrefetchController {
       _discardCandidate();
       return null;
     }
+    entry.requestIntent.promote();
     entry.adopted = true;
     _trace(entry, 'adopted');
     _candidate = null;
@@ -155,7 +157,9 @@ final class TopicPrefetchController {
   Future<void> _load(_Prefetch entry) async {
     PrefetchedTopic? result;
     try {
-      result = await entry.load(entry.cancellation);
+      result = await entry.requestIntent.run(
+        () => entry.load(entry.cancellation),
+      );
     } catch (_) {
       // Speculative errors are silent. A click retries through normal topic loading.
     } finally {
@@ -201,6 +205,7 @@ final class TopicPrefetchController {
 final class _Prefetch {
   _Prefetch(this.key, this.load, this.isCurrent, this.intent);
 
+  final requestIntent = RequestIntent.background();
   final TopicPrefetchKey key;
   final TopicPrefetchIntent intent;
   final traceId = TopicPrefetchTrace.nextId();

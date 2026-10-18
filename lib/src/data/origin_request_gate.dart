@@ -42,16 +42,21 @@ final class OriginRequestGate {
   final Map<String, _OriginState> _origins = {};
   final List<_QueuedAdmission> _waiting = [];
   int _active = 0;
+  int _interactiveOvertakes = 0;
   bool _closed = false;
 
   bool get isClosed => _closed;
 
+  /// [resolvePriority], when provided, replaces [priority] at each admission
+  /// scan. An eligible normal request permits at most three interactive grants
+  /// before its contention domain serves normal work again.
   Future<OriginRequestLease> acquire(
     Uri url, {
     OriginRequestPriority priority = OriginRequestPriority.normal,
+    OriginRequestPriority Function()? resolvePriority,
   }) {
     final pending = _AcquireAdmission();
-    _enqueue(url.origin, pending, priority);
+    _enqueue(url.origin, pending, resolvePriority ?? () => priority);
     return pending.result.future;
   }
 
@@ -67,10 +72,11 @@ final class OriginRequestGate {
     Uri url,
     Future<T> Function(OriginRequestContext context) operation, {
     OriginRequestPriority priority = OriginRequestPriority.normal,
+    OriginRequestPriority Function()? resolvePriority,
     Future<void>? abortTrigger,
   }) {
     final pending = _RunAdmission<T>(operation);
-    _enqueue(url.origin, pending, priority);
+    _enqueue(url.origin, pending, resolvePriority ?? () => priority);
     unawaited(
       abortTrigger?.then((_) {
         final index = _waiting.indexWhere(
@@ -99,7 +105,7 @@ final class OriginRequestGate {
   void _enqueue(
     String origin,
     _PendingAdmission pending,
-    OriginRequestPriority priority,
+    OriginRequestPriority Function() resolvePriority,
   ) {
     if (_closed) {
       pending.reject(
@@ -131,7 +137,7 @@ final class OriginRequestGate {
     }
 
     state.waiting++;
-    _waiting.add(_QueuedAdmission(origin, state, pending, priority));
+    _waiting.add(_QueuedAdmission(origin, state, pending, resolvePriority));
     _drain();
   }
 
@@ -142,7 +148,8 @@ final class OriginRequestGate {
 
     final aggregateLimit = maxConcurrent;
     while (aggregateLimit == null || _active < aggregateLimit) {
-      var eligible = -1;
+      final normal = <String, int>{};
+      final interactive = <String, int>{};
       for (var index = 0; index < _waiting.length; index++) {
         final queued = _waiting[index];
         final state = queued.state;
@@ -151,14 +158,38 @@ final class OriginRequestGate {
             state.cooldown.remaining != null) {
           continue;
         }
-        if (eligible < 0 ||
-            queued.priority.index > _waiting[eligible].priority.index) {
-          eligible = index;
-        }
+        final domain = aggregateLimit == null ? queued.origin : '';
+        final priorities = queued.priority == OriginRequestPriority.interactive
+            ? interactive
+            : normal;
+        priorities.putIfAbsent(domain, () => index);
+      }
+      var eligible = -1;
+      for (final domain in {...normal.keys, ...interactive.keys}) {
+        final background = normal[domain];
+        final foreground = interactive[domain];
+        final overtakes = aggregateLimit == null
+            ? _waiting[background ?? foreground!].state.interactiveOvertakes
+            : _interactiveOvertakes;
+        final candidate =
+            background != null && (foreground == null || overtakes >= 3)
+            ? background
+            : foreground!;
+        if (eligible < 0 || candidate < eligible) eligible = candidate;
       }
       if (eligible < 0) break;
 
       final queued = _waiting.removeAt(eligible);
+      final domain = aggregateLimit == null ? queued.origin : '';
+      final overtook =
+          normal.containsKey(domain) && interactive[domain] == eligible;
+      if (aggregateLimit == null) {
+        queued.state.interactiveOvertakes = overtook
+            ? queued.state.interactiveOvertakes + 1
+            : 0;
+      } else {
+        _interactiveOvertakes = overtook ? _interactiveOvertakes + 1 : 0;
+      }
       queued.state.waiting--;
       queued.state.active++;
       _active++;
@@ -334,15 +365,22 @@ final class _OriginState {
   final OriginCooldown cooldown;
   int waiting = 0;
   int active = 0;
+  int interactiveOvertakes = 0;
 }
 
 final class _QueuedAdmission {
-  const _QueuedAdmission(this.origin, this.state, this.pending, this.priority);
+  const _QueuedAdmission(
+    this.origin,
+    this.state,
+    this.pending,
+    this.resolvePriority,
+  );
 
   final String origin;
   final _OriginState state;
   final _PendingAdmission pending;
-  final OriginRequestPriority priority;
+  final OriginRequestPriority Function() resolvePriority;
+  OriginRequestPriority get priority => resolvePriority();
 }
 
 sealed class _PendingAdmission {

@@ -29,6 +29,7 @@ import '../data/groups_api.dart';
 import '../data/http_transport.dart';
 import '../data/instance_store.dart';
 import '../data/recent_destinations_store.dart';
+import '../data/request_intent.dart';
 import '../data/shell_api_ports.dart';
 import '../data/sidebar_section_store.dart';
 import '../data/site_image_repository.dart';
@@ -1210,7 +1211,9 @@ class ShellController extends FrameSafeNotifier
           _notify();
         }
         if (isDisposed || !lease.isCurrent) return;
-        unawaited(_ensureCategoriesFor(instance));
+        unawaited(
+          RequestIntent.background().run(() => _ensureCategoriesFor(instance)),
+        );
         await _ensureCategoryIds(instance, apiKey, categoryIds);
       },
       readPersonalizationVersion: _siteBookmarkVersion,
@@ -2966,7 +2969,9 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     final SiteBasicInfo info;
     try {
-      info = await api.siteLookup.basicInfo(siteUrl);
+      info = await RequestIntent.background().run(
+        () => api.siteLookup.basicInfo(siteUrl),
+      );
     } catch (_) {
       // What was stored still draws the forum; the next launch asks again.
       return;
@@ -3735,7 +3740,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   final Set<String> _categorised = {};
-  final Map<String, Future<void>> _categoryRequests = {};
+  final Map<String, RequestIntentOperation<void>> _categoryRequests = {};
   final Map<String, List<TopicCategory>> _categoriesBySite = {};
   final Map<String, TopicTrackingReconciler> _topicTrackingBySite = {};
   final Map<
@@ -5864,10 +5869,12 @@ class ShellController extends FrameSafeNotifier
     required SiteLease lease,
   }) async {
     try {
-      final bootstrap = await api.site.messageBusBootstrap(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
+      final bootstrap = await RequestIntent.background().run(
+        () => api.site.messageBusBootstrap(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        ),
       );
       if (isDisposed || !lease.isCurrent) return null;
       if (bootstrap != null) {
@@ -5917,11 +5924,13 @@ class ShellController extends FrameSafeNotifier
         await refreshCategoryPreferences();
         if (!ownsLoad() || !tracking.preferencesReady(ticket)) return;
       }
-      final snapshot = await api.site.topicTrackingState(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        username: username,
-        clientId: clientId,
+      final snapshot = await RequestIntent.background().run(
+        () => api.site.topicTrackingState(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          username: username,
+          clientId: clientId,
+        ),
       );
       if (!ownsLoad()) return;
       final currentUsername = _instanceAt(siteUrl)?.user?.username;
@@ -8780,14 +8789,26 @@ class ShellController extends FrameSafeNotifier
 
     // Start presentation fetches before cache/in-flight guards so failures stay
     // retryable even for topics already in the store.
-    unawaited(_presentation.ensureConfig(instance.url));
-    unawaited(_presentation.ensureCustomEmojis(instance.url));
+    unawaited(
+      RequestIntent.background().run(
+        () => _presentation.ensureConfig(instance.url),
+      ),
+    );
+    unawaited(
+      RequestIntent.background().run(
+        () => _presentation.ensureCustomEmojis(instance.url),
+      ),
+    );
     // Hashtags need category colors even when a notification or link opened
     // the topic without first loading a feed.
     unawaited(
-      _ensureCategoriesFor(
-        instance,
-        categoryId: store.read<TopicDetail>(instance.url, topicId)?.categoryId,
+      RequestIntent.background().run(
+        () => _ensureCategoriesFor(
+          instance,
+          categoryId: store
+              .read<TopicDetail>(instance.url, topicId)
+              ?.categoryId,
+        ),
       ),
     );
 
@@ -16823,21 +16844,18 @@ class ShellController extends FrameSafeNotifier
     SiteLease? lease,
   }) {
     final active = _categoryRequests[instance.url];
-    if (active != null) return active;
-    late final Future<void> request;
-    request =
-        _loadCategories(
-          instance,
-          apiKey,
-          clientId: clientId,
-          lease: lease,
-        ).whenComplete(() {
-          if (identical(_categoryRequests[instance.url], request)) {
-            final _ = _categoryRequests.remove(instance.url);
-          }
-        });
+    if (active != null) return active.join();
+    late final RequestIntentOperation<void> request;
+    request = RequestIntentOperation(
+      () => _loadCategories(instance, apiKey, clientId: clientId, lease: lease)
+          .whenComplete(() {
+            if (identical(_categoryRequests[instance.url], request)) {
+              final _ = _categoryRequests.remove(instance.url);
+            }
+          }),
+    );
     _categoryRequests[instance.url] = request;
-    return request;
+    return request.future;
   }
 
   Future<void> _loadCategories(
@@ -17026,7 +17044,11 @@ class ShellController extends FrameSafeNotifier
           _connectErrors[instance.url] = result.message!;
           if (result.refreshSignedOutPresentation &&
               currentInstance?.url == instance.url) {
-            unawaited(_presentation.ensureAppearance(instance.url));
+            unawaited(
+              RequestIntent.background().run(
+                () => _presentation.ensureAppearance(instance.url),
+              ),
+            );
           }
         case AccountConnectionOutcome.stale || AccountConnectionOutcome.missing:
           break;
@@ -17367,7 +17389,11 @@ class ShellController extends FrameSafeNotifier
       logSearchQueries: instance.config.logSearchQueries,
     );
     if (refreshAppearance && canRead) {
-      unawaited(_presentation.ensureAppearance(instance.url));
+      unawaited(
+        RequestIntent.background().run(
+          () => _presentation.ensureAppearance(instance.url),
+        ),
+      );
     }
     // Category navigation is first-class shell state. It cannot depend on the
     // default topic feed succeeding, and its ordering/defaults live in the
@@ -17381,7 +17407,9 @@ class ShellController extends FrameSafeNotifier
       }
       // Warm the emoji catalog with the first feed to avoid a second title frame.
       unawaited(_presentation.warmEmojiCatalog(instance.url));
-      unawaited(_ensureCategoriesFor(instance));
+      unawaited(
+        RequestIntent.background().run(() => _ensureCategoriesFor(instance)),
+      );
     }
     for (final activator
         in _pluginSession.capabilities<PluginSiteActivator>()) {

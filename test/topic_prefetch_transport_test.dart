@@ -4,10 +4,112 @@ import 'dart:convert';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/request_intent.dart';
+import 'package:discourse_native/src/shell/topic_prefetch_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
+  test('real topic navigation overtakes queued site metadata', () async {
+    final client = _Client();
+    final transport = DiscourseTransport(
+      SafeHttpClient.owned(client),
+      const Duration(seconds: 10),
+      4096,
+      maxConcurrentPerOrigin: 1,
+    );
+    final api = DiscourseApi(transport: transport);
+    addTearDown(api.close);
+    const site = 'https://example.com';
+    final active = api.topic(siteUrl: site, slug: 'active', id: 1);
+    final background = RequestIntent.background();
+    final config = background.run(() => api.siteConfig(siteUrl: site));
+    final emojis = background.run(() => api.emojiCatalog(siteUrl: site));
+    final topic = api.topic(siteUrl: site, slug: 'navigation', id: 2);
+    expect(client.requests.map((r) => r.request.url.path), ['/t/1.json']);
+    client.requests.last.complete();
+    await active;
+    await pumpEventQueue();
+    expect(client.requests.last.request.url.path, '/t/2.json');
+    client.requests.last.complete();
+    await topic;
+    await pumpEventQueue();
+    expect(client.requests.last.request.url.path, '/site/settings.json');
+    client.requests.last.complete();
+    await config;
+    await pumpEventQueue();
+    expect(client.requests.last.request.url.path, '/emojis.json');
+    client.requests.last.complete();
+    await emojis;
+  });
+
+  for (final duringCredentials in [false, true]) {
+    test(
+      'adopted prefetch overtakes metadata ${duringCredentials ? 'during credentials' : 'while queued'}',
+      () async {
+        final client = _Client();
+        final transport = DiscourseTransport(
+          SafeHttpClient.owned(client),
+          const Duration(seconds: 10),
+          4096,
+          maxConcurrentPerOrigin: 1,
+        );
+        final api = DiscourseApi(transport: transport);
+        final prefetch = TopicPrefetchController();
+        addTearDown(api.close);
+        addTearDown(prefetch.clear);
+        const site = 'https://example.com';
+        final active = api.topic(siteUrl: site, slug: 'active', id: 1);
+        final metadata = RequestIntent.background().run(
+          () => api.siteConfig(siteUrl: site),
+        );
+        final credentials = Completer<void>();
+        final key = (
+          siteUrl: site,
+          session: Object(),
+          topicId: 2,
+          postNumber: null,
+        );
+        prefetch.hover(
+          key,
+          intent: TopicPrefetchIntent.trajectory,
+          isCurrent: () => true,
+          load: (cancellation) async {
+            await credentials.future;
+            final payload = await api.topic(
+              siteUrl: site,
+              slug: 'adopted',
+              id: 2,
+              abortTrigger: cancellation.trigger,
+            );
+            return PrefetchedTopic(payload, 0, 0, 0);
+          },
+        );
+        if (!duringCredentials) {
+          credentials.complete();
+          await pumpEventQueue();
+        }
+        final adopted = prefetch.take(key);
+        expect(adopted, isNotNull);
+        if (duringCredentials) credentials.complete();
+        await pumpEventQueue();
+        client.requests.single.complete();
+        await active;
+        await pumpEventQueue();
+        expect(client.requests.last.request.url.path, '/t/2.json');
+        client.requests.last.complete();
+        expect(await adopted, isNotNull);
+        await pumpEventQueue();
+        client.requests.last.complete();
+        await metadata;
+        expect(
+          client.requests.where((r) => r.request.url.path == '/t/2.json'),
+          hasLength(1),
+        );
+      },
+    );
+  }
+
   const site = 'https://example.com';
   final aborted = throwsA(
     isA<SiteLookupException>().having(
