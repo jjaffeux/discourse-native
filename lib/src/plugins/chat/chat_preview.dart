@@ -391,10 +391,9 @@ final class _OpenFence {
 
 @immutable
 final class _SourceLine {
-  const _SourceLine(this.start, this.end, this.endWithNewline, this.text);
+  const _SourceLine(this.start, this.endWithNewline, this.text);
 
   final int start;
-  final int end;
   final int endWithNewline;
   final String text;
 }
@@ -408,7 +407,6 @@ List<_SourceLine> _sourceLines(String source) {
     lines.add(
       _SourceLine(
         start,
-        end,
         newline == -1 ? end : end + 1,
         source.substring(start, end),
       ),

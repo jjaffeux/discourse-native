@@ -499,13 +499,11 @@ class _SourceLine {
   const _SourceLine({
     required this.start,
     required this.contentEnd,
-    required this.end,
     required this.text,
   });
 
   final int start;
   final int contentEnd;
-  final int end;
   final String text;
 }
 
@@ -526,7 +524,6 @@ List<_SourceLine> _linesOf(String source) {
       _SourceLine(
         start: start,
         contentEnd: contentEnd,
-        end: end,
         text: source.substring(start, contentEnd),
       ),
     );
