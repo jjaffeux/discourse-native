@@ -19,9 +19,9 @@ final class MediaRequestCoordinator {
   static const defaultMaxConcurrentPerOrigin = 8;
 
   MediaRequestCoordinator({
-    this.maxConcurrent = defaultMaxConcurrent,
-    this.maxConcurrentPerOrigin = defaultMaxConcurrentPerOrigin,
-    this.maxQueuedPerOrigin = 64,
+    int maxConcurrent = defaultMaxConcurrent,
+    int maxConcurrentPerOrigin = defaultMaxConcurrentPerOrigin,
+    int maxQueuedPerOrigin = 64,
     this.defaultRateLimitCooldown = const Duration(minutes: 2),
     DateTime Function()? clock,
     OriginCooldown Function()? cooldownFactory,
@@ -38,11 +38,6 @@ final class MediaRequestCoordinator {
          cooldownFactory: cooldownFactory,
        );
 
-  final int maxConcurrent;
-  final int maxConcurrentPerOrigin;
-
-  /// Active leases do not count toward this backlog limit.
-  final int maxQueuedPerOrigin;
   final Duration defaultRateLimitCooldown;
   final DateTime Function() _clock;
   final OriginRequestGate _gate;
