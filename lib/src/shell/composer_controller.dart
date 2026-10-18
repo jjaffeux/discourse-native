@@ -36,6 +36,7 @@ import 'composer_quotes.dart';
 import 'composer_table.dart';
 import 'composer_triggers.dart';
 import 'composer_upload_placeholder.dart';
+import 'composer_video.dart';
 import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 
@@ -403,6 +404,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
        _minimumRequiredTags = minimumRequiredTags {
     if (!_target.isPlugin) {
       text.syntaxPolicies.add(ComposerUploadPlaceholderPolicy(this));
+      text.syntaxPolicies.add(const ComposerVideoPolicy());
       text.syntaxPolicies.add(ComposerTablePolicy(this));
       text.syntaxPolicies.add(ComposerCodePolicy(this));
       text.syntaxPolicies.add(ComposerDetailsPolicy(this));
@@ -1391,7 +1393,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           if (SiteConfig.isImageFilename(result.originalFilename)) {
             text.cacheImageUrl(result.shortUrl, result.previewUrl);
           }
-          if (isPdfAttachment(result.originalFilename, result.shortUrl)) {
+          if (isComposerVideoFilename(result.originalFilename) ||
+              isPdfAttachment(result.originalFilename, result.shortUrl)) {
             text.cacheImageUrl(result.shortUrl, result.url);
           }
           _flushReadyUploads(pending.batch);
