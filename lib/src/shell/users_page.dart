@@ -34,7 +34,6 @@ final class UsersPageData {
     this.groupNames = const [],
     this.currentUsername,
     this.totalRows = 0,
-    this.lastUpdatedAt,
     this.query = const UserDirectoryQuery(),
     this.loading = false,
     this.loadingMore = false,
@@ -49,7 +48,6 @@ final class UsersPageData {
   final List<String> groupNames;
   final String? currentUsername;
   final int totalRows;
-  final DateTime? lastUpdatedAt;
   final UserDirectoryQuery query;
   final bool loading;
   final bool loadingMore;
@@ -130,7 +128,6 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
             groupNames: state.groupNames,
             currentUsername: instance?.user?.username,
             totalRows: state.totalRows,
-            lastUpdatedAt: state.lastUpdatedAt,
             query: query,
             loading: state.loading,
             loadingMore: state.loadingMore,

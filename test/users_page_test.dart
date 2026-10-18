@@ -623,13 +623,12 @@ void main() {
         tester,
         UsersPage(
           siteUrl: 'https://example.com',
-          data: UsersPageData(
-            items: const [_sam, _hawk],
-            columns: const [_likes, _replies, _days],
-            groupNames: const ['design', 'staff'],
+          data: const UsersPageData(
+            items: [_sam, _hawk],
+            columns: [_likes, _replies, _days],
+            groupNames: ['design', 'staff'],
             currentUsername: 'SAM',
             totalRows: 87,
-            lastUpdatedAt: DateTime.utc(2026, 9, 4, 7, 6),
             loaded: true,
             hasMore: true,
           ),

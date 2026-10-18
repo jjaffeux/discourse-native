@@ -103,9 +103,8 @@ enum ChatChannelInfoTab {
 
 @immutable
 final class ChatLink {
-  const ChatLink({required this.uri, required this.route, this.messageId});
+  const ChatLink({required this.route, this.messageId});
 
-  final Uri uri;
   final ChatRoute route;
   final int? messageId;
 
@@ -149,7 +148,6 @@ final class ChatLink {
       _ => ChatRoute.channel(channelId),
     };
     return ChatLink(
-      uri: uri,
       route: route,
       messageId: channelMessageId ?? threadMessageId,
     );
