@@ -10194,11 +10194,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String composerRangeSelection(String anchor, String focus) {
-    return 'ComposerRangeSelection($anchor, $focus)';
-  }
-
-  @override
   String get message1Reaction => '1 reaction';
 
   @override

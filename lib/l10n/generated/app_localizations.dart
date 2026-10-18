@@ -17466,12 +17466,6 @@ abstract class AppLocalizations {
   /// **'Downloading — {progressRound}%'**
   String downloadingUpdatesheet(String progressRound);
 
-  /// English UI message used by shell/composer_document/selection.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'ComposerRangeSelection({anchor}, {focus})'**
-  String composerRangeSelection(String anchor, String focus);
-
   /// English UI message used by shell/reaction_presentation.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

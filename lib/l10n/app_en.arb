@@ -13641,18 +13641,6 @@
       }
     }
   },
-  "composerRangeSelection": "ComposerRangeSelection({anchor}, {focus})",
-  "@composerRangeSelection": {
-    "description": "English UI message used by shell/composer_document/selection.dart. Keep placeholders intact.",
-    "placeholders": {
-      "anchor": {
-        "type": "String"
-      },
-      "focus": {
-        "type": "String"
-      }
-    }
-  },
   "message1Reaction": "1 reaction",
   "@message1Reaction": {
     "description": "English UI message used by shell/reaction_presentation.dart. Keep placeholders intact."
