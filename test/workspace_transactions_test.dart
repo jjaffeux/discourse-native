@@ -110,23 +110,29 @@ void main() {
     expect(api.feedPaths.where((path) => path == '/third.json'), hasLength(1));
   });
 
-  testWidgets('post-frame selection waits for the next document paint', (
-    tester,
-  ) async {
-    final saves = tabs.saveCount;
-    tester.binding.addPostFrameCallback((_) => shell.selectTab('second'));
+  testWidgets(
+    'post-frame selection defers settlement across the frame boundary',
+    (tester) async {
+      final saves = tabs.saveCount;
+      tester.binding.addPostFrameCallback((_) => shell.selectTab('second'));
+      tester.binding.scheduleFrame();
 
-    await tester.pump();
+      await tester.pump();
 
-    expect(shell.activeTabId, 'second');
-    expect(tabs.saveCount, saves);
-    expect(api.feedPaths, isNot(contains('/second.json')));
+      expect(shell.activeTabId, 'second');
+      expect(tabs.saveCount, saves);
+      expect(api.feedPaths, isNot(contains('/second.json')));
 
-    await tester.pump();
+      await tester.pump();
+      await tester.pump();
 
-    expect(tabs.saveCount, saves + 1);
-    expect(api.feedPaths.where((path) => path == '/second.json'), hasLength(1));
-  });
+      expect(tabs.saveCount, saves + 1);
+      expect(
+        api.feedPaths.where((path) => path == '/second.json'),
+        hasLength(1),
+      );
+    },
+  );
 
   testWidgets('a full tab write consumes pending selection and anchor writes', (
     tester,
