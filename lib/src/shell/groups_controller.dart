@@ -20,6 +20,18 @@ final class GroupDirectoryQuery {
   final String? type;
   final String? username;
 
+  GroupDirectoryQuery copyWith({
+    String? filter,
+    Object? type = _absent,
+    Object? username = _absent,
+  }) => GroupDirectoryQuery(
+    filter: filter ?? this.filter,
+    type: identical(type, _absent) ? this.type : type as String?,
+    username: identical(username, _absent)
+        ? this.username
+        : username as String?,
+  );
+
   @override
   bool operator ==(Object other) =>
       other is GroupDirectoryQuery &&
@@ -30,6 +42,8 @@ final class GroupDirectoryQuery {
   @override
   int get hashCode => Object.hash(filter, type, username);
 }
+
+const Object _absent = Object();
 
 String get _saveFailureMessage => appL10n.couldnTSaveThatGroupChange;
 

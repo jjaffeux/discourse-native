@@ -280,6 +280,8 @@ class AuthKeyPair {
   final String publicPem;
   final String privatePem;
 
+  RSAPrivateKey get privateKey => CryptoUtils.rsaPrivateKeyFromPem(privatePem);
+
   /// 2048-bit RSA generation takes seconds — call this inside an isolate so it
   /// does not stall the frame loop.
   static AuthKeyPair generate() {
