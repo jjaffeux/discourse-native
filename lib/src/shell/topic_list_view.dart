@@ -1031,7 +1031,9 @@ class _TopicListViewState extends State<TopicListView> {
     if (_readingTopicId != readingTopicId) {
       _readingTopicId = readingTopicId;
       if (readingTopicId == null) {
-        if (context.isTouch) _revealCursor();
+        if (context.isTouch && !controller.mobileNavigationEnabled) {
+          _revealCursor();
+        }
       } else if (feed.topicIds.contains(readingTopicId)) {
         _rememberTopic(readingTopicId);
       }
