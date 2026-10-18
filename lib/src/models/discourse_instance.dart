@@ -14,6 +14,26 @@ import 'site_config.dart';
 
 final RegExp _instanceTitleWord = RegExp(r'\S+');
 
+({int index, T forum})? mostSpecificServingForum<T>(
+  List<T> forums,
+  Uri link, {
+  required String Function(T forum) siteUrl,
+}) {
+  ({int index, T forum})? owner;
+  var depth = -1;
+  for (var index = 0; index < forums.length; index++) {
+    final forum = forums[index];
+    final url = siteUrl(forum);
+    if (!DiscourseInstance.urlServes(url, link)) continue;
+    final candidateDepth = DiscourseInstance.basePathSegmentsOf(url).length;
+    if (candidateDepth > depth) {
+      owner = (index: index, forum: forum);
+      depth = candidateDepth;
+    }
+  }
+  return owner;
+}
+
 @immutable
 class DiscourseInstance {
   const DiscourseInstance({

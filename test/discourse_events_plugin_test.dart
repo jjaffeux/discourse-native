@@ -16,6 +16,51 @@ import 'support/event_fixtures.dart';
 const _siteUrl = 'https://forum.example';
 
 void main() {
+  for (final connected in [false, true]) {
+    test(
+      'a subfolder event link keeps its own access (connected: $connected)',
+      () async {
+        const subfolder = '$eventSite/forum';
+        final host = await PluginHostHarness.open(
+          transport: RecordingPluginTransport(),
+          manifest: const PluginManifest([discourseEventsModule]),
+          sites: [
+            const PluginHostSite(url: eventSite),
+            PluginHostSite(
+              url: subfolder,
+              apiKey: connected ? 'key' : null,
+              user: connected
+                  ? const PluginHostUser(id: 2, username: 'lee')
+                  : null,
+              config: SiteConfig(
+                plugins: PluginData.none.withValue(
+                  eventSettingsKey,
+                  const EventSettings(enabled: true),
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(host.close);
+        final navigation = host.require(eventNavigationKey);
+
+        expect(
+          await navigation.openPluginUrl('$subfolder/upcoming-events'),
+          isTrue,
+        );
+        expect(host.currentContent?.id, 'events-upcoming');
+        expect(
+          await navigation.openPluginUrl('$subfolder/upcoming-events/mine'),
+          connected,
+        );
+        expect(
+          host.currentContent?.id,
+          connected ? 'events-mine' : 'events-upcoming',
+        );
+      },
+    );
+  }
+
   test(
     'events install alone, and core-only models remain unaware of their schemas',
     () async {

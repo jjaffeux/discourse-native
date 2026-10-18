@@ -1465,12 +1465,15 @@ class ShellController extends FrameSafeNotifier
       return false;
     }
 
-    final owner = _instances
-        .where((instance) => instance.isConnected && instance.serves(target))
-        .firstOrNull;
-    if (owner == null) return false;
+    final owner = mostSpecificServingForum(
+      _instances,
+      target,
+      siteUrl: (instance) => instance.url,
+    );
+    if (owner == null || !owner.forum.isConnected) return false;
 
-    final lease = lifecycle.capture(owner.url);
+    final ownerUrl = owner.forum.url;
+    final lease = lifecycle.capture(ownerUrl);
     final absolute = target.toString();
     final pluginHandled = await openPluginUrl(
       absolute,
@@ -1478,7 +1481,15 @@ class ShellController extends FrameSafeNotifier
     );
     if (isDisposed ||
         !lease.isCurrent ||
-        _instanceAt(owner.url)?.isConnected != true) {
+        _instanceAt(ownerUrl)?.isConnected != true) {
+      return false;
+    }
+    final currentOwner = mostSpecificServingForum(
+      _instances,
+      target,
+      siteUrl: (instance) => instance.url,
+    );
+    if (currentOwner?.forum.url != ownerUrl) {
       return false;
     }
     if (pluginHandled) {
@@ -1735,7 +1746,11 @@ class ShellController extends FrameSafeNotifier
     final target = Uri.tryParse(absoluteUrl(url, siteUrl: siteUrl));
     return target == null
         ? null
-        : _instances.where((site) => site.serves(target)).firstOrNull?.url;
+        : mostSpecificServingForum(
+            _instances,
+            target,
+            siteUrl: (site) => site.url,
+          )?.forum.url;
   }
 
   ContentRoute? destinationBookmarkRouteForUrl(
@@ -1749,7 +1764,11 @@ class ShellController extends FrameSafeNotifier
     final target = Uri.tryParse(absolute);
     final instance = target == null
         ? null
-        : _instances.where((site) => site.serves(target)).firstOrNull;
+        : mostSpecificServingForum(
+            _instances,
+            target,
+            siteUrl: (site) => site.url,
+          )?.forum;
     if (instance == null) return null;
     final channel = RegExp(
       r'^/chat/c/[^/]+/([1-9][0-9]*)/?$',
@@ -7283,9 +7302,11 @@ class ShellController extends FrameSafeNotifier
     if (target == null || !{'http', 'https'}.contains(target.scheme)) {
       return null;
     }
-    final instance = _instances
-        .where((site) => site.serves(target))
-        .firstOrNull;
+    final instance = mostSpecificServingForum(
+      _instances,
+      target,
+      siteUrl: (site) => site.url,
+    )?.forum;
     if (instance == null || !instance.isConnected || instance.user == null) {
       return null;
     }
@@ -7369,9 +7390,11 @@ class ShellController extends FrameSafeNotifier
     if (target == null || !{'http', 'https'}.contains(target.scheme)) {
       return null;
     }
-    final instance = _instances
-        .where((site) => site.serves(target))
-        .firstOrNull;
+    final instance = mostSpecificServingForum(
+      _instances,
+      target,
+      siteUrl: (site) => site.url,
+    )?.forum;
     if (instance == null || !instance.isConnected || instance.user == null) {
       return null;
     }
@@ -7509,9 +7532,11 @@ class ShellController extends FrameSafeNotifier
     final absolute = absoluteUrl(url);
     final target = Uri.tryParse(absolute);
     if (target == null) return null;
-    final instance = _instances
-        .where((site) => site.serves(target))
-        .firstOrNull;
+    final instance = mostSpecificServingForum(
+      _instances,
+      target,
+      siteUrl: (site) => site.url,
+    )?.forum;
     if (instance == null) return null;
 
     final ContentRoute? decoded;

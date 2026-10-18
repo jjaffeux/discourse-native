@@ -70,9 +70,15 @@ final class AssignShellService implements PluginLinkHandler {
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
     final target = Uri.tryParse(absolute);
     if (target == null) return false;
-    final index = _host.sites.indexWhere((site) => site.serves(target));
-    if (index < 0 || !_host.sites[index].isConnected) return false;
-    final site = _host.sites[index];
+    final sites = _host.sites;
+    final owner = mostSpecificServingForum(
+      sites,
+      target,
+      siteUrl: (site) => site.url,
+    );
+    if (owner == null || !owner.forum.isConnected) return false;
+    final index = owner.index;
+    final site = owner.forum;
     final link = AssignedGroupLink.parse(absolute, siteUrl: site.url);
     if (link == null) return false;
     if (!_canOpenGroupAssignments(site.url)) return false;

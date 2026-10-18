@@ -209,19 +209,18 @@ final class ChatShellService
     final absolute = resolveSiteUrl(url, _host.currentInstance?.url);
     final target = Uri.tryParse(absolute);
     if (target == null) return false;
-    var index = _host.instances.indexWhere(
-      (instance) => instance.serves(target),
+    final owner = mostSpecificServingForum(
+      _host.instances,
+      target,
+      siteUrl: (instance) => instance.url,
     );
     // A link shaped like a chat route states the latest intent even when it
     // turns out to point nowhere this app can go; only then is the site
     // checked, so an earlier open completing late still stands down.
-    final link = ChatLink.parse(
-      absolute,
-      siteUrl: index < 0 ? null : _host.instances[index].url,
-    );
+    final link = ChatLink.parse(absolute, siteUrl: owner?.forum.url);
     if (link == null) return false;
     final generation = ++_urlOpenGeneration;
-    if (index < 0 || !_host.instances[index].isConnected) return false;
+    if (owner == null || !owner.forum.isConnected) return false;
     final newTab =
         origin == PluginLinkOrigin.newTab ||
         origin == PluginLinkOrigin.mainPanelNewTab ||
@@ -234,7 +233,7 @@ final class ChatShellService
     // back. Standing down counts as handled: a browser fallback would be as
     // unwanted as the stale route.
     final sourceSiteUrl = _host.currentInstance?.url;
-    final targetLease = chat.captureSession(_host.instances[index].url);
+    final targetLease = chat.captureSession(owner.forum.url);
     final sourceLease = sourceSiteUrl == null
         ? null
         : chat.captureSession(sourceSiteUrl);
@@ -254,7 +253,7 @@ final class ChatShellService
               _host.currentContent?.destination.identity != sourceIdentity);
     }
 
-    final siteUrl = _host.instances[index].url;
+    final siteUrl = owner.forum.url;
     await chat.loadChannels(siteUrl);
     if (superseded()) return true;
     if (chat.channel(siteUrl, link.route.channelId) == null) {
@@ -279,7 +278,9 @@ final class ChatShellService
       if (detail == null) return false;
     }
 
-    index = _host.instances.indexWhere((instance) => instance.url == siteUrl);
+    final index = _host.instances.indexWhere(
+      (instance) => instance.url == siteUrl,
+    );
     if (index < 0 || !_host.instances[index].isConnected) return false;
     if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
     return _openRoute(

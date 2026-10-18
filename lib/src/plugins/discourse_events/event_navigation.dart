@@ -87,9 +87,15 @@ final class EventNavigation implements PluginLinkHandler {
   }) async {
     final target = Uri.tryParse(url);
     if (target == null) return false;
-    final index = host.sites.indexWhere((site) => site.serves(target));
-    if (index < 0) return false;
-    final site = host.sites[index];
+    final sites = host.sites;
+    final owner = mostSpecificServingForum(
+      sites,
+      target,
+      siteUrl: (site) => site.url,
+    );
+    if (owner == null) return false;
+    final index = owner.index;
+    final site = owner.forum;
     final path = site.pathWithin(target);
     if (path == null || !path.startsWith('/upcoming-events')) return false;
     final route = EventCalendarPage.readRoute(

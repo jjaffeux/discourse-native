@@ -185,9 +185,14 @@ final class VoiceShellService
     final uri = Uri.tryParse(absolute);
     if (uri == null) return false;
     final sites = _host.sites;
-    final index = sites.indexWhere((instance) => instance.serves(uri));
-    if (index < 0) return false;
-    final instance = sites[index];
+    final owner = mostSpecificServingForum(
+      sites,
+      uri,
+      siteUrl: (site) => site.url,
+    );
+    if (owner == null) return false;
+    final index = owner.index;
+    final instance = owner.forum;
     if (!instance.isConnected) return false;
     final path = instance.pathWithin(uri);
     if (path == null) return false;

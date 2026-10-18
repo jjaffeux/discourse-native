@@ -134,9 +134,15 @@ final class AiConversationsService implements PluginLinkHandler {
   }) async {
     final uri = Uri.tryParse(resolveSiteUrl(url, navigation.currentSite?.url));
     if (uri == null) return false;
-    final index = navigation.sites.indexWhere((site) => site.serves(uri));
-    if (index < 0) return false;
-    final site = navigation.sites[index];
+    final sites = navigation.sites;
+    final owner = mostSpecificServingForum(
+      sites,
+      uri,
+      siteUrl: (site) => site.url,
+    );
+    if (owner == null) return false;
+    final index = owner.index;
+    final site = owner.forum;
     if (site.pathWithin(uri) != '/discourse-ai/ai-bot/conversations' ||
         !site.isConnected ||
         !aiConversationsAvailable(

@@ -101,7 +101,7 @@ void main() {
     ]);
   });
 
-  testWidgets('an invitation link opens its room on a subfolder site', (
+  testWidgets('a root forum does not shadow a subfolder Voice invitation', (
     tester,
   ) async {
     const siteUrl = 'https://voice.example/forum';
@@ -129,16 +129,22 @@ void main() {
     final host = await PluginHostHarness.open(
       transport: transport,
       manifest: _voiceManifest,
-      sites: [site],
+      sites: [
+        const PluginHostSite(
+          url: 'https://voice.example',
+          apiKey: 'root-key',
+          user: PluginHostUser(id: 1, username: 'reader'),
+        ),
+        site,
+      ],
     );
     addTearDown(host.close);
 
     final voice = host.require(voiceShellService);
     // Discourse writes a subfolder site's links with the subfolder.
     expect(await voice.openPluginUrl('/forum/voice/r/watercooler'), isTrue);
-    expect(await voice.openPluginUrl('/voice/r/watercooler'), isFalse);
-
     expect(host.currentContent?.id, 'voice-room-7');
+    expect(await voice.openPluginUrl('/voice/r/watercooler'), isFalse);
   });
 
   testWidgets('an invitation link opens its Voice room', (tester) async {

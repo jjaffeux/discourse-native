@@ -65,7 +65,8 @@ export 'src/models/bookmark.dart' show Bookmark, BookmarkTargetType;
 export 'src/models/composer_upload.dart'
     show ComposerUploadResult, ComposerUploadType;
 export 'src/models/content_route.dart';
-export 'src/models/discourse_instance.dart' show DiscourseInstance;
+export 'src/models/discourse_instance.dart'
+    show DiscourseInstance, mostSpecificServingForum;
 export 'src/models/discourse_user.dart' show DiscourseUser;
 export 'src/models/forum_workspace.dart' show ForumPanel, ForumTab;
 export 'src/models/group_route.dart' show GroupRoute;

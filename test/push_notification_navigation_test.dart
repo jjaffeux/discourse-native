@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/notification_types.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
@@ -61,7 +62,122 @@ void main() {
       expect(controller.currentContent?.topicId, 42);
       expect(controller.currentContent?.postNumber, 3);
       expect(api.topicPostNumbersOpened, [3]);
+
       expect(controller.topicListContent?.id, 'latest');
+    },
+  );
+
+  for (final rootFirst in [true, false]) {
+    test(
+      'notification chooses the subfolder forum (root first: $rootFirst)',
+      () async {
+        final root = _connected('one.example');
+        final subfolder = _connected('one.example/forum');
+        final api = FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          topics: {42: topicPayload(id: 42, title: 'Subfolder push')},
+        );
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore(
+            rootFirst ? [root, subfolder] : [subfolder, root],
+          ),
+          api: api,
+          authenticator: _readerKeys(api),
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+
+        final opened = await controller.openNotificationUrl(
+          'https://one.example/forum/t/subfolder-push/42/3',
+        );
+        await _waitForTopic(controller);
+
+        expect(opened, isTrue);
+        expect(controller.currentInstance?.url, subfolder.url);
+        expect(controller.currentContent?.topicId, 42);
+        expect(controller.currentContent?.postNumber, 3);
+        expect(api.topicPostNumbersOpened, [3]);
+
+        controller.store.put(
+          subfolder.url,
+          const Topic(id: 42, title: 'Subfolder push', slug: 'topic'),
+        );
+        expect(
+          controller.cachedTopicBookmarkLink('${subfolder.url}/t/topic/42'),
+          isNotNull,
+        );
+        expect(
+          await controller.resolveBookmarkLink('${subfolder.url}/t/topic/42'),
+          isNotNull,
+        );
+        expect(
+          controller.destinationBookmarkSiteForUrl(
+            '${subfolder.url}/t/subfolder-push/42/3',
+          ),
+          subfolder.url,
+        );
+        expect(
+          controller
+              .destinationBookmarkRouteForUrl('${subfolder.url}/t/topic/42')
+              ?.topicId,
+          42,
+        );
+        expect(
+          controller
+              .destinationBookmarkRouteForUrl('${subfolder.url}/chat/c/-/9')
+              ?.id,
+          'chat-c-9',
+        );
+
+        for (final (path, routeId) in [
+          ('about', 'forum-about'),
+          ('u/reader/messages', 'messages'),
+          ('c/support/5', 'list-/c/support/5.json'),
+          ('g/support', 'group-support-core-members'),
+          ('badges', 'badges'),
+        ]) {
+          expect(
+            await controller.openNotificationUrl('${subfolder.url}/$path'),
+            isTrue,
+            reason: path,
+          );
+          expect(controller.currentInstance?.url, subfolder.url, reason: path);
+          expect(controller.currentContent?.id, routeId, reason: path);
+        }
+      },
+    );
+  }
+
+  test(
+    'a disconnected subfolder never falls back to its connected root',
+    () async {
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        topics: {42: topicPayload(id: 42)},
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([
+          _connected('one.example'),
+          instance('one.example/t'),
+        ]),
+        api: api,
+        authenticator: _readerKeys(api),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      expect(
+        await controller.openNotificationUrl('https://one.example/t/42/3'),
+        isFalse,
+      );
+      expect(controller.currentContent?.id, 'latest');
+      expect(api.topicsOpened, isEmpty);
     },
   );
 
@@ -401,6 +517,49 @@ void main() {
       );
       await started.future;
       controller.lifecycle.invalidate('https://one.example');
+      pluginResult.complete(false);
+
+      expect(await opening, isFalse);
+      expect(controller.currentContent?.topicId, isNull);
+      expect(api.topicsOpened, isEmpty);
+    },
+  );
+
+  test(
+    'a notification keeps its owner while plugin handlers are pending',
+    () async {
+      final started = Completer<void>();
+      final pluginResult = Completer<bool>();
+      final plugins = PluginInstaller.install(
+        PluginManifest([
+          _NotificationLinkModule((_) {
+            started.complete();
+            return pluginResult.future;
+          }),
+        ]),
+      );
+      addTearDown(plugins.close);
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        topics: {42: topicPayload(id: 42)},
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([_connected('one.example')]),
+        api: api,
+        authenticator: _readerKeys(api),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: plugins,
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      final opening = controller.openNotificationUrl(
+        'https://one.example/forum/t/topic/42/1',
+      );
+      await started.future;
+      await controller.addInstance(instance('one.example/forum'));
       pluginResult.complete(false);
 
       expect(await opening, isFalse);

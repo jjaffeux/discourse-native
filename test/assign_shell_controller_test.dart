@@ -50,6 +50,33 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Assign routes', () {
+    test('a root forum does not shadow a subfolder assignment link', () async {
+      const subfolder = '$_site/forum';
+      final user = _assignUser(canAssignGlobally: true);
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: const {'/latest.json': <Topic>[]},
+      );
+      final shell = await _loadListShell(api, user: user);
+      addTearDown(shell.dispose);
+      (shell.authenticator as FakeAuthenticator).keys[subfolder] = 'sub-key';
+      await shell.addInstance(
+        instance('meta.discourse.org/forum').copyWith(user: user),
+      );
+      shell.selectInstance(0);
+      shell.selectInstance(1);
+      await pumpEventQueue();
+      shell.selectInstance(0);
+
+      expect(
+        await shell.openPluginUrl('$subfolder/g/support/assigned/support'),
+        isTrue,
+      );
+      expect(shell.currentInstance?.url, subfolder);
+      expect(shell.currentContent?.groupRoute?.pluginOwner, 'discourse-assign');
+      expect(shell.currentContent?.groupRoute?.subsection, 'support');
+    });
+
     test('binds an owner-scoped notification feed host', () async {
       final api = FakeDiscourseApi(
         user: _assignUser(canAssignGlobally: true),

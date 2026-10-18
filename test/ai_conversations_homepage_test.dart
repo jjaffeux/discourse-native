@@ -796,6 +796,38 @@ void main() {
     );
   });
 
+  for (final connected in [false, true]) {
+    test(
+      'a subfolder AI link keeps its own access (connected: $connected)',
+      () async {
+        const subfolder = '$_site/forum';
+        final setup = _service(
+          RecordingPluginTransport(),
+          sites: [
+            const PluginRouteSite(url: _site, title: 'Root', isConnected: true),
+            PluginRouteSite(
+              url: subfolder,
+              title: 'Subfolder',
+              isConnected: connected,
+            ),
+          ],
+        );
+
+        expect(
+          await setup.service.openPluginUrl(
+            '$subfolder/discourse-ai/ai-bot/conversations',
+          ),
+          connected,
+        );
+        expect(
+          setup.navigation.currentContent?.id,
+          connected ? 'ai-conversations' : isNull,
+        );
+        expect(setup.navigation.currentSite.url, connected ? subfolder : _site);
+      },
+    );
+  }
+
   testWidgets('refresh retry repeats page zero and keeps existing rows', (
     tester,
   ) async {
@@ -836,8 +868,8 @@ void main() {
   _Navigation navigation,
   FakePluginRequestHost requests,
 })
-_service(RecordingPluginTransport transport) {
-  final navigation = _Navigation();
+_service(RecordingPluginTransport transport, {List<PluginRouteSite>? sites}) {
+  final navigation = _Navigation(sites: sites);
   final credentials = FakeApiCredentialReader()..keys[_site] = 'api-key';
   final requests = FakePluginRequestHost(credentials: credentials);
   final service = AiConversationsService(
@@ -855,19 +887,27 @@ _service(RecordingPluginTransport transport) {
 
 class _Navigation
     implements PluginRouteNavigationHost, PluginTopicListNavigationHost {
+  _Navigation({List<PluginRouteSite>? sites})
+    : sites =
+          sites ??
+          const [
+            PluginRouteSite(url: _site, title: 'Forum', isConnected: true),
+          ];
+
+  int _selectedIndex = 0;
+
   @override
   String? get activeTabId => null;
 
   @override
-  List<PluginRouteSite> get sites => [currentSite];
+  final List<PluginRouteSite> sites;
   @override
-  PluginRouteSite get currentSite =>
-      const PluginRouteSite(url: _site, title: 'Forum', isConnected: true);
+  PluginRouteSite get currentSite => sites[_selectedIndex];
   @override
   ContentRoute? currentContent;
   ({String siteUrl, int topicId, int postNumber})? openedPost;
   @override
-  void selectInstance(int index) {}
+  void selectInstance(int index) => _selectedIndex = index;
   @override
   void pushContent(ContentRoute route) => currentContent = route;
   @override

@@ -759,6 +759,23 @@ void main() {
     });
 
     group('native URL routing', () {
+      test('a root forum does not shadow a subfolder Chat link', () async {
+        const subfolder = '$_site/forum';
+        (shell.authenticator as FakeAuthenticator).keys[subfolder] = 'sub-key';
+        api.chatChannelsBySite[subfolder] = ChatChannels(public: [_channel(9)]);
+        await shell.addInstance(
+          instance(
+            'meta.discourse.org/forum',
+          ).copyWith(user: _user, config: shell.currentInstance!.config),
+        );
+        shell.selectInstance(0);
+
+        expect(await shell.openChatUrl('$subfolder/chat/c/-/9/44'), isTrue);
+        expect(shell.currentInstance?.url, subfolder);
+        expect(shell.currentContent?.id, 'chat-c-9');
+        expect(shell.chatNavigation.value?.messageId, 44);
+      });
+
       Future<(ShellController, _ChannelDetailGateApi)> gatedShell({
         Completer<void>? channelGate,
         Completer<void>? channelDetailGate,
