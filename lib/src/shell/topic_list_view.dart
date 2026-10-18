@@ -1604,7 +1604,6 @@ class TopicListRow extends StatelessWidget {
     this.order,
     this.ascending = false,
     this.showCategoryBreadcrumb = true,
-    this.itemVariant = DItemVariant.outline,
     this.contentPadding,
     this.outerPadding,
   }) : assert(forum == null || siteUrl == null);
@@ -1623,7 +1622,6 @@ class TopicListRow extends StatelessWidget {
 
   final TextStyle? titleStyle;
   final bool showCategoryBreadcrumb;
-  final DItemVariant itemVariant;
   final EdgeInsetsGeometry? contentPadding;
   final EdgeInsetsGeometry? outerPadding;
 
@@ -1668,7 +1666,6 @@ class TopicListRow extends StatelessWidget {
         onSort: onSort,
         order: order,
         ascending: ascending,
-        itemVariant: itemVariant,
         contentPadding: contentPadding,
         outerPadding: outerPadding,
       );
@@ -1691,7 +1688,6 @@ class TopicListRow extends StatelessWidget {
         onSort: onSort,
         order: order,
         ascending: ascending,
-        itemVariant: itemVariant,
         contentPadding: contentPadding,
         outerPadding: outerPadding,
       ),
@@ -1779,7 +1775,6 @@ class _TopicRowBody extends StatelessWidget {
     this.titleStyle,
     this.selected = false,
     this.inbox = false,
-    this.itemVariant = DItemVariant.outline,
     this.contentPadding,
     this.outerPadding,
     this.showViews = false,
@@ -1804,7 +1799,6 @@ class _TopicRowBody extends StatelessWidget {
   final TextStyle? titleStyle;
   final bool selected;
   final bool inbox;
-  final DItemVariant itemVariant;
   final EdgeInsetsGeometry? contentPadding;
   final EdgeInsetsGeometry? outerPadding;
 

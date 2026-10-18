@@ -1382,7 +1382,6 @@ class _SectionState extends State<_Section> {
           navigation: navigation,
           loading: destination.id == widget.loadingDestinationId,
           badge: widget.badgeFor(destination.id),
-          submenu: submenu,
           iconSize: section.id.startsWith('custom-') ? 12 : 16,
           reorderable: reorderable,
           onTap: () => _selectDestination(destination),
@@ -1720,7 +1719,6 @@ class SidebarDestinationTile extends StatelessWidget {
     required this.selected,
     this.loading = false,
     required this.badge,
-    this.submenu = false,
     this.navigation = false,
     this.iconSize = 16,
     this.reorderable = false,
@@ -1730,7 +1728,6 @@ class SidebarDestinationTile extends StatelessWidget {
   final bool selected;
   final bool loading;
   final SidebarBadge badge;
-  final bool submenu;
   final bool navigation;
   final double iconSize;
 

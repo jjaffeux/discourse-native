@@ -258,7 +258,6 @@ class UserMenuPanel extends StatefulWidget {
   static const double mobileWidth = 320;
   static const double profileWidth = 280;
   static const double height = 460;
-  static const double railWidth = 168;
 
   static const double margin = 12;
 

@@ -29,7 +29,6 @@ class ComposerHeader extends StatelessWidget {
     this.placement = ComposerPlacement.right,
     this.onPlacementChanged,
     this.canDockSide,
-    this.onExitFullScreen,
     this.mobileSubmit,
     this.onDiscard,
     this.onSaveDraft,
@@ -51,7 +50,6 @@ class ComposerHeader extends StatelessWidget {
   final ComposerPlacement placement;
   final ValueChanged<ComposerPlacement>? onPlacementChanged;
   final bool? canDockSide;
-  final VoidCallback? onExitFullScreen;
 
   @override
   Widget build(BuildContext context) =>

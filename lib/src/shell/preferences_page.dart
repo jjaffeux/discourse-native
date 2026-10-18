@@ -261,7 +261,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
       timezone: _timezone,
       timezoneFocus: _timezoneFocus,
       selectedTimezone: draft.timezone,
-      timezoneNames: _timezoneNames,
       timezoneEntries: _timezoneEntries,
       deviceTimezone: TimezoneEnvironment.instance.deviceTimezone,
       enabled: editable,
@@ -671,7 +670,6 @@ class _ProfileForm extends StatelessWidget {
     required this.timezone,
     required this.timezoneFocus,
     required this.selectedTimezone,
-    required this.timezoneNames,
     required this.timezoneEntries,
     required this.deviceTimezone,
     required this.enabled,
@@ -682,7 +680,6 @@ class _ProfileForm extends StatelessWidget {
   final TextEditingController timezone;
   final FocusNode timezoneFocus;
   final String selectedTimezone;
-  final List<String> timezoneNames;
   final List<DComboboxOption<String>> timezoneEntries;
   final String? deviceTimezone;
   final bool enabled;
