@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_badge.dart';
 import 'd_item.dart';
@@ -109,7 +110,7 @@ class DMenuFeedRow extends StatelessWidget {
                               Text(
                                 time!,
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: DiscourseTypography.micro,
                                   height: 1.5,
                                   color: Color.lerp(
                                     tokens.colors.surface,

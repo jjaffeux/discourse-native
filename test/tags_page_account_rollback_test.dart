@@ -32,7 +32,7 @@ void main() {
   for (final pending in [false, true]) {
     for (final disconnect in [false, true]) {
       testWidgets(
-        'retained ${pending ? 'pending' : 'loaded'} Tags page reloads after failed ${disconnect ? 'disconnect' : 'reconnect'}',
+        '${pending ? 'pending' : 'loaded'} Tags route reloads after failed ${disconnect ? 'disconnect' : 'reconnect'}',
         (tester) async {
           SharedPreferences.setMockInitialValues({});
           final site = instance('meta.discourse.org').copyWith(user: _user);
@@ -67,7 +67,6 @@ void main() {
           }
           final page = find.byType(TagsPage);
           expect(page, findsOneWidget);
-          final state = tester.state(page);
           final shell = ShellScope.read(tester.element(page));
           final lease = shell.lifecycle.capture(_site);
           final route = shell.currentContent;
@@ -86,7 +85,7 @@ void main() {
           expect(lease.isCurrent, isFalse);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
-          expect(tester.state(page), same(state));
+          expect(page, findsOneWidget);
           expect(shell.currentContent, same(route));
           expect(api.requestKeys, ['original-key', 'original-key']);
           expect(

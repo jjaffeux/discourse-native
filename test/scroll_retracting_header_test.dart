@@ -346,7 +346,12 @@ void main() {
             framed: false,
             hideHeaderOnScroll: true,
             identity: 'same topic',
-            header: SizedBox(height: height, child: const Text('Header')),
+            initialCompactHeader: true,
+            header: const SizedBox(height: 120, child: Text('Header')),
+            compactHeader: SizedBox(
+              height: height,
+              child: const Text('Header'),
+            ),
             bodyBuilder: (context, header) {
               geometry = header;
               return CustomScrollView(

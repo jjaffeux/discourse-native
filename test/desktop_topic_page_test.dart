@@ -73,14 +73,12 @@ void main() {
         tester.getRect(filters).top,
         greaterThan(tester.getRect(title).bottom),
       );
-      expect(separator, findsOneWidget);
+      expect(separator, findsNothing);
       expect(
-        tester.getRect(separator).top,
+        tester.getRect(find.text('Conversation 1')).top,
         greaterThan(tester.getRect(filters).bottom),
       );
-      expect(tester.getRect(separator).left, tester.getRect(filters).left);
-      expect(tester.getRect(separator).right, tester.getRect(filters).right);
-      expect(tester.getCenter(filterAction).dy, tester.getCenter(title).dy);
+      expect(tester.getRect(filterAction).top, tester.getRect(filters).top);
       expect(
         tester.widget<DButton>(filterAction).variant,
         DButtonVariant.quiet,
@@ -141,21 +139,16 @@ void main() {
     final controls = tester.getRect(
       find.byKey(const ValueKey('topic-list-feed-row')),
     );
-    final separator = tester.getRect(
-      find.byKey(const ValueKey('topic-list-heading-separator')),
-    );
     expect(controls.left, title.left);
     expect(controls.top, greaterThan(title.bottom));
-    final heading = tester.getRect(
-      find.byKey(const ValueKey('topic-list-primary-row')),
+    expect(
+      find.byKey(const ValueKey('topic-list-heading-separator')),
+      findsNothing,
     );
-    final spaceAboveTitle = title.top - heading.top;
-    final spaceBelowTitle = controls.top - title.bottom;
-    expect(spaceAboveTitle, greaterThanOrEqualTo(16));
-    expect(spaceAboveTitle, greaterThan(spaceBelowTitle));
-    expect(separator.top, greaterThan(controls.bottom));
-    expect(separator.left, controls.left);
-    expect(separator.right, controls.right);
+    expect(
+      tester.getRect(find.text('Conversation 1')).top,
+      greaterThan(controls.bottom),
+    );
     expect(
       find.byKey(const ValueKey('topic-list-tracking-button')),
       findsNothing,

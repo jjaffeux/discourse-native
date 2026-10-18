@@ -5003,14 +5003,14 @@ void _registerTopicReadingTests() {
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
 
-      expect(_postBackground(tester), Colors.transparent);
+      final background = _postBackground(tester);
 
       final gesture = await hoverPost(tester);
-      expect(_postBackground(tester), Colors.transparent);
+      expect(_postBackground(tester), background);
 
       await gesture.moveTo(Offset.zero);
       await tester.pumpAndSettle();
-      expect(_postBackground(tester), Colors.transparent);
+      expect(_postBackground(tester), background);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('whisper posts use core styling and an indicator', (

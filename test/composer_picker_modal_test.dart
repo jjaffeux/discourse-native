@@ -87,8 +87,8 @@ void main() {
     await tester.tap(find.byKey(actionKey));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
-    // OverlayPortal mounts the picker on its next frame; flush lookup results.
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
   }
 
   testWidgets(
@@ -670,8 +670,11 @@ void main() {
 
       for (final name in ['design', 'mobile']) {
         await open(tester, const ValueKey('composer-add-tag'));
-        await tester.tap(find.byKey(ValueKey(('tag-selector-option', name))));
+        final option = find.byKey(ValueKey(('tag-selector-option', name)));
+        expect(option.hitTestable(), findsOneWidget);
+        await tester.tap(option);
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
         await tester.pump(const Duration(milliseconds: 400));
         expect(find.byType(DComboboxContent), findsNothing);
         expect(
@@ -687,6 +690,7 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.byType(DComboboxContent), findsNothing);
       expect(shell.visibleComposer!.tags, const [support]);

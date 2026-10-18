@@ -337,8 +337,8 @@ void main() {
       );
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('composer-insert')));
-      await tester.pump();
-      await tester.tap(find.text('Add poll'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add poll').hitTestable());
       await tester.pumpAndSettle();
       await tester.enterText(_pollSheetField('Option 1'), 'Soup');
       await tester.enterText(_pollSheetField('Option 2'), 'Salad');
@@ -1352,8 +1352,8 @@ void main() {
           await tester.pump();
 
           await tester.tap(find.byKey(const ValueKey('composer-insert')));
-          await tester.pump();
-          await tester.tap(find.text('Add poll'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Add poll').hitTestable());
           await tester.pumpAndSettle();
           await tester.enterText(_pollSheetField('Option 1'), 'Soup');
           await tester.enterText(_pollSheetField('Option 2'), 'Salad');
@@ -1478,8 +1478,8 @@ void main() {
       await tester.pump();
 
       await tester.tap(find.byKey(const ValueKey('composer-insert')));
-      await tester.pump();
-      await tester.tap(find.text('Add poll'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add poll').hitTestable());
       await tester.pumpAndSettle();
       await tester.enterText(_pollSheetField('Option 1'), 'Soup');
       await tester.enterText(_pollSheetField('Option 2'), 'Salad');

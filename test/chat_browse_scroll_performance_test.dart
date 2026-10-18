@@ -140,6 +140,16 @@ void main() {
           position.jumpTo(1000);
           await tester.pumpAndSettle();
           final viewport = tester.getRect(browseScrollable);
+          final page = tester.widget<DPageSurface>(
+            find
+                .ancestor(of: browseList, matching: find.byType(DPageSurface))
+                .first,
+          );
+          final titleHeight = tester
+              .getSize(find.byWidget(page.header!))
+              .height;
+          final filters = find.byKey(const ValueKey('chat-browse-joined'));
+          final controlsGap = viewport.top - tester.getRect(filters).bottom;
           final header =
               _artwork(find.byKey(const ValueKey('chat-browse-filter')))
                 ..addAll(
@@ -190,7 +200,18 @@ void main() {
                 position.pixels,
                 delta < 0 ? greaterThan(before) : lessThan(before),
               );
-              expect(tester.getRect(browseScrollable), viewport);
+              final currentViewport = tester.getRect(browseScrollable);
+              expect(currentViewport.left, viewport.left);
+              expect(currentViewport.right, viewport.right);
+              expect(currentViewport.bottom, closeTo(viewport.bottom, .001));
+              expect(
+                currentViewport.top,
+                inInclusiveRange(viewport.top - titleHeight, viewport.top),
+              );
+              expect(
+                currentViewport.top - tester.getRect(filters).bottom,
+                closeTo(controlsGap, .001),
+              );
             }
             await gesture.cancel();
             await tester.pumpAndSettle();

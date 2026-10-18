@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/header_motion.dart';
 import 'd_card.dart';
 import 'd_page_reading_lane.dart';
@@ -232,6 +233,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   double? _measuredCompactHeight;
   final _headerGeometry = DPageHeaderGeometry._();
   Widget? _builtBody;
+  ({bool bounded, Widget child})? _builtAdaptiveBody;
   late final HeaderMotion _motion = HeaderMotion(this)
     ..addListener(_updateHeader);
   late final _suppression = AnimationController(
@@ -367,6 +369,7 @@ class _DPageSurfaceState extends State<DPageSurface>
       _registerHeader();
     }
     _builtBody = null;
+    _builtAdaptiveBody = null;
     if (oldWidget.headerSuppressed != widget.headerSuppressed) {
       oldWidget.headerSuppressed?.removeListener(_syncSuppression);
       widget.headerSuppressed?.addListener(_syncSuppression);
@@ -812,8 +815,18 @@ class _DPageSurfaceState extends State<DPageSurface>
                   children: [
                     ?header,
                     LayoutBuilder(
-                      builder: (context, slot) =>
-                          builder(context, slot.hasBoundedHeight),
+                      builder: (context, slot) {
+                        final bounded = slot.hasBoundedHeight;
+                        if (_builtAdaptiveBody?.bounded != bounded) {
+                          _builtAdaptiveBody = (
+                            bounded: bounded,
+                            child: Builder(
+                              builder: (context) => builder(context, bounded),
+                            ),
+                          );
+                        }
+                        return _builtAdaptiveBody!.child;
+                      },
                     ),
                     if (widget.footer case final footer?) fixedContent(footer),
                   ],
@@ -1080,7 +1093,7 @@ class _PageTitle extends StatelessWidget {
         headingLevel: 1,
         child: DefaultTextStyle.merge(
           style: theme.textTheme.headlineSmall?.copyWith(
-            fontSize: 22,
+            fontSize: DiscourseTypography.xxl,
             height: 1.25,
             fontWeight: FontWeight.w700,
           ),

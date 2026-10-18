@@ -221,12 +221,12 @@ void main() {
         find.text('Category: Product', findRichText: true),
         findsOneWidget,
       );
-      await tester.tap(find.text('Done'));
-      await tester.pumpAndSettle();
       expect(
         fixture.shell.topicListContent?.categoryId,
         list_fixture.parent.id,
       );
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Alpha').last);

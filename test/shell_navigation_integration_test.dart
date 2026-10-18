@@ -312,7 +312,12 @@ void _registerShellNavigationTests() {
     ) async {
       await pumpShell(tester, phone);
       final button = find.byKey(const ValueKey('mobile-mode-start'));
-      expect(tester.getSize(button).height, closeTo(50.71428571428571, .001));
+      final dock = find.byKey(const ValueKey('mobile-bottom-bar'));
+      expect(button.hitTestable(), findsOneWidget);
+      expect(
+        tester.getRect(button).intersect(tester.getRect(dock)),
+        tester.getRect(button),
+      );
       await tester.tap(button);
       await tester.pumpAndSettle();
       expect(primaryMainContent, findsOneWidget);
@@ -1337,17 +1342,23 @@ void _registerShellNavigationTests() {
       findsOneWidget,
     );
 
+    await tester.ensureVisible(subcategoryFilter);
+    await tester.pumpAndSettle();
+    expect(subcategoryFilter.hitTestable(), findsOneWidget);
     await tester.tap(subcategoryFilter);
     await tester.pumpAndSettle();
-    await _selectCategoryFilter(tester, 1);
+    await _selectCategoryFilter(tester, 'Parent');
 
     expect(controller.topicListContent?.categoryId, 1);
     expect(controller.currentContent?.feedPath, '/c/parent/1.json');
     expect(controller.contentStack, hasLength(1));
 
+    await tester.ensureVisible(subcategoryFilter);
+    await tester.pumpAndSettle();
+    expect(subcategoryFilter.hitTestable(), findsOneWidget);
     await tester.tap(subcategoryFilter);
     await tester.pumpAndSettle();
-    await _selectCategoryFilter(tester, 2);
+    await _selectCategoryFilter(tester, 'Child');
     expect(controller.topicListContent?.categoryId, 2);
     expect(find.text('A category topic'), findsOneWidget);
 
@@ -1663,11 +1674,15 @@ void _registerShellNavigationTests() {
       findsNothing,
     );
 
-    await tester.tap(
-      find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
+    final subcategoryFilter = find.byKey(
+      const ValueKey('topic-list-subcategory-filter-1'),
     );
+    await tester.ensureVisible(subcategoryFilter);
     await tester.pumpAndSettle();
-    await _selectCategoryFilter(tester, 2);
+    expect(subcategoryFilter.hitTestable(), findsOneWidget);
+    await tester.tap(subcategoryFilter);
+    await tester.pumpAndSettle();
+    await _selectCategoryFilter(tester, 'Bugs');
 
     expect(controller.topicListContent?.categoryId, 2);
     expect(
@@ -3739,16 +3754,18 @@ Future<void> _systemBack(WidgetTester tester) async {
   );
 }
 
-Future<void> _selectCategoryFilter(WidgetTester tester, int id) async {
+Future<void> _selectCategoryFilter(WidgetTester tester, String label) async {
   final field = find.descendant(
     of: find.byType(TopicFilterInput),
     matching: find.byType(TextField),
   );
-  await tester.enterText(field, 'category:$id');
+  await tester.enterText(field, label);
   await tester.pumpAndSettle();
-  await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-  await tester.pumpAndSettle();
-  final done = find.widgetWithText(DButton, 'Done');
-  if (done.evaluate().isNotEmpty) await tester.tap(done);
+  final choice = find.descendant(
+    of: find.byType(DCommandList<String>),
+    matching: find.textContaining(RegExp('^${RegExp.escape(label)}(?:\\s|\$)')),
+  );
+  expect(choice.hitTestable(), findsOneWidget);
+  await tester.tap(choice);
   await tester.pumpAndSettle();
 }

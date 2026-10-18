@@ -726,7 +726,7 @@ class UserProfileMenuItems extends StatelessWidget {
                         ? Text(
                             '${controller.draftCountFor(siteUrl)}',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: DiscourseTypography.xs,
                               color: tokens.mutedForeground,
                             ),
                           )
@@ -1688,7 +1688,7 @@ class _OwnCardMenuEntry extends StatelessWidget {
             Text(
               user.displayName,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: DiscourseTypography.compact,
                 fontWeight: FontWeight.w600,
                 color: DTokens.of(context).foreground,
               ),
@@ -1696,7 +1696,7 @@ class _OwnCardMenuEntry extends StatelessWidget {
             Text(
               '@${user.username}',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: DiscourseTypography.xs,
                 color: DTokens.of(context).mutedForeground,
               ),
             ),

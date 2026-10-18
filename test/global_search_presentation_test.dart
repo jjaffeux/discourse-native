@@ -418,6 +418,7 @@ void main({bool useDeviceMetrics = false}) {
               categoryId: categoryId,
             ),
           );
+          await shell.loadFeed(shell.currentContent!.id);
           await tester.pumpAndSettle();
           if (keyboard) {
             await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);

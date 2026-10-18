@@ -158,12 +158,14 @@ void main() {
           find.byKey(const ValueKey('chat-reaction-clap')),
         );
         await _pump(tester);
-        expect(find.byType(DSheetContent), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('reactor-list-retry')),
-          findsOneWidget,
+        final retry = find.byKey(const ValueKey('reactor-list-retry'));
+        expect(retry, findsOneWidget);
+        final reactorSheet = find.ancestor(
+          of: retry,
+          matching: find.byType(DSheetContent),
         );
-        final sheet = tester.element(find.byType(DSheetContent));
+        expect(reactorSheet, findsOneWidget);
+        final sheet = tester.element(reactorSheet);
         expect(fixture.api.requests, hasLength(1));
         expect(fixture.api.requests.single.method, 'GET');
         fixture.api.failReactors = false;

@@ -25,9 +25,11 @@ const _categories = [
   TopicCategory(id: 6, name: 'Design', slug: 'design', color: '0088CC'),
 ];
 
-Finder _menuOption(String title) => find.descendant(
-  of: find.byType(DDropdownMenuContent),
-  matching: find.text(title),
+Finder _menuOption(String title) => find.ancestor(
+  of: find.text(title),
+  matching: find.byWidgetPredicate(
+    (widget) => widget is DDropdownMenuRadioItem<Object?>,
+  ),
 );
 
 void main() {
@@ -44,7 +46,7 @@ void main() {
       await harness.open(tester);
 
       harness.navigate(id: category ? 6 : 9);
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       if (category) {
         // The production inbox heading reuses the same wrapper slot.
         expect(tester.element(harness.wrapper), same(owner));
@@ -64,14 +66,14 @@ void main() {
       await harness.pump(tester);
       await harness.open(tester);
       harness.navigate(siteUrl: _siteB);
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(harness.shell.currentInstance!.url, _siteB);
       expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
 
       await harness.open(tester);
       await tester.tap(_menuOption('Watching'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(harness.api.writes, [
         (siteUrl: _siteB, id: harness.id, apiKey: 'key-b', level: 3),
       ]);
@@ -87,13 +89,13 @@ void main() {
       await harness.shell.connectCurrentInstance();
       expect(lease.isCurrent, isFalse);
       harness.navigate();
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
 
       await harness.open(tester);
       await tester.tap(_menuOption('Muted'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(harness.api.writes, [
         (siteUrl: _siteA, id: harness.id, apiKey: 'api-key', level: 0),
       ]);
@@ -109,7 +111,7 @@ void main() {
         harness.shell.lifecycle.invalidate(_siteA);
         harness.authenticator.keys[_siteA] = 'replacement-key';
         await tester.tap(_menuOption('Watching'));
-        await tester.pumpAndSettle();
+        await _repaint(tester);
         expect(harness.api.writes, isEmpty);
       },
     );
@@ -122,19 +124,19 @@ void main() {
       final state = tester.state(harness.anchor);
       await harness.open(tester);
       harness.setLevel(tracking: true);
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(tester.state(harness.anchor), same(state));
       await tester.tap(_menuOption('Watching'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(harness.api.writes, [
         (siteUrl: _siteA, id: harness.id, apiKey: 'key-a', level: 3),
       ]);
 
       await harness.open(tester);
       harness.setLevel(tracking: false);
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       await tester.tap(_menuOption('Muted'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(
         harness.api.writes,
         hasLength(1),
@@ -150,7 +152,7 @@ void main() {
       final state = tester.state(harness.anchor);
       await harness.open(tester);
       harness.shell.pushContent(ContentRoute.userActivity());
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(state.mounted, isFalse);
       expect(find.byType(DDropdownMenuContent), findsNothing);
       expect(harness.api.writes, isEmpty);
@@ -172,7 +174,7 @@ void main() {
       expect(harness.api.writes, isEmpty);
       await harness.open(tester);
       await tester.tap(_menuOption('Muted'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(harness.api.writes.single.apiKey, 'api-key');
     });
 
@@ -195,7 +197,7 @@ void main() {
       expect(replacement.api.writes, isEmpty);
       await replacement.open(tester);
       await tester.tap(_menuOption('Muted'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(replacement.api.writes, hasLength(1));
       expect(harness.api.writes, isEmpty);
     });
@@ -208,15 +210,15 @@ void main() {
         await harness.pump(tester, platform: platform);
         await harness.open(tester);
         harness.setLevel(tracking: true);
-        await tester.pumpAndSettle();
+        await _repaint(tester);
         if (platform == TargetPlatform.macOS) {
           await tester.sendKeyEvent(LogicalKeyboardKey.home);
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         } else {
-          expect(find.byType(DDropdownMenuContent), findsOneWidget);
+          expect(_menuOption('Watching'), findsOneWidget);
           await tester.tap(_menuOption('Watching'));
         }
-        await tester.pumpAndSettle();
+        await _repaint(tester);
         expect(harness.api.writes, [
           (siteUrl: _siteA, id: harness.id, apiKey: 'key-a', level: 3),
         ]);
@@ -235,7 +237,7 @@ void main() {
     final state = tester.state(find.byType(TopicView));
     await harness.open(tester);
     harness.navigate(id: 9);
-    await tester.pumpAndSettle();
+    await _repaint(tester);
     expect(state.mounted, isFalse);
     expect(find.byType(DDropdownMenuContent), findsNothing);
     expect(harness.api.writes, isEmpty);
@@ -335,7 +337,7 @@ final class _Harness {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _repaint(tester);
   }
 
   Future<void> open(WidgetTester tester) async {
@@ -353,7 +355,14 @@ final class _Harness {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _repaint(tester);
+    for (
+      var frame = 0;
+      frame < 10 && _menuOption('Watching').hitTestable().evaluate().isEmpty;
+      frame++
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     expect(_menuOption('Watching'), findsOneWidget);
   }
 
@@ -433,4 +442,12 @@ final class _NotificationApi extends FakeDiscourseApi {
     ));
     return const [];
   }
+}
+
+Future<void> _repaint(WidgetTester tester) async {
+  await tester.pump();
+  await tester.runAsync(() => pumpEventQueue());
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.runAsync(() => pumpEventQueue());
+  await tester.pump(const Duration(milliseconds: 300));
 }

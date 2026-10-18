@@ -92,12 +92,16 @@ void main() {
           expect(badge, findsNothing);
         }
         expect(
+          find.byKey(ChatHeaderButton.buttonKey),
+          mobile ? findsNothing : findsOneWidget,
+        );
+        expect(
           find.byKey(ChatHeaderButton.urgentBadgeKey),
-          label != null ? findsOneWidget : findsNothing,
+          !mobile && label != null ? findsOneWidget : findsNothing,
         );
         expect(
           find.byKey(ChatHeaderButton.unreadDotKey),
-          dot ? findsOneWidget : findsNothing,
+          !mobile && dot ? findsOneWidget : findsNothing,
         );
         expect(tester.takeException(), isNull);
       },

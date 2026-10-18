@@ -210,8 +210,11 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
       final trigger = find.byKey(const ValueKey('ai-topic-summary-button'));
+      for (var frame = 0; frame < 30 && trigger.evaluate().isEmpty; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(trigger, findsOneWidget);
       await tester.ensureVisible(trigger);
       await tester.tap(trigger);
       await tester.pump();

@@ -90,11 +90,6 @@ void main() {
             ),
             findsOneWidget,
           );
-          final loader = find.byWidgetPredicate(
-            (widget) =>
-                widget.runtimeType.toString() == '_AccountActivityRequestView',
-          );
-          final state = tester.state(loader);
           final route = shell.currentContent?.id;
           final lease = shell.lifecycle.capture(_site);
           final title = page == _Page.activity
@@ -110,8 +105,8 @@ void main() {
               : shell.accountActivity.bookmarkListFor(_site).loaded;
           expect(loaded(), isTrue);
 
-          // A storage failure can finish before the next frame, so the actual
-          // account coordinator restores this route while its loader stays mounted.
+          // A storage failure can restore the account before the next frame.
+          // The restored route must request rows in the new account session.
           store.failSignedOut = operation != _Operation.cancelledReconnect;
           if (operation == _Operation.failedDisconnect) {
             expect(
@@ -128,12 +123,25 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 100));
           await tester.pump(const Duration(milliseconds: 100));
-          expect(tester.state(loader), same(state));
+          expect(
+            find.byType(
+              page == _Page.activity ? UserActivityView : BookmarkSection,
+            ),
+            findsOneWidget,
+          );
           expect(
             requests(),
             operation == _Operation.cancelledReconnect ? 1 : 2,
           );
           expect(contentText(title), findsOneWidget);
+          if (page == _Page.activity) {
+            expect(api.userActivityRequests.last.siteUrl, _site);
+            expect(api.userActivityRequests.last.username, _user.username);
+            expect(api.userActivityRequests.last.offset, 0);
+          } else {
+            expect(api.bookmarkListRequests.last.username, _user.username);
+            expect(api.bookmarkListRequests.last.page, 0);
+          }
           expect(loaded(), isTrue);
           expect(tester.takeException(), isNull);
         },

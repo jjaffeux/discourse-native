@@ -79,7 +79,7 @@ void main() {
           expect(shell.openChatChannel(9), isTrue);
           await tester.pumpAndSettle();
           final composer = find.byType(ChatComposer);
-          final composerState = tester.state(composer);
+          expect(composer, findsOneWidget);
           await tester.enterText(_field, 'Previous account draft');
           await _tap(tester, find.byKey(const ValueKey('chat-composer-add')));
           await _tap(
@@ -114,7 +114,7 @@ void main() {
             await shell.chat.loadChannels(_site);
             await shell.chat.openChannel(_site, 9, force: true);
             await _pump(tester);
-            expect(tester.state(composer), same(composerState));
+            expect(composer, findsOneWidget);
             expect(shell.chat.canSendMessage(_site, 9), isTrue);
             expect(tester.widget<TextField>(_field).controller!.text, isEmpty);
             expect(find.byType(ComposerUploadQueue), findsNothing);

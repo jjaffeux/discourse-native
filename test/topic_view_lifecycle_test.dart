@@ -1675,8 +1675,9 @@ void main() {
                 await tester.pump();
                 slider.onChangeEnd!(const [137]);
                 await tester.pumpAndSettle();
-                await tester.tap(
-                  find.byKey(const ValueKey('topic-progress-button')),
+                expect(
+                  find.byKey(const ValueKey('topic-progress-sheet')),
+                  findsNothing,
                 );
               } else {
                 expect(
@@ -1696,7 +1697,13 @@ void main() {
                 reason: 'viewport height $height',
               );
               expect(controller.topicScrollPostNumber(1), 137);
-              expect(find.text('137 / 180'), findsOneWidget);
+              expect(
+                find.descendant(
+                  of: find.byKey(const ValueKey('topic-progress-button')),
+                  matching: find.text('137 / 180'),
+                ),
+                findsOneWidget,
+              );
             }
           },
         );
@@ -2993,6 +3000,7 @@ void main() {
       testWidgets(
         'large progress counts fit in a narrow Inbox reader',
         (tester) async {
+          final semantics = tester.ensureSemantics();
           tester.view.physicalSize = const Size(320, 700);
           tester.view.devicePixelRatio = 1;
           addTearDown(tester.view.reset);
@@ -3066,7 +3074,28 @@ void main() {
           expect(tester.takeException(), isNull);
           await tester.tap(progress);
           await tester.pumpAndSettle();
-          expect(find.text('Post 5188 of 5188'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('topic-progress-selection')),
+            findsOneWidget,
+          );
+          expect(
+            tester
+                .widget<Text>(
+                  find.byKey(const ValueKey('topic-progress-selection')),
+                )
+                .textSpan!
+                .toPlainText(),
+            '5188 / 5188',
+          );
+          expect(
+            tester
+                .getSemantics(
+                  find.byKey(const ValueKey('topic-progress-selection')),
+                )
+                .getSemanticsData()
+                .label,
+            'Post 5188 of 5188',
+          );
           expect(
             tester
                 .widget<DMultiSlider>(
@@ -3076,6 +3105,7 @@ void main() {
             5188,
           );
           expect(tester.takeException(), isNull);
+          semantics.dispose();
         },
         variant: const TargetPlatformVariant({
           TargetPlatform.macOS,
@@ -3110,7 +3140,10 @@ void main() {
         await tester.tap(progress);
         await tester.pumpAndSettle();
 
-        expect(find.byType(DPopoverContent), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('topic-progress-sheet')),
+          findsOneWidget,
+        );
         expect(
           find.byKey(const ValueKey('topic-progress-slider')),
           findsOneWidget,
@@ -3139,7 +3172,7 @@ void main() {
         expect(controller.currentContent?.postNumber, 30);
         expect(
           find.byKey(const ValueKey('topic-progress-slider')),
-          findsOneWidget,
+          findsNothing,
         );
       });
     });

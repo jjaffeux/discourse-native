@@ -1014,6 +1014,11 @@ void main() {
             card.title != null,
       );
       probe(
+        'UserCardBadge',
+        () => UserCardBadge.fromJson(withFields({'id': loose}), site),
+        (badge) => badge.id != 0 || badge.name.isNotEmpty,
+      );
+      probe(
         'UserActivityItem',
         () => UserActivityItem.fromJson(withFields({'topic_id': loose}), site),
         (item) =>
@@ -2366,6 +2371,8 @@ void main() {
       'AggregateTabPreferences',
       // Local scroll-header preferences, never a server payload.
       'DHeaderTuning',
+      // Keyboard animation frames arrive from the platform channel.
+      '_DSheetKeyboardFrame',
       'ForumTab',
       'ForumTabLocation',
       'ForumWorkspace',

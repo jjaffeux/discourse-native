@@ -53,7 +53,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
     show kSecondaryMouseButton, PointerScrollEvent;
@@ -901,7 +900,7 @@ void _registerChatShellTests() {
             expect(card.height, closeTo(79, .01));
             expect(input.left - card.left, 17);
             expect(input.top - card.top, 12);
-            expect(tester.widget<TextField>(field).style!.fontSize, 13);
+            expect(tester.widget<TextField>(field).style!.fontSize, 17);
             expect(input.height, closeTo(20, .01));
             expect(sendRect.size, const Size(34, 34));
             expect(card.right - sendRect.right, 7);
@@ -3026,7 +3025,7 @@ void _registerChatShellTests() {
 
     group('a channel', () {
       setUp(() => startOnChatSidebar = true);
-      testWidgets('channel header separator follows the page reading lane', (
+      testWidgets('compact channel header follows the page reading lane', (
         tester,
       ) async {
         tester.view.physicalSize = const Size(1600, 900);
@@ -3039,11 +3038,11 @@ void _registerChatShellTests() {
         await tester.tap(sidebarDestination('hawk'));
         await tester.pumpAndSettle();
 
-        final separator = find.byKey(
-          const ValueKey('content-header-separator'),
-        );
+        final header = find.byKey(const ValueKey('chat-channel-header'));
+        final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
+        final count = find.byKey(const ValueKey('chat-compact-message-count'));
         final pageSurface = find
-            .ancestor(of: separator, matching: find.byType(DPageSurface))
+            .ancestor(of: header, matching: find.byType(DPageSurface))
             .first;
         final shell = ShellScope.read(tester.element(primaryMainContent));
 
@@ -3051,12 +3050,17 @@ void _registerChatShellTests() {
           await shell.appSettings.setLimitContentSize(limited);
           await tester.pumpAndSettle();
           final pageRect = tester.getRect(pageSurface);
-          final lineRect = tester.getRect(separator);
+          final markerRect = tester.getRect(marker);
+          final countRect = tester.getRect(count);
           final inset = limited && pageRect.width > DPageReadingLane.maxWidth
               ? (pageRect.width - DPageReadingLane.maxWidth) / 2
               : 0.0;
-          expect(lineRect.left, closeTo(pageRect.left + inset + 16, 1));
-          expect(lineRect.right, closeTo(pageRect.right - inset - 16, 1));
+          expect(markerRect.left, closeTo(pageRect.left + inset + 16, 1));
+          expect(countRect.right, closeTo(pageRect.right - inset - 16, 1));
+          expect(
+            find.byKey(const ValueKey('content-header-separator')),
+            findsNothing,
+          );
         }
       });
 
@@ -3074,7 +3078,7 @@ void _registerChatShellTests() {
           final marker = find.byKey(
             const ValueKey('chat-channel-header-marker'),
           );
-          expect(tester.getSize(marker), const Size.square(12));
+          expect(tester.getSize(marker), const Size.square(10));
           expect(
             tester.widget<DAvatar>(marker).borderRadius,
             BorderRadius.circular(6),
@@ -3083,10 +3087,7 @@ void _registerChatShellTests() {
             find.byKey(const ValueKey('chat-channel-star-button')),
             findsNothing,
           );
-          expect(
-            find.text('Direct message', findRichText: true),
-            findsOneWidget,
-          );
+          expect(find.text('0 unread messages'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
@@ -4354,14 +4355,16 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         final reaction = find.byKey(const ValueKey('chat-reaction-clap'));
-        Color surfaceColor() => tester
-            .widget<DMaterialSurface>(
-              find.descendant(
-                of: reaction,
-                matching: find.byType(DMaterialSurface),
-              ),
-            )
-            .color;
+        Color surfaceColor() {
+          final surface = tester.widget<AnimatedContainer>(
+            find.descendant(
+              of: reaction,
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          return (surface.decoration! as BoxDecoration).color!;
+        }
+
         final resting = surfaceColor();
         final rect = tester.getRect(reaction);
 

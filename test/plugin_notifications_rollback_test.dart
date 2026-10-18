@@ -87,7 +87,6 @@ void main() {
         await selectChat();
 
         final section = find.byType(PluginNotificationsSection);
-        final state = tester.state(section);
         final shell = ShellScope.read(tester.element(section));
         final lease = shell.lifecycle.capture(_site);
         final route = shell.currentContent?.id;
@@ -118,23 +117,22 @@ void main() {
         expect(lease.isCurrent, operation == _Operation.cancelledReconnect);
         expect(loaded(), operation == _Operation.cancelledReconnect);
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
-        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump();
         if (operation != _Operation.cancelledReconnect) {
-          // Anchored menus retire with their account session. Reopening Chat
+          // Notification menus retire with their account session. Reopening Chat
           // must load notifications for the restored account.
           expect(section, findsNothing);
-          expect(state.mounted, isFalse);
           expect(loaded(), isFalse);
           expect(api.chatNotificationCalls, 1);
           await tester.tap(find.byKey(UserMenuButton.bellKey));
           // Other restored shell content can still animate while Chat loads.
           await tester.pump();
-          await tester.pump(const Duration(milliseconds: 200));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
           await selectChat();
-          expect(tester.state(section), isNot(same(state)));
         } else {
-          expect(tester.state(section), same(state));
+          expect(section, findsOneWidget);
         }
         expect(
           api.chatNotificationCalls,

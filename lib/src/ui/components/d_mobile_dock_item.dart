@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -50,7 +51,7 @@ class DMobileDockItem extends StatelessWidget {
       text: TextSpan(
         text: label,
         style: Theme.of(context).textTheme.labelLarge!.copyWith(
-          fontSize: 11,
+          fontSize: DiscourseTypography.micro,
           fontWeight: FontWeight.w600,
         ),
       ),

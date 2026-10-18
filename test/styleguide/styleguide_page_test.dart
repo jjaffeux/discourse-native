@@ -1080,9 +1080,13 @@ Future<void> _choose(WidgetTester tester, String label, String value) async {
   final choice = find.byKey(ValueKey('styleguide-$label'));
   await tester.ensureVisible(choice);
   await tester.tap(choice);
+  final option = find.text(value).hitTestable();
+  for (var frame = 0; frame < 10 && option.evaluate().isEmpty; frame++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+  expect(option, findsOneWidget);
+  await tester.tap(option);
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 300));
-  await tester.tap(find.text(value).last);
   await tester.pump(const Duration(milliseconds: 300));
 }
 

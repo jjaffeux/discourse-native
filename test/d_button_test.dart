@@ -873,16 +873,16 @@ void main() {
           widget is AnimatedContainer && widget.decoration is DButtonDecoration,
     );
     final icon = find.byIcon(Icons.add);
-    expect(tester.getSize(surface), const Size(44, 44));
+    expect(tester.getSize(surface), const Size(50, 50));
     expect(tester.getSize(find.byType(DButton)), tester.getSize(surface));
     final decoration =
         tester.widget<AnimatedContainer>(surface).decoration!
             as DButtonDecoration;
-    expect(decoration.borderRadius, BorderRadius.circular(22));
+    expect(decoration.borderRadius, BorderRadius.circular(25));
     expect(tester.getSize(icon), const Size(20, 20));
     expect(tester.getCenter(icon), tester.getCenter(surface));
     expect(tester.getSemantics(find.byType(DButton)).label, 'New topic');
-    await tester.tapAt(tester.getTopRight(surface) + const Offset(4, 22));
+    await tester.tapAt(tester.getTopRight(surface) + const Offset(4, 25));
     expect(presses, 0);
     await tester.tap(find.byType(DButton));
     expect(presses, 1);

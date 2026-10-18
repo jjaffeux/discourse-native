@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_avatar.dart';
@@ -128,7 +129,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: DiscourseTypography.sm,
                               height: 18 / 14,
                               fontWeight: widget.strong
                                   ? FontWeight.w700
@@ -165,7 +166,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
                                 tokens.primary,
                                 .5,
                               ),
-                              fontSize: 11.5,
+                              fontSize: DiscourseTypography.metadata,
                               height: 16 / 11.5,
                               fontWeight: FontWeight.w700,
                               fontFeatures: const [
@@ -182,7 +183,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: DiscourseTypography.preview,
                   height: 1.38,
                   color: Color.lerp(
                     tokens.background,
@@ -201,7 +202,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: DiscourseTypography.xs,
                   height: 1.5,
                   color: Color.lerp(tokens.background, tokens.foreground, .4),
                   fontWeight: FontWeight.w400,

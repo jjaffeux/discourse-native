@@ -162,14 +162,8 @@ void main() {
       find.descendant(of: reminders, matching: notifications),
       findsOneWidget,
     );
-    Finder surface(Finder control) => find.descendant(
-      of: control,
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is AnimatedContainer &&
-            widget.decoration is DButtonDecoration,
-      ),
-    );
+    Finder surface(Finder control) =>
+        find.descendant(of: control, matching: find.byType(DControlArtwork));
     final category = find.descendant(
       of: find.byKey(const ValueKey('topic-header-parent-category')),
       matching: find.byType(DButton),
@@ -194,13 +188,12 @@ void main() {
       find.byKey(const ValueKey('topic-header-compact-title')),
     );
     expect(categorySurface.top - title.bottom, closeTo(16, .1));
-    final back = find.byKey(const ValueKey('topic-close-reader'));
-    final backSurface = tester.getRect(surface(back));
+    expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);
+    expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
     final header = tester.getRect(
-      find.byKey(const ValueKey('topic-content-header')),
+      find.byKey(const ValueKey('topic-header-morph')),
     );
-    expect(backSurface.top - header.top, closeTo(16, .1));
-    expect(title.top - backSurface.bottom, lessThanOrEqualTo(14));
+    expect(title.top - header.top, closeTo(16, .1));
     tester.view.physicalSize = const Size(800, 1000);
     await tester.pumpAndSettle();
     final notificationSurface = tester.getRect(surface(notifications));
@@ -240,13 +233,7 @@ void main() {
         find.byKey(const ValueKey('topic-header-edit-tags')),
         findsNothing,
       );
-      expect(
-        find.descendant(
-          of: reply,
-          matching: find.byTooltip('Reply to this topic'),
-        ),
-        findsOneWidget,
-      );
+      expect(tester.widget<DButton>(reply).tooltip, 'Reply');
       expect(
         tester.getRect(reply).right,
         lessThanOrEqualTo(tester.getRect(bar).right),
@@ -267,7 +254,7 @@ void main() {
       );
       expect(
         tester.getRect(progress).bottom,
-        closeTo(panel.bottom - DSpacing.sm, .1),
+        closeTo(tester.getRect(bar).top - 6 - DSpacing.sm, .1),
       );
       expect(
         tester.getRect(progress).right,
@@ -370,10 +357,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Latest post'));
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('topic-progress-selection')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('topic-progress-sheet')), findsNothing);
+      expect(shell.currentContent?.postNumber, 4);
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('topic-progress-button')),
@@ -397,11 +382,15 @@ void main() {
   );
 
   testWidgets(
-    'a topic without reply permission does not expose creation actions',
+    'a topic without reply permission retains independent topic creation',
     (tester) async {
-      await pumpMobileTopicFixture(tester, canReply: false, canEditTags: false);
+      final shell = await pumpMobileTopicFixture(
+        tester,
+        canReply: false,
+        canEditTags: false,
+      );
       expect(find.byKey(const ValueKey('mobile-topic-reply')), findsNothing);
-      expect(find.byKey(const ValueKey('mobile-new-topic')), findsNothing);
+      expect(find.byKey(const ValueKey('mobile-new-topic')), findsOneWidget);
       expect(
         find.byKey(const ValueKey('topic-header-edit-tags')),
         findsNothing,
@@ -411,6 +400,10 @@ void main() {
         find.byKey(const ValueKey('topic-progress-button')),
         findsOneWidget,
       );
+      await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
+      await tester.pumpAndSettle();
+      expect(shell.visibleComposer, isNotNull);
+      expect(shell.visibleComposer?.target.isNewTopic, isTrue);
       expect(tester.takeException(), isNull);
     },
     variant: platforms,

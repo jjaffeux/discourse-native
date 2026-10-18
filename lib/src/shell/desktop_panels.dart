@@ -789,8 +789,6 @@ class _DesktopPanelsState extends State<DesktopPanels>
                                                       .chatMessageAction,
                                                   variant:
                                                       DButtonVariant.outline,
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
                                                   icon: const Icon(
                                                     Icons.swap_horiz,
                                                   ),

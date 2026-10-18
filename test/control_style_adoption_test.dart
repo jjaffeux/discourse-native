@@ -45,9 +45,7 @@ void main() {
     expect(
       actual,
       {
-        // Mobile navigation uses the requested independent circular buttons
-        // and pill contextual actions, through Native's existing shape API.
-        'lib/src/shell/mobile_shell.dart': {'shape': 3},
+        // Contextual actions use Native's existing pill shape API.
         'lib/src/shell/message_create_button.dart': {'shape': 3},
         // Composer gutter actions retain the documented transparent surface.
         'lib/src/shell/composer_block_surface.dart': {'backgroundColor': 1},
@@ -75,8 +73,6 @@ void main() {
           'borderColor': 1,
           'interactiveBackgroundColor': 1,
         },
-        // Start page metadata links use their surrounding muted foreground.
-        'lib/src/shell/new_tab_page.dart': {'foregroundColor': 1},
         // A saved bookmark keeps the neutral outline and accents its artwork.
         'lib/src/shell/topic_actions.dart': {
           'backgroundColor': 2,
@@ -88,12 +84,13 @@ void main() {
           'shape': 2,
           'foregroundColor': 1,
         },
-        // The avatar trigger is an outlined circle around the avatar, with no
-        // fill of its own at rest or on hover.
+        // The avatar trigger uses the mockup's 22% outline around the avatar,
+        // with no fill of its own at rest or on hover.
         'lib/src/shell/user_menu_button.dart': {
           'shape': 1,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
+          'borderColor': 1,
         },
         // Composer tools use the mockup's muted tool foreground; discarding a
         // draft uses a destructive tint rather than the solid kit fill. Image
@@ -104,8 +101,8 @@ void main() {
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
         },
-        // Tab strip scroll affordances are the mockup's circular buttons.
-        'lib/src/shell/forum_tabs_bar.dart': {'shape': 2},
+        // The tab switcher uses Native's pill shape.
+        'lib/src/shell/forum_tabs_bar.dart': {'shape': 1},
         // A day separator is a pill on the stream's own surface and border.
         'lib/src/shell/stream_day_separator.dart': {
           'shape': 1,
@@ -116,12 +113,20 @@ void main() {
         },
         // Browse's Join/Joined row action is the mockup's pill.
         'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
-        // The chat jump-to-latest control uses the same floating capsule as
-        // the topic progress control; filter tokens are editable pill chips.
+        // The chat jump-to-latest control shares the topic progress capsule.
         'lib/src/plugins/chat/chat_channel_view.dart': {'shape': 1},
-        'lib/src/shell/topic_filter_input.dart': {
+        // Mobile user-card actions match the documented borderless pill row.
+        // Chat uses the mockup's muted fill beside the primary Message action.
+        'lib/src/shell/user_card.dart': {'shape': 2, 'borderColor': 2},
+        'lib/src/plugins/chat/chat_user_card.dart': {
           'shape': 1,
           'backgroundColor': 1,
+          'borderColor': 1,
+          'foregroundColor': 1,
+        },
+        'lib/src/plugins/voice/voice_user_card.dart': {
+          'shape': 1,
+          'borderColor': 1,
         },
         // Composer and sheet close actions share the existing pill shape.
         'lib/src/shell/composer_header.dart': {'shape': 1},

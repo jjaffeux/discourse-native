@@ -237,4 +237,5 @@ Future<void> _openInsertMenu(WidgetTester tester) async {
   }
   await tester.tap(insert);
   await tester.pump();
+  await tester.pump(const Duration(milliseconds: 250));
 }

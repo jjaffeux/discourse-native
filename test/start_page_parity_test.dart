@@ -60,10 +60,12 @@ void main() {
       ['status:open'],
       reason: 'The builder loads its options from the forum.',
     );
-    await tester.tap(find.text('Status: open'));
+    await tester.tap(find.text('Status  Open, closed, solved and the like'));
     await tester.pumpAndSettle();
-    expect(find.text('status: open'), findsOneWidget);
-    await tester.tap(find.widgetWithText(DButton, 'Apply'));
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Status: open'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('topic-filter-apply')));
     await tester.pumpAndSettle();
     expect(shell.topicListContent?.topicFilterQuery, 'status:open');
     expect(api.feedPaths, contains('/filter.json?q=status%3Aopen'));

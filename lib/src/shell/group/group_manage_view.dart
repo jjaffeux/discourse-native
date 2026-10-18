@@ -192,7 +192,9 @@ class _GroupManageFormState extends State<_GroupManageForm> {
               basePadding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
               builder: (context, lane) => ListView(
                 key: PageStorageKey('group-manage-${widget.subsection}-scroll'),
-                padding: lane.padding,
+                padding: lane.padding.add(
+                  EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+                ),
                 children: [
                   Align(
                     alignment: lane.alignment,

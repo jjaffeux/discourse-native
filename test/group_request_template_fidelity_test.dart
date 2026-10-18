@@ -64,6 +64,7 @@ void main() {
         await tester.scrollUntilVisible(save, 300, scrollable: scrollable);
         await tester.pumpAndSettle();
         expect(tester.widget<DButton>(save).onPressed, isNotNull);
+        expect(save.hitTestable(), findsOneWidget);
         await tester.tap(save);
         await tester.pumpAndSettle();
 

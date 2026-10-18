@@ -82,7 +82,14 @@ void main() {
           final header = find.byKey(const ValueKey('event-calendar-header'));
           expect(header, findsOneWidget);
           expect(
-            find.descendant(of: header, matching: find.byType(DSeparator)),
+            find.descendant(of: header, matching: find.byType(DSelect<bool>)),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(
+              of: find.byType(EventCalendar),
+              matching: find.text('Events'),
+            ),
             findsOneWidget,
           );
         }
@@ -165,9 +172,14 @@ void main() {
           );
           await tester.pumpAndSettle();
         }
-        // The phone dock spills Events into its More menu.
+        final dockEvents = find
+            .byKey(const ValueKey('mobile-mode-destination/events-upcoming'))
+            .hitTestable();
+        final eventsInDock = mobile && dockEvents.evaluate().isNotEmpty;
         final upcoming = mobile
-            ? find.byKey(const ValueKey('mobile-mode-more'))
+            ? eventsInDock
+                  ? dockEvents
+                  : find.byKey(const ValueKey('mobile-mode-more'))
             : sidebarDestination('Events');
         expect(upcoming, findsOneWidget);
         expect(sidebarDestination('My events'), findsNothing);
@@ -180,7 +192,7 @@ void main() {
 
         await tester.tap(upcoming);
         await tester.pumpAndSettle();
-        if (mobile) {
+        if (mobile && !eventsInDock) {
           await tester.tap(_dockMenuItem('Events'));
           await tester.pumpAndSettle();
         }
@@ -232,9 +244,13 @@ void main() {
           }
           controller.handleBack(canReturnToSidebar: true);
           await tester.pumpAndSettle();
-          await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
-          await tester.pumpAndSettle();
-          expect(_dockMenuItem('Events'), findsOneWidget);
+          if (dockEvents.evaluate().isEmpty) {
+            await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
+            await tester.pumpAndSettle();
+            expect(_dockMenuItem('Events'), findsOneWidget);
+          } else {
+            expect(dockEvents, findsOneWidget);
+          }
         }
       },
       variant: TargetPlatformVariant.only(

@@ -505,7 +505,12 @@ void main() {
       expect(
         tester
             .widget<DPageSurface>(
-              find.byKey(const ValueKey('mobile-content-panel')),
+              find
+                  .descendant(
+                    of: find.byKey(const ValueKey('mobile-content-panel')),
+                    matching: find.byType(DPageSurface),
+                  )
+                  .first,
             )
             .framed,
         isTrue,
@@ -519,7 +524,12 @@ void main() {
     expect(
       tester
           .widget<DPageSurface>(
-            find.byKey(const ValueKey('mobile-content-panel')),
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('mobile-content-panel')),
+                  matching: find.byType(DPageSurface),
+                )
+                .first,
           )
           .framed,
       isTrue,

@@ -752,7 +752,7 @@ void main() {
       );
       expect(horizontal, findsOneWidget);
       await tester.drag(horizontal, const Offset(-10000, 0));
-      await tester.pump();
+      await tester.pumpAndSettle(const Duration(milliseconds: 50));
 
       expect(depths, contains(greaterThan(0)));
       expect(api.olderSites, isEmpty);
@@ -1382,7 +1382,7 @@ void main() {
           await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
           await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 50));
           expect(scroll.pixels, 0);
         },
       );

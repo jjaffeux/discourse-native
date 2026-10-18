@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -9,6 +10,7 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
@@ -426,7 +428,10 @@ void _registerConnectionSessionTests() {
 
     Future<void> openNotifications(WidgetTester tester) async {
       await openMenu(tester);
-      await _tapMenuTab(tester, find.text('Notifications').last);
+      await _tapMenuTab(
+        tester,
+        find.byKey(const ValueKey('user-menu-tab-all')),
+      );
       await tester.pumpAndSettle();
     }
 
@@ -531,14 +536,15 @@ void _registerConnectionSessionTests() {
         isEmpty,
         userMenuReplyNotificationTypes,
       ]);
-      expect(
-        find.textContaining('sam replied to Better image handling'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('sam replied to'), findsOneWidget);
+      expect(find.text('Better image handling'), findsOneWidget);
       expect(find.text('Notifications'), findsWidgets);
       expect(find.dIcon(DIcons.arrowLeft), findsNothing);
 
-      await _tapMenuTab(tester, find.text('Notifications').last);
+      await _tapMenuTab(
+        tester,
+        find.byKey(const ValueKey('user-menu-tab-all')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Profile'), findsNothing);
@@ -590,10 +596,8 @@ void _registerConnectionSessionTests() {
         isEmpty,
         pluginRegistry.likeNotificationTypes,
       ]);
-      expect(
-        find.textContaining('david liked your post in Merge CVSS'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('david liked your post in'), findsOneWidget);
+      expect(find.text('Merge CVSS'), findsOneWidget);
       expect(find.byType(LikesSection), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('notification-row-52')));
@@ -896,9 +900,7 @@ void _registerConnectionSessionTests() {
         authenticator: signedIn(),
       );
       await openReplies(tester);
-      await tester.tap(
-        find.textContaining('sam replied to Better image handling'),
-      );
+      await tester.tap(find.byKey(const ValueKey('notification-row-1')));
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7]);
@@ -1133,7 +1135,7 @@ void _registerConnectionSessionTests() {
         expect(
           find.descendant(
             of: find.byType(NotificationRow),
-            matching: find.dIcon(DIcons.comment),
+            matching: find.byType(DAvatar),
           ),
           findsOneWidget,
         );
@@ -1322,10 +1324,8 @@ void _registerConnectionSessionTests() {
         await openMenu(tester);
 
         expect(find.byType(UserMenuPanel), findsOneWidget);
-        expect(
-          find.textContaining('sam replied to Better image handling'),
-          findsOneWidget,
-        );
+        expect(find.textContaining('sam replied to'), findsOneWidget);
+        expect(find.text('Better image handling'), findsOneWidget);
 
         await tester.tap(find.byKey(const ValueKey('user-menu-tab-likes')));
         await tester.pumpAndSettle();
@@ -1338,19 +1338,21 @@ void _registerConnectionSessionTests() {
       }
     });
 
-    testWidgets('the pointer messages tab opens the full inbox', (
+    testWidgets('the pointer messages tab filters notifications in the menu', (
       tester,
     ) async {
       final previous = debugDefaultTargetPlatformOverride;
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         final api = FakeDiscourseApi(
-          feeds: {
-            '/latest.json': const [],
-            '/topics/private-messages/joffreyj.json': const [
-              Topic(id: 9, title: 'A private message', slug: 'a-pm'),
-            ],
-          },
+          otherNotificationList: const [
+            DiscourseNotification.test(
+              id: 9,
+              typeId: NotificationTypeId(6),
+              title: 'A private message',
+              data: {'display_username': 'sam'},
+            ),
+          ],
         );
         await pumpShell(
           tester,
@@ -1360,6 +1362,8 @@ void _registerConnectionSessionTests() {
           authenticator: signedIn(),
           key: const ValueKey('pointer-messages'),
         );
+        final shell = ShellScope.read(tester.element(primaryMainContent));
+        final route = shell.currentContent;
         await openMenu(tester);
 
         await _tapMenuTab(
@@ -1368,25 +1372,31 @@ void _registerConnectionSessionTests() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(UserMenuPanel), findsNothing);
-        expect(topicListTitle('A private message'), findsOneWidget);
-        expect(
-          api.feedPaths,
-          contains('/topics/private-messages/joffreyj.json'),
-        );
+        expect(find.byType(UserMenuPanel), findsOneWidget);
+        expect(find.byType(MessageNotificationsSection), findsOneWidget);
+        expect(find.text('A private message'), findsOneWidget);
+        expect(shell.currentContent, same(route));
+        expect(api.notificationFilters.last, const [
+          NotificationTypeName('private_message'),
+          NotificationTypeName('group_message_summary'),
+        ]);
       } finally {
         debugDefaultTargetPlatformOverride = previous;
       }
     });
 
-    testWidgets('the touch messages row opens the full inbox', (tester) async {
+    testWidgets('the touch messages tab filters notifications in the menu', (
+      tester,
+    ) async {
       final api = FakeDiscourseApi(
-        feeds: {
-          '/latest.json': const [],
-          '/topics/private-messages/joffreyj.json': const [
-            Topic(id: 9, title: 'A private message', slug: 'a-pm'),
-          ],
-        },
+        otherNotificationList: const [
+          DiscourseNotification.test(
+            id: 9,
+            typeId: NotificationTypeId(6),
+            title: 'A private message',
+            data: {'display_username': 'sam'},
+          ),
+        ],
       );
       await pumpShell(
         tester,
@@ -1395,14 +1405,24 @@ void _registerConnectionSessionTests() {
         api: api,
         authenticator: signedIn(),
       );
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      final route = shell.currentContent;
       await openMenu(tester);
 
-      await _tapMenuTab(tester, find.text('Messages').last);
+      await _tapMenuTab(
+        tester,
+        find.byKey(const ValueKey('user-menu-tab-messages')),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Joffrey'), findsNothing);
-      expect(primaryMainContent, findsOneWidget);
+      expect(find.byType(UserMenuPanel), findsOneWidget);
+      expect(find.byType(MessageNotificationsSection), findsOneWidget);
       expect(find.text('A private message'), findsOneWidget);
+      expect(shell.currentContent, same(route));
+      expect(api.notificationFilters.last, const [
+        NotificationTypeName('private_message'),
+        NotificationTypeName('group_message_summary'),
+      ]);
     });
 
     testWidgets('the avatar opens the account actions directly', (
@@ -1784,14 +1804,10 @@ void _registerConnectionSessionTests() {
       await openNotifications(tester);
 
       expect(api.notificationCalls, 1);
-      expect(
-        find.textContaining('sam replied to Better image handling'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('david liked your post in Merge CVSS'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('sam replied to'), findsOneWidget);
+      expect(find.text('Better image handling'), findsOneWidget);
+      expect(find.textContaining('david liked your post in'), findsOneWidget);
+      expect(find.text('Merge CVSS'), findsOneWidget);
       expect(
         find.textContaining('You earned the Nice Reply badge'),
         findsOneWidget,
@@ -1837,9 +1853,7 @@ void _registerConnectionSessionTests() {
         authenticator: signedIn(),
       );
       await openNotifications(tester);
-      await tester.tap(
-        find.textContaining('sam replied to Better image handling'),
-      );
+      await tester.tap(find.byKey(const ValueKey('notification-row-1')));
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7]);
@@ -1956,14 +1970,15 @@ void _registerConnectionSessionTests() {
       await openNotifications(tester);
       await _tapMenuTab(tester, find.text('Replies'));
       await tester.pumpAndSettle();
-      await _tapMenuTab(tester, find.text('Notifications').last);
+      await _tapMenuTab(
+        tester,
+        find.byKey(const ValueKey('user-menu-tab-all')),
+      );
       await tester.pumpAndSettle();
 
       expect(api.notificationCalls, 2);
-      expect(
-        find.textContaining('sam replied to Better image handling'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('sam replied to'), findsOneWidget);
+      expect(find.text('Better image handling'), findsOneWidget);
     });
 
     const bookmarks = [
@@ -1994,11 +2009,28 @@ void _registerConnectionSessionTests() {
 
     Future<void> openBookmarks(WidgetTester tester) async {
       await openMenu(tester);
-      await _tapMenuTab(tester, find.text('Bookmarks'));
+      await _tapMenuTab(
+        tester,
+        find.byKey(const ValueKey('user-menu-tab-bookmarks')),
+      );
       await tester.pumpAndSettle();
     }
 
-    testWidgets('the bookmarks tab reads what the site sent', (tester) async {
+    Future<void> openBookmarksPage(WidgetTester tester) async {
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      shell.selectDestination(
+        const SidebarDestination(
+          id: 'user-bookmarks',
+          label: 'Bookmarks',
+          icon: DIcons.bookmark,
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the bookmarks tab shows reminders from the site', (
+      tester,
+    ) async {
       final api = FakeDiscourseApi(
         bookmarkList: bookmarks,
         reminderList: const [reminder],
@@ -2014,14 +2046,9 @@ void _registerConnectionSessionTests() {
       await openBookmarks(tester);
 
       expect(api.bookmarksRequested, ['joffreyj']);
-      expect(
-        find.textContaining('Reminder: Better image handling'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('sam Thinking about the next project'),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('notification-row-41')), findsOneWidget);
+      expect(find.text('Better image handling'), findsOneWidget);
+      expect(find.byType(BookmarkRow), findsNothing);
       final tab = tester.widget<Text>(find.text('Bookmarks').first);
       expect(
         tab.style?.color,
@@ -2060,10 +2087,8 @@ void _registerConnectionSessionTests() {
         api: api,
         authenticator: signedIn(),
       );
-      await openBookmarks(tester);
-      await tester.tap(
-        find.textContaining('sam Thinking about the next project'),
-      );
+      await openBookmarksPage(tester);
+      await tester.tap(find.byKey(const ValueKey('bookmark-row-8')));
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7]);
@@ -2102,10 +2127,8 @@ void _registerConnectionSessionTests() {
         authenticator: FakeAuthenticator()
           ..keys['https://localhost:3000'] = 'api-key',
       );
-      await openBookmarks(tester);
-      await tester.tap(
-        find.textContaining('sam Thinking about the next project'),
-      );
+      await openBookmarksPage(tester);
+      await tester.tap(find.byKey(const ValueKey('bookmark-row-8')));
       await tester.pumpAndSettle();
 
       expect(api.topicsOpened, [7]);
@@ -2147,12 +2170,12 @@ void _registerConnectionSessionTests() {
         api: api,
         authenticator: signedIn(),
       );
-      await openBookmarks(tester);
+      await openBookmarksPage(tester);
       final shell = ShellScope.read(
         tester.element(find.byType(BookmarkSection)),
       );
 
-      await tester.tap(find.textContaining('david A message in #dev'));
+      await tester.tap(find.byKey(const ValueKey('bookmark-row-9')));
       await tester.pumpAndSettle();
 
       expect(launched, isEmpty);
@@ -2214,14 +2237,12 @@ void _registerConnectionSessionTests() {
         api: api,
         authenticator: signedIn(),
       );
-      await openBookmarks(tester);
+      await openBookmarksPage(tester);
       final shell = ShellScope.read(
         tester.element(find.byType(BookmarkSection)),
       );
 
-      await tester.tap(
-        find.textContaining('kris A reply in the support thread'),
-      );
+      await tester.tap(find.byKey(const ValueKey('bookmark-row-10')));
       await tester.pumpAndSettle();
 
       expect(launched, isEmpty);
@@ -2248,12 +2269,12 @@ void _registerConnectionSessionTests() {
         api: api,
         authenticator: signedIn(),
       );
-      await openBookmarks(tester);
-      await tester.tap(find.textContaining('david A message in #dev'));
+      await openBookmarksPage(tester);
+      await tester.tap(find.byKey(const ValueKey('bookmark-row-9')));
       await tester.pumpAndSettle();
 
       expect(launched, ['https://meta.discourse.org/chat/c/-/9/44']);
-      expect(find.byType(BookmarkRow), findsNothing);
+      expect(find.byKey(const ValueKey('bookmark-row-9')), findsOneWidget);
     });
 
     testWidgets('an inaccessible thread bookmark keeps browser fallback', (
@@ -2293,13 +2314,13 @@ void _registerConnectionSessionTests() {
         api: api,
         authenticator: signedIn(),
       );
-      await openBookmarks(tester);
+      await openBookmarksPage(tester);
 
-      await tester.tap(find.textContaining('kris Inaccessible support thread'));
+      await tester.tap(find.byKey(const ValueKey('bookmark-row-12')));
       await tester.pumpAndSettle();
 
       expect(launched, [path]);
-      expect(find.byType(BookmarkRow), findsNothing);
+      expect(find.byKey(const ValueKey('bookmark-row-12')), findsOneWidget);
     });
 
     testWidgets('a Chat bookmark on a disconnected site opens the browser', (
@@ -2328,13 +2349,13 @@ void _registerConnectionSessionTests() {
         api: api,
         authenticator: signedIn(),
       );
-      await openBookmarks(tester);
+      await openBookmarksPage(tester);
 
-      await tester.tap(find.textContaining('kris Disconnected support thread'));
+      await tester.tap(find.byKey(const ValueKey('bookmark-row-11')));
       await tester.pumpAndSettle();
 
       expect(launched, [path]);
-      expect(find.byType(BookmarkRow), findsNothing);
+      expect(find.byKey(const ValueKey('bookmark-row-11')), findsOneWidget);
     });
 
     testWidgets('a reminder in here is read like any other notification', (
@@ -2354,14 +2375,14 @@ void _registerConnectionSessionTests() {
         authenticator: signedIn(),
       );
       await openBookmarks(tester);
-      await tester.tap(find.textContaining('Reminder: Better image handling'));
+      await tester.tap(find.byKey(const ValueKey('notification-row-41')));
       await tester.pumpAndSettle();
 
       expect(api.markedRead, [41]);
       expect(api.topicsOpened, [7]);
     });
 
-    testWidgets('nothing kept says so rather than spinning', (tester) async {
+    testWidgets('an empty reminder tab stops waiting', (tester) async {
       final api = FakeDiscourseApi(bookmarkList: const []);
 
       await pumpShell(
@@ -2373,7 +2394,7 @@ void _registerConnectionSessionTests() {
       );
       await openBookmarks(tester);
 
-      expect(find.text('Nothing bookmarked yet.'), findsOneWidget);
+      expect(_inMenu(find.text('Nothing new.')), findsOneWidget);
     });
 
     testWidgets('bookmarks that will not load can be asked for again', (
@@ -2537,19 +2558,20 @@ void _registerConnectionSessionTests() {
           ).copyWith(user: reader),
         ],
       );
-      await tester.tap(find.text('Topics'));
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
       await tester.tap(topicListTitle('A real topic'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Joffrey'));
       await tester.pumpAndSettle();
 
-      expect(find.widgetWithText(FilledButton, 'Chat'), findsOneWidget);
+      final chatAction = find.byKey(const ValueKey('user-card-chat-joffreyj'));
+      expect(chatAction, findsOneWidget);
       expect(
         tester.getSize(find.byKey(const ValueKey('user-card-surface'))).width,
-        366,
+        phone.width - 12,
       );
-      await tester.tap(find.widgetWithText(FilledButton, 'Chat'));
+      await tester.tap(chatAction);
       await tester.pumpAndSettle();
 
       expect(api.directMessageChannelsRequested, ['joffreyj']);

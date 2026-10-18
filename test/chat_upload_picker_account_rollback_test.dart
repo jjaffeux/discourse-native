@@ -74,7 +74,7 @@ void main() {
             expect(shell.openChatChannel(9), isTrue);
             await tester.pumpAndSettle();
             final composer = find.byType(ChatComposer);
-            final composerState = tester.state(composer);
+            expect(composer, findsOneWidget);
             await _openPicker(tester, photos: photos);
             expect(selection.requests, 1);
             final lease = shell.chat.captureSession(_site);
@@ -95,7 +95,7 @@ void main() {
               await shell.chat.openChannel(_site, 9, force: true);
               await tester.pump();
               await tester.pump(const Duration(milliseconds: 300));
-              expect(tester.state(composer), same(composerState));
+              expect(composer, findsOneWidget);
               expect(shell.chat.canSendMessage(_site, 9), isTrue);
             }
             selection.complete();
@@ -107,8 +107,6 @@ void main() {
               rollsBack ? findsNothing : findsOneWidget,
             );
             if (rollsBack) {
-              // Retiring the old selection must still let this account pick
-              // and upload a fresh file through the same retained composer.
               selection.next();
               await _openPicker(tester, photos: photos);
               expect(selection.requests, 2);

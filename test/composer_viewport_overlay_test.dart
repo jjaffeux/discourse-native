@@ -202,9 +202,13 @@ void main() {
         );
 
         expect(tester.getRect(find.byType(ComposerPanel)).bottom, 844);
+        final handle = tester.getRect(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+        );
+        expect(handle.top, greaterThanOrEqualTo(59));
         expect(
           tester.getRect(find.byType(ComposerPanel)).top,
-          59 + DSpacing.sm,
+          greaterThan(handle.bottom),
         );
         final sheet = tester.widget<DSheetContent>(
           find.byKey(const ValueKey('composer-mobile-sheet')),

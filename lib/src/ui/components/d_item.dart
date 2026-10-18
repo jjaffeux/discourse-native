@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -471,14 +472,27 @@ class _ItemBody extends MultiChildRenderObjectWidget {
   );
   @override
   void updateRenderObject(BuildContext context, _ItemLayout renderObject) {
+    final nextFlexibleIndex = flexibleIndex;
+    final nextMediaIndices = mediaIndices;
+    final nextDirection = Directionality.of(context);
+    final nextLargeText = MediaQuery.textScalerOf(context).scale(14) > 21;
+    if (renderObject.gap == gap &&
+        renderObject.described == described &&
+        renderObject.fitContent == fitContent &&
+        renderObject.flexibleIndex == nextFlexibleIndex &&
+        setEquals(renderObject.mediaIndices, nextMediaIndices) &&
+        renderObject.direction == nextDirection &&
+        renderObject.largeText == nextLargeText) {
+      return;
+    }
     renderObject
       ..gap = gap
       ..described = described
       ..fitContent = fitContent
-      ..flexibleIndex = flexibleIndex
-      ..mediaIndices = mediaIndices
-      ..direction = Directionality.of(context)
-      ..largeText = MediaQuery.textScalerOf(context).scale(14) > 21
+      ..flexibleIndex = nextFlexibleIndex
+      ..mediaIndices = nextMediaIndices
+      ..direction = nextDirection
+      ..largeText = nextLargeText
       ..markNeedsLayout();
   }
 }

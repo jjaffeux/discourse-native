@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../theme/discourse_typography.dart';
 import '../styleguide_example.dart';
 
 final dropdownMenuExamples = ComponentExamples(
@@ -58,11 +59,14 @@ final dropdownMenuExamples = ComponentExamples(
                   Text(
                     'Ty',
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: DiscourseTypography.compact,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Text('@tynaut', style: TextStyle(fontSize: 12)),
+                  Text(
+                    '@tynaut',
+                    style: TextStyle(fontSize: DiscourseTypography.xs),
+                  ),
                 ],
               ),
             ),

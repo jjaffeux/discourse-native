@@ -89,12 +89,15 @@ class ForumAboutPageState extends State<ForumAboutPage> {
                 onPressed: () => unawaited(_load()),
               ),
             ),
-      footer: DCardFooter(
-        child: DButton(
-          key: const ValueKey('forum-about-browser'),
-          variant: DButtonVariant.outline,
-          onPressed: widget.onOpenFullPage,
-          label: Text(l10n.forumAboutOpenFullPage),
+      footer: Padding(
+        padding: EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
+        child: DCardFooter(
+          child: DButton(
+            key: const ValueKey('forum-about-browser'),
+            variant: DButtonVariant.outline,
+            onPressed: widget.onOpenFullPage,
+            label: Text(l10n.forumAboutOpenFullPage),
+          ),
         ),
       ),
       child: widget.loginRequired || _failed

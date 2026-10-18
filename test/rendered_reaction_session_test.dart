@@ -201,7 +201,7 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
+        await _repaint(tester);
         final control = action == 'summary trigger'
             ? find.byKey(const ValueKey('post-reaction-summary-1'))
             : find.descendant(
@@ -234,7 +234,7 @@ void main() {
           expect(tester.element(control), same(originalControl));
         }
         await tester.tap(control);
-        await tester.pumpAndSettle();
+        await _repaint(tester);
         if (action == 'summary trigger') {
           final sheetButton = find.descendant(
             of: find.byType(DSheetContent),
@@ -242,7 +242,7 @@ void main() {
           );
           if (sheetButton.evaluate().isNotEmpty) {
             await tester.tap(sheetButton);
-            await tester.pumpAndSettle();
+            await _repaint(tester);
           }
         }
         if (transition != 'unchanged') {
@@ -252,9 +252,9 @@ void main() {
           }
           shell.openTopic(_topic);
           await shell.loadTopic(7, _topic.slug, force: true);
-          await tester.pumpAndSettle();
+          await _repaint(tester);
           await tester.tap(control);
-          await tester.pumpAndSettle();
+          await _repaint(tester);
           if (action == 'summary trigger') {
             await tester.tap(
               find.descendant(
@@ -262,12 +262,12 @@ void main() {
                 matching: find.byType(PostReactionButton),
               ),
             );
-            await tester.pumpAndSettle();
+            await _repaint(tester);
           }
         }
         if (!desktop) {
           await tester.tap(find.bySemanticsLabel('heart').last);
-          await tester.pumpAndSettle();
+          await _repaint(tester);
         }
         expect(sent.single.method, 'PUT');
         expect(
@@ -279,4 +279,12 @@ void main() {
       });
     }
   }
+}
+
+Future<void> _repaint(WidgetTester tester) async {
+  await tester.pump();
+  await tester.runAsync(() => pumpEventQueue());
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.runAsync(() => pumpEventQueue());
+  await tester.pump(const Duration(milliseconds: 300));
 }

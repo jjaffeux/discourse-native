@@ -167,81 +167,102 @@ class TopicInboxHeader extends StatelessWidget {
       builder: (context, compact, part) {
         if (loading || topic == null) {
           if (!compact) return Column(children: rows);
+          final instance = siteUrl == null
+              ? null
+              : ShellScope.read(context).instanceFor(siteUrl!);
           final style = Theme.of(
             context,
-          ).textTheme.labelSmall!.copyWith(fontSize: 11);
+          ).textTheme.labelSmall!.copyWith(fontSize: DiscourseTypography.micro);
           return ContentReadingLaneBox(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              key: const ValueKey('topic-header-compact-layout'),
-              spacing: 10,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    spacing: 3,
-                    children: [
-                      part(
-                        'title',
-                        _TopicHeaderTitle(header: this, compact: true),
-                      ),
-                      part(
-                        'meta',
-                        SizedBox(
-                          height:
-                              MediaQuery.textScalerOf(context).scale(11) *
-                              (style.height ?? 1),
-                          child: TopicSkeletonReveal(
-                            child: DSkeletonRegion(
-                              semanticsLabel: context.l10n.loadingTopicDetails,
-                              color: skeletonFill(context),
-                              child: const Align(
-                                alignment: AlignmentDirectional.centerStart,
-                                child: DSkeleton(width: 130, height: 8),
+            child: LayoutBuilder(
+              builder: (context, constraints) => Row(
+                key: const ValueKey('topic-header-compact-layout'),
+                spacing: 10,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 3,
+                      children: [
+                        part(
+                          'title',
+                          _TopicHeaderTitle(header: this, compact: true),
+                        ),
+                        part(
+                          'meta',
+                          SizedBox(
+                            height:
+                                MediaQuery.textScalerOf(
+                                  context,
+                                ).scale(DiscourseTypography.micro) *
+                                (style.height ?? 1),
+                            child: TopicSkeletonReveal(
+                              child: DSkeletonRegion(
+                                semanticsLabel:
+                                    context.l10n.loadingTopicDetails,
+                                color: skeletonFill(context),
+                                child: const Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: DSkeleton(width: 130, height: 8),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                if (siteUrl != null &&
-                    ShellScope.read(context).instanceFor(siteUrl!)?.user !=
-                        null)
-                  const DButtonGroup(
-                    children: [
-                      TopicBookmarkButtonPlaceholder(
-                        variant: DButtonVariant.outline,
-                        size: DButtonSize.filter,
+                  part(
+                    'tools',
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: math.max(0, constraints.maxWidth - 90),
                       ),
-                      TopicNotificationLevelPlaceholder(
-                        showChevron: true,
-                        variant: DButtonVariant.outline,
-                        size: DButtonSize.filter,
+                      child: DControlWrap(
+                        key: const ValueKey('topic-header-tools'),
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (instance?.user != null ||
+                              instance?.isConnected == true)
+                            DButtonGroup(
+                              children: [
+                                if (instance?.user != null)
+                                  const TopicBookmarkButtonPlaceholder(
+                                    variant: DButtonVariant.outline,
+                                    size: DButtonSize.filter,
+                                  ),
+                                if (instance?.isConnected == true)
+                                  const TopicNotificationLevelPlaceholder(
+                                    showChevron: true,
+                                    variant: DButtonVariant.outline,
+                                    size: DButtonSize.filter,
+                                  ),
+                              ],
+                            ),
+                          DButtonGroup.spaced(
+                            size: DButtonSize.filter,
+                            children: [
+                              DButton.iconOnly(
+                                icon: const DIcon(DIcons.ellipsis),
+                                tooltip: context.l10n.topicActionsMenu,
+                                variant: DButtonVariant.outline,
+                                size: DButtonSize.filter,
+                                onPressed: null,
+                              ),
+                              const TopicStatusButtonPlaceholder(
+                                variant: DButtonVariant.outline,
+                                size: DButtonSize.filter,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                part(
-                  'tools',
-                  DButtonGroup.spaced(
-                    size: DButtonSize.filter,
-                    children: [
-                      DButton.iconOnly(
-                        icon: const DIcon(DIcons.ellipsis),
-                        tooltip: context.l10n.topicActionsMenu,
-                        variant: DButtonVariant.outline,
-                        size: DButtonSize.filter,
-                        onPressed: null,
-                      ),
-                      const TopicStatusButtonPlaceholder(
-                        variant: DButtonVariant.outline,
-                        size: DButtonSize.filter,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         }
@@ -293,9 +314,10 @@ class TopicInboxHeader extends StatelessWidget {
                               if (category != null) category.name,
                               for (final tag in detail.tags) '#${tag.name}',
                             ];
-                            final style = Theme.of(
-                              context,
-                            ).textTheme.labelSmall!.copyWith(fontSize: 11);
+                            final style = Theme.of(context)
+                                .textTheme
+                                .labelSmall!
+                                .copyWith(fontSize: DiscourseTypography.micro);
                             var shown = names.length;
                             String line(int count) =>
                                 '${names.take(count).join('  ›  ')}${count < names.length ? '  +${names.length - count}' : ''}';
@@ -521,7 +543,7 @@ class _TopicHeaderTitle extends StatelessWidget {
     final siteUrl = header.siteUrl;
     final style = compact
         ? Theme.of(context).textTheme.titleSmall!.copyWith(
-            fontSize: 14,
+            fontSize: DiscourseTypography.sm,
             fontWeight: FontWeight.w700,
           )
         : Theme.of(context).textTheme.headlineSmall;

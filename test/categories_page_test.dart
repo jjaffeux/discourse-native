@@ -576,11 +576,14 @@ void main() {
                   : ShellLayout.expanded,
             );
             expect(
-              find.byWidgetPredicate(
-                (widget) =>
-                    widget is DText &&
-                    widget.variant == DTextVariant.h1 &&
-                    widget.data == 'Categories',
+              find.ancestor(
+                of: find.text('Categories'),
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is Semantics &&
+                      widget.properties.header == true &&
+                      widget.properties.headingLevel == 1,
+                ),
               ),
               findsOneWidget,
             );

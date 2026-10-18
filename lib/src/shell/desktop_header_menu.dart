@@ -4,6 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/discourse_typography.dart';
+
 /// A filter in a title-bar menu. Counts represent unread items, never total rows.
 class DesktopHeaderMenuFilter<T extends Object> {
   const DesktopHeaderMenuFilter(
@@ -170,7 +172,7 @@ class DesktopHeaderMenu<T extends Object> extends StatelessWidget {
                                 filter.unread > 99 ? '99+' : '${filter.unread}',
                                 style: notificationStyle
                                     ? TextStyle(
-                                        fontSize: 11,
+                                        fontSize: DiscourseTypography.micro,
                                         fontWeight: FontWeight.w700,
                                         fontFeatures: const [
                                           FontFeature.tabularFigures(),

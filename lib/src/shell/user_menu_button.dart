@@ -173,6 +173,8 @@ class _UserMenuButtonState extends State<UserMenuButton> {
         );
       }
       final controller = ShellScope.read(context);
+      final generation = _menuGeneration;
+      bool isCurrentMenu() => mounted && generation == _menuGeneration;
 
       return ListenableBuilder(
         listenable: controller.accountActivity.totalsListenable,
@@ -200,6 +202,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                         _menuGeneration,
                       )),
                       view: UserMenuView.notifications,
+                      isCurrent: isCurrentMenu,
                       controller: _notifications,
                       onOpen: _profile.close,
                       connecting: connecting,
@@ -222,6 +225,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                     ? null
                     : ValueKey((UserMenuView.profile, _menuGeneration)),
                 view: UserMenuView.profile,
+                isCurrent: isCurrentMenu,
                 controller: _profile,
                 onOpen: _notifications.close,
                 connecting: connecting,
@@ -268,6 +272,7 @@ class _AccountMenuPopover extends StatelessWidget {
   const _AccountMenuPopover({
     super.key,
     required this.view,
+    required this.isCurrent,
     required this.controller,
     required this.onOpen,
     required this.connecting,
@@ -281,6 +286,7 @@ class _AccountMenuPopover extends StatelessWidget {
   });
 
   final UserMenuView view;
+  final bool Function() isCurrent;
   final DPopoverController controller;
   final VoidCallback onOpen;
   final bool connecting;
@@ -405,7 +411,14 @@ class _AccountMenuPopover extends StatelessWidget {
           padding: EdgeInsets.zero,
           scrollable: false,
           autofocus: false,
-          children: [UserMenuPanel(onDismiss: controller.close)],
+          children: [
+            ShellSelector<bool>(
+              select: (_) => isCurrent(),
+              builder: (context, current, _) => current
+                  ? UserMenuPanel(onDismiss: controller.close)
+                  : const SizedBox.shrink(),
+            ),
+          ],
         ),
         child: DDropdownMenuTrigger(builder: buildTrigger),
       );

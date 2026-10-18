@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/shell/forum_about_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -55,6 +56,19 @@ class _AboutApi extends FakeDiscourseApi {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const notificationOpens = MethodChannel(
+    'org.discourse.native/notification_opens',
+  );
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  setUp(
+    () => messenger.setMockMethodCallHandler(
+      notificationOpens,
+      (_) async => null,
+    ),
+  );
+  tearDown(() => messenger.setMockMethodCallHandler(notificationOpens, null));
   for (final platform in [TargetPlatform.iOS, TargetPlatform.linux]) {
     testWidgets('forum About is native and public on $platform', (
       tester,
@@ -78,7 +92,7 @@ void main() {
       );
       final shell = ShellScope.read(tester.element(primaryMainContent));
       expect(shell.openCorePageUrl('$siteUrl/about'), isTrue);
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(shell.currentContent?.isForumAbout, isTrue);
       expect(find.byType(ForumAboutPage), findsOneWidget);
       expect(api.requests.single.apiKey, isNull);
@@ -86,10 +100,14 @@ void main() {
       expect(find.text('17 voice participants'), findsOneWidget);
       expect(launched, isEmpty);
       await shell.refreshCurrentTab();
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(api.requests, hasLength(2));
-      await tester.tap(find.text('Open full About page'));
-      await tester.pumpAndSettle();
+      final openFullPage = find.byKey(const ValueKey('forum-about-browser'));
+      await tester.ensureVisible(openFullPage);
+      await _repaint(tester);
+      expect(openFullPage.hitTestable(), findsOneWidget);
+      await tester.tap(openFullPage);
+      await _repaint(tester);
       expect(launched, ['$siteUrl/about']);
       expect(shell.openCorePageUrl('https://unrelated.example/about'), isFalse);
       expect(shell.openCorePageUrl('$siteUrl/about/extra'), isFalse);
@@ -109,19 +127,19 @@ void main() {
     );
     final shell = ShellScope.read(tester.element(primaryMainContent));
     shell.openCorePageUrl('$siteUrl/about');
-    await tester.pumpAndSettle();
+    await _repaint(tester);
     final mainTab = shell.activeTabId!;
     shell.openLinkInPanel('$siteUrl/about', panel: ForumPanel.secondary);
-    await tester.pumpAndSettle();
+    await _repaint(tester);
     expect(find.byType(ForumAboutPage), findsNWidgets(2));
     expect(api.requests, hasLength(2));
     await shell.refreshCurrentTab();
-    await tester.pumpAndSettle();
+    await _repaint(tester);
     expect(api.requests, hasLength(3));
     shell.selectTab(mainTab);
-    await tester.pumpAndSettle();
+    await _repaint(tester);
     await shell.refreshCurrentTab();
-    await tester.pumpAndSettle();
+    await _repaint(tester);
     expect(api.requests, hasLength(4));
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -145,9 +163,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
     expect(find.byType(DSkeletonRegion), findsOneWidget);
     shell.openCorePageUrl('$otherUrl/about');
-    await tester.pumpAndSettle();
+    await _repaint(tester);
     gate.complete(const ForumAbout(title: 'Old delayed identity'));
-    await tester.pumpAndSettle();
+    await _repaint(tester);
     expect(find.text('About $otherUrl'), findsOneWidget);
     expect(find.text('Old delayed identity'), findsNothing);
     expect(find.text('17 voice participants'), findsNothing);
@@ -184,11 +202,11 @@ void main() {
       expect(api.requests.single.apiKey, 'account-key');
       expect(api.requests.single.clientId, isNotNull);
       await shell.disconnectInstance(siteUrl);
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       shell.openCorePageUrl('$siteUrl/about');
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       gate.complete(const ForumAbout(title: 'Signed-out account data'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(find.text('Signed-out account data'), findsNothing);
       expect(shell.instanceFor(siteUrl)?.isConnected, isFalse);
       expect(shell.instanceFor(siteUrl)?.loginRequired, isTrue);
@@ -197,4 +215,12 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
+}
+
+Future<void> _repaint(WidgetTester tester) async {
+  await tester.pump();
+  await tester.runAsync(() => pumpEventQueue());
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.runAsync(() => pumpEventQueue());
+  await tester.pump(const Duration(milliseconds: 300));
 }

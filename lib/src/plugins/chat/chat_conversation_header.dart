@@ -89,7 +89,7 @@ class ChatConversationHeader extends StatelessWidget {
       headingLevel: 1,
       style: compact
           ? TextStyle(
-              fontSize: 14,
+              fontSize: DiscourseTypography.sm,
               height: 1.5,
               fontWeight: FontWeight.w700,
               color: tokens.foreground,
@@ -140,7 +140,7 @@ class ChatConversationHeader extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       key: const ValueKey('chat-compact-message-count'),
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: DiscourseTypography.micro,
                         height: 1.5,
                         color: tokens.mutedForeground,
                       ),

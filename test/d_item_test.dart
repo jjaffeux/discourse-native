@@ -64,6 +64,48 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  testWidgets('unchanged item updates retain cached text artwork', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(sample(DItemSize.standard)));
+    await tester.pumpAndSettle();
+    final paragraph = tester.renderObject<RenderParagraph>(
+      find.byKey(titleKey),
+    );
+    var paints = 0;
+    final previous = debugOnProfilePaint;
+    debugOnProfilePaint = (object) {
+      previous?.call(object);
+      if (identical(object, paragraph)) paints++;
+    };
+    try {
+      await tester.pumpWidget(host(sample(DItemSize.standard)));
+      await tester.pumpAndSettle();
+      expect(find.text('Title'), findsOneWidget);
+      expect(paints, 0);
+
+      await tester.pumpWidget(
+        host(sample(DItemSize.standard), direction: TextDirection.rtl),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getCenter(find.byKey(mediaKey)).dx,
+        greaterThan(tester.getCenter(find.byKey(titleKey)).dx),
+      );
+      expect(paints, greaterThan(0));
+
+      await tester.pumpWidget(host(sample(DItemSize.standard), scale: 2));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byKey(mediaKey)).bottom,
+        lessThan(tester.getRect(find.byKey(titleKey)).top),
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugOnProfilePaint = previous;
+    }
+  });
+
   for (final direction in TextDirection.values) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('fit-content items stay bounded in $direction at $scale', (

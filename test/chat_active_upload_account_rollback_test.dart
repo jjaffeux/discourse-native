@@ -77,14 +77,14 @@ void main() {
             await shell.chat.loadChannels(_site);
             expect(shell.openChatChannel(9), isTrue);
             await tester.pumpAndSettle();
-            final composerView = find.byType(ChatComposer);
-            final composerState = tester.state(composerView);
+            expect(find.byType(ChatComposer), findsOneWidget);
             await _pick(tester);
             expect(selection.requests, 1);
             final queue = tester.widget<ComposerUploadQueue>(
               find.byType(ComposerUploadQueue),
             );
-            final composer = queue.composer;
+            final openingComposer = queue.composer;
+            var composer = openingComposer;
             expect(
               composer.uploads.single.status,
               stage == _Stage.preparation
@@ -110,8 +110,13 @@ void main() {
               await shell.chat.openChannel(_site, 9, force: true);
               await tester.pump();
               await tester.pump(const Duration(milliseconds: 300));
-              expect(tester.state(composerView), same(composerState));
               expect(shell.chat.canSendMessage(_site, 9), isTrue);
+              composer = tester
+                  .widget<ComposerEditor>(find.byType(ComposerEditor))
+                  .composer;
+              expect(composer.uploads, isEmpty);
+              expect(openingComposer.hasActiveUploads, isFalse);
+              expect(openingComposer.uploads, isEmpty);
               // This new-account draft must not acquire the previous session's
               // upload when its platform work or HTTP response later completes.
               composer.text.text = 'Replacement account draft';
@@ -128,6 +133,8 @@ void main() {
             expect(composer.hasActiveUploads, isFalse);
             const target = ChatChannelTarget(9);
             if (rollsBack) {
+              expect(openingComposer.completedUploads, isEmpty);
+              expect(openingComposer.hasActiveUploads, isFalse);
               expect(composer.raw, 'Replacement account draft');
               expect(
                 shell.chat.composerDraftFor(_site, target)?.uploads,

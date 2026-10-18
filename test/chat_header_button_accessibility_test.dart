@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/chat/chat_header_menu.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -76,7 +77,7 @@ void main() {
     for (final chatEnabled in [false, true]) {
       for (final count in [0, 128]) {
         testWidgets(
-          'mobile header uses standard gaps at $width, chat=$chatEnabled, count=$count',
+          'mobile header keeps account gaps without a chat shortcut at $width, chat=$chatEnabled, count=$count',
           (tester) async {
             await _pump(
               tester,
@@ -85,10 +86,7 @@ void main() {
               mentionCount: count,
               bellCount: count,
             );
-            expect(
-              find.byKey(ChatHeaderButton.buttonKey),
-              chatEnabled ? findsOneWidget : findsNothing,
-            );
+            expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
             _expectMobileHeaderGaps(tester);
           },
           variant: const TargetPlatformVariant({
@@ -139,12 +137,15 @@ void main() {
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await _pump(tester, mentionCount: 128, bellCount: 128, width: width);
         expect(tester.takeException(), isNull);
-        final chat = tester.getRect(find.byKey(ChatHeaderButton.buttonKey));
+        expect(find.byKey(ChatHeaderButton.buttonKey), findsNothing);
+        final search = tester.getRect(
+          find.byKey(const ValueKey('mobile-search-button')),
+        );
         final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
         final avatar = tester.getRect(find.byKey(UserMenuButton.avatarKey));
-        expect(chat.overlaps(bell), isFalse);
+        expect(search.overlaps(bell), isFalse);
         expect(bell.overlaps(avatar), isFalse);
-        for (final rect in [chat, bell, avatar]) {
+        for (final rect in [search, bell, avatar]) {
           expect(rect.left, greaterThanOrEqualTo(0));
           expect(rect.right, lessThanOrEqualTo(width));
         }
@@ -315,7 +316,7 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets(
-      'mobile hides active chat with ${mode.wireName} sidebar mode',
+      'mobile omits the chat shortcut before and after opening chat with ${mode.wireName} sidebar mode',
       (tester) async {
         final shell = await _pump(
           tester,
@@ -324,9 +325,9 @@ void main() {
           width: 390,
         );
         final button = find.byKey(ChatHeaderButton.buttonKey);
-        expect(button, findsOneWidget);
+        expect(button, findsNothing);
         _expectMobileHeaderGaps(tester);
-        await tester.tap(button);
+        shell.pluginSession.require(chatShellService).openChannels();
         await tester.pumpAndSettle();
         expect(shell.currentContent?.id, 'chat-channels');
         expect(button, findsNothing);
@@ -371,10 +372,8 @@ void main() {
 }
 
 void _expectMobileHeaderGaps(WidgetTester tester) {
-  final chat = find.byKey(ChatHeaderButton.buttonKey);
   final controls = [
     find.byKey(const ValueKey('mobile-search-button')),
-    if (chat.evaluate().isNotEmpty) chat,
     find.byKey(UserMenuButton.bellKey),
     find.byKey(UserMenuButton.avatarKey),
   ];
@@ -383,7 +382,7 @@ void _expectMobileHeaderGaps(WidgetTester tester) {
     final current = tester.getRect(controls[index]);
     expect(
       current.left - previous.right,
-      closeTo(DSpacing.controlGap, .01),
+      closeTo(index == 1 ? 10 : DSpacing.controlGap, .01),
       reason: 'Gap before mobile control $index',
     );
   }

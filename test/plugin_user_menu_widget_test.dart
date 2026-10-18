@@ -21,8 +21,6 @@ const _alphaTabKey = ValueKey('user-menu-tab-alpha/activity');
 const _betaTabKey = ValueKey('user-menu-tab-beta/activity');
 const _alphaBodyKey = ValueKey('alpha-user-menu-body');
 const _betaBodyKey = ValueKey('beta-user-menu-body');
-const _railUpCueKey = ValueKey('user-menu-rail-scroll-up');
-const _railDownCueKey = ValueKey('user-menu-rail-scroll-down');
 
 void main() {
   testWidgets('plugin-absent user menu renders no contributed sections', (
@@ -34,11 +32,9 @@ void main() {
     expect(find.byKey(_betaTabKey), findsNothing);
     expect(find.byKey(_alphaBodyKey), findsNothing);
     expect(find.byKey(_betaBodyKey), findsNothing);
-    expect(find.byKey(_railUpCueKey), findsNothing);
-    expect(find.byKey(_railDownCueKey), findsNothing);
   });
 
-  testWidgets('rail scroll cues follow hidden items and window resizing', (
+  testWidgets('notification filters remain reachable after window resizing', (
     tester,
   ) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -49,56 +45,45 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final upCue = find.byKey(_railUpCueKey);
-    final downCue = find.byKey(_railDownCueKey);
     final profile = find.byKey(const ValueKey('user-menu-tab-profile'));
-    final railScroll = find
-        .ancestor(
-          of: find.byKey(const ValueKey('user-menu-tab-all')),
-          matching: find.byType(Scrollable),
-        )
+    final all = find.byKey(const ValueKey('user-menu-tab-all'));
+    final other = find.byKey(const ValueKey('user-menu-tab-other'));
+    final filterScroll = find
+        .ancestor(of: all, matching: find.byType(Scrollable))
         .first;
-
-    expect(upCue, findsNothing);
-    expect(downCue, findsNothing);
-
-    await tester.binding.setSurfaceSize(const Size(800, 220));
-    await tester.pumpAndSettle();
-    expect(upCue, findsNothing);
-    expect(downCue, findsOneWidget);
-    expect(profile, findsNothing);
-    expect(tester.getRect(downCue).bottom, lessThanOrEqualTo(220));
-
-    await tester.dragFrom(tester.getCenter(downCue), const Offset(0, -40));
-    await tester.pumpAndSettle();
-    expect(upCue, findsOneWidget);
-    expect(downCue, findsOneWidget);
-    expect(profile, findsNothing);
-
-    await tester.drag(railScroll, const Offset(0, -600));
-    await tester.pumpAndSettle();
-    expect(upCue, findsOneWidget);
-    expect(downCue, findsNothing);
     expect(
-      find.byKey(const ValueKey('user-menu-tab-other')).hitTestable(),
-      findsOneWidget,
+      tester.state<ScrollableState>(filterScroll).position.axis,
+      Axis.horizontal,
     );
     expect(profile, findsNothing);
 
-    await tester.dragFrom(tester.getCenter(upCue), const Offset(0, 600));
+    await tester.binding.setSurfaceSize(const Size(320, 220));
     await tester.pumpAndSettle();
-    expect(upCue, findsNothing);
-    expect(downCue, findsOneWidget);
+    expect(all.hitTestable(), findsOneWidget);
+    expect(other.hitTestable(), findsNothing);
+    expect(
+      tester.state<ScrollableState>(filterScroll).position.maxScrollExtent,
+      greaterThan(0),
+    );
+
+    await tester.drag(filterScroll, const Offset(-1000, 0));
+    await tester.pumpAndSettle();
+    expect(other.hitTestable(), findsOneWidget);
+    expect(all.hitTestable(), findsNothing);
+    expect(profile, findsNothing);
+    expect(tester.getRect(other).bottom, lessThanOrEqualTo(220));
 
     await tester.binding.setSurfaceSize(const Size(800, 600));
     await tester.pumpAndSettle();
-    expect(upCue, findsNothing);
-    expect(downCue, findsNothing);
+    await tester.drag(filterScroll, const Offset(1000, 0));
+    await tester.pumpAndSettle();
+    expect(all.hitTestable(), findsOneWidget);
+    expect(profile, findsNothing);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'notification rail and feed scroll independently without a profile tab',
+    'notification filters and feed scroll independently without a profile tab',
     (tester) async {
       await _pumpUserMenu(
         tester,
@@ -124,8 +109,6 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(_railUpCueKey), findsNothing);
-      expect(find.byKey(_railDownCueKey), findsOneWidget);
       final profile = find.byKey(const ValueKey('user-menu-tab-profile'));
       expect(profile, findsNothing);
       final notificationScroll = find
@@ -134,41 +117,38 @@ void main() {
             matching: find.byType(Scrollable),
           )
           .first;
-      final railScroll = find
+      final filterScroll = find
           .ancestor(
             of: find.byKey(const ValueKey('user-menu-tab-all')),
             matching: find.byType(Scrollable),
           )
           .first;
-
-      for (final scrollable in [notificationScroll, railScroll]) {
-        final otherScroll = scrollable == railScroll
-            ? notificationScroll
-            : railScroll;
-        final otherOffset = tester
-            .state<ScrollableState>(otherScroll)
-            .position
-            .pixels;
-        await tester.drag(scrollable, const Offset(0, -900));
-        await tester.pumpAndSettle();
-        expect(
-          tester.state<ScrollableState>(scrollable).position.pixels,
-          greaterThan(0),
-        );
-        expect(
-          tester.state<ScrollableState>(otherScroll).position.pixels,
-          otherOffset,
-        );
-        expect(profile, findsNothing);
-        expect(
-          find.byKey(_railUpCueKey),
-          scrollable == railScroll ? findsOneWidget : findsNothing,
-        );
-        expect(
-          find.byKey(_railDownCueKey),
-          scrollable == railScroll ? findsNothing : findsOneWidget,
-        );
-      }
+      final filterBounds = tester.getRect(
+        find.byKey(const ValueKey('user-menu-mobile-tabs')),
+      );
+      final filterPosition = tester
+          .state<ScrollableState>(filterScroll)
+          .position;
+      final feedPosition = tester
+          .state<ScrollableState>(notificationScroll)
+          .position;
+      expect(filterPosition.axis, Axis.horizontal);
+      expect(feedPosition.axis, Axis.vertical);
+      expect(filterPosition.pixels, 0);
+      await tester.drag(notificationScroll, const Offset(0, -900));
+      await tester.pumpAndSettle();
+      expect(feedPosition.pixels, greaterThan(0));
+      expect(filterPosition.pixels, 0);
+      expect(
+        tester.getRect(find.byKey(const ValueKey('user-menu-mobile-tabs'))),
+        filterBounds,
+      );
+      final feedOffset = feedPosition.pixels;
+      await tester.drag(filterScroll, const Offset(-3000, 0));
+      await tester.pumpAndSettle();
+      expect(filterPosition.pixels, greaterThan(0));
+      expect(feedPosition.pixels, feedOffset);
+      expect(profile, findsNothing);
 
       final lastPlugin = find.byKey(
         const ValueKey('user-menu-tab-extra-7/activity'),

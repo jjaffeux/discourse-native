@@ -94,6 +94,18 @@ void main() {
     expect(triggerLabel, findsNothing);
     expect(button, findsOneWidget);
     expect(tester.takeException(), isNull);
+    final controls = [
+      button,
+      find.byKey(const ValueKey('topic-list-feed-menu')),
+      find.byKey(const ValueKey('topic-list-category-filter')),
+      find.byKey(const ValueKey('topic-list-filter')),
+    ];
+    for (final control in controls) {
+      expect(control.hitTestable(), findsOneWidget);
+      final rect = tester.getRect(control);
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(phone.width));
+    }
 
     tester.view.physicalSize = laptop;
     await controller.appSettings.setTextScale(AppTextScale.percent100);

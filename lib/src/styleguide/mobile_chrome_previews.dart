@@ -188,7 +188,10 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                 padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
                 child: Text(
                   'Topics',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                    fontSize: DiscourseTypography.xxl,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               headerControls: Padding(

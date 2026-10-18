@@ -53,7 +53,7 @@ void main() {
           fixture.shell.store.read<Post>(_site, 1)!.likeCount,
           control == 'empty' ? 1 : 2,
         );
-        await tester.pumpAndSettle();
+        await _repaint(tester);
         expect(find.text(_alreadyPerformed), findsNothing);
         expect(_count(control == 'empty' ? '1' : '2'), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -69,10 +69,10 @@ void main() {
     (tester) async {
       final fixture = await _Fixture.open(tester);
       await _tapWithoutFrame(tester, _count('1'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(_count('2'), findsOneWidget);
       await _tapWithoutFrame(tester, _count('2'));
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(fixture.api.requests.map((request) => request.method), [
         'POST',
         'DELETE',
@@ -109,7 +109,7 @@ void main() {
       expect(fixture.api.requests.single.method, 'POST');
       expect(fixture.shell.store.read<Post>(_site, 1)!.liked, isTrue);
       expect(fixture.shell.store.read<Post>(_site, 1)!.likeCount, 6);
-      await tester.pumpAndSettle();
+      await _repaint(tester);
       expect(_count('6'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -136,6 +136,14 @@ Future<void> _tapWithoutFrame(WidgetTester tester, Finder control) =>
       await tester.tap(control);
       await pumpEventQueue();
     });
+
+Future<void> _repaint(WidgetTester tester) async {
+  await tester.pump();
+  await tester.runAsync(() => pumpEventQueue());
+  await tester.pump(const Duration(milliseconds: 300));
+  await tester.runAsync(() => pumpEventQueue());
+  await tester.pump(const Duration(milliseconds: 300));
+}
 
 class _Fixture {
   _Fixture(this.shell, this.api, this.auth);
@@ -181,7 +189,8 @@ class _Fixture {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _repaint(tester);
+    expect(find.byType(PostLikes), findsOneWidget);
     if (initialCount > 0) expect(_count('$initialCount'), findsOneWidget);
     return _Fixture(shell, api, auth);
   }

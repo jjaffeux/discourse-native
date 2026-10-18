@@ -455,9 +455,18 @@ void main() {
         await tester.tap(find.byTooltip('Edit topic category'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
-        await tester.tap(
-          find.byKey(const ValueKey(('topic-category-picker-option', 22))),
+        final categoryOption = find.byKey(
+          const ValueKey(('topic-category-picker-option', 22)),
         );
+        for (
+          var frame = 0;
+          frame < 10 && categoryOption.hitTestable().evaluate().isEmpty;
+          frame++
+        ) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        expect(categoryOption.hitTestable(), findsOneWidget);
+        await tester.tap(categoryOption);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         expect(server.requests, hasLength(2));
@@ -472,24 +481,18 @@ void main() {
           );
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
+          final tagOption = find.byKey(
+            const ValueKey(('topic-tag-picker-option', 'community')),
+          );
           for (
             var frame = 0;
-            frame < 10 &&
-                find
-                    .byKey(
-                      const ValueKey(('topic-tag-picker-option', 'community')),
-                    )
-                    .evaluate()
-                    .isEmpty;
+            frame < 10 && tagOption.hitTestable().evaluate().isEmpty;
             frame++
           ) {
             await tester.pump(const Duration(milliseconds: 100));
           }
-          await tester.tap(
-            find.byKey(
-              const ValueKey(('topic-tag-picker-option', 'community')),
-            ),
-          );
+          expect(tagOption.hitTestable(), findsOneWidget);
+          await tester.tap(tagOption);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);

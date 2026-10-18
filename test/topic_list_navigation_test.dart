@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -831,9 +832,7 @@ void main() {
           findsNothing,
         );
         await _openFilter(tester, 'tag');
-        await tester.tap(find.byType(DSelect<String>));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('include all'));
+        await tester.tap(find.widgetWithText(DToggle, 'All'));
         await tester.pumpAndSettle();
         await _toggleTag(tester, 'approved');
         await _finishFilter(tester);
@@ -1098,7 +1097,7 @@ void main() {
         expect(filters(), isNot(same(hydrated)));
         expect(filters().knownTags.last, added);
 
-        controller.selectTopicListTag(added.slug);
+        controller.selectTopicListTag(added.name);
         await tester.pumpAndSettle();
         expect(find.text(added.name), findsOneWidget);
       },
@@ -1121,7 +1120,12 @@ void main() {
     'open tag picker keeps its query and selection through shell notifications',
     (tester) async {
       const tag = SidebarTag(id: 1, name: 'User experience', slug: 'ux');
-      final setup = await _controller(categorySiteTopTags: const [tag]);
+      final setup = await _controller(
+        categorySiteTopTags: const [tag],
+        filterTagSearches: const {
+          'experience': [TopicFilterLookupValue(name: 'User experience')],
+        },
+      );
       final controller = setup.controller;
       addTearDown(controller.dispose);
       await tester.pumpWidget(
@@ -1139,7 +1143,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
       await tester.pumpAndSettle();
       final query = find.byKey(const ValueKey('topic-filter-input'));
-      await tester.enterText(_filterField(), 'tag:experience');
+      await tester.enterText(_filterField(), 'experience');
       await tester.pump(const Duration(milliseconds: 250));
       await tester.pumpAndSettle();
 
@@ -1154,7 +1158,7 @@ void main() {
             )
             .controller!
             .text,
-        'tag:experience',
+        'experience',
       );
       await _toggleTag(tester, 'User experience');
       await _finishFilter(tester);
@@ -2684,6 +2688,19 @@ void main() {
     (tester) async {
       final setup = await _controller();
       addTearDown(setup.controller.dispose);
+      setup.api.topics[_latestTopic.id] = topicPayload(
+        id: _latestTopic.id,
+        title: _latestTopic.title,
+        posts: const [
+          Post(
+            id: 11,
+            postNumber: 1,
+            username: 'sam',
+            cooked: '<p>Latest topic body</p>',
+          ),
+        ],
+      );
+      await setup.controller.loadFeed('latest');
       tester.view.physicalSize = const Size(1800, 1000);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -2807,6 +2824,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   List<TopicCategory> categoryList = const [],
   List<SidebarTag> categorySiteTopTags = const [],
   List<SidebarTag> tagList = const [],
+  Map<String, List<TopicFilterLookupValue>> filterTagSearches = const {},
   Map<String, List<Topic>> extraFeeds = const {},
   bool canCreateTopics = false,
   bool forumTabsEnabled = false,
@@ -2823,6 +2841,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
   final authenticator = FakeAuthenticator();
   if (user != null) authenticator.keys[site.url] = 'api-key';
   final api = FakeDiscourseApi(
+    topics: {},
     siteConfigGate: siteConfigGate,
     siteConfigs: {site.url: ?remoteConfig},
     creatableFeedPaths: canCreateTopics ? const {'/latest.json'} : const {},
@@ -2864,6 +2883,7 @@ Future<({ShellController controller, FakeDiscourseApi api})> _controller({
         for (final tag in categorySiteTopTags)
           TopicFilterLookupValue(name: tag.name),
       ],
+      ...filterTagSearches,
     },
     tagList: tagList,
   );
@@ -2938,7 +2958,13 @@ Future<void> _openFilter(WidgetTester tester, String key) async {
 }
 
 Future<void> _finishFilter(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(DButton, 'Done'));
+  final done = find.byKey(const ValueKey('topic-filter-done-tags'));
+  if (done.evaluate().isNotEmpty) {
+    await tester.ensureVisible(done);
+    await tester.tap(done);
+  } else {
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+  }
   await tester.pumpAndSettle();
 }
 

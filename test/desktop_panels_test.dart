@@ -1440,10 +1440,10 @@ void main() {
           of: find.byKey(const ValueKey('topic-filter-input')),
           matching: find.byType(TextField),
         ),
-        'status:open',
+        'status:open ',
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Apply'));
+      await tester.tap(find.byKey(const ValueKey('topic-filter-apply')));
       await tester.pumpAndSettle();
 
       expect(shell.activeTabId, main);

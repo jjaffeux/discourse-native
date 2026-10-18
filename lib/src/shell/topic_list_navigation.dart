@@ -272,63 +272,70 @@ class _TopicListNavigationControls extends StatelessWidget {
                       controller.mobileNavigationEnabled ? 14 : 16,
                     )
                   : EdgeInsets.zero,
-              child: Row(
-                key: const ValueKey('topic-list-feed-row'),
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Wrap(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wrap =
+                      constraints.maxWidth < 600 &&
+                      MediaQuery.textScalerOf(context).scale(14) > 21;
+                  final primary = Wrap(
+                    spacing: DSpacing.sm,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (filters != null)
+                        filters
+                      else if (showsTabs)
+                        navigation,
+                    ],
+                  );
+                  final actions = <Widget>[
+                    if (controller.mobileNavigationEnabled || !context.isTouch)
+                      const DismissNewTopicsButton(compact: true),
+                    if (state.connected &&
+                        state.siteUrl != null &&
+                        state.route?.categoryId != null &&
+                        state.route?.isMessages != true &&
+                        (!context.isTouch ||
+                            controller.mobileNavigationEnabled))
+                      CategoryNotificationLevelButton(
+                        siteUrl: state.siteUrl!,
+                        categoryId: state.route!.categoryId!,
+                        size: DButtonSize.filter,
+                        quiet: true,
+                        showChevron: !controller.mobileNavigationEnabled,
+                      ),
+                    if (controller.mobileNavigationEnabled &&
+                        state.siteUrl != null &&
+                        state.route?.isMessages != true)
+                      TopicListFilterMenu(
+                        key: ValueKey((state.siteUrl, state.route!.id)),
+                        siteUrl: state.siteUrl!,
+                        query: controller.topicListFilterEditorQuery(
+                          state.route!,
+                        ),
+                      ),
+                    ?trailing,
+                  ];
+                  if (wrap) {
+                    return DControlWrap(
+                      key: const ValueKey('topic-list-feed-row'),
                       spacing: DSpacing.sm,
                       runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (filters != null)
-                          filters
-                        else if (showsTabs)
-                          navigation,
+                      children: [primary, ...actions],
+                    );
+                  }
+                  return Row(
+                    key: const ValueKey('topic-list-feed-row'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: primary),
+                      for (final action in actions) ...[
+                        const SizedBox(width: DSpacing.sm),
+                        action,
                       ],
-                    ),
-                  ),
-                  // Desktop panes and the mobile dock have no list footer,
-                  // so the dismissal action lives with their feed controls.
-                  if (controller.mobileNavigationEnabled ||
-                      !context.isTouch) ...[
-                    const SizedBox(width: DSpacing.sm),
-                    const DismissNewTopicsButton(compact: true),
-                  ],
-                  if (state.connected &&
-                      state.siteUrl != null &&
-                      state.route?.categoryId != null &&
-                      state.route?.isMessages != true &&
-                      (!context.isTouch ||
-                          controller.mobileNavigationEnabled)) ...[
-                    if (!controller.mobileNavigationEnabled)
-                      const SizedBox(width: DSpacing.sm),
-                    CategoryNotificationLevelButton(
-                      siteUrl: state.siteUrl!,
-                      categoryId: state.route!.categoryId!,
-                      size: DButtonSize.filter,
-                      quiet: true,
-                      showChevron: !controller.mobileNavigationEnabled,
-                    ),
-                  ],
-                  if (controller.mobileNavigationEnabled &&
-                      state.siteUrl != null &&
-                      state.route?.isMessages != true) ...[
-                    const SizedBox(width: 8),
-                    TopicListFilterMenu(
-                      key: ValueKey((state.siteUrl, state.route!.id)),
-                      siteUrl: state.siteUrl!,
-                      query: controller.topicListFilterEditorQuery(
-                        state.route!,
-                      ),
-                    ),
-                  ],
-                  if (trailing != null) ...[
-                    const SizedBox(width: DSpacing.sm),
-                    trailing!,
-                  ],
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ),

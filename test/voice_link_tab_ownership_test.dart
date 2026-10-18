@@ -82,7 +82,11 @@ void main() {
               child: MaterialApp(
                 home: Scaffold(
                   body: LinkTarget.content(
-                    content: ContentRoute.preferences(),
+                    content: ContentRoute.topic(
+                      topicId: 19,
+                      slug: 'another-page',
+                      title: 'Another page',
+                    ),
                     child: DButton(
                       onPressed: () {},
                       label: const Text('Another page'),

@@ -666,7 +666,7 @@ class _DCommandInputState<T> extends State<DCommandInput<T>> {
             borderless: borderless,
             style: menu
                 ? Theme.of(context).textTheme.bodyMedium!.copyWith(
-                    fontSize: 13,
+                    fontSize: DiscourseTypography.control,
                     height: 1.5,
                     fontWeight: FontWeight.w400,
                     letterSpacing: 0,

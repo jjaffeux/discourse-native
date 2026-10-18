@@ -87,8 +87,7 @@ void main() {
           await shell.chat.loadChannels(_site);
           expect(shell.openChatChannel(9), isTrue);
           await tester.pumpAndSettle();
-          final composer = find.byType(ChatComposer);
-          final composerState = tester.state(composer);
+          expect(find.byType(ChatComposer), findsOneWidget);
           await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
           await tester.pumpAndSettle();
           await tester.tap(find.byKey(const ValueKey('chat-composer-gif')));
@@ -97,7 +96,6 @@ void main() {
           await tester.pumpAndSettle();
           final tile = find.byKey(const ValueKey('gif-result-0'));
           expect(tile, findsOneWidget);
-          final pickerState = tester.state(find.byType(GifPicker));
           final lease = shell.chat.captureSession(_site);
           if (operation == _Operation.unchangedWhilePaging) {
             await tester.tap(
@@ -133,9 +131,9 @@ void main() {
             await shell.chat.openChannel(_site, 9, force: true);
             await tester.pump();
             await tester.pump(const Duration(milliseconds: 300));
-            expect(tester.state(composer), same(composerState));
-            expect(tester.state(find.byType(GifPicker)), same(pickerState));
             expect(shell.chat.canSendMessage(_site, 9), isTrue);
+            expect(find.byType(ChatComposer), findsOneWidget);
+            expect(tile, findsOneWidget);
           }
           await tester.tap(tile);
           await tester.pump();
@@ -146,6 +144,26 @@ void main() {
           } else {
             expect(api.chatMessagesSent, isEmpty);
             expect(find.byType(GifPicker), findsOneWidget);
+            await tester.tap(find.byKey(const ValueKey('gif-picker-close')));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 300));
+            expect(find.byType(GifPicker), findsNothing);
+            await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.tap(find.byKey(const ValueKey('chat-composer-gif')));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.tap(find.byKey(const ValueKey('gif-category-0')));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 300));
+            await tester.tap(tile);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 300));
+            expect(api.chatMessagesSent.single.message, _result.markdown);
+            expect(api.chatMessagesSent.single.siteUrl, _site);
+            expect(api.chatMessagesSent.single.channelId, 9);
+            expect(find.byType(GifPicker), findsNothing);
           }
           expect(tester.takeException(), isNull);
         } finally {

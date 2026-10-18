@@ -76,9 +76,7 @@ void main() {
         'Native Chat Delete ${operation.name} ${timing.name} owns its menu',
         (tester) async {
           final fixture = await _openChannel(tester);
-          final focus = find.byKey(const ValueKey('chat-message-actions-7'));
           await _openMenu(tester);
-          final owner = tester.state(focus);
           final action = find.byKey(const ValueKey('chat-message-delete-7'));
           expect(action, findsOneWidget);
           expect(
@@ -95,13 +93,12 @@ void main() {
           }
           await _transition(tester, fixture, operation);
           expect(lease.isCurrent, operation == _Operation.unchanged);
-          expect(tester.state(focus), same(owner));
           if (timing == _Timing.afterRepaint) {
             await _pump(tester);
-            if (operation != _Operation.reconnect) {
-              expect(tester.state(focus), same(owner));
-              expect(action, findsOneWidget);
-            }
+            expect(
+              action,
+              operation == _Operation.unchanged ? findsOneWidget : findsNothing,
+            );
           }
           if (timing != _Timing.afterClick && action.evaluate().isNotEmpty) {
             await tester.tap(action);

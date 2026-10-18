@@ -11,6 +11,7 @@ import '../models/category_sidebar.dart';
 import '../models/content_route.dart';
 import '../models/json.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
@@ -367,7 +368,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                     ? context.l10n.noCategoriesWithTopics
                                     : context.l10n.nothingHereYet,
                                 style: TextStyle(
-                                  fontSize: 13.5,
+                                  fontSize: DiscourseTypography.compact,
                                   color: DTokens.of(context).mutedForeground,
                                 ),
                               ),

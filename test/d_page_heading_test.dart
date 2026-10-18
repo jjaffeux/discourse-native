@@ -397,6 +397,115 @@ void main() {
     }
   }
 
+  testWidgets('adaptive body follows inherited theme and text scale changes', (
+    tester,
+  ) async {
+    final settings = ValueNotifier((dark: false, scale: 1.0));
+    addTearDown(settings.dispose);
+    final page = DPageSurface.headed(
+      title: const Text('Directory'),
+      adaptiveBodyBuilder: (context, bounded) {
+        final theme = Theme.of(context);
+        final scale = MediaQuery.textScalerOf(context).scale(10);
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Text(
+            '${theme.brightness.name} $scale',
+            style: TextStyle(color: theme.colorScheme.primary),
+          ),
+        );
+      },
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder(
+          valueListenable: settings,
+          child: page,
+          builder: (context, value, child) => Theme(
+            data: value.dark ? AppTheme.dark : AppTheme.light,
+            child: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(value.scale)),
+              child: child!,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('light 10.0'), findsOneWidget);
+    final before = tester.getSize(find.text('light 10.0')).height;
+
+    settings.value = (dark: true, scale: 2.0);
+    await tester.pumpAndSettle();
+
+    expect(find.text('light 10.0'), findsNothing);
+    expect(find.text('dark 20.0'), findsOneWidget);
+    expect(tester.getSize(find.text('dark 20.0')).height, greaterThan(before));
+    expect(
+      tester.widget<Text>(find.text('dark 20.0')).style!.color,
+      AppTheme.dark.colorScheme.primary,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('adaptive body refreshes content and switches layout modes', (
+    tester,
+  ) async {
+    final extent = ValueNotifier(400.0);
+    addTearDown(extent.dispose);
+    late StateSetter update;
+    var content = 'First';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              final label = content;
+              return ValueListenableBuilder(
+                valueListenable: extent,
+                child: DPageSurface.headed(
+                  title: const Text('Directory'),
+                  controls: const SizedBox(height: 200),
+                  adaptiveBodyBuilder: (context, bounded) => bounded
+                      ? ListView(
+                          children: [
+                            Text('$label scrolling'),
+                            const SizedBox(height: 1000),
+                          ],
+                        )
+                      : SizedBox(height: 1000, child: Text('$label stacked')),
+                ),
+                builder: (context, height, child) =>
+                    SizedBox(width: 320, height: height, child: child),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('First scrolling'), findsOneWidget);
+    expect(find.byType(ListView), findsOneWidget);
+
+    update(() => content = 'Second');
+    await tester.pumpAndSettle();
+    expect(find.text('First scrolling'), findsNothing);
+    expect(find.text('Second scrolling'), findsOneWidget);
+
+    extent.value = 260;
+    await tester.pumpAndSettle();
+    expect(find.byType(ListView), findsNothing);
+    expect(find.text('Second stacked'), findsOneWidget);
+
+    extent.value = 400;
+    await tester.pumpAndSettle();
+    expect(find.byType(ListView), findsOneWidget);
+    expect(find.text('Second stacked'), findsNothing);
+    expect(find.text('Second scrolling'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'title motion preserves the short-page fallback and scroll position',
     (tester) async {

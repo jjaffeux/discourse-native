@@ -196,6 +196,8 @@ void main() {
       expect(find.text('Deletion is temporarily disabled.'), findsOneWidget);
       expect(shell.currentContent, same(route));
       expect(shell.currentTopic?.canRecoverTopic, isFalse);
+      await tester.tap(find.byTooltip('Close toast'));
+      await tester.pumpAndSettle();
 
       api.deletionFailure = null;
       await _choose(tester, 'Delete topic');

@@ -39,6 +39,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
   }
 
   Finder tagOption(String name) =>

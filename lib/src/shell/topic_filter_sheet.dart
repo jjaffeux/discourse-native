@@ -327,7 +327,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                     text:
                         '  ${context.l10n.filterCategoryIn(suggestion.description!.split(' › ').reversed.skip(1).toList().reversed.join(' › '))}',
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: DiscourseTypography.metadata,
                       color: DTokens.of(context).mutedForeground,
                     ),
                   ),
@@ -351,7 +351,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
           Text(
             '${_categoryCount(category, exact: suggestion.name.startsWith('='))}',
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: DiscourseTypography.metadata,
               color: DTokens.of(context).mutedForeground,
             ),
           ),

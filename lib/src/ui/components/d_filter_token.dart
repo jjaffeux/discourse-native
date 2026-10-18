@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
+import '../../theme/discourse_typography.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_artwork.dart';
 import '../foundation/tokens.dart';
@@ -46,7 +47,7 @@ class DFilterToken extends StatelessWidget {
         ? Color.lerp(tokens.primary, Colors.white, .28)!
         : tokens.primary;
     final text = Theme.of(context).textTheme.bodySmall!.copyWith(
-      fontSize: 12,
+      fontSize: DiscourseTypography.xs,
       height: 1.5,
       letterSpacing: 0,
       fontWeight: FontWeight.w400,

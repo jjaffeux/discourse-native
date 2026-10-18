@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -80,28 +82,26 @@ const _teamReply = DiscourseNotification.test(
   data: {'display_username': 'bob'},
 );
 
-const _metaBookmark = Bookmark(
+const _metaBookmarkReminder = DiscourseNotification.test(
   id: 31,
+  typeId: NotificationTypeId(24),
   title: 'Meta chat message',
-  author: 'alice',
-  path: '/chat/c/meta/1/31',
+  data: {'bookmarkable_url': '/chat/c/meta/1/31'},
 );
 
-const _teamBookmark = Bookmark(
+const _teamBookmarkReminder = DiscourseNotification.test(
   id: 32,
+  typeId: NotificationTypeId(24),
   title: 'Team chat message',
-  author: 'bob',
-  path: '/chat/c/team/2/32',
+  data: {'bookmarkable_url': '/chat/c/team/2/32'},
 );
 
 void main() {
-  group('invite menu ownership', () {
+  group('invite section ownership', () {
     testWidgets(
       'replaces desktop invites when the selected site changes',
       (tester) => _withMenu(tester, TargetPlatform.macOS, (fixture) async {
-        await tester.tap(find.byKey(UserMenuButton.bellKey));
-        await tester.pumpAndSettle();
-        await _tapDesktopFilter(tester, 'invites');
+        await _openInviteSection(tester);
         expect(find.text('meta-invite@example.com'), findsOneWidget);
         final shell = ShellScope.read(
           tester.element(find.byType(InviteSection)),
@@ -115,10 +115,10 @@ void main() {
     );
 
     testWidgets(
-      'reloads the mobile invite tab when the selected site changes',
+      'reloads mobile invites when the selected site changes',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         final launched = _watchBrowser(tester);
-        await _openNestedSection(tester, 'Invites');
+        await _openInviteSection(tester);
         final shell = ShellScope.read(
           tester.element(find.byType(InviteSection)),
         );
@@ -549,7 +549,7 @@ void main() {
     );
 
     testWidgets(
-      'mobile bookmark actions follow the displayed site',
+      'mobile bookmark reminder actions follow the displayed site',
       (tester) => _withMenu(tester, TargetPlatform.android, (fixture) async {
         final launched = _watchBrowser(tester);
         final api = fixture.api;
@@ -579,6 +579,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(launched, ['$_teamUrl/chat/c/team/2/32']);
+        expect(api.readSites, [(siteUrl: _teamUrl, id: 32)]);
       }),
     );
   });
@@ -845,6 +846,30 @@ Future<void> _openNestedSection(WidgetTester tester, String label) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openInviteSection(WidgetTester tester) async {
+  final context = tester.element(find.byType(UserMenuButton).first);
+  final shell = ShellScope.read(context);
+  unawaited(
+    showDDialog<void>(
+      context: context,
+      builder: (context, dialog) => ShellScope(
+        controller: shell,
+        child: DDialogContent(
+          maxWidth: 500,
+          children: [
+            ShellSelector<String?>(
+              select: (controller) => controller.currentInstance?.url,
+              builder: (context, siteUrl, _) =>
+                  InviteSection(siteUrl: siteUrl!, onOpened: dialog.close),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 List<String> _watchBrowser(WidgetTester tester) {
   const channel = MethodChannel('plugins.flutter.io/url_launcher');
   final launched = <String>[];
@@ -954,8 +979,10 @@ final class _SiteMenuApi extends FakeDiscourseApi {
   }) async {
     bookmarkSites.add(siteUrl);
     return (
-      reminders: const <DiscourseNotification>[],
-      bookmarks: [siteUrl == _metaUrl ? _metaBookmark : _teamBookmark],
+      reminders: [
+        siteUrl == _metaUrl ? _metaBookmarkReminder : _teamBookmarkReminder,
+      ],
+      bookmarks: const <Bookmark>[],
     );
   }
 

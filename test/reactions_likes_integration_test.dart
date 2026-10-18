@@ -1231,7 +1231,11 @@ void _registerReactionAndLikeTests() {
         await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
-            of: find.byType(DSheetContent),
+            of: find.byWidgetPredicate(
+              (widget) =>
+                  widget is DSheetContent &&
+                  widget.semanticLabel == 'Post reactions',
+            ),
             matching: find.byType(PostReactionButton),
           ),
         );
@@ -1241,7 +1245,14 @@ void _registerReactionAndLikeTests() {
         await tester.pumpAndSettle();
         expect(api.reacted, [(postId: 1, reaction: 'heart')]);
         expect(tester.takeException(), isNull);
-        expect(find.byType(DSheetContent), findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is DSheetContent &&
+                widget.semanticLabel == 'Post reactions',
+          ),
+          findsNothing,
+        );
         expect(
           find.byKey(const ValueKey('post-reaction-summary-1')),
           findsNothing,

@@ -2259,8 +2259,11 @@ void main() {
                   matching: find.byTooltip('More message actions'),
                 ),
               );
+              await tester.pump();
               await tester.pump(const Duration(milliseconds: 300));
-              await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Edit'));
+              final edit = find.widgetWithText(DDropdownMenuItem, 'Edit');
+              expect(edit.hitTestable(), findsOneWidget);
+              await tester.tap(edit);
               await tester.pump();
               await tester.pump(const Duration(milliseconds: 300));
               if (!saving) await tester.pumpAndSettle();
