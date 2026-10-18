@@ -14,13 +14,11 @@ class ChatChannelListActions extends StatelessWidget {
     required this.controller,
     required this.siteUrl,
     required this.section,
-    this.showFilterToggle = true,
   });
 
   final ChatChannelListController controller;
   final String siteUrl;
   final ChatChannelListSection section;
-  final bool showFilterToggle;
 
   String get _label => switch (section) {
     ChatChannelListSection.channels => appL10n.channels,
@@ -49,8 +47,7 @@ class ChatChannelListActions extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (filter != ChatChannelListFilter.all &&
-              (showFilterToggle || bypassed))
+          if (filter != ChatChannelListFilter.all)
             DButton.iconOnly(
               key: ValueKey('chat-filter-toggle-${section.name}'),
               icon: DIcon(bypassed ? DIcons.filter : DIcons.farEye),
