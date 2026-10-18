@@ -106,7 +106,6 @@
   "@mentionSearchFailed": {
     "description": "Shown when the composer mention search request fails."
   },
-
   "primaryNavigation": "Primary navigation",
   "@primaryNavigation": {
     "description": "English UI message used by ui/components/d_navigation_menu.dart. Keep placeholders intact."
@@ -207,10 +206,6 @@
   "@select": {
     "description": "English UI message used by ui/components/d_data_table.dart. Keep placeholders intact."
   },
-  "selectAllRowsOnThisPage": "Select all rows on this page",
-  "@selectAllRowsOnThisPage": {
-    "description": "English UI message used by ui/components/d_data_table.dart. Keep placeholders intact."
-  },
   "noResults": "No results.",
   "@noResults": {
     "description": "English UI message used by ui/components/d_data_table.dart. Keep placeholders intact."
@@ -220,15 +215,6 @@
     "description": "English UI message used by ui/components/d_data_table.dart. Keep placeholders intact.",
     "placeholders": {
       "columnLabel": {
-        "type": "String"
-      }
-    }
-  },
-  "selectRow": "Select row {index}",
-  "@selectRow": {
-    "description": "English UI message used by ui/components/d_data_table.dart. Keep placeholders intact.",
-    "placeholders": {
-      "index": {
         "type": "String"
       }
     }
@@ -1246,10 +1232,6 @@
   "couldNotLoadThisChannel": "Could not load this channel.",
   "@couldNotLoadThisChannel": {
     "description": "English UI message used by plugins/chat/chat_controller.dart. Keep placeholders intact."
-  },
-  "exitChat": "Exit chat",
-  "@exitChat": {
-    "description": "English UI message used by plugins/chat/chat_header_button.dart. Keep placeholders intact."
   },
   "chatUrgent": "{urgentCount, plural, =1{Chat, {urgentCount} urgent message} other{Chat, {urgentCount} urgent messages}}",
   "@chatUrgent": {
@@ -2864,21 +2846,8 @@
   "@selectAValue": {
     "description": "English UI message used by plugins/discourse_placeholder/discourse_placeholder_plugin.dart. Keep placeholders intact."
   },
-  "removeYourReactionReactionpicker": "Remove your {mine} reaction",
-  "@removeYourReactionReactionpicker": {
-    "description": "English UI message used by plugins/reactions/reaction_picker.dart. Keep placeholders intact.",
-    "placeholders": {
-      "mine": {
-        "type": "String"
-      }
-    }
-  },
   "chooseAReaction": "Choose a reaction",
   "@chooseAReaction": {
-    "description": "English UI message used by plugins/reactions/reaction_picker.dart. Keep placeholders intact."
-  },
-  "chooseAReactionReactionpicker": "choose a reaction",
-  "@chooseAReactionReactionpicker": {
     "description": "English UI message used by plugins/reactions/reaction_picker.dart. Keep placeholders intact."
   },
   "stillFindingOutWhichReactionsThisSiteAllows": "Still finding out which reactions this site allows.",
@@ -3875,10 +3844,6 @@
         "type": "String"
       }
     }
-  },
-  "rejectedVoiceTrack": "rejected Voice track",
-  "@rejectedVoiceTrack": {
-    "description": "English UI message used by plugins/voice/voice_media.dart. Keep placeholders intact."
   },
   "missingLiveKitCredentials": "Missing LiveKit credentials",
   "@missingLiveKitCredentials": {
@@ -5442,21 +5407,8 @@
   "@sendInvitations": {
     "description": "English UI message used by plugins/discourse_events/event_participants.dart. Keep placeholders intact."
   },
-  "viewEventSchedule": "View event schedule: {scheduleDescription}",
-  "@viewEventSchedule": {
-    "description": "English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact.",
-    "placeholders": {
-      "scheduleDescription": {
-        "type": "String"
-      }
-    }
-  },
   "allDayEventtopictitle": " · All day",
   "@allDayEventtopictitle": {
-    "description": "English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact."
-  },
-  "eventSchedule": "Event schedule",
-  "@eventSchedule": {
     "description": "English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact."
   },
   "dateUnavailable": "Date unavailable",
@@ -5478,10 +5430,6 @@
   "invalidParticipantList": "Invalid participant list",
   "@invalidParticipantList": {
     "description": "English UI message used by plugins/discourse_events/event_api.dart. Keep placeholders intact."
-  },
-  "upcomingEvents": "Upcoming events",
-  "@upcomingEvents": {
-    "description": "English UI message used by plugins/discourse_events/discourse_events_plugin.dart. Keep placeholders intact."
   },
   "unableToLoadEventsTryRefreshingTheCalendar": "Unable to load events. Try refreshing the calendar.",
   "@unableToLoadEventsTryRefreshingTheCalendar": {
@@ -6380,10 +6328,6 @@
   "@font": {
     "description": "English UI message used by shell/app_settings_page.dart. Keep placeholders intact."
   },
-  "usedForReadingAndWritingInEveryForum": "Used for reading and writing in every forum.",
-  "@usedForReadingAndWritingInEveryForum": {
-    "description": "English UI message used by shell/app_settings_page.dart. Keep placeholders intact."
-  },
   "theQuickBrownFoxJumpsOverTheLazyDog": "The quick brown fox jumps over the lazy dog.",
   "@theQuickBrownFoxJumpsOverTheLazyDog": {
     "description": "English UI message used by shell/app_settings_page.dart. Keep placeholders intact."
@@ -6722,15 +6666,6 @@
     "description": "English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact.",
     "placeholders": {
       "categoryName": {
-        "type": "String"
-      }
-    }
-  },
-  "dismissTopicinboxheader": "Dismiss {sectionLabel}",
-  "@dismissTopicinboxheader": {
-    "description": "English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact.",
-    "placeholders": {
-      "sectionLabel": {
         "type": "String"
       }
     }
@@ -7765,63 +7700,9 @@
   "@theComposerChangedWhileTheEmojiPickerWasOpenNothingWas": {
     "description": "English UI message used by shell/emoji_composer.dart. Keep placeholders intact."
   },
-  "noForumsSelected": "No forums selected",
-  "@noForumsSelected": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "noMatchingTopics": "No matching topics",
-  "@noMatchingTopics": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "chooseForums": "Choose forums",
-  "@chooseForums": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "forumFilters": "Forum filters",
-  "@forumFilters": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "editActiveFilters": "Edit active filters",
-  "@editActiveFilters": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "useForumDefault": "Use forum default",
-  "@useForumDefault": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
   "aggregate": "Aggregate",
   "@aggregate": {
     "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "aggregateAggregateview": "Aggregate {index}",
-  "@aggregateAggregateview": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact.",
-    "placeholders": {
-      "index": {
-        "type": "String"
-      }
-    }
-  },
-  "aggregateTab": "Aggregate tab",
-  "@aggregateTab": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "thisForumAlreadyHas20TabsCloseOneAndTryAgain": "This forum already has 20 tabs. Close one and try again.",
-  "@thisForumAlreadyHas20TabsCloseOneAndTryAgain": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "thatTopicIsNoLongerAvailable": "That topic is no longer available.",
-  "@thatTopicIsNoLongerAvailable": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
-  },
-  "notBeRefreshed": "{failed, plural, =1{{failed} forum could not be refreshed.} other{{failed} forums could not be refreshed.}}",
-  "@notBeRefreshed": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact.",
-    "placeholders": {
-      "failed": {
-        "type": "num"
-      }
-    }
   },
   "posts": "Posts",
   "@posts": {
@@ -9003,22 +8884,6 @@
   "@color": {
     "description": "English UI message used by shell/composer_selection_colors.dart. Keep placeholders intact."
   },
-  "minimizePanel": "Minimize panel",
-  "@minimizePanel": {
-    "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
-  },
-  "openATabInTheOtherPanelFirst": "Open a tab in the other panel first",
-  "@openATabInTheOtherPanelFirst": {
-    "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
-  },
-  "mainPanelMinimized": "Main panel, minimized",
-  "@mainPanelMinimized": {
-    "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
-  },
-  "secondaryPanelMinimized": "Secondary panel, minimized",
-  "@secondaryPanelMinimized": {
-    "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
-  },
   "swapPanels": "Swap panels",
   "@swapPanels": {
     "description": "Action that exchanges the positions of the two desktop panels."
@@ -9033,14 +8898,6 @@
   },
   "secondaryPanel": "Secondary panel",
   "@secondaryPanel": {
-    "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
-  },
-  "dropThisTabHere": "Drop this tab here",
-  "@dropThisTabHere": {
-    "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
-  },
-  "dragATabHereOrOpenANewTab": "Drag a tab here or open a new tab.",
-  "@dragATabHereOrOpenANewTab": {
     "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
   },
   "message1pxSolid": "1px solid {horizontalRuleColor}",
@@ -10979,10 +10836,6 @@
   "@reading": {
     "description": "English UI message used by shell/user_summary.dart. Keep placeholders intact."
   },
-  "timeReading": "Time reading",
-  "@timeReading": {
-    "description": "English UI message used by shell/user_summary.dart. Keep placeholders intact."
-  },
   "readTimeAllTime": "read time: {timeLong}, all time",
   "@readTimeAllTime": {
     "description": "English UI message used by shell/user_summary.dart. Keep placeholders intact.",
@@ -11555,10 +11408,6 @@
   "@restoreComposer": {
     "description": "English UI message used by shell/composer_header.dart. Keep placeholders intact."
   },
-  "resumeEditingComposerheader": "Resume editing",
-  "@resumeEditingComposerheader": {
-    "description": "English UI message used by shell/composer_header.dart. Keep placeholders intact."
-  },
   "replyVisibility": "Reply visibility",
   "@replyVisibility": {
     "description": "English UI message used by shell/composer_header.dart. Keep placeholders intact."
@@ -11599,10 +11448,6 @@
         "type": "String"
       }
     }
-  },
-  "dockSide": "Dock side",
-  "@dockSide": {
-    "description": "English UI message used by shell/composer_header.dart. Keep placeholders intact."
   },
   "composerView": "Composer view",
   "@composerView": {
@@ -11688,14 +11533,6 @@
   "@openANewTab": {
     "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
   },
-  "showMoreTabs": "Show more tabs",
-  "@showMoreTabs": {
-    "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
-  },
-  "showPreviousTabs": "Show previous tabs",
-  "@showPreviousTabs": {
-    "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
-  },
   "rename": "Rename",
   "@rename": {
     "description": "English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact."
@@ -11758,22 +11595,6 @@
   },
   "unanswered": "Unanswered",
   "@unanswered": {
-    "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
-  },
-  "closedTopics": "Closed topics",
-  "@closedTopics": {
-    "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
-  },
-  "unreadReplies": "Unread replies",
-  "@unreadReplies": {
-    "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
-  },
-  "newTopicsTopiclistactions": "New topics",
-  "@newTopicsTopiclistactions": {
-    "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
-  },
-  "applyFilter": "Apply filter",
-  "@applyFilter": {
     "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
   },
   "editActiveFilter": "Edit active filter",
@@ -12294,19 +12115,6 @@
   "@forum": {
     "description": "English UI message used by shell/instance_sidebar.dart. Keep placeholders intact."
   },
-  "openForumInBrowser": "Open forum in browser",
-  "@openForumInBrowser": {
-    "description": "English UI message used by shell/instance_sidebar.dart. Keep placeholders intact."
-  },
-  "forumMenu": "{name}, forum menu",
-  "@forumMenu": {
-    "description": "English UI message used by shell/instance_sidebar.dart. Keep placeholders intact.",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
   "loadingNavigation": "Loading navigation",
   "@loadingNavigation": {
     "description": "English UI message used by shell/instance_sidebar.dart. Keep placeholders intact."
@@ -12480,10 +12288,6 @@
   "@due": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
   },
-  "reminderNewtabpage": "Reminder",
-  "@reminderNewtabpage": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
   "comfortable": "Comfortable",
   "@comfortable": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
@@ -12496,10 +12300,6 @@
   "@recentlyClosedNewtabpage": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
   },
-  "everythingElse": "Everything else",
-  "@everythingElse": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
   "badges": "Badges",
   "@badges": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
@@ -12508,37 +12308,8 @@
   "@browseLatestTopics": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
   },
-  "postNewtabpage": "Post #{number}",
-  "@postNewtabpage": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact.",
-    "placeholders": {
-      "number": {
-        "type": "String"
-      }
-    }
-  },
-  "workWithTwoPanels": "Work with two panels",
-  "@workWithTwoPanels": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "middleClick": "Middle click",
-  "@middleClick": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "opensANewTabInMainPanel": "Opens a new tab in main panel",
-  "@opensANewTabInMainPanel": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
   "click": "Click",
   "@click": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "openInANewTabInSecondaryPanel": "Open in a new tab in secondary panel",
-  "@openInANewTabInSecondaryPanel": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "donTShowThisTutorialAgain": "Don''t show this tutorial again",
-  "@donTShowThisTutorialAgain": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
   },
   "main": "Main",
@@ -12547,10 +12318,6 @@
   },
   "secondary": "Secondary",
   "@secondary": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "shiftClickOpensHere": "Shift + click opens here",
-  "@shiftClickOpensHere": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
   },
   "reconnectToToSeeYourDrafts": "Reconnect to {instanceHost} to see your drafts.",
@@ -12902,28 +12669,6 @@
   },
   "privateConversation": "Private conversation",
   "@privateConversation": {
-    "description": "English UI message used by shell/conversation_topic_card.dart. Keep placeholders intact."
-  },
-  "lastPostBy": "Last post by {username} · ",
-  "@lastPostBy": {
-    "description": "English UI message used by shell/conversation_topic_card.dart. Keep placeholders intact.",
-    "placeholders": {
-      "username": {
-        "type": "String"
-      }
-    }
-  },
-  "lastPostByConversationtopiccard": "Last post by {username}",
-  "@lastPostByConversationtopiccard": {
-    "description": "English UI message used by shell/conversation_topic_card.dart. Keep placeholders intact.",
-    "placeholders": {
-      "username": {
-        "type": "String"
-      }
-    }
-  },
-  "lastPostByConversationtopiccardValue": "Last post by ",
-  "@lastPostByConversationtopiccardValue": {
     "description": "English UI message used by shell/conversation_topic_card.dart. Keep placeholders intact."
   },
   "sortByConversationtopiccard": "{orderColumn, select, true{{label}, sort by {viewsViewsLabel}, {ascendingAscendingDescending}} other{{label}, sort by {viewsViewsLabel}, unsorted}}",
@@ -13405,10 +13150,6 @@
         "type": "String"
       }
     }
-  },
-  "unsupportedSearchResult": "Unsupported search result.",
-  "@unsupportedSearchResult": {
-    "description": "English UI message used by shell/global_search_api.dart. Keep placeholders intact."
   },
   "useAShorterCategoryName": "Use a shorter category name.",
   "@useAShorterCategoryName": {
@@ -14212,28 +13953,8 @@
   "@matchTopicsThat": {
     "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
   },
-  "applyChanges": "Apply changes",
-  "@applyChanges": {
-    "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
-  },
   "addCondition": "Add condition",
   "@addCondition": {
-    "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
-  },
-  "includeAnySelectedTag": "Include any selected tag",
-  "@includeAnySelectedTag": {
-    "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
-  },
-  "includeEverySelectedTag": "Include every selected tag",
-  "@includeEverySelectedTag": {
-    "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
-  },
-  "excludeAnySelectedTag": "Exclude any selected tag",
-  "@excludeAnySelectedTag": {
-    "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
-  },
-  "excludeThisCombination": "Exclude this combination",
-  "@excludeThisCombination": {
     "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
   },
   "removeGlobalsearchfilterpicker": "Remove {controllerFilterValue}",
@@ -14959,10 +14680,6 @@
   },
   "chooseStatusEmoji": "Choose status emoji",
   "@chooseStatusEmoji": {
-    "description": "English UI message used by shell/user_status_editor.dart. Keep placeholders intact."
-  },
-  "statusEmoji": "Status emoji",
-  "@statusEmoji": {
     "description": "English UI message used by shell/user_status_editor.dart. Keep placeholders intact."
   },
   "whatSYourStatus": "What’s your status?",
@@ -15748,10 +15465,6 @@
   },
   "noComponentsMatchYourSearch": "No components match your search.",
   "@noComponentsMatchYourSearch": {
-    "description": "English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact."
-  },
-  "gettingStarted": "Getting started",
-  "@gettingStarted": {
     "description": "English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact."
   },
   "previousComponent": "Previous component",
@@ -17688,10 +17401,6 @@
       }
     }
   },
-  "tWOPANELS": "TWO PANELS",
-  "@tWOPANELS": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
   "theInbox": "the {group} inbox",
   "@theInbox": {
     "description": "English UI message used by shell/message_archive_button.dart. Keep placeholders intact.",
@@ -17737,15 +17446,6 @@
     "description": "English UI message used by shell/post_likes.dart. Keep placeholders intact.",
     "placeholders": {
       "hidden": {
-        "type": "String"
-      }
-    }
-  },
-  "messageOf": "of {total}",
-  "@messageOf": {
-    "description": "English UI message used by shell/topic_progress.dart. Keep placeholders intact.",
-    "placeholders": {
-      "total": {
         "type": "String"
       }
     }
@@ -19711,15 +19411,6 @@
   "@confirmUseEverywhere": {
     "description": "Confirm replacement of theme selections across every forum and Home."
   },
-  "startPageForumCount": "{count, plural, =1{1 forum} other{{count} forums}}",
-  "@startPageForumCount": {
-    "description": "Number of saved forums on the All forums start page.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "composerIndent": "Indent",
   "@composerIndent": {
     "description": "Composer toolbar action to nest the current list or to-do item under the preceding item."
@@ -19873,10 +19564,6 @@
       }
     }
   },
-  "recentTopics": "Recent topics",
-  "@recentTopics": {
-    "description": "Start page section containing recently visited topics."
-  },
   "startPageNoMatches": "Nothing matches “{query}”",
   "@startPageNoMatches": {
     "description": "Start page cached search has no matching rows.",
@@ -19959,12 +19646,6 @@
   "@voiceSpeaking": {
     "description": "Voice call presentation and floating panel accessibility."
   },
-  "startPagePinnedSections": "Pinned sections",
-  "@startPagePinnedSections": {"description": "Start alphabet index shortcut for pinned sections."},
-  "pinStartSection": "Pin {title} to the top",
-  "@pinStartSection": {"placeholders": {"title": {"type": "String"}}},
-  "unpinStartSection": "Unpin {title}",
-  "@unpinStartSection": {"placeholders": {"title": {"type": "String"}}},
   "summaryPerson": "Person",
   "@summaryPerson": {
     "description": "Label used by the Native mockup Summary, Activity or desktop navigation UI."
@@ -20177,5 +19858,4 @@
   "@userCardMoreBadges": {"placeholders": {"count": {"type": "int"}}},
   "userCardReadTime": "Read time",
   "@userCardReadTime": {"description": "Reading duration in the profile card."}
-
 }

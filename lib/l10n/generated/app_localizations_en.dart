@@ -249,19 +249,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get select => 'Select';
 
   @override
-  String get selectAllRowsOnThisPage => 'Select all rows on this page';
-
-  @override
   String get noResults => 'No results.';
 
   @override
   String resizeColumn(String columnLabel) {
     return 'Resize $columnLabel column';
-  }
-
-  @override
-  String selectRow(String index) {
-    return 'Select row $index';
   }
 
   @override
@@ -1032,9 +1024,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get couldNotLoadThisChannel => 'Could not load this channel.';
-
-  @override
-  String get exitChat => 'Exit chat';
 
   @override
   String chatUrgent(num urgentCount) {
@@ -2251,15 +2240,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectAValue => 'Select a value';
 
   @override
-  String removeYourReactionReactionpicker(String mine) {
-    return 'Remove your $mine reaction';
-  }
-
-  @override
   String get chooseAReaction => 'Choose a reaction';
-
-  @override
-  String get chooseAReactionReactionpicker => 'choose a reaction';
 
   @override
   String get stillFindingOutWhichReactionsThisSiteAllows =>
@@ -3021,9 +3002,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String voiceMediaOperationFailed(String operation) {
     return 'Voice media operation $operation failed.';
   }
-
-  @override
-  String get rejectedVoiceTrack => 'rejected Voice track';
 
   @override
   String get missingLiveKitCredentials => 'Missing LiveKit credentials';
@@ -4166,15 +4144,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sendInvitations => 'Send invitations';
 
   @override
-  String viewEventSchedule(String scheduleDescription) {
-    return 'View event schedule: $scheduleDescription';
-  }
-
-  @override
   String get allDayEventtopictitle => ' · All day';
-
-  @override
-  String get eventSchedule => 'Event schedule';
 
   @override
   String get dateUnavailable => 'Date unavailable';
@@ -4190,9 +4160,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get invalidParticipantList => 'Invalid participant list';
-
-  @override
-  String get upcomingEvents => 'Upcoming events';
 
   @override
   String get unableToLoadEventsTryRefreshingTheCalendar =>
@@ -4874,10 +4841,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get font => 'Font';
 
   @override
-  String get usedForReadingAndWritingInEveryForum =>
-      'Used for reading and writing in every forum.';
-
-  @override
   String get theQuickBrownFoxJumpsOverTheLazyDog =>
       'The quick brown fox jumps over the lazy dog.';
 
@@ -5137,11 +5100,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String browseTopicinboxheaderValue(String categoryName) {
     return 'Browse $categoryName';
-  }
-
-  @override
-  String dismissTopicinboxheader(String sectionLabel) {
-    return 'Dismiss $sectionLabel';
   }
 
   @override
@@ -5896,52 +5854,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The composer changed while the emoji picker was open. Nothing was changed.';
 
   @override
-  String get noForumsSelected => 'No forums selected';
-
-  @override
-  String get noMatchingTopics => 'No matching topics';
-
-  @override
-  String get chooseForums => 'Choose forums';
-
-  @override
-  String get forumFilters => 'Forum filters';
-
-  @override
-  String get editActiveFilters => 'Edit active filters';
-
-  @override
-  String get useForumDefault => 'Use forum default';
-
-  @override
   String get aggregate => 'Aggregate';
-
-  @override
-  String aggregateAggregateview(String index) {
-    return 'Aggregate $index';
-  }
-
-  @override
-  String get aggregateTab => 'Aggregate tab';
-
-  @override
-  String get thisForumAlreadyHas20TabsCloseOneAndTryAgain =>
-      'This forum already has 20 tabs. Close one and try again.';
-
-  @override
-  String get thatTopicIsNoLongerAvailable =>
-      'That topic is no longer available.';
-
-  @override
-  String notBeRefreshed(num failed) {
-    String _temp0 = intl.Intl.pluralLogic(
-      failed,
-      locale: localeName,
-      other: '$failed forums could not be refreshed.',
-      one: '$failed forum could not be refreshed.',
-    );
-    return '$_temp0';
-  }
 
   @override
   String get posts => 'Posts';
@@ -6810,19 +6723,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get color => 'Color';
 
   @override
-  String get minimizePanel => 'Minimize panel';
-
-  @override
-  String get openATabInTheOtherPanelFirst =>
-      'Open a tab in the other panel first';
-
-  @override
-  String get mainPanelMinimized => 'Main panel, minimized';
-
-  @override
-  String get secondaryPanelMinimized => 'Secondary panel, minimized';
-
-  @override
   String get swapPanels => 'Swap panels';
 
   @override
@@ -6833,12 +6733,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get secondaryPanel => 'Secondary panel';
-
-  @override
-  String get dropThisTabHere => 'Drop this tab here';
-
-  @override
-  String get dragATabHereOrOpenANewTab => 'Drag a tab here or open a new tab.';
 
   @override
   String message1pxSolid(String horizontalRuleColor) {
@@ -8281,9 +8175,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reading => 'Reading';
 
   @override
-  String get timeReading => 'Time reading';
-
-  @override
   String readTimeAllTime(String timeLong) {
     return 'read time: $timeLong, all time';
   }
@@ -8696,9 +8587,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get restoreComposer => 'Restore composer';
 
   @override
-  String get resumeEditingComposerheader => 'Resume editing';
-
-  @override
   String get replyVisibility => 'Reply visibility';
 
   @override
@@ -8726,9 +8614,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String returnTo(String targetTopicTitle) {
     return 'Return to $targetTopicTitle';
   }
-
-  @override
-  String get dockSide => 'Dock side';
 
   @override
   String get composerView => 'Composer view';
@@ -8787,12 +8672,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get openANewTab => 'Open a new tab';
 
   @override
-  String get showMoreTabs => 'Show more tabs';
-
-  @override
-  String get showPreviousTabs => 'Show previous tabs';
-
-  @override
   String get rename => 'Rename';
 
   @override
@@ -8839,18 +8718,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get unanswered => 'Unanswered';
-
-  @override
-  String get closedTopics => 'Closed topics';
-
-  @override
-  String get unreadReplies => 'Unread replies';
-
-  @override
-  String get newTopicsTopiclistactions => 'New topics';
-
-  @override
-  String get applyFilter => 'Apply filter';
 
   @override
   String get editActiveFilter => 'Edit active filter';
@@ -9238,14 +9105,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get forum => 'Forum';
 
   @override
-  String get openForumInBrowser => 'Open forum in browser';
-
-  @override
-  String forumMenu(String name) {
-    return '$name, forum menu';
-  }
-
-  @override
   String get loadingNavigation => 'Loading navigation';
 
   @override
@@ -9365,9 +9224,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get due => 'Due';
 
   @override
-  String get reminderNewtabpage => 'Reminder';
-
-  @override
   String get comfortable => 'Comfortable';
 
   @override
@@ -9377,46 +9233,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get recentlyClosedNewtabpage => 'Recently closed';
 
   @override
-  String get everythingElse => 'Everything else';
-
-  @override
   String get badges => 'Badges';
 
   @override
   String get browseLatestTopics => 'Browse latest topics';
 
   @override
-  String postNewtabpage(String number) {
-    return 'Post #$number';
-  }
-
-  @override
-  String get workWithTwoPanels => 'Work with two panels';
-
-  @override
-  String get middleClick => 'Middle click';
-
-  @override
-  String get opensANewTabInMainPanel => 'Opens a new tab in main panel';
-
-  @override
   String get click => 'Click';
-
-  @override
-  String get openInANewTabInSecondaryPanel =>
-      'Open in a new tab in secondary panel';
-
-  @override
-  String get donTShowThisTutorialAgain => 'Don\'t show this tutorial again';
 
   @override
   String get main => 'Main';
 
   @override
   String get secondary => 'Secondary';
-
-  @override
-  String get shiftClickOpensHere => 'Shift + click opens here';
 
   @override
   String reconnectToToSeeYourDrafts(String instanceHost) {
@@ -9643,19 +9472,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get privateConversation => 'Private conversation';
-
-  @override
-  String lastPostBy(String username) {
-    return 'Last post by $username · ';
-  }
-
-  @override
-  String lastPostByConversationtopiccard(String username) {
-    return 'Last post by $username';
-  }
-
-  @override
-  String get lastPostByConversationtopiccardValue => 'Last post by ';
 
   @override
   String sortByConversationtopiccard(
@@ -10016,9 +9832,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String searchCouldNotLoadGlobalsearchapi(String scopeLabel) {
     return '$scopeLabel search could not load.';
   }
-
-  @override
-  String get unsupportedSearchResult => 'Unsupported search result.';
 
   @override
   String get useAShorterCategoryName => 'Use a shorter category name.';
@@ -10600,22 +10413,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get matchTopicsThat => 'Match topics that';
 
   @override
-  String get applyChanges => 'Apply changes';
-
-  @override
   String get addCondition => 'Add condition';
-
-  @override
-  String get includeAnySelectedTag => 'Include any selected tag';
-
-  @override
-  String get includeEverySelectedTag => 'Include every selected tag';
-
-  @override
-  String get excludeAnySelectedTag => 'Exclude any selected tag';
-
-  @override
-  String get excludeThisCombination => 'Exclude this combination';
 
   @override
   String removeGlobalsearchfilterpicker(String controllerFilterValue) {
@@ -11132,9 +10930,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chooseStatusEmoji => 'Choose status emoji';
-
-  @override
-  String get statusEmoji => 'Status emoji';
 
   @override
   String get whatSYourStatus => 'What’s your status?';
@@ -11666,9 +11461,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noComponentsMatchYourSearch => 'No components match your search.';
-
-  @override
-  String get gettingStarted => 'Getting started';
 
   @override
   String get previousComponent => 'Previous component';
@@ -13081,9 +12873,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get tWOPANELS => 'TWO PANELS';
-
-  @override
   String theInbox(String group) {
     return 'the $group inbox';
   }
@@ -13109,11 +12898,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String andOthers(String hidden) {
     return 'and $hidden others';
-  }
-
-  @override
-  String messageOf(String total) {
-    return 'of $total';
   }
 
   @override
@@ -14837,17 +14621,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get confirmUseEverywhere => 'Use everywhere';
 
   @override
-  String startPageForumCount(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count forums',
-      one: '1 forum',
-    );
-    return '$_temp0';
-  }
-
-  @override
   String get composerIndent => 'Indent';
 
   @override
@@ -14979,9 +14752,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get recentTopics => 'Recent topics';
-
-  @override
   String startPageNoMatches(String query) {
     return 'Nothing matches “$query”';
   }
@@ -15040,19 +14810,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get voiceSpeaking => 'Speaking';
-
-  @override
-  String get startPagePinnedSections => 'Pinned sections';
-
-  @override
-  String pinStartSection(String title) {
-    return 'Pin $title to the top';
-  }
-
-  @override
-  String unpinStartSection(String title) {
-    return 'Unpin $title';
-  }
 
   @override
   String get summaryPerson => 'Person';

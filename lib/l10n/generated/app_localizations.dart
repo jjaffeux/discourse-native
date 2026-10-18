@@ -535,12 +535,6 @@ abstract class AppLocalizations {
   /// English UI message used by ui/components/d_data_table.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Select all rows on this page'**
-  String get selectAllRowsOnThisPage;
-
-  /// English UI message used by ui/components/d_data_table.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'No results.'**
   String get noResults;
 
@@ -549,12 +543,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Resize {columnLabel} column'**
   String resizeColumn(String columnLabel);
-
-  /// English UI message used by ui/components/d_data_table.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Select row {index}'**
-  String selectRow(String index);
 
   /// English UI message used by ui/components/d_data_table.dart. Keep placeholders intact.
   ///
@@ -1914,12 +1902,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not load this channel.'**
   String get couldNotLoadThisChannel;
-
-  /// English UI message used by plugins/chat/chat_header_button.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Exit chat'**
-  String get exitChat;
 
   /// English UI message used by plugins/chat/chat_header_button.dart. Keep placeholders intact.
   ///
@@ -4000,20 +3982,8 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/reactions/reaction_picker.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Remove your {mine} reaction'**
-  String removeYourReactionReactionpicker(String mine);
-
-  /// English UI message used by plugins/reactions/reaction_picker.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Choose a reaction'**
   String get chooseAReaction;
-
-  /// English UI message used by plugins/reactions/reaction_picker.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'choose a reaction'**
-  String get chooseAReactionReactionpicker;
 
   /// English UI message used by plugins/reactions/reaction_picker.dart. Keep placeholders intact.
   ///
@@ -5305,12 +5275,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Voice media operation {operation} failed.'**
   String voiceMediaOperationFailed(String operation);
-
-  /// English UI message used by plugins/voice/voice_media.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'rejected Voice track'**
-  String get rejectedVoiceTrack;
 
   /// English UI message used by plugins/voice/voice_media.dart. Keep placeholders intact.
   ///
@@ -7224,20 +7188,8 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'View event schedule: {scheduleDescription}'**
-  String viewEventSchedule(String scheduleDescription);
-
-  /// English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **' · All day'**
   String get allDayEventtopictitle;
-
-  /// English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Event schedule'**
-  String get eventSchedule;
 
   /// English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact.
   ///
@@ -7268,12 +7220,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Invalid participant list'**
   String get invalidParticipantList;
-
-  /// English UI message used by plugins/discourse_events/discourse_events_plugin.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Upcoming events'**
-  String get upcomingEvents;
 
   /// English UI message used by plugins/discourse_events/event_directory.dart. Keep placeholders intact.
   ///
@@ -8411,12 +8357,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/app_settings_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Used for reading and writing in every forum.'**
-  String get usedForReadingAndWritingInEveryForum;
-
-  /// English UI message used by shell/app_settings_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'The quick brown fox jumps over the lazy dog.'**
   String get theQuickBrownFoxJumpsOverTheLazyDog;
 
@@ -8881,12 +8821,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Browse {categoryName}'**
   String browseTopicinboxheaderValue(String categoryName);
-
-  /// English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Dismiss {sectionLabel}'**
-  String dismissTopicinboxheader(String sectionLabel);
 
   /// English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact.
   ///
@@ -10002,74 +9936,8 @@ abstract class AppLocalizations {
   /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'No forums selected'**
-  String get noForumsSelected;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'No matching topics'**
-  String get noMatchingTopics;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose forums'**
-  String get chooseForums;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Forum filters'**
-  String get forumFilters;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit active filters'**
-  String get editActiveFilters;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Use forum default'**
-  String get useForumDefault;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Aggregate'**
   String get aggregate;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Aggregate {index}'**
-  String aggregateAggregateview(String index);
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Aggregate tab'**
-  String get aggregateTab;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'This forum already has 20 tabs. Close one and try again.'**
-  String get thisForumAlreadyHas20TabsCloseOneAndTryAgain;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'That topic is no longer available.'**
-  String get thatTopicIsNoLongerAvailable;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{failed, plural, =1{{failed} forum could not be refreshed.} other{{failed} forums could not be refreshed.}}'**
-  String notBeRefreshed(num failed);
 
   /// English UI message used by shell/group/group_activity_view.dart. Keep placeholders intact.
   ///
@@ -11612,30 +11480,6 @@ abstract class AppLocalizations {
   /// **'Color'**
   String get color;
 
-  /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Minimize panel'**
-  String get minimizePanel;
-
-  /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Open a tab in the other panel first'**
-  String get openATabInTheOtherPanelFirst;
-
-  /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Main panel, minimized'**
-  String get mainPanelMinimized;
-
-  /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Secondary panel, minimized'**
-  String get secondaryPanelMinimized;
-
   /// Action that exchanges the positions of the two desktop panels.
   ///
   /// In en, this message translates to:
@@ -11659,18 +11503,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Secondary panel'**
   String get secondaryPanel;
-
-  /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Drop this tab here'**
-  String get dropThisTabHere;
-
-  /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Drag a tab here or open a new tab.'**
-  String get dragATabHereOrOpenANewTab;
 
   /// English UI message used by shell/cooked_html.dart. Keep placeholders intact.
   ///
@@ -14233,12 +14065,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/user_summary.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Time reading'**
-  String get timeReading;
-
-  /// English UI message used by shell/user_summary.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'read time: {timeLong}, all time'**
   String readTimeAllTime(String timeLong);
 
@@ -14932,12 +14758,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/composer_header.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Resume editing'**
-  String get resumeEditingComposerheader;
-
-  /// English UI message used by shell/composer_header.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Reply visibility'**
   String get replyVisibility;
 
@@ -14988,12 +14808,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Return to {targetTopicTitle}'**
   String returnTo(String targetTopicTitle);
-
-  /// English UI message used by shell/composer_header.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Dock side'**
-  String get dockSide;
 
   /// English UI message used by shell/composer_header.dart. Keep placeholders intact.
   ///
@@ -15094,18 +14908,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Show more tabs'**
-  String get showMoreTabs;
-
-  /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Show previous tabs'**
-  String get showPreviousTabs;
-
-  /// English UI message used by shell/forum_tabs_bar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Rename'**
   String get rename;
 
@@ -15198,30 +15000,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unanswered'**
   String get unanswered;
-
-  /// English UI message used by shell/topic_list_actions.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Closed topics'**
-  String get closedTopics;
-
-  /// English UI message used by shell/topic_list_actions.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Unread replies'**
-  String get unreadReplies;
-
-  /// English UI message used by shell/topic_list_actions.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'New topics'**
-  String get newTopicsTopiclistactions;
-
-  /// English UI message used by shell/topic_list_actions.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Apply filter'**
-  String get applyFilter;
 
   /// English UI message used by shell/topic_list_actions.dart. Keep placeholders intact.
   ///
@@ -15928,18 +15706,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/instance_sidebar.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Open forum in browser'**
-  String get openForumInBrowser;
-
-  /// English UI message used by shell/instance_sidebar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{name}, forum menu'**
-  String forumMenu(String name);
-
-  /// English UI message used by shell/instance_sidebar.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Loading navigation'**
   String get loadingNavigation;
 
@@ -16132,12 +15898,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Reminder'**
-  String get reminderNewtabpage;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Comfortable'**
   String get comfortable;
 
@@ -16156,12 +15916,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Everything else'**
-  String get everythingElse;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Badges'**
   String get badges;
 
@@ -16174,44 +15928,8 @@ abstract class AppLocalizations {
   /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Post #{number}'**
-  String postNewtabpage(String number);
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Work with two panels'**
-  String get workWithTwoPanels;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Middle click'**
-  String get middleClick;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Opens a new tab in main panel'**
-  String get opensANewTabInMainPanel;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Click'**
   String get click;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Open in a new tab in secondary panel'**
-  String get openInANewTabInSecondaryPanel;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Don\'\'t show this tutorial again'**
-  String get donTShowThisTutorialAgain;
 
   /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
   ///
@@ -16224,12 +15942,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Secondary'**
   String get secondary;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Shift + click opens here'**
-  String get shiftClickOpensHere;
 
   /// English UI message used by shell/draft_list_controller.dart. Keep placeholders intact.
   ///
@@ -16548,24 +16260,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Private conversation'**
   String get privateConversation;
-
-  /// English UI message used by shell/conversation_topic_card.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Last post by {username} · '**
-  String lastPostBy(String username);
-
-  /// English UI message used by shell/conversation_topic_card.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Last post by {username}'**
-  String lastPostByConversationtopiccard(String username);
-
-  /// English UI message used by shell/conversation_topic_card.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Last post by '**
-  String get lastPostByConversationtopiccardValue;
 
   /// English UI message used by shell/conversation_topic_card.dart. Keep placeholders intact.
   ///
@@ -17159,12 +16853,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{scopeLabel} search could not load.'**
   String searchCouldNotLoadGlobalsearchapi(String scopeLabel);
-
-  /// English UI message used by shell/global_search_api.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Unsupported search result.'**
-  String get unsupportedSearchResult;
 
   /// English UI message used by shell/global_search_api.dart. Keep placeholders intact.
   ///
@@ -18165,38 +17853,8 @@ abstract class AppLocalizations {
   /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Apply changes'**
-  String get applyChanges;
-
-  /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Add condition'**
   String get addCondition;
-
-  /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Include any selected tag'**
-  String get includeAnySelectedTag;
-
-  /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Include every selected tag'**
-  String get includeEverySelectedTag;
-
-  /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Exclude any selected tag'**
-  String get excludeAnySelectedTag;
-
-  /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Exclude this combination'**
-  String get excludeThisCombination;
 
   /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
   ///
@@ -19104,12 +18762,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/user_status_editor.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Status emoji'**
-  String get statusEmoji;
-
-  /// English UI message used by shell/user_status_editor.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'What’s your status?'**
   String get whatSYourStatus;
 
@@ -19983,12 +19635,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No components match your search.'**
   String get noComponentsMatchYourSearch;
-
-  /// English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Getting started'**
-  String get gettingStarted;
 
   /// English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact.
   ///
@@ -21787,12 +21433,6 @@ abstract class AppLocalizations {
   /// **'{label} at {wallUse24HourClockUse24HourClock}'**
   String atNewtabpage(String label, String wallUse24HourClockUse24HourClock);
 
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'TWO PANELS'**
-  String get tWOPANELS;
-
   /// English UI message used by shell/message_archive_button.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -21828,12 +21468,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'and {hidden} others'**
   String andOthers(String hidden);
-
-  /// English UI message used by shell/topic_progress.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'of {total}'**
-  String messageOf(String total);
 
   /// English UI message used by shell/forum_appearance_settings.dart. Keep placeholders intact.
   ///
@@ -23259,12 +22893,6 @@ abstract class AppLocalizations {
   /// **'Use everywhere'**
   String get confirmUseEverywhere;
 
-  /// Number of saved forums on the All forums start page.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 forum} other{{count} forums}}'**
-  String startPageForumCount(int count);
-
   /// Composer toolbar action to nest the current list or to-do item under the preceding item.
   ///
   /// In en, this message translates to:
@@ -23403,12 +23031,6 @@ abstract class AppLocalizations {
   /// **'{count, plural, one {{formattedCount} voice participant} other {{formattedCount} voice participants}}'**
   String forumAboutVoiceParticipants(int count, String formattedCount);
 
-  /// Start page section containing recently visited topics.
-  ///
-  /// In en, this message translates to:
-  /// **'Recent topics'**
-  String get recentTopics;
-
   /// Start page cached search has no matching rows.
   ///
   /// In en, this message translates to:
@@ -23504,24 +23126,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Speaking'**
   String get voiceSpeaking;
-
-  /// Start alphabet index shortcut for pinned sections.
-  ///
-  /// In en, this message translates to:
-  /// **'Pinned sections'**
-  String get startPagePinnedSections;
-
-  /// No description provided for @pinStartSection.
-  ///
-  /// In en, this message translates to:
-  /// **'Pin {title} to the top'**
-  String pinStartSection(String title);
-
-  /// No description provided for @unpinStartSection.
-  ///
-  /// In en, this message translates to:
-  /// **'Unpin {title}'**
-  String unpinStartSection(String title);
 
   /// Label used by the Native mockup Summary, Activity or desktop navigation UI.
   ///
