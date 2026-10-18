@@ -13136,9 +13136,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clover => 'Clover';
 
   @override
-  String get blank => 'Blank';
-
-  @override
   String get foundations => 'Foundations';
 
   @override

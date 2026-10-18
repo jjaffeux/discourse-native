@@ -21799,12 +21799,6 @@ abstract class AppLocalizations {
   /// **'Clover'**
   String get clover;
 
-  /// English UI message used by models/forum_theme_presets.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Blank'**
-  String get blank;
-
   /// English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

@@ -176,32 +176,6 @@ Iterable<ForumTheme> forumThemePresetsFor(Brightness mode) =>
 ForumTheme? forumThemePresetFor(String id, Brightness mode) =>
     forumThemePresetsFor(mode).where((theme) => theme.id == id).firstOrNull;
 
-/// Plain greys to build a theme from scratch, every colour left to choose.
-ForumTheme get blankForumTheme => ForumTheme(
-  alternate: ForumTheme(
-    id: 'blank',
-    name: appL10n.blank,
-    brightness: Brightness.dark,
-    primary: const Color(0xFFE6E6E6),
-    secondary: const Color(0xFF1E1E1E),
-    tertiary: const Color(0xFF9A9A9A),
-    quaternary: const Color(0xFF7A7A7A),
-    danger: const Color(0xFFB3B3B3),
-    success: const Color(0xFF8C8C8C),
-    love: const Color(0xFFA6A6A6),
-  ),
-  id: 'blank',
-  name: appL10n.blank,
-  brightness: Brightness.light,
-  primary: const Color(0xFF1E1E1E),
-  secondary: const Color(0xFFFFFFFF),
-  tertiary: const Color(0xFF6B6B6B),
-  quaternary: const Color(0xFF8C8C8C),
-  danger: const Color(0xFF595959),
-  success: const Color(0xFF737373),
-  love: const Color(0xFF808080),
-);
-
 /// Preserve selections saved before light and dark variants shared one entry.
 String? canonicalForumThemeId(String? id) => switch (id) {
   'dark' => 'neutral',

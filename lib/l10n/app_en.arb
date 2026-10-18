@@ -17827,10 +17827,6 @@
   "@clover": {
     "description": "English UI message used by models/forum_theme_presets.dart. Keep placeholders intact."
   },
-  "blank": "Blank",
-  "@blank": {
-    "description": "English UI message used by models/forum_theme_presets.dart. Keep placeholders intact."
-  },
   "foundations": "Foundations",
   "@foundations": {
     "description": "English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact."
