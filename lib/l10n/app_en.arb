@@ -12198,24 +12198,6 @@
   "@nextTopic": {
     "description": "English UI message used by shell/topic_list_footer.dart. Keep placeholders intact."
   },
-  "couldnTRefresh": "Couldn''t refresh {instanceHost}.",
-  "@couldnTRefresh": {
-    "description": "English UI message used by shell/aggregate_feed_controller.dart. Keep placeholders intact.",
-    "placeholders": {
-      "instanceHost": {
-        "type": "String"
-      }
-    }
-  },
-  "couldnTLoadMoreFrom": "Couldn''t load more from {sourceInstanceHost}.",
-  "@couldnTLoadMoreFrom": {
-    "description": "English UI message used by shell/aggregate_feed_controller.dart. Keep placeholders intact.",
-    "placeholders": {
-      "sourceInstanceHost": {
-        "type": "String"
-      }
-    }
-  },
   "discourse": "Discourse",
   "@discourse": {
     "description": "English UI message used by shell/aggregate_branding.dart. Keep placeholders intact."

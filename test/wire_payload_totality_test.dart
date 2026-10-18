@@ -2366,9 +2366,6 @@ void main() {
       'DiscourseInstance',
       'DiscourseUser',
       'ForumTabAnchor',
-      // This app's own storage, read back by codecs that answer null or a
-      // default for a value they cannot read.
-      'AggregateTabPreferences',
       // Local scroll-header preferences, never a server payload.
       'DHeaderTuning',
       // Keyboard animation frames arrive from the platform channel.

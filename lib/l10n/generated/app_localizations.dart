@@ -15787,18 +15787,6 @@ abstract class AppLocalizations {
   /// **'Next topic'**
   String get nextTopic;
 
-  /// English UI message used by shell/aggregate_feed_controller.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Couldn\'\'t refresh {instanceHost}.'**
-  String couldnTRefresh(String instanceHost);
-
-  /// English UI message used by shell/aggregate_feed_controller.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Couldn\'\'t load more from {sourceInstanceHost}.'**
-  String couldnTLoadMoreFrom(String sourceInstanceHost);
-
   /// English UI message used by shell/aggregate_branding.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

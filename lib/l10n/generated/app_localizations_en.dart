@@ -9164,16 +9164,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextTopic => 'Next topic';
 
   @override
-  String couldnTRefresh(String instanceHost) {
-    return 'Couldn\'t refresh $instanceHost.';
-  }
-
-  @override
-  String couldnTLoadMoreFrom(String sourceInstanceHost) {
-    return 'Couldn\'t load more from $sourceInstanceHost.';
-  }
-
-  @override
   String get discourse => 'Discourse';
 
   @override
