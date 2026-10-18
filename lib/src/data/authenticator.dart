@@ -68,11 +68,9 @@ class Authenticator implements ApiCredentialReader {
     _connectionGenerations[siteUrl] = generation;
     try {
       // Push identity is registered only through the authorization handshake.
-      await _rememberPushRegistration(await _pushRegistrations.registration());
+      final pushRegistration = await _pushRegistrations.registration();
+      await _rememberPushRegistration(pushRegistration);
       final clientId = await _readClientId();
-      // Only a registration the platform has answered vouches for a push URL.
-      // A recorded token can outlive the permission that produced it.
-      final pushRegistration = _knownPushRegistration;
       _ensureCurrent(siteUrl, generation);
       // The private half is needed only to decrypt this callback. Keeping it
       // transient avoids persisting another secret and prevents one pair from

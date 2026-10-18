@@ -251,6 +251,34 @@ void main() {
 
     for (final persist in [false, true]) {
       test(
+        '${persist ? 'connect' : 'authorize'} omits push after a later absent registration',
+        () async {
+          final provider = _FakePushRegistrationProvider(_macosRegistration);
+          final protocol = _FakeProtocol();
+          final authenticator = Authenticator(
+            store: _FakeSecureStore(),
+            protocol: protocol,
+            pushRegistrations: provider,
+            keyPairGenerator: () async => _pair,
+            nonceGenerator: () => 'nonce',
+            launcher: (_, _) async => 'discourse://auth_redirect?payload=reply',
+          );
+          final connect = persist
+              ? authenticator.connect
+              : authenticator.authorize;
+          await connect(_site);
+          expect(protocol.pushUrl, _macosRegistration.pushUrl);
+
+          provider.value = null;
+          await connect('https://two.example');
+
+          expect(protocol.clientId, _macosRegistration.clientId);
+          expect(protocol.pushUrl, isNull);
+          expect(provider.reads, 2);
+        },
+      );
+
+      test(
         '${persist ? 'connect' : 'authorize'} registers push independently of request credentials',
         () async {
           final events = <String>[];
