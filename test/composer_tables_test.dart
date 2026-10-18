@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_tables.dart';
+import 'package:discourse_native/src/shell/composer/components/table_source.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

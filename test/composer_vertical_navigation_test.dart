@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

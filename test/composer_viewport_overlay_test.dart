@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

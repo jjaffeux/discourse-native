@@ -1,0 +1,182 @@
+import 'dart:async';
+
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/material.dart';
+
+import '../../../data/media_pipeline.dart';
+import '../../../plugin_api/core_plugin_host.dart';
+import '../../../plugin_api/emoji_usage.dart';
+import '../../../theme/discourse_typography.dart';
+import '../../emoji.dart';
+import '../../emoji_picker.dart';
+import '../../shell_scope.dart';
+import '../controller.dart';
+import '../source_projection.dart';
+
+typedef ComposerOwnership = bool Function();
+
+/// Owns pending emoji artwork for one editor without changing its document.
+final class ComposerEmojiArtwork {
+  ComposerEmojiArtwork({required this.onChanged});
+
+  final VoidCallback onChanged;
+  final Set<String> _loading = {};
+  bool _disposed = false;
+
+  List<InlineSpan>? build({
+    required String source,
+    required TextRange range,
+    required String name,
+    required String Function(String) resolve,
+    required TextStyle baseStyle,
+  }) {
+    final url = resolve(name);
+    final cache = MediaPipeline.instance.emoji;
+    if (!cache.isCached(url)) {
+      if (_loading.add(url)) {
+        unawaited(
+          cache.load(url).then((_) {
+            _loading.remove(url);
+            if (!_disposed) onChanged();
+          }),
+        );
+      }
+      return null;
+    }
+    if (cache.cached(url) == null) return null;
+    return [
+      TextSpan(
+        text: source.substring(range.start, range.end - 1),
+        style: hiddenComposerSourceStyle,
+      ),
+      WidgetSpan(
+        alignment: PlaceholderAlignment.middle,
+        style: baseStyle,
+        child: EmojiImage(
+          url: url,
+          size: (baseStyle.fontSize ?? DiscourseTypography.sm) * emojiScale,
+          alt: '',
+        ),
+      ),
+    ];
+  }
+
+  void dispose() => _disposed = true;
+}
+
+Future<void> openEmojiPickerForComposer({
+  required BuildContext context,
+  required PluginEmojiHost emoji,
+  required ComposerController composer,
+  required EmojiUsageContext pickerContext,
+  required ComposerOwnership stillOwns,
+  String initialQuery = '',
+  Rect? anchor,
+}) async {
+  final siteUrl = composer.target.siteUrl;
+  if (!stillOwns() ||
+      !composer.isEditing ||
+      !emoji.siteConfigFor(siteUrl).emojiEnabled) {
+    return;
+  }
+
+  final expectedDocument = composer.text.text;
+  final expectedSelection = composer.text.selection;
+  try {
+    final result = await showEmojiPicker(
+      context: context,
+      siteUrl: siteUrl,
+      pickerContext: pickerContext,
+      store: emoji.preferences,
+      loadCatalog: ({refresh = false}) =>
+          emoji.loadCatalog(siteUrl, refresh: refresh),
+      loadSearchAliases: ({refresh = false}) =>
+          emoji.loadSearchAliases(siteUrl, refresh: refresh),
+      initialQuery: initialQuery,
+      anchor: anchor,
+      anchorContext: context,
+    );
+    if (result == null) return;
+
+    final unchanged =
+        stillOwns() &&
+        composer.isEditing &&
+        composer.text.text == expectedDocument &&
+        emoji.siteConfigFor(siteUrl).emojiEnabled;
+    if (!unchanged) {
+      if (context.mounted) {
+        DToast.show(
+          context,
+          appL10n.theComposerChangedWhileTheEmojiPickerWasOpenNothingWas,
+        );
+      }
+      return;
+    }
+
+    if (expectedSelection.isValid &&
+        expectedSelection.start >= 0 &&
+        expectedSelection.end <= composer.text.text.length) {
+      composer.text.value = composer.text.value.copyWith(
+        selection: expectedSelection,
+        composing: TextRange.empty,
+      );
+    }
+    composer.insertEmoji(result);
+    unawaited(
+      emoji.preferences
+          .trackEmoji(siteUrl: siteUrl, context: pickerContext, emoji: result)
+          .catchError((_) {}),
+    );
+  } finally {
+    if (stillOwns() && composer.isEditing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (stillOwns() && composer.isEditing) {
+          composer.focus.requestFocus();
+        }
+      });
+    }
+  }
+}
+
+Future<void> openEmojiPickerForTopicComposer({
+  required BuildContext context,
+  required ComposerController composer,
+  String initialQuery = '',
+  Rect? anchor,
+}) {
+  // An edit's body is filled asynchronously. Inserting into the temporary
+  // empty document would either be overwritten by loadedBody or turn a normal
+  // load into a stale-document warning.
+  if (!composer.isEditing) return Future<void>.value();
+
+  final shell = ShellScope.maybeRead(context);
+  if (shell == null) return Future<void>.value();
+
+  bool owns() =>
+      context.mounted &&
+      identical(ShellScope.maybeRead(context), shell) &&
+      identical(shell.visibleComposer, composer);
+
+  final emoji = PluginEmojiHost(
+    preferences: shell.emojiPickerStore,
+    siteConfigFor: shell.siteConfigFor,
+    loadCatalog: (siteUrl, {refresh = false}) => refresh
+        ? shell.refreshEmojiCatalog(siteUrl)
+        : shell.ensureEmojiCatalog(siteUrl),
+    loadSearchAliases: (siteUrl, {refresh = false}) => refresh
+        ? shell.refreshEmojiSearchAliases(siteUrl)
+        : shell.ensureEmojiSearchAliases(siteUrl),
+    resolveUrl: shell.emojiUrlFor,
+  );
+
+  return openEmojiPickerForComposer(
+    context: context,
+    emoji: emoji,
+    composer: composer,
+    pickerContext: CoreEmojiUsageContexts.topic,
+    stillOwns: owns,
+    initialQuery: initialQuery,
+    anchor: anchor,
+  );
+}

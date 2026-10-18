@@ -112,24 +112,39 @@ export 'src/shell/avatar_image.dart';
 export 'src/shell/bookmark_ui.dart' show showPluginBookmarkMenu;
 export 'src/shell/choice_menu.dart' show ChoiceMenuAnchor, ChoiceMenuOption;
 export 'src/shell/code_block.dart' show CodeBlock, CodeBlockData, CodeLine;
-export 'src/shell/composer_autocomplete.dart' show ComposerSuggestionAction;
-export 'src/shell/composer_block_selection.dart' show ComposerBlockSelection;
-export 'src/shell/composer_controller.dart'
+export 'src/shell/composer/autocomplete.dart' show ComposerSuggestionAction;
+export 'src/shell/composer/block_selection.dart' show ComposerBlockSelection;
+export 'src/shell/composer/components/emoji.dart'
+    show openEmojiPickerForComposer;
+export 'src/shell/composer/components/image_source.dart'
+    show escapeImageAlt, flattenImageAlt;
+export 'src/shell/composer/components/link.dart' show showComposerLinkDialog;
+export 'src/shell/composer/controller.dart'
     show
         ComposerController,
         ComposerTargetKind,
         ComposerTargetPolicy,
         ComposerTargetRequest,
         ComposerUploadDisposition;
-export 'src/shell/composer_drop.dart'
+export 'src/shell/composer/drop.dart'
     show NativeDropTarget, composerUploadFilesFromDrop, dropContainsDirectory;
-export 'src/shell/composer_embedded_editor.dart' show ComposerEmbeddedEditor;
-export 'src/shell/composer_images.dart' show escapeImageAlt, flattenImageAlt;
-export 'src/shell/composer_link.dart' show showComposerLinkDialog;
-export 'src/shell/composer_marks.dart' show ComposerMark;
-export 'src/shell/composer_panel.dart' show ComposerEditor, ComposerUploadQueue;
-export 'src/shell/composer_slash_menu.dart' show ComposerSlashAction;
-export 'src/shell/composer_upload_picker.dart'
+export 'src/shell/composer/embedded_editor.dart' show ComposerEmbeddedEditor;
+export 'src/shell/composer/markdown_editing_controller.dart'
+    show MarkdownEditingController;
+export 'src/shell/composer/markdown_highlight.dart'
+    show
+        CodeRanges,
+        MarkdownRun,
+        Md,
+        markdownBlocks,
+        markdownCodeRanges,
+        markdownPairs,
+        scanMarkdown,
+        sharedMarkdownScan;
+export 'src/shell/composer/marks.dart' show ComposerMark;
+export 'src/shell/composer/panel.dart' show ComposerEditor, ComposerUploadQueue;
+export 'src/shell/composer/slash_menu.dart' show ComposerSlashAction;
+export 'src/shell/composer/upload_picker.dart'
     show
         ComposerFilePicker,
         ComposerImagePicker,
@@ -150,7 +165,6 @@ export 'src/shell/destination_bookmark_ui.dart'
     show DestinationBookmarkMenuItem;
 export 'src/shell/diagnostics_text.dart';
 export 'src/shell/emoji.dart' show EmojiImage;
-export 'src/shell/emoji_composer.dart' show openEmojiPickerForComposer;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 export 'src/shell/external_link.dart' show openExternalLink;
 export 'src/shell/forum_search.dart' show ForumSearch;
@@ -169,18 +183,6 @@ export 'src/shell/inline_video.dart' show InlineVideo, InlineVideoData;
 export 'src/shell/lightbox.dart'
     show LightboxGallery, LightboxImage, UnavailableImage;
 export 'src/shell/list_boundary_shortcuts.dart' show ListBoundaryShortcuts;
-export 'src/shell/markdown_editing_controller.dart'
-    show MarkdownEditingController;
-export 'src/shell/markdown_highlight.dart'
-    show
-        CodeRanges,
-        MarkdownRun,
-        Md,
-        markdownBlocks,
-        markdownCodeRanges,
-        markdownPairs,
-        scanMarkdown,
-        sharedMarkdownScan;
 export 'src/shell/mobile_footer_action.dart'
     show
         MobileFooterAction,

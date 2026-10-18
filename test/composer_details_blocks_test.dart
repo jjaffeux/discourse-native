@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/shell/composer_details_blocks.dart';
+import 'package:discourse_native/src/shell/composer/components/details_source.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

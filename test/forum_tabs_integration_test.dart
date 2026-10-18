@@ -10,7 +10,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';

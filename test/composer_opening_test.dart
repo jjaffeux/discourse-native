@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:discourse_native/src/diagnostics/surface_opening_trace.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';

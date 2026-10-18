@@ -8,7 +8,7 @@ import '../models/post_flag.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
-import '../shell/composer_controller.dart';
+import '../shell/composer/controller.dart';
 import 'bookmark_host.dart';
 import 'discourse_model_codec.dart';
 import 'emoji_preferences.dart';

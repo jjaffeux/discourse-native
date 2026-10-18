@@ -1,9 +1,9 @@
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/shell/composer_autocomplete.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_galleries.dart';
-import 'package:discourse_native/src/shell/composer_marks.dart';
-import 'package:discourse_native/src/shell/composer_triggers.dart';
+import 'package:discourse_native/src/shell/composer/autocomplete.dart';
+import 'package:discourse_native/src/shell/composer/components/gallery_source.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/marks.dart';
+import 'package:discourse_native/src/shell/composer/triggers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

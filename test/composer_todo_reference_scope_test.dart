@@ -1,7 +1,7 @@
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/composer_list_source.dart';
-import 'package:discourse_native/src/shell/composer_todos.dart';
+import 'package:discourse_native/src/shell/composer/components/list_source.dart';
+import 'package:discourse_native/src/shell/composer/components/todo.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;

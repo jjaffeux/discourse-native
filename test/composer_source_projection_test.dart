@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/shell/composer_source_projection.dart';
+import 'package:discourse_native/src/shell/composer/source_projection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

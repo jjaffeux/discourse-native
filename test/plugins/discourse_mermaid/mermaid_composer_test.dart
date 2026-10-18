@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_mermaid/mermaid_composer.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';

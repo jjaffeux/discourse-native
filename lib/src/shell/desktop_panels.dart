@@ -10,7 +10,7 @@ import '../foundation/frame_safe_notifier.dart';
 import '../models/composer_placement.dart';
 import '../models/forum_workspace.dart';
 import 'adaptive_shell.dart';
-import 'composer_presentation.dart';
+import 'composer/presentation.dart';
 import 'main_content.dart';
 import 'resizable_pane.dart';
 import 'shell_metrics.dart';

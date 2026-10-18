@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
+import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
-import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
-import 'package:discourse_native/src/shell/markdown_highlight.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

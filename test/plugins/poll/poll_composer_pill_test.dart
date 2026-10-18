@@ -1,9 +1,10 @@
+import 'package:discourse_native/src/plugins/poll/poll_composer.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
+import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll_icons.dart';
-import 'package:discourse_native/src/plugins/poll/poll_plugin.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/markdown_editing_controller.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter/material.dart';

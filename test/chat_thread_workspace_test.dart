@@ -21,7 +21,7 @@ import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_panel_width_store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

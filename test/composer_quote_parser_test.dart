@@ -1,5 +1,5 @@
-import 'package:discourse_native/src/shell/composer_quotes.dart';
-import 'package:discourse_native/src/shell/markdown_highlight.dart';
+import 'package:discourse_native/src/shell/composer/components/quote.dart';
+import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/scaling_benchmark.dart';

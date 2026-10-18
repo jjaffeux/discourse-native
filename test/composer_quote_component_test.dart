@@ -1,6 +1,6 @@
 import 'package:discourse_native/src/plugin_api/composer_component.dart';
-import 'package:discourse_native/src/shell/composer_quote_component.dart';
-import 'package:discourse_native/src/shell/composer_quotes.dart';
+import 'package:discourse_native/src/shell/composer/components/quote.dart';
+import 'package:discourse_native/src/shell/composer/components/quote_component.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

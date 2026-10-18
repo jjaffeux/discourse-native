@@ -2,6 +2,9 @@
 
 wip
 
+See [Composer ownership](docs/composer-architecture.md) for the live editor,
+built-in component modules, and plugin extension points.
+
 ## TestFlight build setup
 
 Install the Ruby dependencies and the Xcode build log formatter before running

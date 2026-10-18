@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/composer_upload.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

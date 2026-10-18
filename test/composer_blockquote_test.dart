@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/shell/composer_blockquote.dart';
+import 'package:discourse_native/src/shell/composer/components/blockquote.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

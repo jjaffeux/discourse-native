@@ -1,7 +1,7 @@
 import 'package:discourse_native/attachment_review_main.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/chat/chat_uploads.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

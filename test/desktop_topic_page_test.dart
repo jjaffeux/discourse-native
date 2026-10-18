@@ -10,7 +10,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_presentation.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'composer_presentation.dart';
+import 'composer/presentation.dart';
 import 'shell_scope.dart';
 
 /// Reports the painted reader, excluding navigation and the app-level composer.

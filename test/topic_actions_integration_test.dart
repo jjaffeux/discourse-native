@@ -9,7 +9,7 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';

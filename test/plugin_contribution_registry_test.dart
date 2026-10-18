@@ -2,7 +2,7 @@ import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';

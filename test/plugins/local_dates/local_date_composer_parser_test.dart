@@ -1,6 +1,6 @@
 import 'package:discourse_native/src/plugins/local_dates/local_date_composer_parser.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
-import 'package:discourse_native/src/shell/markdown_highlight.dart';
+import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/scaling_benchmark.dart';

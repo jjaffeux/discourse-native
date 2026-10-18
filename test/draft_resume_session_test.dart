@@ -6,7 +6,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/draft_list.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/foundation.dart' show TargetPlatform;

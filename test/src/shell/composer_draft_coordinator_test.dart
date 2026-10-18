@@ -5,8 +5,8 @@ import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_draft_coordinator.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/draft_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/fakes.dart';

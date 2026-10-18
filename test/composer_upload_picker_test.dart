@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/shell/composer_upload_picker.dart';
+import 'package:discourse_native/src/shell/composer/upload_picker.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;

@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
-import 'package:discourse_native/src/shell/composer_slash_menu.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/composer/slash_menu.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';

@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/models/composer_upload.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_image.dart';
-import 'package:discourse_native/src/shell/composer_image_gallery.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/components/gallery.dart';
+import 'package:discourse_native/src/shell/composer/components/image.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';

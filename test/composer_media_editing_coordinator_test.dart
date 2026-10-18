@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/models/composer_upload.dart';
-import 'package:discourse_native/src/shell/composer_controller.dart';
-import 'package:discourse_native/src/shell/composer_galleries.dart';
-import 'package:discourse_native/src/shell/composer_media_editing_coordinator.dart';
+import 'package:discourse_native/src/shell/composer/components/gallery_source.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/media_editing_coordinator.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

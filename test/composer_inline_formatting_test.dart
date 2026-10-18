@@ -1,7 +1,7 @@
-import 'package:discourse_native/src/shell/composer_inline_formatting.dart';
-import 'package:discourse_native/src/shell/composer_marks.dart';
-import 'package:discourse_native/src/shell/markdown_highlight.dart';
-import 'package:discourse_native/src/shell/markdown_style.dart';
+import 'package:discourse_native/src/shell/composer/inline_formatting.dart';
+import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
+import 'package:discourse_native/src/shell/composer/markdown_style.dart';
+import 'package:discourse_native/src/shell/composer/marks.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

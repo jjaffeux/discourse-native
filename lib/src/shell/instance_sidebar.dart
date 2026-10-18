@@ -16,7 +16,7 @@ import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
-import 'composer_presentation.dart';
+import 'composer/presentation.dart';
 import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_search.dart';

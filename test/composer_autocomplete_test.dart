@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/shell/composer_autocomplete.dart';
-import 'package:discourse_native/src/shell/composer_triggers.dart';
+import 'package:discourse_native/src/shell/composer/autocomplete.dart';
+import 'package:discourse_native/src/shell/composer/triggers.dart';
 import 'package:flutter/widgets.dart' show TextEditingValue, TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 

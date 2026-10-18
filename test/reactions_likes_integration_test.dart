@@ -14,7 +14,7 @@ import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
-import 'package:discourse_native/src/shell/composer_panel.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/hover_panel.dart';

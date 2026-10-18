@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:discourse_native/src/models/composer_upload.dart';
-import 'package:discourse_native/src/shell/composer_images.dart';
+import 'package:discourse_native/src/shell/composer/components/image_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
