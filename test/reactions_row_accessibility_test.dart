@@ -117,52 +117,6 @@ void main() {
     }
   });
 
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
-    testWidgets(
-      'reaction picker uses Native targets and awaits opening ($platform)',
-      (tester) async {
-        final opening = Completer<void>();
-        addTearDown(() {
-          if (!opening.isCompleted) opening.complete();
-        });
-        var opens = 0;
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light.copyWith(platform: platform),
-            home: Scaffold(
-              body: Center(
-                child: ReactionPickerButton(
-                  onOpenPicker: (_) {
-                    opens++;
-                    return opening.future;
-                  },
-                ),
-              ),
-            ),
-          ),
-        );
-        final target = find.byKey(const ValueKey('reaction-picker-surface'));
-        DButton control() => tester.widget<DButton>(target);
-        final bounds = tester.getRect(target);
-        expect(bounds.size, const Size.square(30));
-        expect(control().size, DButtonSize.post);
-        expect(control().onPressed, isNotNull);
-        final edge = Offset(bounds.left + 1, bounds.center.dy);
-        await tester.tapAt(edge);
-        await tester.pumpAndSettle();
-        expect(opens, 1);
-        expect(control().onPressed, isNull);
-        await tester.tapAt(edge);
-        await tester.pump();
-        expect(opens, 1);
-        opening.complete();
-        await tester.pumpAndSettle();
-        expect(control().onPressed, isNotNull);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
   testWidgets('reactor failure is announced and keyboard retryable', (
     tester,
   ) async {

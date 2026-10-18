@@ -7,9 +7,7 @@ import 'package:flutter/material.dart';
 import '../plugin_api/composer_sheet_header.dart';
 import '../plugin_api/reaction_presentation.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'avatar_image.dart';
-import 'emoji_picker.dart';
 import 'platform.dart';
 import 'site_emoji_image.dart';
 import 'skeleton_fill.dart';
@@ -32,52 +30,6 @@ class ReactionPills extends Padding {
            ),
          ),
        );
-}
-
-class ReactionPickerButton extends StatefulWidget {
-  const ReactionPickerButton({
-    super.key,
-    required this.onOpenPicker,
-    this.enabled = true,
-  });
-
-  final Future<void> Function(BuildContext) onOpenPicker;
-  final bool enabled;
-
-  @override
-  State<ReactionPickerButton> createState() => _ReactionPickerButtonState();
-}
-
-class _ReactionPickerButtonState extends State<ReactionPickerButton> {
-  bool _opening = false;
-
-  Future<void> _open(BuildContext context) async {
-    if (_opening || !widget.enabled) return;
-    setState(() => _opening = true);
-    try {
-      await widget.onOpenPicker(context);
-    } finally {
-      if (mounted) setState(() => _opening = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return EmojiPickerAnchor(
-      child: Builder(
-        builder: (buttonContext) => DButton.iconOnly(
-          key: const ValueKey('reaction-picker-surface'),
-          tooltip: context.l10n.addReaction,
-          icon: const DIcon(DIcons.farFaceSmile),
-          variant: DButtonVariant.ghost,
-          size: DButtonSize.post,
-          onPressed: widget.enabled && !_opening
-              ? () => _open(buttonContext)
-              : null,
-        ),
-      ),
-    );
-  }
 }
 
 class ReactionPill extends StatefulWidget {

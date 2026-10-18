@@ -4490,7 +4490,6 @@ void _registerChatShellTests() {
         controller.chat.putRecordForTesting(site, msg(1));
         await tester.pumpAndSettle();
 
-        expect(find.byType(ReactionPickerButton), findsNothing);
         expect(find.byType(EmojiPicker), findsOneWidget);
         await tester.tap(find.byTooltip(':wave:'));
         await tester.pumpAndSettle();
@@ -4515,7 +4514,6 @@ void _registerChatShellTests() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        expect(find.byType(ReactionPickerButton), findsNothing);
         expect(
           tester.getSemantics(find.bySemanticsLabel('2 clap reactions')),
           isSemantics(hasTapAction: false, onLongPressHint: 'show who reacted'),
@@ -4550,7 +4548,6 @@ void _registerChatShellTests() {
         await tester.tap(sidebarDestination('Bugs'));
         await tester.pumpAndSettle();
 
-        expect(find.byType(ReactionPickerButton), findsNothing);
         expect(
           tester.getSemantics(find.bySemanticsLabel('2 heart reactions')),
           isSemantics(

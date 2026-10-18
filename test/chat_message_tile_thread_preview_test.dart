@@ -1380,7 +1380,6 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(ReactionPickerButton), findsNothing);
         await _hoverMessage(tester);
 
         final action = find.byTooltip('Add reaction');
