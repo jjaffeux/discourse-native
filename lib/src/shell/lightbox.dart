@@ -16,6 +16,7 @@ import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
 import 'image_decode.dart';
 import 'image_download.dart';
+import 'media_download_result.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
@@ -468,11 +469,10 @@ class _LightboxGalleryState extends State<LightboxGallery> {
         repository: ShellScope.maybeIdentityOf(context)?.siteImages,
         sharePositionOrigin: shareOrigin,
       );
-      if (!mounted || outcome != ImageDownloadOutcome.saved) return;
-      final filename = imageDownloadFilename(title: image.title, url: url);
+      if (!mounted || outcome is! MediaDownloadSaved) return;
       DToast.show(
         context,
-        appL10n.saved((filename).toString()),
+        appL10n.saved(outcome.filename),
         id: 'image-download',
         type: DToastType.success,
       );

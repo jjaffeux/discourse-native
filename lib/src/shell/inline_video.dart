@@ -16,6 +16,7 @@ import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'generated_video_poster.dart';
 import 'inline_video_playback.dart';
+import 'media_download_result.dart';
 import 'reader_media_host.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
@@ -194,14 +195,10 @@ class _InlineVideoState extends State<InlineVideo> {
             sharePositionOrigin: shareOrigin,
           );
       if (!mounted || toast?.isDisposed != false) return;
-      if (outcome == VideoDownloadOutcome.saved) {
-        final filename = videoDownloadFilename(
-          title: data.title,
-          url: data.source,
-        );
+      if (outcome case MediaDownloadSaved(:final filename)) {
         toast!.add(
           DToastOptions(
-            description: appL10n.saved((filename).toString()),
+            description: appL10n.saved(filename),
             type: DToastType.success,
           ),
           id: 'video-download',

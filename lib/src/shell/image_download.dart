@@ -10,9 +10,8 @@ import 'package:share_plus/share_plus.dart' as sharing;
 import '../data/site_image_repository.dart';
 import '../foundation/private_file_staging.dart';
 import 'download_filename.dart';
+import 'media_download_result.dart';
 import 'site_url.dart';
-
-enum ImageDownloadOutcome { saved, shared, cancelled }
 
 abstract interface class ImageDownloadEnvironment {
   Future<String?> chooseSavePath({required String suggestedName});
@@ -26,7 +25,7 @@ abstract interface class ImageDownloadEnvironment {
 
   Future<Directory> temporaryDirectory();
 
-  Future<ImageDownloadOutcome> shareImage(
+  Future<MediaShareOutcome> shareImage(
     File file, {
     required String mimeType,
     Rect? sharePositionOrigin,
@@ -34,7 +33,7 @@ abstract interface class ImageDownloadEnvironment {
 }
 
 abstract interface class LightboxImageDownloader {
-  Future<ImageDownloadOutcome> download({
+  Future<MediaDownloadResult> download({
     required String url,
     required String? title,
     required String? siteUrl,
@@ -63,7 +62,7 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
   };
 
   @override
-  Future<ImageDownloadOutcome> download({
+  Future<MediaDownloadResult> download({
     required String url,
     required String? title,
     required String? siteUrl,
@@ -78,7 +77,7 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         ? await _environment.chooseSavePath(suggestedName: filename)
         : null;
     if (_usesSaveDialog && destination == null) {
-      return ImageDownloadOutcome.cancelled;
+      return const MediaDownloadCancelled();
     }
 
     if (repository == null ||
@@ -101,9 +100,14 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         filename: filename,
         mimeType: mimeType,
       );
-      return ImageDownloadOutcome.saved;
+      return MediaDownloadSaved(
+        Uri.file(
+          destination,
+          windows: _platform == TargetPlatform.windows,
+        ).pathSegments.last,
+      );
     }
-    return withStagedPrivateFile(
+    final outcome = await withStagedPrivateFile(
       await _environment.temporaryDirectory(),
       image.bytes,
       prefix: 'image-share-',
@@ -118,6 +122,10 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         );
       },
     );
+    return switch (outcome) {
+      MediaShareOutcome.shared => const MediaDownloadShared(),
+      MediaShareOutcome.cancelled => const MediaDownloadCancelled(),
+    };
   }
 }
 
@@ -149,7 +157,7 @@ final class _NativeImageDownloadEnvironment
   Future<Directory> temporaryDirectory() => getTemporaryDirectory();
 
   @override
-  Future<ImageDownloadOutcome> shareImage(
+  Future<MediaShareOutcome> shareImage(
     File file, {
     required String mimeType,
     Rect? sharePositionOrigin,
@@ -161,8 +169,8 @@ final class _NativeImageDownloadEnvironment
       ),
     );
     return result.status == sharing.ShareResultStatus.dismissed
-        ? ImageDownloadOutcome.cancelled
-        : ImageDownloadOutcome.shared;
+        ? MediaShareOutcome.cancelled
+        : MediaShareOutcome.shared;
   }
 }
 

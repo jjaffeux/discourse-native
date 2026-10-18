@@ -1,12 +1,13 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DSlider, DSpinner, DToaster;
+    show DButton, DSlider, DSpinner, DToast, DToaster;
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
+import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:discourse_native/src/shell/video_download.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -245,7 +246,7 @@ void main() {
   testWidgets(
     'downloads from the poster and stays busy across playback and full screen',
     (tester) async {
-      final gate = Completer<VideoDownloadOutcome>();
+      final gate = Completer<MediaDownloadResult>();
       final downloader = _FakeVideoDownloader(() => gate.future);
       final sessions = <_FakePlaybackSession>[];
       await tester.pumpWidget(
@@ -313,7 +314,7 @@ void main() {
         isNull,
       );
 
-      gate.complete(VideoDownloadOutcome.saved);
+      gate.complete(const MediaDownloadSaved('final-copy.mp4'));
       await tester.pumpAndSettle();
       expect(find.byTooltip('Download video'), findsOneWidget);
       expect(sessions.single.state.isPlaying, isTrue);
@@ -323,7 +324,8 @@ void main() {
         find.byKey(const ValueKey('inline-video-fullscreen-view')),
         findsNothing,
       );
-      expect(find.text('Saved Demo.mp4.'), findsOneWidget);
+      expect(find.text('Saved final-copy.mp4.'), findsOneWidget);
+      expect(find.text('Saved Demo.mp4.'), findsNothing);
       expect(downloader.calls, 1);
     },
   );
@@ -332,7 +334,7 @@ void main() {
     tester,
   ) async {
     final downloader = _FakeVideoDownloader(
-      () async => VideoDownloadOutcome.saved,
+      () async => const MediaDownloadSaved('Demo.mp4'),
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -367,7 +369,7 @@ void main() {
     var fail = true;
     final downloader = _FakeVideoDownloader(() async {
       if (fail) throw const VideoDownloadException();
-      return VideoDownloadOutcome.saved;
+      return const MediaDownloadSaved('Demo.mp4');
     });
     await tester.pumpWidget(_downloadApp(downloader));
     await tester.tap(find.byTooltip('Download video'));
@@ -382,17 +384,20 @@ void main() {
     expect(find.text('Saved Demo.mp4.'), findsOneWidget);
   });
 
-  for (final outcome in [
-    VideoDownloadOutcome.cancelled,
-    VideoDownloadOutcome.shared,
+  for (final (outcome, label) in [
+    (const MediaDownloadCancelled(), 'cancelled'),
+    (const MediaDownloadShared(), 'shared'),
   ]) {
-    testWidgets('$outcome does not show a saved notification', (tester) async {
+    testWidgets('$label does not show a saved notification', (tester) async {
       final downloader = _FakeVideoDownloader(() async => outcome);
       await tester.pumpWidget(_downloadApp(downloader));
       await tester.tap(find.byTooltip('Download video'));
       await tester.pumpAndSettle();
       expect(downloader.calls, 1);
-      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        DToast.of(tester.element(find.byType(InlineVideo))).toasts,
+        isEmpty,
+      );
       expect(find.byTooltip('Download video'), findsOneWidget);
     });
   }
@@ -400,14 +405,14 @@ void main() {
   testWidgets('download completion after disposal does not update the UI', (
     tester,
   ) async {
-    final gate = Completer<VideoDownloadOutcome>();
+    final gate = Completer<MediaDownloadResult>();
     await tester.pumpWidget(
       _downloadApp(_FakeVideoDownloader(() => gate.future)),
     );
     await tester.tap(find.byTooltip('Download video'));
     await tester.pump();
     await tester.pumpWidget(const SizedBox.shrink());
-    gate.complete(VideoDownloadOutcome.saved);
+    gate.complete(const MediaDownloadSaved('Demo.mp4'));
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
@@ -986,7 +991,7 @@ Widget _downloadApp(VideoDownloader downloader) => MaterialApp(
 class _FakeVideoDownloader implements VideoDownloader {
   _FakeVideoDownloader(this.result);
 
-  final Future<VideoDownloadOutcome> Function() result;
+  final Future<MediaDownloadResult> Function() result;
   int calls = 0;
   Uri? url;
   String? title;
@@ -994,7 +999,7 @@ class _FakeVideoDownloader implements VideoDownloader {
   Rect? shareOrigin;
 
   @override
-  Future<VideoDownloadOutcome> download({
+  Future<MediaDownloadResult> download({
     required Uri url,
     required String title,
     required String? siteUrl,

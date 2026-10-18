@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
+import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -40,7 +41,7 @@ void main() {
       repository: repository,
     );
 
-    expect(outcome, ImageDownloadOutcome.cancelled);
+    expect(outcome, isA<MediaDownloadCancelled>());
     expect(environment.suggestedName, 'screenshot 100%.png');
     expect(requests, 0);
   });
@@ -58,7 +59,7 @@ void main() {
     addTearDown(repository.dispose);
     final environment = _FakeImageDownloadEnvironment(
       temporary,
-      savePath: '/chosen/screenshot.png',
+      savePath: '/chosen/final-copy.png',
     );
     final downloader = NativeLightboxImageDownloader(
       platform: TargetPlatform.linux,
@@ -72,15 +73,66 @@ void main() {
       repository: repository,
     );
 
-    expect(outcome, ImageDownloadOutcome.saved);
+    expect(
+      outcome,
+      isA<MediaDownloadSaved>().having(
+        (result) => result.filename,
+        'filename',
+        'final-copy.png',
+      ),
+    );
     expect(sent.url, Uri.parse('$siteUrl/uploads/short-url/image.png?dl=1'));
     expect(sent.headers['User-Api-Key'], 'account-key');
-    expect(environment.savedPath, '/chosen/screenshot.png');
+    expect(environment.savedPath, '/chosen/final-copy.png');
     expect(environment.filename, 'screenshot.png');
     expect(environment.mimeType, 'image/png');
     expect(environment.bytes, orderedEquals([1, 2, 3]));
     expect(environment.shareCalls, 0);
   });
+
+  for (final (platform, destination, basename) in [
+    (TargetPlatform.windows, r'C:\chosen\final-copy%.png', 'final-copy%.png'),
+    (
+      TargetPlatform.windows,
+      r'\\server\share\final-copy#.png',
+      'final-copy#.png',
+    ),
+    (TargetPlatform.linux, r'/chosen/final\copy%é.png', r'final\copy%é.png'),
+  ]) {
+    test(
+      'saved filename follows ${platform.name} path semantics for $destination',
+      () async {
+        final repository = _repository(
+          (_) async => http.Response.bytes([1], 200),
+        );
+        addTearDown(repository.dispose);
+        final environment = _FakeImageDownloadEnvironment(
+          temporary,
+          savePath: destination,
+        );
+        final outcome =
+            await NativeLightboxImageDownloader(
+              platform: platform,
+              environment: environment,
+            ).download(
+              url: '/uploads/image.png',
+              title: 'suggested.png',
+              siteUrl: siteUrl,
+              repository: repository,
+            );
+
+        expect(environment.savedPath, destination);
+        expect(
+          outcome,
+          isA<MediaDownloadSaved>().having(
+            (result) => result.filename,
+            'filename',
+            basename,
+          ),
+        );
+      },
+    );
+  }
 
   test(
     'an account change during the save dialog cancels the image fetch',
@@ -129,7 +181,7 @@ void main() {
       addTearDown(repository.dispose);
     });
 
-    Future<ImageDownloadOutcome> share(
+    Future<MediaDownloadResult> share(
       _FakeImageDownloadEnvironment environment, {
       String? title,
       Rect? origin,
@@ -149,7 +201,7 @@ void main() {
       const origin = Rect.fromLTWH(10, 20, 30, 40);
       final environment = _FakeImageDownloadEnvironment(
         temporary,
-        shareOutcome: ImageDownloadOutcome.shared,
+        shareOutcome: MediaShareOutcome.shared,
       );
 
       final outcome = await share(
@@ -158,7 +210,7 @@ void main() {
         origin: origin,
       );
 
-      expect(outcome, ImageDownloadOutcome.shared);
+      expect(outcome, isA<MediaDownloadShared>());
       expect(environment.suggestedName, isNull);
       final staging = File(environment.sharedPath!).parent;
       expect(staging.parent.path, temporary.path);
@@ -194,7 +246,7 @@ void main() {
     test('a dismissed sheet leaves no copy behind', () async {
       final environment = _FakeImageDownloadEnvironment(temporary);
 
-      expect(await share(environment), ImageDownloadOutcome.cancelled);
+      expect(await share(environment), isA<MediaDownloadCancelled>());
       expect(environment.shareCalls, 1);
       expect(temporary.listSync(), isEmpty);
     });
@@ -327,7 +379,7 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
     this.temporary, {
     this.savePath,
     this.saveChoice,
-    this.shareOutcome = ImageDownloadOutcome.cancelled,
+    this.shareOutcome = MediaShareOutcome.cancelled,
     this.shareError,
     this.onTemporaryDirectory,
   });
@@ -335,7 +387,7 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
   final Directory temporary;
   final String? savePath;
   final Future<String?>? saveChoice;
-  final ImageDownloadOutcome shareOutcome;
+  final MediaShareOutcome shareOutcome;
   final Object? shareError;
   final VoidCallback? onTemporaryDirectory;
 
@@ -375,7 +427,7 @@ final class _FakeImageDownloadEnvironment implements ImageDownloadEnvironment {
   }
 
   @override
-  Future<ImageDownloadOutcome> shareImage(
+  Future<MediaShareOutcome> shareImage(
     File file, {
     required String mimeType,
     Rect? sharePositionOrigin,

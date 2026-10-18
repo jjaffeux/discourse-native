@@ -3,12 +3,16 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
+import 'package:discourse_native/src/shell/media_download_result.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -20,9 +24,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:photo_view/photo_view.dart';
 
 import 'cooked_html_test.dart' show pumpCooked, renderedText;
+import 'support/blank_png.dart';
+import 'support/fakes.dart';
 import 'support/finders.dart';
 
 const String singleImage = '''
@@ -1168,6 +1176,70 @@ void main() {
       expect(find.text('Saved screenshot.png.'), findsOneWidget);
     });
 
+    testWidgets('a renamed desktop image save does not report its suggestion', (
+      tester,
+    ) async {
+      final directory = Directory.systemTemp.createTempSync('lightbox-save-');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      final destination = '${directory.path}/final-copy.png';
+      final bytes = blankPng(width: 1, height: 1);
+      final client = MockClient(
+        (_) async => http.Response.bytes(
+          bytes,
+          200,
+          headers: {'content-type': 'image/png'},
+        ),
+      );
+      addTearDown(client.close);
+      final repository = SiteImageRepository(
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+        client: client,
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore(const []),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+        siteImages: repository,
+      );
+      addTearDown(shell.dispose);
+      final environment = _RenamedImageDownloadEnvironment(destination);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            builder: (context, child) => DToaster(child: child!),
+            home: LightboxGallery(
+              images: [parse(singleImage)],
+              initialIndex: 0,
+              siteUrl: 'https://meta.discourse.org',
+              imageDownloader: NativeLightboxImageDownloader(
+                platform: Platform.isWindows
+                    ? TargetPlatform.windows
+                    : TargetPlatform.macOS,
+                environment: environment,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.dIcon(DIcons.download));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(environment.savedPath, destination);
+      expect(File(destination).readAsBytesSync(), bytes);
+      expect(find.text('Saved final-copy.png.'), findsOneWidget);
+      expect(find.text('Saved screenshot.png.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('toolbar clears macOS chrome and stays outside the image', (
       tester,
     ) async {
@@ -1416,6 +1488,39 @@ void main() {
   });
 }
 
+final class _RenamedImageDownloadEnvironment
+    implements ImageDownloadEnvironment {
+  _RenamedImageDownloadEnvironment(this.destination);
+
+  final String destination;
+  String? savedPath;
+
+  @override
+  Future<String?> chooseSavePath({required String suggestedName}) async =>
+      destination;
+
+  @override
+  Future<void> saveImage(
+    Uint8List bytes, {
+    required String path,
+    required String filename,
+    required String mimeType,
+  }) async {
+    File(path).writeAsBytesSync(bytes);
+    savedPath = path;
+  }
+
+  @override
+  Future<Directory> temporaryDirectory() => throw UnimplementedError();
+
+  @override
+  Future<MediaShareOutcome> shareImage(
+    File file, {
+    required String mimeType,
+    Rect? sharePositionOrigin,
+  }) => throw UnimplementedError();
+}
+
 final class _FakeImageDownloader implements LightboxImageDownloader {
   int calls = 0;
   String? url;
@@ -1423,7 +1528,7 @@ final class _FakeImageDownloader implements LightboxImageDownloader {
   String? siteUrl;
 
   @override
-  Future<ImageDownloadOutcome> download({
+  Future<MediaDownloadResult> download({
     required String url,
     required String? title,
     required String? siteUrl,
@@ -1434,7 +1539,7 @@ final class _FakeImageDownloader implements LightboxImageDownloader {
     this.url = url;
     this.title = title;
     this.siteUrl = siteUrl;
-    return ImageDownloadOutcome.saved;
+    return const MediaDownloadSaved('screenshot.png');
   }
 }
 

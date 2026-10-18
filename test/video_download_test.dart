@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:discourse_native/src/shell/video_download.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,7 +28,7 @@ void main() {
   });
   tearDown(() => directory.delete(recursive: true));
 
-  Future<VideoDownloadOutcome> download(
+  Future<MediaDownloadResult> download(
     http.Client client, {
     TargetPlatform platform = TargetPlatform.macOS,
     Duration timeout = const Duration(seconds: 30),
@@ -57,7 +58,7 @@ void main() {
       }),
     );
 
-    expect(result, VideoDownloadOutcome.cancelled);
+    expect(result, isA<MediaDownloadCancelled>());
     expect(environment.suggestedName, 'Demo clip.mp4');
     expect(requests, 0);
     expect(directory.listSync(), isEmpty);
@@ -80,7 +81,14 @@ void main() {
       }),
     );
 
-    expect(result, VideoDownloadOutcome.saved);
+    expect(
+      result,
+      isA<MediaDownloadSaved>().having(
+        (result) => result.filename,
+        'filename',
+        'saved.mp4',
+      ),
+    );
     expect(requests.first.url, url);
     expect(requests.first.method, 'GET');
     expect(requests.first.headers['User-Api-Key'], 'secret');
@@ -105,7 +113,7 @@ void main() {
         source: Uri.parse('https://cdn.example/demo.mov'),
       );
 
-      expect(result, VideoDownloadOutcome.shared);
+      expect(result, isA<MediaDownloadShared>());
       expect(environment.suggestedName, isNull);
       expect(environment.sharedBytes, [4, 5]);
       expect(environment.sharedName, 'Demo clip.mov');
@@ -142,7 +150,14 @@ void main() {
       ),
     );
 
-    expect(result, VideoDownloadOutcome.saved);
+    expect(
+      result,
+      isA<MediaDownloadSaved>().having(
+        (result) => result.filename,
+        'filename',
+        'large.mp4',
+      ),
+    );
     expect(await File(environment.savePath!).length(), 33 * 1024 * 1024);
     expect(directory.listSync().whereType<Directory>(), isEmpty);
   });
@@ -433,7 +448,7 @@ class _Environment implements VideoDownloadEnvironment {
   Future<Directory> temporaryDirectory() async => directory;
 
   @override
-  Future<VideoDownloadOutcome> shareVideo(
+  Future<MediaShareOutcome> shareVideo(
     File file, {
     required String filename,
     required String mimeType,
@@ -443,7 +458,7 @@ class _Environment implements VideoDownloadEnvironment {
     sharedName = filename;
     this.mimeType = mimeType;
     shareOrigin = sharePositionOrigin;
-    return VideoDownloadOutcome.shared;
+    return MediaShareOutcome.shared;
   }
 }
 

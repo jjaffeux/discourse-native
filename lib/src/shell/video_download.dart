@@ -14,15 +14,14 @@ import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/private_file_permissions.dart';
 import 'download_filename.dart';
-
-enum VideoDownloadOutcome { saved, shared, cancelled }
+import 'media_download_result.dart';
 
 abstract interface class VideoDownloadEnvironment {
   Future<String?> chooseSavePath({required String suggestedName});
 
   Future<Directory> temporaryDirectory();
 
-  Future<VideoDownloadOutcome> shareVideo(
+  Future<MediaShareOutcome> shareVideo(
     File file, {
     required String filename,
     required String mimeType,
@@ -31,7 +30,7 @@ abstract interface class VideoDownloadEnvironment {
 }
 
 abstract interface class VideoDownloader {
-  Future<VideoDownloadOutcome> download({
+  Future<MediaDownloadResult> download({
     required Uri url,
     required String title,
     required String? siteUrl,
@@ -66,7 +65,7 @@ final class NativeVideoDownloader implements VideoDownloader {
   };
 
   @override
-  Future<VideoDownloadOutcome> download({
+  Future<MediaDownloadResult> download({
     required Uri url,
     required String title,
     required String? siteUrl,
@@ -84,7 +83,7 @@ final class NativeVideoDownloader implements VideoDownloader {
         ? await _environment.chooseSavePath(suggestedName: filename)
         : null;
     if (_usesSaveDialog && destination == null) {
-      return VideoDownloadOutcome.cancelled;
+      return const MediaDownloadCancelled();
     }
     _requireCurrent(lease);
 
@@ -117,14 +116,23 @@ final class NativeVideoDownloader implements VideoDownloader {
       _requireCurrent(lease);
       if (destination != null) {
         await selector.XFile(file.path).saveTo(destination);
-        return VideoDownloadOutcome.saved;
+        return MediaDownloadSaved(
+          Uri.file(
+            destination,
+            windows: _platform == TargetPlatform.windows,
+          ).pathSegments.last,
+        );
       }
-      return await _environment.shareVideo(
+      final outcome = await _environment.shareVideo(
         file,
         filename: filename,
         mimeType: _videoMimeType(filename),
         sharePositionOrigin: sharePositionOrigin,
       );
+      return switch (outcome) {
+        MediaShareOutcome.shared => const MediaDownloadShared(),
+        MediaShareOutcome.cancelled => const MediaDownloadCancelled(),
+      };
     } finally {
       client.close();
       try {
@@ -232,7 +240,7 @@ final class _NativeVideoDownloadEnvironment
   Future<Directory> temporaryDirectory() => getTemporaryDirectory();
 
   @override
-  Future<VideoDownloadOutcome> shareVideo(
+  Future<MediaShareOutcome> shareVideo(
     File file, {
     required String filename,
     required String mimeType,
@@ -246,8 +254,8 @@ final class _NativeVideoDownloadEnvironment
       ),
     );
     return result.status == sharing.ShareResultStatus.dismissed
-        ? VideoDownloadOutcome.cancelled
-        : VideoDownloadOutcome.shared;
+        ? MediaShareOutcome.cancelled
+        : MediaShareOutcome.shared;
   }
 }
 
