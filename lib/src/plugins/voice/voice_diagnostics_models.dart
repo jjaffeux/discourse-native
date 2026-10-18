@@ -131,21 +131,6 @@ final class VoiceDiagnosticRecord {
 
   String get identity => '$writerId:$sequence';
 
-  String get searchText {
-    try {
-      return [
-        event,
-        component,
-        severity.name,
-        correlationId,
-        message,
-        jsonEncode(data),
-      ].whereType<String>().join(' ').toLowerCase();
-    } on Object {
-      return '$event $component ${severity.name}'.toLowerCase();
-    }
-  }
-
   Map<String, Object?> toJson() => {
     'writerId': writerId,
     'sequence': sequence,

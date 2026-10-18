@@ -630,30 +630,6 @@ final class VoiceDiagnosticsController implements VoiceDiagnosticsRecorder {
     );
   }
 
-  /// Writes the deep JSONL report incrementally when the durable store supports
-  /// it. This is intended for file export; [output] remains caller-owned.
-  Future<void> writeJsonReportTo(StringSink output) async {
-    final generatedAtUtc = await _prepareJsonReport();
-    final persistence = _persistence;
-    if (persistence is StreamingVoiceDiagnosticsPersistence) {
-      final streaming = persistence as StreamingVoiceDiagnosticsPersistence;
-      await streaming.writeJsonReportTo(
-        output,
-        generatedAtUtc: generatedAtUtc,
-        reportFormatVersion: reportFormatVersion,
-        state: state.toJson(),
-      );
-      return;
-    }
-    output.write(
-      await persistence.buildJsonReport(
-        generatedAtUtc: generatedAtUtc,
-        reportFormatVersion: reportFormatVersion,
-        state: state.toJson(),
-      ),
-    );
-  }
-
   /// Selects retained event identifiers and streams the exact same deep-report
   /// snapshot to the sink returned by [outputForRetainedEventIds].
   ///

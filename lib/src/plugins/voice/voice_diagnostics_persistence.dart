@@ -2013,15 +2013,6 @@ final class _VoiceDiagnosticsStore {
     truncated = true;
   }
 
-  void sort() {
-    _records.sort((left, right) {
-      final byTimestamp = left.timestampUtc.compareTo(right.timestampUtc);
-      if (byTimestamp != 0) return byTimestamp;
-      return left.sequence.compareTo(right.sequence);
-    });
-    _timestampsMonotonic = true;
-  }
-
   void retain(
     DateTime nowUtc, {
     int maximumBytes = voiceDiagnosticsRetentionBytes,
