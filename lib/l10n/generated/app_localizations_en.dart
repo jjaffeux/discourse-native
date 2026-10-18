@@ -444,9 +444,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get alertDialog => 'Alert dialog';
 
   @override
-  String get working => 'Working';
-
-  @override
   String get sending => 'Sending';
 
   @override
@@ -505,9 +502,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noInboxesFound => 'No inboxes found.';
-
-  @override
-  String get today => ', Today';
 
   @override
   String get todayDcalendarevents => 'Today';
@@ -4150,9 +4144,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get dateUnavailable => 'Date unavailable';
 
   @override
-  String get ends => 'Ends';
-
-  @override
   String get invalidEventResponse => 'Invalid event response';
 
   @override
@@ -5354,9 +5345,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get categoryPath => 'Category path';
-
-  @override
   String parentCategory(String parentName) {
     return 'Parent category: $parentName';
   }
@@ -5852,9 +5840,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get theComposerChangedWhileTheEmojiPickerWasOpenNothingWas =>
       'The composer changed while the emoji picker was open. Nothing was changed.';
-
-  @override
-  String get aggregate => 'Aggregate';
 
   @override
   String get posts => 'Posts';
@@ -6539,9 +6524,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Try different words or remove a condition.';
 
   @override
-  String get viewAll => 'View all';
-
-  @override
   String viewAllResults(String sectionScopeLabel) {
     return 'View all $sectionScopeLabel results';
   }
@@ -6727,12 +6709,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get resizeMainPanel => 'Resize main panel';
-
-  @override
-  String get mainPanel => 'Main panel';
-
-  @override
-  String get secondaryPanel => 'Secondary panel';
 
   @override
   String message1pxSolid(String horizontalRuleColor) {
@@ -8252,11 +8228,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noLinksYet => 'No links yet.';
 
   @override
-  String openExternalLink(String shortUrlLinkUrl, String linkClicksClick) {
-    return 'Open external link $shortUrlLinkUrl, $linkClicksClick';
-  }
-
-  @override
   String openUsersummaryValue(String linkTopicTitle) {
     return 'Open $linkTopicTitle';
   }
@@ -8605,9 +8576,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get composerActions => 'Composer actions';
 
   @override
-  String get minimize => 'Minimize';
-
-  @override
   String get saveDraft => 'Save draft';
 
   @override
@@ -8714,12 +8682,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addAFilter => 'Add a filter…';
 
   @override
-  String get openTopics => 'Open topics';
-
-  @override
-  String get unanswered => 'Unanswered';
-
-  @override
   String get editActiveFilter => 'Edit active filter';
 
   @override
@@ -8730,9 +8692,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get lavaLamp => 'Lava lamp';
-
-  @override
-  String get gradient => 'Gradient';
 
   @override
   String get intensity => 'Intensity';
@@ -9221,15 +9180,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get discourse => 'Discourse';
 
   @override
-  String get due => 'Due';
-
-  @override
-  String get comfortable => 'Comfortable';
-
-  @override
-  String get compact => 'Compact';
-
-  @override
   String get recentlyClosedNewtabpage => 'Recently closed';
 
   @override
@@ -9237,15 +9187,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get browseLatestTopics => 'Browse latest topics';
-
-  @override
-  String get click => 'Click';
-
-  @override
-  String get main => 'Main';
-
-  @override
-  String get secondary => 'Secondary';
 
   @override
   String reconnectToToSeeYourDrafts(String instanceHost) {
@@ -9640,9 +9581,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t save the new site order. Try again.';
 
   @override
-  String get allForums => 'All forums';
-
-  @override
   String get retryLoadingSites => 'Retry loading sites';
 
   @override
@@ -9675,9 +9613,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get checkForUpdates => 'Check for updates';
-
-  @override
-  String get unreadNotification => 'unread notification';
 
   @override
   String get addADiscourseSite => 'Add a Discourse site';
@@ -10413,9 +10348,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get matchTopicsThat => 'Match topics that';
 
   @override
-  String get addCondition => 'Add condition';
-
-  @override
   String removeGlobalsearchfilterpicker(String controllerFilterValue) {
     return 'Remove $controllerFilterValue';
   }
@@ -10958,9 +10890,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get preview => 'Preview: ';
-
-  @override
   String get clearStatus => 'Clear status';
 
   @override
@@ -10986,24 +10915,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get replyToSelectedPost => 'Reply to selected post';
-
-  @override
-  String get january => 'January';
-
-  @override
-  String get february => 'February';
-
-  @override
-  String get march => 'March';
-
-  @override
-  String get may => 'May';
-
-  @override
-  String get september => 'September';
-
-  @override
-  String get december => 'December';
 
   @override
   String get newNotification => 'New notification';
@@ -11073,9 +10984,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String youReNowAMemberOf(String group) {
     return 'You\'re now a member of $group';
   }
-
-  @override
-  String get membershipRequest => 'membership request';
 
   @override
   String reminderNotificationtypes(String reminderTitleNotification) {
@@ -12863,9 +12771,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get oK => 'OK';
-
-  @override
-  String get alpha => 'alpha';
 
   @override
   String atNewtabpage(String label, String wallUse24HourClockUse24HourClock) {

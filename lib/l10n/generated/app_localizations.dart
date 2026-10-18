@@ -880,12 +880,6 @@ abstract class AppLocalizations {
   /// **'Alert dialog'**
   String get alertDialog;
 
-  /// English UI message used by ui/components/d_bubble.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Working'**
-  String get working;
-
   /// English UI message used by ui/components/d_message.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -1005,12 +999,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No inboxes found.'**
   String get noInboxesFound;
-
-  /// English UI message used by ui/components/d_calendar_events.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **', Today'**
-  String get today;
 
   /// English UI message used by ui/components/d_calendar_events.dart. Keep placeholders intact.
   ///
@@ -7197,12 +7185,6 @@ abstract class AppLocalizations {
   /// **'Date unavailable'**
   String get dateUnavailable;
 
-  /// English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Ends'**
-  String get ends;
-
   /// English UI message used by plugins/discourse_events/event_api.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -9194,12 +9176,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/topic_list_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Category path'**
-  String get categoryPath;
-
-  /// English UI message used by shell/topic_list_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Parent category: {parentName}'**
   String parentCategory(String parentName);
 
@@ -9932,12 +9908,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The composer changed while the emoji picker was open. Nothing was changed.'**
   String get theComposerChangedWhileTheEmojiPickerWasOpenNothingWas;
-
-  /// English UI message used by shell/aggregate_view.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Aggregate'**
-  String get aggregate;
 
   /// English UI message used by shell/group/group_activity_view.dart. Keep placeholders intact.
   ///
@@ -11162,12 +11132,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/global_search_panel.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'View all'**
-  String get viewAll;
-
-  /// English UI message used by shell/global_search_panel.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'View all {sectionScopeLabel} results'**
   String viewAllResults(String sectionScopeLabel);
 
@@ -11491,18 +11455,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Resize main panel'**
   String get resizeMainPanel;
-
-  /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Main panel'**
-  String get mainPanel;
-
-  /// English UI message used by shell/desktop_panels.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Secondary panel'**
-  String get secondaryPanel;
 
   /// English UI message used by shell/cooked_html.dart. Keep placeholders intact.
   ///
@@ -14197,12 +14149,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/user_summary.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Open external link {shortUrlLinkUrl}, {linkClicksClick}'**
-  String openExternalLink(String shortUrlLinkUrl, String linkClicksClick);
-
-  /// English UI message used by shell/user_summary.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Open {linkTopicTitle}'**
   String openUsersummaryValue(String linkTopicTitle);
 
@@ -14794,12 +14740,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/composer_header.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Minimize'**
-  String get minimize;
-
-  /// English UI message used by shell/composer_header.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Save draft'**
   String get saveDraft;
 
@@ -14992,18 +14932,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/topic_list_actions.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Open topics'**
-  String get openTopics;
-
-  /// English UI message used by shell/topic_list_actions.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Unanswered'**
-  String get unanswered;
-
-  /// English UI message used by shell/topic_list_actions.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Edit active filter'**
   String get editActiveFilter;
 
@@ -15024,12 +14952,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Lava lamp'**
   String get lavaLamp;
-
-  /// English UI message used by shell/forum_appearance_effects.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Gradient'**
-  String get gradient;
 
   /// English UI message used by shell/forum_appearance_effects.dart. Keep placeholders intact.
   ///
@@ -15892,24 +15814,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Due'**
-  String get due;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Comfortable'**
-  String get comfortable;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Compact'**
-  String get compact;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Recently closed'**
   String get recentlyClosedNewtabpage;
 
@@ -15924,24 +15828,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Browse latest topics'**
   String get browseLatestTopics;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Click'**
-  String get click;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Main'**
-  String get main;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Secondary'**
-  String get secondary;
 
   /// English UI message used by shell/draft_list_controller.dart. Keep placeholders intact.
   ///
@@ -16533,12 +16419,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/instance_rail.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'All forums'**
-  String get allForums;
-
-  /// English UI message used by shell/instance_rail.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Retry loading sites'**
   String get retryLoadingSites;
 
@@ -16583,12 +16463,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Check for updates'**
   String get checkForUpdates;
-
-  /// English UI message used by shell/instance_rail.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'unread notification'**
-  String get unreadNotification;
 
   /// English UI message used by shell/instance_rail.dart. Keep placeholders intact.
   ///
@@ -17853,12 +17727,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Add condition'**
-  String get addCondition;
-
-  /// English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Remove {controllerFilterValue}'**
   String removeGlobalsearchfilterpicker(String controllerFilterValue);
 
@@ -18807,12 +18675,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/user_status_editor.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Preview: '**
-  String get preview;
-
-  /// English UI message used by shell/user_status_editor.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Clear status'**
   String get clearStatus;
 
@@ -18863,42 +18725,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reply to selected post'**
   String get replyToSelectedPost;
-
-  /// English UI message used by foundation/calendar_day.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'January'**
-  String get january;
-
-  /// English UI message used by foundation/calendar_day.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'February'**
-  String get february;
-
-  /// English UI message used by foundation/calendar_day.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'March'**
-  String get march;
-
-  /// English UI message used by foundation/calendar_day.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'May'**
-  String get may;
-
-  /// English UI message used by foundation/calendar_day.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'September'**
-  String get september;
-
-  /// English UI message used by foundation/calendar_day.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'December'**
-  String get december;
 
   /// English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.
   ///
@@ -18989,12 +18815,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You\'\'re now a member of {group}'**
   String youReNowAMemberOf(String group);
-
-  /// English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'membership request'**
-  String get membershipRequest;
 
   /// English UI message used by plugin_api/notification_types.dart. Keep placeholders intact.
   ///
@@ -21420,12 +21240,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'OK'**
   String get oK;
-
-  /// English UI message used by shell/aggregate_branding.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'alpha'**
-  String get alpha;
 
   /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
   ///

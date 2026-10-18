@@ -497,10 +497,6 @@
   "@alertDialog": {
     "description": "English UI message used by ui/components/d_alert_dialog.dart. Keep placeholders intact."
   },
-  "working": "Working",
-  "@working": {
-    "description": "English UI message used by ui/components/d_bubble.dart. Keep placeholders intact."
-  },
   "sending": "Sending",
   "@sending": {
     "description": "English UI message used by ui/components/d_message.dart. Keep placeholders intact."
@@ -580,10 +576,6 @@
   "noInboxesFound": "No inboxes found.",
   "@noInboxesFound": {
     "description": "English UI message used by ui/components/d_message_inbox_menu.dart. Keep placeholders intact."
-  },
-  "today": ", Today",
-  "@today": {
-    "description": "English UI message used by ui/components/d_calendar_events.dart. Keep placeholders intact."
   },
   "todayDcalendarevents": "Today",
   "@todayDcalendarevents": {
@@ -5415,10 +5407,6 @@
   "@dateUnavailable": {
     "description": "English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact."
   },
-  "ends": "Ends",
-  "@ends": {
-    "description": "English UI message used by plugins/discourse_events/event_topic_title.dart. Keep placeholders intact."
-  },
   "invalidEventResponse": "Invalid event response",
   "@invalidEventResponse": {
     "description": "English UI message used by plugins/discourse_events/event_api.dart. Keep placeholders intact."
@@ -7048,10 +7036,6 @@
       }
     }
   },
-  "categoryPath": "Category path",
-  "@categoryPath": {
-    "description": "English UI message used by shell/topic_list_view.dart. Keep placeholders intact."
-  },
   "parentCategory": "Parent category: {parentName}",
   "@parentCategory": {
     "description": "English UI message used by shell/topic_list_view.dart. Keep placeholders intact.",
@@ -7699,10 +7683,6 @@
   "theComposerChangedWhileTheEmojiPickerWasOpenNothingWas": "The composer changed while the emoji picker was open. Nothing was changed.",
   "@theComposerChangedWhileTheEmojiPickerWasOpenNothingWas": {
     "description": "English UI message used by shell/emoji_composer.dart. Keep placeholders intact."
-  },
-  "aggregate": "Aggregate",
-  "@aggregate": {
-    "description": "English UI message used by shell/aggregate_view.dart. Keep placeholders intact."
   },
   "posts": "Posts",
   "@posts": {
@@ -8624,10 +8604,6 @@
   "@tryDifferentWordsOrRemoveACondition": {
     "description": "English UI message used by shell/global_search_panel.dart. Keep placeholders intact."
   },
-  "viewAll": "View all",
-  "@viewAll": {
-    "description": "English UI message used by shell/global_search_panel.dart. Keep placeholders intact."
-  },
   "viewAllResults": "View all {sectionScopeLabel} results",
   "@viewAllResults": {
     "description": "English UI message used by shell/global_search_panel.dart. Keep placeholders intact.",
@@ -8890,14 +8866,6 @@
   },
   "resizeMainPanel": "Resize main panel",
   "@resizeMainPanel": {
-    "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
-  },
-  "mainPanel": "Main panel",
-  "@mainPanel": {
-    "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
-  },
-  "secondaryPanel": "Secondary panel",
-  "@secondaryPanel": {
     "description": "English UI message used by shell/desktop_panels.dart. Keep placeholders intact."
   },
   "message1pxSolid": "1px solid {horizontalRuleColor}",
@@ -10944,18 +10912,6 @@
   "@noLinksYet": {
     "description": "English UI message used by shell/user_summary.dart. Keep placeholders intact."
   },
-  "openExternalLink": "Open external link {shortUrlLinkUrl}, {linkClicksClick}",
-  "@openExternalLink": {
-    "description": "English UI message used by shell/user_summary.dart. Keep placeholders intact.",
-    "placeholders": {
-      "shortUrlLinkUrl": {
-        "type": "String"
-      },
-      "linkClicksClick": {
-        "type": "String"
-      }
-    }
-  },
   "openUsersummaryValue": "Open {linkTopicTitle}",
   "@openUsersummaryValue": {
     "description": "English UI message used by shell/user_summary.dart. Keep placeholders intact.",
@@ -11432,10 +11388,6 @@
   "@composerActions": {
     "description": "English UI message used by shell/composer_header.dart. Keep placeholders intact."
   },
-  "minimize": "Minimize",
-  "@minimize": {
-    "description": "English UI message used by shell/composer_header.dart. Keep placeholders intact."
-  },
   "saveDraft": "Save draft",
   "@saveDraft": {
     "description": "English UI message used by shell/composer_header.dart. Keep placeholders intact."
@@ -11589,14 +11541,6 @@
   "@addAFilter": {
     "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
   },
-  "openTopics": "Open topics",
-  "@openTopics": {
-    "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
-  },
-  "unanswered": "Unanswered",
-  "@unanswered": {
-    "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
-  },
   "editActiveFilter": "Edit active filter",
   "@editActiveFilter": {
     "description": "English UI message used by shell/topic_list_actions.dart. Keep placeholders intact."
@@ -11611,10 +11555,6 @@
   },
   "lavaLamp": "Lava lamp",
   "@lavaLamp": {
-    "description": "English UI message used by shell/forum_appearance_effects.dart. Keep placeholders intact."
-  },
-  "gradient": "Gradient",
-  "@gradient": {
     "description": "English UI message used by shell/forum_appearance_effects.dart. Keep placeholders intact."
   },
   "intensity": "Intensity",
@@ -12284,18 +12224,6 @@
   "@discourse": {
     "description": "English UI message used by shell/aggregate_branding.dart. Keep placeholders intact."
   },
-  "due": "Due",
-  "@due": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "comfortable": "Comfortable",
-  "@comfortable": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "compact": "Compact",
-  "@compact": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
   "recentlyClosedNewtabpage": "Recently closed",
   "@recentlyClosedNewtabpage": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
@@ -12306,18 +12234,6 @@
   },
   "browseLatestTopics": "Browse latest topics",
   "@browseLatestTopics": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "click": "Click",
-  "@click": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "main": "Main",
-  "@main": {
-    "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
-  },
-  "secondary": "Secondary",
-  "@secondary": {
     "description": "English UI message used by shell/new_tab_page.dart. Keep placeholders intact."
   },
   "reconnectToToSeeYourDrafts": "Reconnect to {instanceHost} to see your drafts.",
@@ -12902,10 +12818,6 @@
   "@couldnTSaveTheNewSiteOrderTryAgain": {
     "description": "English UI message used by shell/instance_rail.dart. Keep placeholders intact."
   },
-  "allForums": "All forums",
-  "@allForums": {
-    "description": "English UI message used by shell/instance_rail.dart. Keep placeholders intact."
-  },
   "retryLoadingSites": "Retry loading sites",
   "@retryLoadingSites": {
     "description": "English UI message used by shell/instance_rail.dart. Keep placeholders intact."
@@ -12946,10 +12858,6 @@
   },
   "checkForUpdates": "Check for updates",
   "@checkForUpdates": {
-    "description": "English UI message used by shell/instance_rail.dart. Keep placeholders intact."
-  },
-  "unreadNotification": "unread notification",
-  "@unreadNotification": {
     "description": "English UI message used by shell/instance_rail.dart. Keep placeholders intact."
   },
   "addADiscourseSite": "Add a Discourse site",
@@ -13953,10 +13861,6 @@
   "@matchTopicsThat": {
     "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
   },
-  "addCondition": "Add condition",
-  "@addCondition": {
-    "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact."
-  },
   "removeGlobalsearchfilterpicker": "Remove {controllerFilterValue}",
   "@removeGlobalsearchfilterpicker": {
     "description": "English UI message used by shell/global_search_filter_picker.dart. Keep placeholders intact.",
@@ -14718,10 +14622,6 @@
       }
     }
   },
-  "preview": "Preview: ",
-  "@preview": {
-    "description": "English UI message used by shell/user_status_editor.dart. Keep placeholders intact."
-  },
   "clearStatus": "Clear status",
   "@clearStatus": {
     "description": "English UI message used by shell/user_status_editor.dart. Keep placeholders intact."
@@ -14757,30 +14657,6 @@
   "replyToSelectedPost": "Reply to selected post",
   "@replyToSelectedPost": {
     "description": "English UI message used by app_shortcuts.dart. Keep placeholders intact."
-  },
-  "january": "January",
-  "@january": {
-    "description": "English UI message used by foundation/calendar_day.dart. Keep placeholders intact."
-  },
-  "february": "February",
-  "@february": {
-    "description": "English UI message used by foundation/calendar_day.dart. Keep placeholders intact."
-  },
-  "march": "March",
-  "@march": {
-    "description": "English UI message used by foundation/calendar_day.dart. Keep placeholders intact."
-  },
-  "may": "May",
-  "@may": {
-    "description": "English UI message used by foundation/calendar_day.dart. Keep placeholders intact."
-  },
-  "september": "September",
-  "@september": {
-    "description": "English UI message used by foundation/calendar_day.dart. Keep placeholders intact."
-  },
-  "december": "December",
-  "@december": {
-    "description": "English UI message used by foundation/calendar_day.dart. Keep placeholders intact."
   },
   "newNotification": "New notification",
   "@newNotification": {
@@ -14904,10 +14780,6 @@
         "type": "String"
       }
     }
-  },
-  "membershipRequest": "membership request",
-  "@membershipRequest": {
-    "description": "English UI message used by plugin_api/notification_types.dart. Keep placeholders intact."
   },
   "reminderNotificationtypes": "Reminder: {reminderTitleNotification}",
   "@reminderNotificationtypes": {
@@ -17384,10 +17256,6 @@
   "oK": "OK",
   "@oK": {
     "description": "English UI message used by shell/post_permanent_delete.dart. Keep placeholders intact."
-  },
-  "alpha": "alpha",
-  "@alpha": {
-    "description": "English UI message used by shell/aggregate_branding.dart. Keep placeholders intact."
   },
   "atNewtabpage": "{label} at {wallUse24HourClockUse24HourClock}",
   "@atNewtabpage": {
