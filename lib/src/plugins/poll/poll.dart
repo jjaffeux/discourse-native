@@ -102,9 +102,6 @@ class PollResults {
 
   final String value;
 
-  bool get isKnown =>
-      this == always || this == onVote || this == onClose || this == staffOnly;
-
   @override
   bool operator ==(Object other) =>
       other is PollResults && other.value == value;
@@ -131,8 +128,6 @@ class PollChartType {
   };
 
   final String value;
-
-  bool get isKnown => this == bar || this == pie;
 
   @override
   bool operator ==(Object other) =>
@@ -240,8 +235,6 @@ class PollSelection {
   final List<RankedPollSelection> rankedChoices;
 
   bool get hasVote => optionIds.isNotEmpty || rankedChoices.isNotEmpty;
-
-  bool contains(String optionId) => optionIds.contains(optionId);
 
   @override
   bool operator ==(Object other) =>
@@ -518,8 +511,6 @@ class Poll {
 
   bool get isOpen => status == PollStatus.open;
 
-  bool get hasVisibleResults => options.any((option) => option.votes != null);
-
   bool get supportsNativeVoting => type.supportsNativeVoting && status.isKnown;
 
   List<String> get selectedOptionIds => selection.optionIds;
@@ -625,18 +616,8 @@ class Polls {
 
   Poll? operator [](String name) => byName[name];
 
-  List<Poll> get values => List.unmodifiable(byName.values);
-
-  bool get isEmpty => byName.isEmpty;
-
   Polls withPoll(Poll poll) =>
       Polls(byName: Map.unmodifiable({...byName, poll.name: poll}));
-
-  Polls without(String name) {
-    if (!byName.containsKey(name)) return this;
-    final next = Map<String, Poll>.of(byName)..remove(name);
-    return Polls(byName: Map.unmodifiable(next));
-  }
 
   @override
   bool operator ==(Object other) =>
