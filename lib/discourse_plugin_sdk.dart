@@ -28,9 +28,18 @@ export 'src/data/discourse_api_contracts.dart'
         maximumDiscourseSearchTermLength;
 export 'src/data/origin_cooldown.dart' show OriginCooldown;
 export 'src/data/plugin_transport.dart';
+export 'src/data/preference_storage_scope.dart' show PreferenceStorage;
 export 'src/data/serial_operation_queue.dart';
 export 'src/data/site_preference_keys.dart'
-    show ForgottenSites, SitePreferenceKey, SitePreferenceTail;
+    show
+        ForgottenSites,
+        SitePreferenceKey,
+        SitePreferenceTail,
+        SitePreferenceRetirement,
+        OwnedSitePreferences,
+        SitePreferenceIdentity,
+        SitePreferenceScope,
+        SitePreferenceValue;
 export 'src/data/store.dart' show Ref, Store, StorePolicy, Storable;
 export 'src/data/store_diagnostics.dart' show reportStorageFailure;
 export 'src/diagnostics/diagnostic_event.dart';

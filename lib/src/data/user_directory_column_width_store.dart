@@ -19,6 +19,7 @@ final class SharedPreferencesUserDirectoryColumnWidthPersistence
 
   static const keys = SitePreferenceKey(
     'discourse_native.user_directory_column_widths',
+    retirement: SitePreferenceRetirement.tracked,
   );
 
   @override
@@ -105,7 +106,13 @@ final class UserDirectoryColumnWidthStore {
       ReadAfterWriteOperationQueue();
   static final Expando<Map<String, Object>> _siteOwners = Expando();
 
-  Map<String, Object> get _owners => _siteOwners[_persistence] ??= {};
+  Map<String, Object> get _owners {
+    SharedPreferencesUserDirectoryColumnWidthPersistence.keys.track(
+      this,
+      (store, sites) => store.forgetSites(sites),
+    );
+    return _siteOwners[_persistence] ??= {};
+  }
 
   Object _owner(String siteUrl) => _owners.putIfAbsent(siteUrl, Object.new);
 

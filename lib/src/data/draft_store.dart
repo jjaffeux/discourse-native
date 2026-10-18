@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/private_file_document.dart';
+import 'preference_storage_scope.dart';
 import 'private_storage.dart';
 import 'store_diagnostics.dart';
 
@@ -269,6 +270,9 @@ final class _DraftFileState {
 /// Presence means the site has not received this text, so restore prefers it
 /// without comparing timestamps. Reads and cleanup are best-effort, but writes
 /// fail rather than claim that rejected text is safely stored on the device.
+@PreferenceStorage.document(
+  'DraftStore.clearSite retires private drafts and legacy preference fallback together.',
+)
 class DraftStore {
   DraftStore({DraftPersistence? persistence})
     : _persistence = persistence ?? _platformDraftPersistence();

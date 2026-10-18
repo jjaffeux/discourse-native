@@ -26,11 +26,13 @@ final class SharedPreferencesAiProofreadingPreferencePersistence
     'discourse_native.ai_proofreading_enabled_by_account',
     tail: SitePreferenceTail.id,
     onForget: AiProofreadingPreferenceStore._forgetSharedSites,
+    retirement: SitePreferenceRetirement.tracked,
   );
 
   /// The forum-wide choice kept before choices were bound to an account.
   static const siteWideKeys = SitePreferenceKey(
     'discourse_native.ai_proofreading_enabled',
+    retirement: SitePreferenceRetirement.storedOnly,
   );
 
   @override
@@ -73,7 +75,13 @@ final class AiProofreadingPreferenceStore {
       ReadAfterWriteOperationQueue();
   static final Expando<Map<String, Object>> _siteOwners = Expando();
 
-  Map<String, Object> get _owners => _siteOwners[_persistence] ??= {};
+  Map<String, Object> get _owners {
+    SharedPreferencesAiProofreadingPreferencePersistence.keys.track(
+      this,
+      (store, sites) => store.forgetSites(sites),
+    );
+    return _siteOwners[_persistence] ??= {};
+  }
 
   Object _owner(String siteUrl) => _owners.putIfAbsent(siteUrl, Object.new);
 

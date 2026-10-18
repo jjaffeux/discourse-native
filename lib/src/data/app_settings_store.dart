@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
@@ -34,6 +35,7 @@ abstract interface class AppSettingsPersistence {
   Future<bool> writeTopicListMode(String value);
 }
 
+@PreferenceStorage.device('Device application settings survive forum removal.')
 final class SharedPreferencesAppSettingsPersistence
     implements AppSettingsPersistence {
   const SharedPreferencesAppSettingsPersistence();

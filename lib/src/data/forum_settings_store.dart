@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,7 @@ import '../models/forum_font.dart';
 import '../models/forum_theme_library.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/shared_appearance.dart';
+import 'preference_storage_scope.dart';
 import 'scalar_preference_repository.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
@@ -16,15 +18,22 @@ import 'stored_forum_base.dart';
 
 final class ForumSettingsStore {
   ForumSettingsStore({ScalarPreferencePersistence<String>? persistence})
-    : _persistence = persistence ?? const _ForumSettingsPersistence();
+    : _persistence = persistence ?? const _ForumSettingsPersistence() {
+    _trackThemeLibrary();
+  }
 
-  ForumSettingsStore.memory() : _persistence = _MemoryPersistence();
+  ForumSettingsStore.memory() : _persistence = _MemoryPersistence() {
+    _trackThemeLibrary();
+  }
 
   final ScalarPreferencePersistence<String> _persistence;
   static final _operations = SerialOperationQueue();
   static final Expando<Map<String, Object>> _themeModeOwners = Expando();
 
-  Map<String, Object> get _modeOwners => _themeModeOwners[_persistence] ??= {};
+  Map<String, Object> get _modeOwners {
+    themeModeKeys.track(this, (store, sites) => store.forgetThemeModes(sites));
+    return _themeModeOwners[_persistence] ??= {};
+  }
 
   Object _modeOwner(String site) => _modeOwners.putIfAbsent(site, Object.new);
 
@@ -33,9 +42,22 @@ final class ForumSettingsStore {
 
   static const themeModeKeys = SitePreferenceKey(
     'discourse_native.forum_theme_mode',
+    retirement: SitePreferenceRetirement.tracked,
   );
 
-  static const themesKeys = SitePreferenceKey('discourse_native.forum_themes');
+  static const themesKeys = SitePreferenceKey(
+    'discourse_native.forum_themes',
+    retirement: SitePreferenceRetirement.tracked,
+  );
+
+  void _trackThemeLibrary() => themesKeys.track(
+    this,
+    (store, sites) => store._retireThemeLibrary(sites),
+  );
+
+  void _retireThemeLibrary(ForgottenSites sites) {
+    unawaited(forgetThemes(sites).catchError((Object _, StackTrace _) {}));
+  }
 
   static String themeModeKey(String siteUrl) =>
       themeModeKeys.of(requireStoredForumBase(siteUrl));
@@ -245,6 +267,11 @@ final class ForumSettingsStore {
     key: themeLibraryKey,
     operation: () async {
       final library = await _readThemeLibrary();
+      if (!library.forums.keys.any(sites.includes) &&
+          !_pendingThemeMigrations.keys.any(sites.includes)) {
+        _themeLibrary = library;
+        return;
+      }
       _pendingThemeMigrations.removeWhere((site, _) => sites.includes(site));
       await _writeThemeLibrary(
         ForumThemeLibrary(
@@ -324,6 +351,9 @@ final class ForumSettingsStore {
   }
 }
 
+@PreferenceStorage.adapter(
+  'ForumSettingsStore declares forum keys and owns the shared appearance document.',
+)
 final class _ForumSettingsPersistence
     extends SharedPreferencesScalarPreferencePersistence<String> {
   const _ForumSettingsPersistence();

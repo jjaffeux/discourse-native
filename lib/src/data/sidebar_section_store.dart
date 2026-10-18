@@ -25,6 +25,7 @@ final class SharedPreferencesSidebarSectionPersistence
   static const keys = SitePreferenceKey(
     'discourse_native.sidebar_section_collapsed',
     tail: SitePreferenceTail.name,
+    retirement: SitePreferenceRetirement.tracked,
   );
 
   @override
@@ -51,7 +52,12 @@ final class SharedPreferencesSidebarSectionPersistence
 final class SidebarSectionStore {
   SidebarSectionStore({SidebarSectionPersistence? persistence})
     : _persistence =
-          persistence ?? const SharedPreferencesSidebarSectionPersistence();
+          persistence ?? const SharedPreferencesSidebarSectionPersistence() {
+    SharedPreferencesSidebarSectionPersistence.keys.track(
+      this,
+      (store, sites) => store.forgetSites(sites),
+    );
+  }
 
   final SidebarSectionPersistence _persistence;
   final _snapshots = PreferenceSnapshots<(String, String), bool>();

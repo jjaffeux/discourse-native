@@ -5,6 +5,8 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/recent_destinations_store.dart';
+import 'package:discourse_native/src/data/recent_search_store.dart';
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
@@ -594,6 +596,9 @@ Future<void> _keepSitePreferences(ShellController shell, String siteUrl) async {
     'Reader.Name',
     DateTime.utc(2030),
   );
+  await const RecentSearchStore().write(siteUrl, 'Reader.Name', {
+    'private search',
+  });
   await shell.emojiPickerStore.writeSkinTone(
     siteUrl: siteUrl,
     tone: EmojiSkinTone.t3,
@@ -635,7 +640,16 @@ Future<void> _keepSitePreferences(ShellController shell, String siteUrl) async {
 /// Every stored key that names [siteUrl].
 Future<Set<String>> _storedPreferencesOf(String siteUrl) async => {
   for (final key in (await SharedPreferences.getInstance()).getKeys())
-    if (key.contains(Uri.encodeComponent(siteUrl))) key,
+    if (key.contains(Uri.encodeComponent(siteUrl)) ||
+        key ==
+            BookmarkReminderStore.preferences.keyFor(
+              SitePreferenceIdentity.account(siteUrl, 'reader.name'),
+            ) ||
+        key ==
+            RecentSearchStore.preferences.keyFor(
+              SitePreferenceIdentity.account(siteUrl, 'Reader.Name'),
+            ))
+      key,
 };
 
 /// Once [holdResponses] is set, the target site's category and client-settings
@@ -2251,11 +2265,15 @@ void main() {
         }),
       );
 
-      ShellController storedPreferencesShell(InstanceStore instanceStore) {
+      ShellController storedPreferencesShell(
+        InstanceStore instanceStore, {
+        FakeDiscourseApi? api,
+        FakeAuthenticator? authenticator,
+      }) {
         final shell = ShellController(
           instanceStore: instanceStore,
-          api: FakeDiscourseApi(),
-          authenticator: FakeAuthenticator(),
+          api: api ?? FakeDiscourseApi(),
+          authenticator: authenticator ?? FakeAuthenticator(),
           drafts: FakeDraftStore(),
           forumSettingsStore: ForumSettingsStore(),
           trackers: FakeSiteTracker.reset(),
@@ -2264,6 +2282,37 @@ void main() {
         addTearDown(shell.dispose);
         return shell;
       }
+
+      test('account disconnect keeps returning account preferences', () async {
+        final shell = storedPreferencesShell(
+          FakeInstanceStore([
+            instance(
+              'meta.discourse.org',
+            ).copyWith(user: const DiscourseUser(id: 7, username: 'reader')),
+          ]),
+          api: FakeDiscourseApi(
+            user: const DiscourseUser(id: 7, username: 'reader'),
+          ),
+          authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+        );
+        await shell.load();
+        expect(shell.currentInstance!.isConnected, isTrue);
+        await const RecentSearchStore().write(_siteUrl, 'reader', {'kept'});
+        await const BookmarkReminderStore().write(
+          _siteUrl,
+          'reader',
+          DateTime.utc(2030),
+        );
+        expect(await shell.disconnectInstance(_siteUrl), isTrue);
+        expect(shell.currentInstance!.isConnected, isFalse);
+        expect(await const RecentSearchStore().read(_siteUrl, 'reader'), {
+          'kept',
+        });
+        expect(
+          await const BookmarkReminderStore().read(_siteUrl, 'reader'),
+          DateTime.utc(2030),
+        );
+      });
 
       test('a removed forum leaves none of its preferences', () async {
         final shell = storedPreferencesShell(
@@ -2276,8 +2325,8 @@ void main() {
         await _keepSitePreferences(shell, _siteUrl);
         await _keepSitePreferences(shell, otherSite);
         final kept = await _storedPreferencesOf(otherSite);
-        expect(await _storedPreferencesOf(_siteUrl), hasLength(11));
-        expect(kept, hasLength(11));
+        expect(await _storedPreferencesOf(_siteUrl), hasLength(12));
+        expect(kept, hasLength(12));
 
         expect(
           await shell.removeInstance(shell.instanceFor(_siteUrl)!),

@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 import 'updater.dart';
@@ -14,6 +15,9 @@ abstract interface class UpdatePersistence {
   Future<bool> writeLastCheckedMillis(int value);
 }
 
+@PreferenceStorage.device(
+  'Update state belongs to this application installation.',
+)
 final class SharedPreferencesUpdatePersistence implements UpdatePersistence {
   const SharedPreferencesUpdatePersistence();
 

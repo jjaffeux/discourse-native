@@ -7,6 +7,9 @@ abstract interface class ChatThreadPanelWidthPersistence {
   Future<bool> writeWidth(double width);
 }
 
+@PreferenceStorage.device(
+  'Chat panel width is shared by every account on this device.',
+)
 final class SharedPreferencesChatThreadPanelWidthPersistence
     implements ChatThreadPanelWidthPersistence {
   const SharedPreferencesChatThreadPanelWidthPersistence();

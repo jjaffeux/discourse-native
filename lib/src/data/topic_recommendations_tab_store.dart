@@ -20,6 +20,7 @@ final class SharedPreferencesTopicRecommendationsTabPersistence
 
   static const keys = SitePreferenceKey(
     'discourse_native.topic_recommendations_tab',
+    retirement: SitePreferenceRetirement.tracked,
   );
 
   @override
@@ -50,7 +51,13 @@ final class TopicRecommendationsTabStore {
       ReadAfterWriteOperationQueue();
   static final Expando<Map<String, Object>> _siteOwners = Expando();
 
-  Map<String, Object> get _owners => _siteOwners[_persistence] ??= {};
+  Map<String, Object> get _owners {
+    SharedPreferencesTopicRecommendationsTabPersistence.keys.track(
+      this,
+      (store, sites) => store.forgetSites(sites),
+    );
+    return _siteOwners[_persistence] ??= {};
+  }
 
   Object _owner(String siteUrl) => _owners.putIfAbsent(siteUrl, Object.new);
 

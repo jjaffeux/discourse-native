@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
@@ -9,6 +10,9 @@ abstract interface class ScalarPreferencePersistence<T extends Object> {
   Future<bool> write(String key, T value);
 }
 
+@PreferenceStorage.adapter(
+  'ScalarPreferenceRepository uses the device or site key declared by its domain store.',
+)
 abstract base class SharedPreferencesScalarPreferencePersistence<
   T extends Object
 >
@@ -28,6 +32,9 @@ abstract base class SharedPreferencesScalarPreferencePersistence<
       writeValue(await SharedPreferences.getInstance(), key, value);
 }
 
+@PreferenceStorage.adapter(
+  'ScalarPreferenceRepository supplies the owning device or site key.',
+)
 final class SharedPreferencesDoublePreferencePersistence
     extends SharedPreferencesScalarPreferencePersistence<double> {
   const SharedPreferencesDoublePreferencePersistence();
@@ -51,6 +58,7 @@ final class ScalarPreferenceRepository<T extends Object> {
     required this.readOperation,
     required this.writeOperation,
     required this.writeFailureMessage,
+    this.isCurrent,
     Object? owner,
   }) : owner = owner ?? persistence;
 
@@ -62,13 +70,16 @@ final class ScalarPreferenceRepository<T extends Object> {
   final String readOperation;
   final String writeOperation;
   final String writeFailureMessage;
+  final bool Function()? isCurrent;
 
   Future<T?> read() =>
       _operations.run(owner: owner, key: key, operation: _read);
 
   Future<T?> _read() async {
+    if (isCurrent?.call() == false) return null;
     try {
-      return await persistence.read(key);
+      final value = await persistence.read(key);
+      return isCurrent?.call() == false ? null : value;
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, readOperation);
       return null;
@@ -82,6 +93,7 @@ final class ScalarPreferenceRepository<T extends Object> {
   );
 
   Future<void> _write(T value) async {
+    if (isCurrent?.call() == false) return;
     try {
       if (!await persistence.write(key, value)) {
         throw StateError(writeFailureMessage);

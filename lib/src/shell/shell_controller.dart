@@ -17,7 +17,6 @@ import '../data/app_settings_store.dart';
 import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
 import '../data/badges_api.dart';
-import '../data/bookmark_reminder_store.dart';
 import '../data/composer_media_optimizer.dart';
 import '../data/destination_bookmarks_store.dart';
 import '../data/discourse_api_contracts.dart';
@@ -41,13 +40,11 @@ import '../data/site_preference_keys.dart';
 import '../data/site_tracker.dart';
 import '../data/site_video_thumbnail_repository.dart';
 import '../data/store.dart';
-import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
 import '../data/topic_tracking_reconciler.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
-import '../data/user_directory_column_width_store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/surface_opening_trace.dart';
 import '../foundation/bounded_lru_cache.dart';
@@ -111,6 +108,7 @@ import '../plugin_api/core_plugin_manifest.dart';
 import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/plugin_runtime.dart';
 import '../plugin_api/site_plugin_api.dart';
+import '../site_preference_inventory.g.dart';
 import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
 import 'app_settings_controller.dart';
@@ -130,7 +128,6 @@ import 'global_search_filters.dart';
 import 'global_search_models.dart';
 import 'groups_controller.dart';
 import 'hashtag.dart';
-import 'header_preferences.dart';
 import 'mobile_navigation.dart';
 import 'plugin_background_retention.dart';
 import 'post_checklist_write.dart';
@@ -177,20 +174,6 @@ const _shellEntityStorePolicy = StorePolicy(
   maxEntriesPerSite: 2048,
   maxEntriesPerSiteAndType: 1024,
 );
-
-/// Every preference core keeps on the device per forum. They name the forum,
-/// and some its accounts or what was used there, so they leave with it.
-const _coreSitePreferenceKeys = [
-  BookmarkReminderStore.keys,
-  SharedPreferencesEmojiPickerPersistence.keys,
-  ForumSettingsStore.themeModeKeys,
-  ForumSettingsStore.themesKeys,
-  HeaderPreferencesController.keys,
-  SharedPreferencesSidebarSectionPersistence.keys,
-  SharedPreferencesTopicSidebarPersistence.keys,
-  SharedPreferencesTopicRecommendationsTabPersistence.keys,
-  SharedPreferencesUserDirectoryColumnWidthPersistence.keys,
-];
 
 typedef TopicMoveDestinationSearchResult = ({
   List<TopicMoveDestination> destinations,
@@ -2747,7 +2730,7 @@ class ShellController extends FrameSafeNotifier
   /// stored, so neither brings the other back.
   Future<void> _forgetStoredPreferences({String? removed}) =>
       forgetSitePreferences(
-        [..._coreSitePreferenceKeys, ...plugins.registry.sitePreferenceKeys],
+        [...declaredSitePreferenceKeys, ...plugins.registry.sitePreferenceKeys],
         () {
           // The app home keeps an appearance of its own, like a forum.
           final keeping = [
@@ -2765,12 +2748,6 @@ class ShellController extends FrameSafeNotifier
             if (_instanceAt(removed) != null) return null;
             sites = ForgottenSites.removed(removed, keeping: keeping);
           }
-          emojiPickerStore.forgetSites(sites);
-          forumSettings.forgetSites(sites);
-          sidebarSections.forgetSites(sites);
-          topicSidebar.forgetSites(sites);
-          const TopicRecommendationsTabStore().forgetSites(sites);
-          const UserDirectoryColumnWidthStore().forgetSites(sites);
           return sites;
         },
       );

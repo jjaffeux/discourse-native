@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'preference_storage_scope.dart';
 import 'private_storage.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
@@ -14,6 +15,9 @@ abstract interface class ClientIdPersistence {
   Future<void> write(String value);
 }
 
+@PreferenceStorage.device(
+  'Only device client ids use preferences; account credentials use PrivateStorage.',
+)
 final class PreferencesClientIdPersistence implements ClientIdPersistence {
   const PreferencesClientIdPersistence({bool development = false})
     : _key = development

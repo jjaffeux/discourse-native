@@ -23,6 +23,7 @@ final class SharedPreferencesTopicSidebarPersistence
   // thing after the surface grows topic properties and actions.
   static const keys = SitePreferenceKey(
     'discourse_native.topic_recommendations_panel_collapsed',
+    retirement: SitePreferenceRetirement.tracked,
   );
 
   @override
@@ -42,10 +43,16 @@ final class SharedPreferencesTopicSidebarPersistence
 final class TopicSidebarStore {
   TopicSidebarStore({TopicSidebarPersistence? persistence})
     : _persistence =
-          persistence ?? const SharedPreferencesTopicSidebarPersistence();
+          persistence ?? const SharedPreferencesTopicSidebarPersistence() {
+    SharedPreferencesTopicSidebarPersistence.keys.track(
+      this,
+      (store, sites) => store.forgetSites(sites),
+    );
+  }
 
   final TopicSidebarPersistence _persistence;
   final _snapshots = PreferenceSnapshots<String, bool>();
+  final Map<String, Object> _siteOwners = {};
   static final ReadAfterWriteOperationQueue _operations =
       ReadAfterWriteOperationQueue();
 
@@ -57,18 +64,27 @@ final class TopicSidebarStore {
   /// Drops what was read or chosen for forums that left the rail for good.
   /// Their stored choice goes with the rest of their preferences; see
   /// [forgetSitePreferences].
-  void forgetSites(ForgottenSites sites) =>
-      _snapshots.forgetWhere(sites.includes);
+  void forgetSites(ForgottenSites sites) {
+    bool forgotten(String site) =>
+        sites.includes(site, SharedPreferencesTopicSidebarPersistence.keys);
+    _snapshots.forgetWhere(forgotten);
+    _siteOwners.removeWhere((site, _) => forgotten(site));
+  }
 
-  Future<bool> read({required String siteUrl}) => _operations.read(
-    owner: _persistence,
-    key: siteUrl,
-    operation: () => _read(siteUrl),
-  );
+  Future<bool> read({required String siteUrl}) {
+    final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
+    return _operations.read(
+      owner: _persistence,
+      key: siteUrl,
+      operation: () => _read(siteUrl, owner),
+    );
+  }
 
-  Future<bool> _read(String siteUrl) async {
+  Future<bool> _read(String siteUrl, Object owner) async {
     try {
-      return await _persistence.readCollapsed(siteUrl: siteUrl) ?? false;
+      if (!identical(_siteOwners[siteUrl], owner)) return false;
+      final collapsed = await _persistence.readCollapsed(siteUrl: siteUrl);
+      return collapsed ?? false;
     } catch (error, stackTrace) {
       reportStorageFailure(error, stackTrace, 'topicSidebar.readCollapsed');
       return false;
@@ -77,10 +93,14 @@ final class TopicSidebarStore {
 
   Future<void> write({required String siteUrl, required bool collapsed}) {
     _snapshots.remember(siteUrl, collapsed);
+    final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
     return _operations.write<void>(
       owner: _persistence,
       key: siteUrl,
-      operation: () => _persist(siteUrl: siteUrl, collapsed: collapsed),
+      operation: () async {
+        if (!identical(_siteOwners[siteUrl], owner)) return;
+        await _persist(siteUrl: siteUrl, collapsed: collapsed);
+      },
     );
   }
 

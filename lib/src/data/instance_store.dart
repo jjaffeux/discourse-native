@@ -6,6 +6,7 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'coalescing_snapshot_writer.dart';
+import 'preference_storage_scope.dart';
 import 'store_diagnostics.dart';
 import 'stored_forum_base.dart';
 
@@ -15,6 +16,9 @@ abstract interface class InstancePersistence {
   Future<void> write(String value);
 }
 
+@PreferenceStorage.document(
+  'InstanceStore.save commits the durable forum rail and removal boundary.',
+)
 final class SharedPreferencesInstancePersistence
     implements InstancePersistence {
   const SharedPreferencesInstancePersistence();

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/content_route.dart';
 import 'coalescing_snapshot_writer.dart';
+import 'preference_storage_scope.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class RecentDestinationsPersistence {
@@ -12,6 +13,9 @@ abstract interface class RecentDestinationsPersistence {
   Future<bool> write(String value);
 }
 
+@PreferenceStorage.document(
+  'RecentDestinationsStore.forgetSite removes visits before the next snapshot.',
+)
 final class SharedPreferencesRecentDestinationsPersistence
     implements RecentDestinationsPersistence {
   const SharedPreferencesRecentDestinationsPersistence();

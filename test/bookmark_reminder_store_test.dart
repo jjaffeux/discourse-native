@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,7 +9,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 const _site = 'https://one.example';
-const _key = 'bookmark.last-custom.https%3A%2F%2Fone.example.reader';
+const _legacyKey = 'bookmark.last-custom.https%3A%2F%2Fone.example.reader';
+final _key = BookmarkReminderStore.preferences.keyFor(
+  const SitePreferenceIdentity.account(_site, 'reader'),
+);
 const _privateValue = 'private reminder preference sentinel';
 
 void main() {
@@ -57,11 +61,11 @@ void main() {
   });
 
   test('malformed persisted choices decode as absent', () async {
-    SharedPreferences.setMockInitialValues({_key: 'not-a-date'});
+    SharedPreferences.setMockInitialValues({_legacyKey: 'not-a-date'});
 
     expect(await store.read(_site, 'reader'), isNull);
     expect(
-      (await SharedPreferences.getInstance()).getString(_key),
+      (await SharedPreferences.getInstance()).getString(_legacyKey),
       'not-a-date',
     );
     expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
@@ -75,7 +79,7 @@ void main() {
   ]) {
     test('$type choices are reported as absent without overwriting', () async {
       SharedPreferences.setMockInitialValues({
-        _key: value,
+        _legacyKey: value,
         'unrelated': 'kept',
       });
 
@@ -83,7 +87,7 @@ void main() {
 
       final preferences = await SharedPreferences.getInstance();
       await preferences.reload();
-      expect(preferences.get(_key), value);
+      expect(preferences.get(_legacyKey), value);
       expect(preferences.getString('unrelated'), 'kept');
       expect(
         diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
@@ -98,7 +102,9 @@ void main() {
     'platform read failures are reported and can retry without writing',
     () async {
       final preferences =
-          _ControlledPreferences({'flutter.$_key': '2030-01-02T03:04:05+01:00'})
+          _ControlledPreferences({
+              'flutter.$_legacyKey': '2030-01-02T03:04:05+01:00',
+            })
             ..readError = PlatformException(
               code: 'unavailable',
               message: 'api_key="$_privateValue"',
@@ -117,7 +123,8 @@ void main() {
       final reminder = await store.read(_site, 'reader');
       expect(reminder, DateTime.utc(2030, 1, 2, 2, 4, 5));
       expect(reminder!.isUtc, isTrue);
-      expect(preferences.writes, isEmpty);
+      expect(preferences.writes, hasLength(1));
+      expect(preferences.writes.single.key, 'flutter.$_key');
     },
   );
 
@@ -125,7 +132,9 @@ void main() {
     'a write handles failure to open preferences without overwriting',
     () async {
       final preferences =
-          _ControlledPreferences({'flutter.$_key': '2030-01-02T03:04:05Z'})
+          _ControlledPreferences({
+              'flutter.$_legacyKey': '2030-01-02T03:04:05Z',
+            })
             ..readError = PlatformException(
               code: 'unavailable',
               message: 'api_key="$_privateValue"',
@@ -154,7 +163,7 @@ void main() {
       () async {
         final preferences =
             _ControlledPreferences({
-                'flutter.$_key': '2030-01-02T03:04:05Z',
+                'flutter.$_legacyKey': '2030-01-02T03:04:05Z',
                 'flutter.unrelated': 'kept',
               })
               ..acceptWrites = false
@@ -190,7 +199,7 @@ void main() {
         expect(diagnostics.buildJsonReport(), isNot(contains(_privateValue)));
         final cached = await SharedPreferences.getInstance();
         await cached.reload();
-        expect(cached.getString(_key), '2030-01-02T03:04:05Z');
+        expect(cached.getString(_legacyKey), '2030-01-02T03:04:05Z');
         expect(cached.getString('unrelated'), 'kept');
       },
     );

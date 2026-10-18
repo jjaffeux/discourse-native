@@ -17,7 +17,12 @@ import '../models/site_appearance.dart';
 final class ForumSettingsController extends FrameSafeNotifier {
   /// Local appearance identity for the app home workspace.
   static const homeSite = 'https://discourse.native.invalid/home';
-  ForumSettingsController({required this.store});
+  ForumSettingsController({required this.store}) {
+    ForumSettingsStore.themeModeKeys.track(
+      this,
+      (controller, sites) => controller.forgetSites(sites),
+    );
+  }
 
   final ForumSettingsStore store;
   final _themeModes = PreferenceSnapshots<String, AppThemeMode>();
@@ -305,6 +310,7 @@ final class ForumSettingsController extends FrameSafeNotifier {
     });
     _themeEdits.removeWhere((site, _) => sites.includes(site));
     _themeImportOwners.removeWhere((site, _) => sites.includes(site));
+    _previews.removeWhere((site, _) => sites.includes(site));
     unawaited(
       store.forgetThemes(sites).catchError((Object _) {
         // Retain the library if persistence is temporarily unavailable.

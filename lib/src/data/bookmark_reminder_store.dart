@@ -1,7 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'site_preference_keys.dart';
-import 'store_diagnostics.dart';
 
 final class BookmarkReminderStore {
   const BookmarkReminderStore();
@@ -9,36 +6,26 @@ final class BookmarkReminderStore {
   static const keys = SitePreferenceKey(
     'bookmark.last-custom',
     tail: SitePreferenceTail.name,
+    retirement: SitePreferenceRetirement.managed,
+  );
+  static const preferences = OwnedSitePreferences(
+    id: 'bookmark.last-custom',
+    scope: SitePreferenceScope.account,
+    value: SitePreferenceValue.string,
+    operation: 'bookmarkReminders',
+    legacy: keys,
   );
 
-  String _key(String siteUrl, String username) =>
-      '${keys.of(siteUrl)}.${Uri.encodeComponent(username.toLowerCase())}';
-
   Future<DateTime?> read(String siteUrl, String username) async {
-    try {
-      final value = (await SharedPreferences.getInstance()).getString(
-        _key(siteUrl, username),
-      );
-      return DateTime.tryParse(value ?? '')?.toUtc();
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'bookmarkReminders.read');
-      return null;
-    }
+    final value = await preferences.read(
+      SitePreferenceIdentity.account(siteUrl, username.toLowerCase()),
+    );
+    return DateTime.tryParse(value ?? '')?.toUtc();
   }
 
-  Future<void> write(String siteUrl, String username, DateTime value) async {
-    try {
-      final saved = await (await SharedPreferences.getInstance()).setString(
-        _key(siteUrl, username),
+  Future<void> write(String siteUrl, String username, DateTime value) =>
+      preferences.write(
+        SitePreferenceIdentity.account(siteUrl, username.toLowerCase()),
         value.toUtc().toIso8601String(),
       );
-      if (!saved) {
-        throw StateError(
-          'Could not persist the last custom bookmark reminder.',
-        );
-      }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'bookmarkReminders.write');
-    }
-  }
 }

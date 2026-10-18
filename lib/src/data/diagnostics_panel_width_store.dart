@@ -1,4 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
+import 'preference_storage_scope.dart';
 import 'scalar_preference_repository.dart';
 
 abstract interface class DiagnosticsPanelWidthPersistence {
@@ -22,6 +23,9 @@ final class SharedPreferencesDiagnosticsPanelWidthPersistence
       _preferences.write(DiagnosticsPanelWidthStore.storageKey, width);
 }
 
+@PreferenceStorage.device(
+  'Diagnostics panel width is shared by every forum on this device.',
+)
 final class DiagnosticsPanelWidthStore {
   const DiagnosticsPanelWidthStore({
     DiagnosticsPanelWidthPersistence? persistence,

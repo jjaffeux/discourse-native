@@ -2,8 +2,12 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/topic_presentation.dart';
+import 'preference_storage_scope.dart';
 import 'scalar_preference_repository.dart';
 
+@PreferenceStorage.device(
+  'Topic presentation is shared by every forum on this device.',
+)
 class TopicPresentationStore {
   const TopicPresentationStore({
     this.persistence = const _TopicPresentationPersistence(),
@@ -37,6 +41,9 @@ class TopicPresentationStore {
   Future<void> write(TopicPresentation mode) => _repository.write(mode.name);
 }
 
+@PreferenceStorage.device(
+  'Topic presentation is shared by all forums on the device.',
+)
 final class _TopicPresentationPersistence
     extends SharedPreferencesScalarPreferencePersistence<String> {
   const _TopicPresentationPersistence();

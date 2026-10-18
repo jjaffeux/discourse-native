@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/header_preferences.dart';
@@ -17,17 +18,55 @@ import 'support/fakes.dart';
 class _Persistence implements ScalarPreferencePersistence<String> {
   final values = <String, String>{};
   Completer<String?>? readGate;
+  Completer<void>? writeGate;
+  final writeStarted = Completer<void>();
+  int writes = 0;
   @override
   Future<String?> read(String key) async =>
       readGate == null ? values[key] : readGate!.future;
   @override
   Future<bool> write(String key, String value) async {
     values[key] = value;
+    writes++;
+    if (!writeStarted.isCompleted) writeStarted.complete();
+    await writeGate?.future;
     return true;
   }
 }
 
 void main() {
+  for (final removed in [false, true]) {
+    test(
+      'queued header preference retires on ${removed ? 'forum removal' : 'disposal'}',
+      () async {
+        final persistence = _Persistence()..writeGate = Completer<void>();
+        final controller = HeaderPreferencesController(
+          'https://headers.example',
+          '7:reader',
+          persistence: persistence,
+        );
+        if (removed) addTearDown(controller.dispose);
+        final first = controller.set(
+          const DHeaderTuning(settle: DHeaderSettle.stay),
+        );
+        await persistence.writeStarted.future;
+        final queued = controller.set(const DHeaderTuning());
+        if (removed) {
+          await forgetSitePreferences(
+            [HeaderPreferencesController.keys],
+            () =>
+                ForgottenSites.removed('https://headers.example', keeping: []),
+          );
+        } else {
+          controller.dispose();
+        }
+        persistence.writeGate!.complete();
+        await Future.wait([first, queued]);
+        expect(persistence.writes, 1);
+      },
+    );
+  }
+
   testWidgets(
     'Native choices update the active scope and persist for the account',
     (tester) async {

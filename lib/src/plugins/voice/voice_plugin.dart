@@ -3,6 +3,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../chat/chat_contract.dart';
+import 'site_preference_inventory.g.dart';
 import 'voice_call_widget.dart';
 import 'voice_chat_inbox.dart';
 import 'voice_hashtag.dart';
@@ -11,7 +12,6 @@ import 'voice_join.dart';
 import 'voice_models.dart';
 import 'voice_notices.dart';
 import 'voice_notifications.dart';
-import 'voice_preferences.dart';
 import 'voice_room_view.dart';
 import 'voice_services.dart';
 import 'voice_settings.dart';
@@ -55,6 +55,9 @@ final class VoicePlugin
   }
 
   @override
+  List<SitePreferenceKey> get sitePreferenceKeys => declaredSitePreferenceKeys;
+
+  @override
   String get name => 'voice';
 
   @override
@@ -76,12 +79,6 @@ final class VoicePlugin
   @override
   bool siteFeatureEnabled(PluginData siteSettings) =>
       siteSettings.voiceSettings.enabled;
-
-  @override
-  List<SitePreferenceKey> get sitePreferenceKeys => const [
-    SharedPreferencesVoicePreferences.cameraEnabledKeys,
-    SharedPreferencesVoicePreferences.volumeKeys,
-  ];
 
   @override
   PluginDataKey<VoiceUserCardData> get record => voiceUserCardKey;

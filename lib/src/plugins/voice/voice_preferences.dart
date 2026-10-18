@@ -69,6 +69,9 @@ abstract interface class VoicePreferencesPersistence {
   Future<bool> writeDouble(String key, double value);
 }
 
+@PreferenceStorage.adapter(
+  'SharedPreferencesVoicePreferences declares site keys and device preference contracts.',
+)
 final class _SharedPreferencesVoicePersistence
     implements VoicePreferencesPersistence {
   const _SharedPreferencesVoicePersistence();
@@ -108,7 +111,11 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
 
   final VoicePreferencesPersistence _persistence;
 
-  Map<String, Object> get _owners => _siteOwners[_persistence] ??= {};
+  Map<String, Object> get _owners {
+    cameraEnabledKeys.track(this, (store, sites) => store.forgetSites(sites));
+    volumeKeys.track(this, (store, sites) => store.forgetSites(sites));
+    return _siteOwners[_persistence] ??= {};
+  }
 
   Object _owner(String siteUrl) => _owners.putIfAbsent(siteUrl, Object.new);
 
@@ -138,6 +145,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     'voice.camera-enabled',
     tail: SitePreferenceTail.id,
     onForget: _forgetSharedSites,
+    retirement: SitePreferenceRetirement.tracked,
   );
 
   /// Participant volumes, per room and then per participant on a forum.
@@ -145,6 +153,7 @@ final class SharedPreferencesVoicePreferences implements VoicePreferences {
     'voice.volume',
     tail: SitePreferenceTail.idPair,
     onForget: _forgetSharedSites,
+    retirement: SitePreferenceRetirement.tracked,
   );
 
   @override

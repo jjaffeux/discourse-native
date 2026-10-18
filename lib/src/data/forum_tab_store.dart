@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/forum_workspace.dart';
 import 'coalescing_snapshot_writer.dart';
+import 'preference_storage_scope.dart';
 import 'store_diagnostics.dart';
 
 abstract interface class ForumTabPersistence {
@@ -12,6 +13,9 @@ abstract interface class ForumTabPersistence {
   Future<bool> write(String value);
 }
 
+@PreferenceStorage.document(
+  'Shell workspace snapshots omit forums after durable removal.',
+)
 final class SharedPreferencesForumTabPersistence
     implements ForumTabPersistence {
   const SharedPreferencesForumTabPersistence();

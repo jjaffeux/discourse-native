@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/composer_placement.dart';
+import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
 
@@ -65,6 +66,9 @@ abstract interface class ComposerLayoutPersistence {
   Future<bool> writeLayout(String encoded);
 }
 
+@PreferenceStorage.device(
+  'Composer layout is shared by every forum on this device.',
+)
 final class SharedPreferencesComposerLayoutPersistence
     implements ComposerLayoutPersistence {
   const SharedPreferencesComposerLayoutPersistence();

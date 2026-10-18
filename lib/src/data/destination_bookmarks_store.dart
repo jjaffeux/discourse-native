@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
 import 'coalescing_snapshot_writer.dart';
+import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
 
 abstract interface class DestinationBookmarksPersistence {
@@ -12,6 +13,9 @@ abstract interface class DestinationBookmarksPersistence {
   Future<bool> write(String value);
 }
 
+@PreferenceStorage.document(
+  'DestinationBookmarksStore.forgetSite removes site entries from its aggregate document.',
+)
 final class SharedPreferencesDestinationBookmarksPersistence
     implements DestinationBookmarksPersistence {
   const SharedPreferencesDestinationBookmarksPersistence();

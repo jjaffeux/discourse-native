@@ -26,6 +26,7 @@ final class SharedPreferencesEmojiPickerPersistence
   static const keys = SitePreferenceKey(
     'discourse_native.emoji_picker',
     spelling: _canonicalSiteUrl,
+    retirement: SitePreferenceRetirement.tracked,
   );
 
   @override
@@ -45,7 +46,12 @@ final class SharedPreferencesEmojiPickerPersistence
 final class EmojiPickerStore implements EmojiPreferenceStore {
   EmojiPickerStore({EmojiPickerPersistence? persistence})
     : _persistence =
-          persistence ?? const SharedPreferencesEmojiPickerPersistence();
+          persistence ?? const SharedPreferencesEmojiPickerPersistence() {
+    SharedPreferencesEmojiPickerPersistence.keys.track(
+      this,
+      (store, sites) => store.forgetSites(sites),
+    );
+  }
 
   static const int formatVersion = 2;
   static const int maxTrackedEmoji = 40;

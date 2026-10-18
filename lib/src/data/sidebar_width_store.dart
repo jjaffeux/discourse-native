@@ -1,4 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
+import 'preference_storage_scope.dart';
 import 'scalar_preference_repository.dart';
 
 abstract interface class SidebarWidthPersistence {
@@ -22,6 +23,9 @@ final class SharedPreferencesSidebarWidthPersistence
       _preferences.write(SidebarWidthStore.storageKey, width);
 }
 
+@PreferenceStorage.device(
+  'Sidebar width is shared by every forum on this device.',
+)
 final class SidebarWidthStore {
   const SidebarWidthStore({SidebarWidthPersistence? persistence})
     : _persistence =

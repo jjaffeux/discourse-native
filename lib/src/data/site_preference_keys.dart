@@ -1,6 +1,14 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'preference_storage_scope.dart';
+import 'serial_operation_queue.dart';
 import 'store_diagnostics.dart';
+
+part 'owned_site_preferences.dart';
+
+enum SitePreferenceRetirement { storedOnly, tracked, managed }
 
 /// How a preference kept per forum is named in `shared_preferences`: [prefix],
 /// the forum URL percent-encoded, then its [tail].
@@ -14,11 +22,35 @@ final class SitePreferenceKey {
     this.prefix, {
     this.tail = SitePreferenceTail.none,
     this.onForget,
+    this.retirement = SitePreferenceRetirement.storedOnly,
     this._spelling,
   });
 
   final String prefix;
   final SitePreferenceTail tail;
+  final SitePreferenceRetirement retirement;
+
+  static final _observers = Expando<List<_PreferenceRetirementObserver>>();
+
+  void track<T extends Object>(
+    T owner,
+    void Function(T owner, ForgottenSites sites) retire,
+  ) {
+    final observers = _observers[this] ??= [];
+    observers.removeWhere((observer) => observer.target == null);
+    if (observers.any((observer) => identical(observer.target, owner))) return;
+    observers.add(_TypedPreferenceRetirementObserver(owner, retire));
+  }
+
+  void _retire(ForgottenSites sites) {
+    onForget?.call(sites);
+    final observers = _observers[this];
+    if (observers == null) return;
+    observers.removeWhere((observer) => observer.target == null);
+    for (final observer in List.of(observers)) {
+      observer.retire(sites);
+    }
+  }
 
   /// Retires pending operations for the forgotten forums before their cached
   /// and stored values leave. Account changes do not invoke this callback.
@@ -123,6 +155,9 @@ final class ForgottenSites {
 /// overtaken meanwhile can still answer null and remove nothing. The values it
 /// covers leave the preferences' cache in the same turn, so a caller that drops
 /// its own copies in [sites] cannot read the stored ones back afterwards.
+@PreferenceStorage.adapter(
+  'Declared store keys own legacy retirement; exact identities own versioned removal.',
+)
 Future<void> forgetSitePreferences(
   Iterable<SitePreferenceKey> keys,
   ForgottenSites? Function() sites,
@@ -132,17 +167,46 @@ Future<void> forgetSitePreferences(
     final forgotten = sites();
     if (forgotten == null) return;
     for (final key in keys) {
-      key.onForget?.call(forgotten);
+      key._retire(forgotten);
     }
+    final ownedRemovals = _retireOwnedPreferences(preferences, forgotten);
     final removals = [
       for (final stored in preferences.getKeys())
         if (keys.any((key) => forgotten.covers(key, stored)))
           preferences.remove(stored),
     ];
-    if ((await Future.wait(removals)).contains(false)) {
+    final results = await Future.wait([
+      ...removals,
+      for (final removal in ownedRemovals)
+        removal.then((results) => !results.contains(false)),
+    ]);
+    if (results.contains(false)) {
       throw StateError('Could not remove a forgotten forum\'s preferences.');
     }
   } catch (error, stackTrace) {
     reportStorageFailure(error, stackTrace, 'sitePreferences.forget');
+  }
+}
+
+abstract class _PreferenceRetirementObserver {
+  Object? get target;
+  void retire(ForgottenSites sites);
+}
+
+final class _TypedPreferenceRetirementObserver<T extends Object>
+    implements _PreferenceRetirementObserver {
+  _TypedPreferenceRetirementObserver(T target, this._retire)
+    : _target = WeakReference(target);
+
+  final WeakReference<T> _target;
+  final void Function(T, ForgottenSites) _retire;
+
+  @override
+  T? get target => _target.target;
+
+  @override
+  void retire(ForgottenSites sites) {
+    final owner = target;
+    if (owner != null) _retire(owner, sites);
   }
 }
