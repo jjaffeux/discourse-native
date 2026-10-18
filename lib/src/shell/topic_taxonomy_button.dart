@@ -13,7 +13,6 @@ class TopicTaxonomyButton extends StatelessWidget {
     this.size = DButtonSize.regular,
     this.buttonKey,
     this.icon,
-    this.tooltip,
     this.focusNode,
     this.expanded = false,
     this.categoryColor,
@@ -29,7 +28,6 @@ class TopicTaxonomyButton extends StatelessWidget {
   final double maximumWidth;
   final Key? buttonKey;
   final Widget? icon;
-  final String? tooltip;
   final FocusNode? focusNode;
   final bool expanded;
   final Color? categoryColor;
@@ -60,7 +58,6 @@ class TopicTaxonomyButton extends StatelessWidget {
           ],
         ),
         icon: icon,
-        tooltip: tooltip,
         semanticLabel: semanticLabel,
         onPressed: onPressed,
         focusNode: focusNode,

@@ -150,10 +150,9 @@ String? _readerBeside(ShellController shell, ShellTabContext tab) {
 }
 
 class TopicListBottomBar extends StatelessWidget {
-  const TopicListBottomBar({super.key, this.leading, this.trailingInset = 0});
+  const TopicListBottomBar({super.key, this.leading});
 
   final Widget? leading;
-  final double trailingInset;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -168,7 +167,6 @@ class TopicListBottomBar extends StatelessWidget {
         return const SizedBox.shrink();
       }
       return TopicListFooter(
-        trailingInset: trailingInset,
         child: LayoutBuilder(
           builder: (context, constraints) => Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -198,14 +196,9 @@ class TopicListBottomBar extends StatelessWidget {
 
 /// The production topic pane footer, also used by the appearance preview.
 class TopicListFooter extends StatelessWidget {
-  const TopicListFooter({
-    super.key,
-    required this.child,
-    this.trailingInset = 0,
-  });
+  const TopicListFooter({super.key, required this.child});
 
   final Widget child;
-  final double trailingInset;
 
   @override
   Widget build(BuildContext context) => DCardFooter(
@@ -221,12 +214,7 @@ class TopicListFooter extends StatelessWidget {
     padding: EdgeInsets.zero,
     child: ConstrainedBox(
       constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
-      child: Padding(
-        padding: topicBottomBarPadding.add(
-          EdgeInsetsDirectional.only(end: trailingInset),
-        ),
-        child: child,
-      ),
+      child: Padding(padding: topicBottomBarPadding, child: child),
     ),
   );
 }
