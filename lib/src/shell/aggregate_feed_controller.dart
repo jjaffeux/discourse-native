@@ -206,18 +206,6 @@ final class AggregateFeedController extends FrameSafeNotifier {
 
   String queryFor(String siteUrl) => _activeTab.queries[siteUrl] ?? '';
 
-  ({bool included, String query})? filterDraftFor(String siteUrl) =>
-      _activeTab.filterDrafts[siteUrl];
-
-  void setFilterDraft(
-    String siteUrl, {
-    required bool included,
-    required String query,
-  }) {
-    if (isDisposed) return;
-    _activeTab.filterDrafts[siteUrl] = (included: included, query: query);
-  }
-
   List<TopicFilterOption> filterOptionsFor(String siteUrl) =>
       _activeTab.sources[siteUrl]?.filterOptions ?? const [];
 
@@ -293,28 +281,6 @@ final class AggregateFeedController extends FrameSafeNotifier {
     await _persistTabs();
   }
 
-  Future<void> pruneForums(Iterable<DiscourseInstance> instances) async {
-    final valid = {for (final instance in instances) instance.url};
-    var changed = false;
-    for (final tab in _tabs.values) {
-      final nextExcluded = tab.excludedForums.intersection(valid);
-      final nextQueries = {
-        for (final MapEntry(:key, :value) in tab.queries.entries)
-          if (valid.contains(key)) key: value,
-      };
-      if (setEquals(nextExcluded, tab.excludedForums) &&
-          mapEquals(nextQueries, tab.queries)) {
-        continue;
-      }
-      tab.excludedForums = Set.unmodifiable(nextExcluded);
-      tab.queries = Map.unmodifiable(nextQueries);
-      changed = true;
-    }
-    if (!changed) return;
-    notifySafely();
-    await _persistTabs();
-  }
-
   /// A forum added after a tab was narrowed stays out of that tab: its filters
   /// were chosen without the forum, whose unfiltered latest topics would
   /// otherwise bury what they select. A tab that was never narrowed follows
@@ -331,7 +297,6 @@ final class AggregateFeedController extends FrameSafeNotifier {
         continue;
       }
       tab.excludedForums = Set.unmodifiable({...tab.excludedForums, siteUrl});
-      tab.filterDrafts.remove(siteUrl);
       changed = true;
     }
     for (var index = 0; index < _closedTabs.length; index++) {
@@ -980,7 +945,6 @@ final class _AggregateTabSession {
   final String id;
   bool showStartPage;
   AggregateFeedMode mode;
-  final Map<String, ({bool included, String query})> filterDrafts = {};
   String? name;
   Set<String> excludedForums;
   Map<String, String> queries;
