@@ -639,7 +639,7 @@ void main() {
         await tester.tap(preferences);
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const ValueKey('user-menu-sheet')), findsNothing);
+        expect(find.byType(UserProfileMenuItems), findsNothing);
         expect(find.byType(PreferencesPage), findsOneWidget);
         expect(
           tester.widget<PreferencesPage>(find.byType(PreferencesPage)).siteUrl,
@@ -835,10 +835,7 @@ Future<void> _openNestedSection(WidgetTester tester, String label) async {
   );
   await tester.pumpAndSettle();
   if (label == 'Profile') return;
-  final panel = find.byType(UserMenuPanel);
-  final menu = panel.evaluate().isNotEmpty
-      ? panel
-      : find.byKey(const ValueKey('user-menu-sheet'));
+  final menu = find.byType(UserMenuPanel);
   final tab = find.descendant(of: menu, matching: find.text(label)).last;
   await tester.ensureVisible(tab);
   await tester.pumpAndSettle();
