@@ -14449,29 +14449,17 @@ abstract class AppLocalizations {
   /// **'No tags are available.'**
   String get noTagsAreAvailable;
 
-  /// English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact.
+  /// English UI message used by models/forum_theme_preferences.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
   /// **'My theme'**
   String get myTheme;
 
-  /// English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact.
+  /// English UI message used by shell/forum_theme_picker.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
   /// **'New theme'**
   String get newTheme;
-
-  /// English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Start from'**
-  String get startFrom;
-
-  /// English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Continue'**
-  String get messageContinue;
 
   /// English UI message used by shell/preferences_controller.dart. Keep placeholders intact.
   ///
@@ -15486,18 +15474,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Type to search'**
   String get typeToSearch;
-
-  /// English UI message used by shell/forum_theme_clipboard.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Theme copied. Paste it into a post or chat.'**
-  String get themeCopiedPasteItIntoAPostOrChat;
-
-  /// English UI message used by shell/forum_theme_clipboard.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Could not copy theme. Try again.'**
-  String get couldNotCopyThemeTryAgain;
 
   /// English UI message used by shell/global_search_controller.dart. Keep placeholders intact.
   ///
@@ -21761,12 +21737,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{years, plural, =1{{years} year later} other{{years} years later}}'**
   String laterTimegapValue(num years);
-
-  /// English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{baseName} copy'**
-  String copyForumthemenewdialog(String baseName);
 
   /// English UI message used by shell/topic_create_button.dart. Keep placeholders intact.
   ///

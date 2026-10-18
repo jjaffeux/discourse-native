@@ -8426,12 +8426,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newTheme => 'New theme';
 
   @override
-  String get startFrom => 'Start from';
-
-  @override
-  String get messageContinue => 'Continue';
-
-  @override
   String reconnectToToLoadPreferences(String instanceHost) {
     return 'Reconnect to $instanceHost to load preferences.';
   }
@@ -8993,13 +8987,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get typeToSearch => 'Type to search';
-
-  @override
-  String get themeCopiedPasteItIntoAPostOrChat =>
-      'Theme copied. Paste it into a post or chat.';
-
-  @override
-  String get couldNotCopyThemeTryAgain => 'Could not copy theme. Try again.';
 
   @override
   String get useAtMost30Conditions => 'Use at most 30 conditions.';
@@ -13043,11 +13030,6 @@ class AppLocalizationsEn extends AppLocalizations {
       one: '$years year later',
     );
     return '$_temp0';
-  }
-
-  @override
-  String copyForumthemenewdialog(String baseName) {
-    return '$baseName copy';
   }
 
   @override

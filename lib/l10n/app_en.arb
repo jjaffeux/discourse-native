@@ -11184,19 +11184,11 @@
   },
   "myTheme": "My theme",
   "@myTheme": {
-    "description": "English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact."
+    "description": "English UI message used by models/forum_theme_preferences.dart. Keep placeholders intact."
   },
   "newTheme": "New theme",
   "@newTheme": {
-    "description": "English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact."
-  },
-  "startFrom": "Start from",
-  "@startFrom": {
-    "description": "English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact."
-  },
-  "messageContinue": "Continue",
-  "@messageContinue": {
-    "description": "English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact."
+    "description": "English UI message used by shell/forum_theme_picker.dart. Keep placeholders intact."
   },
   "reconnectToToLoadPreferences": "Reconnect to {instanceHost} to load preferences.",
   "@reconnectToToLoadPreferences": {
@@ -11976,14 +11968,6 @@
   "typeToSearch": "Type to search",
   "@typeToSearch": {
     "description": "English UI message used by shell/composer_slash_menu.dart. Keep placeholders intact."
-  },
-  "themeCopiedPasteItIntoAPostOrChat": "Theme copied. Paste it into a post or chat.",
-  "@themeCopiedPasteItIntoAPostOrChat": {
-    "description": "English UI message used by shell/forum_theme_clipboard.dart. Keep placeholders intact."
-  },
-  "couldNotCopyThemeTryAgain": "Could not copy theme. Try again.",
-  "@couldNotCopyThemeTryAgain": {
-    "description": "English UI message used by shell/forum_theme_clipboard.dart. Keep placeholders intact."
   },
   "useAtMost30Conditions": "Use at most 30 conditions.",
   "@useAtMost30Conditions": {
@@ -17633,15 +17617,6 @@
     "placeholders": {
       "years": {
         "type": "num"
-      }
-    }
-  },
-  "copyForumthemenewdialog": "{baseName} copy",
-  "@copyForumthemenewdialog": {
-    "description": "English UI message used by shell/forum_theme_new_dialog.dart. Keep placeholders intact.",
-    "placeholders": {
-      "baseName": {
-        "type": "String"
       }
     }
   },
