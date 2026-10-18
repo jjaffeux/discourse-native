@@ -19,16 +19,13 @@ import 'avatar_image.dart';
 import 'composer/presentation.dart';
 import 'emoji.dart';
 import 'external_link.dart';
-import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
 import 'mobile_navigation.dart';
 import 'open_link.dart';
 import 'platform.dart';
-import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 import 'skeleton_fill.dart';
-import 'user_menu_button.dart';
 
 @immutable
 final class _SidebarSnapshot {
@@ -174,7 +171,6 @@ SidebarDestination get _moreDestination => SidebarDestination(
 class InstanceSidebar extends StatelessWidget {
   const InstanceSidebar({
     super.key,
-    this.showUserMenu = false,
     this.sectionStore,
     this.mobile = false,
     this.panelOwner,
@@ -182,7 +178,6 @@ class InstanceSidebar extends StatelessWidget {
     this.communityHeaderLeadingInset = 0,
   });
 
-  final bool showUserMenu;
   final SidebarSectionStore? sectionStore;
 
   /// Mobile navigation omits the community header; panel roots use the dock.
@@ -277,7 +272,6 @@ class InstanceSidebar extends StatelessWidget {
                   sidebar: sidebar,
                   backgroundColor: backgroundColor,
                   width: constraints.maxWidth,
-                  showUserMenu: showUserMenu,
                   mobile: mobile,
                   panelOwner: panelOwner,
                   onNavigate: onNavigate,
@@ -299,7 +293,6 @@ class _SidebarPanelBody extends StatefulWidget {
     required this.sidebar,
     required this.backgroundColor,
     required this.width,
-    required this.showUserMenu,
     required this.sectionStore,
     required this.mobile,
     required this.panelOwner,
@@ -310,7 +303,6 @@ class _SidebarPanelBody extends StatefulWidget {
   final _SidebarSnapshot sidebar;
   final Color backgroundColor;
   final double width;
-  final bool showUserMenu;
   final SidebarSectionStore sectionStore;
   final bool mobile;
   final String? panelOwner;
@@ -327,7 +319,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
 
   _SidebarSnapshot get sidebar => widget.sidebar;
   SidebarSectionStore get sectionStore => widget.sectionStore;
-  bool get showUserMenu => widget.showUserMenu;
   double get width => widget.width;
 
   bool _shortcuts = false;
@@ -501,7 +492,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                     ),
                     child: const _SidebarCommunityHeader(),
                   ),
-                  if (showUserMenu) const _SidebarUserHeader(),
                 ],
                 Padding(
                   // Mobile SideNav has no community header above the switch.
@@ -526,8 +516,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showUserMenu && showCoreSections && !showShortcuts)
-            const _SidebarSearchRow(),
           Expanded(
             child: DSidebarReorderScope(
               key: ValueKey(sidebar.siteUrl),
@@ -742,28 +730,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
   }
 }
 
-class _SidebarSearchRow extends StatelessWidget {
-  const _SidebarSearchRow();
-
-  static const EdgeInsets _padding = EdgeInsets.fromLTRB(8, 6, 8, 5);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      height: 44,
-      padding: _padding,
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
-      ),
-      child: const ForumSearch(
-        key: ValueKey('instance-sidebar-search-target'),
-        dense: true,
-      ),
-    );
-  }
-}
-
 /// Rebuilds [builder] only when the plugin panels change shape, not for each
 /// notification that leaves them the same (see [_SidebarPanelShape]).
 class _SidebarPanelShapeSelector extends StatefulWidget {
@@ -956,35 +922,6 @@ class _SidebarCommunityHeader extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SidebarUserHeader extends StatelessWidget {
-  const _SidebarUserHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      key: const ValueKey('sidebar-user-header'),
-      constraints: const BoxConstraints(minHeight: shellHeaderHeight),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: theme.shell.divider)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          ...PluginScope.of(context).registry.shellHeaderActions(
-            context,
-            surface: PluginHeaderSurface.content,
-            compact: true,
-            ringColor: theme.shell.sidebar,
-          ),
-          const UserMenuButton(),
         ],
       ),
     );
