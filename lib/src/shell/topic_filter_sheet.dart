@@ -105,7 +105,6 @@ extension _TopicFilterSheet on _TopicFilterInputState {
     _setTokenDraft(key);
     filter.updateEngine(_engine(_shell!));
     _focus.requestFocus();
-    widget.onChanged?.call(_composeTokenQuery());
     unawaited(filter.openSuggestions());
   }
 
@@ -151,7 +150,6 @@ extension _TopicFilterSheet on _TopicFilterInputState {
           '${_tagMode == 'none' || _tagMode == 'notAll' ? '-' : ''}tag:${topicFilterScopeValue(tags.join(_tagMode == 'all' || _tagMode == 'notAll' ? '+' : ','))}',
       ];
     });
-    widget.onChanged?.call(_tokens.join(' '));
     widget.onScopeChanged?.call(_tokens.join(' '));
   }
 
@@ -205,7 +203,6 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       }
       _tokens = next;
     });
-    widget.onChanged?.call(_tokens.join(' '));
     widget.onScopeChanged?.call(_tokens.join(' '));
   }
 

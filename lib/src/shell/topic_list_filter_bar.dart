@@ -34,7 +34,6 @@ class TopicListFilterBar extends StatefulWidget {
     required this.onTagSelected,
     this.inline = false,
     this.wrap = false,
-    this.compact = false,
     this.selectedTagNames,
     this.onTagsSelected,
     this.leading,
@@ -53,7 +52,6 @@ class TopicListFilterBar extends StatefulWidget {
   final ValueChanged<String?> onTagSelected;
   final bool inline;
   final bool wrap;
-  final bool compact;
   final List<String>? selectedTagNames;
   final ValueChanged<List<String>>? onTagsSelected;
   final Widget? leading;
@@ -222,27 +220,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
           },
         ),
     ];
-    final controls = widget.compact
-        ? Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ?widget.leading,
-              Row(
-                children: [
-                  Expanded(child: controlChildren.first),
-                  if (controlChildren.length > 1) ...[
-                    const SizedBox(width: DSpacing.sm),
-                    Expanded(child: controlChildren[1]),
-                  ],
-                ],
-              ),
-              if (controlChildren.length > 2) ...[
-                const SizedBox(height: DSpacing.sm),
-                controlChildren[2],
-              ],
-            ],
-          )
-        : widget.wrap
+    final controls = widget.wrap
         ? Wrap(
             spacing: DSpacing.sm,
             runSpacing: 8,
@@ -269,9 +247,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
     return Material(
       key: const ValueKey('topic-list-filter-bar'),
       color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
-      child: widget.compact
-          ? controls
-          : widget.wrap
+      child: widget.wrap
           ? Align(
               widthFactor: 1,
               alignment: AlignmentDirectional.centerStart,

@@ -35,12 +35,10 @@ class TopicFilterInput extends StatefulWidget {
     required this.options,
     required this.categories,
     required this.onSubmitted,
-    this.onChanged,
     this.inputKey = const ValueKey('topic-filter-input'),
     this.clearKey = const ValueKey('clear-topic-filter'),
     this._hintText,
     this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    this.enabled = true,
     this.tokenized = false,
     this.multiline = false,
     this.onDismiss,
@@ -59,14 +57,12 @@ class TopicFilterInput extends StatefulWidget {
   final List<TopicFilterOption> options;
   final List<TopicCategory> categories;
   final Future<void> Function(String query) onSubmitted;
-  final ValueChanged<String>? onChanged;
   final Key inputKey;
   final Key clearKey;
   final String? _hintText;
   String get hintText =>
       _hintText ?? appL10n.filterTopicsByCategoryTagOrOtherCriteria;
   final EdgeInsetsGeometry padding;
-  final bool enabled;
   final bool tokenized;
   final bool multiline;
   final VoidCallback? onDismiss;
@@ -154,16 +150,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       _categoryParentId = widget.categoryParentId;
     }
     filter.updateEngine(_engine(_shell!));
-    if (oldWidget.enabled && !widget.enabled) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || widget.enabled) {
-          return;
-        }
-
-        filter.dismiss();
-        _focus.unfocus();
-      });
-    }
     if (oldWidget.initialQuery != widget.initialQuery) {
       if (widget.tokenized) {
         final previous = splitTopicFilterQuery(
@@ -288,7 +274,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       return;
     }
     if (_updatingTokenDraft) return;
-    widget.onChanged?.call(filter.text.text);
     if (mounted) setState(() {});
   }
 
@@ -304,7 +289,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
 
     if (completedCount == 0) {
       if (endsWithSeparator && parsed.isEmpty) _setTokenDraft('');
-      widget.onChanged?.call(_composeTokenQuery());
       if (mounted) setState(() {});
       return;
     }
@@ -320,7 +304,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       _tokens = replaceTopicFilterScopeTokens([..._tokens, ...completed]);
     }
     _setTokenDraft(remaining);
-    widget.onChanged?.call(_composeTokenQuery());
   }
 
   String _composeTokenQuery([String? draft]) {
@@ -356,14 +339,12 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     _menuDateSelected = false;
     filter.updateEngine(_engine(_shell!));
     _setTokenDraft('');
-    widget.onChanged?.call(_composeTokenQuery());
     filter.dismiss();
   }
 
   void _removeToken(int index) {
-    if (!widget.enabled || index < 0 || index >= _tokens.length) return;
+    if (index < 0 || index >= _tokens.length) return;
     setState(() => _tokens = [..._tokens]..removeAt(index));
-    widget.onChanged?.call(_composeTokenQuery());
     widget.onScopeChanged?.call(_tokens.join(' '));
     filter.updateEngine(_engine(_shell!));
     _focus.requestFocus();
@@ -371,7 +352,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   void _editToken(int index) {
-    if (!widget.enabled || index < 0 || index >= _tokens.length) return;
+    if (index < 0 || index >= _tokens.length) return;
     final token = _tokens[index];
     if (widget.embedded) {
       _activeMenuField = topicFilterMenuFields(filter.engine.options)
@@ -388,7 +369,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           : '${widget.onlyKey}:',
     );
     filter.updateEngine(_engine(_shell!));
-    widget.onChanged?.call(_composeTokenQuery());
     widget.onScopeChanged?.call(_tokens.join(' '));
     filter.dismiss();
     _focus.requestFocus();
@@ -402,10 +382,8 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   Future<void> _clearTokenQuery() async {
-    if (!widget.enabled) return;
     setState(() => _tokens = const []);
     _setTokenDraft('');
-    widget.onChanged?.call('');
     await widget.onSubmitted('');
     if (mounted && _focus.hasFocus) unawaited(filter.openSuggestions());
   }
@@ -441,7 +419,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (!widget.enabled || !_focus.hasFocus) return KeyEventResult.ignored;
+    if (!_focus.hasFocus) return KeyEventResult.ignored;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
@@ -486,7 +464,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         if (widget.tokenized && filter.text.text != lead) {
           _setTokenDraft(lead);
           filter.updateEngine(_engine(_shell!));
-          widget.onChanged?.call(_composeTokenQuery());
         } else {
           filter.dismiss();
           widget.onDismiss?.call();
@@ -508,7 +485,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
               filter.text.selection.isCollapsed &&
               filter.text.selection.baseOffset == filter.text.text.length:
         _setTokenDraft('');
-        widget.onChanged?.call(_composeTokenQuery());
         filter.dismiss();
         unawaited(filter.openSuggestions());
         return KeyEventResult.handled;
@@ -553,7 +529,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     if (filter.text.text == lead) return false;
     _setTokenDraft(lead);
     filter.updateEngine(_engine(_shell!));
-    widget.onChanged?.call(_composeTokenQuery());
     setState(() {});
     return true;
   }
@@ -562,10 +537,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     if (widget.embedded && await _sheetAction(_sheetCommand.value)) return;
     final controller = filter;
     final fresh = await controller.ensureFreshSuggestions();
-    if (!mounted ||
-        !identical(_filter, controller) ||
-        !widget.enabled ||
-        !fresh) {
+    if (!mounted || !identical(_filter, controller) || !fresh) {
       return;
     }
     if (filter.isOpen) {
@@ -690,7 +662,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         label: group.label,
         index: group.indices.first,
         categories: widget.categories,
-        enabled: widget.enabled,
         onEdited: () => _editDisplayToken(group),
         onDeleted: () {
           if (group.indices.length == 1) {
@@ -703,7 +674,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                 if (!group.indices.contains(i)) _tokens[i],
             ],
           );
-          widget.onChanged?.call(_composeTokenQuery());
         },
       ),
   ];
@@ -747,7 +717,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         highlightedValue: filter.selected,
         highlightControlled: true,
         equals: (a, b) => a.name == b.name,
-        enabled: widget.enabled,
         onQueryChanged: (query, reason) {
           if (reason == DComboboxChangeReason.input) {
             filter.inputChanged(query);
@@ -791,7 +760,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
             if (widget.multiline)
               DPopoverAnchor(
                 child: DInputGroup(
-                  enabled: widget.enabled,
                   viewportHeight: widget.tokenized ? 104 : null,
                   children: [
                     DInputGroupTextarea(
@@ -802,7 +770,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                       hintText: widget.hintText,
                       minLines: widget.tokenized ? 1 : 3,
                       maxLines: widget.tokenized ? null : 6,
-                      enabled: widget.enabled,
                       autocorrect: false,
                       enableSuggestions: false,
                       onChanged: filter.inputChanged,
@@ -832,13 +799,11 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
                         icon: const DIcon(DIcons.xmark),
                         variant: DButtonVariant.ghost,
                         size: DButtonSize.small,
-                        onPressed: widget.enabled
-                            ? () => unawaited(
-                                widget.tokenized
-                                    ? _clearTokenQuery()
-                                    : filter.clear(),
-                              )
-                            : null,
+                        onPressed: () => unawaited(
+                          widget.tokenized
+                              ? _clearTokenQuery()
+                              : filter.clear(),
+                        ),
                       ),
                     ),
                 ],
@@ -958,7 +923,6 @@ class _TopicFilterTokenChip extends StatelessWidget {
     this.label,
     required this.index,
     required this.categories,
-    required this.enabled,
     required this.onEdited,
     required this.onDeleted,
   });
@@ -967,7 +931,6 @@ class _TopicFilterTokenChip extends StatelessWidget {
   final String? label;
   final int index;
   final List<TopicCategory> categories;
-  final bool enabled;
   final VoidCallback onEdited;
   final VoidCallback onDeleted;
 
@@ -991,8 +954,8 @@ class _TopicFilterTokenChip extends StatelessWidget {
               removeKey: ValueKey('topic-filter-token-remove-$index'),
               editLabel: context.l10n.editTopicFilterToken(label),
               removeLabel: context.l10n.removeTopicfilterinput(label),
-              onEdited: enabled ? onEdited : null,
-              onRemoved: enabled ? onDeleted : null,
+              onEdited: onEdited,
+              onRemoved: onDeleted,
             ),
           ),
         ],

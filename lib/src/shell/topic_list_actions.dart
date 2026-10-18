@@ -49,7 +49,6 @@ class TopicListFilterMenu extends StatefulWidget {
     super.key,
     required this.siteUrl,
     required this.query,
-    this.onSubmitted,
     this.label,
     this.filterKey,
     this.triggerKey,
@@ -60,7 +59,6 @@ class TopicListFilterMenu extends StatefulWidget {
   });
   final String siteUrl;
   final String query;
-  final Future<void> Function(String)? onSubmitted;
   final String? label;
   final String? filterKey;
   final Key? triggerKey;
@@ -195,9 +193,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     late Future<void> applied;
     _publishingScope = true;
     try {
-      applied = (widget.onSubmitted ?? _tab!.applyTopicListFilterQuery)(
-        complete,
-      );
+      applied = _tab!.applyTopicListFilterQuery(complete);
     } finally {
       _publishingScope = false;
     }
