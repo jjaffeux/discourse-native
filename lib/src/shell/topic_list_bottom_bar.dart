@@ -233,17 +233,14 @@ class TopicListFooter extends StatelessWidget {
 
 /// Adjacent-topic actions following the current source list.
 class TopicNavigationButtons extends StatelessWidget {
-  const TopicNavigationButtons({super.key, this.vertical = false});
-
-  final bool vertical;
+  const TopicNavigationButtons({super.key});
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) => ForumTabSelector<_AdjacentTopics>(
       select: _adjacentTopics,
-      builder: (context, state, _) => Flex(
-        direction: vertical ? Axis.vertical : Axis.horizontal,
+      builder: (context, state, _) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           DButton.iconOnly(
@@ -267,10 +264,7 @@ class TopicNavigationButtons extends StatelessWidget {
             variant: DButtonVariant.outline,
             size: DButtonSize.regular,
           ),
-          SizedBox(
-            width: vertical ? 0 : DSpacing.xs,
-            height: vertical ? DSpacing.xs : 0,
-          ),
+          const SizedBox(width: DSpacing.xs),
           DButton.iconOnly(
             key: const ValueKey('inbox-next-topic'),
             tooltip:

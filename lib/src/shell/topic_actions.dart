@@ -24,7 +24,6 @@ class TopicBookmarkButton extends StatelessWidget {
     required this.siteUrl,
     required this.topic,
     required this.busy,
-    this.showLabel = false,
     this.variant,
     this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
@@ -34,7 +33,6 @@ class TopicBookmarkButton extends StatelessWidget {
   final String siteUrl;
   final TopicDetail topic;
   final bool busy;
-  final bool showLabel;
   final DButtonVariant? variant;
   final DButtonSize size;
   final DButtonDensity density;
@@ -76,26 +74,6 @@ class TopicBookmarkButton extends StatelessWidget {
       ),
     );
 
-    if (showLabel) {
-      return DButton(
-        key: buttonKey,
-        onPressed: busy ? null : open,
-        icon: icon,
-        label: Text(
-          topic.hasBookmarks ? context.l10n.bookmarked : context.l10n.bookmark,
-        ),
-        tooltip: tooltip,
-        shortcut: const DShortcut(topicBookmarkShortcut),
-        loading: busy,
-        variant: buttonVariant,
-        backgroundColor: selectedSurface?.background,
-        foregroundColor: selectedSurface?.foreground,
-        interactiveBackgroundColor: selectedSurface?.hover,
-        hasPopup: true,
-        size: size,
-        density: density,
-      );
-    }
     return DButton.iconOnly(
       key: buttonKey,
       onPressed: busy ? null : open,
@@ -671,27 +649,19 @@ class TopicNotificationLevelButton extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.topic,
-    this.showLabel = false,
     this.showChevron = false,
     this.variant,
     this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
-    this.backgroundColor,
-    this.borderColor,
-    this.interactiveBackgroundColor,
     this.buttonKey = const ValueKey('topic-notification-level-button'),
   });
 
   final String siteUrl;
   final TopicDetail topic;
-  final bool showLabel;
   final bool showChevron;
   final DButtonVariant? variant;
   final DButtonSize size;
   final DButtonDensity density;
-  final Color? backgroundColor;
-  final Color? borderColor;
-  final Color? interactiveBackgroundColor;
   final Key buttonKey;
 
   static List<DNotificationLevelOption<TopicNotificationLevel>> get _options =>
@@ -737,14 +707,10 @@ class TopicNotificationLevelButton extends StatelessWidget {
           sheetOnMobile: true,
           mobileSheetVariant: DSheetVariant.adaptiveMenu,
           buttonKey: buttonKey,
-          showLabel: showLabel,
           showChevron: showChevron,
           variant: variant,
           size: size,
           density: density,
-          backgroundColor: backgroundColor,
-          borderColor: borderColor,
-          interactiveBackgroundColor: interactiveBackgroundColor,
           value: topic.notificationLevel,
           options: _options,
           onChanged: (level) {
@@ -765,14 +731,12 @@ class TopicNotificationLevelButton extends StatelessWidget {
 class TopicNotificationLevelPlaceholder extends StatelessWidget {
   const TopicNotificationLevelPlaceholder({
     super.key,
-    this.showLabel = false,
     this.showChevron = false,
     this.variant,
     this.size = DButtonSize.chip,
     this.density = DButtonDensity.standard,
   });
 
-  final bool showLabel;
   final bool showChevron;
   final DButtonVariant? variant;
   final DButtonSize size;
@@ -782,7 +746,6 @@ class TopicNotificationLevelPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) =>
       DNotificationLevelMenu<TopicNotificationLevel>(
         semanticLabel: context.l10n.topicNotifications,
-        showLabel: showLabel,
         showChevron: showChevron,
         variant: variant,
         size: size,
