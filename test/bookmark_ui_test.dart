@@ -951,14 +951,10 @@ Widget _host(
 Future<void> _scrollEditorToEnd(WidgetTester tester, String action) async {
   FocusManager.instance.primaryFocus?.unfocus();
   await tester.pump();
-  final scrollable = find.ancestor(
-    of: find.text(action),
-    matching: find.byType(Scrollable),
-  );
-  final position = tester.state<ScrollableState>(scrollable).position;
-  expect(position.maxScrollExtent, greaterThan(0));
-  position.jumpTo(position.maxScrollExtent);
+  final button = find.text(action);
+  await tester.ensureVisible(button);
   await tester.pump();
+  expect(button.hitTestable(), findsOneWidget);
 }
 
 Future<FakeDiscourseApi> _openEditor(

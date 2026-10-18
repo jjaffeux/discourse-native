@@ -3083,7 +3083,15 @@ void main() {
       expect(find.byKey(const ValueKey('sidebar-panel-tabs')), findsNothing);
       await tester.tap(find.byKey(UserMenuButton.bellKey));
       await tester.pumpAndSettle();
-      expect(find.byType(DSheetContent), findsNothing);
+      final notificationsSheet = find.ancestor(
+        of: find.byType(UserMenuPanel),
+        matching: find.byType(DSheetContent),
+      );
+      expect(notificationsSheet, findsOneWidget);
+      expect(
+        tester.widget<DSheetContent>(notificationsSheet).variant,
+        DSheetVariant.adaptiveMenu,
+      );
       expect(find.byType(UserMenuPanel), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();

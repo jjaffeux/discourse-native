@@ -1539,7 +1539,7 @@ void main() {
     });
 
     group('sidebar workflows', () {
-      testWidgets('lists the directory destinations above the inbox', (
+      testWidgets('lists desktop directory destinations above the inbox', (
         tester,
       ) async {
         await shell.chat.loadChannels(_site);
@@ -1549,7 +1549,7 @@ void main() {
           ShellScope(
             controller: shell,
             child: MaterialApp(
-              theme: AppTheme.light,
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
               home: PluginUiScope.own(
                 chatPluginId,
                 Scaffold(
@@ -1671,7 +1671,7 @@ void main() {
         },
       );
 
-      testWidgets('shows Threads, loads thread rows, and opens a thread', (
+      testWidgets('desktop Threads loads thread rows and opens a thread', (
         tester,
       ) async {
         await shell.chat.loadChannels(_site);
@@ -1686,7 +1686,7 @@ void main() {
           ShellScope(
             controller: shell,
             child: MaterialApp(
-              theme: AppTheme.light,
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
               home: PluginUiScope.own(
                 chatPluginId,
                 const Scaffold(
@@ -1706,7 +1706,7 @@ void main() {
           ShellScope(
             controller: shell,
             child: MaterialApp(
-              theme: AppTheme.light,
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
               home: Scaffold(
                 body: MainContent(layout: ShellLayout.forWidth(900)),
               ),
@@ -2002,7 +2002,7 @@ void main() {
           ShellScope(
             controller: shell,
             child: MaterialApp(
-              theme: AppTheme.light,
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
               home: PluginUiScope.own(
                 chatPluginId,
                 Scaffold(
@@ -2027,7 +2027,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('New group chat'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('chat-new-direct-message-sheet')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('chat-new-group-name')),
+          findsOneWidget,
+        );
         expect(
           tester
               .widget<DButton>(
