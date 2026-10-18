@@ -612,9 +612,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   ComposerDraft get discardPreviewFrom => _rollbackPreviewFrom ?? draft;
   Animation<double>? get rollbackAnimation => _rollbackAnimation;
 
-  ComposerDiscardPreview? get discardPreviewKind =>
-      discardPreviewTarget == null ? null : _discardPreview;
-
   void previewDiscard(ComposerDiscardPreview? preview, int revision) {
     if (_disposed || _discarding || revision != _draftRevision) return;
     if (_discardPreview == preview && _discardPreviewRevision == revision) {

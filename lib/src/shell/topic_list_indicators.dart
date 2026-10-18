@@ -4,9 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-Color topicListTitleColor(ThemeData theme, {required bool visited}) =>
-    visited ? theme.discourse.whisper : theme.colorScheme.onSurface;
-
 class TopicUnreadBadge extends StatelessWidget {
   const TopicUnreadBadge({
     super.key,

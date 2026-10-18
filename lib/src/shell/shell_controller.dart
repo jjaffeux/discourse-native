@@ -1889,16 +1889,6 @@ class ShellController extends FrameSafeNotifier
   List<ContentRoute> recentTopicsFor(String siteUrl) =>
       recentDestinations.topicsFor(siteUrl, _recentAccountIdentity(siteUrl));
 
-  /// Reads the shared Latest feed without starting a request. Start previews
-  /// use only data already loaded by the forum's topic list.
-  List<Topic> cachedLatestTopicsFor(String siteUrl) {
-    final feed = topicFeeds.feedFor(siteUrl, TopicListMode.latest.routeId);
-    if (feed?.loaded != true) return const [];
-    return List.unmodifiable([
-      for (final id in feed!.topicIds) ?store.read<Topic>(siteUrl, id),
-    ]);
-  }
-
   void _rememberCurrentContent() {
     if (!loaded) return;
     final siteUrl = currentInstance?.url;
@@ -6804,13 +6794,6 @@ class ShellController extends FrameSafeNotifier
         topic.title,
         postNumber: postNumber != null && postNumber > 0 ? postNumber : null,
       );
-
-  void openFeaturedTopic(CategoryFeaturedTopic topic) => _openTopic(
-    topic.id,
-    topic.slug,
-    topic.title,
-    postNumber: topic.firstUnreadPostNumber,
-  );
 
   void openCategory(TopicCategory category, {String? siteUrl}) {
     final targetSiteUrl = siteUrl ?? currentInstance?.url;
