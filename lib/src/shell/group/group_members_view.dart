@@ -1120,12 +1120,11 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 12),
-        TextField(
-          style: Theme.of(context).textTheme.bodyMedium,
+        DInput(
           key: const ValueKey('group-invite-email'),
           controller: controller.email,
           keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(labelText: context.l10n.emailOptional),
+          labelText: context.l10n.emailOptional,
         ),
         if (controller.hasEmail) ...[
           const SizedBox(height: 10),
