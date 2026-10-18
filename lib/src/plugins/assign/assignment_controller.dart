@@ -101,9 +101,6 @@ class AssignmentController extends FrameSafeNotifier
   final PluginRequestHost _requests;
   final AssignmentPermissionReader? _legacyCanAssign;
   final AssignmentPermissionSnapshotReader? _permissionSnapshot;
-  AssignmentStatusOptionsReader? get statusOptionsReader =>
-      _statusOptionsReader;
-  AssignmentTopicReloader get reloadTopic => _reloadTopic;
   final PluginDiagnosticsReporter diagnostics;
   final AssignmentStatusOptionsReader? _statusOptionsReader;
   final AssignmentTopicReloader _reloadTopic;

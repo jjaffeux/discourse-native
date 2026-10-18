@@ -474,8 +474,6 @@ extension ChatPluginDataRead on PluginData {
 extension ChatSiteConfigData on SiteConfig {
   ChatSettings get chatSettings => plugins.chatSettings;
 
-  bool get chatEnabled => chatSettings.chatEnabled;
-
   bool get chatUploadsEnabled => chatSettings.uploadsEnabled;
 
   bool get chatSearchEnabled => chatSettings.searchEnabled;
@@ -486,9 +484,6 @@ extension ChatSiteConfigData on SiteConfig {
 
   int get chatMaximumDirectMessageUsers =>
       chatSettings.maximumDirectMessageUsers;
-
-  ChatSeparateSidebarMode get chatSeparateSidebarMode =>
-      chatSettings.separateSidebarMode;
 }
 
 extension ChatDiscourseUserData on DiscourseUser {

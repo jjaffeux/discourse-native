@@ -220,6 +220,4 @@ extension VoicePluginDataRead on PluginData {
 
 extension VoiceSiteConfigData on SiteConfig {
   VoiceClientConfig get voiceSettings => plugins.voiceSettings;
-
-  VoiceClientConfig get voice => voiceSettings;
 }

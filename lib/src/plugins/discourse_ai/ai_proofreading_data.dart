@@ -174,15 +174,6 @@ extension DiscourseAiPluginDataRead on PluginData {
       get(discourseAiCurrentUserDataKey);
 }
 
-extension DiscourseAiSiteConfigData on SiteConfig {
-  DiscourseAiSettings? get discourseAiSettings => plugins.discourseAiSettings;
-}
-
-extension DiscourseAiUserData on DiscourseUser {
-  DiscourseAiCurrentUser? get discourseAiCurrentUser =>
-      plugins.discourseAiCurrentUser;
-}
-
 /// A list site setting arrives pipe-joined; tolerate a JSON list as well.
 Iterable<String> _listSetting(Object? value) => switch (value) {
   final String value => value.split('|').map((item) => item.trim()),
