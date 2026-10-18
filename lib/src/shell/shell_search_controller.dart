@@ -76,6 +76,15 @@ class ShellSearchController extends ChangeNotifier {
     _notify();
   }
 
+  void retainTabs(Set<({String siteUrl, String tabId})> retainedTabs) {
+    _pageWords.removeWhere(
+      (key, _) =>
+          key.tabId.isNotEmpty &&
+          !retainedTabs.contains((siteUrl: key.siteUrl, tabId: key.tabId)),
+    );
+    _startPageQueries.removeWhere((key, _) => !retainedTabs.contains(key));
+  }
+
   bool ownsPanel(Object field) => identical(_activeField, field);
 
   void selectSite(String? siteUrl, {bool logSearchQueries = true}) {

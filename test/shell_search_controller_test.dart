@@ -11,6 +11,40 @@ void main() {
   const site = 'https://example.com';
 
   test(
+    'tab retention keeps only reachable compound owners without notifying',
+    () {
+      const otherSite = 'https://other.example';
+      final search = ShellSearchController(
+        api: _SearchApi(),
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(search.dispose);
+      search.setPageWords(site, 'main', 'first', 'kept first');
+      search.setPageWords(site, 'main', 'second', 'kept second');
+      search.setStartPageQuery(site, 'main', 'kept start');
+      search.setPageWords(otherSite, 'main', 'first', 'retired words');
+      search.setStartPageQuery(otherSite, 'main', 'retired start');
+      search.setPageWords(site, 'retired', 'first', 'retired tab');
+      search.setPageWords(site, null, 'unscoped', 'unscoped words');
+      var notifications = 0;
+      search.addListener(() => notifications++);
+
+      for (var index = 0; index < 2; index++) {
+        search.retainTabs({(siteUrl: site, tabId: 'main')});
+        expect(search.wordsFor(site, 'main', 'first'), 'kept first');
+        expect(search.wordsFor(site, 'main', 'second'), 'kept second');
+        expect(search.startPageQueryFor(site, 'main'), 'kept start');
+        expect(search.wordsFor(otherSite, 'main', 'first'), isEmpty);
+        expect(search.startPageQueryFor(otherSite, 'main'), isEmpty);
+        expect(search.wordsFor(site, 'retired', 'first'), isEmpty);
+        expect(search.wordsFor(site, null, 'unscoped'), 'unscoped words');
+        expect(notifications, 0);
+      }
+    },
+  );
+
+  test(
     'Start queries stay isolated by forum and tab and clear on account removal',
     () {
       final search = ShellSearchController(

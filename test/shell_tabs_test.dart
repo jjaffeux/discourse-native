@@ -1148,6 +1148,169 @@ void main() {
     });
 
     group('tab lifecycle', () {
+      test('restorable tabs retain all their search words', () {
+        final site = forums.first.url;
+        final id = controller.activeTabId!;
+        controller.pushContent(_topic(101, 'Visited topic'));
+        controller.search.setPageWords(site, id, 'topic-101', 'first words');
+        controller.search.setPageWords(site, id, 'topic-202', 'second words');
+        controller.search.setStartPageQuery(site, id, 'start query');
+
+        controller.closeTab(id);
+        expect(
+          controller.search.wordsFor(site, id, 'topic-101'),
+          'first words',
+        );
+        expect(controller.reopenClosedTab(id), isTrue);
+        expect(controller.activeTabId, id);
+        expect(
+          controller.search.wordsFor(site, id, 'topic-101'),
+          'first words',
+        );
+        expect(
+          controller.search.wordsFor(site, id, 'topic-202'),
+          'second words',
+        );
+        expect(controller.search.startPageQueryFor(site, id), 'start query');
+      });
+
+      test('discarded Start tabs retire their search state', () {
+        final site = forums.first.url;
+        final id = controller.activeTabId!;
+        controller.pushContent(_topic(101, 'Visited topic'));
+        controller.search.setPageWords(site, id, 'topic-101', 'retired words');
+        controller.search.setStartPageQuery(site, id, 'retired query');
+        controller.pushContent(ContentRoute.newTab());
+
+        controller.closeTab(id);
+
+        expect(controller.reopenClosedTab(id), isFalse);
+        expect(controller.search.wordsFor(site, id, 'topic-101'), isEmpty);
+        expect(controller.search.startPageQueryFor(site, id), isEmpty);
+      });
+
+      test('closed-tab eviction retires only unreachable search owners', () {
+        final firstSite = forums.first.url;
+        final secondSite = forums.last.url;
+        final oldest = controller.activeTabId!;
+        controller.pushContent(_topic(101, 'Oldest topic'));
+        controller.search.setPageWords(
+          firstSite,
+          oldest,
+          'topic-101',
+          'oldest',
+        );
+        controller.closeTab(oldest);
+
+        controller.selectInstance(1);
+        final live = controller.activeTabId!;
+        controller.search.setPageWords(secondSite, live, 'latest', 'live');
+        controller.createTab();
+        final restorable = controller.activeTabId!;
+        controller.pushContent(_topic(202, 'Restorable topic'));
+        controller.search.setPageWords(
+          secondSite,
+          restorable,
+          'topic-202',
+          'saved',
+        );
+        controller.closeTab(restorable);
+
+        controller.selectInstance(0);
+        for (var index = 0; index < ForumWorkspace.maximumTabs - 2; index++) {
+          controller.pushContent(_topic(300 + index, 'Another topic'));
+          controller.closeTab(controller.activeTabId!);
+        }
+        expect(
+          controller.search.wordsFor(firstSite, oldest, 'topic-101'),
+          'oldest',
+        );
+
+        controller.selectInstance(1);
+        controller.createTab();
+        controller.pushContent(_topic(999, 'Newly closed topic'));
+        controller.closeTab(controller.activeTabId!);
+
+        expect(
+          controller.search.wordsFor(firstSite, oldest, 'topic-101'),
+          isEmpty,
+        );
+        expect(controller.search.wordsFor(secondSite, live, 'latest'), 'live');
+        expect(
+          controller.search.wordsFor(secondSite, restorable, 'topic-202'),
+          'saved',
+        );
+        expect(controller.reopenClosedTab(restorable), isTrue);
+        expect(
+          controller.search.wordsFor(secondSite, restorable, 'topic-202'),
+          'saved',
+        );
+        controller.selectInstance(0);
+        expect(controller.reopenClosedTab(oldest), isFalse);
+      });
+
+      test('bulk close retires Start and evicted content search state', () {
+        final firstSite = forums.first.url;
+        final closed = <String>[];
+        for (var index = 0; index < ForumWorkspace.maximumTabs; index++) {
+          final id = controller.activeTabId!;
+          closed.add(id);
+          controller.pushContent(_topic(100 + index, 'Closed topic'));
+          controller.search.setPageWords(
+            firstSite,
+            id,
+            'topic-${100 + index}',
+            'saved',
+          );
+          controller.closeTab(id);
+        }
+        controller.selectInstance(1);
+        final site = forums.last.url;
+        final kept = controller.activeTabId!;
+        controller.pushContent(_topic(1000, 'Kept topic'));
+        controller.search.setPageWords(site, kept, 'topic-1000', 'kept');
+        controller.createTab();
+        final start = controller.activeTabId!;
+        controller.pushContent(_topic(2001, 'Visited topic'));
+        controller.search.setPageWords(site, start, 'topic-2001', 'discarded');
+        controller.pushContent(ContentRoute.newTab());
+        final restorable = <String>[];
+        for (final topicId in [2002, 2003]) {
+          controller.createTab();
+          final id = controller.activeTabId!;
+          restorable.add(id);
+          controller.pushContent(_topic(topicId, 'Restorable topic'));
+          controller.search.setPageWords(site, id, 'topic-$topicId', 'recent');
+        }
+
+        controller.closeOtherTabs(kept);
+
+        for (var index = 0; index < 2; index++) {
+          expect(
+            controller.search.wordsFor(
+              firstSite,
+              closed[index],
+              'topic-${100 + index}',
+            ),
+            isEmpty,
+          );
+        }
+        expect(controller.search.wordsFor(site, start, 'topic-2001'), isEmpty);
+        expect(controller.search.wordsFor(site, kept, 'topic-1000'), 'kept');
+        for (var index = 0; index < restorable.length; index++) {
+          expect(
+            controller.search.wordsFor(
+              site,
+              restorable[index],
+              'topic-${2002 + index}',
+            ),
+            'recent',
+          );
+          expect(controller.reopenClosedTab(restorable[index]), isTrue);
+        }
+        expect(controller.reopenClosedTab(start), isFalse);
+      });
+
       test('desktop topic tabs select the next topic after closing', () {
         controller.desktopTopicTabs = true;
         final listTabId = controller.activeTabId!;

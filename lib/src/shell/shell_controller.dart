@@ -2145,6 +2145,7 @@ class ShellController extends FrameSafeNotifier
     _forgetPluginPaneTabs(instance.url);
     final workspace = _normalizeWorkspace(_newWorkspace(instance));
     _forumWorkspaces[instance.url] = workspace;
+    _retainSearchTabState();
     if (persist) _persistWorkspaces();
     return workspace;
   }
@@ -2152,6 +2153,7 @@ class ShellController extends FrameSafeNotifier
   void _putWorkspace(ForumWorkspace workspace, {bool persist = true}) {
     final normalized = _normalizeWorkspace(workspace);
     _forumWorkspaces[normalized.siteUrl] = normalized;
+    _retainSearchTabState();
     final liveTabIds = {for (final tab in normalized.tabs) tab.id};
     _postWindowCaches.removeWhere(
       (key, _) => key.$1 == normalized.siteUrl && !liveTabIds.contains(key.$2),
@@ -2177,6 +2179,14 @@ class ShellController extends FrameSafeNotifier
     );
     if (persist) _persistWorkspaces();
   }
+
+  void _retainSearchTabState() => search.retainTabs({
+    for (final workspace in _forumWorkspaces.values)
+      for (final tab in workspace.tabs)
+        (siteUrl: workspace.siteUrl, tabId: tab.id),
+    for (final closed in _closedForumTabs)
+      (siteUrl: closed.siteUrl, tabId: closed.tab.id),
+  });
 
   void _removeWorkspace(String siteUrl, {bool persist = true}) {
     _forgetPluginPaneTabs(siteUrl);
@@ -2365,6 +2375,7 @@ class ShellController extends FrameSafeNotifier
         _forumWorkspaces[workspace.siteUrl] = normalized;
       }
     }
+    _retainSearchTabState();
     // Only forums on the rail keep Start page visits: a removal may have ended
     // before its visits were saved away, and older builds kept them. An empty
     // rail may be a list that could not be decoded, so it must not erase every
