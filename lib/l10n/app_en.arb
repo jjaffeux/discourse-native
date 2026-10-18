@@ -15263,14 +15263,6 @@
   "@invalidAppearance": {
     "description": "English UI message used by models/shared_appearance.dart. Keep placeholders intact."
   },
-  "keepTopicTabsWithTheList": "Keep topic tabs with the list",
-  "@keepTopicTabsWithTheList": {
-    "description": "English UI message used by models/topic_presentation.dart. Keep placeholders intact."
-  },
-  "splitWithTheList": "Split with the list",
-  "@splitWithTheList": {
-    "description": "English UI message used by models/topic_presentation.dart. Keep placeholders intact."
-  },
   "invalidBackground": "Invalid background.",
   "@invalidBackground": {
     "description": "English UI message used by models/forum_background.dart. Keep placeholders intact."

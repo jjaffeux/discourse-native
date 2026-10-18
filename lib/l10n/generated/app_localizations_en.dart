@@ -11314,12 +11314,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get invalidAppearance => 'Invalid appearance.';
 
   @override
-  String get keepTopicTabsWithTheList => 'Keep topic tabs with the list';
-
-  @override
-  String get splitWithTheList => 'Split with the list';
-
-  @override
   String get invalidBackground => 'Invalid background.';
 
   @override

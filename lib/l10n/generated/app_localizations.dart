@@ -19342,18 +19342,6 @@ abstract class AppLocalizations {
   /// **'Invalid appearance.'**
   String get invalidAppearance;
 
-  /// English UI message used by models/topic_presentation.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Keep topic tabs with the list'**
-  String get keepTopicTabsWithTheList;
-
-  /// English UI message used by models/topic_presentation.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Split with the list'**
-  String get splitWithTheList;
-
   /// English UI message used by models/forum_background.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
