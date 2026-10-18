@@ -178,8 +178,7 @@ class PollComposerBlock {
 
   bool get canProject => type != ComposerPollType.unknown;
 
-  bool containsOffset(int offset, {bool includeEnd = false}) =>
-      offset >= start && (includeEnd ? offset <= end : offset < end);
+  bool containsOffset(int offset) => offset >= start && offset < end;
 }
 
 /// Projects only unambiguous, lossless poll blocks; complex or malformed forms

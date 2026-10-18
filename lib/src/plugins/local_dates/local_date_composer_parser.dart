@@ -161,8 +161,7 @@ class LocalDateComposerBlock {
               _validDateTime(attribute('to')),
       };
 
-  bool containsOffset(int offset, {bool includeEnd = false}) =>
-      offset >= start && (includeEnd ? offset <= end : offset < end);
+  bool containsOffset(int offset) => offset >= start && offset < end;
 }
 
 /// Leaves ambiguous, malformed, duplicate-attribute, and code-contained tags raw.
