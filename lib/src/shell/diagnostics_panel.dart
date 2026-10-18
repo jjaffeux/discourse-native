@@ -234,30 +234,22 @@ class _DiagnosticsPanelState extends State<DiagnosticsPanel> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextField(
-                  style: Theme.of(context).textTheme.bodyMedium,
+                DInput(
                   key: const ValueKey('diagnostics-search'),
                   controller: _search,
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: context.l10n.searchDiagnostics,
-                    prefixIcon: const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: DIcon(DIcons.magnifyingGlass, size: 18),
-                    ),
-                    suffixIcon: panelState.query.isEmpty
-                        ? null
-                        : DButton.iconOnly(
-                            onPressed: () {
-                              _search.clear();
-                              widget.controller.setQuery('');
-                            },
-                            variant: DButtonVariant.ghost,
-                            tooltip: context.l10n.clearSearch,
-                            icon: const DIcon(DIcons.xmark),
-                          ),
-                    border: const OutlineInputBorder(),
-                  ),
+                  hintText: context.l10n.searchDiagnostics,
+                  prefix: const DIcon(DIcons.magnifyingGlass, size: 18),
+                  suffix: panelState.query.isEmpty
+                      ? null
+                      : DButton.iconOnly(
+                          onPressed: () {
+                            _search.clear();
+                            widget.controller.setQuery('');
+                          },
+                          variant: DButtonVariant.ghost,
+                          tooltip: context.l10n.clearSearch,
+                          icon: const DIcon(DIcons.xmark),
+                        ),
                   onChanged: widget.controller.setQuery,
                 ),
                 const SizedBox(height: 8),

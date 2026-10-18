@@ -174,7 +174,7 @@ void main() {
       );
       expect(
         tester
-            .widget<TextField>(find.byKey(const ValueKey('diagnostics-search')))
+            .widget<DInput>(find.byKey(const ValueKey('diagnostics-search')))
             .controller!
             .text,
         'keep this filter',

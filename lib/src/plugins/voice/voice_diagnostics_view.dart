@@ -143,31 +143,23 @@ class _VoiceDiagnosticsViewState extends State<VoiceDiagnosticsView> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-          child: TextField(
-            style: Theme.of(context).textTheme.bodyMedium,
+          child: DInput(
             key: const ValueKey('voice-diagnostics-search'),
             controller: _search,
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: appL10n.searchVoiceCapture,
-              prefixIcon: const Padding(
-                padding: EdgeInsets.all(12),
-                child: DIcon(DIcons.magnifyingGlass, size: 18),
-              ),
-              suffixIcon: _search.text.isEmpty
-                  ? null
-                  : DButton.iconOnly(
-                      key: const ValueKey('voice-diagnostics-clear-search'),
-                      onPressed: () {
-                        _search.clear();
-                        setState(() {});
-                      },
-                      variant: DButtonVariant.ghost,
-                      tooltip: appL10n.clearSearch,
-                      icon: const DIcon(DIcons.xmark),
-                    ),
-              border: const OutlineInputBorder(),
-            ),
+            hintText: appL10n.searchVoiceCapture,
+            prefix: const DIcon(DIcons.magnifyingGlass, size: 18),
+            suffix: _search.text.isEmpty
+                ? null
+                : DButton.iconOnly(
+                    key: const ValueKey('voice-diagnostics-clear-search'),
+                    onPressed: () {
+                      _search.clear();
+                      setState(() {});
+                    },
+                    variant: DButtonVariant.ghost,
+                    tooltip: appL10n.clearSearch,
+                    icon: const DIcon(DIcons.xmark),
+                  ),
             onChanged: (_) => setState(() {}),
           ),
         ),
