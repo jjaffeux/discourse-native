@@ -286,8 +286,6 @@ final class OriginRequestContext {
 
   final OriginRequestLease _lease;
 
-  String get origin => _lease.origin;
-
   void extendCooldown(Duration delay) => _lease.extendCooldown(delay);
 }
 

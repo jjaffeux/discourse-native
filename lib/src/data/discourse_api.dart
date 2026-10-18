@@ -1842,9 +1842,6 @@ class DiscourseApi
 
   static const String userAgent = DiscourseTransport.userAgent;
 
-  static Map<String, String> authHeaders(String apiKey, {String? clientId}) =>
-      DiscourseTransport.authHeaders(apiKey, clientId: clientId);
-
   @override
   void close() => _transport.close();
 }
