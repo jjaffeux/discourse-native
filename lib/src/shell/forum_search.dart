@@ -552,7 +552,7 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!mounted ||
         !lease.isCurrent ||
         !_ownsInput(owner) ||
-        owner.currentContent != routeBeforeClosing) {
+        routeBeforeClosing?.sameDestinationAs(owner.currentContent) != true) {
       return;
     }
     if (!identical(_shell, shell) ||
@@ -561,6 +561,8 @@ class _ForumSearchState extends State<ForumSearch> {
         shell.currentInstance?.url != site) {
       return;
     }
+    _global.setQuery('');
+    _global.clearAllConditions();
     if (result.source case final SearchPostHit hit) {
       shell.openSearchResult(hit, words: words);
     } else {
@@ -573,10 +575,18 @@ class _ForumSearchState extends State<ForumSearch> {
       );
       final destination = shell.focusedTabContext;
       final destinationRoute = destination.currentContent;
-      await opening;
-      if (!lease.isCurrent ||
+      final opened = await opening;
+      final expected = result.destination;
+      final ownsDestination = expected == null
+          ? destinationRoute?.sameDestinationAs(destination.currentContent) ==
+                true
+          : destination.currentContent?.destination.identity ==
+                expected.identity;
+      if (!opened ||
+          !lease.isCurrent ||
           !_ownsInput(destination) ||
-          destination.currentContent != destinationRoute) {
+          destination.siteUrl != site ||
+          !ownsDestination) {
         return;
       }
       if (destination.currentContent case final route?
@@ -591,8 +601,6 @@ class _ForumSearchState extends State<ForumSearch> {
         );
       }
     }
-    _global.setQuery('');
-    _global.clearAllConditions();
   }
 
   void _apply() {

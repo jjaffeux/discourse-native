@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -425,6 +426,12 @@ void main() {
     await tester.pump();
     controller.lifecycle.invalidate(_site);
     controller.clearAccountSessionState(_site);
+    expect(controller.currentWorkspace, isNull);
+    controller.applyAccountSessionInstance(
+      controller.currentInstance!,
+      AccountSessionPhase.restored,
+    );
+    expect(controller.focusedTabContext.isCurrent, isTrue);
     final loading = controller.loadTopic(1, 'first', postNumber: 5);
     await tester.pump();
     expect(api.requests, hasLength(2));

@@ -1,6 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/search_results.dart';
 import '../models/site_config.dart';
@@ -291,6 +292,7 @@ class GlobalSearchResult {
     required this.scope,
     required this.title,
     required this.path,
+    this.destination,
     this.excerpt = '',
     this.username,
     this.avatarUrl,
@@ -309,6 +311,9 @@ class GlobalSearchResult {
   });
   final String id, title, path, excerpt;
   final GlobalSearchScope scope;
+
+  /// Expected destination after the link passes its owning navigation checks.
+  final ContentDestination? destination;
   final String? username, avatarUrl, contextLabel;
   final int? categoryId, likes, replies, memberCount, searchLogId;
   final List<String> tags;
@@ -321,6 +326,7 @@ class GlobalSearchResult {
     scope: scope,
     title: '${hit.name ?? hit.username} · #${hit.postNumber}',
     path: path,
+    destination: destination,
     excerpt: excerpt,
     username: username,
     avatarUrl: avatarUrl,

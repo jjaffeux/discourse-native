@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/assign/assign_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
@@ -1118,6 +1119,11 @@ void main() {
         'chat:12',
         'chat:13',
         'chat:14',
+      ]);
+      expect(page.results.map((result) => result.destination!.identity), [
+        const ExtensionDestination('chat-c-7-t-42').identity,
+        for (var index = 0; index < 3; index++)
+          const ExtensionDestination('chat-c-7').identity,
       ]);
     },
   );

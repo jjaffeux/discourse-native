@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
@@ -49,8 +53,77 @@ class _DirectorySearchApi extends GlobalSearchFixtureApi {
   }
 }
 
+class _HeldChatChannelsApi extends GlobalSearchFixtureApi {
+  Completer<void>? channelGate;
+  final channelStarted = Completer<void>();
+
+  @override
+  Future<ChatChannels> chatChannels({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (channelGate case final gate?) {
+      if (!channelStarted.isCompleted) channelStarted.complete();
+      await gate.future;
+    }
+    return super.chatChannels(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+}
+
 void main({bool useDeviceMetrics = false}) {
   _useDeviceMetrics = useDeviceMetrics;
+  _testPresentation(
+    'pending Chat result cannot write words to another tab with the same destination',
+    (tester) async {
+      final api = _HeldChatChannelsApi();
+      final shell = await _pumpSearch(tester, api: api);
+      final chat = shell.pluginSession.require(chatControllerService);
+      shell.openContentInNewTab(
+        const ContentRoute(
+          destination: ExtensionDestination('chat-c-2'),
+          title: 'Design chat',
+          icon: DIcons.comment,
+        ),
+        select: false,
+      );
+      final other = shell.tabsForCurrentForum.last;
+      shell.search.setPageWords(
+        globalSearchFixtureSite,
+        other.id,
+        'chat-c-2',
+        'kept',
+      );
+      await _openAndSearch(tester, 'design');
+      final result = _panelText(
+        'The search design is ready for a keyboard review.',
+      );
+      await tester.ensureVisible(result);
+      await tester.pumpAndSettle();
+      final gate = Completer<void>();
+      api.channelGate = gate;
+      chat.forget(globalSearchFixtureSite);
+      await tester.tap(result);
+      await tester.pump();
+      expect(api.channelStarted.isCompleted, isTrue);
+
+      shell.selectTab(other.id);
+      await tester.pump();
+      gate.complete();
+      await _finishSearch(tester);
+
+      expect(shell.activeTabId, other.id);
+      expect(
+        shell.search.wordsFor(globalSearchFixtureSite, other.id, 'chat-c-2'),
+        'kept',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final page in [CorePage.categories, CorePage.tags]) {
     for (final extension in [false, true]) {
       _testPresentation(

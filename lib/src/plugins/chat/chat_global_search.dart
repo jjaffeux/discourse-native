@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/l10n/strings.dart';
 
+import 'chat_route.dart';
+
 GlobalSearchScope get chatSearchScope => GlobalSearchScope.plugin(
   owner: 'chat',
   name: 'chat',
@@ -164,6 +166,15 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
           title: jsonText(user['name']) ?? username,
           path:
               '/chat/c/${Uri.encodeComponent(jsonText(channel['slug']) ?? '-')}/$channelId$threadSegment/$id',
+          destination: ExtensionDestination(
+            (threadId == null
+                    ? ChatRoute.channel(channelId)
+                    : ChatRoute.thread(
+                        channelId: channelId,
+                        threadId: threadId,
+                      ))
+                .routeId,
+          ),
           excerpt: SearchExcerpt.fromHtml(
             jsonText(row['excerpt']) ??
                 jsonText(row['cooked']) ??
