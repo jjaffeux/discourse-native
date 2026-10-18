@@ -1604,6 +1604,7 @@ class TopicListRow extends StatelessWidget {
     this.order,
     this.ascending = false,
     this.showCategoryBreadcrumb = true,
+    this.itemVariant = DItemVariant.outline,
     this.contentPadding,
     this.outerPadding,
   }) : assert(forum == null || siteUrl == null);
@@ -1622,6 +1623,7 @@ class TopicListRow extends StatelessWidget {
 
   final TextStyle? titleStyle;
   final bool showCategoryBreadcrumb;
+  final DItemVariant itemVariant;
   final EdgeInsetsGeometry? contentPadding;
   final EdgeInsetsGeometry? outerPadding;
 
