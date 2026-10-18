@@ -98,6 +98,57 @@ void main() {
       expect(plugin.reads, {'types': 1, 'counters': 1, 'hashtags': 1});
     });
 
+    test('unvalidated feed access skips owner getters and stays live', () {
+      final plugin = _NarrowUnvalidatedPlugin();
+      final registry = PluginRegistry([plugin]);
+      expect(registry.notificationFeeds.single.id.name, 'feed');
+      expect(registry.notificationFeed(plugin.feeds.single.id), isNotNull);
+      plugin.feeds.clear();
+      expect(registry.notificationFeeds, isEmpty);
+    });
+
+    test(
+      'unvalidated hashtag presentation reads owners only for diagnostics',
+      () {
+        final plugin = _NarrowUnvalidatedPlugin();
+        final registry = PluginRegistry([plugin]);
+        final request = HashtagPresentationRequest(
+          type: 'issue',
+          style: HashtagStyle.icon,
+        );
+        expect(registry.pluginHashtagPresentation(request)!.type, 'issue');
+        plugin.kinds[0] = const PluginHashtagKind('issue', _renameIssueHashtag);
+        expect(registry.pluginHashtagPresentation(request), isNull);
+      },
+    );
+
+    test('repeated identical capabilities remain duplicate declarations', () {
+      final plugin = _MutableCatalogPlugin();
+      expect(
+        () => PluginRegistry.validated([plugin, plugin]),
+        throwsArgumentError,
+      );
+      expect(plugin.reads, {'types': 1, 'counters': 1, 'hashtags': 1});
+    });
+
+    test('hashtag validation still precedes notification validation', () {
+      final plugin = _MutableCatalogPlugin();
+      plugin.kinds.add(const PluginHashtagKind('tag', _presentIssueHashtag));
+      plugin.types.add(
+        const _TypeDefinition('foreign', 'invalid', 999, 'invalid').type,
+      );
+      expect(
+        () => PluginRegistry.validated([plugin]),
+        throwsA(
+          isA<ArgumentError>().having(
+            (error) => error.message,
+            'message',
+            contains('Hashtag wire type tag'),
+          ),
+        ),
+      );
+    });
+
     test('const convenience access reads only the requested catalog', () {
       final plugin = _MutableCatalogPlugin();
       final registry = PluginRegistry([plugin]);
@@ -1092,4 +1143,20 @@ final class _MutableCatalogPlugin
       _read('counters', counters);
   @override
   List<PluginHashtagKind> get hashtagKinds => _read('hashtags', kinds);
+}
+
+final class _NarrowUnvalidatedPlugin
+    implements SitePlugin, NotificationFeedPlugin, HashtagKindPlugin {
+  final feeds = <PluginNotificationFeedSource>[
+    const _FeedDefinition('lazy', 'feed').source,
+  ];
+  final kinds = <PluginHashtagKind>[
+    const PluginHashtagKind('issue', _presentIssueHashtag),
+  ];
+  @override
+  String get name => throw StateError('Owner getter must stay unread.');
+  @override
+  List<PluginNotificationFeedSource> get notificationFeeds => feeds;
+  @override
+  List<PluginHashtagKind> get hashtagKinds => kinds;
 }

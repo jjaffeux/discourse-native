@@ -642,8 +642,8 @@ final class PluginRegistry
 
   List<PluginNotificationFeedSource> get notificationFeeds =>
       List.unmodifiable([
-        for (final declaration in _notificationFeedDeclarations)
-          declaration.source,
+        for (final plugin in plugins.whereType<NotificationFeedPlugin>())
+          ..._notificationFeedsFor(plugin),
       ]);
 
   PluginNotificationFeedSource? notificationFeed(PluginNotificationFeedId id) =>
@@ -1423,12 +1423,12 @@ final class PluginRegistry
       final entry = installed.hashtagsByWireType[request.type];
       return entry == null
           ? null
-          : _presentHashtag(entry.owner, entry.kind, request);
+          : _presentHashtag(() => entry.owner, entry.kind, request);
     }
     for (final plugin in plugins.whereType<HashtagKindPlugin>()) {
       for (final kind in _hashtagKindsFor(plugin)) {
         if (kind.wireType == request.type) {
-          return _presentHashtag(_ownerOf(plugin), kind, request);
+          return _presentHashtag(() => _ownerOf(plugin), kind, request);
         }
       }
     }
@@ -1436,7 +1436,7 @@ final class PluginRegistry
   }
 
   static HashtagPresentation? _presentHashtag(
-    String owner,
+    String Function() readOwner,
     PluginHashtagKind kind,
     HashtagPresentationRequest request,
   ) {
@@ -1448,7 +1448,7 @@ final class PluginRegistry
         error,
         stackTrace,
         operation: 'hashtag.kind.present',
-        source: owner,
+        source: readOwner(),
         severity: DiagnosticSeverity.warning,
         handled: true,
         degraded: true,
