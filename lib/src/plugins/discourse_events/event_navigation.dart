@@ -84,6 +84,7 @@ final class EventNavigation implements PluginLinkHandler {
   Future<bool> openPluginUrl(
     String url, {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) async {
     final target = Uri.tryParse(url);
     if (target == null) return false;
@@ -108,6 +109,13 @@ final class EventNavigation implements PluginLinkHandler {
     if (route.mine && !site.isConnected) return false;
     if (host.currentSite?.url != site.url) host.selectInstance(index);
     openDirectory(mine: route.mine, page: route.page);
+    final destinationId =
+        route.page?.directoryPage.routeId(route.mine) ??
+        (route.mine ? 'events-mine' : 'events-upcoming');
+    if (host.currentSite?.url == site.url &&
+        host.currentContent?.id == destinationId) {
+      onNavigated?.call();
+    }
     return true;
   }
 }

@@ -62,7 +62,6 @@ import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
-import '../models/feed_path_policy.dart';
 import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_group.dart';
@@ -1441,9 +1440,16 @@ class ShellController extends FrameSafeNotifier
   Future<bool> openPluginUrl(
     String url, {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) async {
     for (final handler in _pluginSession.capabilities<PluginLinkHandler>()) {
-      if (await handler.openPluginUrl(url, origin: origin)) return true;
+      if (await handler.openPluginUrl(
+        url,
+        origin: origin,
+        onNavigated: onNavigated,
+      )) {
+        return true;
+      }
     }
     return false;
   }

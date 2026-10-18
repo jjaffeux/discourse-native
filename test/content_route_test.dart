@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/list_link.dart';
@@ -8,6 +9,24 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('native list paths retain the URL bound', () {
+    const forum = DiscourseInstance(
+      url: 'https://forum.example',
+      title: 'Forum',
+    );
+    const prefix = '/latest.json?search=';
+    final words = 'x' * (ListLink.maximumUrlLength - prefix.length);
+    ContentRoute? decode(String query) => ContentRouteCodec.fromUrl(
+      '${forum.url}/latest?search=$query',
+      instance: forum,
+      config: forum.config,
+      defaultTopPeriod: TopPeriod.all,
+    );
+
+    expect(decode(words)?.feedPath?.length, ListLink.maximumUrlLength);
+    expect(decode('${words}x'), isNull);
+  });
+
   test('legacy taxonomy queries retain list behavior under custom keys', () {
     for (final query in ['category=42', 'tags[]=design']) {
       final route = ContentRoute.fromJson({

@@ -435,16 +435,16 @@ List<ForumWorkspace> _longSession({required int forums, required int tabs}) {
             ForumTab(
               id: 'tab-$tab',
               rootDestinationId: 'latest',
-              contentStack: [latest, topic(tab * 1000 + visits)],
+              contentStack: [latest, topic(tab * 1000 + visits + 1)],
               backHistory: [
-                for (var visit = 0; visit < visits; visit++)
+                for (var visit = 1; visit <= visits; visit++)
                   ForumTabLocation(
                     rootDestinationId: 'latest',
                     contentStack: [latest, topic(tab * 1000 + visit)],
                   ),
               ],
               anchors: {
-                for (var visit = 0; visit < visits; visit++)
+                for (var visit = 1; visit <= visits; visit++)
                   topic(tab * 1000 + visit).id: ForumTabAnchor(
                     kind: 'topic',
                     itemId: visit,
@@ -493,12 +493,12 @@ String _awkward(Random random) => [
 
 ContentRoute _route(Random random) => switch (random.nextInt(3)) {
   0 => ContentRoute.topic(
-    topicId: random.nextInt(40),
+    topicId: random.nextInt(40) + 1,
     slug: _awkward(random),
     title: _awkward(random),
     subtitle: random.nextBool() ? _awkward(random) : null,
     color: random.nextBool() ? Color(random.nextInt(1 << 32)) : null,
-    postNumber: random.nextBool() ? random.nextInt(900) : null,
+    postNumber: random.nextBool() ? random.nextInt(900) + 1 : null,
   ),
   1 => ContentRoute(
     destination: FeedDestination(

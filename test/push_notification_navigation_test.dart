@@ -739,5 +739,6 @@ final class _NotificationLinkHandler implements PluginLinkHandler {
   Future<bool> openPluginUrl(
     String url, {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) => open(url);
 }

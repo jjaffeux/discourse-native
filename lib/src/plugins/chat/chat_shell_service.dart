@@ -205,6 +205,7 @@ final class ChatShellService
   Future<bool> openPluginUrl(
     String url, {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) async {
     final absolute = resolveSiteUrl(url, _host.currentInstance?.url);
     final target = Uri.tryParse(absolute);
@@ -283,7 +284,7 @@ final class ChatShellService
     );
     if (index < 0 || !_host.instances[index].isConnected) return false;
     if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
-    return _openRoute(
+    final opened = _openRoute(
       siteUrl,
       link.route,
       messageId: link.messageId,
@@ -295,6 +296,13 @@ final class ChatShellService
           origin == PluginLinkOrigin.secondaryPanelNewTab,
       newTab: newTab,
     );
+    if (opened &&
+        !newTab &&
+        _host.currentInstance?.url == siteUrl &&
+        _host.currentContent?.id == link.route.routeId) {
+      onNavigated?.call();
+    }
+    return opened;
   }
 
   @override

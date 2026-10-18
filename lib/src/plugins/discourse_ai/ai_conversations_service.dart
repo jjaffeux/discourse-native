@@ -131,6 +131,7 @@ final class AiConversationsService implements PluginLinkHandler {
   Future<bool> openPluginUrl(
     String url, {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) async {
     final uri = Uri.tryParse(resolveSiteUrl(url, navigation.currentSite?.url));
     if (uri == null) return false;
@@ -158,6 +159,10 @@ final class AiConversationsService implements PluginLinkHandler {
       navigation.currentContent,
     )) {
       navigation.pushContent(AiConversationsPlugin.route);
+    }
+    if (navigation.currentSite?.url == site.url &&
+        navigation.currentContent?.id == 'ai-conversations') {
+      onNavigated?.call();
     }
     return true;
   }

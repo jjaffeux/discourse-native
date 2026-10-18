@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
 import '../models/content_route.dart';
+import '../models/forum_workspace.dart';
 import '../models/group_route.dart';
 import '../models/search_results.dart';
 import '../theme/d_icons.dart';
@@ -567,33 +568,37 @@ class _ForumSearchState extends State<ForumSearch> {
       shell.openSearchResult(hit, words: words);
     } else {
       final previousRoute = owner.currentContent;
-      final opening = openLink(
+      ({ShellTabContext owner, ForumTab tab})? destination;
+      await openLink(
         context,
         resolveSiteRootPath(site, result.path),
         title: result.title,
         siteUrl: site,
+        onNavigated: () {
+          final opened = shell.focusedTabContext;
+          final tab = opened.tab;
+          if (tab != null && opened.siteUrl == site) {
+            destination = (owner: opened, tab: tab);
+          }
+        },
       );
-      final destination = shell.focusedTabContext;
-      final destinationRoute = destination.currentContent;
-      final opened = await opening;
-      final expected = result.destination;
-      final ownsDestination = expected == null
-          ? destinationRoute?.sameDestinationAs(destination.currentContent) ==
-                true
-          : destination.currentContent?.destination.identity ==
-                expected.identity;
-      if (!opened ||
+      final opened = destination;
+      if (!mounted ||
           !lease.isCurrent ||
-          !_ownsInput(destination) ||
-          destination.siteUrl != site ||
-          !ownsDestination) {
+          opened == null ||
+          !_ownsInput(opened.owner) ||
+          !identical(opened.owner.tab, opened.tab)) {
         return;
       }
-      if (destination.currentContent case final route?
-          when !route.sameDestinationAs(previousRoute)) {
+      final route = opened.tab.currentContent;
+      final expected = result.destination;
+      if (expected != null && route.destination.identity != expected.identity) {
+        return;
+      }
+      if (!route.sameDestinationAs(previousRoute)) {
         shell.search.setPageWords(
           site,
-          destination.tabId,
+          opened.owner.tabId,
           route.id,
           result.source is SearchCategoryHit || result.source is SearchTagHit
               ? ''

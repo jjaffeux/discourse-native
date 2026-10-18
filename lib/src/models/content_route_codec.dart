@@ -462,7 +462,8 @@ final class ContentRouteCodec {
     }
     final feedPath = route.feedPath;
     if (feedPath != null &&
-        !FeedPathPolicy.accepts(feedPath)) {
+        (feedPath.length > ListLink.maximumUrlLength ||
+            !FeedPathPolicy.accepts(feedPath))) {
       return null;
     }
     return route;

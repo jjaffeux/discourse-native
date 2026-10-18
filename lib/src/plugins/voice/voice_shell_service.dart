@@ -179,6 +179,7 @@ final class VoiceShellService
   Future<bool> openPluginUrl(
     String url, {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) async {
     if (!controller.supportedPlatform) return false;
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
@@ -241,13 +242,16 @@ final class VoiceShellService
         username: Uri.decodeComponent(invitedBy).toLowerCase(),
       );
     }
-    _host.pushContent(
-      ContentRoute(
-        destination: ExtensionDestination('voice-room-${room.id}'),
-        title: room.name,
-        icon: DIcons.microphoneLines,
-      ),
+    final route = ContentRoute(
+      destination: ExtensionDestination('voice-room-${room.id}'),
+      title: room.name,
+      icon: DIcons.microphoneLines,
     );
+    _host.pushContent(route);
+    if (_host.currentSite?.url == instance.url &&
+        _host.currentContent?.id == route.id) {
+      onNavigated?.call();
+    }
     return true;
   }
 

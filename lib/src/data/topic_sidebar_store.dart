@@ -52,11 +52,9 @@ final class TopicSidebarStore {
 
   final TopicSidebarPersistence _persistence;
   final _snapshots = PreferenceSnapshots<String, bool>();
+  final Map<String, Object> _siteOwners = {};
   static final ReadAfterWriteOperationQueue _operations =
       ReadAfterWriteOperationQueue();
-  static final Expando<Map<String, Object>> _siteOwners = Expando();
-
-  Map<String, Object> get _owners => _siteOwners[_persistence] ??= {};
 
   bool? collapsedFor(String siteUrl) => _snapshots.peek(siteUrl);
 
@@ -70,11 +68,11 @@ final class TopicSidebarStore {
     bool forgotten(String site) =>
         sites.includes(site, SharedPreferencesTopicSidebarPersistence.keys);
     _snapshots.forgetWhere(forgotten);
-    _owners.removeWhere((site, _) => forgotten(site));
+    _siteOwners.removeWhere((site, _) => forgotten(site));
   }
 
   Future<bool> read({required String siteUrl}) {
-    final owner = _owners.putIfAbsent(siteUrl, Object.new);
+    final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
     return _operations.read(
       owner: _persistence,
       key: siteUrl,
@@ -84,7 +82,7 @@ final class TopicSidebarStore {
 
   Future<bool> _read(String siteUrl, Object owner) async {
     try {
-      if (!identical(_owners[siteUrl], owner)) return false;
+      if (!identical(_siteOwners[siteUrl], owner)) return false;
       final collapsed = await _persistence.readCollapsed(siteUrl: siteUrl);
       return collapsed ?? false;
     } catch (error, stackTrace) {
@@ -94,13 +92,13 @@ final class TopicSidebarStore {
   }
 
   Future<void> write({required String siteUrl, required bool collapsed}) {
-    final owner = _owners.putIfAbsent(siteUrl, Object.new);
     _snapshots.remember(siteUrl, collapsed);
+    final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
     return _operations.write<void>(
       owner: _persistence,
       key: siteUrl,
       operation: () async {
-        if (!identical(_owners[siteUrl], owner)) return;
+        if (!identical(_siteOwners[siteUrl], owner)) return;
         await _persist(siteUrl: siteUrl, collapsed: collapsed);
       },
     );

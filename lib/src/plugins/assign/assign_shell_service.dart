@@ -66,6 +66,7 @@ final class AssignShellService implements PluginLinkHandler {
   Future<bool> openPluginUrl(
     String url, {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) async {
     final absolute = resolveSiteUrl(url, _host.currentSite?.url);
     final target = Uri.tryParse(absolute);
@@ -93,8 +94,13 @@ final class AssignShellService implements PluginLinkHandler {
       ),
       title: link.groupName,
     );
-    if (route.sameDestinationAs(_host.currentContent)) return true;
-    _host.pushContent(route);
+    if (!route.sameDestinationAs(_host.currentContent)) {
+      _host.pushContent(route);
+    }
+    if (_host.currentSite?.url == site.url &&
+        route.sameDestinationAs(_host.currentContent)) {
+      onNavigated?.call();
+    }
     return true;
   }
 }

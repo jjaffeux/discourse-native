@@ -5304,7 +5304,11 @@ final class _MegaTopicApi extends FakeDiscourseApi {
 }
 
 final class _ServerResumeTopicApi extends FakeDiscourseApi {
-  _ServerResumeTopicApi() : super(feeds: const {'/latest.json': []});
+  _ServerResumeTopicApi()
+    : super(
+        user: const DiscourseUser(username: 'reader'),
+        feeds: const {'/latest.json': []},
+      );
 
   static const siteUrl = 'https://dev.discourse.org';
   static const topicId = 172164;

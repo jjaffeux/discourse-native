@@ -95,7 +95,9 @@ void main() {
       await persistence.writeStarted.future;
       final retired = replacement.write(siteUrl: site, collapsed: true);
 
-      first.forgetSites(ForgottenSites.removed(site, keeping: const [other]));
+      await forgetSitePreferences([
+        SharedPreferencesTopicSidebarPersistence.keys,
+      ], () => ForgottenSites.removed(site, keeping: const [other]));
       persistence.values.remove(site);
       expect(first.collapsedFor(site), isNull);
       await first.write(siteUrl: other, collapsed: true);

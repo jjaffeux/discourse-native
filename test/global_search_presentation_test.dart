@@ -77,53 +77,59 @@ class _HeldChatChannelsApi extends GlobalSearchFixtureApi {
 
 void main({bool useDeviceMetrics = false}) {
   _useDeviceMetrics = useDeviceMetrics;
-  _testPresentation(
-    'pending Chat result cannot write words to another tab with the same destination',
-    (tester) async {
-      final api = _HeldChatChannelsApi();
-      final shell = await _pumpSearch(tester, api: api);
-      final chat = shell.pluginSession.require(chatControllerService);
-      shell.openContentInNewTab(
-        const ContentRoute(
+  for (final separateTab in [false, true]) {
+    _testPresentation(
+      'pending Chat result cannot write words to another visit (separate tab: $separateTab)',
+      (tester) async {
+        final api = _HeldChatChannelsApi();
+        final shell = await _pumpSearch(tester, api: api);
+        final chat = shell.pluginSession.require(chatControllerService);
+        const chatRoute = ContentRoute(
           destination: ExtensionDestination('chat-c-2'),
           title: 'Design chat',
           icon: DIcons.comment,
-        ),
-        select: false,
-      );
-      final other = shell.tabsForCurrentForum.last;
-      shell.search.setPageWords(
-        globalSearchFixtureSite,
-        other.id,
-        'chat-c-2',
-        'kept',
-      );
-      await _openAndSearch(tester, 'design');
-      final result = _panelText(
-        'The search design is ready for a keyboard review.',
-      );
-      await tester.ensureVisible(result);
-      await tester.pumpAndSettle();
-      final gate = Completer<void>();
-      api.channelGate = gate;
-      chat.forget(globalSearchFixtureSite);
-      await tester.tap(result);
-      await tester.pump();
-      expect(api.channelStarted.isCompleted, isTrue);
+        );
+        if (separateTab) shell.openContentInNewTab(chatRoute, select: false);
+        final other = separateTab
+            ? shell.tabsForCurrentForum.last
+            : shell.activeTab!;
+        shell.search.setPageWords(
+          globalSearchFixtureSite,
+          other.id,
+          'chat-c-2',
+          'kept',
+        );
+        await _openAndSearch(tester, 'design');
+        final result = _panelText(
+          'The search design is ready for a keyboard review.',
+        );
+        await tester.ensureVisible(result);
+        await tester.pumpAndSettle();
+        final gate = Completer<void>();
+        api.channelGate = gate;
+        chat.forget(globalSearchFixtureSite);
+        await tester.tap(result);
+        await tester.pump();
+        expect(api.channelStarted.isCompleted, isTrue);
 
-      shell.selectTab(other.id);
-      await tester.pump();
-      gate.complete();
-      await _finishSearch(tester);
+        if (separateTab) {
+          shell.selectTab(other.id);
+        } else {
+          shell.pushContent(chatRoute);
+        }
+        await tester.pump();
+        gate.complete();
+        await _finishSearch(tester);
 
-      expect(shell.activeTabId, other.id);
-      expect(
-        shell.search.wordsFor(globalSearchFixtureSite, other.id, 'chat-c-2'),
-        'kept',
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+        expect(shell.activeTabId, other.id);
+        expect(
+          shell.search.wordsFor(globalSearchFixtureSite, other.id, 'chat-c-2'),
+          'kept',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final page in [CorePage.categories, CorePage.tags]) {
     for (final extension in [false, true]) {
       _testPresentation(

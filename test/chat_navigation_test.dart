@@ -1029,6 +1029,43 @@ void main() {
         expect(shell.chatNavigation.value?.messageId, 44);
       });
 
+      for (final superseded in [false, true]) {
+        test(
+          'navigation receipts require this open to commit (superseded: $superseded)',
+          () async {
+            final gate = Completer<void>();
+            final (gated, _) = await gatedShell(channelGate: gate);
+            final destinations = <(String?, String?)>[];
+            final opening = gated.openPluginUrl(
+              '$_site/chat/c/-/9/44',
+              onNavigated: () => destinations.add((
+                gated.activeTabId,
+                gated.currentContent?.id,
+              )),
+            );
+            await pumpEventQueue();
+            expect(destinations, isEmpty);
+            if (superseded) {
+              gated.pushContent(
+                const ContentRoute(
+                  destination: ExtensionDestination('chat-c-9'),
+                  title: 'Support',
+                  icon: DIcons.comments,
+                ),
+              );
+            }
+            gate.complete();
+
+            expect(await opening, isTrue);
+            expect(gated.currentContent?.id, 'chat-c-9');
+            expect(
+              destinations,
+              superseded ? isEmpty : [(gated.activeTabId, 'chat-c-9')],
+            );
+          },
+        );
+      }
+
       test('notification reveals its chat thread from a forum page', () async {
         expect(
           await shell.openNotificationUrl('$_site/chat/c/-/9/t/3/44'),
