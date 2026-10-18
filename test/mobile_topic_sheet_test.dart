@@ -230,6 +230,65 @@ void main() {
     variant: _platforms,
   );
 
+  testWidgets(
+    'dismissing a topic sheet keeps the revealed topic rows in place',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(
+        tester,
+        topics: [
+          for (var id = 1; id <= 40; id++)
+            Topic(id: id, title: 'Discussion $id', slug: 'topic-$id'),
+        ],
+        topic: topicPayload(id: 7, title: 'Discussion 7'),
+      );
+      final list = find.byType(TopicListView);
+      final card = find.byKey(const ValueKey('topic-card-7'));
+      await tester.ensureVisible(card);
+      await tester.pumpAndSettle();
+      final scrollable = find.descendant(
+        of: list,
+        matching: find.byType(Scrollable),
+      );
+      double currentOffset() =>
+          tester.state<ScrollableState>(scrollable).position.pixels;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      position.jumpTo(
+        (position.pixels - 180).clamp(0, position.maxScrollExtent),
+      );
+      await tester.pumpAndSettle();
+      final offset = position.pixels;
+      final bounds = tester.getRect(card);
+      await _capture(tester, 'stable-list-before');
+
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+      final drag = await tester.startGesture(tester.getCenter(_handle));
+      await drag.moveBy(const Offset(0, 20));
+      await drag.moveBy(const Offset(0, 220));
+      await tester.pump();
+      expect(currentOffset(), closeTo(offset, .01));
+      expect(tester.getRect(card).top, closeTo(bounds.top, 1));
+      await _capture(tester, 'stable-list-pull');
+      await drag.up();
+      for (var frame = 0; frame < 40; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          currentOffset(),
+          closeTo(offset, .01),
+          reason: 'The revealed list moved during dismissal frame $frame',
+        );
+        expect(tester.getRect(card).top, closeTo(bounds.top, 1));
+      }
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'latest');
+      expect(currentOffset(), closeTo(offset, .01));
+      expect(tester.getRect(card), bounds);
+      expect(tester.takeException(), isNull);
+      await _capture(tester, 'stable-list-after');
+    },
+    variant: _platforms,
+  );
+
   testWidgets('reading scrolls normally and a pull at the top dismisses', (
     tester,
   ) async {
