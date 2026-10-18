@@ -56,7 +56,6 @@ void main() {
             topicIds: [for (final topic in topics) topic.id],
             loaded: true,
           ),
-          showHeader: false,
         );
         await tester.pumpWidget(
           _shellSurface(

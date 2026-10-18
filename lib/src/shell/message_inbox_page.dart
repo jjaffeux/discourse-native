@@ -51,7 +51,7 @@ class MessageInboxPage extends StatelessWidget {
             ],
           )
         : null,
-    child: TopicListView(feed: feed, inbox: true, showHeader: false),
+    child: TopicListView(feed: feed, inbox: true),
   );
 }
 

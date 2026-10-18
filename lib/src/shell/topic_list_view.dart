@@ -62,12 +62,10 @@ class TopicListView extends StatefulWidget {
     super.key,
     required this.feed,
     this.inbox = false,
-    this.showHeader = true,
   });
 
   final TopicFeed feed;
   final bool inbox;
-  final bool showHeader;
 
   @override
   State<TopicListView> createState() => _TopicListViewState();
@@ -896,7 +894,6 @@ class _TopicListViewState extends State<TopicListView> {
 
     return Column(
       children: [
-        if (widget.showHeader) const TopicListHeader(),
         Expanded(
           child: Stack(
             fit: StackFit.expand,
@@ -1248,20 +1245,6 @@ class _TopicListViewState extends State<TopicListView> {
     // bound for sparse cards, not a useful estimate for those richer rows.
     return index.isOdd ? 1 : 110;
   }
-}
-
-class TopicListHeader extends StatelessWidget {
-  const TopicListHeader({super.key, this.filtersBuilder});
-  final Widget Function(bool showColumns)? filtersBuilder;
-
-  @override
-  Widget build(BuildContext context) => filtersBuilder == null
-      ? const SizedBox.shrink()
-      : ContentReadingLaneBox(
-          widthLimit: topicListContentWidth,
-          padding: const EdgeInsets.all(16),
-          child: filtersBuilder!(false),
-        );
 }
 
 /// Native topic rows filling the visible viewport while a feed loads.

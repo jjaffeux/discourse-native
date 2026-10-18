@@ -1045,7 +1045,6 @@ class _FeedBackedContent extends StatelessWidget {
           content = TopicListView(
             feed: feed ?? const TopicFeed.loading(),
             inbox: inbox,
-            showHeader: !route.isTopicListFilter,
           );
         }
 

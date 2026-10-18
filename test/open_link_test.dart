@@ -916,7 +916,6 @@ Future<ShellController> _pumpLink(
           body: listTopic != null
               ? TopicListView(
                   feed: TopicFeed(topicIds: [listTopic.id], loaded: true),
-                  showHeader: false,
                 )
               : Builder(
                   builder: (context) => Center(
