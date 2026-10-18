@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,6 +13,55 @@ void main() {
     test('reads a category', () {
       expect(read('/c/bug/5'), 'category:bug:5:/c/bug/5.json');
     });
+
+    test('checks the final encoded path after appending the JSON suffix', () {
+      final input =
+          '/tag/${'a' * (ListLink.maximumUrlLength - '/tag/'.length)}';
+      expect(input, hasLength(ListLink.maximumUrlLength));
+      expect(ListLink.parse(input), isNull);
+    });
+
+    test('checks canonical encoded input before expanding a list link', () {
+      final input = '/c/support/12?extra=${'中' * 500}';
+      expect(input.length, lessThan(ListLink.maximumUrlLength));
+      expect(
+        Uri.parse(input).toString().length,
+        greaterThan(ListLink.maximumUrlLength),
+      );
+      expect(ListLink.parse(input), isNull);
+    });
+
+    test('bounds query punctuation before a later query-map rebuild', () {
+      for (final parameter in ['', 'extra=']) {
+        final prefix = '/c/x?$parameter';
+        final input =
+            '$prefix${'/' * (ListLink.maximumUrlLength - prefix.length)}';
+        final uri = Uri.parse(input);
+        expect(uri.toString(), hasLength(ListLink.maximumUrlLength));
+        expect(
+          uri
+              .replace(queryParameters: uri.queryParametersAll)
+              .toString()
+              .length,
+          greaterThan(ListLink.maximumUrlLength),
+        );
+        expect(ListLink.parse(input), isNull);
+      }
+    });
+
+    test(
+      'retains a bounded query when the JSON suffix crosses the URL cap',
+      () {
+        const prefix = '/tag/ux?q=';
+        final input =
+            '$prefix${'x' * (ListLink.maximumUrlLength - prefix.length)}';
+        final route = ContentRoute.list(ListLink.parse(input)!);
+
+        expect(input, hasLength(ListLink.maximumUrlLength));
+        expect(route.feedPath!.length, greaterThan(ListLink.maximumUrlLength));
+        expect(ContentRoute.fromJson(route.toJson()), route);
+      },
+    );
 
     test('keeps a subcategory path whole', () {
       expect(

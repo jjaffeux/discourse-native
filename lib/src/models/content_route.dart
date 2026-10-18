@@ -6,6 +6,7 @@ import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'badge_route.dart';
 import 'discourse_instance.dart';
+import 'feed_path_policy.dart';
 import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
@@ -620,7 +621,9 @@ class ContentRoute {
 
   ContentRoute withTopicListSearch(String value) {
     final uri = Uri.parse(feedPath ?? '/latest.json');
-    final query = {...uri.queryParametersAll}..remove('page');
+    final query = {...uri.queryParametersAll}
+      ..remove('page')
+      ..remove('q');
     final term = value.trim();
     if (term.isEmpty) {
       query.remove('search');

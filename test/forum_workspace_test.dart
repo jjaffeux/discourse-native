@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/feed_path_policy.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/theme/d_native_icons.dart';
@@ -198,7 +199,7 @@ void main() {
         {...ordinary, 'message_group_name': 'team'},
         {
           ...ordinary,
-          'feed_path': '/${'a' * ContentRoute.maximumFeedPathLength}.json',
+          'feed_path': '/${'a' * FeedPathPolicy.maximumPathLength}.json',
         },
       ]) {
         expect(

@@ -1,6 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import '../foundation/uri_path.dart';
 import 'discourse_instance.dart';
+import 'feed_path_policy.dart';
 
 enum ListKind { category, tag }
 
@@ -31,7 +32,11 @@ class ListLink {
   static ListLink? parse(String url, {String? siteUrl}) {
     if (url.isEmpty || url.length > maximumUrlLength) return null;
     final uri = Uri.tryParse(url);
-    if (uri == null || uri.userInfo.isNotEmpty) return null;
+    if (uri == null ||
+        uri.userInfo.isNotEmpty ||
+        uri.toString().length > maximumUrlLength) {
+      return null;
+    }
 
     // A trailing slash leaves an empty last segment, which would otherwise
     // read as "not an id" and refuse a perfectly ordinary link.
@@ -50,7 +55,12 @@ class ListLink {
     if (kind == null) return null;
 
     try {
-      final _ = uri.queryParametersAll;
+      final query = uri.queryParametersAll;
+      if (uri.hasQuery &&
+          uri.replace(queryParameters: query).toString().length >
+              maximumUrlLength) {
+        return null;
+      }
     } on FormatException {
       return null;
     }
@@ -66,6 +76,7 @@ class ListLink {
       ],
       query: uri.hasQuery ? uri.query : null,
     ).toString();
+    if (!FeedPathPolicy.accepts(path)) return null;
     final rest = segments.sublist(1);
 
     // Anything past the id is a filter — `/l/top`, `/none`, `/subcategories` —

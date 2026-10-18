@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
+import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/recent_destinations_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/global_search_filters.dart';
+import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -27,6 +31,62 @@ void main() {
   late ShellController controller;
   late FakeForumTabStore forumTabs;
 
+  for (final source in [
+    ContentRoute.topicList(TopicListMode.latest),
+    ContentRoute.messages(groupName: 'team', mode: MessageListMode.archive),
+  ]) {
+    test(
+      'a Unicode search on ${source.id} survives a workspace restart',
+      () async {
+        final persistence = MemoryForumTabPersistence();
+        final tabs = ForumTabStore(persistence: persistence);
+        final first = ShellController(
+          instanceStore: FakeInstanceStore(forums),
+          api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: tabs,
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(first.dispose);
+        await first.load();
+        first.pushContent(source);
+        final query = '中' * 230;
+        first.applySearchToList(query, const []);
+        final applied = first.currentContent!;
+        final tabId = first.activeTabId;
+        expect(applied.topicListSearch, query);
+        await tabs.save([
+          first.currentWorkspace!,
+        ], selectedSiteUrl: forums.first.url);
+
+        final restored = ShellController(
+          instanceStore: FakeInstanceStore(forums),
+          api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          forumTabs: ForumTabStore(persistence: persistence),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(restored.dispose);
+        await restored.load();
+
+        expect(restored.activeTabId, tabId);
+        expect(restored.currentContent?.feedPath, applied.feedPath);
+        expect(restored.currentContent?.topicListSearch, query);
+        expect(restored.currentContent?.isMessages, source.isMessages);
+        expect(
+          restored.currentContent?.messageGroupName,
+          source.messageGroupName,
+        );
+        expect(
+          restored.currentContent?.messageListMode,
+          source.messageListMode,
+        );
+      },
+    );
+  }
+
   group('ShellController tabs', () {
     setUp(() async {
       forumTabs = FakeForumTabStore();
@@ -41,6 +101,208 @@ void main() {
       addTearDown(controller.dispose);
       await controller.load();
     });
+
+    test(
+      'plain words replace a prior endpoint search without retaining q',
+      () async {
+        final shell = controller;
+        final previousQuery = '旧' * 2048;
+        final words = '新' * 2048;
+        for (final source in [
+          ContentRoute.searchList(previousQuery),
+          ContentRoute.topicFilter(previousQuery),
+          ContentRoute.searchList(
+            previousQuery,
+            groupName: 'team',
+            messageMode: MessageListMode.unread,
+          ),
+        ]) {
+          shell.pushContent(source);
+          shell.applySearchToList(words, const []);
+          final route = shell.currentContent!;
+
+          expect(Uri.parse(route.feedPath!).queryParameters, {'search': words});
+          expect(route.topicListSearch, words);
+          expect(route.isMessages, source.isMessages);
+          expect(route.messageGroupName, source.messageGroupName);
+          if (source.isMessages) {
+            expect(route.messageListMode, MessageListMode.unread);
+          }
+          expect(ContentRoute.fromJson(route.toJson()), route);
+        }
+      },
+    );
+
+    test('taxonomy replacements discard the previous endpoint query', () async {
+      final shell = controller;
+      final words = '新' * 2030;
+      for (final source in [
+        ContentRoute.searchList('旧' * 2048),
+        ContentRoute.topicFilter('旧' * 2048),
+      ]) {
+        for (final condition in const [
+          GlobalSearchCondition(
+            filterId: 'category',
+            operator: 'any',
+            value: ['12'],
+          ),
+          GlobalSearchCondition(
+            filterId: 'tags',
+            operator: 'any',
+            value: ['design'],
+          ),
+        ]) {
+          shell.pushContent(source);
+          shell.applySearchToList(words, [condition]);
+          final route = shell.currentContent!;
+          expect(
+            Uri.parse(route.feedPath!).queryParameters.containsKey('q'),
+            isFalse,
+          );
+          expect(route.topicListSearch, words);
+          expect(route.isSearchList, isFalse);
+          expect(route.isAdvancedTopicFilter, isFalse);
+          if (condition.filterId == 'category') {
+            expect(route.categoryId, 12);
+          } else {
+            expect(route.tagNames, ['design']);
+          }
+          expect(ContentRoute.fromJson(route.toJson()), route);
+        }
+      }
+    });
+
+    test('edited search conditions replace the prior taxonomy scope', () async {
+      final shell = controller;
+      final source = ContentRoute.filteredTopicList(
+        TopicListMode.topWeekly,
+        categoryId: 12,
+        tags: const ['design', 'mobile'],
+      ).withTopicListSort('posts');
+      shell.pushContent(source);
+      shell.applySearchToList('new words', const []);
+      final route = shell.currentContent!;
+
+      expect(route.categoryId, isNull);
+      expect(route.tagNames, isEmpty);
+      expect(route.topicListSearch, 'new words');
+      expect(TopicListMode.fromRoute(route), TopicListMode.topWeekly);
+      expect(route.topicListOrder, 'posts');
+      expect(ContentRoute.fromJson(route.toJson()), route);
+    });
+
+    test('repeated message searches preserve their mailbox identity', () {
+      for (final group in [null, 'team']) {
+        for (final mode in MessageListMode.values) {
+          if (group != null && !mode.supportsGroup) continue;
+          final source = ContentRoute.messages(groupName: group, mode: mode);
+          controller.pushContent(source);
+          for (final words in ['first', 'second', '']) {
+            controller.applySearchToList(words, const []);
+            final route = controller.currentContent!;
+            expect(route.isMessages, isTrue);
+            expect(route.messageGroupName, group);
+            expect(route.messageListMode, mode);
+            expect(route.topicListSearch, words);
+            expect(ContentRoute.fromJson(route.toJson()), route);
+          }
+        }
+      }
+    });
+
+    test('clearing only search words preserves the current list scope', () {
+      for (final source in [
+        ContentRoute.list(ListLink.parse('/c/design/12?order=posts')!),
+        ContentRoute.filteredTopicList(
+          TopicListMode.topWeekly,
+          categoryId: 12,
+          tags: const ['design', 'mobile'],
+        ).withTopicListSort('posts'),
+        ContentRoute.messages(groupName: 'team', mode: MessageListMode.archive),
+      ]) {
+        controller.pushContent(source.withTopicListSearch('words'));
+        controller.clearSearchWords();
+        final route = controller.currentContent!;
+        if (!source.isMessages) expect(route.feedPath, source.feedPath);
+        expect(route.categoryId, source.categoryId);
+        expect(route.tagNames, source.tagNames);
+        expect(route.topicListOrder, source.topicListOrder);
+        expect(route.isMessages, source.isMessages);
+        expect(route.messageGroupName, source.messageGroupName);
+        expect(route.messageListMode, source.messageListMode);
+        expect(route.topicListSearch, isEmpty);
+        expect(ContentRoute.fromJson(route.toJson()), route);
+      }
+    });
+
+    test(
+      'external core feeds cannot consume the search expansion budget',
+      () async {
+        final shell = controller;
+        final before = shell.currentContent;
+        expect(shell.openCorePageUrl('/latest?extra=${'中' * 2000}'), isFalse);
+        expect(shell.currentContent, before);
+      },
+    );
+
+    test(
+      'bounded tag searches and replacement words retain external filters',
+      () async {
+        final shell = controller;
+        final extra = 'x' * 1900;
+        expect(
+          shell.openCorePageUrl('/top?period=weekly&extra=$extra'),
+          isTrue,
+        );
+        final tags = [
+          for (var index = 0; index < 30; index++) '${'中' * 64}$index',
+        ];
+        final conditions = [
+          const GlobalSearchCondition(
+            filterId: 'category',
+            operator: 'any',
+            value: ['12'],
+          ),
+          GlobalSearchCondition(filterId: 'tags', operator: 'all', value: tags),
+        ];
+        const capabilities = GlobalSearchCapabilities();
+        final words = '新' * 20;
+        for (final condition in conditions) {
+          expect(
+            validateGlobalSearchCondition(condition, capabilities),
+            isNull,
+          );
+        }
+        expect(
+          globalSearchTerm(
+            GlobalSearchRequest(
+              scope: GlobalSearchScope.forum,
+              query: words,
+              capabilities: capabilities,
+              conditions: conditions,
+            ),
+          ).length,
+          lessThanOrEqualTo(2048),
+        );
+
+        shell.applySearchToList(words, conditions);
+        final filtered = shell.currentContent!;
+        expect(filtered.categoryId, 12);
+        expect(filtered.tagNames, tags);
+        expect(filtered.topicListSearch, words);
+        expect(TopicListMode.fromRoute(filtered), TopicListMode.topWeekly);
+        expect(Uri.parse(filtered.feedPath!).queryParameters['extra'], extra);
+        expect(ContentRoute.fromJson(filtered.toJson()), filtered);
+
+        shell.applySearchToList('新' * 2048, const []);
+        final replaced = shell.currentContent!;
+        expect(replaced.categoryId, isNull);
+        expect(replaced.tagNames, isEmpty);
+        expect(replaced.topicListSearch, '新' * 2048);
+        expect(Uri.parse(replaced.feedPath!).queryParameters['extra'], extra);
+        expect(ContentRoute.fromJson(replaced.toJson()), replaced);
+      },
+    );
 
     group('creation', () {
       for (final inPanel in [false, true]) {

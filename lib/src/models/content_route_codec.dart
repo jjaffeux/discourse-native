@@ -342,31 +342,7 @@ final class ContentRouteCodec {
     return route;
   }
 
-  static bool _isSafeFeedPath(Object? value) {
-    if (value is! String ||
-        value.isEmpty ||
-        value.length > ContentRoute.maximumFeedPathLength) {
-      return false;
-    }
-    final uri = Uri.tryParse(value);
-    if (uri == null) return false;
-    try {
-      // The getters decode lazily. Reject unreadable saved components before
-      // restoring a route whose category, tag, or filter getters need them.
-      final _ = uri.pathSegments;
-      final _ = uri.queryParametersAll;
-    } on FormatException {
-      return false;
-    }
-    return value.startsWith('/') &&
-        !value.startsWith('//') &&
-        uri.path.isNotEmpty &&
-        uri.path.endsWith('.json') &&
-        !uri.hasScheme &&
-        !uri.hasAuthority &&
-        uri.userInfo.isEmpty &&
-        !uri.hasFragment;
-  }
+  static bool _isSafeFeedPath(Object? value) => FeedPathPolicy.accepts(value);
 
   static ContentRoute? fromUrl(
     String url, {
@@ -486,7 +462,7 @@ final class ContentRouteCodec {
     }
     final feedPath = route.feedPath;
     if (feedPath != null &&
-        feedPath.length > ContentRoute.maximumFeedPathLength) {
+        !FeedPathPolicy.accepts(feedPath)) {
       return null;
     }
     return route;

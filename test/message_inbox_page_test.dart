@@ -84,6 +84,37 @@ void main() {
     expect(setup.api.feedPaths, contains(_groupInbox));
   });
 
+  testWidgets('repeated message searches load the selected mailbox', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester);
+    final shell = setup.controller;
+    for (final group in <String?>[null, 'team']) {
+      shell.selectMessageInbox(group);
+      shell.selectMessageListMode(MessageListMode.archive);
+      await tester.pumpAndSettle();
+      final path = group == null ? _archive : _groupArchive;
+      for (final words in ['first', 'second']) {
+        final searchedPath = '$path?search=$words';
+        setup.api.feeds[searchedPath] = setup.api.feeds[path]!;
+        setup.api.feedPaths.clear();
+        shell.applySearchToList(words, const []);
+        await tester.pumpAndSettle();
+        expect(setup.api.feedPaths, [searchedPath]);
+        expect(shell.currentContent?.isMessages, isTrue);
+        expect(shell.currentContent?.messageGroupName, group);
+        expect(shell.currentContent?.messageListMode, MessageListMode.archive);
+      }
+      shell.clearSearchWords();
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.isMessages, isTrue);
+      expect(shell.currentContent?.messageGroupName, group);
+      expect(shell.currentContent?.messageListMode, MessageListMode.archive);
+      expect(shell.currentContent?.topicListSearch, isEmpty);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets(
     'swiping the inbox hides its title and keeps the selectors',
     (tester) async {

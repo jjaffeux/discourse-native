@@ -62,6 +62,7 @@ import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
+import '../models/feed_path_policy.dart';
 import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_group.dart';
@@ -7040,15 +7041,22 @@ class ShellController extends FrameSafeNotifier
               condition.filterId == 'privateMessages' &&
               condition.text == 'all',
         );
+    final mode = currentTopicListMode ?? TopicListMode.latest;
+    var base = !clearFilters && keepMessages
+        ? ContentRoute.messages(
+            groupName: source?.messageGroupName,
+            mode: source!.messageListMode,
+          )
+        : ContentRoute.topicList(mode);
+    if (!clearFilters &&
+        source?.isMessages != true &&
+        source?.isSearchList != true &&
+        source?.isAdvancedTopicFilter != true) {
+      base = base.withTopicListQueryFrom(source);
+    }
     ContentRoute route;
     if (conditions.isEmpty) {
-      route =
-          (source?.isTopicList == true && !clearFilters
-                  ? source!
-                  : ContentRoute.topicList(
-                      currentTopicListMode ?? TopicListMode.latest,
-                    ))
-              .withTopicListSearch(words);
+      route = base.withTopicListSearch(words);
     } else if (source?.isMessages != true &&
         conditions.every(
           (condition) =>
@@ -7068,10 +7076,10 @@ class ShellController extends FrameSafeNotifier
           .where((condition) => condition.filterId == 'tags')
           .firstOrNull;
       route = ContentRoute.filteredTopicList(
-        currentTopicListMode ?? TopicListMode.latest,
+        mode,
         categoryId: category == null ? null : int.parse(category.text),
         tags: tags?.value ?? const [],
-      ).withTopicListQueryFrom(source).withTopicListSearch(words);
+      ).withTopicListQueryFrom(base).withTopicListSearch(words);
     } else {
       final expression = [
         words,
@@ -7091,8 +7099,16 @@ class ShellController extends FrameSafeNotifier
         messageMode: keepMessages ? MessageListMode.inbox : null,
       );
     }
+    _publishTopicListSearchRoute(site, route, words);
+  }
+
+  void _publishTopicListSearchRoute(
+    String siteUrl,
+    ContentRoute route,
+    String words,
+  ) {
     _replaceTopicListContent(route, keepTopicOpen: false);
-    search.setPageWords(site, activeTabId, route.id, words);
+    search.setPageWords(siteUrl, activeTabId, route.id, words);
     _syncTopicChannels();
     _notify();
     unawaited(loadFeed(route.id));
@@ -7113,8 +7129,12 @@ class ShellController extends FrameSafeNotifier
           GlobalSearchCondition(filterId: 'order', value: [order]),
       ];
       applySearchToList('', conditions, clearFilters: conditions.isEmpty);
-    } else {
+    } else if (route.isAdvancedTopicFilter) {
       applySearchToList('', const []);
+    } else {
+      final site = currentInstance?.url;
+      if (site == null) return;
+      _publishTopicListSearchRoute(site, route.withTopicListSearch(''), '');
     }
   }
 

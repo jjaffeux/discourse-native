@@ -430,6 +430,93 @@ void main({bool useDeviceMetrics = false}) {
     expect(tester.takeException(), isNull);
   });
 
+  _testPresentation(
+    'the words pill clears words while retaining list filters',
+    (tester) async {
+      final api = GlobalSearchFixtureApi();
+      final expected = ContentRoute.filteredTopicList(
+        TopicListMode.latest,
+        categoryId: 1,
+        tags: const ['design'],
+      ).withTopicListSort('posts');
+      final source = expected.withTopicListSearch('new words');
+      api.feeds[source.feedPath!] = const [];
+      api.feeds[expected.feedPath!] = const [];
+      final shell = await _pumpSearch(tester, api: api);
+      shell.replaceCurrentContent(source);
+      shell.search.setPageWords(
+        globalSearchFixtureSite,
+        shell.activeTabId,
+        source.id,
+        'new words',
+      );
+      await shell.loadFeed(source.id);
+      await tester.pumpAndSettle();
+
+      final pill = find.ancestor(
+        of: find.text('new words'),
+        matching: find.byType(DButton),
+      );
+      expect(pill, findsOneWidget);
+      await tester.tap(pill);
+      await tester.pumpAndSettle();
+
+      expect(shell.currentContent?.feedPath, expected.feedPath);
+      expect(shell.currentContent?.topicListSearch, isEmpty);
+      expect(pill, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _testPresentation(
+    'applying edited search chips removes their old list scope',
+    (tester) async {
+      final api = GlobalSearchFixtureApi();
+      final source = ContentRoute.filteredTopicList(
+        TopicListMode.latest,
+        categoryId: 1,
+        tags: const ['design'],
+      ).withTopicListSort('posts');
+      final expected = ContentRoute.topicList(
+        TopicListMode.latest,
+      ).withTopicListSort('posts').withTopicListSearch('new words');
+      api.feeds[source.feedPath!] = const [];
+      api.feeds[expected.feedPath!] = const [];
+      final shell = await _pumpSearch(tester, api: api);
+      shell.replaceCurrentContent(source);
+      await shell.loadFeed(source.id);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(ForumSearch.inputKey));
+      await tester.pumpAndSettle();
+      expect(
+        shell.globalSearch.conditions.map((condition) => condition.filterId),
+        ['category', 'tags'],
+      );
+
+      for (final label in ['Category', 'Tags']) {
+        final remove = find.byWidgetPredicate(
+          (widget) =>
+              widget is DButton && widget.tooltip == 'Remove $label condition',
+        );
+        await tester.ensureVisible(remove);
+        await tester.pumpAndSettle();
+        await tester.tap(remove);
+        await tester.pumpAndSettle();
+      }
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'new words');
+      await _finishSearch(tester);
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      expect(shell.currentContent?.feedPath, expected.feedPath);
+      expect(shell.currentContent?.categoryId, isNull);
+      expect(shell.currentContent?.tagNames, isEmpty);
+      expect(shell.globalSearch.conditions, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final keyboard in [false, true]) {
     _testPresentation(
       '${keyboard ? 'contextual shortcut' : 'click'} search opens with the expected scope',

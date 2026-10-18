@@ -401,6 +401,56 @@ void main() {
   );
 
   group('visible list word filters persist', () {
+    test('word replacement drops endpoint q copied by taxonomy navigation', () {
+      final carried = ContentRoute.filteredTopicList(
+        TopicListMode.latest,
+        categoryId: 12,
+      ).withTopicListQueryFrom(ContentRoute.searchList('旧' * 2048));
+      final words = '新' * 2048;
+      final replaced = carried.withTopicListSearch(words);
+
+      expect(
+        Uri.parse(replaced.feedPath!).queryParameters.containsKey('q'),
+        isFalse,
+      );
+      expect(replaced.topicListSearch, words);
+      expect(replaced.categoryId, 12);
+      expect(ContentRoute.fromJson(replaced.toJson()), replaced);
+    });
+
+    test('Unicode search bounds survive encoding and scoped round trips', () {
+      final query = '中' * 2048;
+      final group = '团' * ContentRoute.maximumMessageGroupNameLength;
+      for (final route in [
+        ContentRoute.topicList(TopicListMode.latest).withTopicListSearch(query),
+        ContentRoute.list(
+          ListLink.parse('/c/support/12?status=open&tags[]=ux&tags[]=mobile')!,
+        ).withTopicListSearch(query).withTopicListSort('posts'),
+        ContentRoute.filteredTopicList(
+          TopicListMode.unread,
+          categoryId: 12,
+          tags: const ['design', 'mobile'],
+        ).withTopicListSearch(query),
+        ContentRoute.topicFilter(query, categoryId: 12, tags: const ['design']),
+        ContentRoute.searchList(query),
+        ContentRoute.messages(groupName: group).withTopicListSearch(query),
+        ContentRoute.searchList(
+          '$query in:personal group_messages:$group',
+          groupName: group,
+          messageMode: MessageListMode.inbox,
+        ),
+      ]) {
+        final restored = ContentRoute.fromJson(route.toJson());
+        expect(restored, route);
+        expect(restored.feedPath, route.feedPath);
+        expect(restored.messageGroupName, route.messageGroupName);
+        expect(
+          Uri.parse(restored.feedPath!).queryParametersAll,
+          Uri.parse(route.feedPath!).queryParametersAll,
+        );
+      }
+    });
+
     test('restores list word filters beside their scope', () {
       for (final source in [
         ContentRoute.topicList(TopicListMode.latest),
