@@ -79,8 +79,6 @@ class TopicCategoryValue extends StatelessWidget {
     this.onParentNavigate,
     this.onEdit,
     this._tooltip,
-    this.navigationTooltip,
-    this._editTooltip,
   }) : assert(onTap == null || onNavigate == null),
        assert(parentCategory != null || onParentNavigate == null);
 
@@ -102,9 +100,6 @@ class TopicCategoryValue extends StatelessWidget {
   final VoidCallback? onEdit;
   final String? _tooltip;
   String get tooltip => _tooltip ?? appL10n.editTopicCategory;
-  final String? navigationTooltip;
-  final String? _editTooltip;
-  String get editTooltip => _editTooltip ?? appL10n.editTopicCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -198,11 +193,9 @@ class TopicCategoryValue extends StatelessWidget {
                     semanticLabel: context.l10n.categoryTopiclistview(
                       (category.name).toString(),
                     ),
-                    tooltip:
-                        navigationTooltip ??
-                        context.l10n.openCategoryTopictaxonomyfields(
-                          (category.name).toString(),
-                        ),
+                    tooltip: context.l10n.openCategoryTopictaxonomyfields(
+                      (category.name).toString(),
+                    ),
                     onTap: onNavigate,
                   ),
                 ],
@@ -211,11 +204,9 @@ class TopicCategoryValue extends StatelessWidget {
           ],
         );
       } else {
-        final message =
-            navigationTooltip ??
-            context.l10n.openCategoryTopictaxonomyfieldsValue(
-              (label).toString(),
-            );
+        final message = context.l10n.openCategoryTopictaxonomyfieldsValue(
+          (label).toString(),
+        );
         value = DTooltip(
           message: message,
           child: InlineAction.link(
@@ -270,7 +261,7 @@ class TopicCategoryValue extends StatelessWidget {
             _TopicTaxonomyEditButton(
               actionKey: editActionKey,
               iconKey: editIconKey,
-              tooltip: editTooltip,
+              tooltip: appL10n.editTopicCategory,
               onTap: onEdit,
             ),
           ],
@@ -359,8 +350,6 @@ class TopicTagsValue extends StatelessWidget {
     this.tagKey,
     this.addKey,
     this.addIconKey,
-    this._emptyLabel,
-    this._editTooltip,
   });
 
   final List<TopicTag> tags;
@@ -371,17 +360,13 @@ class TopicTagsValue extends StatelessWidget {
   final Key? Function(TopicTag tag)? tagKey;
   final Key? addKey;
   final Key? addIconKey;
-  final String? _emptyLabel;
-  String get emptyLabel => _emptyLabel ?? appL10n.noTags;
-  final String? _editTooltip;
-  String get editTooltip => _editTooltip ?? appL10n.editTopicTagsPostactions;
 
   @override
   Widget build(BuildContext context) {
     if (tags.isEmpty) {
       final edit = onEdit ?? onTap;
       return edit == null && !saving
-          ? _EmptyTopicProperty(emptyLabel)
+          ? _EmptyTopicProperty(appL10n.noTags)
           : _EditableEmptyTopicTags(
               actionKey: addKey,
               saving: saving,
@@ -417,7 +402,7 @@ class TopicTagsValue extends StatelessWidget {
         actionKey: addKey,
         iconKey: addIconKey,
         dimension: 24,
-        tooltip: editTooltip,
+        tooltip: appL10n.editTopicTagsPostactions,
         onTap: onEdit,
       );
     } else if (onTap case final onTap?) {

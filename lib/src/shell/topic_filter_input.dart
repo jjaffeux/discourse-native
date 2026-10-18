@@ -41,7 +41,6 @@ class TopicFilterInput extends StatefulWidget {
     this._hintText,
     this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     this.enabled = true,
-    this.preferSuggestionsAbove = false,
     this.tokenized = false,
     this.multiline = false,
     this.onDismiss,
@@ -68,7 +67,6 @@ class TopicFilterInput extends StatefulWidget {
       _hintText ?? appL10n.filterTopicsByCategoryTagOrOtherCriteria;
   final EdgeInsetsGeometry padding;
   final bool enabled;
-  final bool preferSuggestionsAbove;
   final bool tokenized;
   final bool multiline;
   final VoidCallback? onDismiss;
@@ -850,9 +848,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
         content: DComboboxContent(
           key: const ValueKey('topic-filter-suggestions'),
           semanticLabel: context.l10n.filterSuggestions,
-          side: widget.preferSuggestionsAbove
-              ? DPopoverSide.top
-              : DPopoverSide.bottom,
+          side: DPopoverSide.bottom,
           maxHeight: 360,
           children: [
             DComboboxList<TopicFilterSuggestion>(

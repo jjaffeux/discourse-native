@@ -22,14 +22,9 @@ import 'chat_thread_panel_width_store.dart';
 import 'chat_thread_settings.dart';
 
 class ChatThreadWorkspace extends StatelessWidget {
-  const ChatThreadWorkspace({
-    super.key,
-    required this.route,
-    this.panelWidthStore,
-  });
+  const ChatThreadWorkspace({super.key, required this.route});
 
   final ChatRoute route;
-  final ChatThreadPanelWidthStore? panelWidthStore;
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +66,7 @@ class ChatThreadWorkspace extends StatelessWidget {
               target: target,
               chat: chat,
               showTimeGapDays: pane.showTimeGapDays,
-              widthStore: panelWidthStore ?? const ChatThreadPanelWidthStore(),
+              widthStore: const ChatThreadPanelWidthStore(),
             );
           },
         );
