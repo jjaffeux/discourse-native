@@ -48,9 +48,12 @@ typedef _TopicListFilterOwner = ({
   String? feedPath,
 });
 
-_TopicListFilterOwner _filterOwner(ShellController controller) {
+_TopicListFilterOwner _filterOwner(
+  ShellController controller,
+  ShellTabContext tab,
+) {
   final siteUrl = controller.currentInstance?.url;
-  final route = controller.topicListContent ?? controller.currentContent;
+  final route = tab.topicListContent ?? tab.currentContent;
   return (
     controller: controller,
     rootMode: controller.rootMode,
@@ -59,7 +62,7 @@ _TopicListFilterOwner _filterOwner(ShellController controller) {
     session: siteUrl == null
         ? null
         : controller.lifecycle.capture(siteUrl).session,
-    tabId: controller.activeTabId,
+    tabId: tab.activeTabId,
     routeId: route?.id,
     feedPath: route?.feedPath,
   );
@@ -87,14 +90,14 @@ class TopicListNavigation extends StatelessWidget {
   @override
   Widget build(
     BuildContext context,
-  ) => ShellSelector<_TopicListNavigationSnapshot>(
-    select: (controller) {
-      final counts = controller.topicListNewCounts;
+  ) => ForumTabSelector<_TopicListNavigationSnapshot>(
+    select: (controller, tab) {
+      final counts = tab.topicListNewCounts;
       final siteUrl = controller.currentInstance?.url;
-      final route = controller.topicListContent ?? controller.currentContent;
+      final route = tab.topicListContent ?? tab.currentContent;
       final showsFilters = route?.isTopicListFilter == true;
       return (
-        mode: controller.currentTopicListMode,
+        mode: tab.currentTopicListMode,
         signedIn: controller.currentInstance?.user != null,
         connected: controller.currentInstance?.isConnected == true,
         unifiedNew: controller.currentInstance?.user?.unifiedNewEnabled == true,
@@ -106,7 +109,7 @@ class TopicListNavigation extends StatelessWidget {
         replyCount: counts.replies,
         siteUrl: siteUrl,
         route: route,
-        filterOwner: _filterOwner(controller),
+        filterOwner: _filterOwner(controller, tab),
         categories: showsFilters && siteUrl != null
             ? controller.filterCategoriesFor(siteUrl)
             : const <TopicCategory>[],
@@ -176,10 +179,10 @@ class _TopicListNavigationControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
+    final tab = ForumTabScope.tabOf(context);
     final mode = state.mode ?? TopicListMode.latest;
-    void selectMode(TopicListMode value) => unawaited(
-      controller.selectTopicListMode(value, keepTopicOpen: keepTopicOpen),
-    );
+    void selectMode(TopicListMode value) =>
+        unawaited(tab.selectTopicListMode(value, keepTopicOpen: keepTopicOpen));
     final navigation = TopicFeedMenu(
       mode: mode,
       signedIn: state.signedIn,
@@ -197,8 +200,9 @@ class _TopicListNavigationControls extends StatelessWidget {
     bool ownsFeed() =>
         context.mounted &&
         lease?.isCurrent == true &&
-        controller.readTab(owner.tabId, () => _filterOwner(controller)) ==
-            owner;
+        identical(ShellScope.read(context), controller) &&
+        tab.isCurrent &&
+        _filterOwner(controller, tab) == owner;
     final filters = !showsFilters
         ? null
         : TopicListFilterBar(
@@ -233,7 +237,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             },
             onCategorySelected: (category) {
               if (ownsFeed()) {
-                controller.selectTopicListCategory(
+                tab.selectTopicListCategory(
                   category,
                   keepTopicOpen: keepTopicOpen,
                 );
@@ -248,7 +252,7 @@ class _TopicListNavigationControls extends StatelessWidget {
                 final slugged = state.tags
                     .where((item) => item.slug.toLowerCase() == folded)
                     .firstOrNull;
-                controller.selectTopicListTag(
+                tab.selectTopicListTag(
                   named?.name ?? slugged?.name ?? tag,
                   keepTopicOpen: keepTopicOpen,
                 );

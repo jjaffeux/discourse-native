@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -980,14 +981,99 @@ void main() {
     final mainId = shell.activeTabId!;
     _openTopicTab(shell, _topic);
     final readerId = shell.activeTabId!;
-    expect(shell.readTab(mainId, () => shell.currentContent?.id), 'latest');
+    final main = shell.tabContext(mainId);
+    final reader = shell.tabContext(readerId);
+    expect(main.currentContent?.id, 'latest');
+    expect(reader.currentContent?.topicId, 42);
     expect(shell.activeTabId, readerId);
-    expect(
-      () => shell.readTab(mainId, () => throw StateError('read')),
-      throwsStateError,
-    );
+    expect(shell.tabContext(null).currentContent, isNull);
     expect(shell.activeTabId, readerId);
   });
+
+  test(
+    'delayed panel commands keep their tab after focus and panel moves',
+    () async {
+      final mainId = shell.activeTabId!;
+      final main = shell.tabContext(mainId);
+      final release = Completer<void>();
+      final pending = release.future.then(
+        (_) => main.openTopicFromList(_otherTopic),
+      );
+      _openTopicTab(shell, _topic);
+      final readerId = shell.activeTabId!;
+      shell.moveTabToPanel(mainId, ForumPanel.secondary);
+      shell.selectTab(readerId);
+      release.complete();
+      expect(await pending, TabOpenResult.opened);
+      expect(main.currentContent?.topicId, 43);
+      expect(shell.activeTabId, readerId);
+      expect(shell.currentContent?.topicId, 42);
+    },
+  );
+
+  test(
+    'closed tabs and retired accounts reject captured panel commands',
+    () async {
+      _openTopicTab(shell, _topic);
+      final closed = shell.tabContext(shell.activeTabId);
+      shell.closeTab(closed.tabId!);
+      final route = shell.currentContent;
+      expect(closed.isCurrent, isFalse);
+      expect(
+        closed.openTopicFromList(_otherTopic),
+        isNot(TabOpenResult.opened),
+      );
+      final retired = shell.focusedTabContext;
+      shell.lifecycle.invalidate(shell.currentInstance!.url);
+      expect(retired.isCurrent, isFalse);
+      await retired.loadFeed('latest', force: true);
+      expect(
+        retired.openTopicFromList(_otherTopic),
+        isNot(TabOpenResult.opened),
+      );
+      expect(shell.currentContent, same(route));
+    },
+  );
+
+  testWidgets(
+    'reply and quote retain their source while the other reader is focused',
+    (tester) async {
+      _openTopicTab(shell, _topic);
+      final sourceId = shell.activeTabId!;
+      shell.moveTabToPanel(sourceId, ForumPanel.main);
+      await shell.loadTopic(42, _topic.slug);
+      shell.store.put(
+        shell.currentInstance!.url,
+        const TopicDetail(
+          id: 42,
+          title: 'Panel topic',
+          stream: [42],
+          canCreatePost: true,
+        ),
+      );
+      final source = shell.tabContext(sourceId);
+      _openTopicTab(shell, _otherTopic);
+      final focused = shell.activeTabId;
+      source.openReply(replyToPostNumber: 1, replyToUsername: 'reader');
+      final composer = shell.visibleComposer!;
+      expect(composer.target.topicId, 42);
+      expect(composer.target.tabId, sourceId);
+      await source.openQuote(
+        const Post(
+          id: 42,
+          postNumber: 1,
+          username: 'reader',
+          cooked: '<p>Quoted</p>',
+        ),
+        '[quote]Quoted[/quote]',
+      );
+      expect(composer.value.text, contains('Quoted'));
+      expect(shell.activeTabId, focused);
+      expect(shell.currentContent?.topicId, 43);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+    },
+  );
 
   test(
     'closing the unfocused selected tab activates its neighbour in place',
@@ -1401,6 +1487,7 @@ void main() {
     );
     addTearDown(restored.dispose);
     await restored.load();
+    expect(restored.activeTabId, main, reason: 'before mounting panels');
     await _pump(tester, restored);
     expect(restored.activeTabId, main);
     expect(restored.selectedTabIn(ForumPanel.secondary)?.id, topic);

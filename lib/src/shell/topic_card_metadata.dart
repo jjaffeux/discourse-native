@@ -77,7 +77,9 @@ String? _topicSortOrder(
 }) {
   if (!allowSort) return null;
   if (row.onSort != null) return row.order;
-  final route = ShellScope.maybeRead(context)?.topicListContent;
+  final route = ShellScope.maybeRead(context) == null
+      ? null
+      : ForumTabScope.tabOf(context).topicListContent;
   return row.forum == null &&
           !row.topic.privateMessage &&
           route?.canSortTopicList == true
@@ -575,7 +577,8 @@ class _TopicCardSortValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.maybeRead(context);
-    final route = shell?.topicListContent;
+    final tab = shell == null ? null : ForumTabScope.tabOf(context);
+    final route = tab?.topicListContent;
     final canSort =
         allowSort &&
         row.forum == null &&
@@ -584,7 +587,7 @@ class _TopicCardSortValue extends StatelessWidget {
     final onSort = allowSort
         ? row.onSort ??
               (canSort
-                  ? (String column) => unawaited(shell!.sortTopicList(column))
+                  ? (String column) => unawaited(tab!.sortTopicList(column))
                   : null)
         : null;
     if (onSort == null) {

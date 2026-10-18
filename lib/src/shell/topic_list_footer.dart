@@ -22,10 +22,11 @@ class TopicSourceFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.maybeOf(context);
+    final tab = shell == null ? null : ForumTabScope.tabOf(context);
     if (shell == null ||
         (!chooseForum &&
             !shell.canCreateTopicFromSidebar &&
-            shell.currentContent?.isTopic != true)) {
+            tab?.currentContent?.isTopic != true)) {
       return const SizedBox.shrink();
     }
     return Padding(
@@ -67,7 +68,7 @@ class TopicSourceFooter extends StatelessWidget {
               onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
             ),
           const Spacer(),
-          if (shell.currentContent?.isTopic == true) ...[
+          if (tab?.currentContent?.isTopic == true) ...[
             DButton.iconOnly(
               tooltip: context.l10n.previousTopic,
               icon: const RotatedBox(

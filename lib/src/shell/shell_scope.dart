@@ -67,41 +67,33 @@ class ShellSelector<T> extends StatefulWidget {
 class _ShellSelectorState<T> extends State<ShellSelector<T>> {
   ShellController? _controller;
   late T _value;
-  String? _tabId;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final controller = _ShellControllerIdentity.of(context);
-    final tabId = ForumTabScope.idOf(context);
-    if (identical(controller, _controller) && tabId == _tabId) return;
-    _tabId = tabId;
+    if (identical(controller, _controller)) return;
 
     _controller?.removeListener(_select);
     _controller = controller..addListener(_select);
-    _value = controller.readTab(_tabId, () => widget.select(controller));
+    _value = widget.select(controller);
   }
 
   @override
   void didUpdateWidget(ShellSelector<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _value = _controller!.readTab(_tabId, () => widget.select(_controller!));
+    _value = widget.select(_controller!);
   }
 
   void _select() {
-    final next = _controller!.readTab(
-      _tabId,
-      () => widget.select(_controller!),
-    );
+    final next = widget.select(_controller!);
     if (next == _value) return;
     setState(() => _value = next);
   }
 
   @override
-  Widget build(BuildContext context) => _controller!.readTab(
-    _tabId,
-    () => widget.builder(context, _value, widget.child),
-  );
+  Widget build(BuildContext context) =>
+      widget.builder(context, _value, widget.child);
 
   @override
   void dispose() {
@@ -148,9 +140,12 @@ class ForumTabScope extends InheritedWidget {
   static ForumPanel? panelOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<ForumTabScope>()?.panel;
 
-  static T read<T>(BuildContext context, T Function(ShellController) select) {
+  static ShellTabContext tabOf(BuildContext context) {
     final shell = ShellScope.read(context);
-    return shell.readTab(idOf(context), () => select(shell));
+    final scope = context.dependOnInheritedWidgetOfExactType<ForumTabScope>();
+    return scope == null
+        ? shell.focusedTabContext
+        : shell.tabContext(scope.tabId);
   }
 
   @override
@@ -158,35 +153,64 @@ class ForumTabScope extends InheritedWidget {
       tabId != oldWidget.tabId || panel != oldWidget.panel;
 }
 
-/// Layout callbacks run after their parent builds, so resolve the tab again.
-class ForumTabLayoutBuilder extends StatelessWidget {
-  const ForumTabLayoutBuilder({super.key, required this.builder});
-  final Widget Function(BuildContext context, BoxConstraints constraints)
-  builder;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) =>
-        ForumTabScope.read(context, (_) => builder(context, constraints)),
-  );
-}
-
-class ForumTabListenableBuilder extends StatelessWidget {
-  const ForumTabListenableBuilder({
+class ForumTabSelector<T> extends StatefulWidget {
+  const ForumTabSelector({
     super.key,
-    required this.listenable,
+    required this.select,
     required this.builder,
     this.child,
   });
-  final Listenable listenable;
-  final TransitionBuilder builder;
+
+  final T Function(ShellController shell, ShellTabContext tab) select;
+  final ValueWidgetBuilder<T> builder;
   final Widget? child;
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: listenable,
-    child: child,
-    builder: (context, child) =>
-        ForumTabScope.read(context, (_) => builder(context, child)),
-  );
+  State<ForumTabSelector<T>> createState() => _ForumTabSelectorState<T>();
+}
+
+class _ForumTabSelectorState<T> extends State<ForumTabSelector<T>> {
+  ShellController? _shell;
+  String? _tabId;
+  bool _scoped = false;
+  late T _value;
+
+  ShellTabContext _resolve() =>
+      _scoped ? _shell!.tabContext(_tabId) : _shell!.focusedTabContext;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final shell = ShellScope.identityOf(context);
+    final scope = context.dependOnInheritedWidgetOfExactType<ForumTabScope>();
+    _scoped = scope != null;
+    _tabId = scope?.tabId;
+    if (!identical(shell, _shell)) {
+      _shell?.removeListener(_select);
+      _shell = shell..addListener(_select);
+    }
+    _value = widget.select(shell, _resolve());
+  }
+
+  @override
+  void didUpdateWidget(ForumTabSelector<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _value = widget.select(_shell!, _resolve());
+  }
+
+  void _select() {
+    final next = widget.select(_shell!, _resolve());
+    if (next == _value) return;
+    setState(() => _value = next);
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      widget.builder(context, _value, widget.child);
+
+  @override
+  void dispose() {
+    _shell?.removeListener(_select);
+    super.dispose();
+  }
 }

@@ -151,6 +151,8 @@ import 'user_directory_controller.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
+part 'shell_tab_context.dart';
+
 enum MobilePane { sidebar, content }
 
 enum ShellRootMode { forum }
@@ -1638,38 +1640,17 @@ class ShellController extends FrameSafeNotifier
   ForumTab? get listPanelTab =>
       currentWorkspace?.selectedTabIn(ForumPanel.main);
 
-  int? get readingTopicId {
-    if (!desktopTopicTabs) return currentContent?.topicId;
-    final source = activeTab;
-    if (source?.currentContent.isTopic == true) {
-      return source!.currentContent.topicId;
-    }
-    final other = source?.panel == ForumPanel.secondary
-        ? ForumPanel.main
-        : ForumPanel.secondary;
-    return selectedTabIn(other)?.currentContent.topicId;
-  }
+  int? get readingTopicId => focusedTabContext.readingTopicId;
 
   ForumTab? selectedTabIn(ForumPanel panel) =>
       currentWorkspace?.selectedTabIn(panel);
 
-  String? _snapshotTabId;
+  bool get _tabContextDisposed => isDisposed;
 
-  /// Evaluates synchronous presentation reads for a particular tab. The
-  /// selection is restored before returning; this never focuses or navigates.
-  T readTab<T>(String? tabId, T Function() read) {
-    final previous = _snapshotTabId;
-    _snapshotTabId = tabId;
-    try {
-      return read();
-    } finally {
-      _snapshotTabId = previous;
-    }
-  }
+  ShellTabContext tabContext(String? tabId) => ShellTabContext._(this, tabId);
+  ShellTabContext get focusedTabContext => tabContext(activeTabId);
 
-  ForumTab? get activeTab => _snapshotTabId == null
-      ? currentWorkspace?.activeTab
-      : currentWorkspace?.tabById(_snapshotTabId!);
+  ForumTab? get activeTab => currentWorkspace?.activeTab;
   @override
   String? get activeTabId => activeTab?.id;
   List<ForumTab> get tabsForCurrentForum => currentWorkspace?.tabs ?? const [];
@@ -1693,9 +1674,9 @@ class ShellController extends FrameSafeNotifier
   String? get destinationId => activeTab?.rootDestinationId;
 
   @override
-  List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
+  List<ContentRoute> get contentStack => focusedTabContext.contentStack;
   @override
-  ContentRoute? get currentContent => activeTab?.currentContent;
+  ContentRoute? get currentContent => focusedTabContext.currentContent;
 
   String _recentAccountIdentity(String siteUrl) {
     final instance = _instanceAt(siteUrl);
@@ -1936,27 +1917,15 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  bool get canPopContent => mobileNavigationEnabled
-      ? mobileNavigation.canGoBack
-      : activeTab?.canGoBack ?? false;
-  bool get canForwardContent => mobileNavigationEnabled
-      ? mobileNavigation.canGoForward
-      : activeTab?.canGoForward ?? false;
+  bool get canPopContent => focusedTabContext.canPopContent;
+  bool get canForwardContent => focusedTabContext.canForwardContent;
 
   final _contentRefreshers = <String?, Future<void>? Function()>{};
   final _refreshingTabs = <(ShellRootMode, String?, String?, String?)>{};
 
-  (ShellRootMode, String?, String?, String?) get _currentRefreshKey =>
-      (rootMode, currentInstance?.url, currentAccountIdentity, activeTabId);
+  bool get refreshingCurrentTab => focusedTabContext.refreshingCurrentTab;
 
-  bool get refreshingCurrentTab => _refreshingTabs.contains(_currentRefreshKey);
-
-  bool get canRefreshCurrentTab =>
-      loaded &&
-      hasInstances &&
-      currentContent != null &&
-      currentInstance != null &&
-      (!currentInstance!.loginRequired || currentInstance!.isConnected);
+  bool get canRefreshCurrentTab => focusedTabContext.canRefreshCurrentTab;
 
   /// Returning null lets the shell use the route's standard loader.
   VoidCallback registerContentRefresher(
@@ -1972,31 +1941,18 @@ class ShellController extends FrameSafeNotifier
     };
   }
 
-  Future<void> refreshCurrentTab() async {
-    if (!canRefreshCurrentTab) return;
-    final key = _currentRefreshKey;
-    if (!_refreshingTabs.add(key)) return;
-    _notify();
-    try {
-      await (_contentRefreshers[activeTabId]?.call() ??
-          _refreshCurrentContent());
-    } catch (error, stackTrace) {
-      _reportOperationalError(error, stackTrace, 'tab.refresh');
-    } finally {
-      _refreshingTabs.remove(key);
-      _notify();
-    }
-  }
+  Future<void> refreshCurrentTab() => focusedTabContext.refreshTab();
 
-  Future<void> _refreshCurrentContent() async {
+  Future<void> _refreshCurrentContent(ShellTabContext context) async {
+    if (!context.isCurrent) return;
     final instance = currentInstance;
-    final route = currentContent;
+    final route = context.currentContent;
     if (instance == null || route == null) return;
     if (route.topicId case final topicId?) {
       await Future.wait([
-        loadTopic(topicId, route.slug ?? '', force: true),
-        if (topicListContent case final source?)
-          loadFeed(source.id, force: true),
+        context.loadTopic(topicId, route.slug ?? '', force: true),
+        if (context.topicListContent case final source?)
+          context.loadFeed(source.id, force: true),
       ]);
       return;
     }
@@ -2034,7 +1990,7 @@ class ShellController extends FrameSafeNotifier
       case 'preferences':
         await preferences.load(instance, refresh: true);
       default:
-        await loadFeed(route.id, force: true);
+        await context.loadFeed(route.id, force: true);
     }
   }
 
@@ -3810,102 +3766,24 @@ class ShellController extends FrameSafeNotifier
     ]);
   }
 
-  String? get currentFeedId {
-    final route = currentContent?.isTopic == true
-        ? topicListContent ?? currentContent
-        : currentContent;
-    if (route?.isMessages == true) return route!.id;
-    if (route != null &&
-        (route.feedPath != null || TopicListMode.fromRoute(route) != null)) {
-      return route.id;
-    }
-    return topicListTab?.rootDestinationId;
-  }
+  String? get currentFeedId => focusedTabContext.currentFeedId;
 
   final _unreadTopicFeed = UnreadTopicFeed();
 
-  bool get currentFeedIsUnread {
-    // Core serves personal and group Unread folders through the same unread
-    // filter as /unread, so a message read here leaves them the same way.
-    final route = topicListContent ?? topicListTab?.currentContent;
-    if (route?.isMessages == true) {
-      return route!.messageListMode == MessageListMode.unread;
-    }
-    return switch (currentTopicListMode) {
-      TopicListMode.unread || TopicListMode.newReplies => true,
-      _ => false,
-    };
-  }
+  bool get currentFeedIsUnread => focusedTabContext.currentFeedIsUnread;
 
-  TopicFeed? get currentFeed {
-    final instance = currentInstance;
-    final feedId = currentFeedId;
-    if (instance == null || feedId == null) return null;
-    final feed = topicFeeds.feedFor(instance.url, feedId);
-    if (feed == null || !currentFeedIsUnread) return feed;
-    // The topic being read may sit in the other desktop panel.
-    return _unreadTopicFeed.project(
-      feed,
-      selectedTopicId: readingTopicId,
-      isRead: (id) => UnreadTopicFeed.isRead(
-        topic: store.read<Topic>(instance.url, id),
-        tracking: _topicTrackingBySite[instance.url]?.topic(id),
-        localReadPostNumber: _topicReads.lastReadPostNumberFor(
-          instance.url,
-          id,
-        ),
-      ),
-    );
-  }
+  TopicFeed? get currentFeed => focusedTabContext.currentFeed;
 
-  TopicListMode? get currentTopicListMode {
-    final tab = topicListTab;
-    if (tab == null) return null;
-
-    final route = topicListContent ?? tab.currentContent;
-    final mode = TopicListMode.fromRoute(route);
-    if (mode != null) return mode;
-    if (tab.rootDestinationId != 'latest' &&
-        route.categoryId == null &&
-        route.tagName == null) {
-      return null;
-    }
-    return route.isTopicListFilter ? TopicListMode.latest : null;
-  }
+  TopicListMode? get currentTopicListMode =>
+      focusedTabContext.currentTopicListMode;
 
   /// The current document owns its source list even when another panel shows
   /// a different feed.
-  ForumTab? get topicListTab => activeTab;
+  ForumTab? get topicListTab => focusedTabContext.topicListTab;
 
-  ContentRoute? get topicListContent {
-    final routes = topicListTab?.contentStack ?? const <ContentRoute>[];
-    for (final route in routes.reversed) {
-      if (route.isTopic) continue;
-      return route.isTopicList ? route : null;
-    }
-    return null;
-  }
+  ContentRoute? get topicListContent => focusedTabContext.topicListContent;
 
-  void closeTopicListReader() {
-    if (mobileNavigationEnabled) {
-      if (currentContent?.isTopic == true) handleBack();
-      return;
-    }
-    final active = activeTab;
-    if (active != null && _readerClosesTab(active)) {
-      closeTab(active.id);
-      return;
-    }
-    if (active == null ||
-        topicListContent == null ||
-        !active.currentContent.isTopic) {
-      return;
-    }
-    _replaceActiveTab(_closeTopicRoute(active));
-    _syncTopicChannels();
-    _notify();
-    if (currentInstance case final instance?) _hydrateActiveTab(instance);
-  }
+  void closeTopicListReader() => focusedTabContext.closeTopicListReader();
 
   /// Returns from a conversation to its source, including direct topic links.
   void closeTopic() {
@@ -3959,49 +3837,8 @@ class ShellController extends FrameSafeNotifier
   /// New's counts for the topic list on screen, scoped to its category and
   /// tags. `replies` counts the unread topics in every mode, the forum-wide
   /// legacy list included, so the feed menu's Unread shows it too.
-  ({int all, int topics, int replies}) get topicListNewCounts {
-    final route = topicListContent ?? currentContent;
-    final categoryId = route?.categoryId;
-    final tagNames = route?.tagNames ?? const <String>[];
-    if (categoryId == null && tagNames.isEmpty) return _forumNewCounts;
-
-    final instance = currentInstance;
-    if (instance == null ||
-        instance.user == null ||
-        _topicTrackingBySite[instance.url]?.hasSnapshot != true) {
-      return (all: 0, topics: 0, replies: 0);
-    }
-    final tracking = _topicTrackingBySite[instance.url];
-    if (tracking == null) return (all: 0, topics: 0, replies: 0);
-
-    final tagIds = <int>{};
-    for (final name in tagNames) {
-      final normalized = name.toLowerCase();
-      final tag = _knownTagsFor(instance.url)
-          .where(
-            (tag) =>
-                tag.name.toLowerCase() == normalized ||
-                tag.slug.toLowerCase() == normalized,
-          )
-          .firstOrNull;
-      // An unresolved tag cannot use the unfiltered forum total.
-      if (tag == null || tag.pmOnly) return (all: 0, topics: 0, replies: 0);
-      tagIds.add(tag.id);
-    }
-
-    final counts = tracking.newActivityCountsFor(
-      categoryId: categoryId,
-      categories: filterCategoriesFor(instance.url),
-      tagIds: tagIds,
-    );
-    return (
-      all:
-          counts.newTopics +
-          (instance.user!.unifiedNewEnabled ? counts.newReplies : 0),
-      topics: counts.newTopics,
-      replies: counts.newReplies,
-    );
-  }
+  ({int all, int topics, int replies}) get topicListNewCounts =>
+      focusedTabContext.topicListNewCounts;
 
   ({int all, int topics, int replies}) get _forumNewCounts {
     final instance = currentInstance;
@@ -4046,22 +3883,9 @@ class ShellController extends FrameSafeNotifier
   TopPeriod _defaultTopPeriodFor(String siteUrl) =>
       TopPeriod.fromQueryValue(siteConfigFor(siteUrl).topPageDefaultPeriod);
 
-  bool get canCreateTopicHere {
-    if (currentContent?.isTopic != false ||
-        currentContent?.isPreferences == true ||
-        currentContent?.isAppearance == true ||
-        currentContent?.isMessages == true) {
-      return false;
-    }
-    final instance = currentInstance;
-    if (currentContent?.id == 'all-categories' && instance != null) {
-      return categoryFeedFor(instance.url).canCreateTopic;
-    }
-    return currentFeed?.canCreateTopic ?? false;
-  }
+  bool get canCreateTopicHere => focusedTabContext.canCreateTopicHere;
 
-  bool get canCreateTopicFromList =>
-      topicListContent != null && currentFeed?.canCreateTopic == true;
+  bool get canCreateTopicFromList => focusedTabContext.canCreateTopicFromList;
 
   bool get canCreateTopicFromSidebar =>
       currentInstance?.user?.canCreateTopic == true;
@@ -4103,26 +3927,10 @@ class ShellController extends FrameSafeNotifier
     return !feed.loaded && feed.error == null;
   }
 
-  ContentRoute? get sidebarFilterRoute {
-    if (mobileNavigationEnabled && mobileNavigation.atRoot) return null;
-    final source = topicListContent;
-    if (source?.isTopicListFilter != true || source?.isMessages == true) {
-      return null;
-    }
-    return currentContent?.isTopic == true ||
-            currentContent?.isTopicListFilter == true
-        ? source
-        : null;
-  }
+  ContentRoute? get sidebarFilterRoute => focusedTabContext.sidebarFilterRoute;
 
-  TopicCategory? get sidebarCategoryBase {
-    final selected = categoryFor(sidebarFilterRoute?.categoryId);
-    if (selected == null) return null;
-    final categories = filterCategoriesFor(currentInstance!.url);
-    return categories.any((item) => item.parentCategoryId == selected.id)
-        ? selected
-        : categoryFor(selected.parentCategoryId);
-  }
+  TopicCategory? get sidebarCategoryBase =>
+      focusedTabContext.sidebarCategoryBase;
 
   String? get sidebarTagName {
     final route = sidebarFilterRoute;
@@ -4387,10 +4195,18 @@ class ShellController extends FrameSafeNotifier
   Ref<Post> postRef(String siteUrl, int postId) =>
       store.ref<Post>(siteUrl, postId);
 
-  String? _feedPath(String feedId, DiscourseInstance instance) {
+  String? _feedPath(
+    String feedId,
+    DiscourseInstance instance, {
+    ShellTabContext? context,
+  }) {
+    final document = context ?? focusedTabContext;
     // A split list can navigate independently while the reader stays active.
     // Resolve its current route before consulting the reader's older stack.
-    final routes = [?topicListContent, ...contentStack.reversed];
+    final routes = [
+      ?document.topicListContent,
+      ...document.contentStack.reversed,
+    ];
     for (final route in routes) {
       if (route.id != feedId) continue;
       if (route.isSearchList) return route.feedPath;
@@ -4427,26 +4243,11 @@ class ShellController extends FrameSafeNotifier
     };
   }
 
-  void selectMessageInbox(String? groupName, {bool keepTopicOpen = false}) {
-    final instance = currentInstance;
-    final route = topicListContent ?? currentContent;
-    final user = instance?.user;
-    if (instance == null || user == null || route?.isMessages != true) return;
-
-    final group = groupName?.trim();
-    if (group != null && !user.messageGroupNames.contains(group)) return;
-
-    final mode = route!.messageListMode;
-    final replacement = ContentRoute.messages(
-      groupName: group,
-      mode: group == null || mode.supportsGroup ? mode : MessageListMode.inbox,
-    );
-    if (route.id == replacement.id) return;
-    _replaceTopicListContent(replacement, keepTopicOpen: keepTopicOpen);
-    _syncTopicChannels();
-    _notify();
-    unawaited(loadFeed(replacement.id));
-  }
+  void selectMessageInbox(String? groupName, {bool keepTopicOpen = false}) =>
+      focusedTabContext.selectMessageInbox(
+        groupName,
+        keepTopicOpen: keepTopicOpen,
+      );
 
   void selectMessageListMode(
     MessageListMode mode, {
@@ -4471,129 +4272,25 @@ class ShellController extends FrameSafeNotifier
     lifecycle.capture(currentInstance?.url ?? '').session,
   ));
 
-  bool get canDismissNewTopics => _dismissNewScope != null;
+  bool get canDismissNewTopics => focusedTabContext.canDismissNewTopics;
 
   // reset-new looks `tag_name` up case-sensitively and, finding nothing,
   // drops the tag: the dismissal widens to every new topic in the category,
   // or on the whole forum. The list matched its tags case-insensitively, so
   // the only safe name is the exact one its own topics carry, and a list none
   // of whose topics carries it offers no dismissal.
-  ({String? tagName})? get _dismissNewScope {
-    final instance = currentInstance;
-    final mode = currentTopicListMode;
-    final feed = currentFeed;
-    if (instance == null ||
-        !instance.isConnected ||
-        (mode != TopicListMode.newActivity &&
-            mode != TopicListMode.newTopics &&
-            mode != TopicListMode.newReplies) ||
-        feed == null ||
-        feed.topicIds.isEmpty) {
-      return null;
-    }
-    final requested = topicListContent?.tagNames.firstOrNull?.toLowerCase();
-    if (requested == null) return (tagName: null);
-    for (final id in feed.topicIds) {
-      final topic = store.read<Topic>(instance.url, id);
-      for (final tag in topic?.tags ?? const <TopicTag>[]) {
-        if (tag.name.toLowerCase() == requested) return (tagName: tag.name);
-      }
-    }
-    return null;
-  }
 
-  Future<String?> dismissNewTopics() async {
-    final instance = currentInstance;
-    final route = topicListContent;
-    final mode = currentTopicListMode;
-    final scope = _dismissNewScope;
-    if (instance == null ||
-        route == null ||
-        mode == null ||
-        scope == null ||
-        dismissingNewTopics) {
-      return null;
-    }
-    final siteUrl = instance.url;
-    final lease = lifecycle.capture(siteUrl);
-    final key = (siteUrl, lease.session);
-    _dismissingNew.add(key);
-    _notify();
-    final topics = mode != TopicListMode.newReplies;
-    final posts =
-        instance.user?.unifiedNewEnabled == true &&
-        mode != TopicListMode.newTopics;
-    try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      final identity = await _readClientIdFor(lease, credential?.value);
-      if (credential?.value == null || identity == null || !lease.isCurrent) {
-        return appL10n.reconnectToDismissNewTopics;
-      }
-      // Core accepts one tag. Resolve the full intersection before a bulk
-      // write when this app's list has multiple tags.
-      List<int>? topicIds;
-      if (route.tagNames.length > 1) {
-        topicIds = [];
-        String? path = route.feedPath;
-        final visited = <String>{};
-        while (path != null && visited.add(path)) {
-          final page = await api.topicFeeds.topicList(
-            siteUrl: siteUrl,
-            path: path,
-            apiKey: credential!.value,
-            clientId: identity.value,
-          );
-          if (!lease.isCurrent || isDisposed) return null;
-          topicIds.addAll(page.topics.map((topic) => topic.id));
-          path = page.nextPagePath;
-        }
-        if (path != null) {
-          throw StateError('Could not load all matching topics.');
-        }
-      }
-      if (!lease.isCurrent || isDisposed) return null;
-      final ids = await api.topicFeeds.dismissNewTopics(
-        siteUrl: siteUrl,
-        apiKey: credential!.value!,
-        clientId: identity.value,
-        dismissTopics: topics,
-        dismissPosts: posts,
-        categoryId: route.categoryId,
-        tagName: scope.tagName,
-        topicIds: topicIds,
-      );
-      if (!lease.isCurrent || isDisposed) return null;
-      for (final type in [
-        if (topics) 'dismiss_new',
-        if (posts) 'dismiss_new_posts',
-      ]) {
-        _applyTopicTrackingMessage(siteUrl, {
-          'message_type': type,
-          'payload': {'topic_ids': ids},
-        });
-      }
-      await topicFeeds.load(
-        instance: instance,
-        destinationId: route.id,
-        path: route.feedPath!,
-        incoming: _trackers[siteUrl]?.incoming,
-        force: true,
-      );
-      return null;
-    } catch (error, stackTrace) {
-      if (!lease.isCurrent || isDisposed) return null;
-      _reportOperationalError(error, stackTrace, 'topics.dismissNew');
-      return appL10n.couldNotDismissNewTopicsPleaseTryAgain;
-    } finally {
-      _dismissingNew.remove(key);
-      if (!isDisposed) _notify();
-    }
-  }
+  Future<String?> dismissNewTopics() => focusedTabContext.dismissNewTopics();
 
-  Future<void> loadFeed(String destinationId, {bool force = false}) async {
+  Future<void> loadFeed(
+    String destinationId, {
+    bool force = false,
+    ShellTabContext? context,
+  }) async {
+    if (context != null &&
+        (!identical(context.shell, this) || !context.isCurrent)) {
+      return;
+    }
     final instance = currentInstance;
     if (instance == null) return;
 
@@ -4602,10 +4299,13 @@ class ShellController extends FrameSafeNotifier
     // this request a user API key.
     if (instance.loginRequired && !instance.isConnected) return;
 
-    final path = _feedPath(destinationId, instance);
+    final path = _feedPath(destinationId, instance, context: context);
     if (path == null) return;
     unawaited(
-      _ensureScopedSidebarTags(instance.url, sidebarFilterRoute?.categoryId),
+      _ensureScopedSidebarTags(
+        instance.url,
+        (context ?? focusedTabContext).sidebarFilterRoute?.categoryId,
+      ),
     );
     await topicFeeds.load(
       instance: instance,
@@ -4638,62 +4338,8 @@ class ShellController extends FrameSafeNotifier
       'tag:${topicFilterScopeValue(tags.join('+'))}',
   ].where((part) => part.isNotEmpty).join(' ');
 
-  Future<void> applyTopicListFilterQuery(String query) async {
-    final instance = currentInstance;
-    if (instance == null) return;
-    final scope = parseTopicFilterScope(
-      query,
-      filterCategoriesFor(instance.url),
-    );
-    final tags = <String>[?scope.tag];
-    final remainder = <String>[];
-    for (final clause in splitTopicFilterQuery(scope.query)) {
-      final match = RegExp(r'^tags?:(.*)$').firstMatch(clause);
-      var value = match?.group(1) ?? '';
-      if (value.length > 1 &&
-          (value.startsWith('"') && value.endsWith('"') ||
-              value.startsWith("'") && value.endsWith("'"))) {
-        value = value.substring(1, value.length - 1);
-      }
-      final conjunction = value.split('+');
-      if (match != null &&
-          !value.contains(',') &&
-          conjunction.length > 1 &&
-          conjunction.every((tag) => tag.trim().isNotEmpty)) {
-        // Include-all tags are ordinary feed scope, so changing the feed
-        // retains them just as it retains a single category or tag.
-        tags.addAll(conjunction);
-      } else {
-        remainder.add(clause);
-      }
-    }
-    final source = topicListContent;
-    final route = remainder.isEmpty
-        ? _topicListFilterRoute(
-            siteUrl: instance.url,
-            category: categoryFor(scope.categoryId),
-            tagName: tags.firstOrNull,
-            tags: tags,
-            mode:
-                TopicListMode.fromRoute(sidebarFilterRoute) ??
-                TopicListMode.latest,
-          ).withTopicListQueryFrom(
-            source?.isAdvancedTopicFilter == true ? null : source,
-          )
-        : ContentRoute.topicFilter(
-            remainder.join(' '),
-            categoryId: scope.categoryId,
-            tags: tags,
-          );
-    _showMobileScopeList();
-    _replaceTopicListContent(
-      route,
-      keepTopicOpen: currentContent?.isTopic == true,
-    );
-    _syncTopicChannels();
-    _notify();
-    await loadFeed(route.id);
-  }
+  Future<void> applyTopicListFilterQuery(String query) =>
+      focusedTabContext.applyTopicListFilterQuery(query);
 
   Future<void> submitTopicFilter(String query) async {
     final instance = currentInstance;
@@ -6975,38 +6621,20 @@ class ShellController extends FrameSafeNotifier
   static String _categoryKey(String siteUrl, int categoryId) =>
       '$siteUrl^$categoryId';
 
-  TopicDetail? get currentTopic {
-    final instance = currentInstance;
-    final topicId = currentContent?.topicId;
-    if (instance == null || topicId == null) return null;
-    return store.read<TopicDetail>(instance.url, topicId);
-  }
+  TopicDetail? get currentTopic => focusedTabContext.currentTopic;
 
-  bool get currentTopicSummary {
-    final instance = currentInstance;
-    final topicId = currentContent?.topicId;
-    if (instance == null || topicId == null) return false;
-    return _topicSummaryStreams.containsKey(_topicKey(instance.url, topicId));
-  }
+  bool get currentTopicSummary => focusedTabContext.currentTopicSummary;
 
-  bool get currentTopicSummaryLoading {
-    final instance = currentInstance;
-    final topicId = currentContent?.topicId;
-    if (instance == null || topicId == null) return false;
-    return _topicSummariesLoading.contains(_topicKey(instance.url, topicId));
-  }
+  bool get currentTopicSummaryLoading =>
+      focusedTabContext.currentTopicSummaryLoading;
 
   List<int> _topicStream(String siteUrl, TopicDetail detail) =>
       _topicSummaryStreams[_topicKey(siteUrl, detail.id)] ?? detail.stream;
 
-  List<int> get currentTopicStreamIds {
-    final instance = currentInstance;
-    final detail = currentTopic;
-    if (instance == null || detail == null) return const [];
-    return _topicStream(instance.url, detail);
-  }
+  List<int> get currentTopicStreamIds =>
+      focusedTabContext.currentTopicStreamIds;
 
-  List<int> get currentPostIds => _currentPostWindow().ids;
+  List<int> get currentPostIds => focusedTabContext.currentPostIds;
 
   /// The loaded, contiguous run of the open topic's stream, with its bounds.
   ///
@@ -7014,38 +6642,6 @@ class ShellController extends FrameSafeNotifier
   /// notification, so the run is found once per change of its inputs:
   /// finding it reads the store once per loaded post, and every read touches
   /// the store's recency order.
-  _PostWindow _currentPostWindow() {
-    final instance = currentInstance;
-    final detail = currentTopic;
-    if (instance == null || detail == null) return _emptyPostWindow;
-    final stream = _topicStream(instance.url, detail);
-    final key = (
-      instance.url,
-      detail,
-      stream,
-      currentContent?.postNumber,
-      store.generationOf<Post>(instance.url),
-    );
-    final cacheId = (instance.url, activeTabId);
-    final cachedKey = _postWindowCacheKeys[cacheId];
-    if (cachedKey != null &&
-        cachedKey.$1 == key.$1 &&
-        identical(cachedKey.$2, key.$2) &&
-        identical(cachedKey.$3, key.$3) &&
-        cachedKey.$4 == key.$4 &&
-        cachedKey.$5 == key.$5) {
-      return _postWindowCaches[cacheId]!;
-    }
-    final range = _loadedPostRange(instance.url, detail, stream: stream);
-    _postWindowCacheKeys[cacheId] = key;
-    return _postWindowCaches[cacheId] = (
-      stream: stream,
-      range: range,
-      ids: range == null
-          ? const []
-          : [for (final id in stream.sublist(range.$1, range.$2 + 1)) id],
-    );
-  }
 
   static const _PostWindow _emptyPostWindow = (
     stream: [],
@@ -7107,52 +6703,6 @@ class ShellController extends FrameSafeNotifier
   })?
   _initialPostIndexCache;
 
-  (int, int)? _loadedPostRange(
-    String siteUrl,
-    TopicDetail detail, {
-    List<int>? stream,
-  }) {
-    final effectiveStream = stream ?? _topicStream(siteUrl, detail);
-    if (effectiveStream.isEmpty) return null;
-
-    final target = currentContent?.postNumber;
-    var anchor = -1;
-    if (target != null) {
-      for (var i = 0; i < effectiveStream.length; i++) {
-        final post = store.read<Post>(siteUrl, effectiveStream[i]);
-        if (post != null && post.postNumber >= target) {
-          anchor = i;
-          break;
-        }
-      }
-    } else {
-      anchor = effectiveStream.indexWhere(
-        (id) => store.read<Post>(siteUrl, id) != null,
-      );
-    }
-    // A stale cache or a deliberately minimal test payload may not contain
-    // the requested post yet. Keep showing the contiguous data in hand until
-    // the around-post request lands instead of flashing an empty topic.
-    if (anchor < 0 && target != null) {
-      anchor = effectiveStream.indexWhere(
-        (id) => store.read<Post>(siteUrl, id) != null,
-      );
-    }
-    if (anchor < 0) return null;
-
-    var first = anchor;
-    while (first > 0 &&
-        store.read<Post>(siteUrl, effectiveStream[first - 1]) != null) {
-      first--;
-    }
-    var last = anchor;
-    while (last + 1 < effectiveStream.length &&
-        store.read<Post>(siteUrl, effectiveStream[last + 1]) != null) {
-      last++;
-    }
-    return (first, last);
-  }
-
   List<int> _pendingPostIds(String siteUrl, _PostWindow window, int limit) {
     final stream = window.stream;
     final range = window.range;
@@ -7170,21 +6720,6 @@ class ShellController extends FrameSafeNotifier
     return pending;
   }
 
-  List<int> _pendingEarlierPostIds(
-    String siteUrl,
-    TopicDetail detail,
-    int batchSize,
-  ) {
-    final stream = _topicStream(siteUrl, detail);
-    final range = _loadedPostRange(siteUrl, detail, stream: stream);
-    if (range == null || range.$1 == 0) return const [];
-    final start = range.$1 > batchSize ? range.$1 - batchSize : 0;
-    return [
-      for (final id in stream.sublist(start, range.$1))
-        if (store.read<Post>(siteUrl, id) == null) id,
-    ];
-  }
-
   /// The loaded post the open mega topic pages from on the [newer] side of
   /// its window, or null where there is nothing to read past it by post
   /// number.
@@ -7194,52 +6729,17 @@ class ShellController extends FrameSafeNotifier
   /// end of the stream the topic goes on by post number, until the window
   /// holds the topic's last post id or its first post, as on the web client.
   /// A summary stream is read whole and pages by id.
-  Post? _currentMegaTopicEdge({required bool newer}) {
-    final instance = currentInstance;
-    final detail = currentTopic;
-    if (instance == null || detail == null || !detail.isMegaTopic) return null;
-    final window = _currentPostWindow();
-    final stream = window.stream;
-    final range = window.range;
-    if (range == null || !identical(stream, detail.stream)) return null;
-    if (newer) {
-      if (range.$2 + 1 < stream.length ||
-          stream[range.$2] == detail.lastPostId) {
-        return null;
-      }
-      return store.read<Post>(instance.url, stream[range.$2]);
-    }
-    if (range.$1 > 0) return null;
-    final first = store.read<Post>(instance.url, stream.first);
-    return first != null && first.postNumber > 1 ? first : null;
-  }
 
   /// Whether the stream continues past the loaded window.
   ///
   /// The window is the longest contiguous run of loaded posts, so the post
   /// after it is unloaded by construction, and with no window at all every
   /// post of the stream is still to come.
-  bool get currentTopicHasMore {
-    final window = _currentPostWindow();
-    final range = window.range;
-    return range == null
-        ? window.stream.isNotEmpty
-        : range.$2 + 1 < window.stream.length ||
-              _currentMegaTopicEdge(newer: true) != null;
-  }
+  bool get currentTopicHasMore => focusedTabContext.currentTopicHasMore;
 
-  bool get currentTopicHasEarlier {
-    final range = _currentPostWindow().range;
-    return range != null &&
-        (range.$1 > 0 || _currentMegaTopicEdge(newer: false) != null);
-  }
+  bool get currentTopicHasEarlier => focusedTabContext.currentTopicHasEarlier;
 
-  bool get currentTopicLoading {
-    final instance = currentInstance;
-    final topicId = currentContent?.topicId;
-    if (instance == null || topicId == null) return false;
-    return _topicsLoading.contains(_topicKey(instance.url, topicId));
-  }
+  bool get currentTopicLoading => focusedTabContext.currentTopicLoading;
 
   ({
     String siteUrl,
@@ -7294,19 +6794,8 @@ class ShellController extends FrameSafeNotifier
   /// Requests to reveal a topic after list navigation; never replayed.
   Stream<int> get topicListRevealRequests => _topicListRevealRequests.stream;
 
-  TabOpenResult openTopicFromList(Topic topic, {bool revealInList = false}) {
-    final result = _openTopic(
-      topic.id,
-      topic.slug,
-      topic.title,
-      postNumber: topic.lastUnreadPostNumber,
-      replace: currentContent?.isTopic == true && topicListContent != null,
-    );
-    if (revealInList && result == TabOpenResult.opened) {
-      _topicListRevealRequests.add(topic.id);
-    }
-    return result;
-  }
+  TabOpenResult openTopicFromList(Topic topic, {bool revealInList = false}) =>
+      focusedTabContext.openTopicFromList(topic, revealInList: revealInList);
 
   void openSummaryTopic(UserSummaryTopic topic, {int? postNumber}) =>
       _openTopic(
@@ -7658,12 +7147,19 @@ class ShellController extends FrameSafeNotifier
     bool force = false,
     bool replace = false,
     bool resetScrollPosition = false,
+    ShellTabContext? context,
   }) {
     // A fast double tap on a row pushes the same topic twice — the fetch is
     // deduped below, but the second route still costs a back tap.
+    final document = context ?? focusedTabContext;
+    if (!identical(document.shell, this) || !document.isCurrent) {
+      return TabOpenResult.unsupported;
+    }
     if (currentInstance == null) return TabOpenResult.unsupported;
-    if (currentContent?.topicId == topicId) return TabOpenResult.opened;
-    final source = currentContent;
+    if (document.currentContent?.topicId == topicId) {
+      return TabOpenResult.opened;
+    }
+    final source = document.currentContent;
     final sourceWords =
         source?.isTopicList == true &&
             topicFeeds
@@ -7671,7 +7167,7 @@ class ShellController extends FrameSafeNotifier
                     ?.topicIds
                     .contains(topicId) ==
                 true
-        ? search.wordsFor(currentInstance!.url, activeTabId, source.id)
+        ? search.wordsFor(currentInstance!.url, document.tabId, source.id)
         : '';
     SurfaceOpeningTrace.mark('topic.request');
     if (currentInstance case final instance?) {
@@ -7685,11 +7181,12 @@ class ShellController extends FrameSafeNotifier
     );
     // An explicit post destination supersedes the last reading position from
     // an earlier visit to this topic in the same tab.
-    final tab = activeTab;
+    final tab = document.tab;
     if (resetScrollPosition &&
         tab != null &&
         tab.anchors.containsKey(route.id)) {
-      _replaceActiveTab(
+      _replaceTab(
+        document.siteUrl!,
         tab.copyWith(
           anchors: Map<String, ForumTabAnchor>.of(tab.anchors)
             ..remove(route.id),
@@ -7697,20 +7194,59 @@ class ShellController extends FrameSafeNotifier
         persist: false,
       );
     }
-    if (replace) {
-      replaceCurrentContent(route);
+    String? destinationTabId;
+    if (context != null && document.tabId != activeTabId) {
+      if (!replace &&
+          desktopPanelsEnabled &&
+          tab?.panel != ForumPanel.secondary) {
+        final result = openContentInPanel(
+          route,
+          panel: ForumPanel.secondary,
+          context: document,
+        );
+        if (result != TabOpenResult.opened) return result;
+        destinationTabId = selectedTabIn(ForumPanel.secondary)?.id;
+      } else {
+        final sourceTab = document.tab!;
+        final replacement = replace
+            ? sourceTab.navigate(
+                contentStack: [
+                  ...sourceTab.contentStack.take(
+                    sourceTab.contentStack.length - 1,
+                  ),
+                  route,
+                ],
+              )
+            : sourceTab.push(route);
+        _pendingHomepageTabs.remove(replacement.id);
+        _replaceTab(document.siteUrl!, replacement);
+        _setForumContentRoot();
+        _mobilePane = MobilePane.content;
+        _syncTopicChannels();
+        _notify();
+        destinationTabId = replacement.id;
+      }
     } else {
-      pushContent(route);
+      if (replace) {
+        replaceCurrentContent(route);
+      } else {
+        pushContent(route);
+      }
+      destinationTabId = activeTabId;
     }
     if (sourceWords.isNotEmpty) {
       search.setPageWords(
         currentInstance!.url,
-        activeTabId,
+        destinationTabId,
         route.id,
         sourceWords,
       );
     }
-    unawaited(loadTopic(topicId, slug, force: force, postNumber: postNumber));
+    unawaited(
+      tabContext(
+        destinationTabId,
+      ).loadTopic(topicId, slug, force: force, postNumber: postNumber),
+    );
     return TabOpenResult.opened;
   }
 
@@ -8209,12 +7745,28 @@ class ShellController extends FrameSafeNotifier
     ContentRoute route, {
     required ForumPanel panel,
     bool resetScrollPosition = false,
+    ShellTabContext? context,
   }) {
     final instance = currentInstance;
     final workspace = currentWorkspace;
-    final source = activeTab;
+    if (context != null &&
+        (!identical(context.shell, this) || !context.isCurrent)) {
+      return TabOpenResult.unsupported;
+    }
+    final source = context == null ? activeTab : context.tab;
     if (instance == null || workspace == null || source == null) {
       return TabOpenResult.unsupported;
+    }
+    if (source.panel == panel && context != null && source.id != activeTabId) {
+      final anchors = Map<String, ForumTabAnchor>.of(source.anchors);
+      if (resetScrollPosition) anchors.remove(route.id);
+      _pendingHomepageTabs.remove(source.id);
+      _replaceTab(instance.url, source.copyWith(anchors: anchors).push(route));
+      _setForumContentRoot();
+      _syncTopicChannels();
+      _notify();
+      _hydrateTab(instance, context);
+      return TabOpenResult.opened;
     }
     if (source.panel == panel) {
       if (resetScrollPosition && source.anchors.containsKey(route.id)) {
@@ -8373,9 +7925,16 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  ({int topicId, String slug})? _targetCurrentTopicPost(int postNumber) {
-    final route = currentContent;
-    final tab = activeTab;
+  ({int topicId, String slug})? _targetCurrentTopicPost(
+    int postNumber, {
+    ShellTabContext? context,
+    int? topicId,
+  }) {
+    final document = context ?? focusedTabContext;
+    if (!document.isCurrent) return null;
+    final route = document.currentContent;
+    if (topicId != null && route?.topicId != topicId) return null;
+    final tab = document.tab;
     if (route?.topicId case final topicId? when tab != null && postNumber > 0) {
       final anchors = Map<String, ForumTabAnchor>.of(tab.anchors)
         ..remove(route!.id);
@@ -8387,8 +7946,9 @@ class ShellController extends FrameSafeNotifier
         color: route.color,
         postNumber: postNumber,
       );
-      _topicNavigationRevisions[activeTabId] = topicNavigationRevision + 1;
-      _replaceActiveTab(
+      _topicNavigationRevisions[tab.id] = document.topicNavigationRevision + 1;
+      _replaceTab(
+        document.siteUrl!,
         tab.copyWith(
           contentStack: [
             ...tab.contentStack.take(tab.contentStack.length - 1),
@@ -8497,8 +8057,7 @@ class ShellController extends FrameSafeNotifier
     if (changed && notify && !isDisposed) _notify();
   }
 
-  int get topicNavigationRevision =>
-      _topicNavigationRevisions[activeTabId] ?? 0;
+  int get topicNavigationRevision => focusedTabContext.topicNavigationRevision;
 
   /// Opens the post at progress position [index], counted from one: its place
   /// in the stream, or in a mega topic, whose stream is only the run read so
@@ -8770,9 +8329,16 @@ class ShellController extends FrameSafeNotifier
     String slug, {
     bool force = false,
     int? postNumber,
+    ShellTabContext? context,
   }) => DiagnosticsSink.runOperation(
     'topic.load',
-    () => _loadTopic(topicId, slug, force: force, postNumber: postNumber),
+    () => _loadTopic(
+      topicId,
+      slug,
+      force: force,
+      postNumber: postNumber,
+      context: context ?? focusedTabContext,
+    ),
   );
 
   Future<void> _loadTopic(
@@ -8780,12 +8346,15 @@ class ShellController extends FrameSafeNotifier
     String slug, {
     required bool force,
     int? postNumber,
+    required ShellTabContext context,
   }) async {
+    if (!identical(context.shell, this) || !context.isCurrent) return;
     final instance = currentInstance;
     if (instance == null) return;
     if (instance.loginRequired && !instance.isConnected) return;
-    final requestedPostNumber = postNumber ?? topicScrollPostNumber(topicId);
-    final tabId = activeTabId;
+    final requestedPostNumber =
+        postNumber ?? topicScrollPostNumber(topicId, tabId: context.tabId);
+    final tabId = context.tabId;
 
     // Start presentation fetches before cache/in-flight guards so failures stay
     // retryable even for topics already in the store.
@@ -8829,13 +8398,18 @@ class ShellController extends FrameSafeNotifier
         !force &&
         !_topicsStale.contains(key) &&
         heldResumePostNumber != null &&
-        topicScrollPostNumber(topicId) == null) {
-      final target = _targetCurrentTopicPost(heldResumePostNumber);
+        topicScrollPostNumber(topicId, tabId: context.tabId) == null) {
+      final target = _targetCurrentTopicPost(
+        heldResumePostNumber,
+        context: context,
+        topicId: topicId,
+      );
       if (target != null) {
         await _loadTopic(
           target.topicId,
           target.slug,
           force: false,
+          context: context,
           postNumber: heldResumePostNumber,
         );
         return;
@@ -8949,8 +8523,8 @@ class ShellController extends FrameSafeNotifier
         _ensureMessageListParent(instance.url, tabId, detail);
         if (requestedPostNumber == null &&
             currentInstance?.url == instance.url &&
-            currentContent?.topicId == topicId &&
-            topicScrollPostNumber(topicId) == null) {
+            context.currentContent?.topicId == topicId &&
+            topicScrollPostNumber(topicId, tabId: context.tabId) == null) {
           resumePostNumber = detail.resumePostNumber;
         }
       });
@@ -8970,7 +8544,11 @@ class ShellController extends FrameSafeNotifier
         var replaySlug = '';
         final fallbackPostNumber = resumePostNumber;
         if (replayPostNumber == null && fallbackPostNumber != null) {
-          final target = _targetCurrentTopicPost(fallbackPostNumber);
+          final target = _targetCurrentTopicPost(
+            fallbackPostNumber,
+            context: context,
+            topicId: topicId,
+          );
           if (target != null) {
             replayPostNumber = fallbackPostNumber;
             replaySlug = target.slug;
@@ -8989,12 +8567,17 @@ class ShellController extends FrameSafeNotifier
 
     final targetPostNumber = resumePostNumber;
     if (!replayRefresh && lease.isCurrent && targetPostNumber != null) {
-      final target = _targetCurrentTopicPost(targetPostNumber);
+      final target = _targetCurrentTopicPost(
+        targetPostNumber,
+        context: context,
+        topicId: topicId,
+      );
       if (target != null) {
         await _loadTopic(
           target.topicId,
           target.slug,
           force: false,
+          context: context,
           postNumber: targetPostNumber,
         );
       }
@@ -10357,10 +9940,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> loadMorePosts({int batchSize = 20, String? tabId}) async {
+    final context = tabId == null ? focusedTabContext : tabContext(tabId);
+    if (!context.isCurrent) return;
     final instance = currentInstance;
-    final route = tabId == null
-        ? currentContent
-        : currentWorkspace?.tabById(tabId)?.currentContent;
+    final route = context.currentContent;
     final topicId = route?.topicId;
     if (instance == null || topicId == null) return;
 
@@ -10370,13 +9953,13 @@ class ShellController extends FrameSafeNotifier
     if (_postsLoading.contains(key)) return;
 
     final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
-    final pending = readTab(
-      tabId,
-      () =>
-          _pendingPostIds(instance.url, _currentPostWindow(), boundedBatch + 1),
+    final pending = _pendingPostIds(
+      instance.url,
+      context._currentPostWindow(),
+      boundedBatch + 1,
     );
     if (pending.isEmpty) {
-      final edge = readTab(tabId, () => _currentMegaTopicEdge(newer: true));
+      final edge = context._currentMegaTopicEdge(newer: true);
       if (edge != null) {
         await _loadMegaTopicPage(instance.url, detail, edge, newer: true);
       }
@@ -10460,10 +10043,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> loadEarlierPosts({int batchSize = 20, String? tabId}) async {
+    final context = tabId == null ? focusedTabContext : tabContext(tabId);
+    if (!context.isCurrent) return;
     final instance = currentInstance;
-    final route = tabId == null
-        ? currentContent
-        : currentWorkspace?.tabById(tabId)?.currentContent;
+    final route = context.currentContent;
     final topicId = route?.topicId;
     if (instance == null || topicId == null) return;
 
@@ -10473,12 +10056,13 @@ class ShellController extends FrameSafeNotifier
     if (_earlierPostsLoading.contains(key)) return;
 
     final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
-    final pending = readTab(
-      tabId,
-      () => _pendingEarlierPostIds(instance.url, detail, boundedBatch),
+    final pending = context._pendingEarlierPostIds(
+      instance.url,
+      detail,
+      boundedBatch,
     );
     if (pending.isEmpty) {
-      final edge = readTab(tabId, () => _currentMegaTopicEdge(newer: false));
+      final edge = context._currentMegaTopicEdge(newer: false);
       if (edge != null) {
         await _loadMegaTopicPage(instance.url, detail, edge, newer: false);
       }
@@ -10615,19 +10199,9 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  bool get loadingMorePosts {
-    final instance = currentInstance;
-    final topicId = currentContent?.topicId;
-    if (instance == null || topicId == null) return false;
-    return _postsLoading.contains(_topicKey(instance.url, topicId));
-  }
+  bool get loadingMorePosts => focusedTabContext.loadingMorePosts;
 
-  bool get loadingEarlierPosts {
-    final instance = currentInstance;
-    final topicId = currentContent?.topicId;
-    if (instance == null || topicId == null) return false;
-    return _earlierPostsLoading.contains(_topicKey(instance.url, topicId));
-  }
+  bool get loadingEarlierPosts => focusedTabContext.loadingEarlierPosts;
 
   Future<String?> toggleTopicSummary() async {
     final instance = currentInstance;
@@ -10841,7 +10415,7 @@ class ShellController extends FrameSafeNotifier
     _readerContentBounds.value = bounds;
   }
 
-  bool get canReplyHere => currentTopic?.canCreatePost ?? false;
+  bool get canReplyHere => focusedTabContext.canReplyHere;
 
   ComposerController _buildTextComposer(
     ComposerTarget target, {
@@ -11696,13 +11270,17 @@ class ShellController extends FrameSafeNotifier
     String? replyToUsername,
     bool? replyingToWhisper,
     UserDraft? listedDraft,
+    ShellTabContext? context,
   }) {
+    final document = context ?? focusedTabContext;
+    if (!document.isCurrent || !identical(document.shell, this)) return;
     final instance = currentInstance;
-    final route = currentContent;
+    final route = document.currentContent;
     final topicId = route?.topicId;
-    if (instance == null || topicId == null || !canReplyHere) return;
+    if (instance == null || topicId == null || !document.canReplyHere) return;
     final targetsWhisper =
-        replyingToWhisper ?? _replyTargetsWhisper(replyToPostNumber);
+        replyingToWhisper ??
+        _replyTargetsWhisper(replyToPostNumber, topic: document.currentTopic);
 
     final existing =
         _composersForSite(instance.url)
@@ -11732,14 +11310,14 @@ class ShellController extends FrameSafeNotifier
     if (!_replaceComposer()) return;
     final target = ComposerTarget(
       siteUrl: instance.url,
-      tabId: activeTabId,
+      tabId: document.tabId,
       topicId: topicId,
       slug: route?.slug ?? '',
-      topicTitle: currentTopic?.title ?? route?.title ?? '',
+      topicTitle: document.currentTopic?.title ?? route?.title ?? '',
       replyToPostNumber: replyToPostNumber,
       replyToUsername: replyToUsername,
       replyingToWhisper: targetsWhisper,
-      privateMessageTopic: currentTopic?.privateMessage ?? false,
+      privateMessageTopic: document.currentTopic?.privateMessage ?? false,
     );
     final composer = _buildTextComposer(target, persistsDraft: true);
     _setComposer(composer);
@@ -11748,10 +11326,10 @@ class ShellController extends FrameSafeNotifier
     _composerDrafts.startRestore(composer, listedDraft: listedDraft);
   }
 
-  bool _replyTargetsWhisper(int? postNumber) {
+  bool _replyTargetsWhisper(int? postNumber, {TopicDetail? topic}) {
     if (postNumber == null) return false;
     final instance = currentInstance;
-    final topic = currentTopic;
+    topic ??= currentTopic;
     if (instance == null || topic == null) return false;
     for (final postId in topic.stream) {
       final post = store.read<Post>(instance.url, postId);
@@ -11760,14 +11338,19 @@ class ShellController extends FrameSafeNotifier
     return false;
   }
 
-  Future<void> openQuote(Post post, String quote) async {
-    final sourceTabId = activeTabId;
+  Future<void> openQuote(
+    Post post,
+    String quote, {
+    ShellTabContext? context,
+  }) async {
+    final document = context ?? focusedTabContext;
+    if (!document.isCurrent || !identical(document.shell, this)) return;
     final instance = currentInstance;
-    final route = currentContent;
+    final route = document.currentContent;
     final topicId = route?.topicId;
     if (instance == null ||
         topicId == null ||
-        !canReplyHere ||
+        !document.canReplyHere ||
         quote.trim().isEmpty) {
       return;
     }
@@ -11783,6 +11366,7 @@ class ShellController extends FrameSafeNotifier
 
     if (!reusesOpenReply) {
       openReply(
+        context: document,
         replyToPostNumber: post.postNumber == 1 ? null : post.postNumber,
         replyToUsername: post.postNumber == 1 ? null : post.username,
         replyingToWhisper: post.postNumber != 1 && post.isWhisper,
@@ -11803,8 +11387,8 @@ class ShellController extends FrameSafeNotifier
     if (isDisposed ||
         !_ownsComposer(composer) ||
         currentInstance?.url != instance.url ||
-        currentContent?.topicId != topicId ||
-        activeTabId != sourceTabId) {
+        !document.isCurrent ||
+        !identical(document.currentContent, route)) {
       return;
     }
     if (!composer.insertBlock(expectedValue: composer.value, markdown: quote)) {
@@ -11813,19 +11397,21 @@ class ShellController extends FrameSafeNotifier
     composer.focus.requestFocus();
   }
 
-  void openEdit(Post post, {String? focusText}) {
+  void openEdit(Post post, {String? focusText, ShellTabContext? context}) {
+    final document = context ?? focusedTabContext;
+    if (!document.isCurrent || !identical(document.shell, this)) return;
     final instance = currentInstance;
-    final route = currentContent;
+    final route = document.currentContent;
     final topicId = route?.topicId;
     if (instance == null || topicId == null || !post.canEdit) return;
     unawaited(_ensureTopicComposerCapabilities(instance.url));
 
     if (!_replaceComposer()) return;
-    final detail = currentTopic;
+    final detail = document.currentTopic;
     final editsTopic = post.postNumber == 1 && detail?.canEdit == true;
     final target = ComposerTarget(
       siteUrl: instance.url,
-      tabId: activeTabId,
+      tabId: document.tabId,
       topicId: topicId,
       slug: route?.slug ?? '',
       // The site rejects a topic edit whose `original_title` is not the title
@@ -12124,10 +11710,12 @@ class ShellController extends FrameSafeNotifier
     return List.unmodifiable(kept);
   }
 
-  void openTagsEdit() {
+  void openTagsEdit({ShellTabContext? context}) {
+    final document = context ?? focusedTabContext;
+    if (!document.isCurrent || !identical(document.shell, this)) return;
     final instance = currentInstance;
-    final route = currentContent;
-    final detail = currentTopic;
+    final route = document.currentContent;
+    final detail = document.currentTopic;
     if (instance == null ||
         route?.topicId == null ||
         detail?.canEditTags != true) {
@@ -12143,7 +11731,7 @@ class ShellController extends FrameSafeNotifier
             store.read<Post>(instance.url, firstId)?.postNumber == 1);
     final target = ComposerTarget(
       siteUrl: instance.url,
-      tabId: activeTabId,
+      tabId: document.tabId,
       topicId: route!.topicId!,
       slug: route.slug ?? '',
       topicTitle: detail.title,
@@ -17467,15 +17055,15 @@ class ShellController extends FrameSafeNotifier
     if (desktopPanelsEnabled) {
       for (final panel in ForumPanel.values) {
         final tab = selectedTabIn(panel);
-        if (tab != null) readTab(tab.id, () => _hydrateTab(instance));
+        if (tab != null) _hydrateTab(instance, tabContext(tab.id));
       }
     } else {
-      _hydrateTab(instance);
+      _hydrateTab(instance, focusedTabContext);
     }
   }
 
-  void _hydrateTab(DiscourseInstance instance) {
-    final initialTab = activeTab;
+  void _hydrateTab(DiscourseInstance instance, ShellTabContext context) {
+    final initialTab = context.tab;
     if (initialTab != null && _pendingHomepageTabs.contains(initialTab.id)) {
       unawaited(_hydrateHomepage(instance, initialTab));
       return;
@@ -17484,7 +17072,7 @@ class ShellController extends FrameSafeNotifier
       instance.url,
       (route) => route.resolveCategoryLink(filterCategoriesFor(instance.url)),
     );
-    final tab = activeTab;
+    final tab = context.tab;
     if (tab == null || currentInstance?.url != instance.url) return;
 
     final root = tab.contentStack.first;
@@ -17495,7 +17083,7 @@ class ShellController extends FrameSafeNotifier
         unawaited(userDirectory.load(instance));
       } else {
         unawaited(
-          loadFeed(
+          context.loadFeed(
             root.feedPath == null && !root.isMessages
                 ? tab.rootDestinationId
                 : root.id,
@@ -17503,9 +17091,9 @@ class ShellController extends FrameSafeNotifier
         );
       }
     }
-    final source = topicListContent;
+    final source = context.topicListContent;
     if (source != null && source.id != root.id) {
-      unawaited(loadFeed(source.id));
+      unawaited(context.loadFeed(source.id));
     }
     final route = tab.currentContent;
     final hydrator = _pluginSession
@@ -17520,7 +17108,7 @@ class ShellController extends FrameSafeNotifier
     } else if (route.topicId case final topicId?) {
       final anchor = tab.anchors[route.id];
       unawaited(
-        loadTopic(
+        context.loadTopic(
           topicId,
           route.slug ?? '',
           postNumber: anchor?.kind == 'topic'
@@ -17535,7 +17123,7 @@ class ShellController extends FrameSafeNotifier
     } else if (route.isUsers && route.id != root.id) {
       unawaited(userDirectory.load(instance));
     } else if (route.feedPath != null && route.id != root.id) {
-      unawaited(loadFeed(route.id));
+      unawaited(context.loadFeed(route.id));
     }
   }
 
@@ -17678,97 +17266,28 @@ class ShellController extends FrameSafeNotifier
   Future<void> selectTopicListMode(
     TopicListMode mode, {
     bool keepTopicOpen = false,
-  }) async {
-    final instance = currentInstance;
-    final user = instance?.user;
-    final tab = activeTab;
-    final currentMode = currentTopicListMode;
-    if (instance == null || tab == null || currentMode == null) return;
-    if (user == null &&
-        (mode.isNew ||
-            mode == TopicListMode.unread ||
-            mode == TopicListMode.unseen)) {
-      return;
-    }
-    if (mode.isSubset && user?.unifiedNewEnabled != true) return;
-    if (mode == currentMode &&
-        topicListContent?.isAdvancedTopicFilter != true) {
-      return;
-    }
+  }) =>
+      focusedTabContext.selectTopicListMode(mode, keepTopicOpen: keepTopicOpen);
 
-    final source = topicListContent;
-    final tags = _topicListFilterTagNames(instance.url, source);
-    final route =
-        _topicListFilterRoute(
-          siteUrl: instance.url,
-          mode: mode,
-          category: categoryFor(source?.categoryId),
-          tagName: tags.firstOrNull,
-          tags: tags,
-        ).withTopicListQueryFrom(
-          source?.isAdvancedTopicFilter == true ? null : source,
-        );
-    _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
-    _mobilePane = MobilePane.content;
-    _syncTopicChannels();
-    _notify();
-    await loadFeed(route.id);
-  }
-
-  Future<void> sortTopicList(String column) async {
-    final source = topicListContent;
-    if (currentInstance == null ||
-        source?.canSortTopicList != true ||
-        !ContentRoute.topicListSortColumns.contains(column)) {
-      return;
-    }
-    final same = source!.topicListOrder == column;
-    final route = source.withTopicListSort(
-      same && source.topicListAscending ? null : column,
-      ascending: same && !source.topicListAscending,
-    );
-    _replaceTopicListContent(route, keepTopicOpen: true);
-    _syncTopicChannels();
-    _notify();
-    await loadFeed(route.id);
-  }
+  Future<void> sortTopicList(String column) =>
+      focusedTabContext.sortTopicList(column);
 
   void selectTopicListCategory(
     TopicCategory? category, {
     bool keepTopicOpen = false,
-  }) {
-    final route = topicListContent;
-    final siteUrl = currentInstance?.url;
-    if (route?.isTopicListFilter != true || siteUrl == null) return;
-    final tags = _topicListFilterTagNames(siteUrl, route);
-    _selectTopicListFilter(
-      category: category,
-      tagName: tags.firstOrNull,
-      tags: tags,
-      keepTopicOpen: keepTopicOpen,
-    );
-  }
+  }) => focusedTabContext.selectTopicListCategory(
+    category,
+    keepTopicOpen: keepTopicOpen,
+  );
 
-  void selectTopicListTag(String? tagName, {bool keepTopicOpen = false}) {
-    final route = topicListContent;
-    if (route?.isTopicListFilter != true) return;
-    _selectTopicListFilter(
-      category: categoryFor(route!.categoryId),
-      tagName: tagName,
-      keepTopicOpen: keepTopicOpen,
-    );
-  }
+  void selectTopicListTag(String? tagName, {bool keepTopicOpen = false}) =>
+      focusedTabContext.selectTopicListTag(
+        tagName,
+        keepTopicOpen: keepTopicOpen,
+      );
 
-  void selectTopicListTags(List<String> tags, {bool keepTopicOpen = false}) {
-    final route = topicListContent;
-    if (route?.isTopicListFilter != true) return;
-    _selectTopicListFilter(
-      category: categoryFor(route!.categoryId),
-      tagName: tags.firstOrNull,
-      tags: tags,
-      keepTopicOpen: keepTopicOpen,
-    );
-  }
+  void selectTopicListTags(List<String> tags, {bool keepTopicOpen = false}) =>
+      focusedTabContext.selectTopicListTags(tags, keepTopicOpen: keepTopicOpen);
 
   void clearTopicListFilters() {
     if (currentContent?.isTopicListFilter != true) return;
@@ -17780,65 +17299,20 @@ class ShellController extends FrameSafeNotifier
     required String? tagName,
     List<String>? tags,
     bool keepTopicOpen = false,
-  }) {
-    final instance = currentInstance;
-    final tab = activeTab;
-    if (instance == null || tab == null) return;
-
-    final normalizedTag = switch (tagName?.trim()) {
-      final value? when value.isNotEmpty => value,
-      _ => null,
-    };
-    final route = _topicListFilterRoute(
-      siteUrl: instance.url,
-      category: category,
-      tagName: normalizedTag,
-      tags: tags,
-      mode: currentTopicListMode ?? TopicListMode.latest,
-    ).withTopicListQueryFrom(topicListContent);
-    if (route.id == topicListContent?.id &&
-        route.feedPath == topicListContent?.feedPath) {
-      return;
-    }
-
-    _replaceTopicListContent(route, keepTopicOpen: keepTopicOpen);
-    _mobilePane = MobilePane.content;
-    _syncTopicChannels();
-    _notify();
-    unawaited(loadFeed(route.id));
-  }
+  }) => focusedTabContext._selectTopicListFilter(
+    category: category,
+    tagName: tagName,
+    tags: tags,
+    keepTopicOpen: keepTopicOpen,
+  );
 
   void _replaceTopicListContent(
     ContentRoute route, {
     required bool keepTopicOpen,
-  }) {
-    final tab = activeTab;
-    if (tab == null) return;
-    final sourceIndex = tab.contentStack.lastIndexWhere(
-      (item) => !item.isTopic,
-    );
-    final retainReader =
-        !desktopPanelsEnabled &&
-        keepTopicOpen &&
-        tab.currentContent.isTopic &&
-        sourceIndex >= 0 &&
-        tab.contentStack[sourceIndex].isTopicList;
-    _replaceActiveTab(
-      tab.navigate(
-        rootDestinationId: route.isMessages ? 'messages' : 'latest',
-        contentStack: retainReader
-            ? [
-                ...tab.contentStack.take(sourceIndex),
-                route,
-                ...tab.contentStack.skip(sourceIndex + 1),
-              ]
-            : [route],
-      ),
-    );
-    if (mobileNavigationEnabled && tab.currentContent.isTopicList) {
-      mobileNavigation.replaceCurrent(activeTab!.location);
-    }
-  }
+  }) => focusedTabContext._replaceTopicListContent(
+    route,
+    keepTopicOpen: keepTopicOpen,
+  );
 
   void browseTopicCategory(
     TopicCategory category, {
@@ -18721,54 +18195,13 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  bool handleBack({bool canReturnToSidebar = true}) {
-    if (mobileNavigationEnabled) {
-      if (mobileNavigation.closeSidebar()) {
-        _notify();
-        return true;
-      }
-      if (!mobileNavigation.goBack()) return false;
-      _restoreMobileLocation();
-      return true;
-    }
-    if (canPopContent) {
-      final tab = activeTab!;
-      _replaceActiveTab(tab.goBack());
-      _syncTopicChannels();
-      _notify();
-      if (currentInstance case final instance?) _hydrateActiveTab(instance);
-      return true;
-    }
-    if (canReturnToSidebar && _mobilePane == MobilePane.content) {
-      _mobilePane = MobilePane.sidebar;
-      _notify();
-      return true;
-    }
-    return false;
-  }
+  bool handleBack({bool canReturnToSidebar = true}) =>
+      focusedTabContext.handleBack(canReturnToSidebar: canReturnToSidebar);
 
-  bool handleForward() {
-    if (mobileNavigationEnabled) {
-      if (!mobileNavigation.goForward()) {
-        return false;
-      }
-      _restoreMobileLocation();
-      return true;
-    }
-    final tab = activeTab;
-    if (_rootMode != ShellRootMode.forum || tab?.canGoForward != true) {
-      return false;
-    }
-    _replaceActiveTab(tab!.goForward());
-    _mobilePane = MobilePane.content;
-    _syncTopicChannels();
-    _notify();
-    if (currentInstance case final instance?) _hydrateActiveTab(instance);
-    return true;
-  }
+  bool handleForward() => focusedTabContext.handleForward();
 
   void _notify() {
-    readTab(null, _notifyCurrentWorkspace);
+    _notifyCurrentWorkspace();
   }
 
   void _notifyCurrentWorkspace() {

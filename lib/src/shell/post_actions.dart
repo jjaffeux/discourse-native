@@ -234,7 +234,8 @@ class _PostActionsState extends State<PostActions> {
   })
   _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
-    final topic = controller.currentTopic;
+    final tab = ForumTabScope.tabOf(context);
+    final topic = tab.currentTopic;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     if (post.isSmallAction || registry.isSmallAction(post)) {
@@ -278,7 +279,7 @@ class _PostActionsState extends State<PostActions> {
         : null;
     final postUrl = _postShareUrl(controller);
     final canonicalUrl = _postCanonicalUrl(controller);
-    final topicTitle = controller.currentTopic?.title;
+    final topicTitle = topic?.title;
 
     return (
       actions: [
@@ -350,7 +351,7 @@ class _PostActionsState extends State<PostActions> {
               ),
             ),
           ),
-        if (controller.canReplyHere &&
+        if (tab.canReplyHere &&
             topic != null &&
             post.cooked.isNotEmpty &&
             !post.hidden &&
@@ -362,7 +363,7 @@ class _PostActionsState extends State<PostActions> {
             label: appL10n.quote,
             tooltip: appL10n.quote,
             onInvoke: () => unawaited(
-              controller.openQuote(
+              tab.openQuote(
                 post,
                 buildPostQuote(
                   post: post,
@@ -398,14 +399,14 @@ class _PostActionsState extends State<PostActions> {
               if (reply != null) unawaited(reply());
             },
           ),
-        if (controller.canReplyHere)
+        if (tab.canReplyHere)
           PostAction(
             icon: DIcons.reply,
             placement: PostActionPlacement.trailing,
             showLabelInFooter: false,
             label: appL10n.reply,
             tooltip: appL10n.replyToThisPost,
-            onInvoke: () => controller.openReply(
+            onInvoke: () => tab.openReply(
               replyToPostNumber: post.postNumber,
               replyToUsername: post.username,
               replyingToWhisper: post.isWhisper,
@@ -418,7 +419,7 @@ class _PostActionsState extends State<PostActions> {
             showLabelInFooter: false,
             label: appL10n.edit,
             tooltip: appL10n.editThisPost,
-            onInvoke: () => controller.openEdit(post),
+            onInvoke: () => tab.openEdit(post),
           ),
         if (post.editCount > 0 && post.canViewEditHistory)
           PostAction(
@@ -573,7 +574,7 @@ class _PostActionsState extends State<PostActions> {
             label: appL10n.changeOwner,
             tooltip: appL10n.assignThisPostToAnotherAccount,
             onInvoke: () {
-              final topic = controller.currentTopic;
+              final topic = ForumTabScope.tabOf(context).currentTopic;
               if (topic == null) return;
               unawaited(
                 showTopicChangeOwner(
@@ -602,14 +603,14 @@ class _PostActionsState extends State<PostActions> {
                 _report(controller, controller.togglePostType(post)),
           ),
         if (post.postNumber == 1 &&
-            controller.currentTopic?.canEdit != true &&
-            controller.currentTopic?.canEditTags == true)
+            topic?.canEdit != true &&
+            topic?.canEditTags == true)
           PostAction(
             icon: DIcons.tag,
             placement: PostActionPlacement.overflow,
             label: appL10n.editTags,
             tooltip: appL10n.editTopicTagsPostactions,
-            onInvoke: controller.openTagsEdit,
+            onInvoke: tab.openTagsEdit,
           ),
         if (topic != null && controller.canPermanentlyDeletePost(post))
           PostAction(
@@ -709,8 +710,9 @@ class _PostActionsState extends State<PostActions> {
 
   String? _postShareUrl(ShellController controller) {
     final instance = controller.currentInstance;
-    final topic = controller.currentTopic;
-    final route = controller.currentContent;
+    final tab = ForumTabScope.tabOf(context);
+    final topic = tab.currentTopic;
+    final route = tab.currentContent;
     if (instance?.url != widget.siteUrl ||
         topic == null ||
         route?.topicId != topic.id) {
@@ -728,8 +730,9 @@ class _PostActionsState extends State<PostActions> {
   }
 
   String? _postCanonicalUrl(ShellController controller) {
-    final topic = controller.currentTopic;
-    final route = controller.currentContent;
+    final tab = ForumTabScope.tabOf(context);
+    final topic = tab.currentTopic;
+    final route = tab.currentContent;
     if (controller.currentInstance?.url != widget.siteUrl ||
         topic == null ||
         route?.topicId != topic.id) {
@@ -777,8 +780,8 @@ class _PostActionsState extends State<PostActions> {
     final shell = ShellScope.read(context);
     final siteUrl = widget.siteUrl;
     final lease = shell.lifecycle.capture(siteUrl);
-    final tabId = shell.activeTabId;
-    final routeId = shell.currentContent?.id;
+    final tab = ForumTabScope.tabOf(context);
+    final routeId = tab.currentContent?.id;
     final postId = widget.post.id;
     final selected = await showDSheet<PostAction>(
       context: context,
@@ -835,8 +838,9 @@ class _PostActionsState extends State<PostActions> {
         widget.siteUrl != siteUrl ||
         widget.post.id != postId ||
         shell.currentInstance?.url != siteUrl ||
-        shell.activeTabId != tabId ||
-        shell.currentContent?.id != routeId) {
+        !tab.isCurrent ||
+        ForumTabScope.tabOf(context).tabId != tab.tabId ||
+        tab.currentContent?.id != routeId) {
       return;
     }
     // Open any composer only after the sheet has returned its selection.
@@ -854,7 +858,7 @@ class _PostActionsState extends State<PostActions> {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<
+    return ForumTabSelector<
       ({
         bool canReply,
         Object presentation,
@@ -863,11 +867,11 @@ class _PostActionsState extends State<PostActions> {
         bool postBusy,
       })
     >(
-      select: (controller) => (
-        canReply: controller.canReplyHere,
+      select: (controller, tab) => (
+        canReply: tab.canReplyHere,
         presentation: controller.presentationTokenFor(widget.siteUrl),
         flagCatalog: controller.postFlagTypesFor(widget.siteUrl),
-        bookmarkBusy: switch (controller.currentTopic) {
+        bookmarkBusy: switch (tab.currentTopic) {
           final topic? => controller.bookmarkWriteInFlight(
             siteUrl: widget.siteUrl,
             topicId: topic.id,
@@ -892,7 +896,7 @@ class _PostActionsState extends State<PostActions> {
       // Reuse that snapshot for this builder's first call, then read fresh
       // actions on notifications. A parent rebuild supplies a new snapshot.
       var initial = true;
-      return ForumTabListenableBuilder(
+      return ListenableBuilder(
         listenable: rebuildOn,
         builder: (context, _) {
           final current = initial

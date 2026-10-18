@@ -120,7 +120,8 @@ class TopicInboxHeader extends StatelessWidget {
       );
     }
     final shell = ShellScope.read(context);
-    final route = this.route ?? shell.currentContent;
+    final tab = ForumTabScope.tabOf(context);
+    final route = this.route ?? tab.currentContent;
     final topicId = topic?.id ?? route?.topicId ?? preview?.id;
     final row =
         preview ??
@@ -129,10 +130,7 @@ class TopicInboxHeader extends StatelessWidget {
             : null);
     final openingPostNumber = topicId == null
         ? null
-        : shell.topicScrollPostNumber(
-                topicId,
-                tabId: ForumTabScope.idOf(context),
-              ) ??
+        : shell.topicScrollPostNumber(topicId, tabId: tab.tabId) ??
               route?.postNumber ??
               topic?.resumePostNumber ??
               row?.lastUnreadPostNumber;
@@ -650,10 +648,11 @@ class TopicCloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
-    final content = controller.topicListContent?.isMessages == true
+    final tab = ForumTabScope.tabOf(context);
+    final content = tab.topicListContent?.isMessages == true
         ? 'message'
         : 'topic';
-    final source = controller.topicListContent;
+    final source = tab.topicListContent;
     final sourceTitle = source?.tabTitle ?? context.l10n.back;
     final label = sourceTitle == 'Latest'
         ? context.l10n.latestTopics
@@ -670,10 +669,10 @@ class TopicCloseButton extends StatelessWidget {
       variant: DButtonVariant.inline,
       density: DButtonDensity.backLink,
       onPressed: () {
-        if (controller.topicListContent != null) {
-          controller.closeTopicListReader();
+        if (tab.topicListContent != null) {
+          tab.closeTopicListReader();
         } else {
-          controller.handleBack(canReturnToSidebar: canReturnToSidebar);
+          tab.handleBack(canReturnToSidebar: canReturnToSidebar);
         }
       },
     );
@@ -876,9 +875,14 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
   final bool showTaxonomy;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<Object>(
-    select: (controller) => controller.presentationTokenFor(siteUrl),
-    builder: (context, _, _) {
+  Widget build(
+    BuildContext context,
+  ) => ForumTabSelector<({Object presentation, int navigationRevision})>(
+    select: (controller, tab) => (
+      presentation: controller.presentationTokenFor(siteUrl),
+      navigationRevision: tab.topicNavigationRevision,
+    ),
+    builder: (context, state, _) {
       final shell = ShellScope.read(context);
       final category = shell.categoryFor(topic.categoryId, siteUrl: siteUrl);
       final parent = shell.categoryFor(
@@ -1024,7 +1028,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
                           section: section,
                           registry: registry,
                           compact: true,
-                          navigationRevision: shell.topicNavigationRevision,
+                          navigationRevision: state.navigationRevision,
                         ),
                       ],
                     ),
@@ -1301,8 +1305,15 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
   }
 
   void _openRequestedProperty() {
+    final tab = ForumTabScope.tabOf(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (!tab.isCurrent ||
+          tab.siteUrl != widget.siteUrl ||
+          tab.currentContent?.topicId != widget.topicId ||
+          tab.topicNavigationRevision != widget.navigationRevision) {
+        return;
+      }
       if (!ShellScope.read(context).consumeTopicProperty(
         widget.siteUrl,
         widget.topicId,
@@ -1418,16 +1429,25 @@ class _TopicPropertyDetails extends StatelessWidget {
   final VoidCallback onDismiss;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<(String?, int?, int)>(
-    select: (shell) => (
-      shell.currentInstance?.url,
-      shell.currentContent?.topicId,
-      shell.topicNavigationRevision,
+  Widget build(BuildContext context) => ForumTabSelector<(String?, int?, int)>(
+    select: (shell, tab) => (
+      tab.isCurrent ? tab.siteUrl : null,
+      tab.currentContent?.topicId,
+      tab.topicNavigationRevision,
     ),
     builder: (context, navigation, _) {
       if (navigation != (siteUrl, topicId, navigationRevision)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) onDismiss();
+          if (!context.mounted) return;
+          final tab = ForumTabScope.tabOf(context);
+          final current = (
+            tab.isCurrent ? tab.siteUrl : null,
+            tab.currentContent?.topicId,
+            tab.topicNavigationRevision,
+          );
+          if (current != (siteUrl, topicId, navigationRevision)) {
+            onDismiss();
+          }
         });
       }
       return ValueListenableBuilder<TopicDetail?>(

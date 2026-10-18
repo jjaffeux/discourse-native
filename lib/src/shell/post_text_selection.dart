@@ -124,9 +124,9 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   void _insertQuote() {
     final quote = _quote;
     if (quote.isEmpty) return;
-    final controller = ShellScope.read(context);
+    final tab = ForumTabScope.tabOf(context);
     _dismiss(clearSelection: true);
-    unawaited(controller.openQuote(widget.post, quote));
+    unawaited(tab.openQuote(widget.post, quote));
   }
 
   Future<void> _copyQuote() async {
@@ -148,7 +148,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     final controller = ShellScope.read(context);
     _dismiss(clearSelection: true);
     if (_transformed) {
-      controller.openEdit(widget.post);
+      ForumTabScope.tabOf(context).openEdit(widget.post);
       return;
     }
     if (!selection.supportsFastEdit) {
@@ -175,9 +175,9 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   @override
   Widget build(
     BuildContext context,
-  ) => ShellSelector<({bool canQuote, bool canEdit})>(
-    select: (controller) => (
-      canQuote: controller.canReplyHere,
+  ) => ForumTabSelector<({bool canQuote, bool canEdit})>(
+    select: (controller, tab) => (
+      canQuote: tab.canReplyHere,
       canEdit:
           widget.post.canEdit &&
           controller.siteConfigFor(widget.siteUrl).fastEditEnabled,

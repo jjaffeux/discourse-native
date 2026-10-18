@@ -81,6 +81,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
   bool _suggestionsReady = false;
   ShellController? _shell;
   String? _tabId;
+  ShellTabContext? _tab;
   _TopicListMenuOwner? _owner;
   bool _retired = false;
   bool _publishingScope = false;
@@ -117,19 +118,21 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
           ).where((token) => _scopeToken(token, widget.filterKey!)),
         ].join(' ');
 
-  _TopicListMenuOwner _ownerOf(ShellController shell) => shell.readTab(
-    _tabId,
-    () => (
+  _TopicListMenuOwner _ownerOf(ShellController shell) {
+    final tab = _tab!;
+    return (
       context: (
-        shell.currentInstance?.url,
-        shell.currentAccountIdentity,
-        shell.lifecycle.capture(widget.siteUrl).session,
+        shell,
+        tab.siteUrl,
+        tab.accountIdentity,
+        tab.lease?.session,
         shell.rootMode,
-        shell.activeTabId,
+        tab.activeTabId,
+        tab.isCurrent,
       ),
-      feed: (shell.topicListContent?.id, shell.topicListContent?.feedPath),
-    ),
-  );
+      feed: (tab.topicListContent?.id, tab.topicListContent?.feedPath),
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -140,6 +143,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     _shell?.removeListener(_checkOwner);
     _shell = shell;
     _tabId = tabId;
+    _tab = ForumTabScope.tabOf(context);
     _retired = false;
     _owner = _ownerOf(shell);
     shell.addListener(_checkOwner);
@@ -185,16 +189,13 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
       return;
     }
     if (close) _popover.close();
-    if (_tabId case final tabId? when shell.activeTabId != tabId) {
-      shell.selectTab(tabId);
-    }
     final complete = splitTopicFilterQuery(
       _withScope(query),
     ).where((token) => topicFilterClauseKey(token) != token).join(' ');
     late Future<void> applied;
     _publishingScope = true;
     try {
-      applied = (widget.onSubmitted ?? shell.applyTopicListFilterQuery)(
+      applied = (widget.onSubmitted ?? _tab!.applyTopicListFilterQuery)(
         complete,
       );
     } finally {

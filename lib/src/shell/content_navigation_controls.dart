@@ -26,19 +26,19 @@ class ContentNavigationControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      ShellSelector<({bool back, bool forward, bool refresh, bool refreshing})>(
-        select: (controller) => (
-          back:
-              controller.rootMode == ShellRootMode.forum &&
-              controller.canPopContent,
+      ForumTabSelector<
+        ({bool back, bool forward, bool refresh, bool refreshing})
+      >(
+        select: (controller, tab) => (
+          back: controller.rootMode == ShellRootMode.forum && tab.canPopContent,
           forward:
               controller.rootMode == ShellRootMode.forum &&
-              controller.canForwardContent,
-          refresh: controller.canRefreshCurrentTab,
-          refreshing: controller.refreshingCurrentTab,
+              tab.canForwardContent,
+          refresh: tab.canRefreshCurrentTab,
+          refreshing: tab.refreshingCurrentTab,
         ),
         builder: (context, state, _) {
-          final controller = ShellScope.read(context);
+          final tab = ForumTabScope.tabOf(context);
           final tokens = DTokens.of(context);
           return IntrinsicWidth(
             child: DCard(
@@ -64,8 +64,7 @@ class ContentNavigationControls extends StatelessWidget {
                       variant: DButtonVariant.ghost,
                       density: DButtonDensity.chrome,
                       onPressed: state.back
-                          ? () =>
-                                controller.handleBack(canReturnToSidebar: false)
+                          ? () => tab.handleBack(canReturnToSidebar: false)
                           : null,
                     ),
                     DButton.iconOnly(
@@ -83,9 +82,7 @@ class ContentNavigationControls extends StatelessWidget {
                       ),
                       variant: DButtonVariant.ghost,
                       density: DButtonDensity.chrome,
-                      onPressed: state.forward
-                          ? controller.handleForward
-                          : null,
+                      onPressed: state.forward ? tab.handleForward : null,
                     ),
                     DSeparator(
                       orientation: Axis.vertical,
@@ -109,7 +106,7 @@ class ContentNavigationControls extends StatelessWidget {
                       variant: DButtonVariant.ghost,
                       density: DButtonDensity.chrome,
                       onPressed: state.refresh && !state.refreshing
-                          ? () => unawaited(controller.refreshCurrentTab())
+                          ? () => unawaited(tab.refreshTab())
                           : null,
                     ),
                   ],

@@ -106,8 +106,8 @@ class _MainContentState extends State<MainContent> {
 
   @override
   Widget build(BuildContext context) {
-    return ShellSelector<_MainContentSnapshot>(
-      select: (shell) => _MainContentSnapshot.from(shell),
+    return ForumTabSelector<_MainContentSnapshot>(
+      select: (shell, tab) => _MainContentSnapshot.from(shell, tab),
       builder: (context, state, _) {
         final shell = ShellScope.read(context);
         _bindRefresher(shell, state.activeTabId);
@@ -284,8 +284,7 @@ class _MainContentBody extends StatelessWidget {
   final GlobalKey<ForumAboutPageState> aboutPageKey;
 
   @override
-  Widget build(BuildContext context) =>
-      ForumTabScope.read(context, (_) => _buildPanel(context));
+  Widget build(BuildContext context) => _buildPanel(context);
 
   Widget _buildPanel(BuildContext context) {
     final theme = Theme.of(context);
@@ -313,10 +312,7 @@ class _MainContentBody extends StatelessWidget {
         ),
       );
     }
-    final pluginContent = ForumTabScope.read(
-      context,
-      (_) => registry.content(context, route),
-    );
+    final pluginContent = registry.content(context, route);
     final pluginOwnsChrome = registry.ownsContentChrome(context, route);
     final sourceRoute = state.sourceRoute;
     if (pluginContent == null &&
@@ -586,7 +582,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
     BuildContext context,
   ) => ValueListenableBuilder<double>(
     valueListenable: _listWidth,
-    builder: (context, _, _) => ForumTabLayoutBuilder(
+    builder: (context, _, _) => LayoutBuilder(
       builder: (context, constraints) {
         final controller = ShellScope.read(context);
         final layout = widget.layout;
@@ -703,13 +699,13 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                   : null,
               footer: (controller.mobileNavigationEnabled || !context.isTouch)
                   ? null
-                  : ShellSelector<bool>(
-                      select: (shell) {
+                  : ForumTabSelector<bool>(
+                      select: (shell, tab) {
                         final instance = shell.currentInstance;
                         final canCreate = messages
                             ? instance?.isConnected == true &&
                                   instance?.user?.canSendPrivateMessages == true
-                            : shell.canCreateTopicFromList;
+                            : tab.canCreateTopicFromList;
                         final canWatchCategory =
                             context.isTouch &&
                             instance?.isConnected == true &&
@@ -862,7 +858,7 @@ class _RetainedTopicListPaneState extends State<_RetainedTopicListPane> {
   }
 
   @override
-  Widget build(BuildContext context) => ForumTabLayoutBuilder(
+  Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       if (!widget.hidden || _visibleChild == null) {
         _visibleSize = constraints.biggest;
@@ -1030,8 +1026,7 @@ class _FeedBackedContent extends StatelessWidget {
     final controller = ShellScope.read(context);
     return _TopicFeedSelector<TopicFeed?>(
       controller: controller,
-      select: (controller) =>
-          ForumTabScope.read(context, (shell) => shell.currentFeed),
+      select: (controller, tab) => tab.currentFeed,
       builder: (context, feed, _) {
         final Widget content;
         if (route.isMessages) {
@@ -1121,7 +1116,7 @@ class _ContentHeader extends StatelessWidget {
     return Container(
       key: const ValueKey('content-header'),
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: ForumTabLayoutBuilder(
+      child: LayoutBuilder(
         builder: (context, constraints) {
           final carriesSearch =
               !controller.mobileNavigationEnabled &&
@@ -1383,8 +1378,8 @@ class _TopicListHeadingTitle extends StatelessWidget {
 
     final categoryId = this.categoryId;
     if (categoryId == null) {
-      return ShellSelector<TopicListMode?>(
-        select: (shell) => shell.currentTopicListMode,
+      return ForumTabSelector<TopicListMode?>(
+        select: (shell, tab) => tab.currentTopicListMode,
         builder: (context, mode, _) => title(
           ShellScope.read(context).mobileNavigationEnabled
               ? context.l10n.topics
@@ -1638,9 +1633,8 @@ class _TopicCreateAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _TopicFeedSelector<bool>(
     controller: controller,
-    select: (controller) => fromList
-        ? controller.canCreateTopicFromList
-        : controller.canCreateTopicHere,
+    select: (controller, tab) =>
+        fromList ? tab.canCreateTopicFromList : tab.canCreateTopicHere,
     builder: (context, canCreateTopic, _) => canCreateTopic
         ? Padding(
             padding: EdgeInsets.only(left: leadingPadding ? 8 : 0),
@@ -1666,7 +1660,7 @@ class _TopicFeedSelector<T> extends StatefulWidget {
   });
 
   final ShellController controller;
-  final T Function(ShellController controller) select;
+  final T Function(ShellController controller, ShellTabContext tab) select;
   final ValueWidgetBuilder<T> builder;
   final Widget? child;
 
@@ -1678,8 +1672,13 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
   late T _value;
   String? _tabId;
 
-  T _read() =>
-      widget.controller.readTab(_tabId, () => widget.select(widget.controller));
+  T _read() => widget.select(widget.controller, _tab());
+
+  ShellTabContext _tab() => _panelScoped
+      ? widget.controller.tabContext(_tabId)
+      : widget.controller.focusedTabContext;
+
+  bool _panelScoped = false;
 
   @override
   void initState() {
@@ -1691,6 +1690,8 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _panelScoped =
+        context.getInheritedWidgetOfExactType<ForumTabScope>() != null;
     _tabId = ForumTabScope.idOf(context);
     _value = _read();
   }
@@ -1714,10 +1715,8 @@ class _TopicFeedSelectorState<T> extends State<_TopicFeedSelector<T>> {
   }
 
   @override
-  Widget build(BuildContext context) => ForumTabScope.read(
-    context,
-    (_) => widget.builder(context, _value, widget.child),
-  );
+  Widget build(BuildContext context) =>
+      widget.builder(context, _value, widget.child);
 
   @override
   void dispose() {
@@ -1826,18 +1825,21 @@ class _MainContentSnapshot {
     required this.groupSessionIdentity,
   });
 
-  factory _MainContentSnapshot.from(ShellController controller) {
-    final route = controller.currentContent;
+  factory _MainContentSnapshot.from(
+    ShellController controller,
+    ShellTabContext tab,
+  ) {
+    final route = tab.currentContent;
     return _MainContentSnapshot(
       siteUrl: controller.currentInstance?.url,
-      activeTabId: controller.activeTabId,
+      activeTabId: tab.activeTabId,
       route: route,
-      sourceRoute: controller.topicListContent,
-      canPop: controller.canPopContent,
-      canReply: controller.canReplyHere,
+      sourceRoute: tab.topicListContent,
+      canPop: tab.canPopContent,
+      canReply: tab.canReplyHere,
       bookmarkBusy: switch ((
         controller.currentInstance?.url,
-        controller.currentTopic,
+        tab.currentTopic,
       )) {
         (final siteUrl?, final topic?) => controller.bookmarkWriteInFlight(
           siteUrl: siteUrl,

@@ -19,10 +19,10 @@ import 'shell_scope.dart';
 
 typedef _AdjacentTopics = ({int? previous, int? next, bool more, bool busy});
 
-_AdjacentTopics _adjacentTopics(ShellController shell) {
-  final feed = shell.currentFeed;
+_AdjacentTopics _adjacentTopics(ShellController shell, ShellTabContext tab) {
+  final feed = tab.currentFeed;
   final count = feed?.rowCount ?? 0;
-  final topicId = shell.readingTopicId;
+  final topicId = tab.readingTopicId;
   final index = feed?.indexOfTopic(topicId ?? -1) ?? -1;
   final fallback = topicId != null && index < 0 && count > 0 ? 0 : null;
   return (
@@ -32,9 +32,8 @@ _AdjacentTopics _adjacentTopics(ShellController shell) {
         : index >= 0 && index + 1 < count
         ? index + 1
         : fallback,
-    more:
-        index >= 0 && index == count - 1 && shell.currentFeed?.hasMore == true,
-    busy: shell.currentFeed?.loadingMore == true,
+    more: index >= 0 && index == count - 1 && tab.currentFeed?.hasMore == true,
+    busy: tab.currentFeed?.loadingMore == true,
   );
 }
 
@@ -44,15 +43,16 @@ bool openAdjacentTopic(
   bool fromKeyboard = false,
 }) {
   final shell = ShellScope.read(context);
-  final state = _adjacentTopics(shell);
+  final tab = ForumTabScope.tabOf(context);
+  final state = _adjacentTopics(shell, tab);
   final row = next ? state.next : state.previous;
   final instance = shell.currentInstance;
   if (instance == null || (row == null && !(next && state.more))) return false;
   final siteUrl = instance.url;
   final lease = shell.lifecycle.capture(siteUrl);
-  final source = shell.currentFeedId;
-  final route = shell.currentContent;
-  final tabId = shell.activeTabId;
+  final source = tab.currentFeedId;
+  final route = tab.currentContent;
+  final tabId = tab.activeTabId;
   final focus = FocusManager.instance.primaryFocus;
 
   Future<void> open() async {
@@ -61,11 +61,14 @@ bool openAdjacentTopic(
     void checkOwner() {
       cancelled |=
           !context.mounted ||
+          !identical(ShellScope.read(context), shell) ||
+          !tab.isCurrent ||
           !lease.isCurrent ||
+          !shell.isTabVisible(tab.tabId) ||
           shell.currentInstance?.url != siteUrl ||
-          shell.activeTabId != tabId ||
-          shell.currentFeedId != source ||
-          shell.currentContent != route;
+          tab.activeTabId != tabId ||
+          tab.currentFeedId != source ||
+          tab.currentContent != route;
     }
 
     bool current() {
@@ -81,12 +84,12 @@ bool openAdjacentTopic(
     if (fromKeyboard) FocusManager.instance.addListener(focusChanged);
     try {
       if (targetRow == null && source != null) {
-        await shell.loadMoreFeed(source);
+        await tab.loadMoreFeed(source);
         if (!current()) return;
-        targetRow = _adjacentTopics(shell).next;
+        targetRow = _adjacentTopics(shell, tab).next;
       }
       if (targetRow == null) return;
-      var feed = shell.currentFeed;
+      var feed = tab.currentFeed;
       var target = feed?.topicIdAt(targetRow);
       if (source != null &&
           feed != null &&
@@ -100,9 +103,9 @@ bool openAdjacentTopic(
           lastRow: sourceRow,
         );
         if (!current()) return;
-        final refreshed = _adjacentTopics(shell);
+        final refreshed = _adjacentTopics(shell, tab);
         targetRow = next ? refreshed.next : refreshed.previous;
-        feed = shell.currentFeed;
+        feed = tab.currentFeed;
         target = targetRow == null ? null : feed?.topicIdAt(targetRow);
       }
       if (!current()) return;
@@ -110,8 +113,11 @@ bool openAdjacentTopic(
           ? null
           : shell.store.read<Topic>(siteUrl, target);
       if (topic != null) {
-        if (_readerBeside(shell) case final reader?) shell.selectTab(reader);
-        shell.openTopicFromList(topic, revealInList: true);
+        final target = _readerBeside(shell, tab);
+        (target == null ? tab : shell.tabContext(target)).openTopicFromList(
+          topic,
+          revealInList: true,
+        );
       }
     } finally {
       shell.removeListener(checkOwner);
@@ -125,8 +131,8 @@ bool openAdjacentTopic(
 
 // The arrows follow the topic being read, which a desktop list can show in
 // the other panel; selecting that reader keeps the list in place.
-String? _readerBeside(ShellController shell) {
-  final active = shell.activeTab;
+String? _readerBeside(ShellController shell, ShellTabContext tab) {
+  final active = tab.activeTab;
   if (!shell.desktopPanelsEnabled ||
       active == null ||
       active.currentContent.isTopic) {
@@ -137,7 +143,7 @@ String? _readerBeside(ShellController shell) {
   );
   if (other == null ||
       !other.currentContent.isTopic ||
-      other.currentContent.topicId != shell.readingTopicId) {
+      other.currentContent.topicId != tab.readingTopicId) {
     return null;
   }
   return other.id;
@@ -150,14 +156,15 @@ class TopicListBottomBar extends StatelessWidget {
   final double trailingInset;
 
   @override
-  Widget build(BuildContext context) => ForumTabListenableBuilder(
+  Widget build(BuildContext context) => ListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) {
       final shell = ShellScope.of(context);
-      final topicOpen = shell.readingTopicId != null;
+      final tab = ForumTabScope.tabOf(context);
+      final topicOpen = tab.readingTopicId != null;
       if (leading == null &&
           !topicOpen &&
-          !DismissNewTopicsButton.isVisible(shell)) {
+          !DismissNewTopicsButton.isVisible(shell, context: tab)) {
         return const SizedBox.shrink();
       }
       return TopicListFooter(
@@ -231,9 +238,9 @@ class TopicNavigationButtons extends StatelessWidget {
   final bool vertical;
 
   @override
-  Widget build(BuildContext context) => ForumTabListenableBuilder(
+  Widget build(BuildContext context) => ListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
-    builder: (context, _) => ShellSelector<_AdjacentTopics>(
+    builder: (context, _) => ForumTabSelector<_AdjacentTopics>(
       select: _adjacentTopics,
       builder: (context, state, _) => Flex(
         direction: vertical ? Axis.vertical : Axis.horizontal,
@@ -242,7 +249,8 @@ class TopicNavigationButtons extends StatelessWidget {
           DButton.iconOnly(
             key: const ValueKey('inbox-previous-topic'),
             tooltip:
-                ShellScope.read(context).topicListContent?.isMessages == true
+                ForumTabScope.tabOf(context).topicListContent?.isMessages ==
+                    true
                 ? context.l10n.previousMessage
                 : context.l10n.previousTopic,
             shortcut: DShortcut.sequence(
@@ -266,7 +274,8 @@ class TopicNavigationButtons extends StatelessWidget {
           DButton.iconOnly(
             key: const ValueKey('inbox-next-topic'),
             tooltip:
-                ShellScope.read(context).topicListContent?.isMessages == true
+                ForumTabScope.tabOf(context).topicListContent?.isMessages ==
+                    true
                 ? context.l10n.nextMessage
                 : context.l10n.nextTopic,
             shortcut: DShortcut.sequence(
@@ -291,39 +300,43 @@ class DismissNewTopicsButton extends StatelessWidget {
 
   final bool compact;
 
-  static bool isVisible(ShellController shell) =>
-      (shell.currentTopicListMode == TopicListMode.newActivity ||
-          shell.currentTopicListMode == TopicListMode.newTopics ||
-          shell.currentTopicListMode == TopicListMode.newReplies) &&
-      (shell.canDismissNewTopics || shell.dismissingNewTopics);
+  static bool isVisible(ShellController shell, {ShellTabContext? context}) {
+    final tab = context ?? shell.focusedTabContext;
+    return (tab.currentTopicListMode == TopicListMode.newActivity ||
+            tab.currentTopicListMode == TopicListMode.newTopics ||
+            tab.currentTopicListMode == TopicListMode.newReplies) &&
+        (tab.canDismissNewTopics || tab.dismissingNewTopics);
+  }
 
   @override
-  Widget build(BuildContext context) => ForumTabListenableBuilder(
+  Widget build(BuildContext context) => ListenableBuilder(
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) {
       final shell = ShellScope.of(context);
-      if (!isVisible(shell)) {
+      final tab = ForumTabScope.tabOf(context);
+      if (!isVisible(shell, context: tab)) {
         return const SizedBox.shrink();
       }
-      final label = switch (shell.currentTopicListMode) {
+      final label = switch (tab.currentTopicListMode) {
         TopicListMode.newTopics => context.l10n.dismissNewTopics,
         TopicListMode.newReplies => context.l10n.dismissNewReplies,
         _ => context.l10n.dismissNew,
       };
       final siteUrl = shell.currentInstance!.url;
       final lease = shell.lifecycle.capture(siteUrl);
-      final tabId = shell.activeTabId;
-      final route = shell.topicListContent;
+      final tabId = tab.activeTabId;
+      final route = tab.topicListContent;
       Future<void> dismiss() async {
         if (!context.mounted ||
+            !tab.isCurrent ||
             !lease.isCurrent ||
             !identical(ShellScope.read(context), shell) ||
             shell.currentInstance?.url != siteUrl ||
-            shell.activeTabId != tabId ||
-            shell.topicListContent != route) {
+            tab.activeTabId != tabId ||
+            tab.topicListContent != route) {
           return;
         }
-        final error = await shell.dismissNewTopics();
+        final error = await tab.dismissNewTopics();
         if (context.mounted && lease.isCurrent && error != null) {
           DToast.show(context, error, type: DToastType.error);
         }
@@ -336,16 +349,16 @@ class DismissNewTopicsButton extends StatelessWidget {
                 key: const ValueKey('dismiss-new-topics'),
                 tooltip: label,
                 icon: const DIcon(DIcons.check),
-                loading: shell.dismissingNewTopics,
+                loading: tab.dismissingNewTopics,
                 variant: DButtonVariant.outline,
-                onPressed: shell.dismissingNewTopics ? null : dismiss,
+                onPressed: tab.dismissingNewTopics ? null : dismiss,
               )
             : DButton(
                 key: const ValueKey('dismiss-new-topics'),
                 label: Text(label),
-                loading: shell.dismissingNewTopics,
+                loading: tab.dismissingNewTopics,
                 variant: DButtonVariant.outline,
-                onPressed: shell.dismissingNewTopics ? null : dismiss,
+                onPressed: tab.dismissingNewTopics ? null : dismiss,
               ),
       );
     },

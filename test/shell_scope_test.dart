@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/widgets.dart';
@@ -74,6 +75,67 @@ void main() {
 
     expect(controller, isNull);
   });
+
+  testWidgets(
+    'panel selectors keep displayed ownership across focus and shell replacement',
+    (tester) async {
+      ShellController createShell() => ShellController(
+        instanceStore: FakeInstanceStore([instance('scope.example')]),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      final first = createShell();
+      final second = createShell();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      await first.load();
+      await second.load();
+      first.desktopTopicTabs = true;
+      final mainId = first.activeTabId!;
+      first.createTab(panel: ForumPanel.secondary);
+      final focused = first.activeTabId;
+      ShellTabContext? captured;
+      var builds = 0;
+      Widget app(ShellController shell) => ShellScope(
+        controller: shell,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: ForumTabScope(
+            tabId: mainId,
+            panel: ForumPanel.main,
+            child: ForumTabSelector<String?>(
+              select: (shell, tab) {
+                captured = tab;
+                return tab.currentContent?.id;
+              },
+              builder: (context, route, _) {
+                builds++;
+                return Text(route ?? 'empty');
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(app(first));
+      expect(find.text('latest'), findsOneWidget);
+      final held = captured!;
+      final before = builds;
+      first.selectTab(mainId);
+      first.selectTab(focused!);
+      await tester.pump();
+      expect(builds, before);
+      expect(captured!.tabId, mainId);
+      expect(first.activeTabId, focused);
+      await tester.pumpWidget(app(second));
+      expect(find.text('empty'), findsOneWidget);
+      expect(captured!.shell, same(second));
+      expect(held.shell, same(first));
+      expect(second.currentContent?.id, 'latest');
+    },
+  );
 
   testWidgets('selector rebuilds only when its selected value changes', (
     tester,

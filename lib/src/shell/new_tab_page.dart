@@ -35,7 +35,7 @@ class NewTabPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final shell = ShellScope.maybeOf(context);
     if (shell == null) return _buildPage(context);
-    return ForumTabListenableBuilder(
+    return ListenableBuilder(
       listenable: Listenable.merge([
         shell.search,
         shell.draftList,
@@ -102,7 +102,7 @@ class NewTabPage extends StatelessWidget {
         ? ''
         : shell!.search.startPageQueryFor(
             siteUrl,
-            ForumTabScope.idOf(context) ?? shell.activeTabId ?? 'start',
+            ForumTabScope.tabOf(context).tabId ?? 'start',
           );
     List<_StartPageEntry> matching(List<_StartPageEntry> entries) {
       final term = query.trim().toLowerCase();

@@ -177,8 +177,10 @@ final class TopicViewportBinding {
     TopicViewportSnapshot snapshot, {
     String? tabId,
   }) {
-    tabId ??= controller.activeTabId;
-    final ownerTabId = tabId;
+    final tab = tabId == null
+        ? controller.focusedTabContext
+        : controller.tabContext(tabId);
+    final ownerTabId = tab.tabId;
     final identity = (
       siteUrl: snapshot.siteUrl!,
       topicId: snapshot.topicId!,
@@ -188,24 +190,20 @@ final class TopicViewportBinding {
     return TopicViewportBinding(
       owner: controller,
       identity: identity,
-      tabId: tabId,
+      tabId: ownerTabId,
       session: lease.session,
-      isCurrent: () => controller.readTab(
-        ownerTabId,
-        () =>
-            lease.isCurrent &&
+      isCurrent: () {
+        return lease.isCurrent &&
+            tab.isCurrent &&
             controller.isTabVisible(ownerTabId) &&
-            controller.currentInstance?.url == identity.siteUrl &&
-            controller.currentTopic?.id == identity.topicId &&
-            controller.topicNavigationRevision == identity.navigationRevision,
-      ),
-      currentSnapshot: () => controller.readTab(
-        ownerTabId,
-        () => TopicViewportSnapshot.from(controller),
-      ),
+            tab.siteUrl == identity.siteUrl &&
+            tab.currentTopic?.id == identity.topicId &&
+            tab.topicNavigationRevision == identity.navigationRevision;
+      },
+      currentSnapshot: () => TopicViewportSnapshot.from(controller, tab: tab),
       forumActive: () => controller.forumActive,
-      loadMore: () => controller.loadMorePosts(tabId: ownerTabId),
-      loadEarlier: () => controller.loadEarlierPosts(tabId: ownerTabId),
+      loadMore: tab.loadMorePosts,
+      loadEarlier: tab.loadEarlierPosts,
       markRead:
           ({
             required String siteUrl,
@@ -1437,14 +1435,18 @@ final class TopicViewportSnapshot {
     required this.navigationRevision,
   });
 
-  factory TopicViewportSnapshot.from(ShellController controller) {
-    final postIds = controller.currentPostIds;
-    final siteUrl = controller.currentInstance?.url;
-    final topicId = controller.currentContent?.topicId;
+  factory TopicViewportSnapshot.from(
+    ShellController controller, {
+    ShellTabContext? tab,
+  }) {
+    tab ??= controller.focusedTabContext;
+    final postIds = tab.currentPostIds;
+    final siteUrl = tab.isCurrent ? tab.siteUrl : null;
+    final topicId = tab.currentContent?.topicId;
     final target = topicId == null
         ? null
-        : controller.topicScrollPostNumber(topicId);
-    final hasEarlier = controller.currentTopicHasEarlier;
+        : controller.topicScrollPostNumber(topicId, tabId: tab.tabId);
+    final hasEarlier = tab.currentTopicHasEarlier;
     final initialPostIndex = siteUrl != null && target != null
         ? controller.initialPostIndexFor(
             siteUrl,
@@ -1455,25 +1457,25 @@ final class TopicViewportSnapshot {
         : null;
 
     return TopicViewportSnapshot(
-      topicId: controller.currentTopic?.id,
-      topic: controller.currentTopic,
+      topicId: tab.currentTopic?.id,
+      topic: tab.currentTopic,
       siteUrl: siteUrl,
       postIds: postIds,
-      streamIds: controller.currentTopicStreamIds,
-      loading: controller.currentTopicLoading,
-      loadingMore: controller.loadingMorePosts,
-      loadingEarlier: controller.loadingEarlierPosts,
-      hasMore: controller.currentTopicHasMore,
+      streamIds: tab.currentTopicStreamIds,
+      loading: tab.currentTopicLoading,
+      loadingMore: tab.loadingMorePosts,
+      loadingEarlier: tab.loadingEarlierPosts,
+      hasMore: tab.currentTopicHasMore,
       hasEarlier: hasEarlier,
       initialPostIndex: initialPostIndex,
-      recommendations: controller.currentTopic?.recommendations,
-      summary: controller.currentTopicSummary,
-      summaryLoading: controller.currentTopicSummaryLoading,
+      recommendations: tab.currentTopic?.recommendations,
+      summary: tab.currentTopicSummary,
+      summaryLoading: tab.currentTopicSummaryLoading,
       readTimeWordCount: controller.currentSiteConfig.readTimeWordCount,
       showTimeGapDays: siteUrl == null
           ? SiteConfig.defaultShowTimeGapDays
           : controller.siteConfigFor(siteUrl).showTimeGapDays,
-      navigationRevision: controller.topicNavigationRevision,
+      navigationRevision: tab.topicNavigationRevision,
     );
   }
 

@@ -59,6 +59,21 @@ class _ForumSearchState extends State<ForumSearch> {
   MaterialPageRoute<void>? _page;
   final _pageRevision = ValueNotifier(0);
   ShellController? _shell;
+  String? _tabId;
+  bool _scoped = false;
+
+  ShellTabContext? get _document {
+    final shell = _shell;
+    if (shell == null) return null;
+    return _scoped ? shell.tabContext(_tabId) : shell.focusedTabContext;
+  }
+
+  bool _ownsInput(ShellTabContext? tab) =>
+      tab != null &&
+      tab.isCurrent &&
+      identical(tab.shell, _shell) &&
+      tab.shell.activeTabId == tab.tabId;
+
   late ShellSearchController _search;
   late GlobalSearchController _global;
   VoidCallback? _unregisterFocus;
@@ -78,12 +93,13 @@ class _ForumSearchState extends State<ForumSearch> {
 
   String get _listExpression {
     final shell = _shell;
-    final route = shell?.currentContent;
+    final tab = _document;
+    final route = tab?.currentContent;
     if (shell == null || route == null) return '';
     if (route.isTopic) return '';
     final words = shell.search.wordsFor(
       _search.siteUrl ?? '',
-      shell.activeTabId,
+      tab?.tabId,
       route.id,
     );
     if (route.isAdvancedTopicFilter) return route.topicFilterQuery;
@@ -144,6 +160,9 @@ class _ForumSearchState extends State<ForumSearch> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final shell = ShellScope.read(context);
+    final tab = ForumTabScope.tabOf(context);
+    _scoped = ForumTabScope.panelOf(context) != null;
+    _tabId = tab.tabId;
     if (identical(shell, _shell)) return;
     _detach();
     _shell = shell;
@@ -291,7 +310,7 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!widget.fullScreen) _measureAnchor();
     if (!_surfaceOpen || mode != null) {
       _openingExpression = _listExpression;
-      final route = _shell!.currentContent;
+      final route = _document?.currentContent;
       final preferred = route?.isMessages == true
           ? GlobalSearchScope.messages
           : route?.isTopic == true || route?.isTopicList == true
@@ -518,15 +537,23 @@ class _ForumSearchState extends State<ForumSearch> {
 
   Future<void> _openResult(GlobalSearchResult result) async {
     final shell = _shell!;
+    final owner = _document;
+    if (!_ownsInput(owner)) return;
     final site = _global.siteUrl;
     if (site == null) return;
+    final routeBeforeClosing = owner!.currentContent;
     final lease = shell.lifecycle.capture(site);
     final words = _global.wordsQuery;
     unawaited(_global.recordSelection(result));
     final page = _page;
     _closeSearch();
     if (page != null) await page.completed;
-    if (!mounted || !lease.isCurrent) return;
+    if (!mounted ||
+        !lease.isCurrent ||
+        !_ownsInput(owner) ||
+        owner.currentContent != routeBeforeClosing) {
+      return;
+    }
     if (!identical(_shell, shell) ||
         !identical(ShellScope.maybeRead(context), shell) ||
         _global.siteUrl != site ||
@@ -536,19 +563,26 @@ class _ForumSearchState extends State<ForumSearch> {
     if (result.source case final SearchPostHit hit) {
       shell.openSearchResult(hit, words: words);
     } else {
-      final previousRoute = shell.currentContent?.id;
-      await openLink(
+      final previousRoute = owner.currentContent?.id;
+      final opening = openLink(
         context,
         resolveSiteRootPath(site, result.path),
         title: result.title,
         siteUrl: site,
       );
-      if (!lease.isCurrent) return;
-      if (shell.currentContent case final route?
+      final destination = shell.focusedTabContext;
+      final destinationRoute = destination.currentContent;
+      await opening;
+      if (!lease.isCurrent ||
+          !_ownsInput(destination) ||
+          destination.currentContent != destinationRoute) {
+        return;
+      }
+      if (destination.currentContent case final route?
           when route.id != previousRoute) {
         shell.search.setPageWords(
           site,
-          shell.activeTabId,
+          destination.tabId,
           route.id,
           result.source is SearchCategoryHit || result.source is SearchTagHit
               ? ''
@@ -561,6 +595,7 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _apply() {
+    if (!_ownsInput(_document)) return;
     _global.submit();
     if (_global.phase == GlobalSearchPhase.failed) return;
     final words = _global.wordsQuery.trim();
@@ -582,6 +617,8 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _openSection(GlobalSearchSection section) {
     final shell = _shell!;
+    final owner = _document;
+    if (!_ownsInput(owner)) return;
     final site = _global.siteUrl;
     if (site == null) return;
     if (section.scope == GlobalSearchScope.users &&

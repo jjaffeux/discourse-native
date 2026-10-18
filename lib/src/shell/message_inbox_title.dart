@@ -52,25 +52,24 @@ class MessageInboxSelector extends StatelessWidget {
   final bool useSelect;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<_InboxOwner>(
-    select: (controller) {
+  Widget build(BuildContext context) => ForumTabSelector<_InboxOwner>(
+    select: (controller, tab) {
       final instance = controller.currentInstance;
       return (
-        siteUrl: instance?.url,
-        session: instance == null
-            ? null
-            : controller.lifecycle.capture(instance.url).session,
-        tabId: controller.activeTabId,
-        routeId: controller.currentContent?.id,
-        sourceId: controller.topicListContent?.id,
-        groups: instance?.user?.messageGroupNames ?? const [],
+        siteUrl: tab.isCurrent ? tab.siteUrl : null,
+        session: tab.lease?.session,
+        tabId: tab.tabId,
+        routeId: tab.currentContent?.id,
+        sourceId: tab.topicListContent?.id,
+        groups: tab.isCurrent
+            ? instance?.user?.messageGroupNames ?? const []
+            : const [],
       );
     },
     builder: (context, owner, _) {
       final controller = ShellScope.read(context);
-      final lease = owner.siteUrl == null
-          ? null
-          : controller.lifecycle.capture(owner.siteUrl!);
+      final tab = ForumTabScope.tabOf(context);
+      final lease = tab.lease;
       final groups = {
         ...owner.groups,
         // A restored inbox may precede a fresh membership payload. Preserve
@@ -99,13 +98,15 @@ class MessageInboxSelector extends StatelessWidget {
         if (!context.mounted ||
             lease == null ||
             !lease.isCurrent ||
+            !identical(lease.session, owner.session) ||
+            !tab.isCurrent ||
             controller.currentInstance?.url != owner.siteUrl ||
-            controller.activeTabId != owner.tabId ||
-            controller.currentContent?.id != owner.routeId ||
-            controller.topicListContent?.id != owner.sourceId) {
+            tab.tabId != owner.tabId ||
+            tab.currentContent?.id != owner.routeId ||
+            tab.topicListContent?.id != owner.sourceId) {
           return;
         }
-        controller.selectMessageInbox(
+        tab.selectMessageInbox(
           choice == _personal ? null : choice.substring('group:'.length),
           keepTopicOpen: keepTopicOpen,
         );
@@ -147,7 +148,7 @@ class MessageInboxSelector extends StatelessWidget {
                       child: Text(option.label),
                     ),
                 ],
-                enabled: lease != null,
+                enabled: tab.isCurrent,
                 onChanged: (choice) {
                   if (choice != null) select(choice);
                 },
@@ -158,7 +159,7 @@ class MessageInboxSelector extends StatelessWidget {
                 variant: DButtonVariant.secondary,
                 value: value,
                 options: options,
-                onChanged: lease == null ? null : select,
+                onChanged: tab.isCurrent ? select : null,
               ),
       );
     },

@@ -18,6 +18,7 @@ import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_list_bottom_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -33,6 +34,80 @@ import 'support/fakes.dart';
 
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
+
+  for (final change in ['focus', 'tab', 'route', 'account', 'controller']) {
+    testWidgets(
+      'delayed adjacent topic command preserves ownership across $change changes',
+      (tester) async {
+        final api = _ControlledPagingApi();
+        final controller = await _controlledShell(api, sites.first);
+        addTearDown(controller.dispose);
+        api.requests.single.response.complete(
+          _page(1, moreTopicsUrl: '/latest.json?page=1'),
+        );
+        await tester.pump();
+        controller.desktopTopicTabs = true;
+        final source = controller.activeTabId!;
+        controller.openContentInNewTab(
+          ContentRoute.topic(topicId: 1, slug: 'topic-1', title: 'Topic 1'),
+          panel: ForumPanel.secondary,
+        );
+        final reader = controller.selectedTabIn(ForumPanel.secondary)!.id;
+        late BuildContext commandContext;
+        Widget app(ShellController shell) => ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            home: ForumTabScope(
+              tabId: source,
+              panel: ForumPanel.main,
+              child: Builder(
+                builder: (context) {
+                  commandContext = context;
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pumpWidget(app(controller));
+        expect(openAdjacentTopic(commandContext, next: true), isTrue);
+        await tester.pump();
+        expect(api.requests, hasLength(2));
+        switch (change) {
+          case 'focus':
+            controller.selectTab(source);
+          case 'tab':
+            controller.createTab(panel: ForumPanel.main);
+          case 'route':
+            controller.selectTab(source);
+            controller.pushContent(
+              ContentRoute.topicList(TopicListMode.popular),
+            );
+          case 'account':
+            controller.lifecycle.invalidate(sites.first.url);
+          case 'controller':
+            final replacement = ShellController(
+              instanceStore: FakeInstanceStore(),
+              api: FakeDiscourseApi(),
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              trackers: FakeSiteTracker.factory,
+            );
+            addTearDown(replacement.dispose);
+            await tester.pumpWidget(app(replacement));
+        }
+        final focused = controller.activeTabId;
+        api.requests.last.response.complete(_page(2));
+        await tester.pumpAndSettle();
+        expect(controller.activeTabId, focused);
+        expect(
+          controller.tabContext(reader).currentContent?.topicId,
+          change == 'focus' ? 2 : 1,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final mode in TopicListDisplayMode.values) {
     testWidgets(
@@ -505,10 +580,11 @@ void main() {
             body: ForumTabScope(
               tabId: listTab,
               panel: ForumPanel.main,
-              child: ForumTabListenableBuilder(
+              child: ListenableBuilder(
                 listenable: controller.topicFeeds,
-                builder: (context, _) =>
-                    TopicListView(feed: controller.currentFeed!),
+                builder: (context, _) => TopicListView(
+                  feed: ForumTabScope.tabOf(context).currentFeed!,
+                ),
               ),
             ),
           ),

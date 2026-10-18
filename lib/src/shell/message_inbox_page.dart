@@ -28,7 +28,7 @@ class MessageInboxPage extends StatelessWidget {
       children: [
         if (context.isTouch &&
             (!ShellScope.read(context).mobileNavigationEnabled ||
-                ShellScope.read(context).canPopContent))
+                ForumTabScope.tabOf(context).canPopContent))
           DButton.iconOnly(
             icon: const DIcon(DIcons.arrowLeft),
             tooltip: context.l10n.back,
@@ -40,8 +40,8 @@ class MessageInboxPage extends StatelessWidget {
       ],
     ),
     controls:
-        ShellScope.read(context).currentContent?.isSearchList != true &&
-            ShellScope.read(context).topicListContent?.isSearchList != true
+        ForumTabScope.tabOf(context).currentContent?.isSearchList != true &&
+            ForumTabScope.tabOf(context).topicListContent?.isSearchList != true
         ? Row(
             children: [
               Expanded(
@@ -62,12 +62,9 @@ class _MessageListNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      ShellSelector<({MessageListMode mode, String? group})>(
-        select: (controller) {
-          final route = ForumTabScope.read(
-            context,
-            (shell) => shell.topicListContent ?? shell.currentContent,
-          );
+      ForumTabSelector<({MessageListMode mode, String? group})>(
+        select: (controller, tab) {
+          final route = tab.topicListContent ?? tab.currentContent;
           return (
             mode: route?.messageListMode ?? MessageListMode.inbox,
             group: route?.messageGroupName,

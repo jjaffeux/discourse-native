@@ -631,7 +631,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
     if (previousIdentity?.$1 != snapshot.siteUrl ||
         previousIdentity?.$2 != snapshot.topicId ||
-        previousTabId != controller.activeTabId ||
+        previousTabId != ForumTabScope.tabOf(context).activeTabId ||
         !identical(previousController, controller)) {
       _keyboardPost.value = null;
       _keyboardPostEndTarget = null;
@@ -653,9 +653,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         'topicId': snapshot.topicId,
         'navigationRevision': snapshot.navigationRevision,
         'controllerChanged': !identical(previousController, controller),
-        'tabChanged': previousTabId != controller.activeTabId,
+        'tabChanged': previousTabId != ForumTabScope.tabOf(context).activeTabId,
         'viewportRetained': identical(previousScroll, _scroll),
-        'targetPostNumber': controller.currentContent?.postNumber,
+        'targetPostNumber': ForumTabScope.tabOf(
+          context,
+        ).currentContent?.postNumber,
         'loading': snapshot.loading,
       });
     }
@@ -895,12 +897,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   bool _replyToSelectedPost(ShellController controller) {
     final siteUrl = controller.currentInstance?.url;
     final id = _keyboardPost.value;
-    if (siteUrl == null || id == null || !controller.canReplyHere) return false;
-    final post = controller.store.read<Post>(siteUrl, id);
-    if (post == null || controller.currentTopic?.stream.contains(id) != true) {
+    if (siteUrl == null ||
+        id == null ||
+        !ForumTabScope.tabOf(context).canReplyHere) {
       return false;
     }
-    controller.openReply(
+    final post = controller.store.read<Post>(siteUrl, id);
+    if (post == null ||
+        ForumTabScope.tabOf(context).currentTopic?.stream.contains(id) !=
+            true) {
+      return false;
+    }
+    ForumTabScope.tabOf(context).openReply(
       replyToPostNumber: post.postNumber,
       replyToUsername: post.username,
       replyingToWhisper: post.isWhisper,
@@ -1352,7 +1360,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       if (calendarDay(first?.createdAt) != day) break;
 
       final before = List<int>.of(snapshot.postIds);
-      await controller.loadEarlierPosts();
+      await _viewport.binding!.loadEarlier();
       if (!isCurrent()) return;
       if (listEquals(before, _viewport.binding!.currentSnapshot().postIds)) {
         // A refused page should still land on the earliest copy in hand rather
@@ -2002,8 +2010,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     // material, rounded frame and stationary drag handle.
     child: Focus(
       focusNode: _entryFocus,
-      child: ShellSelector<TopicViewportSnapshot>(
-        select: TopicViewportSnapshot.from,
+      child: ForumTabSelector<TopicViewportSnapshot>(
+        select: (shell, tab) => TopicViewportSnapshot.from(shell, tab: tab),
         builder: (context, snapshot, child) => _build(context, snapshot, child),
       ),
     ),
@@ -2017,7 +2025,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     (bool, EdgeInsets)? previousLayout;
     Widget? viewport;
     var width = 0.0;
-    return ForumTabLayoutBuilder(
+    return LayoutBuilder(
       builder: (context, constraints) {
         width = constraints.maxWidth;
         final canPinSidebar =
@@ -2046,10 +2054,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         if (viewport == null || layout != previousLayout) {
           previousLayout = layout;
           viewport = Builder(
-            builder: (context) => ForumTabScope.read(
-              context,
-              (_) => _buildForViewport(context, snapshot, width),
-            ),
+            builder: (context) => _buildForViewport(context, snapshot, width),
           );
         }
         return viewport!;
@@ -2185,7 +2190,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         controller,
         siteUrl,
         topicId,
-        ForumTabScope.idOf(context) ?? controller.activeTabId,
+        ForumTabScope.tabOf(context).tabId,
         siteUrl == null ? null : controller.lifecycle.capture(siteUrl).session,
       ));
 
@@ -2204,7 +2209,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final topicId =
         topic?.id ??
         widget.route?.topicId ??
-        controller.currentContent?.topicId;
+        ForumTabScope.tabOf(context).currentContent?.topicId;
     final row = topic != null || siteUrl == null || topicId == null
         ? null
         : controller.store.read<Topic>(siteUrl, topicId);
@@ -2321,18 +2326,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   // chooses the target post also lives. A press that lands after that tab has
   // moved on answers a failure no longer shown, and asks for nothing.
   void _retryTopicLoad(
-    ShellController controller, {
-    required String? tabId,
+    ShellTabContext tab, {
     required String? siteUrl,
     required int topicId,
-  }) => controller.readTab(tabId, () {
-    final route = controller.currentContent;
-    if (controller.currentInstance?.url != siteUrl ||
-        route?.topicId != topicId) {
+  }) {
+    final route = tab.currentContent;
+    if (!tab.isCurrent || tab.siteUrl != siteUrl || route?.topicId != topicId) {
       return;
     }
-    unawaited(controller.loadTopic(topicId, route!.slug ?? ''));
-  });
+    unawaited(tab.loadTopic(topicId, route!.slug ?? ''));
+  }
 
   Widget _buildForViewport(
     BuildContext context,
@@ -2392,7 +2395,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           canPinSidebar: canPinSidebar,
         );
       }
-      final tabId = ForumTabScope.idOf(context);
+      final tab = ForumTabScope.tabOf(context);
       return Column(
         children: [
           _TopicViewHeader(
@@ -2426,8 +2429,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                             label: Text(context.l10n.retry),
                             variant: DButtonVariant.link,
                             onPressed: () => _retryTopicLoad(
-                              controller,
-                              tabId: tabId,
+                              tab,
                               siteUrl: snapshot.siteUrl,
                               topicId: topicId,
                             ),
@@ -2446,7 +2448,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     SurfaceOpeningTrace.afterFrame(
       'topic.contentFrame',
       isCurrent: () =>
-          mounted && controller.currentContent?.topicId == snapshot.topicId,
+          mounted &&
+          ForumTabScope.tabOf(context).currentContent?.topicId ==
+              snapshot.topicId,
     );
     final showFooter = snapshot.loadingMore;
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
@@ -3100,7 +3104,7 @@ class _TopicBottomBar extends StatelessWidget {
       borderColor: context.isTouch ? null : DTokens.of(context).footerBorder,
       rounded: !context.isTouch,
       padding: EdgeInsets.zero,
-      child: ForumTabLayoutBuilder(
+      child: LayoutBuilder(
         builder: (context, constraints) => ConstrainedBox(
           constraints: BoxConstraints(minHeight: topicBottomBarHeight(context)),
           child: Padding(
@@ -3445,7 +3449,7 @@ class _TopicLoadingSkeleton extends StatelessWidget {
         expand: true,
         semanticsLabel: context.l10n.loadingTopic,
         color: skeletonFill(context),
-        child: ForumTabLayoutBuilder(
+        child: LayoutBuilder(
           builder: (context, constraints) {
             final patternCount = constraints.hasBoundedHeight
                 ? (constraints.maxHeight / _patternHeight).ceil()
@@ -4700,7 +4704,7 @@ class _PostGapState extends State<_PostGap> {
     final theme = Theme.of(context);
     final label = _loading ? context.l10n.loading : _label;
 
-    return ForumTabLayoutBuilder(
+    return LayoutBuilder(
       builder: (context, constraints) {
         final left =
             ContentReadingLane.breakpointWidthOf(
@@ -5123,7 +5127,9 @@ class _PostTileState extends State<_PostTile> {
                           topic: PluginContainingTopic(
                             id: widget.topic.id,
                             slug:
-                                ShellScope.read(context).currentContent?.slug ??
+                                ForumTabScope.tabOf(
+                                  context,
+                                ).currentContent?.slug ??
                                 'topic',
                             archived: widget.topic.archived,
                           ),
@@ -5160,7 +5166,7 @@ class _PostTileState extends State<_PostTile> {
                                       containingTopic: PluginContainingTopic(
                                         id: widget.topic.id,
                                         slug:
-                                            ShellScope.read(
+                                            ForumTabScope.tabOf(
                                               context,
                                             ).currentContent?.slug ??
                                             'topic',
@@ -5623,7 +5629,7 @@ class _TopicMap extends StatelessWidget {
     return Container(
       key: const ValueKey('topic-map'),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-      child: ForumTabLayoutBuilder(
+      child: LayoutBuilder(
         builder: (context, constraints) {
           final breakpointWidth = ContentReadingLane.breakpointWidthOf(
             context,
