@@ -74,7 +74,6 @@ final class SourceRange {
   final int start;
   final int end;
 
-  int get length => end - start;
   bool get isEmpty => start == end;
 
   bool isValidFor(String source) =>

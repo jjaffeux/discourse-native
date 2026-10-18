@@ -38,8 +38,6 @@ final class ComposerSourceRange {
 
   bool isValidFor(String source) => isWellFormed && end <= source.length;
 
-  bool containsOffset(int offset) => start <= offset && offset < end;
-
   bool strictlyContainsOffset(int offset) => start < offset && offset < end;
 
   bool overlaps(ComposerSourceRange other) {

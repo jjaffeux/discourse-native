@@ -164,8 +164,6 @@ class PollComposerBlock {
   final String? titleSource;
   final List<String> optionSources;
 
-  int get length => end - start;
-
   String? attribute(String name) {
     final normalized = name.toLowerCase();
     for (final attribute in attributes) {

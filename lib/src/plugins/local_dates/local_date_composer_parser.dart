@@ -137,8 +137,6 @@ class LocalDateComposerBlock {
   final String trailingWhitespace;
   final LocalDateEnvironment environment;
 
-  int get length => end - start;
-
   String? attribute(String name) {
     final normalized = name.toLowerCase();
     for (final attribute in attributes) {
