@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../discourse_ui.dart';
 import '../data/invites_api.dart';
 import '../models/discourse_instance.dart';
 import '../models/invite.dart';
@@ -251,16 +251,11 @@ class _InviteListState extends State<InviteList> {
               initialValue: controller.filter,
             ),
             const SizedBox(height: 8),
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
+            DInput(
               controller: _search,
               maxLength: 255,
-              decoration: InputDecoration(
-                labelText: context.l10n.searchInvites,
-                hintText: context.l10n.emailOrUsername,
-                isDense: true,
-                counterText: '',
-              ),
+              labelText: context.l10n.searchInvites,
+              hintText: context.l10n.emailOrUsername,
               onChanged: _searchChanged,
             ),
             if (controller.actionError ?? _copyError case final error?)
