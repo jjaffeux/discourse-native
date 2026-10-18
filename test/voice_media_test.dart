@@ -519,6 +519,249 @@ void main() {
       await media.dispose();
     });
 
+    test('microphone replacement releases retired capture streams', () async {
+      final tracks = [
+        for (var index = 0; index < 3; index++)
+          _FakeTrack('microphone-$index', 'audio'),
+      ];
+      final streams = [
+        for (var index = 0; index < tracks.length; index++)
+          _FakeStream('capture-$index', [
+            tracks[index],
+          ], stopTracksOnDispose: true),
+      ];
+      var capture = 0;
+      final media = _meshSession(
+        peer: _FakePeerConnection(),
+        audioPublishingAllowed: true,
+        getUserMedia: (_) async => streams[capture++],
+      );
+      addTearDown(media.dispose);
+      await media.connect();
+      await media.selectAudioInput('second');
+      expect(streams[0].disposed, isFalse);
+      expect(streams[1].disposed, isFalse);
+
+      await media.selectAudioInput('third');
+
+      expect(streams[0].disposed, isFalse);
+      expect(streams[1].disposeCalls, 1);
+      expect(streams[2].disposed, isFalse);
+      expect(tracks[1].stopped, isTrue);
+      expect(tracks[2].stopped, isFalse);
+      await media.dispose();
+      expect(streams.map((stream) => stream.disposeCalls), [1, 1, 1]);
+    });
+
+    test('microphone demotion releases a replaced capture stream', () async {
+      final anchor = _FakeStream('anchor', [
+        _FakeTrack('first', 'audio'),
+      ], stopTracksOnDispose: true);
+      final replacement = _FakeStream('replacement', [
+        _FakeTrack('second', 'audio'),
+      ], stopTracksOnDispose: true);
+      final streams = [anchor, replacement];
+      var capture = 0;
+      final media = _meshSession(
+        peer: _FakePeerConnection(),
+        audioPublishingAllowed: true,
+        getUserMedia: (_) async => streams[capture++],
+      );
+      addTearDown(media.dispose);
+      await media.connect();
+      await media.selectAudioInput('second');
+
+      await media.setAudioPublishingAllowed(false);
+
+      expect(anchor.disposed, isFalse);
+      expect(replacement.disposeCalls, 1);
+      expect(anchor.getAudioTracks(), isEmpty);
+      await media.dispose();
+      expect([anchor.disposeCalls, replacement.disposeCalls], [1, 1]);
+    });
+
+    for (final audioPublishing in [false, true]) {
+      test(
+        'camera-off releases standalone captures with audio publishing $audioPublishing',
+        () async {
+          final captures = <_FakeStream>[];
+          final media = _meshSession(
+            peer: _FakePeerConnection(),
+            audioPublishingAllowed: audioPublishing,
+            getUserMedia: (constraints) async {
+              final kind = constraints['video'] == false ? 'audio' : 'video';
+              final stream = _FakeStream('capture-${captures.length}', [
+                _FakeTrack('track-${captures.length}', kind),
+              ], stopTracksOnDispose: true);
+              captures.add(stream);
+              return stream;
+            },
+          );
+          addTearDown(media.dispose);
+          await media.connect();
+          await media.setCameraEnabled(true);
+          final firstCamera = captures.last;
+
+          await media.setCameraEnabled(false);
+
+          expect(firstCamera.disposed, audioPublishing);
+          expect(captures.first.disposed, isFalse);
+          await media.setCameraEnabled(true);
+          final secondCamera = captures.last;
+          expect(secondCamera.disposed, isFalse);
+          await media.setCameraEnabled(false);
+          expect(secondCamera.disposeCalls, 1);
+          expect(captures.first.disposed, isFalse);
+          await media.dispose();
+          expect(
+            captures.map((stream) => stream.disposeCalls),
+            everyElement(1),
+          );
+        },
+      );
+    }
+
+    test(
+      'a camera-first anchor preserves promoted microphone captures',
+      () async {
+        final camera = _FakeTrack('camera', 'video');
+        final originalMicrophone = _FakeTrack('original-microphone', 'audio');
+        final replacementMicrophone = _FakeTrack(
+          'replacement-microphone',
+          'audio',
+        );
+        final streams = [
+          _FakeStream('camera-anchor', [camera], stopTracksOnDispose: true),
+          _FakeStream('original-microphone-stream', [
+            originalMicrophone,
+          ], stopTracksOnDispose: true),
+          _FakeStream('replacement-microphone-stream', [
+            replacementMicrophone,
+          ], stopTracksOnDispose: true),
+        ];
+        var capture = 0;
+        final media = _meshSession(
+          peer: _FakePeerConnection(),
+          audioPublishingAllowed: false,
+          getUserMedia: (_) async => streams[capture++],
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        await media.setCameraEnabled(true);
+        await media.setAudioPublishingAllowed(true);
+
+        await media.setCameraEnabled(false);
+
+        expect(streams[0].disposed, isFalse);
+        expect(streams[1].disposed, isFalse);
+        expect(originalMicrophone.stopped, isFalse);
+        await media.selectAudioInput('replacement');
+        expect(streams[0].disposed, isFalse);
+        expect(streams[1].disposeCalls, 1);
+        expect(streams[2].disposed, isFalse);
+        expect(replacementMicrophone.stopped, isFalse);
+        await media.dispose();
+        expect(streams.map((stream) => stream.disposeCalls), [1, 1, 1]);
+      },
+    );
+
+    test(
+      'failed demotion retires captures after microphone recovery',
+      () async {
+        final firstPeer = _FakePeerConnection();
+        final restoredPeer = _FakePeerConnection();
+        final tracks = [
+          for (var index = 0; index < 3; index++)
+            _FakeTrack('microphone-$index', 'audio'),
+        ];
+        final streams = [
+          for (var index = 0; index < tracks.length; index++)
+            _FakeStream('capture-$index', [
+              tracks[index],
+            ], stopTracksOnDispose: true),
+        ];
+        var capture = 0;
+        var peerCreation = 0;
+        final media = MeshVoiceMediaSession(
+          join: _meshJoin(localUserId: 10, remoteUserId: 20),
+          localUserId: 10,
+          sendSignal: (_, _) async {},
+          audioPublishingAllowed: true,
+          createPeerConnection: (_) async => switch (peerCreation++) {
+            0 => firstPeer,
+            1 => throw StateError('peer rebuild failed'),
+            _ => restoredPeer,
+          },
+          getUserMedia: (_) async => streams[capture++],
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        await media.selectAudioInput('second');
+
+        await expectLater(
+          media.setAudioPublishingAllowed(false),
+          throwsStateError,
+        );
+
+        expect(media.audioPublishingAllowed, isTrue);
+        expect(streams[0].disposed, isFalse);
+        expect(streams[1].disposeCalls, 1);
+        expect(streams[2].disposed, isFalse);
+        expect(tracks[2].stopped, isFalse);
+        expect(restoredPeer.addedTracks, [tracks[2]]);
+        await media.dispose();
+        expect(streams.map((stream) => stream.disposeCalls), [1, 1, 1]);
+      },
+    );
+
+    for (final failure in ['native removal', 'stream disposal']) {
+      test('capture retirement contains $failure errors', () async {
+        final tracks = [
+          for (var index = 0; index < 3; index++)
+            _FakeTrack('microphone-$index', 'audio'),
+        ];
+        final streams = [
+          for (var index = 0; index < tracks.length; index++)
+            _FakeStream('capture-$index', [
+              tracks[index],
+            ], stopTracksOnDispose: true),
+        ];
+        var capture = 0;
+        final peer = _FakePeerConnection();
+        final media = _meshSession(
+          peer: peer,
+          audioPublishingAllowed: true,
+          getUserMedia: (_) async => streams[capture++],
+        );
+        addTearDown(media.dispose);
+        await media.connect();
+        await media.selectAudioInput('second');
+        final error = StateError(failure);
+        if (failure == 'native removal') {
+          streams[0].removeTrackFailure = error;
+        } else {
+          streams[1].disposeFailure = error;
+        }
+
+        final switching = media.selectAudioInput('third');
+        if (failure == 'native removal') {
+          await expectLater(switching, throwsA(same(error)));
+        } else {
+          await switching;
+        }
+
+        expect(streams[1].disposeCalls, 1);
+        expect(tracks[1].stopped, isTrue);
+        expect(streams[0].disposed, isFalse);
+        expect(streams[2].disposed, isFalse);
+        expect(tracks[2].stopped, isFalse);
+        expect(peer.addedTrackSenders.single.track, same(tracks[2]));
+        await media.setMuted(true);
+        await media.dispose();
+        expect(streams.map((stream) => stream.disposeCalls), [1, 1, 1]);
+      });
+    }
+
     test(
       'stage promotion rebuilds the peer with a stream-associated mic',
       () async {
@@ -941,42 +1184,54 @@ void main() {
       },
     );
 
-    test(
-      'a camera that cannot be switched off stays silent until turned on',
-      () async {
-        final camera = _FakeTrack('camera', 'video');
-        var captures = 0;
-        final peer = _FakePeerConnection();
-        final media = _meshSession(
-          peer: peer,
-          audioPublishingAllowed: false,
-          getUserMedia: (_) async {
-            captures++;
-            return _FakeStream('camera-stream', [camera]);
-          },
-        );
-        addTearDown(media.dispose);
-        await media.connect();
-        await media.setCameraEnabled(true);
-        final sender = peer.createdTransceivers[1].sender;
-        sender.onReplaceTrack = (track) async {
-          if (track == null) throw StateError('stop failed');
-        };
+    for (final audioPublishing in [false, true]) {
+      test(
+        'a failed camera-off preserves its capture with audio publishing $audioPublishing',
+        () async {
+          final camera = _FakeTrack('camera', 'video');
+          final stream = _FakeStream('camera-stream', [
+            camera,
+          ], stopTracksOnDispose: true);
+          var captures = 0;
+          final peer = _FakePeerConnection();
+          final media = _meshSession(
+            peer: peer,
+            audioPublishingAllowed: audioPublishing,
+            getUserMedia: (constraints) async {
+              captures++;
+              return constraints['video'] == false
+                  ? _FakeStream('microphone-stream', [
+                      _FakeTrack('microphone', 'audio'),
+                    ], stopTracksOnDispose: true)
+                  : stream;
+            },
+          );
+          addTearDown(media.dispose);
+          await media.connect();
+          await media.setCameraEnabled(true);
+          final sender =
+              peer.createdTransceivers[audioPublishing ? 0 : 1].sender;
+          sender.onReplaceTrack = (track) async {
+            if (track == null) throw StateError('stop failed');
+          };
 
-        await expectLater(media.setCameraEnabled(false), throwsStateError);
+          await expectLater(media.setCameraEnabled(false), throwsStateError);
 
-        expect(media.localVideoTrack, same(camera));
-        expect([camera.enabled, camera.stopped], [false, false]);
-        await media.setCameraEnabled(true);
-        expect(camera.enabled, isTrue);
-        expect(captures, 1);
+          expect(media.localVideoTrack, same(camera));
+          expect([camera.enabled, camera.stopped], [false, false]);
+          expect(stream.disposed, isFalse);
+          await media.setCameraEnabled(true);
+          expect(camera.enabled, isTrue);
+          expect(captures, audioPublishing ? 2 : 1);
 
-        sender.onReplaceTrack = null;
-        await media.setCameraEnabled(false);
-        expect(media.localVideoTrack, isNull);
-        expect(camera.stopped, isTrue);
-      },
-    );
+          sender.onReplaceTrack = null;
+          await media.setCameraEnabled(false);
+          expect(media.localVideoTrack, isNull);
+          expect(camera.stopped, isTrue);
+          expect(stream.disposed, audioPublishing);
+        },
+      );
+    }
 
     test('discards a cancelled camera capture before publishing it', () async {
       final camera = _FakeTrack('camera', 'video');
@@ -4869,11 +5124,17 @@ final class _FakeTrack implements rtc.MediaStreamTrack {
 }
 
 final class _FakeStream extends rtc.MediaStream {
-  _FakeStream(String id, List<rtc.MediaStreamTrack> tracks)
-    : _tracks = List.of(tracks),
-      super(id, 'test');
+  _FakeStream(
+    String id,
+    List<rtc.MediaStreamTrack> tracks, {
+    this.stopTracksOnDispose = false,
+  }) : _tracks = List.of(tracks),
+       super(id, 'test');
 
   final List<rtc.MediaStreamTrack> _tracks;
+  final bool stopTracksOnDispose;
+  Object? removeTrackFailure;
+  Object? disposeFailure;
   bool disposed = false;
   int disposeCalls = 0;
 
@@ -4897,6 +5158,7 @@ final class _FakeStream extends rtc.MediaStream {
     bool removeFromNative = true,
   }) async {
     _tracks.removeWhere((value) => value.id == track.id);
+    if (removeTrackFailure case final failure?) throw failure;
   }
 
   @override
@@ -4913,6 +5175,12 @@ final class _FakeStream extends rtc.MediaStream {
   @override
   Future<void> dispose() async {
     disposeCalls++;
+    if (stopTracksOnDispose) {
+      for (final track in _tracks) {
+        await track.stop();
+      }
+    }
+    if (disposeFailure case final failure?) throw failure;
     disposed = true;
   }
 }

@@ -741,7 +741,11 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     if (_closing || disposed) return Future<void>.value();
     final operation = _mutationTail.then((_) async {
       if (_closing || disposed) return;
-      await action();
+      try {
+        await action();
+      } finally {
+        await _retireUnusedLocalStreams();
+      }
     });
     _mutationTail = operation.then<void>(
       (_) {},
@@ -901,6 +905,22 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     await track.stop();
     _ownedLocalStreams.remove(stream);
     await stream.dispose();
+  }
+
+  Future<void> _retireUnusedLocalStreams() async {
+    final anchor = _localStream;
+    final attachedTracks = Set<rtc.MediaStreamTrack>.identity()
+      ..addAll(anchor?.getTracks() ?? const <rtc.MediaStreamTrack>[]);
+    final retired = [
+      for (final stream in _ownedLocalStreams)
+        if (!identical(stream, anchor) &&
+            !stream.getTracks().any(attachedTracks.contains))
+          stream,
+    ];
+    _ownedLocalStreams.removeAll(retired);
+    for (final stream in retired) {
+      await _disposeStreamBestEffort(stream);
+    }
   }
 
   Map<String, dynamic> get _configuration => {
