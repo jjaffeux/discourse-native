@@ -26,7 +26,7 @@ final class AssignShellService implements PluginLinkHandler {
       ),
       title: groupName,
     );
-    if (_host.currentContent?.id != route.id) {
+    if (!route.sameDestinationAs(_host.currentContent)) {
       _host.replaceCurrentContent(route);
     }
   }
@@ -87,7 +87,7 @@ final class AssignShellService implements PluginLinkHandler {
       ),
       title: link.groupName,
     );
-    if (_host.currentContent?.id == route.id) return true;
+    if (route.sameDestinationAs(_host.currentContent)) return true;
     _host.pushContent(route);
     return true;
   }

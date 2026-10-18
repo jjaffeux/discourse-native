@@ -9,8 +9,8 @@ typedef _InboxOwner = ({
   String? siteUrl,
   Object? session,
   String? tabId,
-  String? routeId,
-  String? sourceId,
+  Object? routeIdentity,
+  Object? sourceIdentity,
   List<String> groups,
 });
 
@@ -59,8 +59,8 @@ class MessageInboxSelector extends StatelessWidget {
         siteUrl: tab.isCurrent ? tab.siteUrl : null,
         session: tab.lease?.session,
         tabId: tab.tabId,
-        routeId: tab.currentContent?.id,
-        sourceId: tab.topicListContent?.id,
+        routeIdentity: tab.currentContent?.destination.identity,
+        sourceIdentity: tab.topicListContent?.destination.identity,
         groups: tab.isCurrent
             ? instance?.user?.messageGroupNames ?? const []
             : const [],
@@ -102,8 +102,9 @@ class MessageInboxSelector extends StatelessWidget {
             !tab.isCurrent ||
             controller.currentInstance?.url != owner.siteUrl ||
             tab.tabId != owner.tabId ||
-            tab.currentContent?.id != owner.routeId ||
-            tab.topicListContent?.id != owner.sourceId) {
+            tab.currentContent?.destination.identity != owner.routeIdentity ||
+            tab.topicListContent?.destination.identity !=
+                owner.sourceIdentity) {
           return;
         }
         tab.selectMessageInbox(

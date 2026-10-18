@@ -1988,6 +1988,7 @@ final class PluginRegistry
     String siteUrl,
     ForumTab tab,
   ) {
+    if (tab.currentContent.destination is! ExtensionDestination) return null;
     for (final plugin in plugins.whereType<ForumTabPlugin>()) {
       final destination = plugin.forumTabDestination(
         _uiContext(context, plugin),

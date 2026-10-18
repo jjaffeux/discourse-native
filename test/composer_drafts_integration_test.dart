@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_group.dart';
@@ -22,6 +23,7 @@ import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -182,35 +184,62 @@ void _registerTopicReplyTests() {
       );
     }
 
-    testWidgets('leaving a loading topic cancels its pending reply', (
-      tester,
-    ) async {
-      final gate = Completer<void>();
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail()},
-        topicGate: gate,
+    for (final sameKey in [false, true]) {
+      testWidgets(
+        'leaving a loading topic cancels its pending reply (same-key: $sameKey)',
+        (tester) async {
+          final gate = Completer<void>();
+          final api = FakeDiscourseApi(
+            feeds: {'/latest.json': listed},
+            topics: {
+              7: detail(),
+              8: topicPayload(
+                id: 8,
+                title: 'Replacement topic',
+                canCreatePost: true,
+              ),
+            },
+            topicGate: gate,
+          );
+          await pumpShell(
+            tester,
+            desktop,
+            api: api,
+            instances: connectedSites(),
+            authenticator: signedIn(),
+          );
+          await tester.tap(topicListTitle('A real topic'));
+          await tester.pump();
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+          final shell = ShellScope.read(
+            tester.element(primaryMainContent.first),
+          );
+          if (sameKey) {
+            shell.pushContent(
+              ContentRoute(
+                destination: TopicDestination(
+                  topicId: 8,
+                  legacyKey: shell.currentContent!.id,
+                ),
+                title: 'Replacement topic',
+                icon: DIcons.comments,
+              ),
+            );
+            unawaited(shell.loadTopic(8, 'replacement-topic'));
+          } else {
+            shell.handleBack();
+          }
+          await tester.pump();
+          gate.complete();
+          await tester.pumpAndSettle();
+          expect(shell.visibleComposer, isNull);
+          expect(shell.currentContent?.isTopic, sameKey);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
-      await pumpShell(
-        tester,
-        desktop,
-        api: api,
-        instances: connectedSites(),
-        authenticator: signedIn(),
-      );
-      await tester.tap(topicListTitle('A real topic'));
-      await tester.pump();
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-      expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      final shell = ShellScope.read(tester.element(primaryMainContent.first));
-      shell.handleBack();
-      await tester.pump();
-      gate.complete();
-      await tester.pumpAndSettle();
-      expect(shell.visibleComposer, isNull);
-      expect(shell.currentContent?.isTopic, isNot(true));
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+    }
 
     testWidgets('Shift R opens a topic reply only where replying is allowed', (
       tester,

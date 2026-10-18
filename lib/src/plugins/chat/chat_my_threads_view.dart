@@ -556,13 +556,13 @@ Future<void> _openThreadRow(
   final shell = PluginUiScope.require(context, chatShellService);
   final session = chat.captureSession(siteUrl);
   final sourceTab = shell.activeTabId;
-  final sourceRoute = shell.currentContent?.id;
+  final sourceIdentity = shell.currentContent?.destination.identity;
   bool ownsActivation() =>
       context.mounted &&
       session.isCurrent &&
       shell.currentSiteUrl == siteUrl &&
       shell.activeTabId == sourceTab &&
-      shell.currentContent?.id == sourceRoute &&
+      shell.currentContent?.destination.identity == sourceIdentity &&
       identical(PluginUiScope.optional(context, chatControllerService), chat) &&
       identical(PluginUiScope.optional(context, chatShellService), shell);
   if (!ownsActivation()) return;

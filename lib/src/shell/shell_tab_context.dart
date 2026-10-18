@@ -586,8 +586,7 @@ final class ShellTabContext {
           mode: currentTopicListMode ?? TopicListMode.latest,
         )
         .withTopicListQueryFrom(topicListContent);
-    if (route.id == topicListContent?.id &&
-        route.feedPath == topicListContent?.feedPath) {
+    if (route.sameDestinationAs(topicListContent)) {
       return;
     }
 
@@ -972,7 +971,7 @@ final class ShellTabContext {
       groupName: group,
       mode: group == null || mode.supportsGroup ? mode : MessageListMode.inbox,
     );
-    if (route.id == replacement.id) return;
+    if (route.sameDestinationAs(replacement)) return;
     _replaceTopicListContent(replacement, keepTopicOpen: keepTopicOpen);
     shell._syncTopicChannels();
     shell._notify();

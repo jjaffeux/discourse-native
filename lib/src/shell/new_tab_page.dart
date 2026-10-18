@@ -334,9 +334,9 @@ class NewTabPage extends StatelessWidget {
         ? null
         : shell.store.read<Topic>(siteUrl, route.topicId!);
     final category = categories[route.categoryId ?? topic?.categoryId];
-    final destination = conversations
-        .where((d) => d.id == route.id)
-        .firstOrNull;
+    final destination = route.destination is ExtensionDestination
+        ? conversations.where((d) => d.id == route.id).firstOrNull
+        : null;
     return _StartPageEntry(
       id: 'closed-${tab.id}',
       route: route,
@@ -375,7 +375,9 @@ String? _recentRouteUrl(String? siteUrl, ContentRoute route) {
       path.endsWith('.json') ? path.substring(0, path.length - 5) : path,
     );
   }
-  final channel = RegExp(r'^chat-c-([1-9][0-9]*)$').firstMatch(route.id);
+  final channel = route.destination is ExtensionDestination
+      ? RegExp(r'^chat-c-([1-9][0-9]*)$').firstMatch(route.id)
+      : null;
   return channel == null
       ? null
       : resolveSiteRootPath(siteUrl, '/chat/c/-/${channel.group(1)}');

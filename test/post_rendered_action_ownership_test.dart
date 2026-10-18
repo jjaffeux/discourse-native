@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -12,6 +13,7 @@ import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +34,7 @@ void main() {
     for (final change in [
       'forum',
       'topic',
+      'same-key topic',
       'tab',
       'connect rollback',
       'disconnect rollback',
@@ -52,6 +55,17 @@ void main() {
               shell.openTopicPost(siteUrl: _siteB, topicId: 7, postNumber: 2);
             case 'topic':
               shell.openTopicPost(siteUrl: _siteA, topicId: 8, postNumber: 1);
+            case 'same-key topic':
+              shell.pushContent(
+                ContentRoute(
+                  destination: TopicDestination(
+                    topicId: 8,
+                    legacyKey: originalRoute,
+                  ),
+                  title: 'Replacement topic',
+                  icon: DIcons.comments,
+                ),
+              );
             case 'tab':
               shell.createTab();
               shell.openTopicPost(siteUrl: _siteA, topicId: 7, postNumber: 2);

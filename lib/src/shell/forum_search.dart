@@ -319,13 +319,14 @@ class _ForumSearchState extends State<ForumSearch> {
           ? GlobalSearchScope.users
           : route?.isGroups == true
           ? GlobalSearchScope.groups
-          : route?.id == 'all-categories'
+          : route?.isPage(CorePage.categories) == true
           ? GlobalSearchScope.categories
-          : route?.id == 'all-tags'
+          : route?.isPage(CorePage.tags) == true
           ? GlobalSearchScope.tags
           : _global.scopes
                 .where(
                   (scope) =>
+                      route?.destination is ExtensionDestination &&
                       !scope.isCore &&
                       route?.id.startsWith(scope.owner) == true,
                 )
@@ -563,7 +564,7 @@ class _ForumSearchState extends State<ForumSearch> {
     if (result.source case final SearchPostHit hit) {
       shell.openSearchResult(hit, words: words);
     } else {
-      final previousRoute = owner.currentContent?.id;
+      final previousRoute = owner.currentContent;
       final opening = openLink(
         context,
         resolveSiteRootPath(site, result.path),
@@ -579,7 +580,7 @@ class _ForumSearchState extends State<ForumSearch> {
         return;
       }
       if (destination.currentContent case final route?
-          when route.id != previousRoute) {
+          when !route.sameDestinationAs(previousRoute)) {
         shell.search.setPageWords(
           site,
           destination.tabId,

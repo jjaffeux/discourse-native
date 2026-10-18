@@ -36,6 +36,54 @@ const _groupUnread = '/topics/private-messages-group/reader/team/unread.json';
 const _groupArchive = '/topics/private-messages-group/reader/team/archive.json';
 
 void main() {
+  testWidgets('message folder selection uses the explicit destination mode', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester);
+    setup.controller.pushContent(
+      const ContentRoute(
+        destination: MessagesDestination(legacyKey: 'messages-unread'),
+        title: 'Messages',
+        icon: DIcons.envelope,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    setup.controller.selectMessageListMode(MessageListMode.unread);
+    await tester.pumpAndSettle();
+
+    expect(
+      setup.controller.topicListContent!.messageListMode,
+      MessageListMode.unread,
+    );
+    expect(find.text('Unread personal message'), findsOneWidget);
+    expect(setup.api.feedPaths, contains(_unread));
+  });
+
+  testWidgets('message inbox selection uses the explicit destination group', (
+    tester,
+  ) async {
+    final setup = await _pumpInbox(tester);
+    setup.controller.pushContent(
+      ContentRoute(
+        destination: MessagesDestination(
+          groupName: 'engineering-infrastructure-platform-team',
+          legacyKey: ContentRoute.messages(groupName: 'team').id,
+        ),
+        title: 'Messages',
+        icon: DIcons.envelope,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    setup.controller.selectMessageInbox('team');
+    await tester.pumpAndSettle();
+
+    expect(setup.controller.topicListContent!.messageGroupName, 'team');
+    expect(find.text('Group inbox message'), findsOneWidget);
+    expect(setup.api.feedPaths, contains(_groupInbox));
+  });
+
   testWidgets(
     'swiping the inbox hides its title and keeps the selectors',
     (tester) async {

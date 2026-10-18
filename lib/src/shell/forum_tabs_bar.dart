@@ -9,6 +9,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
+import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_registry.dart';
@@ -2150,7 +2151,8 @@ ForumTabItem _forumTabItem(
   final route = tab.currentContent;
   final kind = route.isTopic
       ? ForumTabKind.topic
-      : route.id.startsWith('chat-')
+      : route.destination is ExtensionDestination &&
+            route.id.startsWith('chat-')
       ? ForumTabKind.chat
       : ForumTabKind.list;
   final destination = registry.forumTabDestination(context, siteUrl, tab);

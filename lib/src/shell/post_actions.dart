@@ -781,7 +781,7 @@ class _PostActionsState extends State<PostActions> {
     final siteUrl = widget.siteUrl;
     final lease = shell.lifecycle.capture(siteUrl);
     final tab = ForumTabScope.tabOf(context);
-    final routeId = tab.currentContent?.id;
+    final destinationIdentity = tab.currentContent?.destination.identity;
     final postId = widget.post.id;
     final selected = await showDSheet<PostAction>(
       context: context,
@@ -840,7 +840,7 @@ class _PostActionsState extends State<PostActions> {
         shell.currentInstance?.url != siteUrl ||
         !tab.isCurrent ||
         ForumTabScope.tabOf(context).tabId != tab.tabId ||
-        tab.currentContent?.id != routeId) {
+        tab.currentContent?.destination.identity != destinationIdentity) {
       return;
     }
     // Open any composer only after the sheet has returned its selection.

@@ -49,6 +49,9 @@ void main() {
         ),
       );
       expect(fixture.shell.fullPageChatActive, isFalse);
+      fixture.shell.setPageSearchWords(_site, 'chat-c-9', 'stale chat query');
+      expect(fixture.host.pageSearchWords, isEmpty);
+      expect(await fixture.shell.openQuote(_site, 9, 'A quote'), isNotNull);
       fixture.shell.openChannel(9);
       expect(
         fixture.host.currentContent!.destination,

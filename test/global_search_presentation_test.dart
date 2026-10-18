@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,8 +20,71 @@ import 'support/shell_test_harness.dart';
 
 bool _useDeviceMetrics = false;
 
+class _DirectorySearchApi extends GlobalSearchFixtureApi {
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    final body = await super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    if (Uri.parse(path).path case '/search.json' || '/search/query.json') {
+      return {
+        ...body,
+        'categories': [
+          {'id': 1, 'name': 'Design', 'slug': 'design', 'color': 'A787CB'},
+        ],
+        'tags': [
+          {'id': 1, 'name': 'design'},
+        ],
+      };
+    }
+    return body;
+  }
+}
+
 void main({bool useDeviceMetrics = false}) {
   _useDeviceMetrics = useDeviceMetrics;
+  for (final page in [CorePage.categories, CorePage.tags]) {
+    for (final extension in [false, true]) {
+      _testPresentation(
+        'search ranking uses typed ${page.name} (extension: $extension)',
+        (tester) async {
+          final shell = await _pumpSearch(tester, api: _DirectorySearchApi());
+          final route = ContentRoute(
+            destination: extension
+                ? ExtensionDestination(page.key, sourcePath: '/latest.json')
+                : PageDestination(page),
+            title: page.name,
+            icon: DIcons.list,
+          );
+          shell.pushContent(route);
+          if (extension) await shell.loadFeed(route.id);
+          await tester.pumpAndSettle();
+
+          await _openAndSearch(tester, 'design');
+
+          expect(
+            shell.globalSearch.sections.first.scope.name,
+            extension
+                ? GlobalSearchScope.categories.name
+                : page == CorePage.categories
+                ? GlobalSearchScope.categories.name
+                : GlobalSearchScope.tags.name,
+            reason: shell.globalSearch.sections
+                .map((section) => section.scope.name)
+                .join(', '),
+          );
+        },
+      );
+    }
+  }
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     _testPresentation(
       'mobile $platform keyboard insets spare search rebuilding',

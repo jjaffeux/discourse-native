@@ -60,6 +60,36 @@ Map<String, dynamic> _page({
 };
 
 void main() {
+  test(
+    'a same-key core feed does not own the AI private-message source',
+    () async {
+      final setup = await _shell();
+      addTearDown(setup.shell.dispose);
+      setup.shell.pushContent(
+        const ContentRoute(
+          destination: FeedDestination(
+            key: 'ai-conversations',
+            sourcePath: '/latest.json',
+            mode: TopicListMode.latest,
+          ),
+          title: 'Latest',
+          icon: DIcons.list,
+        ),
+      );
+      setup.shell.pushContent(
+        ContentRoute.topic(
+          topicId: 42,
+          slug: 'conversation-42',
+          title: 'Conversation 42',
+        ),
+      );
+
+      await setup.shell.loadTopic(42, 'conversation-42');
+
+      expect(setup.shell.topicListContent!.isMessages, isTrue);
+    },
+  );
+
   for (final disconnect in [false, true]) {
     testWidgets(
       'the production AI route reloads after a failed '

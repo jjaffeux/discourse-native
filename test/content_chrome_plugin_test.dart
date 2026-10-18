@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -19,6 +20,52 @@ import 'support/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets(
+    'typed feeds keep their tab metadata despite a plugin key match',
+    (tester) async {
+      final shell = await _shellWith(const _TabMetadataPlugin());
+      await _pump(tester, shell);
+      final context = tester.element(find.byType(MainContent));
+      const feed = ContentRoute(
+        destination: FeedDestination(key: 'test-standard'),
+        title: 'A core feed',
+        icon: DIcons.list,
+      );
+      final tab = ForumTab(
+        id: 'test',
+        rootDestinationId: feed.id,
+        contentStack: const [feed],
+      );
+
+      expect(
+        shell.plugins.registry.forumTabDestination(
+          context,
+          'https://meta.discourse.org',
+          tab,
+        ),
+        isNull,
+      );
+      expect(
+        shell.plugins.registry
+            .forumTabDestination(
+              context,
+              'https://meta.discourse.org',
+              tab.copyWith(
+                contentStack: const [
+                  ContentRoute(
+                    destination: ExtensionDestination('test-standard'),
+                    title: 'Plugin page',
+                    icon: DIcons.list,
+                  ),
+                ],
+              ),
+            )
+            ?.label,
+        'Plugin tab',
+      );
+    },
+  );
 
   test(
     'typed feeds hydrate and refresh despite core and plugin homepage key matches',
@@ -309,6 +356,24 @@ class _StandardPlugin implements SitePlugin, ContentPlugin {
       route.id == 'test-standard'
       ? const SizedBox(key: ValueKey('standard-body'))
       : null;
+}
+
+class _TabMetadataPlugin extends _StandardPlugin implements ForumTabPlugin {
+  const _TabMetadataPlugin();
+
+  @override
+  SidebarDestination? forumTabDestination(
+    BuildContext context,
+    String siteUrl,
+    ForumTab tab,
+  ) => const SidebarDestination(
+    id: 'test-standard',
+    label: 'Plugin tab',
+    icon: DIcons.list,
+  );
+
+  @override
+  Listenable? forumTabListenable(BuildContext context, String siteUrl) => null;
 }
 
 class _HomepageHydratorPlugin extends _StandardPlugin

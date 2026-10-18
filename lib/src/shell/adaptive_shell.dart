@@ -300,7 +300,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     bool stillCurrent() =>
         mounted &&
         controller.rootMode == ShellRootMode.forum &&
-        controller.currentContent?.id == route?.id &&
+        controller.currentContent?.destination.identity ==
+            route?.destination.identity &&
         controller.currentInstance?.url == site &&
         controller.activeTabId == tab &&
         identical(controller.visibleComposer, composer);

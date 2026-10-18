@@ -98,7 +98,7 @@ final class ChatShellService
   void setPageSearchWords(String siteUrl, String routeId, String words) {
     if (!_disposed &&
         currentSiteUrl == siteUrl &&
-        currentContent?.id == routeId) {
+        _currentExtensionKey == routeId) {
       _host.setPageSearchWords(siteUrl, routeId, words);
     }
   }
@@ -239,7 +239,7 @@ final class ChatShellService
         ? null
         : chat.captureSession(sourceSiteUrl);
     final sourceTabId = _host.activeTabId;
-    final sourceRouteId = _host.currentContent?.id;
+    final sourceIdentity = _host.currentContent?.destination.identity;
     bool superseded() {
       if (_host.isDisposed ||
           !targetLease.isCurrent ||
@@ -251,7 +251,7 @@ final class ChatShellService
       final backgroundTab = newTab && desktopPanelsEnabled;
       return !backgroundTab &&
           (_host.activeTabId != sourceTabId ||
-              _host.currentContent?.id != sourceRouteId);
+              _host.currentContent?.destination.identity != sourceIdentity);
     }
 
     final siteUrl = _host.instances[index].url;
@@ -696,8 +696,8 @@ final class ChatShellService
     int channelId,
     String markdown,
   ) async {
-    final route = currentContent;
-    final chatRoute = route == null ? null : ChatRoute.parse(route.id);
+    final key = _currentExtensionKey;
+    final chatRoute = key == null ? null : ChatRoute.parse(key);
     final shellRoute = _host.currentContent;
     final channel = chat.channel(siteUrl, channelId);
     if (markdown.trim().isEmpty ||
@@ -753,13 +753,13 @@ final class ChatShellService
   Future<void> _openHeaderIndex({required bool mobile}) async {
     final instance = _host.currentInstance!;
     final siteUrl = instance.url;
-    final sourceRouteId = currentContent?.id;
+    final sourceIdentity = currentContent?.destination.identity;
     bool stillCurrent() =>
         !_disposed &&
         !_host.isDisposed &&
         _host.currentInstance?.url == siteUrl &&
         currentUser?.id == instance.user?.id &&
-        currentContent?.id == sourceRouteId &&
+        currentContent?.destination.identity == sourceIdentity &&
         _currentSiteCanUseChat;
     await chat.loadChannels(siteUrl);
     if (!stillCurrent()) return;

@@ -182,7 +182,8 @@ class _MainContentState extends State<MainContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (words.isNotEmpty && route?.id != 'all-categories')
+                  if (words.isNotEmpty &&
+                      route?.isPage(CorePage.categories) != true)
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: Padding(

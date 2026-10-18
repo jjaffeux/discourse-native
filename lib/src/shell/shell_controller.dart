@@ -3823,7 +3823,7 @@ class ShellController extends FrameSafeNotifier
     );
     return other != null &&
         other.id != tab.id &&
-        other.currentContent.id == source.id;
+        other.currentContent.sameDestinationAs(source);
   }
 
   ForumTab _closeTopicRoute(ForumTab tab) {
@@ -4265,7 +4265,7 @@ class ShellController extends FrameSafeNotifier
     final group = route!.messageGroupName;
     if (group != null && !mode.supportsGroup) return;
     final replacement = ContentRoute.messages(groupName: group, mode: mode);
-    if (route.id == replacement.id) return;
+    if (route.sameDestinationAs(replacement)) return;
     _replaceTopicListContent(replacement, keepTopicOpen: keepTopicOpen);
     _syncTopicChannels();
     _notify();
@@ -6883,7 +6883,7 @@ class ShellController extends FrameSafeNotifier
         rootMode: _rootMode,
         instanceUrl: currentInstance?.url,
         tabId: activeTabId,
-        contentId: currentContent?.id,
+        destinationIdentity: currentContent?.destination.identity,
         stackDepth: contentStack.length,
         mobilePane: _mobilePane,
       );
@@ -6897,7 +6897,7 @@ class ShellController extends FrameSafeNotifier
           _rootMode != source.rootMode ||
           currentInstance?.url != source.instanceUrl ||
           activeTabId != source.tabId ||
-          currentContent?.id != source.contentId ||
+          currentContent?.destination.identity != source.destinationIdentity ||
           contentStack.length != source.stackDepth ||
           _mobilePane != source.mobilePane) {
         return false;
@@ -7558,7 +7558,7 @@ class ShellController extends FrameSafeNotifier
                       ...source.contentStack
                           .where(
                             (item) =>
-                                item.id != route.id &&
+                                !item.sameDestinationAs(route) &&
                                 (!route.isTopic || !item.isTopic),
                           )
                           .take(ForumTab.maximumContentRoutes - 1),
@@ -7660,7 +7660,8 @@ class ShellController extends FrameSafeNotifier
         ...source.contentStack
             .where(
               (item) =>
-                  item.id != route.id && (!route.isTopic || !item.isTopic),
+                  !item.sameDestinationAs(route) &&
+                  (!route.isTopic || !item.isTopic),
             )
             .take(ForumTab.maximumContentRoutes - 1),
         route,
@@ -8110,7 +8111,11 @@ class ShellController extends FrameSafeNotifier
       return () {};
     }
     final lease = lifecycle.capture(siteUrl);
-    final owner = (activeTabId, currentContent?.id, topicListContent?.id);
+    final owner = (
+      activeTabId,
+      currentContent?.destination.identity,
+      topicListContent?.destination.identity,
+    );
     return _topicPrefetch.hover(
       (
         siteUrl: siteUrl,
@@ -8126,7 +8131,12 @@ class ShellController extends FrameSafeNotifier
           lease.isCurrent &&
           currentInstance?.url == siteUrl &&
           rootMode == ShellRootMode.forum &&
-          ((activeTabId, currentContent?.id, topicListContent?.id) == owner ||
+          ((
+                    activeTabId,
+                    currentContent?.destination.identity,
+                    topicListContent?.destination.identity,
+                  ) ==
+                  owner ||
               (currentContent?.topicId == topic.id &&
                   currentContent?.postNumber == postNumber)),
       load: (cancellation) async {
@@ -8469,10 +8479,10 @@ class ShellController extends FrameSafeNotifier
         .where((route) => !route.isTopic)
         .firstOrNull;
     if (parent?.isMessages == true ||
-        (parent != null &&
+        (parent?.destination is ExtensionDestination &&
             plugins.registry.plugins
                 .whereType<PrivateMessageSourcePlugin>()
-                .any((plugin) => plugin.ownsPrivateMessageSource(parent)))) {
+                .any((plugin) => plugin.ownsPrivateMessageSource(parent!)))) {
       return;
     }
 
@@ -10919,7 +10929,7 @@ class ShellController extends FrameSafeNotifier
     if (!forumActive ||
         !lease.isCurrent ||
         currentInstance?.url != siteUrl ||
-        currentContent?.id != sourceRouteId ||
+        route?.sameDestinationAs(currentContent) != true ||
         !sourceIsCurrent() ||
         activeTabId != tabId ||
         currentFeedId != feedId) {
@@ -10947,7 +10957,7 @@ class ShellController extends FrameSafeNotifier
       if (!forumActive ||
           !lease.isCurrent ||
           currentInstance?.url != siteUrl ||
-          currentContent?.id != sourceRouteId ||
+          route?.sameDestinationAs(currentContent) != true ||
           !sourceIsCurrent() ||
           activeTabId != tabId ||
           currentFeedId != feedId) {
@@ -10981,7 +10991,7 @@ class ShellController extends FrameSafeNotifier
     if (!forumActive ||
         !lease.isCurrent ||
         !_ownsComposer(composer) ||
-        currentContent?.id != sourceRouteId ||
+        route?.sameDestinationAs(currentContent) != true ||
         !sourceIsCurrent() ||
         activeTabId != tabId) {
       return OpenComposerResult.sourceChanged;
@@ -16971,7 +16981,7 @@ class ShellController extends FrameSafeNotifier
       }
     }
     final source = context.topicListContent;
-    if (source != null && source.id != root.id) {
+    if (source != null && !source.sameDestinationAs(root)) {
       unawaited(context.loadFeed(source.id));
     }
     final route = tab.currentContent;
@@ -16990,7 +17000,9 @@ class ShellController extends FrameSafeNotifier
       case PageDestination(:final page):
         switch (page) {
           case CorePage.users:
-            if (route.id != root.id) unawaited(userDirectory.load(instance));
+            if (!route.sameDestinationAs(root)) {
+              unawaited(userDirectory.load(instance));
+            }
           case CorePage.start ||
               CorePage.categories ||
               CorePage.tags ||
@@ -17004,11 +17016,11 @@ class ShellController extends FrameSafeNotifier
             break;
         }
       case FeedDestination() || MessagesDestination():
-        if (route.id != root.id) {
+        if (!route.sameDestinationAs(root)) {
           unawaited(context.loadFeed(route.id));
         }
       case GroupDestination():
-        if (route.feedPath != null && route.id != root.id) {
+        if (route.feedPath != null && !route.sameDestinationAs(root)) {
           unawaited(context.loadFeed(route.id));
         }
       case ExtensionDestination():
@@ -17023,7 +17035,7 @@ class ShellController extends FrameSafeNotifier
             ),
             'plugins.session.hydrateRoute',
           );
-        } else if (route.feedPath != null && route.id != root.id) {
+        } else if (route.feedPath != null && !route.sameDestinationAs(root)) {
           unawaited(context.loadFeed(route.id));
         }
     }
@@ -17142,7 +17154,7 @@ class ShellController extends FrameSafeNotifier
         !content.isPreferences &&
         !(content.destination is ExtensionDestination &&
             _registeredHomepage(content.id) != null)) {
-      if (content.id == 'all-categories') {
+      if (content.isPage(CorePage.categories)) {
         unawaited(loadCategories(instance.url, force: refresh));
       } else {
         unawaited(loadFeed(content.id, force: refresh));

@@ -1,12 +1,15 @@
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/assign/assign_shell_service.dart';
+import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -14,6 +17,47 @@ import 'support/fakes.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final fromLink in [false, true]) {
+    test(
+      'Assign opens its typed group over a same-key feed ($fromLink)',
+      () async {
+        final route = ContentRoute.group(
+          GroupRoute.plugin(
+            groupName: 'support',
+            owner: 'discourse-assign',
+            section: 'assigned',
+            subsection: 'support',
+          ),
+          title: 'support',
+        );
+        final host = _RecordingRouteHost()
+          ..currentContent = ContentRoute(
+            destination: FeedDestination(key: route.id),
+            title: 'A feed',
+            icon: DIcons.list,
+          );
+        final navigation = AssignShellService(
+          host: host,
+          canOpenGroupAssignments: (_) => true,
+        );
+
+        if (fromLink) {
+          expect(
+            await navigation.openPluginUrl('/g/support/assigned/support'),
+            isTrue,
+          );
+        } else {
+          navigation.selectGroupFilter(
+            'support',
+            const AssignedGroupFilter.directGroup(),
+          );
+        }
+
+        expect(host.currentContent!.sameDestinationAs(route), isTrue);
+      },
+    );
+  }
 
   test('Assign marks only its direct post navigation for highlighting', () {
     final host = _RecordingRouteHost();

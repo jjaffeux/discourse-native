@@ -10,7 +10,7 @@ final class PostActionOwner {
     this._tab,
     this._siteUrl,
     this._lease,
-    this._routeId,
+    this._destinationIdentity,
     this._postId,
   );
 
@@ -24,7 +24,7 @@ final class PostActionOwner {
       tab,
       siteUrl,
       tab.shell.lifecycle.capture(siteUrl),
-      tab.currentContent?.id,
+      tab.currentContent?.destination.identity,
       postId,
     );
   }
@@ -32,7 +32,7 @@ final class PostActionOwner {
   final ShellTabContext _tab;
   final String _siteUrl;
   final SiteLease _lease;
-  final String? _routeId;
+  final Object? _destinationIdentity;
   final int _postId;
 
   bool isCurrent(
@@ -48,5 +48,5 @@ final class PostActionOwner {
       _tab.isCurrent &&
       _tab.siteUrl == _siteUrl &&
       ForumTabScope.tabOf(context).tabId == _tab.tabId &&
-      _tab.currentContent?.id == _routeId;
+      _tab.currentContent?.destination.identity == _destinationIdentity;
 }

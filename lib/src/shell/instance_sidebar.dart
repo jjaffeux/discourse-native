@@ -206,8 +206,8 @@ class InstanceSidebar extends StatelessWidget {
             selectedDestinationId = 'badges';
           } else if (currentContent?.isAppearance == true ||
               currentContent?.isPreferences == true ||
-              currentContent?.id == 'all-categories' ||
-              currentContent?.id == 'user-bookmarks') {
+              currentContent?.isPage(CorePage.categories) == true ||
+              currentContent?.isPage(CorePage.bookmarks) == true) {
             selectedDestinationId = currentContent?.id;
           } else if (currentContent?.isTopic == true &&
               selectedDestinationId == 'drafts') {

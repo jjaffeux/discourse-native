@@ -43,47 +43,91 @@ void main() {
     });
 
     group('creation', () {
-      test(
-        'restored feed hydrates its explicit mode independently of its key',
-        () async {
-          const route = ContentRoute(
-            destination: FeedDestination(
-              key: 'custom-unread',
-              mode: TopicListMode.unread,
-            ),
-            title: 'Unread',
-            icon: DIcons.list,
-          );
-          final api = FakeDiscourseApi(feeds: const {'/unread.json': []});
-          final restored = ShellController(
-            instanceStore: FakeInstanceStore(forums),
-            api: api,
-            authenticator: FakeAuthenticator(),
-            drafts: FakeDraftStore(),
-            forumTabs: FakeForumTabStore([
-              ForumWorkspace(
-                siteUrl: forums.first.url,
-                accountIdentity: 'anonymous',
-                tabs: [
-                  ForumTab(
-                    id: 'custom',
-                    rootDestinationId: 'latest',
-                    contentStack: const [route],
-                  ),
-                ],
-                activeTabId: 'custom',
+      for (final inPanel in [false, true]) {
+        test(
+          'opening a same-key destination retains its distinct source ${inPanel ? 'in another panel' : 'in a new tab'}',
+          () {
+            controller.desktopTopicTabs = true;
+            final source = controller.activeTab!;
+            const route = ContentRoute(
+              destination: ExtensionDestination('latest'),
+              title: 'Plugin page',
+              icon: DIcons.list,
+            );
+            if (inPanel) {
+              controller.openContentInPanel(route, panel: ForumPanel.secondary);
+            } else {
+              controller.openContentInNewTab(route, source: source);
+            }
+
+            expect(controller.activeTab!.contentStack, [
+              source.currentContent,
+              route,
+            ]);
+          },
+        );
+      }
+
+      test('closing a reader retains its distinct same-key source', () {
+        controller.desktopTopicTabs = true;
+        const source = ContentRoute(
+          destination: ExtensionDestination('latest'),
+          title: 'Plugin page',
+          icon: DIcons.list,
+        );
+        controller.openContentInPanel(source, panel: ForumPanel.secondary);
+        final readerId = controller.activeTabId;
+        controller.pushContent(_topic(42, 'A topic'));
+
+        controller.closeTopic();
+
+        expect(controller.activeTabId, readerId);
+        expect(controller.currentContent, source);
+      });
+
+      for (final stacked in [false, true]) {
+        test(
+          'restored feed hydrates its explicit mode ${stacked ? 'above a same-key Start page' : 'independently of its key'}',
+          () async {
+            const route = ContentRoute(
+              destination: FeedDestination(
+                key: 'new-tab',
+                mode: TopicListMode.unread,
               ),
-            ]),
-            trackers: FakeSiteTracker.reset(),
-          );
-          addTearDown(restored.dispose);
-          await restored.load();
-          await pumpEventQueue();
-          expect(api.feedPaths, contains('/unread.json'));
-          expect(restored.currentFeedId, route.id);
-          expect(restored.currentFeed, isNotNull);
-        },
-      );
+              title: 'Unread',
+              icon: DIcons.list,
+            );
+            final api = FakeDiscourseApi(feeds: const {'/unread.json': []});
+            final restored = ShellController(
+              instanceStore: FakeInstanceStore(forums),
+              api: api,
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              forumTabs: FakeForumTabStore([
+                ForumWorkspace(
+                  siteUrl: forums.first.url,
+                  accountIdentity: 'anonymous',
+                  tabs: [
+                    ForumTab(
+                      id: 'custom',
+                      rootDestinationId: 'latest',
+                      contentStack: [if (stacked) ContentRoute.newTab(), route],
+                    ),
+                  ],
+                  activeTabId: 'custom',
+                ),
+              ]),
+              trackers: FakeSiteTracker.reset(),
+            );
+            addTearDown(restored.dispose);
+            await restored.load();
+            await pumpEventQueue();
+            expect(api.feedPaths, contains('/unread.json'));
+            expect(restored.currentFeedId, route.id);
+            expect(restored.currentFeed, isNotNull);
+          },
+        );
+      }
 
       test(
         'hydration refreshes display without changing restored topic identity',
