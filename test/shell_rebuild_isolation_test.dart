@@ -181,7 +181,7 @@ void main() {
 
     controller.pushContent(
       const ContentRoute(
-        id: 'unrelated',
+        destination: ExtensionDestination('unrelated'),
         title: 'Unrelated route',
         icon: DIcons.comments,
       ),
@@ -727,7 +727,7 @@ void main() {
       try {
         controller.pushContent(
           ContentRoute(
-            id: 'unrelated-$open',
+            destination: ExtensionDestination('unrelated-$open'),
             title: 'Unrelated route',
             icon: DIcons.comments,
           ),

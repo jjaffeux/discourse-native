@@ -74,7 +74,7 @@ void main() {
         isConnected: true,
       );
       host.currentContent = const ContentRoute(
-        id: 'voice-room-7',
+        destination: ExtensionDestination('voice-room-7'),
         title: 'Room',
         icon: DIcons.microphoneLines,
       );
@@ -97,7 +97,7 @@ void main() {
         isConnected: true,
       );
       host.currentContent = const ContentRoute(
-        id: 'voice-room-8',
+        destination: ExtensionDestination('voice-room-8'),
         title: 'Other room',
         icon: DIcons.microphoneLines,
       );

@@ -118,11 +118,15 @@ Future<ShellController> _start(
     );
   }
   shell.pushContent(
-    const ContentRoute(id: 'chat-c-9', title: 'General', icon: DIcons.comment),
+    const ContentRoute(
+      destination: ExtensionDestination('chat-c-9'),
+      title: 'General',
+      icon: DIcons.comment,
+    ),
   );
   shell.pushContent(
     const ContentRoute(
-      id: 'chat-c-10',
+      destination: ExtensionDestination('chat-c-10'),
       title: 'Announcements',
       icon: DIcons.comment,
     ),

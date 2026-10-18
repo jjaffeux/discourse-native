@@ -23,7 +23,7 @@ final class AiConversationsPlugin
   String get homepageId => 'ai-conversations';
 
   static ContentRoute get route => ContentRoute(
-    id: 'ai-conversations',
+    destination: const ExtensionDestination('ai-conversations'),
     title: appL10n.aiConversations,
     icon: DiscourseAiIcons.sparkles,
   );

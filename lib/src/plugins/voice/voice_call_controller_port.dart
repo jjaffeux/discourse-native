@@ -111,7 +111,9 @@ final class VoiceCallControllerPort extends ChangeNotifier
         shell.openRoom(
           siteUrl: call.siteUrl,
           route: ContentRoute(
-            id: VoicePlugin.routeId(call.room.id),
+            destination: ExtensionDestination(
+              VoicePlugin.routeId(call.room.id),
+            ),
             title: call.room.name,
             icon: DIcons.microphoneLines,
             subtitle: call.siteName,

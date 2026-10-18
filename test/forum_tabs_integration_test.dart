@@ -402,7 +402,7 @@ void main() {
         // Start pages are intentionally excluded from recently closed tabs.
         controller.pushContent(
           const ContentRoute(
-            id: 'all-categories',
+            destination: PageDestination(CorePage.categories),
             title: 'Categories',
             icon: DIcons.layerGroup,
           ),
@@ -826,15 +826,17 @@ void main() {
       const firstTabId = 'tab-latest';
       const slowTabId = 'tab-slow';
       const latestRoute = ContentRoute(
-        id: 'latest',
+        destination: FeedDestination(key: 'latest', mode: TopicListMode.latest),
         title: 'Topics',
         icon: DIcons.layerGroup,
       );
       const slowRoute = ContentRoute(
-        id: 'slow-list',
+        destination: ExtensionDestination(
+          'slow-list',
+          sourcePath: '/slow.json',
+        ),
         title: 'Slow destination',
         icon: DIcons.folder,
-        feedPath: '/slow.json',
       );
       final workspace = ForumWorkspace(
         siteUrl: siteUrl,

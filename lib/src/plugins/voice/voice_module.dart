@@ -87,7 +87,7 @@ final class VoiceModule implements PluginModule {
           onIncomingCallAnswered: (siteUrl, room) => shell.openRoom(
             siteUrl: siteUrl,
             route: ContentRoute(
-              id: VoicePlugin.routeId(room.id),
+              destination: ExtensionDestination(VoicePlugin.routeId(room.id)),
               title: room.name,
               icon: DIcons.microphoneLines,
             ),

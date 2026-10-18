@@ -5,6 +5,40 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'typed kind and mode changes create distinct desktop visits under one key',
+    () {
+      for (final (before, after) in [
+        (
+          const PageDestination(CorePage.users),
+          const ExtensionDestination('users'),
+        ),
+        (
+          const FeedDestination(key: 'shared', mode: TopicListMode.latest),
+          const FeedDestination(key: 'shared', mode: TopicListMode.unread),
+        ),
+      ]) {
+        ContentRoute route(ContentDestination destination) => ContentRoute(
+          destination: destination,
+          title: 'Same',
+          icon: ContentRoute.topicList(TopicListMode.latest).icon,
+        );
+        final first = ForumTab(
+          id: 'typed',
+          rootDestinationId: 'root',
+          contentStack: [route(before)],
+        );
+        final second = first.navigate(contentStack: [route(after)]);
+        expect(second.currentContent.destination.identity, after.identity);
+        expect(second.backHistory, hasLength(1));
+        expect(
+          second.goBack().currentContent.destination.identity,
+          before.identity,
+        );
+      }
+    },
+  );
+
   ForumTab initial() => ForumTab(
     id: 'history',
     rootDestinationId: 'latest',
@@ -38,7 +72,18 @@ void main() {
     var tab = ForumTab.tryFromJson({
       ...initial().toJson(),
       'back_history': [
-        for (var id = 0; id < 60; id++) _location(id).toJson(),
+        {
+          'root_destination_id': 'latest',
+          'content_stack': [
+            {
+              'id': 'topic-0',
+              'topic_id': 0,
+              'title': 'Invalid',
+              'icon': 'comments',
+            },
+          ],
+        },
+        for (var id = 1; id < 60; id++) _location(id).toJson(),
         {'root_destination_id': 'broken'},
       ],
       'forward_history': [

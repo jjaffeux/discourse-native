@@ -6,10 +6,59 @@ import 'package:flutter_test/flutter_test.dart';
 
 ForumTabLocation page(String id) => ForumTabLocation(
   rootDestinationId: id,
-  contentStack: [ContentRoute(id: id, title: id, icon: DIcons.layerGroup)],
+  contentStack: [
+    ContentRoute(
+      destination: ExtensionDestination(id),
+      title: id,
+      icon: DIcons.layerGroup,
+    ),
+  ],
 );
 
 void main() {
+  test(
+    'typed kind and mode changes retain distinct mobile visits under one key',
+    () {
+      for (final (before, after) in [
+        (
+          const PageDestination(CorePage.users),
+          const ExtensionDestination('users'),
+        ),
+        (
+          const FeedDestination(key: 'shared', mode: TopicListMode.latest),
+          const FeedDestination(key: 'shared', mode: TopicListMode.unread),
+        ),
+      ]) {
+        ForumTabLocation location(ContentDestination destination) =>
+            ForumTabLocation(
+              rootDestinationId: 'root',
+              contentStack: [
+                ContentRoute(
+                  destination: destination,
+                  title: 'Same',
+                  icon: DIcons.list,
+                ),
+              ],
+            );
+        final navigation = MobileNavigation();
+        navigation.synchronize(owner: 'owner', location: location(before));
+        final firstId = navigation.entryId;
+        navigation.synchronize(owner: 'owner', location: location(after));
+        expect(navigation.entryId, isNot(firstId));
+        expect(navigation.goBack(), isTrue);
+        expect(
+          navigation.location!.contentStack.single.destination.identity,
+          before.identity,
+        );
+        expect(navigation.goForward(), isTrue);
+        expect(
+          navigation.location!.contentStack.single.destination.identity,
+          after.identity,
+        );
+      }
+    },
+  );
+
   test('content tabs root their own history and isolate earlier journeys', () {
     final navigation = MobileNavigation();
     navigation.synchronize(
@@ -64,7 +113,7 @@ void main() {
       rootDestinationId: 'topic',
       contentStack: const [
         ContentRoute(
-          id: 'topic',
+          destination: ExtensionDestination('topic'),
           title: 'Loaded title',
           icon: DIcons.layerGroup,
         ),

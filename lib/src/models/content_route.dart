@@ -5,11 +5,16 @@ import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'badge_route.dart';
+import 'discourse_instance.dart';
 import 'group_route.dart';
 import 'list_link.dart';
 import 'sidebar.dart';
 import 'site_config.dart';
 import 'topic.dart';
+import 'topic_link.dart';
+
+part 'content_destination.dart';
+part 'content_route_codec.dart';
 
 enum TopPeriod {
   all('all'),
@@ -53,40 +58,8 @@ enum TopicListMode {
   popular;
 
   static TopicListMode? fromRoute(ContentRoute? route) {
-    final known = switch ((route?.id, route?.feedPath)) {
-      ('latest', null) => latest,
-      ('new', '/new.json') => newActivity,
-      ('new-topics', '/new.json?subset=topics') => newTopics,
-      ('new-replies', '/new.json?subset=replies') => newReplies,
-      ('unread', '/unread.json') => unread,
-      ('unseen', '/unseen.json') => unseen,
-      ('top-all', '/top.json?period=all') => topAll,
-      ('top-yearly', '/top.json?period=yearly') => topYearly,
-      ('top-quarterly', '/top.json?period=quarterly') => topQuarterly,
-      ('top-monthly', '/top.json?period=monthly') => topMonthly,
-      ('top-weekly', '/top.json?period=weekly') => topWeekly,
-      ('top-daily', '/top.json?period=daily') => topDaily,
-      ('hot', '/hot.json') => popular,
-      _ => null,
-    };
-    if (known != null) return known;
-    if (route == null || !route.id.startsWith('topic-list-filter-')) {
-      return null;
-    }
-    final uri = Uri.tryParse(route.feedPath ?? '');
-    return switch (uri?.path) {
-      '/latest.json' || '/filter.json' || '/search.json' => latest,
-      '/new.json' => switch (uri?.queryParameters['subset']) {
-        'topics' => newTopics,
-        'replies' => newReplies,
-        _ => newActivity,
-      },
-      '/unread.json' => unread,
-      '/unseen.json' => unseen,
-      '/hot.json' => popular,
-      '/top.json' => top(
-        TopPeriod.fromQueryValue(uri?.queryParameters['period'] ?? 'yearly'),
-      ),
+    return switch (route?.destination) {
+      FeedDestination(:final mode) => mode,
       _ => null,
     };
   }
@@ -187,29 +160,45 @@ enum MessageListMode {
 @immutable
 class ContentRoute {
   const ContentRoute({
-    required this.id,
+    required this.destination,
     required this.title,
     required this.icon,
     this.subtitle,
     this.color,
-    this.topicId,
-    this.slug,
-    this.postNumber,
-    this.feedPath,
-    this.messageGroupName,
-    this.groupRoute,
-    this.badgeRoute,
-    this.openInSecondaryPanel = false,
-    this.openInMainPanel = false,
   });
+
+  final ContentDestination destination;
+
+  bool sameDestinationAs(ContentRoute? other) =>
+      other != null && destination.identity == other.destination.identity;
+
+  bool isPage(CorePage page) => switch (destination) {
+    PageDestination(page: final current) => current == page,
+    _ => false,
+  };
+
+  ContentRoute withDisplay({
+    String? title,
+    DIconData? icon,
+    String? subtitle,
+    Color? color,
+  }) => ContentRoute(
+    destination: destination,
+    title: title ?? this.title,
+    icon: icon ?? this.icon,
+    subtitle: subtitle ?? this.subtitle,
+    color: color ?? this.color,
+  );
 
   factory ContentRoute.list(ListLink link, {String? title, Color? color}) {
     return ContentRoute(
-      id: 'list-${link.feedPath}',
+      destination: FeedDestination(
+        key: 'list-${link.feedPath}',
+        sourcePath: link.feedPath,
+      ),
       title: title ?? link.placeholderTitle,
       icon: link.kind == ListKind.category ? DIcons.folder : DIcons.tag,
       color: color,
-      feedPath: link.feedPath,
     );
   }
 
@@ -222,46 +211,49 @@ class ContentRoute {
     int? postNumber,
   }) {
     return ContentRoute(
-      id: 'topic-$topicId',
+      destination: TopicDestination(
+        topicId: topicId,
+        slug: slug,
+        postNumber: postNumber,
+      ),
       title: title,
       icon: DNativeIcons.topic,
       subtitle: subtitle,
       color: color,
-      topicId: topicId,
-      slug: slug,
-      postNumber: postNumber,
     );
   }
 
   factory ContentRoute.badges(BadgeRoute route, {String? title}) =>
       ContentRoute(
-        id: route.id,
+        destination: BadgeDestination(route),
         title: title ?? (route.isDirectory ? appL10n.badges : appL10n.badge),
         icon: DIcons.certificate,
-        badgeRoute: route,
       );
 
   factory ContentRoute.forumAbout() => ContentRoute(
-    id: 'forum-about',
+    destination: const PageDestination(CorePage.forumAbout),
     title: appL10n.forumAboutTitle,
     icon: DIcons.circleInfo,
   );
 
-  bool get isForumAbout => !isTopic && id == 'forum-about';
+  bool get isForumAbout => isPage(CorePage.forumAbout);
 
   factory ContentRoute.preferences() => ContentRoute(
-    id: 'preferences',
+    destination: const PageDestination(CorePage.preferences),
     title: appL10n.preferences,
     icon: DIcons.gear,
   );
 
-  factory ContentRoute.newTab() =>
-      ContentRoute(id: 'new-tab', title: appL10n.startPage, icon: DIcons.house);
+  factory ContentRoute.newTab() => ContentRoute(
+    destination: const PageDestination(CorePage.start),
+    title: appL10n.startPage,
+    icon: DIcons.house,
+  );
 
-  bool get isNewTab => id == 'new-tab';
+  bool get isNewTab => isPage(CorePage.start);
 
   factory ContentRoute.appearance() => ContentRoute(
-    id: 'appearance',
+    destination: const PageDestination(CorePage.appearance),
     title: appL10n.settings,
     icon: DIcons.gear,
   );
@@ -271,21 +263,19 @@ class ContentRoute {
     String? title,
     String? feedPath,
   }) => ContentRoute(
-    id: route.id,
+    destination: GroupDestination(route, sourcePath: feedPath),
     title: title ?? route.groupName ?? appL10n.groups,
     icon: DIcons.userGroup,
-    feedPath: feedPath,
-    groupRoute: route,
   );
 
   factory ContentRoute.allCategories() => ContentRoute(
-    id: 'all-categories',
+    destination: const PageDestination(CorePage.categories),
     title: appL10n.categories,
     icon: DIcons.layerGroup,
   );
 
   factory ContentRoute.userActivity() => ContentRoute(
-    id: 'activity',
+    destination: const PageDestination(CorePage.activity),
     title: appL10n.activity,
     icon: DIcons.barsStaggered,
   );
@@ -303,10 +293,9 @@ class ContentRoute {
       throw ArgumentError.value(mode, 'mode', 'No group sent list.');
     }
     return ContentRoute(
-      id: _messageRouteId(group, mode),
+      destination: MessagesDestination(groupName: group, mode: mode),
       title: appL10n.messages,
       icon: DIcons.inbox,
-      messageGroupName: group,
     );
   }
 
@@ -319,10 +308,13 @@ class ContentRoute {
   }
 
   factory ContentRoute.topicList(TopicListMode mode) => ContentRoute(
-    id: mode.routeId,
+    destination: FeedDestination(
+      key: mode.routeId,
+      sourcePath: mode.feedPath,
+      mode: mode,
+    ),
     title: appL10n.topics,
     icon: DIcons.layerGroup,
-    feedPath: mode.feedPath,
   );
 
   /// [query] goes ahead of the mode's own parameters, as it does in
@@ -347,10 +339,13 @@ class ContentRoute {
       },
     );
     return ContentRoute(
-      id: 'topic-list-filter-$uri',
+      destination: FeedDestination(
+        key: 'topic-list-filter-$uri',
+        sourcePath: uri.toString(),
+        mode: mode,
+      ),
       title: appL10n.topics,
       icon: DIcons.layerGroup,
-      feedPath: uri.toString(),
     );
   }
 
@@ -369,10 +364,13 @@ class ContentRoute {
       },
     );
     return ContentRoute(
-      id: 'topic-list-filter-$uri',
+      destination: FeedDestination(
+        key: 'topic-list-filter-$uri',
+        sourcePath: uri.toString(),
+        mode: TopicListMode.latest,
+      ),
       title: appL10n.topics,
       icon: DIcons.layerGroup,
-      feedPath: uri.toString(),
     );
   }
 
@@ -387,13 +385,21 @@ class ContentRoute {
       queryParameters: {'q': expression, 'page': '1'},
     );
     return ContentRoute(
-      id: messageMode == null
-          ? 'topic-list-filter-$uri'
-          : '${_messageRouteId(groupName, messageMode)}?q=${Uri.encodeComponent(expression)}',
+      destination: messageMode == null
+          ? FeedDestination(
+              key: 'topic-list-filter-$uri',
+              sourcePath: uri.toString(),
+              mode: TopicListMode.latest,
+            )
+          : MessagesDestination(
+              groupName: groupName,
+              mode: messageMode,
+              sourcePath: uri.toString(),
+              legacyKey:
+                  '${_messageRouteId(groupName, messageMode)}?q=${Uri.encodeComponent(expression)}',
+            ),
       title: messageMode == null ? appL10n.topics : appL10n.messages,
       icon: messageMode == null ? DIcons.layerGroup : DIcons.inbox,
-      messageGroupName: messageMode == null ? null : groupName,
-      feedPath: uri.toString(),
     );
   }
 
@@ -460,26 +466,15 @@ class ContentRoute {
     return ContentRoute.topicList(mode);
   }
 
-  ContentRoute.fromDestination(SidebarDestination destination)
-    : id = destination.id == 'filter' ? 'latest' : destination.id,
-      title = destination.id == 'filter' ? appL10n.topics : destination.label,
-      icon = destination.icon,
-      subtitle = null,
-      color = destination.routeColor ?? destination.color,
-      topicId = null,
-      slug = null,
-      postNumber = null,
-      feedPath = destination.feedPath,
-      messageGroupName = null,
-      groupRoute = null,
-      badgeRoute = null,
-      openInSecondaryPanel = false,
-      openInMainPanel = false;
+  factory ContentRoute.fromDestination(SidebarDestination source) =>
+      ContentRoute(
+        destination: ContentRouteCodec.fromSidebar(source),
+        title: source.id == 'filter' ? appL10n.topics : source.label,
+        icon: source.icon,
+        color: source.routeColor ?? source.color,
+      );
 
-  final bool openInSecondaryPanel;
-  final bool openInMainPanel;
-
-  final String id;
+  String get id => destination.key;
   final String title;
 
   String get tabTitle {
@@ -503,55 +498,56 @@ class ContentRoute {
   final String? subtitle;
   final Color? color;
 
-  final int? topicId;
-  final String? slug;
+  int? get topicId => switch (destination) {
+    TopicDestination(:final topicId) => topicId,
+    _ => null,
+  };
+  String? get slug => switch (destination) {
+    TopicDestination(:final slug) => slug,
+    _ => null,
+  };
+  int? get postNumber => switch (destination) {
+    TopicDestination(:final postNumber) => postNumber,
+    _ => null,
+  };
+  String? get feedPath => destination.feedPath;
+  String? get messageGroupName => switch (destination) {
+    MessagesDestination(:final groupName) => groupName,
+    _ => null,
+  };
+  GroupRoute? get groupRoute => switch (destination) {
+    GroupDestination(:final route) => route,
+    _ => null,
+  };
+  BadgeRoute? get badgeRoute => switch (destination) {
+    BadgeDestination(:final route) => route,
+    _ => null,
+  };
 
-  final int? postNumber;
-
-  final String? feedPath;
-
-  final String? messageGroupName;
-
-  final GroupRoute? groupRoute;
-
-  final BadgeRoute? badgeRoute;
-
-  bool get isBadges => !isTopic && (badgeRoute != null || id == 'badges');
-
-  /// Prevents corrupted persisted state from producing an oversized URI.
   static const int maximumFeedPathLength = 2048;
-
   static const int maximumMessageGroupNameLength = 255;
 
-  bool get isTopic => topicId != null;
-
-  bool get isPreferences => !isTopic && id == 'preferences';
-  bool get isAppearance => !isTopic && id == 'appearance';
-
-  bool get isMessages =>
-      !isTopic &&
-      MessageListMode.values.any(
-        (mode) =>
-            (messageGroupName == null || mode.supportsGroup) &&
-            id.split('?').first == _messageRouteId(messageGroupName, mode),
-      );
-
-  MessageListMode get messageListMode => MessageListMode.values.firstWhere(
-    (mode) => id.split('?').first == _messageRouteId(messageGroupName, mode),
-    orElse: () => MessageListMode.inbox,
-  );
-
-  bool get isUsers => !isTopic && id == 'users';
-
-  bool get isGroups => !isTopic && groupRoute?.isDirectory == true;
-
-  bool get isGroup => !isTopic && groupRoute?.isDetail == true;
+  bool get isTopic => destination is TopicDestination;
+  bool get isBadges => destination is BadgeDestination;
+  bool get isPreferences => isPage(CorePage.preferences);
+  bool get isAppearance => isPage(CorePage.appearance);
+  bool get isMessages => destination is MessagesDestination;
+  MessageListMode get messageListMode => switch (destination) {
+    MessagesDestination(:final mode) => mode,
+    _ => MessageListMode.inbox,
+  };
+  bool get isUsers => isPage(CorePage.users);
+  bool get isGroups => groupRoute?.isDirectory == true;
+  bool get isGroup => groupRoute?.isDetail == true;
 
   ListLink? get _listLink {
     final uri = Uri.tryParse(feedPath ?? '');
     if (uri == null || !uri.path.endsWith('.json')) return null;
     return ListLink.parse(_withoutJson(uri.path));
   }
+
+  bool get isTaxonomyList =>
+      destination is FeedDestination && _listLink != null;
 
   ContentRoute resolveCategoryLink(Iterable<TopicCategory> categories) {
     final link = _listLink;
@@ -672,20 +668,11 @@ class ContentRoute {
 
   ContentRoute _withFeedPath(String path, {String? id, Color? color}) =>
       ContentRoute(
-        id: id ?? this.id,
+        destination: destination.withFeedPath(path, key: id),
         title: title,
         icon: icon,
         subtitle: subtitle,
         color: color ?? this.color,
-        topicId: topicId,
-        slug: slug,
-        postNumber: postNumber,
-        feedPath: path,
-        messageGroupName: messageGroupName,
-        groupRoute: groupRoute,
-        badgeRoute: badgeRoute,
-        openInSecondaryPanel: openInSecondaryPanel,
-        openInMainPanel: openInMainPanel,
       );
 
   int? get categoryId {
@@ -740,179 +727,27 @@ class ContentRoute {
   }
 
   bool get isTopicListFilter =>
-      TopicListMode.fromRoute(this) != null ||
-      categoryId != null ||
-      _listLink?.kind == ListKind.category ||
-      tagName != null;
+      destination is FeedDestination &&
+      (TopicListMode.fromRoute(this) != null ||
+          categoryId != null ||
+          _listLink?.kind == ListKind.category ||
+          tagName != null);
 
   /// Topic and message feeds that can stay beside an open topic.
   bool get isTopicList =>
-      !isTopic &&
-      (isMessages ||
-          TopicListMode.fromRoute(this) != null ||
-          isTopicListFilter ||
-          id.startsWith('list-') ||
-          id == 'bookmarks');
+      destination is FeedDestination || destination is MessagesDestination;
 
-  /// Contains presentation only, never fetched content or credentials.
-  Map<String, Object?> toJson() => {
-    'id': id,
-    if (openInSecondaryPanel) 'open_in_secondary_panel': true,
-    if (openInMainPanel) 'open_in_main_panel': true,
-    'title': title,
-    'icon': icon.name,
-    if (subtitle != null) 'subtitle': subtitle,
-    if (color != null) 'color': color!.toARGB32(),
-    if (topicId != null) 'topic_id': topicId,
-    if (slug != null) 'slug': slug,
-    if (postNumber != null) 'post_number': postNumber,
-    if (feedPath != null) 'feed_path': feedPath,
-    if (messageGroupName != null) 'message_group_name': messageGroupName,
-    if (groupRoute != null) 'group_route': groupRoute!.toJson(),
-    if (badgeRoute != null) 'badge_route': badgeRoute!.toJson(),
-  };
+  Map<String, Object?> toJson() => ContentRouteCodec.encode(this);
 
-  factory ContentRoute.fromJson(Map<String, dynamic> json) {
-    final id = json['id'];
-    final title = json['title'];
-    final iconName = json['icon'];
-    if (id is! String ||
-        id.isEmpty ||
-        title is! String ||
-        iconName is! String) {
-      throw FormatException(appL10n.invalidContentRoute);
-    }
-
-    final colorValue = json['color'];
-    final topicId = json['topic_id'];
-    final postNumber = json['post_number'];
-    final feedPath = json['feed_path'];
-    final messageGroupName = json['message_group_name'];
-    final rawGroupRoute = json['group_route'];
-    if (topicId != null && (topicId is! int || topicId <= 0)) {
-      throw FormatException(appL10n.invalidContentRouteTopicId);
-    }
-    if (postNumber != null && (postNumber is! int || postNumber <= 0)) {
-      throw FormatException(appL10n.invalidContentRoutePostNumber);
-    }
-    if (feedPath != null && !_isSafeFeedPath(feedPath)) {
-      throw FormatException(appL10n.invalidContentRouteFeedPath);
-    }
-    if (messageGroupName != null &&
-        (messageGroupName is! String ||
-            messageGroupName.trim().isEmpty ||
-            messageGroupName != messageGroupName.trim() ||
-            messageGroupName.length > maximumMessageGroupNameLength ||
-            topicId != null ||
-            !MessageListMode.values.any(
-              (mode) =>
-                  mode.supportsGroup &&
-                  id.split('?').first ==
-                      _messageRouteId(messageGroupName, mode),
-            ))) {
-      throw FormatException(appL10n.invalidContentRouteMessageGroup);
-    }
-    final GroupRoute? groupRoute;
-    if (rawGroupRoute == null) {
-      groupRoute = null;
-    } else if (rawGroupRoute is Map) {
-      groupRoute = GroupRoute.fromJson(
-        Map<String, dynamic>.from(rawGroupRoute),
-      );
-      if (topicId != null || messageGroupName != null || id != groupRoute.id) {
-        throw FormatException(appL10n.invalidContentGroupRoute);
-      }
-    } else {
-      throw FormatException(appL10n.invalidContentGroupRoute);
-    }
-    final rawBadgeRoute = json['badge_route'];
-    final BadgeRoute? badgeRoute;
-    if (rawBadgeRoute == null) {
-      badgeRoute = null;
-    } else if (rawBadgeRoute is Map<String, dynamic>) {
-      badgeRoute = BadgeRoute.fromJson(rawBadgeRoute);
-      if (topicId != null ||
-          messageGroupName != null ||
-          groupRoute != null ||
-          feedPath != null ||
-          id != badgeRoute.id) {
-        throw FormatException(appL10n.invalidContentBadgeRoute);
-      }
-    } else {
-      throw FormatException(appL10n.invalidContentBadgeRoute);
-    }
-    final route = ContentRoute(
-      id: id,
-      openInSecondaryPanel: json['open_in_secondary_panel'] == true,
-      openInMainPanel: json['open_in_main_panel'] == true,
-      title: id == 'new-tab' ? appL10n.startPage : title,
-      // Upgrade legacy default glyphs while preserving other saved artwork.
-      icon:
-          (id == 'new-tab' ? DIcons.house : null) ??
-          (id == 'users' && iconName == DIcons.user.name
-              ? DIcons.users
-              : null) ??
-          (groupRoute != null && iconName == DIcons.users.name
-              ? DIcons.userGroup
-              : null) ??
-          (id == 'activity' && iconName == DIcons.list.name
-              ? DIcons.barsStaggered
-              : null) ??
-          DNativeIcons.byName[iconName] ??
-          (topicId != null && iconName == DIcons.comments.name
-              ? DNativeIcons.topic
-              : DIcons.byName[iconName] ?? DIcons.comments),
-      subtitle: json['subtitle'] is String ? json['subtitle'] as String : null,
-      color: colorValue is int ? Color(colorValue) : null,
-      topicId: topicId as int?,
-      slug: json['slug'] is String ? json['slug'] as String : null,
-      postNumber: postNumber as int?,
-      feedPath: feedPath as String?,
-      messageGroupName: messageGroupName as String?,
-      groupRoute: groupRoute,
-      badgeRoute: badgeRoute,
-    );
-    if (id == 'filter') return ContentRoute.topicFilter(route.topicFilterQuery);
-    // Forum appearance was saved as a "themes" tab before it was renamed.
-    if (id == 'themes' && !route.isTopic) return ContentRoute.appearance();
-    return route;
-  }
-
-  static bool _isSafeFeedPath(Object? value) {
-    if (value is! String ||
-        value.isEmpty ||
-        value.length > maximumFeedPathLength) {
-      return false;
-    }
-    final uri = Uri.tryParse(value);
-    if (uri == null) return false;
-    try {
-      // The getters decode lazily. Reject unreadable saved components before
-      // restoring a route whose category, tag, or filter getters need them.
-      final _ = uri.pathSegments;
-      final _ = uri.queryParametersAll;
-    } on FormatException {
-      return false;
-    }
-    return value.startsWith('/') &&
-        !value.startsWith('//') &&
-        uri.path.isNotEmpty &&
-        uri.path.endsWith('.json') &&
-        !uri.hasScheme &&
-        !uri.hasAuthority &&
-        uri.userInfo.isEmpty &&
-        !uri.hasFragment;
-  }
+  factory ContentRoute.fromJson(Map<String, dynamic> json) =>
+      ContentRouteCodec.decode(json);
 
   @override
   bool operator ==(Object other) =>
-      other is ContentRoute &&
-      other.id == id &&
-      other.title == title &&
-      other.feedPath == feedPath;
+      other is ContentRoute && sameDestinationAs(other) && other.title == title;
 
   @override
-  int get hashCode => Object.hash(id, title, feedPath);
+  int get hashCode => Object.hash(destination.identity, title);
 }
 
 String _withoutJson(String segment) => segment.endsWith('.json')

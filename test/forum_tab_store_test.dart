@@ -383,7 +383,10 @@ ForumWorkspace _workspace(String name, {ContentRoute? route}) => ForumWorkspace(
       contentStack: [
         route ??
             ContentRoute(
-              id: 'latest',
+              destination: const FeedDestination(
+                key: 'latest',
+                mode: TopicListMode.latest,
+              ),
               title: 'Topics $name',
               icon: DIcons.layerGroup,
             ),
@@ -394,8 +397,12 @@ ForumWorkspace _workspace(String name, {ContentRoute? route}) => ForumWorkspace(
 
 /// Records its id each time it is serialized.
 final class _CountedRoute extends ContentRoute {
-  const _CountedRoute(this.serialized, String id, {String? title})
-    : super(id: id, title: title ?? id, icon: DIcons.layerGroup);
+  _CountedRoute(this.serialized, String id, {String? title})
+    : super(
+        destination: ExtensionDestination(id),
+        title: title ?? id,
+        icon: DIcons.layerGroup,
+      );
 
   final List<String> serialized;
 
@@ -494,13 +501,15 @@ ContentRoute _route(Random random) => switch (random.nextInt(3)) {
     postNumber: random.nextBool() ? random.nextInt(900) : null,
   ),
   1 => ContentRoute(
-    id: 'list-${random.nextInt(40)}',
+    destination: FeedDestination(
+      key: 'list-${random.nextInt(40)}',
+      sourcePath: '/c/${_awkward(random)}.json',
+    ),
     title: _awkward(random),
     icon: DIcons.tag,
-    feedPath: '/c/${_awkward(random)}.json',
   ),
   _ => ContentRoute(
-    id: _awkward(random),
+    destination: ExtensionDestination(_awkward(random)),
     title: _awkward(random),
     icon: DIcons.layerGroup,
   ),
@@ -579,7 +588,7 @@ List<ForumWorkspace> _edited(List<ForumWorkspace> workspaces, Random random) {
       tab.rewriteRoutes(
         (route) => route.id == tab.currentContent.id
             ? ContentRoute(
-                id: route.id,
+                destination: route.destination,
                 title: _awkward(random),
                 icon: route.icon,
               )

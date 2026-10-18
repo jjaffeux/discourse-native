@@ -1346,7 +1346,7 @@ void _registerChatShellTests() {
               final shell = ShellScope.read(tester.element(primaryMainContent));
               shell.pushContent(
                 const ContentRoute(
-                  id: 'forum-detail',
+                  destination: ExtensionDestination('forum-detail'),
                   title: 'Forum detail',
                   icon: DIcons.comments,
                 ),
@@ -1476,14 +1476,14 @@ void _registerChatShellTests() {
             expect(shell.activatePluginPane(const PluginId('alpha')), isFalse);
             shell.pushContent(
               const ContentRoute(
-                id: 'alpha-root',
+                destination: ExtensionDestination('alpha-root'),
                 title: 'Alpha root',
                 icon: DIcons.comments,
               ),
             );
             shell.pushContent(
               const ContentRoute(
-                id: 'alpha-detail',
+                destination: ExtensionDestination('alpha-detail'),
                 title: 'Alpha detail',
                 icon: DIcons.comments,
               ),
@@ -1496,7 +1496,7 @@ void _registerChatShellTests() {
             expect(shell.activatePluginPane(const PluginId('beta')), isFalse);
             shell.pushContent(
               const ContentRoute(
-                id: 'beta-root',
+                destination: ExtensionDestination('beta-root'),
                 title: 'Beta root',
                 icon: DIcons.comments,
               ),
@@ -1544,7 +1544,7 @@ void _registerChatShellTests() {
                       rootDestinationId: 'alpha-root',
                       contentStack: const [
                         ContentRoute(
-                          id: 'alpha-root',
+                          destination: ExtensionDestination('alpha-root'),
                           title: 'Alpha root',
                           icon: DIcons.comments,
                         ),
@@ -1607,7 +1607,9 @@ void _registerChatShellTests() {
                     rootDestinationId: ChatPlugin.searchRouteId,
                     contentStack: const [
                       ContentRoute(
-                        id: ChatPlugin.searchRouteId,
+                        destination: ExtensionDestination(
+                          ChatPlugin.searchRouteId,
+                        ),
                         title: 'Search',
                         icon: DIcons.magnifyingGlass,
                       ),
@@ -1633,7 +1635,7 @@ void _registerChatShellTests() {
 
             shell.pushContent(
               const ContentRoute(
-                id: 'forum-restored-target',
+                destination: ExtensionDestination('forum-restored-target'),
                 title: 'Restored forum target',
                 icon: DIcons.comments,
               ),
@@ -5209,7 +5211,7 @@ final class _PanePanel implements SitePlugin, SidebarPanelPlugin {
         shell.activatePluginPane(owner);
         shell.pushContent(
           ContentRoute(
-            id: '$id-root',
+            destination: ExtensionDestination('$id-root'),
             title: '$id root',
             icon: DIcons.comments,
           ),

@@ -107,8 +107,8 @@ final class MobileNavigation {
       return false;
     }
     for (var i = 0; i < a.contentStack.length; i++) {
-      if (a.contentStack[i].id != b.contentStack[i].id ||
-          a.contentStack[i].feedPath != b.contentStack[i].feedPath) {
+      if (a.contentStack[i].destination.identity !=
+          b.contentStack[i].destination.identity) {
         return false;
       }
     }

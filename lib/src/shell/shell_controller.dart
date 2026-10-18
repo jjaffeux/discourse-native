@@ -1430,6 +1430,7 @@ class ShellController extends FrameSafeNotifier
     final route = currentContent;
     if (instance == null ||
         route == null ||
+        route.destination is! ExtensionDestination ||
         !_unavailableForums.contains(instance.url) ||
         !_retryingUnavailableForums.add(instance.url)) {
       return;
@@ -1772,7 +1773,7 @@ class ShellController extends FrameSafeNotifier
     return channel == null
         ? null
         : ContentRoute(
-            id: 'chat-c-${channel.group(1)}',
+            destination: ExtensionDestination('chat-c-${channel.group(1)}'),
             title: title ?? appL10n.chat,
             icon: DIcons.comments,
           );
@@ -1852,7 +1853,7 @@ class ShellController extends FrameSafeNotifier
       }
       if (target.id != activeTabId) selectTab(target.id);
     }
-    _preparePluginPaneForRoute(route.id);
+    _preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return TabOpenResult.unsupported;
     _replaceActiveTab(
@@ -1948,49 +1949,52 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     final route = context.currentContent;
     if (instance == null || route == null) return;
-    if (route.topicId case final topicId?) {
-      await Future.wait([
-        context.loadTopic(topicId, route.slug ?? '', force: true),
-        if (context.topicListContent case final source?)
-          context.loadFeed(source.id, force: true),
-      ]);
-      return;
-    }
-    if (route.isBadges) {
-      await badges.load(
-        instance,
-        route.badgeRoute ?? const BadgeRoute.directory(),
-        refresh: true,
-      );
-      return;
-    }
-    final hydrator = _pluginSession
-        .capabilities<PluginRouteHydrator>()
-        .where((candidate) => candidate.handlesPluginRoute(route.id))
-        .firstOrNull;
-    if (hydrator != null) {
-      await hydrator.hydratePluginRoute(instance.url, route.id, force: true);
-      return;
-    }
-    switch (route.id) {
-      case 'all-categories':
-        await loadCategories(instance.url, force: true);
-      case 'all-tags':
-        await loadTags(instance.url, force: true);
-      case 'users':
-        await userDirectory.load(instance, refresh: true);
-      case 'drafts':
-        await draftList.load(instance, refresh: true);
-      case 'summary':
-        await userSummary.load(instance, refresh: true);
-      case 'activity':
-        await accountActivity.loadUserActivity(instance, refresh: true);
-      case 'user-bookmarks':
-        await accountActivity.loadBookmarkList(instance, refresh: true);
-      case 'preferences':
-        await preferences.load(instance, refresh: true);
-      default:
+    switch (route.destination) {
+      case TopicDestination(:final topicId, :final slug):
+        await Future.wait([
+          context.loadTopic(topicId, slug ?? '', force: true),
+          if (context.topicListContent case final source?)
+            context.loadFeed(source.id, force: true),
+        ]);
+      case BadgeDestination(route: final badge):
+        await badges.load(instance, badge, refresh: true);
+      case ExtensionDestination():
+        final hydrator = _pluginSession
+            .capabilities<PluginRouteHydrator>()
+            .where((candidate) => candidate.handlesPluginRoute(route.id))
+            .firstOrNull;
+        if (hydrator != null) {
+          await hydrator.hydratePluginRoute(
+            instance.url,
+            route.id,
+            force: true,
+          );
+        } else {
+          await context.loadFeed(route.id, force: true);
+        }
+      case FeedDestination() || MessagesDestination() || GroupDestination():
         await context.loadFeed(route.id, force: true);
+      case PageDestination(:final page):
+        switch (page) {
+          case CorePage.categories:
+            await loadCategories(instance.url, force: true);
+          case CorePage.tags:
+            await loadTags(instance.url, force: true);
+          case CorePage.users:
+            await userDirectory.load(instance, refresh: true);
+          case CorePage.drafts:
+            await draftList.load(instance, refresh: true);
+          case CorePage.summary:
+            await userSummary.load(instance, refresh: true);
+          case CorePage.activity:
+            await accountActivity.loadUserActivity(instance, refresh: true);
+          case CorePage.bookmarks:
+            await accountActivity.loadBookmarkList(instance, refresh: true);
+          case CorePage.preferences:
+            await preferences.load(instance, refresh: true);
+          case CorePage.start || CorePage.appearance || CorePage.forumAbout:
+            break;
+        }
     }
   }
 
@@ -4225,6 +4229,9 @@ class ShellController extends FrameSafeNotifier
       }
       if (route.isAdvancedTopicFilter) return route.topicFilterRequestPath;
       if (route.feedPath != null) return route.feedPath;
+      if (route.destination case FeedDestination(mode: final mode?)) {
+        return mode.feedPath ?? '/latest.json';
+      }
     }
 
     final username = instance.user?.username;
@@ -4698,10 +4705,12 @@ class ShellController extends FrameSafeNotifier
   /// and the tags as the server resolved them.
   IncomingTopicsFilter? _incomingTopicsFilter(String path, TopicList list) {
     final scope = ContentRoute(
-      id: 'topic-list-filter-$path',
+      destination: FeedDestination.fromPath(
+        key: 'topic-list-filter-$path',
+        path: path,
+      ),
       title: '',
       icon: DIcons.list,
-      feedPath: path,
     );
     final categoryId = scope.categoryId;
     final tagged = scope.tagNames.isNotEmpty;
@@ -6833,7 +6842,7 @@ class ShellController extends FrameSafeNotifier
     final route = ContentRoute.fromDestination(
       buildCategoryDestination(category, categoriesById: byId),
     );
-    if (currentContent?.id == route.id) {
+    if (route.sameDestinationAs(currentContent)) {
       showPluginContent();
       return;
     }
@@ -6850,7 +6859,7 @@ class ShellController extends FrameSafeNotifier
     );
     if (destination == null) return;
     final route = ContentRoute.fromDestination(destination);
-    if (currentContent?.id == route.id) return;
+    if (route.sameDestinationAs(currentContent)) return;
     pushContent(route);
     unawaited(loadFeed(route.id));
   }
@@ -6944,7 +6953,7 @@ class ShellController extends FrameSafeNotifier
       return openContentInPanel(route, panel: requestedPanel) ==
           TabOpenResult.opened;
     }
-    if (currentContent?.id == route.id) {
+    if (route.sameDestinationAs(currentContent)) {
       showPluginContent();
       return true;
     }
@@ -7497,175 +7506,28 @@ class ShellController extends FrameSafeNotifier
         .firstOrNull;
     if (instance == null) return null;
 
-    final topic = TopicLink.parse(absolute, siteUrl: instance.url);
-    final list = ListLink.parse(absolute, siteUrl: instance.url);
-    final group = GroupRoute.parse(absolute, siteUrl: instance.url);
-    final badge = instance.config.badgesEnabled
-        ? BadgeRoute.parse(absolute, siteUrl: instance.url)
-        : null;
-    final ContentRoute route;
+    final ContentRoute? decoded;
     if (const {'', '/'}.contains(instance.pathWithin(target)) &&
         !target.hasQuery &&
         !target.hasFragment) {
-      route = _homepageFor(instance);
-    } else if (_ownMessagesRoute(instance, target) case final messages?) {
-      route = messages;
-    } else if (instance.pathWithin(target) == '/about' &&
-        !target.hasQuery &&
-        !target.hasFragment) {
-      route = ContentRoute.forumAbout();
-    } else if (instance.pathWithin(target) == '/u' &&
-        !target.hasQuery &&
-        !target.hasFragment) {
-      route = ContentRoute(
-        id: 'users',
-        title: appL10n.users,
-        icon: DIcons.user,
-      );
-    } else if (_coreListRoute(instance, target) case final core?) {
-      route = core;
-    } else if (instance.pathWithin(target) == '/categories' &&
-        !target.hasQuery &&
-        !target.hasFragment) {
-      route = ContentRoute.allCategories();
-    } else if (topic != null) {
-      route = ContentRoute.topic(
-        topicId: topic.topicId,
-        slug: topic.slug,
-        title: title ?? topic.placeholderTitle,
-        postNumber: topic.postNumber,
-      );
-    } else if (list != null) {
-      final category = list.kind == ListKind.category
-          ? categoryFor(list.id, siteUrl: instance.url)
-          : null;
-      route = ContentRoute.list(
-        list,
-        title: title,
-        color: category == null ? null : Color(category.colorValue),
-      ).resolveCategoryLink(filterCategoriesFor(instance.url));
-    } else if (badge != null) {
-      route = ContentRoute.badges(badge, title: title);
-    } else if (group != null) {
-      route = ContentRoute.group(
-        group,
-        feedPath: group.topicFeedPath(instance.user?.username),
-      );
+      decoded = _homepageFor(instance);
     } else {
-      return null;
+      decoded = ContentRouteCodec.fromUrl(
+        absolute,
+        instance: instance,
+        config: siteConfigFor(instance.url),
+        defaultTopPeriod: _defaultTopPeriodFor(instance.url),
+        title: title,
+      );
     }
+    if (decoded == null) return null;
+    final category = categoryFor(decoded.categoryId, siteUrl: instance.url);
+    final route =
+        (category == null
+                ? decoded
+                : decoded.withDisplay(color: Color(category.colorValue)))
+            .resolveCategoryLink(filterCategoriesFor(instance.url));
     return (route: route, siteUrl: instance.url);
-  }
-
-  /// The native list a core `/latest`, `/new`, `/unread`, `/unseen`, `/top`,
-  /// `/hot`, `/filter` or `/tags` link names. A plain link keeps the canonical
-  /// id that banners, counters and the sidebar key on; any other parameter
-  /// rides along to the server as it does on the web. Null — the browser —
-  /// for a list this forum's reader cannot have, as [selectTopicListMode]
-  /// refuses it, and for anything the app has no list for.
-  ContentRoute? _coreListRoute(DiscourseInstance instance, Uri target) {
-    if (target.hasFragment) return null;
-    final Map<String, List<String>> query;
-    try {
-      query = {...target.queryParametersAll}..remove('page');
-    } on FormatException {
-      return null;
-    }
-    final user = instance.user;
-    final path = instance.pathWithin(target);
-    final ContentRoute route;
-    switch (path) {
-      case '/tags':
-        if (!siteConfigFor(instance.url).taggingEnabled) return null;
-        return ContentRoute.fromDestination(allTagsDestination);
-      case '/filter':
-        final filter = query['q']?.firstOrNull?.trim() ?? '';
-        route = filter.isEmpty
-            ? ContentRoute.topicList(TopicListMode.latest)
-            : ContentRoute.topicFilter(filter);
-      case '/latest' || '/hot':
-        route = ContentRoute.filteredTopicList(
-          path == '/hot' ? TopicListMode.popular : TopicListMode.latest,
-          query: query,
-        );
-      case '/unread' || '/unseen' when user != null:
-        route = ContentRoute.filteredTopicList(
-          path == '/unread' ? TopicListMode.unread : TopicListMode.unseen,
-          query: query,
-        );
-      case '/new' when user != null:
-        // The server reads a subset only for a reader on the unified New
-        // list; anyone else is served the whole of New.
-        final subset = query.remove('subset')?.firstOrNull;
-        route = ContentRoute.filteredTopicList(switch (subset) {
-          'topics' when user.unifiedNewEnabled => TopicListMode.newTopics,
-          'replies' when user.unifiedNewEnabled => TopicListMode.newReplies,
-          _ => TopicListMode.newActivity,
-        }, query: query);
-      case '/top':
-        final value = query.remove('period')?.firstOrNull;
-        final period = value == null
-            ? _defaultTopPeriodFor(instance.url)
-            : TopPeriod.values
-                  .where((period) => period.queryValue == value)
-                  .firstOrNull;
-        if (period == null) return null;
-        route = ContentRoute.filteredTopicList(
-          TopicListMode.top(period),
-          query: query,
-        );
-      default:
-        return null;
-    }
-    final feedPath = route.feedPath;
-    if (feedPath != null &&
-        feedPath.length > ContentRoute.maximumFeedPathLength) {
-      return null;
-    }
-    return route;
-  }
-
-  /// The native inbox a link to the reader's own messages names, spelled as
-  /// the web routes it under `/u/{me}/messages` or `/my/messages`: the
-  /// personal inbox and its `unread`, `sent` and `archive` folders, and
-  /// `group/{name}` with its `unread` and `archive` folders. A group-message
-  /// summary notification links to a group inbox. Null — the browser — for
-  /// another reader's messages, a group whose messages this account cannot
-  /// read, and a folder the app has no list for.
-  ContentRoute? _ownMessagesRoute(DiscourseInstance instance, Uri target) {
-    final user = instance.user;
-    if (user == null || target.hasQuery || target.hasFragment) return null;
-    final List<String> inbox;
-    switch (DiscourseInstance.pathSegmentsWithin(instance.url, target)) {
-      case ['my', 'messages', ...final rest]:
-        inbox = rest;
-      case ['u', final username, 'messages', ...final rest]
-          when username.toLowerCase() == user.username.toLowerCase():
-        inbox = rest;
-      default:
-        return null;
-    }
-    final (groupName, folder) = switch (inbox) {
-      ['group', final name, ...final folder] => (name, folder),
-      _ => (null, inbox),
-    };
-    // The route keeps the server's spelling so it is the same list, under the
-    // same id, as the one the inbox selector opens.
-    final group = groupName == null
-        ? null
-        : user.messageGroupNames
-              .where((name) => name.toLowerCase() == groupName.toLowerCase())
-              .firstOrNull;
-    if (groupName != null && group == null) return null;
-    final mode = switch (folder) {
-      [] => MessageListMode.inbox,
-      ['unread'] => MessageListMode.unread,
-      ['sent'] => MessageListMode.sent,
-      ['archive'] => MessageListMode.archive,
-      _ => null,
-    };
-    if (mode == null || (group != null && !mode.supportsGroup)) return null;
-    return ContentRoute.messages(groupName: group, mode: mode);
   }
 
   TabOpenResult openContentInNewTab(
@@ -7828,19 +7690,20 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool openBadgeUrl(String url, {String? title, bool refresh = false}) {
-    final absolute = absoluteUrl(url);
-    final target = Uri.tryParse(absolute);
-    if (target == null) return false;
-    final index = _instances.indexWhere((instance) => instance.serves(target));
-    if (index < 0) return false;
+    final destination = _routeForLink(url, title: title);
+    if (destination == null ||
+        destination.route.destination is! BadgeDestination) {
+      return false;
+    }
+    final index = _instances.indexWhere(
+      (instance) => instance.url == destination.siteUrl,
+    );
     final instance = _instances[index];
-    if (!instance.config.badgesEnabled) return false;
-    final route = BadgeRoute.parse(absolute, siteUrl: instance.url);
-    if (route == null) return false;
+    final route = (destination.route.destination as BadgeDestination).route;
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
     if (currentContent?.badgeRoute != route) {
-      pushContent(ContentRoute.badges(route, title: title));
+      pushContent(destination.route);
     } else if (rootChanged) {
       _notify();
     }
@@ -7849,13 +7712,15 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool openGroupUrl(String url) {
-    final absolute = absoluteUrl(url);
-    final target = Uri.tryParse(absolute);
-    if (target == null) return false;
-    final index = _instances.indexWhere((instance) => instance.serves(target));
-    if (index < 0) return false;
-    final route = GroupRoute.parse(absolute, siteUrl: _instances[index].url);
-    if (route == null) return false;
+    final destination = _routeForLink(url);
+    if (destination == null ||
+        destination.route.destination is! GroupDestination) {
+      return false;
+    }
+    final index = _instances.indexWhere(
+      (instance) => instance.url == destination.siteUrl,
+    );
+    final route = (destination.route.destination as GroupDestination).route;
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
     if (currentContent?.groupRoute == route) {
@@ -7863,24 +7728,22 @@ class ShellController extends FrameSafeNotifier
       return true;
     }
 
-    final instance = _instances[index];
-    final content = ContentRoute.group(
-      route,
-      feedPath: route.topicFeedPath(instance.user?.username),
-    );
+    final content = destination.route;
     pushContent(content);
     if (content.feedPath != null) unawaited(loadFeed(content.id));
     return true;
   }
 
   bool _openTopicUrl(String url, {bool refresh = false}) {
-    final absolute = absoluteUrl(url);
-    final target = Uri.tryParse(absolute);
-    if (target == null) return false;
-    final index = _instances.indexWhere((i) => i.serves(target));
-    if (index < 0) return false;
-    final link = TopicLink.parse(absolute, siteUrl: _instances[index].url);
-    if (link == null) return false;
+    final destination = _routeForLink(url);
+    if (destination == null ||
+        destination.route.destination is! TopicDestination) {
+      return false;
+    }
+    final index = _instances.indexWhere(
+      (instance) => instance.url == destination.siteUrl,
+    );
+    final link = destination.route.destination as TopicDestination;
 
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
@@ -7903,8 +7766,8 @@ class ShellController extends FrameSafeNotifier
 
     _openTopic(
       link.topicId,
-      link.slug,
-      link.placeholderTitle,
+      link.slug ?? '',
+      destination.route.title,
       postNumber: link.postNumber,
       force: refresh,
       resetScrollPosition: link.postNumber != null,
@@ -7938,13 +7801,18 @@ class ShellController extends FrameSafeNotifier
     if (route?.topicId case final topicId? when tab != null && postNumber > 0) {
       final anchors = Map<String, ForumTabAnchor>.of(tab.anchors)
         ..remove(route!.id);
-      final targeted = ContentRoute.topic(
-        topicId: topicId,
-        slug: route.slug ?? '',
+      final targeted = ContentRoute(
+        destination: TopicDestination(
+          topicId: topicId,
+          slug: route.slug,
+          postNumber: postNumber,
+          legacyKey: route.id,
+          retainedFeedPath: route.feedPath,
+        ),
         title: route.title,
+        icon: route.icon,
         subtitle: route.subtitle,
         color: route.color,
-        postNumber: postNumber,
       );
       _topicNavigationRevisions[tab.id] = document.topicNavigationRevision + 1;
       _replaceTab(
@@ -8149,15 +8017,19 @@ class ShellController extends FrameSafeNotifier
     if (destination == null) return false;
     final route = destination.route;
     // Topics, category and tag lists, badges and groups have their own openers.
-    if (TopicListMode.fromRoute(route) == null &&
-        _registeredHomepage(route.id) == null &&
-        !route.isMessages &&
-        !const {
-          'users',
-          'all-categories',
-          'all-tags',
-          'forum-about',
-        }.contains(route.id)) {
+    final supported = switch (route.destination) {
+      FeedDestination(:final mode) => mode != null,
+      MessagesDestination() => true,
+      PageDestination(:final page) => const {
+        CorePage.users,
+        CorePage.categories,
+        CorePage.tags,
+        CorePage.forumAbout,
+      }.contains(page),
+      ExtensionDestination() => _registeredHomepage(route.id) != null,
+      TopicDestination() || GroupDestination() || BadgeDestination() => false,
+    };
+    if (!supported) {
       return false;
     }
     final index = _instances.indexWhere(
@@ -8166,7 +8038,7 @@ class ShellController extends FrameSafeNotifier
     if (index < 0) return false;
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
-    if (currentContent?.id == route.id) {
+    if (route.sameDestinationAs(currentContent)) {
       _pendingHomepageTabs.remove(activeTabId);
       if (rootChanged) _notify();
       return true;
@@ -8174,9 +8046,9 @@ class ShellController extends FrameSafeNotifier
     pushContent(route);
     if (route.isUsers) {
       unawaited(userDirectory.load(_instances[index]));
-    } else if (route.id == 'all-categories') {
+    } else if (route.isPage(CorePage.categories)) {
       unawaited(loadCategories(destination.siteUrl));
-    } else if (route.id == 'all-tags') {
+    } else if (route.isPage(CorePage.tags)) {
       unawaited(loadTags(destination.siteUrl));
     } else if (!route.isForumAbout) {
       unawaited(loadFeed(route.id));
@@ -8185,28 +8057,18 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool openListUrl(String url, {String? title}) {
-    final absolute = absoluteUrl(url);
-    final target = Uri.tryParse(absolute);
-    if (target == null) return false;
-    final index = _instances.indexWhere((i) => i.serves(target));
-    if (index < 0) return false;
-    final link = ListLink.parse(absolute, siteUrl: _instances[index].url);
-    if (link == null) return false;
+    final destination = _routeForLink(url, title: title);
+    if (destination == null || !destination.route.isTaxonomyList) return false;
+    final index = _instances.indexWhere(
+      (instance) => instance.url == destination.siteUrl,
+    );
 
     if (index != _instanceIndex) selectInstance(index);
     final rootChanged = _setForumContentRoot();
 
-    final category = link.kind == ListKind.category
-        ? categoryFor(link.id)
-        : null;
+    final route = destination.route;
 
-    final route = ContentRoute.list(
-      link,
-      title: title,
-      color: category == null ? null : Color(category.colorValue),
-    ).resolveCategoryLink(filterCategoriesFor(_instances[index].url));
-
-    if (currentContent?.id == route.id) {
+    if (route.sameDestinationAs(currentContent)) {
       if (rootChanged) _notify();
       return true;
     }
@@ -8652,14 +8514,7 @@ class ShellController extends FrameSafeNotifier
     if (title.isEmpty) return false;
     return _rewriteTopicRoutes(siteUrl, topicId, (route) {
       if (route.title == title) return route;
-      return ContentRoute.topic(
-        topicId: topicId,
-        slug: route.slug ?? '',
-        title: title,
-        subtitle: route.subtitle,
-        color: route.color,
-        postNumber: route.postNumber,
-      );
+      return route.withDisplay(title: title);
     });
   }
 
@@ -8677,13 +8532,12 @@ class ShellController extends FrameSafeNotifier
         fallbackTitle;
     final category = categoryFor(categoryId, siteUrl: siteUrl);
     _rewriteTopicRoutes(siteUrl, topicId, (route) {
-      return ContentRoute.topic(
-        topicId: topicId,
-        slug: route.slug ?? '',
+      return ContentRoute(
+        destination: route.destination,
         title: title,
+        icon: route.icon,
         subtitle: route.subtitle,
         color: category == null ? null : Color(category.colorValue),
-        postNumber: route.postNumber,
       );
     });
   }
@@ -17091,19 +16945,29 @@ class ShellController extends FrameSafeNotifier
     if (tab == null || currentInstance?.url != instance.url) return;
 
     final root = tab.contentStack.first;
-    if (!root.isNewTab && _registeredHomepage(root.id) == null) {
-      if (root.id == 'all-categories') {
-        unawaited(loadCategories(instance.url));
-      } else if (root.isUsers) {
-        unawaited(userDirectory.load(instance));
-      } else {
-        unawaited(
-          context.loadFeed(
-            root.feedPath == null && !root.isMessages
-                ? tab.rootDestinationId
-                : root.id,
-          ),
-        );
+    if (!root.isNewTab &&
+        !(root.destination is ExtensionDestination &&
+            _registeredHomepage(root.id) != null)) {
+      switch (root.destination) {
+        case PageDestination(page: CorePage.categories):
+          unawaited(loadCategories(instance.url));
+        case PageDestination(page: CorePage.users):
+          unawaited(userDirectory.load(instance));
+        case FeedDestination() ||
+            MessagesDestination() ||
+            GroupDestination() ||
+            ExtensionDestination():
+          unawaited(
+            context.loadFeed(
+              root.feedPath == null &&
+                      root.destination is! FeedDestination &&
+                      !root.isMessages
+                  ? tab.rootDestinationId
+                  : root.id,
+            ),
+          );
+        case PageDestination() || TopicDestination() || BadgeDestination():
+          break;
       }
     }
     final source = context.topicListContent;
@@ -17111,34 +16975,57 @@ class ShellController extends FrameSafeNotifier
       unawaited(context.loadFeed(source.id));
     }
     final route = tab.currentContent;
-    final hydrator = _pluginSession
-        .capabilities<PluginRouteHydrator>()
-        .where((candidate) => candidate.handlesPluginRoute(route.id))
-        .firstOrNull;
-    if (hydrator != null) {
-      _observePluginLifecycle(
-        Future.sync(() => hydrator.hydratePluginRoute(instance.url, route.id)),
-        'plugins.session.hydrateRoute',
-      );
-    } else if (route.topicId case final topicId?) {
-      final anchor = tab.anchors[route.id];
-      unawaited(
-        context.loadTopic(
-          topicId,
-          route.slug ?? '',
-          postNumber: anchor?.kind == 'topic'
-              ? anchor!.itemId
-              : route.postNumber,
-        ),
-      );
-    } else if (route.isBadges) {
-      unawaited(
-        badges.load(instance, route.badgeRoute ?? const BadgeRoute.directory()),
-      );
-    } else if (route.isUsers && route.id != root.id) {
-      unawaited(userDirectory.load(instance));
-    } else if (route.feedPath != null && route.id != root.id) {
-      unawaited(context.loadFeed(route.id));
+    switch (route.destination) {
+      case TopicDestination(:final topicId, :final slug, :final postNumber):
+        final anchor = tab.anchors[route.id];
+        unawaited(
+          context.loadTopic(
+            topicId,
+            slug ?? '',
+            postNumber: anchor?.kind == 'topic' ? anchor!.itemId : postNumber,
+          ),
+        );
+      case BadgeDestination(route: final badge):
+        unawaited(badges.load(instance, badge));
+      case PageDestination(:final page):
+        switch (page) {
+          case CorePage.users:
+            if (route.id != root.id) unawaited(userDirectory.load(instance));
+          case CorePage.start ||
+              CorePage.categories ||
+              CorePage.tags ||
+              CorePage.drafts ||
+              CorePage.summary ||
+              CorePage.bookmarks ||
+              CorePage.activity ||
+              CorePage.preferences ||
+              CorePage.appearance ||
+              CorePage.forumAbout:
+            break;
+        }
+      case FeedDestination() || MessagesDestination():
+        if (route.id != root.id) {
+          unawaited(context.loadFeed(route.id));
+        }
+      case GroupDestination():
+        if (route.feedPath != null && route.id != root.id) {
+          unawaited(context.loadFeed(route.id));
+        }
+      case ExtensionDestination():
+        final hydrator = _pluginSession
+            .capabilities<PluginRouteHydrator>()
+            .where((candidate) => candidate.handlesPluginRoute(route.id))
+            .firstOrNull;
+        if (hydrator != null) {
+          _observePluginLifecycle(
+            Future.sync(
+              () => hydrator.hydratePluginRoute(instance.url, route.id),
+            ),
+            'plugins.session.hydrateRoute',
+          );
+        } else if (route.feedPath != null && route.id != root.id) {
+          unawaited(context.loadFeed(route.id));
+        }
     }
   }
 
@@ -17206,7 +17093,9 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void selectDestination(SidebarDestination destination) {
-    if (!desktopPanelsEnabled) _preparePluginPaneForRoute(destination.id);
+    if (!desktopPanelsEnabled) {
+      _preparePluginPaneForRoute(ContentRoute.fromDestination(destination));
+    }
     final instance = currentInstance;
     if (instance == null) return;
     final workspace = _ensureWorkspace(instance);
@@ -17251,7 +17140,8 @@ class ShellController extends FrameSafeNotifier
         !content.isForumAbout &&
         !content.isAppearance &&
         !content.isPreferences &&
-        _registeredHomepage(content.id) == null) {
+        !(content.destination is ExtensionDestination &&
+            _registeredHomepage(content.id) != null)) {
       if (content.id == 'all-categories') {
         unawaited(loadCategories(instance.url, force: refresh));
       } else {
@@ -17419,10 +17309,12 @@ class ShellController extends FrameSafeNotifier
     final selectedCategory = category;
     if (categoryDestination == null || selectedCategory == null) {
       return ContentRoute(
-        id: 'topic-list-filter-$tagPath',
+        destination: FeedDestination(
+          key: 'topic-list-filter-$tagPath',
+          sourcePath: '/$tagPath.json',
+        ),
         title: tagName,
         icon: DIcons.tag,
-        feedPath: '/$tagPath.json',
       );
     }
 
@@ -17435,11 +17327,13 @@ class ShellController extends FrameSafeNotifier
       pathSegments: ['tags', ...Uri.parse(categoryPath).pathSegments, tagName],
     ).toString();
     return ContentRoute(
-      id: 'topic-list-filter-$combinedPath',
+      destination: FeedDestination(
+        key: 'topic-list-filter-$combinedPath',
+        sourcePath: '/$combinedPath.json',
+      ),
       title: selectedCategory.name,
       icon: categoryDestination.icon,
       color: categoryDestination.routeColor,
-      feedPath: '/$combinedPath.json',
     );
   }
 
@@ -17812,9 +17706,13 @@ class ShellController extends FrameSafeNotifier
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0 || _instances[index].user == null) return;
     if (index != _instanceIndex) selectInstance(index);
-    if (currentContent?.id == 'summary') return;
+    if (currentContent?.isPage(CorePage.summary) == true) return;
     pushContent(
-      ContentRoute(id: 'summary', title: appL10n.summary, icon: DIcons.user),
+      ContentRoute(
+        destination: const PageDestination(CorePage.summary),
+        title: appL10n.summary,
+        icon: DIcons.user,
+      ),
     );
   }
 
@@ -17849,7 +17747,7 @@ class ShellController extends FrameSafeNotifier
     if (index < 0) return;
     if (index != _instanceIndex) selectInstance(index);
     if (_instances[index].isConnected != true ||
-        currentContent?.id == 'activity') {
+        currentContent?.isPage(CorePage.activity) == true) {
       return;
     }
     pushContent(ContentRoute.userActivity());
@@ -17938,7 +17836,7 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     final existing = currentWorkspace?.tabs
-        .where((tab) => tab.currentContent.id == route.id)
+        .where((tab) => route.sameDestinationAs(tab.currentContent))
         .firstOrNull;
     if (existing != null) {
       selectTab(existing.id);
@@ -17949,12 +17847,12 @@ class ShellController extends FrameSafeNotifier
   }
 
   @override
-  void pushContent(ContentRoute route, {bool newTab = false}) {
-    final requestedPanel = route.openInMainPanel
-        ? ForumPanel.main
-        : route.openInSecondaryPanel
-        ? ForumPanel.secondary
-        : null;
+  void pushContent(
+    ContentRoute route, {
+    bool newTab = false,
+    ForumPanel? panel,
+  }) {
+    final requestedPanel = panel;
     if (newTab && forumTabsEnabled) {
       openContentInNewTab(
         route,
@@ -17970,7 +17868,7 @@ class ShellController extends FrameSafeNotifier
       openContentInPanel(route, panel: requestedPanel);
       return;
     }
-    final startsPluginPane = _preparePluginPaneForRoute(route.id);
+    final startsPluginPane = _preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
@@ -18001,7 +17899,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void replaceCurrentContent(ContentRoute route) {
-    final startsPluginPane = _preparePluginPaneForRoute(route.id);
+    final startsPluginPane = _preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
@@ -18043,7 +17941,8 @@ class ShellController extends FrameSafeNotifier
 
     var stateKey = (siteUrl: instance.url, tabId: tab.id);
     var activeOwner = _activePluginPanes[stateKey];
-    if (activeOwner == null) {
+    if (activeOwner == null &&
+        tab.currentContent.destination is ExtensionDestination) {
       final currentRouteId = tab.currentContent.id;
       final restoredPolicy = _pluginSession
           .capabilities<PluginPaneRoutePolicy>()
@@ -18096,10 +17995,11 @@ class ShellController extends FrameSafeNotifier
           .where(
             (tab) =>
                 tab.panel == activeTab?.panel &&
-                policies.every(
-                  (policy) =>
-                      !policy.ownsPluginPaneRoute(tab.currentContent.id),
-                ),
+                (tab.currentContent.destination is! ExtensionDestination ||
+                    policies.every(
+                      (policy) =>
+                          !policy.ownsPluginPaneRoute(tab.currentContent.id),
+                    )),
           )
           .firstOrNull;
       _replaceActiveTab(
@@ -18144,7 +18044,9 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  bool _preparePluginPaneForRoute(String routeId) {
+  bool _preparePluginPaneForRoute(ContentRoute route) {
+    final routeId = route.id;
+    final isExtension = route.destination is ExtensionDestination;
     if (mobileNavigationEnabled || desktopPanelsEnabled) return false;
     final instance = currentInstance;
     final tab = activeTab;
@@ -18155,7 +18057,8 @@ class ShellController extends FrameSafeNotifier
         .capabilities<PluginPaneRoutePolicy>()
         .toList(growable: false);
     var owner = _activePluginPanes[stateKey];
-    if (owner == null) {
+    if (owner == null &&
+        tab.currentContent.destination is ExtensionDestination) {
       final currentRouteId = tab.currentContent.id;
       final currentPolicy = policies
           .where(
@@ -18171,23 +18074,27 @@ class ShellController extends FrameSafeNotifier
     }
 
     if (owner != null) {
-      final staysInPane = policies.any(
-        (policy) =>
-            policy.pluginPaneOwner == owner &&
-            policy.ownsPluginPaneRoute(routeId) &&
-            policy.separatesPluginPane(routeId),
-      );
+      final staysInPane =
+          isExtension &&
+          policies.any(
+            (policy) =>
+                policy.pluginPaneOwner == owner &&
+                policy.ownsPluginPaneRoute(routeId) &&
+                policy.separatesPluginPane(routeId),
+          );
       if (staysInPane) return _coldPluginPanes.remove(stateKey);
       _deactivatePluginPane(owner, notifyAndHydrate: false);
     }
 
-    final targetPolicy = policies
-        .where(
-          (policy) =>
-              policy.ownsPluginPaneRoute(routeId) &&
-              policy.separatesPluginPane(routeId),
-        )
-        .firstOrNull;
+    final targetPolicy = isExtension
+        ? policies
+              .where(
+                (policy) =>
+                    policy.ownsPluginPaneRoute(routeId) &&
+                    policy.separatesPluginPane(routeId),
+              )
+              .firstOrNull
+        : null;
     if (targetPolicy != null) {
       activatePluginPane(targetPolicy.pluginPaneOwner);
       return _coldPluginPanes.remove(stateKey);
@@ -18836,8 +18743,11 @@ final class _ShellPluginNavigationHost implements PluginNavigationHost {
   void openPageTab(ContentRoute route) => _shell.openPageTab(route);
 
   @override
-  void pushContent(ContentRoute route, {bool newTab = false}) =>
-      _shell.pushContent(route, newTab: newTab);
+  void pushContent(
+    ContentRoute route, {
+    bool newTab = false,
+    ForumPanel? panel,
+  }) => _shell.pushContent(route, newTab: newTab, panel: panel);
 
   @override
   void replaceCurrentContent(ContentRoute route) =>
@@ -18937,7 +18847,10 @@ final class _ShellPluginTopicListNavigationHost
 
   @override
   void openTopicList(ContentRoute route) {
-    if (route.feedPath == null || _shell.currentContent?.id == route.id) return;
+    if (route.destination is! FeedDestination ||
+        route.sameDestinationAs(_shell.currentContent)) {
+      return;
+    }
     _shell.pushContent(route);
     unawaited(_shell.loadFeed(route.id));
   }

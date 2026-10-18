@@ -178,7 +178,7 @@ void main() {
 
         shell.pushContent(
           const ContentRoute(
-            id: 'navigation-test',
+            destination: ExtensionDestination('navigation-test'),
             title: 'Navigation test',
             icon: DIcons.comments,
           ),
@@ -307,7 +307,11 @@ void main() {
       final shell = _shell(tester);
       for (final id in ['hover-first', 'hover-second']) {
         shell.pushContent(
-          ContentRoute(id: id, title: id, icon: DIcons.comments),
+          ContentRoute(
+            destination: ExtensionDestination(id),
+            title: id,
+            icon: DIcons.comments,
+          ),
         );
       }
       await tester.pumpAndSettle();
@@ -469,7 +473,7 @@ void main() {
       await tester.pumpAndSettle();
       shell.pushContent(
         const ContentRoute(
-          id: 'navigation-test',
+          destination: ExtensionDestination('navigation-test'),
           title: 'Navigation test',
           icon: DIcons.comments,
         ),

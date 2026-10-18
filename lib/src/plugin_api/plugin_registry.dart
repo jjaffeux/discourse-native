@@ -2012,6 +2012,7 @@ final class PluginRegistry
   }
 
   Widget? content(BuildContext context, ContentRoute route) {
+    if (route.destination is! ExtensionDestination) return null;
     for (final plugin in plugins.whereType<ContentPlugin>()) {
       final content = plugin.content(_uiContext(context, plugin), route);
       if (content != null) return _owned(plugin, content);
@@ -2029,24 +2030,28 @@ final class PluginRegistry
   }
 
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>
+      route.destination is ExtensionDestination &&
       plugins.whereType<ContentChromePlugin>().any(
         (plugin) =>
             plugin.ownsContentChrome(_uiContext(context, plugin), route),
       );
 
   bool usesMobilePageSheet(BuildContext context, ContentRoute route) =>
+      route.destination is ExtensionDestination &&
       plugins.whereType<ContentMobilePageSheetPlugin>().any(
         (plugin) =>
             plugin.usesMobilePageSheet(_uiContext(context, plugin), route),
       );
 
   bool keepsMobileDockVisible(BuildContext context, ContentRoute route) =>
+      route.destination is ExtensionDestination &&
       plugins.whereType<ContentMobileDockPlugin>().any(
         (plugin) =>
             plugin.keepsMobileDockVisible(_uiContext(context, plugin), route),
       );
 
   bool ownsContentPageTitle(BuildContext context, ContentRoute route) =>
+      route.destination is ExtensionDestination &&
       plugins.whereType<ContentPageTitlePlugin>().any(
         (plugin) =>
             plugin.ownsContentPageTitle(_uiContext(context, plugin), route),
@@ -2054,14 +2059,16 @@ final class PluginRegistry
 
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) =>
       [
-        for (final plugin in plugins.whereType<ContentHeaderPlugin>())
-          ..._ownedAll(
-            plugin,
-            plugin.contentHeaderActions(_uiContext(context, plugin), route),
-          ),
+        if (route.destination is ExtensionDestination)
+          for (final plugin in plugins.whereType<ContentHeaderPlugin>())
+            ..._ownedAll(
+              plugin,
+              plugin.contentHeaderActions(_uiContext(context, plugin), route),
+            ),
       ];
 
   Widget? contentHeaderLeading(BuildContext context, ContentRoute route) {
+    if (route.destination is! ExtensionDestination) return null;
     for (final plugin in plugins.whereType<ContentHeaderLeadingPlugin>()) {
       final leading = plugin.contentHeaderLeading(
         _uiContext(context, plugin),
@@ -2073,6 +2080,7 @@ final class PluginRegistry
   }
 
   Widget? contentHeaderTitleTrailing(BuildContext context, ContentRoute route) {
+    if (route.destination is! ExtensionDestination) return null;
     for (final plugin
         in plugins.whereType<ContentHeaderTitleTrailingPlugin>()) {
       final trailing = plugin.contentHeaderTitleTrailing(
@@ -2088,6 +2096,7 @@ final class PluginRegistry
     BuildContext context,
     ContentRoute route,
   ) {
+    if (route.destination is! ExtensionDestination) return null;
     for (final plugin in plugins.whereType<ContentHeaderTitlePlugin>()) {
       final action = plugin.contentHeaderTitleAction(
         _uiContext(context, plugin),

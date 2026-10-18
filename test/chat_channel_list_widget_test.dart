@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
@@ -112,11 +113,11 @@ void main() {
     final shell = ShellScope.read(tester.element(primaryMainContent));
     shell.pushContent(
       const ContentRoute(
-        id: ChatPlugin.channelsRouteId,
+        destination: ExtensionDestination(ChatPlugin.channelsRouteId),
         title: 'Chat',
         icon: DIcons.comments,
-        openInSecondaryPanel: true,
       ),
+      panel: ForumPanel.secondary,
     );
     await tester.pumpAndSettle();
 

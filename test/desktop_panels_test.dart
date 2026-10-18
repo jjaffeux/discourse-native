@@ -664,14 +664,22 @@ void main() {
       shell.moveTabToPanel(shell.activeTabId!, panel);
       final original = shell.activeTabId;
       shell.pushContent(
-        const ContentRoute(id: 'users', title: 'Users', icon: DIcons.user),
+        const ContentRoute(
+          destination: PageDestination(CorePage.users),
+          title: 'Users',
+          icon: DIcons.user,
+        ),
       );
       expect(shell.activeTabId, original);
       expect(shell.activeTab?.panel, panel);
       expect(shell.currentContent?.id, 'users');
 
       shell.pushContent(
-        const ContentRoute(id: 'all-tags', title: 'Tags', icon: DIcons.tag),
+        const ContentRoute(
+          destination: PageDestination(CorePage.tags),
+          title: 'Tags',
+          icon: DIcons.tag,
+        ),
       );
       expect(shell.activeTabId, original);
       expect(shell.currentContent?.id, 'all-tags');
@@ -1503,7 +1511,7 @@ void main() {
       final main = shell.activeTabId!;
       shell.openContentInNewTab(
         const ContentRoute(
-          id: 'all-categories',
+          destination: PageDestination(CorePage.categories),
           title: 'All categories',
           icon: DIcons.folder,
         ),
@@ -1713,12 +1721,20 @@ void main() {
     ) async {
       final initial = shell.activeTabId!;
       shell.openContentInNewTab(
-        const ContentRoute(id: 'panel-a', title: 'A', icon: DIcons.tag),
+        const ContentRoute(
+          destination: ExtensionDestination('panel-a'),
+          title: 'A',
+          icon: DIcons.tag,
+        ),
       );
       final first = shell.activeTabId!;
       shell.closeTab(initial);
       shell.openContentInNewTab(
-        const ContentRoute(id: 'panel-b', title: 'B', icon: DIcons.tag),
+        const ContentRoute(
+          destination: ExtensionDestination('panel-b'),
+          title: 'B',
+          icon: DIcons.tag,
+        ),
       );
       final second = shell.activeTabId!;
       _openTopicTab(shell, _topic);

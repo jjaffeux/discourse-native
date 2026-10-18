@@ -9,24 +9,30 @@ const _site = 'https://forum.example';
 const _account = 'user:1';
 
 const _fromSidebar = ContentRoute(
-  id: 'category-12',
+  destination: FeedDestination(
+    key: 'category-12',
+    sourcePath: '/c/discourse-native-app/12.json',
+  ),
   title: 'Discourse Native App',
   icon: DIcons.folder,
-  feedPath: '/c/discourse-native-app/12.json',
 );
 
 const _fromLink = ContentRoute(
-  id: 'list-/c/native/12.json',
+  destination: FeedDestination(
+    key: 'list-/c/native/12.json',
+    sourcePath: '/c/native/12.json',
+  ),
   title: 'Discourse Native App',
   icon: DIcons.folder,
-  feedPath: '/c/native/12.json',
 );
 
 const _other = ContentRoute(
-  id: 'category-13',
+  destination: FeedDestination(
+    key: 'category-13',
+    sourcePath: '/c/support/13.json',
+  ),
   title: 'Support',
   icon: DIcons.folder,
-  feedPath: '/c/support/13.json',
 );
 
 void main() {
@@ -47,16 +53,20 @@ void main() {
     test('distinct slug-only links stay distinct', () {
       final store = RecentDestinationsStore.memory();
       const first = ContentRoute(
-        id: 'list-/c/general.json',
+        destination: FeedDestination(
+          key: 'list-/c/general.json',
+          sourcePath: '/c/general.json',
+        ),
         title: 'General',
         icon: DIcons.folder,
-        feedPath: '/c/general.json',
       );
       const second = ContentRoute(
-        id: 'list-/c/support.json',
+        destination: FeedDestination(
+          key: 'list-/c/support.json',
+          sourcePath: '/c/support.json',
+        ),
         title: 'Support',
         icon: DIcons.folder,
-        feedPath: '/c/support.json',
       );
 
       store.remember(_site, _account, first);

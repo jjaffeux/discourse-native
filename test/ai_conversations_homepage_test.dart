@@ -675,7 +675,7 @@ void main() {
       expect(setup.shell.currentContent?.id, 'ai-conversations');
       setup.shell.pushContent(
         const ContentRoute(
-          id: 'voice-room-5',
+          destination: ExtensionDestination('voice-room-5'),
           title: 'Voice room',
           icon: DIcons.microphoneLines,
         ),
@@ -736,7 +736,7 @@ void main() {
             .openRoom(
               siteUrl: _site,
               route: const ContentRoute(
-                id: 'voice-room-5',
+                destination: ExtensionDestination('voice-room-5'),
                 title: 'Room',
                 icon: DIcons.microphoneLines,
               ),

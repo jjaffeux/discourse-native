@@ -834,8 +834,7 @@ abstract interface class PrivateMessageSourcePlugin {
 }
 
 abstract interface class ContentPlugin {
-  /// Ordered before core and matched by the id the plugin put in its sidebar
-  /// destination. Unknown plugin routes therefore fall through to a placeholder.
+  /// Renders an extension destination matched by its opaque plugin key.
   Widget? content(BuildContext context, ContentRoute route);
 }
 

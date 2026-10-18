@@ -8,6 +8,7 @@ import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/forum_workspace.dart' show ForumPanel;
 import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
 import '../models/user_preferences.dart';
@@ -125,7 +126,11 @@ abstract interface class PluginNavigationHost {
   ValueListenable<Rect?> get readerContentBoundsListenable;
 
   void selectInstance(int index);
-  void pushContent(ContentRoute route, {bool newTab = false});
+  void pushContent(
+    ContentRoute route, {
+    bool newTab = false,
+    ForumPanel? panel,
+  });
 
   /// Opens or focuses a directory's own tab; mobile uses ordinary navigation.
   /// At the tab limit, navigates the active tab while preserving its history.

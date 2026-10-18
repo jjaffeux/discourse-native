@@ -191,7 +191,11 @@ void main() {
       await tester.pumpAndSettle();
       // A forward entry ensures both history callbacks would otherwise be live.
       shell.pushContent(
-        const ContentRoute(id: 'users', title: 'Users', icon: DIcons.user),
+        const ContentRoute(
+          destination: PageDestination(CorePage.users),
+          title: 'Users',
+          icon: DIcons.user,
+        ),
       );
       shell.handleBack();
       await tester.pumpAndSettle();

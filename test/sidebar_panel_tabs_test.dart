@@ -473,7 +473,7 @@ void main() {
       final shell = await pumpTabs(tester);
       shell.pushContent(
         const ContentRoute(
-          id: 'voice-room-7',
+          destination: ExtensionDestination('voice-room-7'),
           title: 'Watercooler',
           icon: DIcons.microphoneLines,
         ),

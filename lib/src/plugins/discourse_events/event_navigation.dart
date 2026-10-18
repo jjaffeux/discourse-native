@@ -54,13 +54,14 @@ final class EventNavigation implements PluginLinkHandler {
   }) {
     // The route id names the view the directory will actually show.
     final route = ContentRoute(
-      id:
-          page?.directoryPage.routeId(mine) ??
-          (mine ? 'events-mine' : 'events-upcoming'),
+      destination: ExtensionDestination(
+        page?.directoryPage.routeId(mine) ??
+            (mine ? 'events-mine' : 'events-upcoming'),
+      ),
       title: mine ? appL10n.myEvents : appL10n.events,
       icon: EventIcons.calendar,
     );
-    if (host.currentContent?.id == route.id) return;
+    if (route.sameDestinationAs(host.currentContent)) return;
     if (replace) {
       host.replaceCurrentContent(route);
     } else {
@@ -72,7 +73,8 @@ final class EventNavigation implements PluginLinkHandler {
     required bool mine,
     required EventCalendarPage page,
   }) {
-    if (EventCalendarPage.readRoute(host.currentContent?.id ?? '') == null) {
+    if (host.currentContent?.destination is! ExtensionDestination ||
+        EventCalendarPage.readRoute(host.currentContent?.id ?? '') == null) {
       return;
     }
     openDirectory(mine: mine, page: page, replace: true);

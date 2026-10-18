@@ -179,10 +179,15 @@ class RecentDestinationsStore {
 enum _RecentKind { category, channel, topic }
 
 _RecentKind? _kindOf(ContentRoute route) => switch (route) {
-  _ when route.topicId != null => _RecentKind.topic,
-  _ when route.id.startsWith('category-') || route.id.startsWith('list-/c/') =>
+  _ when route.destination is TopicDestination => _RecentKind.topic,
+  _
+      when route.destination is FeedDestination &&
+          (route.id.startsWith('category-') ||
+              route.id.startsWith('list-/c/')) =>
     _RecentKind.category,
-  _ when RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(route.id) =>
+  _
+      when route.destination is ExtensionDestination &&
+          RegExp(r'^chat-c-[1-9][0-9]*$').hasMatch(route.id) =>
     _RecentKind.channel,
   _ => null,
 };

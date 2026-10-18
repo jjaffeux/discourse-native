@@ -30,18 +30,20 @@ import 'support/shell_test_harness.dart';
 
 const _site = 'https://forum.example';
 const _page = ContentRoute(
-  id: 'preferences',
+  destination: PageDestination(CorePage.preferences),
   title: 'Preferences',
   icon: DIcons.gear,
 );
 const _category = ContentRoute(
-  id: 'category-12',
+  destination: FeedDestination(
+    key: 'category-12',
+    sourcePath: '/c/support/12.json',
+  ),
   title: 'Community support',
   icon: DIcons.folder,
-  feedPath: '/c/support/12.json',
 );
 const _chat = ContentRoute(
-  id: 'chat-c-9',
+  destination: ExtensionDestination('chat-c-9'),
   title: 'Travel conversation',
   icon: DIcons.comment,
 );
@@ -107,7 +109,7 @@ void main() {
         expect(shell.destinationBookmarksFor(_site), isEmpty);
       }
       const bookmarks = ContentRoute(
-        id: 'user-bookmarks',
+        destination: PageDestination(CorePage.bookmarks),
         title: 'Bookmarks',
         icon: DIcons.bookmark,
       );

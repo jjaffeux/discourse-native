@@ -67,7 +67,7 @@ void main() {
 
       harness.host.pushContent(
         const ContentRoute(
-          id: 'bookmarks',
+          destination: FeedDestination(key: 'bookmarks'),
           title: 'Bookmarks',
           icon: DIcons.bookmark,
         ),
@@ -90,7 +90,7 @@ void main() {
 
         final current = harness.host.currentContent!;
         final replacement = ContentRoute(
-          id: current.id,
+          destination: current.destination,
           title: current.title,
           icon: current.icon,
         );
@@ -393,7 +393,7 @@ final class _RouteHost implements PluginRouteNavigationHost {
 
   @override
   ContentRoute? currentContent = const ContentRoute(
-    id: 'latest',
+    destination: FeedDestination(key: 'latest', mode: TopicListMode.latest),
     title: 'Latest',
     icon: DIcons.list,
   );
@@ -402,7 +402,10 @@ final class _RouteHost implements PluginRouteNavigationHost {
   void selectInstance(int index) {
     selectedUrl = sites[index].url;
     currentContent = ContentRoute(
-      id: 'latest',
+      destination: const FeedDestination(
+        key: 'latest',
+        mode: TopicListMode.latest,
+      ),
       title: '$selectedUrl latest',
       icon: DIcons.list,
     );

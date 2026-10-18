@@ -37,15 +37,16 @@ void main() {
 
     test('round-trips every durable route field', () {
       const route = ContentRoute(
-        id: 'topic-42',
+        destination: TopicDestination(
+          topicId: 42,
+          slug: 'a-durable-topic',
+          postNumber: 7,
+          retainedFeedPath: '/c/durable/42.json',
+        ),
         title: 'A durable topic',
         icon: DIcons.folder,
         subtitle: 'Topic subtitle',
         color: Color(0xFF123456),
-        topicId: 42,
-        slug: 'a-durable-topic',
-        postNumber: 7,
-        feedPath: '/c/durable/42.json',
       );
 
       final restored = ContentRoute.fromJson(_jsonMap(route.toJson()));
@@ -70,7 +71,12 @@ void main() {
 
         expect(restored, route);
         expect(restored.isPreferences, isTrue);
-        expect(restored.toJson().keys, ['id', 'title', 'icon']);
+        expect(restored.toJson().keys, [
+          'destination_type',
+          'id',
+          'title',
+          'icon',
+        ]);
       },
     );
 
@@ -149,8 +155,17 @@ void main() {
       );
       expect(
         () => ContentRoute.fromJson({
-          ...ContentRoute.messages(groupName: 'team').toJson(),
           'id': 'messages-group-team/sent',
+          'title': 'Messages',
+          'icon': DIcons.inbox.name,
+          'message_group_name': 'team',
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => ContentRoute.fromJson({
+          ...ContentRoute.messages(groupName: 'team').toJson(),
+          'message_mode': 'sent',
         }),
         throwsFormatException,
       );
@@ -213,7 +228,10 @@ void main() {
             rootDestinationId: 'latest',
             contentStack: const [
               ContentRoute(
-                id: 'latest',
+                destination: FeedDestination(
+                  key: 'latest',
+                  mode: TopicListMode.latest,
+                ),
                 title: 'Topics',
                 icon: DIcons.layerGroup,
               ),
@@ -225,35 +243,41 @@ void main() {
             rootDestinationId: 'latest',
             contentStack: const [
               ContentRoute(
-                id: 'latest',
+                destination: FeedDestination(
+                  key: 'latest',
+                  mode: TopicListMode.latest,
+                ),
                 title: 'Topics',
                 icon: DIcons.layerGroup,
               ),
               ContentRoute(
-                id: 'topic-42',
+                destination: TopicDestination(
+                  topicId: 42,
+                  slug: 'a-durable-topic',
+                  postNumber: 7,
+                ),
                 title: 'A durable topic',
                 icon: DIcons.comments,
                 subtitle: 'Topic subtitle',
                 color: Color(0xFF654321),
-                topicId: 42,
-                slug: 'a-durable-topic',
-                postNumber: 7,
               ),
             ],
             forwardStack: const [
               ContentRoute(
-                id: 'topic-44',
+                destination: TopicDestination(
+                  topicId: 44,
+                  slug: 'a-farther-future-topic',
+                ),
                 title: 'A farther future topic',
                 icon: DIcons.comments,
-                topicId: 44,
-                slug: 'a-farther-future-topic',
               ),
               ContentRoute(
-                id: 'topic-43',
+                destination: TopicDestination(
+                  topicId: 43,
+                  slug: 'the-next-future-topic',
+                ),
                 title: 'The next future topic',
                 icon: DIcons.comments,
-                topicId: 43,
-                slug: 'the-next-future-topic',
               ),
             ],
             anchors: const {
@@ -495,7 +519,10 @@ void main() {
             rootDestinationId: 'latest',
             contentStack: const [
               ContentRoute(
-                id: 'latest',
+                destination: FeedDestination(
+                  key: 'latest',
+                  mode: TopicListMode.latest,
+                ),
                 title: 'Topics',
                 icon: DIcons.layerGroup,
               ),
@@ -507,7 +534,7 @@ void main() {
                 route++
               )
                 ContentRoute(
-                  id: 'topic-$route',
+                  destination: ExtensionDestination('topic-$route'),
                   title: 'Topic $route',
                   icon: DIcons.comments,
                 ),

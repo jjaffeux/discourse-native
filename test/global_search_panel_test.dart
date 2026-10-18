@@ -824,7 +824,7 @@ void main() {
 
     shell.pushContent(
       const ContentRoute(
-        id: 'unrelated',
+        destination: ExtensionDestination('unrelated'),
         title: 'Unrelated route',
         icon: DIcons.comments,
       ),

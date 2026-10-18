@@ -201,7 +201,7 @@ final class VoicePlugin
                   shell.openRoom(
                     siteUrl: instance.url,
                     route: ContentRoute(
-                      id: routeId(room.id),
+                      destination: ExtensionDestination(routeId(room.id)),
                       title: room.name,
                       icon: DIcons.microphoneLines,
                     ),
@@ -212,7 +212,7 @@ final class VoicePlugin
               onSecondaryTap: () => shell.openRoom(
                 siteUrl: instance.url,
                 route: ContentRoute(
-                  id: routeId(room.id),
+                  destination: ExtensionDestination(routeId(room.id)),
                   title: room.name,
                   icon: DIcons.microphoneLines,
                 ),

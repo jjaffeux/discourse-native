@@ -226,7 +226,11 @@ void main() {
       final closed = <String>[];
       for (final route in [
         ContentRoute.topic(topicId: 10, slug: 'closed', title: 'Closed topic'),
-        const ContentRoute(id: 'chat-c-5', title: 'Alex', icon: DIcons.user),
+        const ContentRoute(
+          destination: ExtensionDestination('chat-c-5'),
+          title: 'Alex',
+          icon: DIcons.user,
+        ),
       ]) {
         shell.createTab(panel: ForumPanel.secondary);
         shell.pushContent(route);

@@ -255,11 +255,18 @@ void main() {
             rootDestinationId: 'latest',
             contentStack: const [
               ContentRoute(
-                id: 'latest',
+                destination: FeedDestination(
+                  key: 'latest',
+                  mode: TopicListMode.latest,
+                ),
                 title: 'Topics',
                 icon: DIcons.layerGroup,
               ),
-              ContentRoute(id: 'summary', title: 'Summary', icon: DIcons.user),
+              ContentRoute(
+                destination: PageDestination(CorePage.summary),
+                title: 'Summary',
+                icon: DIcons.user,
+              ),
             ],
           ),
         ],

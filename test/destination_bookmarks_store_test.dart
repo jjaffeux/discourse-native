@@ -12,18 +12,20 @@ const _site = 'https://forum.example';
 const _otherSite = 'https://other.example/subfolder';
 const _account = 'user:reader';
 const _page = ContentRoute(
-  id: 'preferences',
+  destination: PageDestination(CorePage.preferences),
   title: 'Preferences',
   icon: DIcons.gear,
 );
 const _category = ContentRoute(
-  id: 'category-12',
+  destination: FeedDestination(
+    key: 'category-12',
+    sourcePath: '/c/support/12.json',
+  ),
   title: 'Support',
   icon: DIcons.folder,
-  feedPath: '/c/support/12.json',
 );
 const _chat = ContentRoute(
-  id: 'chat-c-9',
+  destination: ExtensionDestination('chat-c-9'),
   title: 'Travel',
   icon: DIcons.comment,
 );
@@ -37,10 +39,12 @@ void main() {
       final category = DestinationBookmark.fromRoute(_category)!;
       final link = DestinationBookmark.fromRoute(
         const ContentRoute(
-          id: 'list-/c/renamed/12.json',
+          destination: FeedDestination(
+            key: 'list-/c/renamed/12.json',
+            sourcePath: '/c/renamed/12.json',
+          ),
           title: 'Renamed',
           icon: DIcons.tag,
-          feedPath: '/c/renamed/12.json',
         ),
       )!;
       final filtered = DestinationBookmark.fromRoute(
@@ -63,7 +67,7 @@ void main() {
       expect(
         DestinationBookmark.fromRoute(
           const ContentRoute(
-            id: 'chat-c-9-t-2',
+            destination: ExtensionDestination('chat-c-9-t-2'),
             title: 'Thread',
             icon: DIcons.comment,
           ),
@@ -73,7 +77,7 @@ void main() {
       expect(
         DestinationBookmark.fromRoute(
           const ContentRoute(
-            id: 'user-bookmarks',
+            destination: PageDestination(CorePage.bookmarks),
             title: 'Bookmarks',
             icon: DIcons.bookmark,
           ),

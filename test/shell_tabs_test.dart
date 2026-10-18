@@ -44,6 +44,115 @@ void main() {
 
     group('creation', () {
       test(
+        'restored feed hydrates its explicit mode independently of its key',
+        () async {
+          const route = ContentRoute(
+            destination: FeedDestination(
+              key: 'custom-unread',
+              mode: TopicListMode.unread,
+            ),
+            title: 'Unread',
+            icon: DIcons.list,
+          );
+          final api = FakeDiscourseApi(feeds: const {'/unread.json': []});
+          final restored = ShellController(
+            instanceStore: FakeInstanceStore(forums),
+            api: api,
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            forumTabs: FakeForumTabStore([
+              ForumWorkspace(
+                siteUrl: forums.first.url,
+                accountIdentity: 'anonymous',
+                tabs: [
+                  ForumTab(
+                    id: 'custom',
+                    rootDestinationId: 'latest',
+                    contentStack: const [route],
+                  ),
+                ],
+                activeTabId: 'custom',
+              ),
+            ]),
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(restored.dispose);
+          await restored.load();
+          await pumpEventQueue();
+          expect(api.feedPaths, contains('/unread.json'));
+          expect(restored.currentFeedId, route.id);
+          expect(restored.currentFeed, isNotNull);
+        },
+      );
+
+      test(
+        'hydration refreshes display without changing restored topic identity',
+        () async {
+          final route = ContentRoute.fromJson({
+            'id': 'saved-reader-42',
+            'title': 'Saved title',
+            'icon': DIcons.comments.name,
+            'topic_id': 42,
+            'slug': 'saved-topic',
+            'feed_path': '/legacy.json?search=kept',
+          });
+          final location = ForumTabLocation(
+            rootDestinationId: 'latest',
+            contentStack: [route],
+          );
+          final tab = ForumTab(
+            id: 'saved-reader',
+            rootDestinationId: 'latest',
+            contentStack: [route],
+            backHistory: [location],
+            forwardHistory: [location],
+            anchors: const {
+              'saved-reader-42': ForumTabAnchor(kind: 'topic', itemId: 1),
+            },
+          );
+          final saved = FakeForumTabStore([
+            ForumWorkspace(
+              siteUrl: forums.first.url,
+              accountIdentity: 'anonymous',
+              tabs: [tab],
+              activeTabId: tab.id,
+            ),
+          ]);
+          final restored = ShellController(
+            instanceStore: FakeInstanceStore(forums),
+            api: FakeDiscourseApi(
+              topics: {42: topicPayload(id: 42, title: 'Fresh title')},
+            ),
+            authenticator: FakeAuthenticator(),
+            drafts: FakeDraftStore(),
+            forumTabs: saved,
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(restored.dispose);
+          await restored.load();
+          await pumpEventQueue();
+
+          expect(restored.currentContent!.title, 'Fresh title');
+          for (final entry in [
+            restored.activeTab!.location,
+            ...restored.activeTab!.backHistory,
+            ...restored.activeTab!.forwardHistory,
+          ]) {
+            expect(entry.contentStack.single.id, route.id);
+            expect(entry.contentStack.single.feedPath, route.feedPath);
+            expect(entry.contentStack.single.title, 'Fresh title');
+          }
+          expect(restored.activeTab!.backHistory, hasLength(1));
+          expect(restored.activeTab!.forwardHistory, hasLength(1));
+          expect(restored.activeTab!.anchors[route.id]?.itemId, 1);
+          restored.openCurrentTopicPost(2);
+          expect(restored.currentContent!.id, route.id);
+          expect(restored.currentContent!.feedPath, route.feedPath);
+          expect(restored.currentContent!.postNumber, 2);
+        },
+      );
+
+      test(
         'desktop panels seed Start pages without changing active content',
         () {
           final main = controller.activeTab!;
@@ -146,7 +255,7 @@ void main() {
           expect(
             first.openContentInNewTab(
               const ContentRoute(
-                id: 'chat-c-7',
+                destination: ExtensionDestination('chat-c-7'),
                 title: 'General',
                 icon: DIcons.comments,
               ),

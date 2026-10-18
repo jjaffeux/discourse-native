@@ -16,18 +16,20 @@ import 'support/fakes.dart';
 
 const _site = 'https://forum.example';
 const _page = ContentRoute(
-  id: 'preferences',
+  destination: PageDestination(CorePage.preferences),
   title: 'Preferences',
   icon: DIcons.gear,
 );
 const _category = ContentRoute(
-  id: 'category-12',
+  destination: FeedDestination(
+    key: 'category-12',
+    sourcePath: '/c/support/12.json',
+  ),
   title: 'Support',
   icon: DIcons.folder,
-  feedPath: '/c/support/12.json',
 );
 const _chat = ContentRoute(
-  id: 'chat-c-9',
+  destination: ExtensionDestination('chat-c-9'),
   title: 'Travel',
   icon: DIcons.comment,
 );

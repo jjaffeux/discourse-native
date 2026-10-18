@@ -16,15 +16,17 @@ const tabSwitchIds = ['list-a', 'list-b', 'reader-a', 'reader-b'];
 
 Future<ShellController> pumpTabSwitchFixture(WidgetTester tester) async {
   const latest = ContentRoute(
-    id: 'latest',
+    destination: FeedDestination(key: 'latest', mode: TopicListMode.latest),
     title: 'Topics',
     icon: DIcons.layerGroup,
   );
   const otherList = ContentRoute(
-    id: 'tab-switch-list',
+    destination: ExtensionDestination(
+      'tab-switch-list',
+      sourcePath: '/other.json',
+    ),
     title: 'Other discussions',
     icon: DIcons.folder,
-    feedPath: '/other.json',
   );
   final topics = [
     for (var id = 1; id <= 100; id++)

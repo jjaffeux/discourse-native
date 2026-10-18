@@ -70,7 +70,11 @@ void main() {
         final controller = ShellScope.read(tester.element(primaryMainContent));
         for (final id in ['events-upcoming', 'events-mine/month/2026/9/27']) {
           controller.pushContent(
-            ContentRoute(id: id, title: 'Events', icon: EventIcons.calendar),
+            ContentRoute(
+              destination: ExtensionDestination(id),
+              title: 'Events',
+              icon: EventIcons.calendar,
+            ),
           );
           await tester.pumpAndSettle();
           expect(controller.canPopContent, isTrue);

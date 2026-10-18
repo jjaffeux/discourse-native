@@ -94,7 +94,7 @@ class _ChannelMenu extends StatelessWidget {
     final items = <Widget>[
       DestinationBookmarkMenuItem(
         route: ContentRoute(
-          id: 'chat-c-${channel.id}',
+          destination: ExtensionDestination('chat-c-${channel.id}'),
           title: channel.title,
           icon: DIcons.comment,
         ),

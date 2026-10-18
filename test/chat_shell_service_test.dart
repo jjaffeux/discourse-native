@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -18,6 +19,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,6 +29,34 @@ const _site = 'https://meta.discourse.org';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'core feed keys do not activate chat or prevent entering its extension',
+    () async {
+      final fixture = await _fixture(
+        channels: ChatChannels(public: [_channel(9)]),
+      );
+      addTearDown(fixture.dispose);
+      fixture.host.pushContent(
+        const ContentRoute(
+          destination: FeedDestination(
+            key: 'chat-c-9',
+            sourcePath: '/latest.json',
+            mode: TopicListMode.latest,
+          ),
+          title: 'Feed',
+          icon: DIcons.list,
+        ),
+      );
+      expect(fixture.shell.fullPageChatActive, isFalse);
+      fixture.shell.openChannel(9);
+      expect(
+        fixture.host.currentContent!.destination,
+        isA<ExtensionDestination>(),
+      );
+      expect(fixture.host.currentContent!.id, 'chat-c-9');
+    },
+  );
 
   test('page search words stay with the current site and route', () async {
     final fixture = await _fixture(
@@ -399,7 +429,11 @@ final class _NavigationHost implements PluginNavigationHost {
   void openPageTab(ContentRoute route) => pushContent(route, newTab: true);
 
   @override
-  void pushContent(ContentRoute route, {bool newTab = false}) {
+  void pushContent(
+    ContentRoute route, {
+    bool newTab = false,
+    ForumPanel? panel,
+  }) {
     _contentStack = [..._contentStack, route];
     _changes.notifyListeners();
   }

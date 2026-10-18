@@ -148,7 +148,9 @@ final class AiConversationsService implements PluginLinkHandler {
     if (navigation.currentSite?.url != site.url) {
       navigation.selectInstance(index);
     }
-    if (navigation.currentContent?.id != 'ai-conversations') {
+    if (!AiConversationsPlugin.route.sameDestinationAs(
+      navigation.currentContent,
+    )) {
       navigation.pushContent(AiConversationsPlugin.route);
     }
     return true;
@@ -165,10 +167,12 @@ final class AiConversationsService implements PluginLinkHandler {
     } else {
       topicLists.openTopicList(
         ContentRoute(
-          id: fallback.id,
+          destination: FeedDestination.fromPath(
+            key: fallback.id,
+            path: fallback.feedPath ?? '/latest.json',
+          ),
           title: fallback.title,
           icon: fallback.icon,
-          feedPath: fallback.feedPath ?? '/latest.json',
         ),
       );
     }

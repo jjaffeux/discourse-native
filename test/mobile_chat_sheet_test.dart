@@ -406,7 +406,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(shell.mobileNavigation.atRoot, isTrue);
       shell.pushContent(
-        const ContentRoute(id: 'users', title: 'Users', icon: DIcons.user),
+        const ContentRoute(
+          destination: PageDestination(CorePage.users),
+          title: 'Users',
+          icon: DIcons.user,
+        ),
       );
       await tester.pumpAndSettle();
       final entry = shell.mobileNavigation.entryId;

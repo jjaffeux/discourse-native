@@ -1,19 +1,235 @@
+import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('restored directory tabs adopt updated default icons', () {
-    for (final (id, oldIcon, newIcon) in [
-      ('users', DIcons.user, DIcons.users),
-      ('activity', DIcons.list, DIcons.barsStaggered),
+  test('legacy taxonomy queries retain list behavior under custom keys', () {
+    for (final query in ['category=42', 'tags[]=design']) {
+      final route = ContentRoute.fromJson({
+        'id': 'custom-feed',
+        'title': 'Saved feed',
+        'icon': DIcons.list.name,
+        'feed_path': '/latest.json?$query',
+      });
+      expect(route.destination, isA<FeedDestination>());
+      expect(route.isTopicList, isTrue);
+      expect(route.isTopicListFilter, isTrue);
+      expect(route.id, 'custom-feed');
+      expect(
+        ContentRoute.fromJson(route.toJson()).destination,
+        isA<FeedDestination>(),
+      );
+    }
+  });
+
+  test('group and badge keys remain canonical across typed saves', () {
+    for (final destination in [
+      GroupDestination(GroupRoute.detail('team')),
+      BadgeDestination(BadgeRoute.detail(5)),
     ]) {
-      final saved = ContentRoute(id: id, title: id, icon: oldIcon).toJson();
+      final route = ContentRoute(
+        destination: destination,
+        title: 'Saved',
+        icon: DIcons.star,
+      );
+      final restored = ContentRoute.fromJson(route.toJson());
+      expect(restored.destination.runtimeType, destination.runtimeType);
+      expect(restored.id, destination.key);
+      expect(restored.groupRoute, route.groupRoute);
+      expect(restored.badgeRoute, route.badgeRoute);
+      expect(
+        () => ContentRoute.fromJson({...route.toJson(), 'id': 'mismatched'}),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test(
+    'typed extensions retain display and identity matching legacy aliases',
+    () {
+      for (final key in ['new-tab', 'filter', 'themes', 'users']) {
+        final route = ContentRoute(
+          destination: ExtensionDestination(key),
+          title: 'Plugin title',
+          icon: DIcons.star,
+        );
+        final restored = ContentRoute.fromJson(route.toJson());
+        expect(restored.destination, isA<ExtensionDestination>());
+        expect(restored.id, key);
+        expect(restored.title, route.title);
+        expect(restored.icon, route.icon);
+      }
+    },
+  );
+
+  test('legacy topic payload retains its saved key and optional slug', () {
+    final route = ContentRoute.fromJson({
+      'id': 'restored-topic-42-at-7',
+      'title': 'Saved topic',
+      'icon': DIcons.comments.name,
+      'topic_id': 42,
+      'post_number': 7,
+      'feed_path': '/latest.json?status=open',
+    });
+
+    expect(route.destination, isA<TopicDestination>());
+    expect(route.id, 'restored-topic-42-at-7');
+    expect(route.topicId, 42);
+    expect(route.slug, isNull);
+    expect(route.postNumber, 7);
+    expect(route.feedPath, '/latest.json?status=open');
+    final restored = ContentRoute.fromJson(route.toJson());
+    expect(restored.id, 'restored-topic-42-at-7');
+    expect(restored.topicId, 42);
+    expect(restored.postNumber, 7);
+    expect(restored.feedPath, '/latest.json?status=open');
+  });
+
+  test('legacy opaque plugin routes preserve identity and source', () {
+    final route = ContentRoute.fromJson({
+      'id': 'plugin-room-4',
+      'title': 'Plugin room',
+      'icon': DIcons.microphoneLines.name,
+      'feed_path': '/plugin/room/4.json?sort=recent',
+    });
+
+    expect(route.destination, isA<ExtensionDestination>());
+    expect(route.isTopicList, isFalse);
+    expect(route.id, 'plugin-room-4');
+    expect(route.feedPath, '/plugin/room/4.json?sort=recent');
+    final restored = ContentRoute.fromJson(route.toJson());
+    expect(restored.destination, isA<ExtensionDestination>());
+    expect(restored.id, 'plugin-room-4');
+    expect(restored.feedPath, '/plugin/room/4.json?sort=recent');
+  });
+
+  test('restored placement flags do not become destination state', () {
+    final route = ContentRoute.fromJson({
+      'id': 'users',
+      'title': 'Users',
+      'icon': DIcons.users.name,
+      'open_in_secondary_panel': true,
+      'open_in_new_tab': true,
+    });
+
+    expect(route.destination, isA<PageDestination>());
+    expect(route.id, 'users');
+    expect(route.toJson(), isNot(contains('open_in_secondary_panel')));
+    expect(route.toJson(), isNot(contains('open_in_new_tab')));
+    expect(
+      route,
+      const ContentRoute(
+        destination: PageDestination(CorePage.users),
+        title: 'Users',
+        icon: DIcons.users,
+      ),
+    );
+  });
+
+  test('runtime destination types own message and feed modes', () {
+    const opaqueMessage = ContentRoute(
+      destination: ExtensionDestination('messages-unread'),
+      title: 'Extension',
+      icon: DIcons.inbox,
+    );
+    const opaqueFeed = ContentRoute(
+      destination: ExtensionDestination('latest'),
+      title: 'Extension',
+      icon: DIcons.list,
+    );
+    const messages = ContentRoute(
+      destination: MessagesDestination(
+        mode: MessageListMode.archive,
+        legacyKey: 'custom-archive',
+      ),
+      title: 'Archive',
+      icon: DIcons.inbox,
+    );
+    const feed = ContentRoute(
+      destination: FeedDestination(
+        key: 'custom-unread',
+        mode: TopicListMode.unread,
+      ),
+      title: 'Unread',
+      icon: DIcons.list,
+    );
+
+    expect(opaqueMessage.isMessages, isFalse);
+    expect(TopicListMode.fromRoute(opaqueFeed), isNull);
+    expect(messages.isMessages, isTrue);
+    expect(messages.messageListMode, MessageListMode.archive);
+    expect(messages.isTopicList, isTrue);
+    expect(TopicListMode.fromRoute(feed), TopicListMode.unread);
+    expect(feed.isTopicList, isTrue);
+  });
+
+  test(
+    'persistence retains explicit kinds and modes independently of keys',
+    () {
+      const feed = ContentRoute(
+        destination: FeedDestination(
+          key: 'custom-feed',
+          sourcePath: '/custom-feed.json?status=open',
+          mode: TopicListMode.unread,
+        ),
+        title: 'Unread',
+        icon: DIcons.list,
+      );
+      const messages = ContentRoute(
+        destination: MessagesDestination(
+          mode: MessageListMode.archive,
+          legacyKey: 'custom-archive',
+        ),
+        title: 'Archive',
+        icon: DIcons.inbox,
+      );
+      const extension = ContentRoute(
+        destination: ExtensionDestination('latest', sourcePath: '/latest.json'),
+        title: 'Extension',
+        icon: DIcons.comment,
+      );
+
+      final restoredFeed = ContentRoute.fromJson(feed.toJson());
+      expect(restoredFeed.destination, isA<FeedDestination>());
+      expect(restoredFeed.id, 'custom-feed');
+      expect(restoredFeed.feedPath, '/custom-feed.json?status=open');
+      expect(TopicListMode.fromRoute(restoredFeed), TopicListMode.unread);
+
+      final restoredMessages = ContentRoute.fromJson(messages.toJson());
+      expect(restoredMessages.isMessages, isTrue);
+      expect(restoredMessages.id, 'custom-archive');
+      expect(restoredMessages.messageListMode, MessageListMode.archive);
+
+      final restoredExtension = ContentRoute.fromJson(extension.toJson());
+      expect(restoredExtension.destination, isA<ExtensionDestination>());
+      expect(restoredExtension.id, 'latest');
+      expect(restoredExtension.feedPath, '/latest.json');
+      expect(TopicListMode.fromRoute(restoredExtension), isNull);
+    },
+  );
+
+  test('restored directory tabs adopt updated default icons', () {
+    for (final (page, oldIcon, newIcon) in [
+      (CorePage.users, DIcons.user, DIcons.users),
+      (CorePage.activity, DIcons.list, DIcons.barsStaggered),
+    ]) {
+      final id = page.key;
+      final saved = ContentRoute(
+        destination: PageDestination(page),
+        title: id,
+        icon: oldIcon,
+      ).toJson();
       expect(ContentRoute.fromJson(saved).icon, newIcon);
-      final custom = ContentRoute(id: id, title: id, icon: DIcons.star);
+      final custom = ContentRoute(
+        destination: PageDestination(page),
+        title: id,
+        icon: DIcons.star,
+      );
       expect(ContentRoute.fromJson(custom.toJson()).icon, DIcons.star);
     }
   });
@@ -238,17 +454,20 @@ void main() {
       () {
         for (final source in const [
           ContentRoute(
-            id: 'topic-42',
+            destination: TopicDestination(
+              topicId: 42,
+              retainedFeedPath: '/latest.json?search=layout',
+            ),
             title: 'Topic',
             icon: DIcons.comments,
-            topicId: 42,
-            feedPath: '/latest.json?search=layout',
           ),
           ContentRoute(
-            id: 'plugin-custom',
+            destination: ExtensionDestination(
+              'plugin-custom',
+              sourcePath: '/plugin-custom.json?search=layout',
+            ),
             title: 'Plugin',
             icon: DIcons.magnifyingGlass,
-            feedPath: '/plugin-custom.json?search=layout',
           ),
         ]) {
           final restored = ContentRoute.fromJson(source.toJson());
@@ -396,22 +615,28 @@ void main() {
 
     test('reads a category from a combined category and tag route', () {
       const withoutTagId = ContentRoute(
-        id: 'filtered',
+        destination: FeedDestination(
+          key: 'filtered',
+          sourcePath: '/tags/c/discourse-native/12/ux.json',
+        ),
         title: 'Native',
         icon: DIcons.folder,
-        feedPath: '/tags/c/discourse-native/12/ux.json',
       );
       const withTagId = ContentRoute(
-        id: 'filtered',
+        destination: FeedDestination(
+          key: 'filtered',
+          sourcePath: '/tags/c/meta/discourse-native/12/ux/41.json',
+        ),
         title: 'Native',
         icon: DIcons.folder,
-        feedPath: '/tags/c/meta/discourse-native/12/ux/41.json',
       );
       const idOnlyCategory = ContentRoute(
-        id: 'filtered',
+        destination: FeedDestination(
+          key: 'filtered',
+          sourcePath: '/tags/c/12/ux.json',
+        ),
         title: 'Native',
         icon: DIcons.folder,
-        feedPath: '/tags/c/12/ux.json',
       );
 
       expect(withoutTagId.categoryId, 12);
@@ -426,19 +651,23 @@ void main() {
       expect(ContentRoute.list(ListLink.parse('/tag/ux/41')!).tagName, 'ux');
       expect(
         const ContentRoute(
-          id: 'filtered',
+          destination: FeedDestination(
+            key: 'filtered',
+            sourcePath: '/tags/c/discourse-native/12/design-feedback.json',
+          ),
           title: 'Native',
           icon: DIcons.folder,
-          feedPath: '/tags/c/discourse-native/12/design-feedback.json',
         ).tagName,
         'design-feedback',
       );
       expect(
         const ContentRoute(
-          id: 'filtered',
+          destination: FeedDestination(
+            key: 'filtered',
+            sourcePath: '/tags/c/discourse-native/12/design-feedback/41.json',
+          ),
           title: 'Native',
           icon: DIcons.folder,
-          feedPath: '/tags/c/discourse-native/12/design-feedback/41.json',
         ).tagName,
         'design-feedback',
       );

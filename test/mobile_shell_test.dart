@@ -3463,7 +3463,11 @@ void main() {
   ) async {
     final shell = await pumpMobileShellFixture(tester);
     shell.pushContent(
-      const ContentRoute(id: 'users', title: 'Users', icon: DIcons.user),
+      const ContentRoute(
+        destination: PageDestination(CorePage.users),
+        title: 'Users',
+        icon: DIcons.user,
+      ),
     );
     await tester.pumpAndSettle();
     final header = tester.getRect(_header);
@@ -3490,7 +3494,11 @@ void main() {
     tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
     final shell = await pumpMobileShellFixture(tester);
     shell.pushContent(
-      const ContentRoute(id: 'users', title: 'Users', icon: DIcons.user),
+      const ContentRoute(
+        destination: PageDestination(CorePage.users),
+        title: 'Users',
+        icon: DIcons.user,
+      ),
     );
     await tester.pumpAndSettle();
     final surface = tester.getRect(find.byKey(const ValueKey('mobile-root')));

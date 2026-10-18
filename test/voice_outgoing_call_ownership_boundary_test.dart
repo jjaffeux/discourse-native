@@ -175,7 +175,7 @@ void main() {
             harness.host.onPush = harness.replaceAccount;
           case 'replace':
             harness.host.currentContent = const ContentRoute(
-              id: 'voice-room-9',
+              destination: ExtensionDestination('voice-room-9'),
               title: 'Existing call',
               icon: DIcons.microphoneLines,
             );

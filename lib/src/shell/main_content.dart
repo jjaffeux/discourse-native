@@ -5,7 +5,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
-import '../models/badge_route.dart';
 import '../models/bookmark.dart';
 import '../models/category_feed.dart';
 import '../models/content_route.dart';
@@ -261,10 +260,7 @@ class _MainContentState extends State<MainContent> {
 }
 
 bool _isGroupNamespace(ContentRoute? route) =>
-    route != null &&
-    (route.groupRoute != null ||
-        route.id == 'groups' ||
-        route.id.startsWith('group-'));
+    route?.destination is GroupDestination;
 
 class _MainContentBody extends StatelessWidget {
   const _MainContentBody({
@@ -357,16 +353,18 @@ class _MainContentBody extends StatelessWidget {
         (pluginContent != null
             ? registry.ownsContentPageTitle(context, route)
             : route.isForumAbout ||
-                  route.id == 'all-categories' ||
-                  route.id == 'all-tags' ||
+                  route.isPage(CorePage.categories) ||
+                  route.isPage(CorePage.tags) ||
                   route.isAppearance ||
                   route.isGroups ||
                   route.isUsers ||
-                  route.id == 'drafts' ||
+                  route.isPage(CorePage.drafts) ||
                   (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
-                  (route.id == 'user-bookmarks' && state.isConnected));
+                  (route.isPage(CorePage.bookmarks) && state.isConnected));
     final hideDirectoryHeader =
-        ((route.isAppearance || route.isUsers || route.id == 'summary') &&
+        ((route.isAppearance ||
+                route.isUsers ||
+                route.isPage(CorePage.summary)) &&
             !context.isTouch) ||
         (pageOwnsTitle &&
             !state.canPop &&
@@ -441,11 +439,11 @@ class _MainContentBody extends StatelessWidget {
                   !route.isPreferences &&
                   !route.isBadges &&
                   !route.isGroups &&
-                  route.id != 'all-categories' &&
-                  route.id != 'all-tags' &&
-                  route.id != 'activity' &&
-                  route.id != 'drafts' &&
-                  !(route.id == 'user-bookmarks' && state.isConnected) &&
+                  !route.isPage(CorePage.categories) &&
+                  !route.isPage(CorePage.tags) &&
+                  !route.isPage(CorePage.activity) &&
+                  !route.isPage(CorePage.drafts) &&
+                  !(route.isPage(CorePage.bookmarks) && state.isConnected) &&
                   !hideDirectoryHeader &&
                   !(usesTopicToolbar && ShellTitleBar.isSupported)
               ? _ContentHeader(
@@ -916,60 +914,12 @@ class _ContentViewport extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (route.isMessages && !isConnected) {
-      return const _SignedOutMessagesState();
-    }
-    if (!route.isTopic && route.id == 'drafts' && siteUrl != null) {
-      return DraftListView(siteUrl: siteUrl!);
-    }
-    if (!route.isTopic && route.id == 'summary' && siteUrl != null) {
-      return UserSummaryView(siteUrl: siteUrl!);
-    }
-    if (route.id == 'user-bookmarks' && siteUrl != null && isConnected) {
-      return BookmarkSection(siteUrl: siteUrl!, onOpened: () {}, page: true);
-    }
-    if (route.isAppearance && siteUrl != null) {
-      return ForumSettingsPage(siteUrl: siteUrl!);
-    }
-    if (route.isForumAbout && siteUrl != null) {
-      return ForumAboutHost(siteUrl: siteUrl!, pageKey: aboutPageKey);
-    }
-    if (route.isPreferences && siteUrl != null) {
-      return PreferencesPage(siteUrl: siteUrl!);
-    }
-    if (!route.isTopic && route.id == 'activity' && siteUrl != null) {
-      return UserActivityView(siteUrl: siteUrl!);
-    }
-    if (route.isBadges && siteUrl != null) {
-      return BadgesHost(
-        siteUrl: siteUrl!,
-        route: route.badgeRoute ?? const BadgeRoute.directory(),
-      );
-    }
-    if (route.isUsers && siteUrl != null) {
-      return UsersDirectoryHost(siteUrl: siteUrl!);
-    }
-    if (groupPages.page.isOwned && siteUrl != null) {
-      return GroupPagesHost(
-        coordinator: groupPages,
-        port: groupPagesPort,
-        registry: registry,
-      );
-    }
-    if (!route.isTopic &&
-        route.id == 'all-categories' &&
-        siteUrl != null &&
-        categoryFeed != null) {
-      return CategoriesPage(siteUrl: siteUrl!, feed: categoryFeed!);
-    }
-    if (!route.isTopic && route.id == 'all-tags' && siteUrl != null) {
-      return TagsPage(siteUrl: siteUrl!);
-    }
-    if (!route.isTopic && route.id == 'filter' && siteUrl != null) {
-      return _FeedBackedContent(route: route, fallback: pluginContent);
-    }
-    if (route.isTopic) {
-      return DesktopTopicPage(
+    final fallback =
+        pluginContent ??
+        _FeedBackedContent(route: route, topicListActions: topicListActions);
+    final site = siteUrl;
+    return switch (route.destination) {
+      TopicDestination() => DesktopTopicPage(
         child: TopicView(
           inbox: true,
           canReturnToSidebar: layout.isCompact,
@@ -979,18 +929,58 @@ class _ContentViewport extends StatelessWidget {
           isConnected: isConnected,
           registry: registry,
         ),
-      );
-    }
-    if (pluginContent case final content?) return content;
-
-    return _FeedBackedContent(route: route, topicListActions: topicListActions);
+      ),
+      MessagesDestination() when !isConnected =>
+        const _SignedOutMessagesState(),
+      PageDestination(:final page) =>
+        site == null
+            ? fallback
+            : switch (page) {
+                CorePage.drafts => DraftListView(siteUrl: site),
+                CorePage.summary => UserSummaryView(siteUrl: site),
+                CorePage.bookmarks =>
+                  isConnected
+                      ? BookmarkSection(
+                          siteUrl: site,
+                          onOpened: () {},
+                          page: true,
+                        )
+                      : fallback,
+                CorePage.appearance => ForumSettingsPage(siteUrl: site),
+                CorePage.forumAbout => ForumAboutHost(
+                  siteUrl: site,
+                  pageKey: aboutPageKey,
+                ),
+                CorePage.preferences => PreferencesPage(siteUrl: site),
+                CorePage.activity => UserActivityView(siteUrl: site),
+                CorePage.users => UsersDirectoryHost(siteUrl: site),
+                CorePage.categories =>
+                  categoryFeed == null
+                      ? fallback
+                      : CategoriesPage(siteUrl: site, feed: categoryFeed!),
+                CorePage.tags => TagsPage(siteUrl: site),
+                CorePage.start => fallback,
+              },
+      BadgeDestination(:final route) =>
+        site == null ? fallback : BadgesHost(siteUrl: site, route: route),
+      GroupDestination() =>
+        site == null || !groupPages.page.isOwned
+            ? fallback
+            : GroupPagesHost(
+                coordinator: groupPages,
+                port: groupPagesPort,
+                registry: registry,
+              ),
+      FeedDestination() ||
+      MessagesDestination() ||
+      ExtensionDestination() => fallback,
+    };
   }
 }
 
 class _FeedBackedContent extends StatelessWidget {
   const _FeedBackedContent({
     required this.route,
-    this.fallback,
     this.topicListActions,
     this.topicListHeadingBuilder,
     this.inbox = false,
@@ -998,7 +988,6 @@ class _FeedBackedContent extends StatelessWidget {
   });
 
   final ContentRoute route;
-  final Widget? fallback;
   final Widget? topicListActions;
   final TopicListHeadingBuilder? topicListHeadingBuilder;
   final bool inbox;
@@ -1021,7 +1010,7 @@ class _FeedBackedContent extends StatelessWidget {
         } else if (feed == null &&
             route.feedPath == null &&
             !route.isTopicList) {
-          content = fallback ?? const _ContentNotFound();
+          content = const _ContentNotFound();
         } else {
           // Forum settings and tab hydration can resolve the route before its
           // first feed request starts. A missing feed is still loading here.
@@ -1309,7 +1298,7 @@ class _ContentHeader extends StatelessWidget {
                   quiet: true,
                 ),
               if (!route.isTopic &&
-                  route.id != 'activity' &&
+                  !route.isPage(CorePage.activity) &&
                   !route.isForumAbout &&
                   !route.isUsers &&
                   !route.isBadges &&
@@ -1830,10 +1819,12 @@ class _MainContentSnapshot {
         _ => false,
       },
       isConnected: controller.currentInstance?.isConnected == true,
-      categoryFeed: switch ((route?.id, controller.currentInstance?.url)) {
-        ('all-categories', final siteUrl?) => controller.categoryFeedFor(
-          siteUrl,
-        ),
+      categoryFeed: switch ((
+        route?.destination,
+        controller.currentInstance?.url,
+      )) {
+        (PageDestination(page: CorePage.categories), final siteUrl?) =>
+          controller.categoryFeedFor(siteUrl),
         _ => null,
       },
       groupAccountIdentity: _isGroupNamespace(route)

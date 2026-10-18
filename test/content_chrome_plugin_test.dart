@@ -1,4 +1,7 @@
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -17,12 +20,65 @@ import 'support/fakes.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'typed feeds hydrate and refresh despite core and plugin homepage key matches',
+    () async {
+      final plugin = _HomepageHydratorPlugin();
+      final api = FakeDiscourseApi(feeds: const {'/unread.json': []});
+      final shell = await _shellWith(
+        plugin,
+        api: api,
+        restoredRoute: const ContentRoute(
+          destination: FeedDestination(
+            key: 'users',
+            mode: TopicListMode.unread,
+          ),
+          title: 'Unread',
+          icon: DIcons.list,
+        ),
+      );
+      await pumpEventQueue();
+      expect(api.feedPaths, contains('/unread.json'));
+      final before = api.feedPaths.length;
+      await shell.refreshCurrentTab();
+      expect(api.feedPaths.length, greaterThan(before));
+      expect(api.feedPaths.last, '/unread.json');
+      expect(plugin.hydrations, 0);
+    },
+  );
+
+  testWidgets(
+    'typed feeds keep their renderer when a plugin recognizes the key',
+    (tester) async {
+      final shell = await _shellWith(const _HeaderActionPlugin());
+      shell.pushContent(
+        const ContentRoute(
+          destination: FeedDestination(
+            key: 'test-standard',
+            sourcePath: '/latest.json',
+            mode: TopicListMode.latest,
+          ),
+          title: 'Latest',
+          icon: DIcons.list,
+        ),
+      );
+      await shell.loadFeed('test-standard');
+      await _pump(tester, shell);
+      expect(find.byKey(const ValueKey('standard-body')), findsNothing);
+      expect(find.byKey(const ValueKey('plugin-header-action')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('inbox-topic-list-pane')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('existing content plugins keep the shell header by default', (
     tester,
   ) async {
     final shell = await _shellWith(const _StandardPlugin());
     const route = ContentRoute(
-      id: 'test-standard',
+      destination: ExtensionDestination('test-standard'),
       title: 'Standard route',
       icon: DIcons.comment,
     );
@@ -39,7 +95,7 @@ void main() {
   ) async {
     final shell = await _shellWith(const _ChromeOwnerPlugin());
     const route = ContentRoute(
-      id: 'test-owned',
+      destination: ExtensionDestination('test-owned'),
       title: 'Shell title must be hidden',
       icon: DIcons.comment,
     );
@@ -57,7 +113,7 @@ void main() {
   ) async {
     final shell = await _shellWith(const _HeaderActionPlugin());
     const route = ContentRoute(
-      id: 'test-standard',
+      destination: ExtensionDestination('test-standard'),
       title: 'Standard route',
       icon: DIcons.comment,
     );
@@ -74,7 +130,7 @@ void main() {
   ) async {
     final shell = await _shellWith(const _ListTilePlugin());
     const route = ContentRoute(
-      id: 'test-list-tile',
+      destination: ExtensionDestination('test-list-tile'),
       title: 'List tile route',
       icon: DIcons.comment,
     );
@@ -88,10 +144,10 @@ void main() {
 
   group('the standard header', () {
     const stacked = ContentRoute(
-      id: 'test-standard',
+      destination: ExtensionDestination('test-standard'),
       title: 'Threads',
-      subtitle: 'Support',
       icon: DIcons.comments,
+      subtitle: 'Support',
     );
 
     testWidgets('keeps its fixed height for a subtitle at normal text', (
@@ -145,7 +201,7 @@ void main() {
       final shell = await _shellWith(const _StandardPlugin());
       shell.pushContent(
         const ContentRoute(
-          id: 'test-standard',
+          destination: ExtensionDestination('test-standard'),
           title: 'Standard route',
           icon: DIcons.comment,
         ),
@@ -185,16 +241,36 @@ Future<void> _pump(WidgetTester tester, ShellController shell) async {
   await tester.pumpAndSettle();
 }
 
-Future<ShellController> _shellWith(SitePlugin plugin) async {
+Future<ShellController> _shellWith(
+  SitePlugin plugin, {
+  FakeDiscourseApi? api,
+  ContentRoute? restoredRoute,
+}) async {
   final installed = PluginInstaller.install(
     PluginManifest([_ContentTestModule(plugin)]),
   );
   final shell = ShellController(
     instanceStore: FakeInstanceStore([instance('meta.discourse.org')]),
-    api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+    api: api ?? FakeDiscourseApi(feeds: const {'/latest.json': []}),
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
-    forumTabsEnabled: false,
+    forumTabsEnabled: restoredRoute != null,
+    forumTabs: restoredRoute == null
+        ? null
+        : FakeForumTabStore([
+            ForumWorkspace(
+              siteUrl: 'https://meta.discourse.org',
+              accountIdentity: 'anonymous',
+              tabs: [
+                ForumTab(
+                  id: 'restored',
+                  rootDestinationId: 'latest',
+                  contentStack: [restoredRoute],
+                ),
+              ],
+              activeTabId: 'restored',
+            ),
+          ]),
     trackers: FakeSiteTracker.reset(),
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
@@ -233,6 +309,30 @@ class _StandardPlugin implements SitePlugin, ContentPlugin {
       route.id == 'test-standard'
       ? const SizedBox(key: ValueKey('standard-body'))
       : null;
+}
+
+class _HomepageHydratorPlugin extends _StandardPlugin
+    implements HomepagePlugin, PluginRouteHydrator {
+  int hydrations = 0;
+  @override
+  String get homepageId => 'users';
+  @override
+  ContentRoute? homepage(SiteConfig config, DiscourseUser? user) =>
+      const ContentRoute(
+        destination: ExtensionDestination('users'),
+        title: 'Plugin',
+        icon: DIcons.list,
+      );
+  @override
+  bool handlesPluginRoute(String routeId) => routeId == 'users';
+  @override
+  Future<void> hydratePluginRoute(
+    String siteUrl,
+    String routeId, {
+    bool force = false,
+  }) async {
+    hydrations++;
+  }
 }
 
 class _ChromeOwnerPlugin

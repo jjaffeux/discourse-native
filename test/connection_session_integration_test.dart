@@ -1758,7 +1758,10 @@ void _registerConnectionSessionTests() {
               rootDestinationId: 'latest',
               contentStack: [
                 const ContentRoute(
-                  id: 'latest',
+                  destination: FeedDestination(
+                    key: 'latest',
+                    mode: TopicListMode.latest,
+                  ),
                   title: 'Latest',
                   icon: DIcons.layerGroup,
                 ),

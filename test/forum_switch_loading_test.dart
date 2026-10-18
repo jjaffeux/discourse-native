@@ -117,7 +117,7 @@ void main() {
     );
     shell.openContentInNewTab(
       const ContentRoute(
-        id: 'unknown-page',
+        destination: ExtensionDestination('unknown-page'),
         title: 'Unknown page',
         icon: DIcons.folder,
       ),

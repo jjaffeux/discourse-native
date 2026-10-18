@@ -648,13 +648,21 @@ class _ForumSearchState extends State<ForumSearch> {
         : section.scope == GlobalSearchScope.categories
         ? ContentRoute.allCategories()
         : section.scope == GlobalSearchScope.tags
-        ? ContentRoute(id: 'all-tags', title: appL10n.tags, icon: DIcons.tag)
+        ? ContentRoute(
+            destination: const PageDestination(CorePage.tags),
+            title: appL10n.tags,
+            icon: DIcons.tag,
+          )
         : section.scope == GlobalSearchScope.users
-        ? ContentRoute(id: 'users', title: appL10n.users, icon: DIcons.users)
+        ? ContentRoute(
+            destination: const PageDestination(CorePage.users),
+            title: appL10n.users,
+            icon: DIcons.users,
+          )
         : section.scope == GlobalSearchScope.groups
         ? ContentRoute.group(const GroupRoute.directory())
         : ContentRoute(
-            id: '${section.scope.owner}-search',
+            destination: ExtensionDestination('${section.scope.owner}-search'),
             title: section.scope.label,
             icon: DIcons.magnifyingGlass,
           );

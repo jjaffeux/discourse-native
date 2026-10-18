@@ -202,7 +202,7 @@ final class _TestNavigationService {
   void open() {
     _navigation.pushContent(
       const ContentRoute(
-        id: 'host-harness-test-route',
+        destination: ExtensionDestination('host-harness-test-route'),
         title: 'Plugin route',
         icon: DIcons.microphoneLines,
       ),

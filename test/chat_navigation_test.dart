@@ -1353,12 +1353,12 @@ void main() {
                     rootDestinationId: 'chat-c-9',
                     contentStack: const [
                       ContentRoute(
-                        id: 'chat-c-9',
+                        destination: ExtensionDestination('chat-c-9'),
                         title: 'Support',
                         icon: DIcons.comment,
                       ),
                       ContentRoute(
-                        id: 'chat-c-9-t-3',
+                        destination: ExtensionDestination('chat-c-9-t-3'),
                         title: 'Thread',
                         icon: DIcons.comments,
                       ),
@@ -1408,7 +1408,7 @@ void main() {
                       contentStack: [
                         ContentRoute.topicList(TopicListMode.latest),
                         const ContentRoute(
-                          id: routeId,
+                          destination: ExtensionDestination(routeId),
                           title: 'Saved threads',
                           icon: DIcons.comments,
                         ),

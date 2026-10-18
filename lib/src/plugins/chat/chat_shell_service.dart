@@ -103,8 +103,12 @@ final class ChatShellService
     }
   }
 
-  bool get fullPageChatActive =>
-      ChatPlugin.ownsRouteId(_host.currentContent?.id);
+  String? get _currentExtensionKey =>
+      switch (_host.currentContent?.destination) {
+        ExtensionDestination(:final key) => key,
+        _ => null,
+      };
+  bool get fullPageChatActive => ChatPlugin.ownsRouteId(_currentExtensionKey);
   int? get visibleChannelId {
     if (!fullPageChatActive) return null;
     final id = currentContent?.id;
@@ -485,7 +489,7 @@ final class ChatShellService
     if (newTab) {
       _host.openPageTab(
         ContentRoute(
-          id: ChatPlugin.inboxRouteId,
+          destination: const ExtensionDestination(ChatPlugin.inboxRouteId),
           title: appL10n.chats,
           icon: DIcons.comment,
         ),
@@ -517,7 +521,7 @@ final class ChatShellService
     if (newTab) {
       _host.openPageTab(
         ContentRoute(
-          id: ChatPlugin.browseRouteId,
+          destination: const ExtensionDestination(ChatPlugin.browseRouteId),
           title: appL10n.channels,
           icon: DIcons.hashtag,
         ),
@@ -538,7 +542,7 @@ final class ChatShellService
     if (newTab) {
       _host.openPageTab(
         ContentRoute(
-          id: ChatPlugin.myThreadsRouteId,
+          destination: const ExtensionDestination(ChatPlugin.myThreadsRouteId),
           title: appL10n.threads,
           icon: DIcons.comments,
         ),
@@ -655,7 +659,7 @@ final class ChatShellService
     if (desktopPanelsEnabled) {
       _host.pushContent(
         ContentRoute(
-          id: routeId,
+          destination: ExtensionDestination(routeId),
           title: appL10n.threads,
           subtitle: channel!.title,
           icon: DIcons.comments,
@@ -665,8 +669,8 @@ final class ChatShellService
     }
     _activateSeparatedPane();
 
-    if (_host.currentContent?.id != routeId) {
-      final currentChatRoute = switch (_host.currentContent?.id) {
+    if (_currentExtensionKey != routeId) {
+      final currentChatRoute = switch (_currentExtensionKey) {
         final id? => ChatRoute.parse(id),
         null => null,
       };
@@ -676,7 +680,7 @@ final class ChatShellService
       }
       _host.pushContent(
         ContentRoute(
-          id: routeId,
+          destination: ExtensionDestination(routeId),
           title: appL10n.threads,
           subtitle: channel!.title,
           icon: DIcons.comments,
@@ -704,7 +708,7 @@ final class ChatShellService
       return appL10n.theTopicComposerIsNoLongerAvailableHere;
     }
     bool sourceStillCurrent() =>
-        !_disposed && _host.currentContent?.id == shellRoute.id;
+        !_disposed && shellRoute.sameDestinationAs(_host.currentContent);
     final result = await composerHost.openNewTopic(
       OpenNewTopicComposerRequest(
         siteUrl: siteUrl,
@@ -881,14 +885,17 @@ final class ChatShellService
     if (desktopPanelsEnabled) {
       _host.pushContent(
         ContentRoute(
-          id: route.routeId,
+          destination: ExtensionDestination(route.routeId),
           title: route.isThread ? appL10n.thread : channel.title,
           subtitle: route.isThread ? channel.title : null,
           icon: route.isThread ? DIcons.comments : DIcons.comment,
-          openInMainPanel: mainPanel,
-          openInSecondaryPanel: secondaryPanel,
         ),
         newTab: newTab,
+        panel: mainPanel
+            ? ForumPanel.main
+            : secondaryPanel
+            ? ForumPanel.secondary
+            : null,
       );
       navigation.offer(
         ChatNavigationTarget(
@@ -907,18 +914,18 @@ final class ChatShellService
 
     _activateSeparatedPane();
 
-    final currentRoute = switch (_host.currentContent?.id) {
+    final currentRoute = switch (_currentExtensionKey) {
       final id? => ChatRoute.parse(id),
       null => null,
     };
     if (route.isThread) {
       if (currentRoute != route) {
-        final currentThreadsChannelId = switch (_host.currentContent?.id) {
+        final currentThreadsChannelId = switch (_currentExtensionKey) {
           final id? => ChatPlugin.channelIdFromThreadsRoute(id),
           null => null,
         };
         final preservesThreadList =
-            _host.currentContent?.id == ChatPlugin.myThreadsRouteId ||
+            _currentExtensionKey == ChatPlugin.myThreadsRouteId ||
             currentThreadsChannelId == route.channelId;
         final needsParentChannel =
             _presentationHost?.mobileNavigationEnabled == true
@@ -931,7 +938,7 @@ final class ChatShellService
         }
         _host.pushContent(
           ContentRoute(
-            id: route.routeId,
+            destination: ExtensionDestination(route.routeId),
             title: appL10n.thread,
             subtitle: channel.title,
             icon: DIcons.comments,
@@ -959,12 +966,12 @@ final class ChatShellService
     if (desktopPanelsEnabled) return _openRoute(siteUrl, route);
 
     _activateSeparatedPane();
-    final currentRoute = switch (_host.currentContent?.id) {
+    final currentRoute = switch (_currentExtensionKey) {
       final id? => ChatRoute.parse(id),
       null => null,
     };
     final content = ContentRoute(
-      id: route.routeId,
+      destination: ExtensionDestination(route.routeId),
       title: channel.title,
       icon: DIcons.comment,
     );

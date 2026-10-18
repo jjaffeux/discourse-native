@@ -333,7 +333,7 @@ void _registerShellNavigationTests() {
       final controller = ShellScope.read(tester.element(primaryMainContent));
       controller.pushContent(
         const ContentRoute(
-          id: 'topic-placeholder',
+          destination: ExtensionDestination('topic-placeholder'),
           title: 'Topic 1',
           icon: DIcons.comments,
         ),
@@ -369,7 +369,7 @@ void _registerShellNavigationTests() {
       final shell = ShellScope.read(tester.element(primaryMainContent));
       shell.pushContent(
         const ContentRoute(
-          id: 'compact-mouse-history',
+          destination: ExtensionDestination('compact-mouse-history'),
           title: 'Compact mouse history',
           icon: DIcons.comments,
         ),
@@ -436,7 +436,7 @@ void _registerShellNavigationTests() {
         final shell = ShellScope.read(tester.element(primaryMainContent));
         shell.pushContent(
           const ContentRoute(
-            id: 'mouse-history',
+            destination: ExtensionDestination('mouse-history'),
             title: 'Mouse history',
             icon: DIcons.comments,
           ),

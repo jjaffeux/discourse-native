@@ -533,8 +533,11 @@ final class _CalendarTransport extends RecordingPluginTransport {
   }
 }
 
-ContentRoute _calendarRoute(String id) =>
-    ContentRoute(id: id, title: 'Upcoming events', icon: EventIcons.calendar);
+ContentRoute _calendarRoute(String id) => ContentRoute(
+  destination: ExtensionDestination(id),
+  title: 'Upcoming events',
+  icon: EventIcons.calendar,
+);
 
 final class _Routes implements PluginRouteNavigationHost {
   @override

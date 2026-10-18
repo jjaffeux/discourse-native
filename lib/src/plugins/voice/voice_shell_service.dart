@@ -61,6 +61,7 @@ final class VoiceShellService
     final call = controller.call;
     return call != null &&
         currentInstance?.url == call.siteUrl &&
+        currentContent?.destination is ExtensionDestination &&
         currentContent?.id == 'voice-room-${call.room.id}' &&
         (_host is! PluginRoutePresentationHost ||
             (_host as PluginRoutePresentationHost).currentContentVisible);
@@ -129,7 +130,7 @@ final class VoiceShellService
     openRoom(
       siteUrl: siteUrl,
       route: ContentRoute(
-        id: 'voice-room-${room.id}',
+        destination: ExtensionDestination('voice-room-${room.id}'),
         title: room.name,
         icon: DIcons.microphoneLines,
       ),
@@ -163,7 +164,7 @@ final class VoiceShellService
     if (ifCurrent?.call() == false) return;
     final currentContent = sameInstance ? _host.currentContent : null;
     if (ifCurrent?.call() == false) return;
-    if (sameInstance && currentContent?.id == route.id) {
+    if (sameInstance && route.sameDestinationAs(currentContent)) {
       _host.replaceCurrentContent(route);
       return;
     }
@@ -237,7 +238,7 @@ final class VoiceShellService
     }
     _host.pushContent(
       ContentRoute(
-        id: 'voice-room-${room.id}',
+        destination: ExtensionDestination('voice-room-${room.id}'),
         title: room.name,
         icon: DIcons.microphoneLines,
       ),

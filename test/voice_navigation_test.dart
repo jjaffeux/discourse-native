@@ -34,7 +34,7 @@ void main() {
     addTearDown(host.close);
     final destination = host.currentContent;
     const room = ContentRoute(
-      id: 'voice-room-7',
+      destination: ExtensionDestination('voice-room-7'),
       title: 'Watercooler',
       icon: DIcons.microphoneLines,
     );

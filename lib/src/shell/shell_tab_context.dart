@@ -170,7 +170,8 @@ final class ShellTabContext {
       return false;
     }
     final instance = _instance;
-    if (currentContent?.id == 'all-categories' && instance != null) {
+    if (currentContent?.isPage(CorePage.categories) == true &&
+        instance != null) {
       return shell.categoryFeedFor(instance.url).canCreateTopic;
     }
     return currentFeed?.canCreateTopic ?? false;
