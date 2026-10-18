@@ -50,7 +50,6 @@ final class LocalDatesModule implements PluginModule {
           PluginService<Object>(
             localDatesUiService,
             LocalDatesUiService(
-              composer: bindings.require(corePluginComposerPort),
               siteState: bindings.require(corePluginSiteStatePort),
               currentSite: bindings.require(corePluginCurrentSitePort),
             ),
@@ -58,7 +57,6 @@ final class LocalDatesModule implements PluginModule {
         ],
       ),
       requires: const [
-        corePluginComposerPort,
         corePluginSiteStatePort,
         corePluginCurrentSitePort,
       ],

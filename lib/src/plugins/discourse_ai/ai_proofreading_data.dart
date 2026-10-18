@@ -169,9 +169,6 @@ final class DiscourseAiCurrentUserPersistenceCodec
 extension DiscourseAiPluginDataRead on PluginData {
   DiscourseAiSettings? get discourseAiSettings =>
       get(discourseAiSettingsDataKey);
-
-  DiscourseAiCurrentUser? get discourseAiCurrentUser =>
-      get(discourseAiCurrentUserDataKey);
 }
 
 /// A list site setting arrives pipe-joined; tolerate a JSON list as well.
