@@ -248,8 +248,6 @@ VoiceCallPortState _state({String roomName = 'Planning'}) => VoiceCallPortState(
   supported: true,
   call: VoiceCallPresentation(
     roomName: roomName,
-    siteName: 'meta',
-    participantCount: 2,
     status: VoiceCallPresentationStatus.connected,
     muted: false,
   ),

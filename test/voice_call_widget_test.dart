@@ -291,8 +291,6 @@ VoiceCallPortState _state({
   call: VoiceCallPresentation(
     identity: identity,
     roomName: roomName,
-    siteName: 'meta',
-    participantCount: 2,
     status: status,
     muted: muted,
     recording: recording,

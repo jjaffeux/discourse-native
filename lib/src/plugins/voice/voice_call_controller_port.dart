@@ -164,8 +164,6 @@ final class VoiceCallControllerPort extends ChangeNotifier
       call: VoiceCallPresentation(
         identity: call.media,
         roomName: call.room.name,
-        siteName: call.siteName,
-        participantCount: call.room.participants.length,
         status: switch (call.status) {
           VoiceCallStatus.joining => VoiceCallPresentationStatus.joining,
           VoiceCallStatus.connected => VoiceCallPresentationStatus.connected,

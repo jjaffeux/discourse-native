@@ -14,8 +14,6 @@ enum VoiceCallAction { openRoom, toggleMuted, leave }
 final class VoiceCallPresentation {
   const VoiceCallPresentation({
     required this.roomName,
-    required this.siteName,
-    required this.participantCount,
     required this.status,
     required this.muted,
     this.recording = false,
@@ -25,8 +23,6 @@ final class VoiceCallPresentation {
   });
 
   final String roomName;
-  final String siteName;
-  final int participantCount;
   final VoiceCallPresentationStatus status;
   final bool muted;
 
