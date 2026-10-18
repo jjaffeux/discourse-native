@@ -41,6 +41,73 @@ void main() {
     expect(PluginRegistry.empty.notificationFeeds, isEmpty);
   });
 
+  group('installed static catalogs', () {
+    test('types, counters and hashtags are sampled once and frozen', () {
+      final plugin = _MutableCatalogPlugin();
+      final registry = PluginRegistry.validated([plugin]);
+      expect(plugin.reads, {'types': 1, 'counters': 1, 'hashtags': 1});
+      final type = registry.notificationTypes.single;
+      final counter = registry.notificationCounters.single;
+      plugin.types.clear();
+      plugin.counters.clear();
+      plugin.kinds.clear();
+      plugin.presentations = 7;
+
+      expect(
+        registry.notificationType(const NotificationTypeId(905)),
+        same(type),
+      );
+      expect(registry.notificationCounter(counter.id), same(counter));
+      expect(registry.pluginHashtagWireTypes, ['catalog']);
+      expect(
+        registry
+            .pluginHashtagPresentation(
+              HashtagPresentationRequest(
+                type: 'catalog',
+                style: HashtagStyle.icon,
+              ),
+            )!
+            .emoji,
+        '7',
+      );
+      expect(
+        registry
+            .readLiveNotificationCounters({'catalog_count': 4})
+            .count(counter.id),
+        4,
+      );
+      expect(() => registry.notificationTypes.clear(), throwsUnsupportedError);
+      expect(
+        () => registry.notificationCounters.clear(),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => registry.pluginHashtagWireTypes.clear(),
+        throwsUnsupportedError,
+      );
+      expect(
+        registry.notificationType(const NotificationTypeId(99999)),
+        isNull,
+      );
+      expect(
+        registry.pluginHashtagPresentation(
+          HashtagPresentationRequest(type: 'unknown', style: HashtagStyle.icon),
+        ),
+        isNull,
+      );
+      expect(plugin.reads, {'types': 1, 'counters': 1, 'hashtags': 1});
+    });
+
+    test('const convenience access reads only the requested catalog', () {
+      final plugin = _MutableCatalogPlugin();
+      final registry = PluginRegistry([plugin]);
+      expect(registry.notificationTypes, hasLength(1));
+      expect(plugin.reads, {'types': 1});
+      plugin.types.clear();
+      expect(registry.notificationTypes, isEmpty);
+    });
+  });
+
   group('hashtag contributions', () {
     test('an installed plugin hashtag kind resolves its presentation', () {
       final registry = PluginRegistry.validated(const [
@@ -970,4 +1037,59 @@ final class _MutableFeedPlugin
       ),
     ),
   ];
+}
+
+final class _MutableCatalogPlugin
+    implements
+        SitePlugin,
+        NotificationTypePlugin,
+        NotificationCounterPlugin,
+        HashtagKindPlugin {
+  _MutableCatalogPlugin() {
+    kinds.add(
+      PluginHashtagKind(
+        'catalog',
+        (request) => HashtagPresentation(
+          type: request.type,
+          style: request.style,
+          fallbackIcon: DIcons.link,
+          colorPolicy: HashtagColorPolicy.none,
+          emoji: '$presentations',
+        ),
+      ),
+    );
+  }
+  @override
+  String get name => 'catalog';
+  final reads = <String, int>{};
+  int presentations = 0;
+  final types = <PluginNotificationType>[
+    const PluginNotificationType(
+      id: PluginNotificationTypeId(owner: PluginId('catalog'), name: 'item'),
+      wireType: NotificationWireType(905, 'catalog_item'),
+      decode: _fakeNotificationDecoder,
+    ),
+  ];
+  final counters = <PluginNotificationCounter>[
+    const PluginNotificationCounter(
+      id: PluginNotificationCounterId(
+        owner: PluginId('catalog'),
+        name: 'count',
+      ),
+      wireName: 'catalog_count',
+    ),
+  ];
+  final kinds = <PluginHashtagKind>[];
+  T _read<T>(String key, T value) {
+    reads.update(key, (n) => n + 1, ifAbsent: () => 1);
+    return value;
+  }
+
+  @override
+  List<PluginNotificationType> get notificationTypes => _read('types', types);
+  @override
+  List<PluginNotificationCounter> get notificationCounters =>
+      _read('counters', counters);
+  @override
+  List<PluginHashtagKind> get hashtagKinds => _read('hashtags', kinds);
 }

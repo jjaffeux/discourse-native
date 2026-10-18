@@ -99,7 +99,13 @@ final class PluginInstaller {
     );
     late final PluginRegistry registry;
     try {
-      registry = PluginRegistry.validated(capabilities.whereType<SitePlugin>());
+      registry = PluginRegistry.validated(
+        capabilities.whereType<SitePlugin>(),
+        modules: {
+          for (final registration in registrations)
+            registration.descriptor: registration.capabilities,
+        },
+      );
     } catch (error) {
       throw PluginInstallationException('Capability validation failed.', error);
     }
@@ -914,18 +920,6 @@ final class _PluginRegistrar implements PluginRegistrar {
 
   @override
   void addCapability(PluginCapability capability) {
-    if (capability.name != descriptor.id.value) {
-      throw PluginInstallationException(
-        '${descriptor.id} registered capability ${capability.name}.',
-      );
-    }
-    if (capability case final PluginRecord<Object> recordPlugin
-        when recordPlugin.record.owner != descriptor.id.value) {
-      throw PluginInstallationException(
-        '${descriptor.id} registered record ${recordPlugin.record.id}, '
-        'which is owned by ${recordPlugin.record.owner}.',
-      );
-    }
     if (capability is CookingPlugin) {
       _cookingPlugins.add(
         InstalledCookingPlugin(descriptor.id.value, capability),
@@ -1023,29 +1017,6 @@ final class _PluginRegistrar implements PluginRegistrar {
       kind: 'live-channel scopes',
       declared: descriptor.liveChannelScopes,
       registered: _liveChannelScopes,
-    );
-
-    final legacySyntaxIds = <String>{};
-    for (final capability in _capabilities.whereType<ComposerSyntaxPlugin>()) {
-      _addClaim(
-        legacySyntaxIds,
-        capability.composerSyntaxKind.id,
-        'composer syntax id',
-      );
-    }
-    final componentSyntaxIds = <String>{};
-    for (final capability
-        in _capabilities.whereType<ComposerComponentPlugin>()) {
-      _addClaim(
-        componentSyntaxIds,
-        capability.composerComponentKind.id,
-        'composer component syntax id',
-      );
-    }
-    _validateClaims(
-      kind: 'composer syntax ids',
-      declared: _syntaxIds,
-      registered: {...legacySyntaxIds, ...componentSyntaxIds},
     );
 
     return _PluginRegistration(

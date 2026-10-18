@@ -50,6 +50,54 @@ const _featureRecordKey = PluginDataKey<String>(
 void main() {
   group('manifest installation and dependencies', () {
     test(
+      'installation validates and retains the first sampled static declarations',
+      () {
+        final first = _CountingInstalledCapability('first');
+        final second = _CountingInstalledCapability('second');
+        final installed = PluginInstaller.install(
+          PluginManifest([
+            _Module(
+              'first',
+              syntaxIds: const {'first/token'},
+              capabilities: [first],
+            ),
+            _Module(
+              'second',
+              syntaxIds: const {'second/token'},
+              capabilities: [second],
+            ),
+          ]),
+        );
+        first.key = const PluginDataKey(owner: 'foreign', name: 'changed');
+        first.kind = const ComposerSyntaxKind(
+          owner: PluginId('foreign'),
+          name: 'changed',
+        );
+        first.kinds.clear();
+        second.kinds.clear();
+        expect(installed.registry.pluginHashtagWireTypes, [
+          'first-kind',
+          'second-kind',
+        ]);
+        expect(
+          installed.registry
+              .readPost({}, 'https://forum.example')
+              .get(const PluginDataKey<String>(owner: 'first', name: 'record')),
+          'first',
+        );
+        for (final capability in [first, second]) {
+          expect(capability.reads, {
+            'name': 1,
+            'record': 1,
+            'syntax': 1,
+            'component': 1,
+            'hashtags': 1,
+          });
+        }
+      },
+    );
+
+    test(
       'installation snapshots modules and keeps manifest order among peers',
       () {
         final source = <PluginModule>[
@@ -2113,4 +2161,46 @@ final class _AsyncSessionLifecycle extends PluginSessionLifecycle {
     await Future<void>.delayed(Duration.zero);
     events.add('$name:close:end');
   }
+}
+
+final class _CountingInstalledCapability
+    implements
+        SitePlugin,
+        PostRecordPlugin<String>,
+        ComposerSyntaxPlugin,
+        ComposerComponentPlugin,
+        HashtagKindPlugin {
+  _CountingInstalledCapability(this.owner)
+    : key = PluginDataKey(owner: owner, name: 'record'),
+      kind = ComposerSyntaxKind(owner: PluginId(owner), name: 'token') {
+    kinds.add(
+      PluginHashtagKind('$owner-kind', (_) => throw StateError('unused')),
+    );
+  }
+  final String owner;
+  PluginDataKey<String> key;
+  ComposerSyntaxKind kind;
+  final kinds = <PluginHashtagKind>[];
+  final reads = <String, int>{};
+  T _read<T>(String key, T value) {
+    reads.update(key, (n) => n + 1, ifAbsent: () => 1);
+    return value;
+  }
+
+  @override
+  String get name => _read('name', owner);
+  @override
+  PluginDataKey<String> get record => _read('record', key);
+  @override
+  ComposerSyntaxKind get composerSyntaxKind => _read('syntax', kind);
+  @override
+  ComposerSyntaxKind get composerComponentKind => _read('component', kind);
+  @override
+  List<PluginHashtagKind> get hashtagKinds => _read('hashtags', kinds);
+  @override
+  String? readPost(Map<String, dynamic> json, String siteUrl) => owner;
+  @override
+  String? mergeAfterPostEdit(String? held, String? incoming) => incoming;
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

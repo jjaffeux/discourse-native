@@ -2043,20 +2043,15 @@ class ShellController extends FrameSafeNotifier
       ? 'anonymous'
       : 'user:${instance.user!.username.toLowerCase()}';
 
-  HomepagePlugin? _registeredHomepage(String id) => plugins.registry.plugins
-      .whereType<HomepagePlugin>()
-      .where((plugin) => plugin.homepageId == id)
-      .firstOrNull;
-
   ContentRoute _homepageFor(DiscourseInstance instance) {
     final config = siteConfigFor(instance.url);
     return ContentRoute.homepage(
       config,
       connected: instance.isConnected,
       registeredHomepage: instance.isConnected
-          ? _registeredHomepage(
-              config.defaultHomepage,
-            )?.homepage(config, instance.user)
+          ? plugins.registry
+                .homepage(config.defaultHomepage)
+                ?.homepage(config, instance.user)
           : null,
     );
   }
@@ -7665,7 +7660,7 @@ class ShellController extends FrameSafeNotifier
         CorePage.tags,
         CorePage.forumAbout,
       }.contains(page),
-      ExtensionDestination() => _registeredHomepage(route.id) != null,
+      ExtensionDestination() => plugins.registry.homepage(route.id) != null,
       TopicDestination() || GroupDestination() || BadgeDestination() => false,
     };
     if (!supported) {
@@ -16578,7 +16573,9 @@ class ShellController extends FrameSafeNotifier
   ) async {
     await _presentation.ensureConfig(instance.url);
     if (instance.isConnected &&
-        _registeredHomepage(siteConfigFor(instance.url).defaultHomepage) !=
+        plugins.registry.homepage(
+              siteConfigFor(instance.url).defaultHomepage,
+            ) !=
             null) {
       await _refreshSessionUserFor(instance);
     }
@@ -16627,7 +16624,7 @@ class ShellController extends FrameSafeNotifier
     final root = tab.contentStack.first;
     if (!root.isNewTab &&
         !(root.destination is ExtensionDestination &&
-            _registeredHomepage(root.id) != null)) {
+            plugins.registry.homepage(root.id) != null)) {
       switch (root.destination) {
         case PageDestination(page: CorePage.categories):
           unawaited(loadCategories(instance.url));
@@ -16825,7 +16822,7 @@ class ShellController extends FrameSafeNotifier
         !content.isAppearance &&
         !content.isPreferences &&
         !(content.destination is ExtensionDestination &&
-            _registeredHomepage(content.id) != null)) {
+            plugins.registry.homepage(content.id) != null)) {
       if (content.isPage(CorePage.categories)) {
         unawaited(loadCategories(instance.url, force: refresh));
       } else {

@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -19,6 +21,7 @@ import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'global_search.dart';
+import 'plugin_manifest.dart';
 import 'plugin_scope.dart';
 import 'site_plugin_api.dart';
 
@@ -106,51 +109,24 @@ final class PluginRegistry
         TopicRecommendationSourceDecoder,
         TopicRecommendationSourceMigrationRegistry,
         PluginNotificationCounterCodec {
-  const PluginRegistry(this.plugins)
-    : _notificationFeedDeclarations = null,
-      _preferenceDeclarations = null,
-      _searchDeclarations = null;
+  const PluginRegistry(this.plugins) : _installed = null;
 
-  const PluginRegistry._validated(
-    this.plugins,
-    this._notificationFeedDeclarations,
-    this._preferenceDeclarations,
-    this._searchDeclarations,
-  );
+  const PluginRegistry._validated(this.plugins, this._installed);
 
   static const PluginRegistry empty = PluginRegistry([]);
 
-  factory PluginRegistry.validated(Iterable<SitePlugin> plugins) {
+  /// Captures installation metadata once while retaining live plugin hooks.
+  /// [modules] ties host registration claims to those same captured identities.
+  factory PluginRegistry.validated(
+    Iterable<SitePlugin> plugins, {
+    Map<PluginDescriptor, List<PluginCapability>> modules = const {},
+  }) {
     final installed = List<SitePlugin>.unmodifiable(plugins);
-    final notificationFeedDeclarations =
-        List<_OwnedNotificationFeedDeclaration>.unmodifiable([
-          for (final plugin in installed.whereType<NotificationFeedPlugin>())
-            for (final source in plugin.notificationFeeds)
-              (
-                owner: (plugin as SitePlugin).name,
-                source: _freezeNotificationFeedSource(source),
-              ),
-        ]);
     final registry = PluginRegistry._validated(
       installed,
-      notificationFeedDeclarations,
-      List.unmodifiable([
-        for (final plugin in installed.whereType<UserPreferencesPlugin>())
-          for (final codec in plugin.userPreferenceCodecs)
-            (
-              owner: (plugin as SitePlugin).name,
-              codec: _InstalledPreferenceCodec(codec),
-            ),
-      ]),
-      List.unmodifiable([
-        for (final plugin in installed.whereType<GlobalSearchPlugin>())
-          for (final contribution in plugin.searchContributions)
-            (
-              owner: (plugin as SitePlugin).name,
-              contribution: InstalledGlobalSearchContribution(contribution),
-            ),
-      ]),
+      _InstalledDeclarations(installed),
     );
+    registry._validateModuleDeclarations(modules);
     registry._validateRecordOwners();
     registry._validateComposerTargetOwners();
     registry._validateHashtagKinds();
@@ -165,6 +141,64 @@ final class PluginRegistry
     return registry;
   }
 
+  void _validateModuleDeclarations(
+    Map<PluginDescriptor, List<PluginCapability>> modules,
+  ) {
+    for (final entry in modules.entries) {
+      final descriptor = entry.key;
+      for (final capability in entry.value) {
+        if (capability is SitePlugin &&
+            !_installed!.owners.containsKey(capability)) {
+          throw ArgumentError(
+            '${descriptor.id} refers to an uninstalled capability.',
+          );
+        }
+        final owner = capability is SitePlugin
+            ? _ownerOf(capability)
+            : capability.name;
+        if (owner != descriptor.id.value) {
+          throw ArgumentError('${descriptor.id} registered capability $owner.');
+        }
+        if (capability is! SitePlugin && capability is PluginRecord<Object>) {
+          final key = (capability as PluginRecord<Object>).record;
+          if (key.owner != descriptor.id.value) {
+            throw ArgumentError(
+              '${descriptor.id} registered record ${key.id}, which is owned by ${key.owner}.',
+            );
+          }
+        }
+      }
+      final legacy = <String>{};
+      final components = <String>{};
+      for (final plugin in entry.value.whereType<ComposerSyntaxPlugin>()) {
+        final id = _syntaxKindFor(plugin).id;
+        if (!legacy.add(id)) {
+          throw ArgumentError(
+            '${descriptor.id} registered duplicate composer syntax id $id.',
+          );
+        }
+      }
+      for (final plugin in entry.value.whereType<ComposerComponentPlugin>()) {
+        final id = _componentKindFor(plugin).id;
+        if (!components.add(id)) {
+          throw ArgumentError(
+            '${descriptor.id} registered duplicate composer component syntax id $id.',
+          );
+        }
+      }
+      final registered = {...legacy, ...components};
+      if (descriptor.syntaxIds.length != registered.length ||
+          !descriptor.syntaxIds.containsAll(registered)) {
+        final declaredIds = descriptor.syntaxIds.toList()..sort();
+        final registeredIds = registered.toList()..sort();
+        throw ArgumentError(
+          '${descriptor.id} declared composer syntax ids '
+          '{${declaredIds.join(', ')}} but registered {${registeredIds.join(', ')}}.',
+        );
+      }
+    }
+  }
+
   void _validateCapabilityCardinality() {
     _validateUniqueKeys<PluginSiteFeature>(
       'site-feature owner',
@@ -176,7 +210,7 @@ final class PluginRegistry
     );
     _validateUniqueKeys<DiagnosticsPlugin>(
       'diagnostics id',
-      (plugin) => plugin.diagnosticsId,
+      (plugin) => _diagnosticsIdFor(plugin),
     );
     _validateUniqueKeys<GroupTabPlugin>(
       'group tab owner',
@@ -205,13 +239,14 @@ final class PluginRegistry
     }
   }
 
-  static String _ownerOf(Object capability) => (capability as SitePlugin).name;
+  String _ownerOf(Object capability) =>
+      _installed?.owners[capability] ?? (capability as SitePlugin).name;
 
   void _validateComposerTargetOwners() {
     final owners = <ComposerTargetKind, String>{};
     for (final plugin in plugins.whereType<ComposerTargetPlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      final kind = plugin.composerTargetKind;
+      final pluginName = _ownerOf(plugin);
+      final kind = _targetKindFor(plugin);
       if (kind.owner != PluginId(pluginName) ||
           kind.name.trim().isEmpty ||
           kind.name.contains('/')) {
@@ -232,8 +267,8 @@ final class PluginRegistry
   void _validateHashtagKinds() {
     final owners = <String, String>{'category': 'core', 'tag': 'core'};
     for (final plugin in plugins.whereType<HashtagKindPlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      for (final kind in plugin.hashtagKinds) {
+      final pluginName = _ownerOf(plugin);
+      for (final kind in _hashtagKindsFor(plugin)) {
         final wireType = kind.wireType;
         if (wireType.isEmpty || wireType.trim() != wireType) {
           throw ArgumentError(
@@ -263,8 +298,8 @@ final class PluginRegistry
   void _validateComposerSyntaxOwners() {
     final owners = <ComposerSyntaxKind, String>{};
     for (final plugin in plugins.whereType<ComposerSyntaxPlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      final kind = plugin.composerSyntaxKind;
+      final pluginName = _ownerOf(plugin);
+      final kind = _syntaxKindFor(plugin);
       if (kind.owner != PluginId(pluginName) ||
           kind.name.trim().isEmpty ||
           kind.name.contains('/')) {
@@ -285,8 +320,8 @@ final class PluginRegistry
   void _validateComposerComponentOwners() {
     final owners = <ComposerSyntaxKind, String>{};
     for (final plugin in plugins.whereType<ComposerComponentPlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      final kind = plugin.composerComponentKind;
+      final pluginName = _ownerOf(plugin);
+      final kind = _componentKindFor(plugin);
       if (kind.owner != PluginId(pluginName) ||
           kind.name.trim().isEmpty ||
           kind.name.contains('/')) {
@@ -306,17 +341,79 @@ final class PluginRegistry
   }
 
   final List<SitePlugin> plugins;
-  final List<_OwnedNotificationFeedDeclaration>? _notificationFeedDeclarations;
+  final _InstalledDeclarations? _installed;
+
+  PluginDataKey<Object> _recordKeyFor(PluginRecord<Object> plugin) =>
+      _installed?.recordKeys[plugin] ?? plugin.record;
+
+  PluginDataKey<Object> _groupRecordKeyFor(GroupRecordPlugin<Object> plugin) =>
+      _installed?.groupRecordKeys[plugin] ?? plugin.groupRecord;
+
+  PluginDataPersistenceCodec<Object> _siteSettingsCodecFor(
+    SiteSettingsPlugin<Object> plugin,
+  ) => _installed?.siteSettingsCodecs[plugin] ?? plugin.siteSettingsCodec;
+
+  PluginDataPersistenceCodec<Object> _currentUserCodecFor(
+    CurrentUserPlugin<Object> plugin,
+  ) => _installed?.currentUserCodecs[plugin] ?? plugin.currentUserCodec;
+
+  ComposerTargetKind _targetKindFor(ComposerTargetPlugin plugin) =>
+      _installed?.targetKinds[plugin] ?? plugin.composerTargetKind;
+
+  ComposerSyntaxKind _syntaxKindFor(ComposerSyntaxPlugin plugin) =>
+      _installed?.syntaxKinds[plugin] ?? plugin.composerSyntaxKind;
+
+  ComposerSyntaxKind _componentKindFor(ComposerComponentPlugin plugin) =>
+      _installed?.componentKinds[plugin] ?? plugin.composerComponentKind;
+
+  List<PluginHashtagKind> _hashtagKindsFor(HashtagKindPlugin plugin) =>
+      _installed?.hashtagKinds[plugin] ?? plugin.hashtagKinds;
+
+  List<TopicRecommendationSourceCodec> _recommendationCodecsFor(
+    TopicRecommendationSourcePlugin plugin,
+  ) =>
+      _installed?.recommendationCodecs[plugin] ??
+      plugin.topicRecommendationSourceCodecs;
+
+  PluginIconCatalog _iconCatalogFor(IconCatalogPlugin plugin) =>
+      _installed?.iconCatalogs[plugin] ?? plugin.iconCatalog;
+
+  List<PluginNotificationType> _notificationTypesFor(
+    NotificationTypePlugin plugin,
+  ) => _installed?.notificationTypes[plugin] ?? plugin.notificationTypes;
+
+  List<PluginNotificationFeedSource> _notificationFeedsFor(
+    NotificationFeedPlugin plugin,
+  ) => _installed?.notificationFeeds[plugin] ?? plugin.notificationFeeds;
+
+  List<PluginNotificationCounter> _notificationCountersFor(
+    NotificationCounterPlugin plugin,
+  ) => _installed?.notificationCounters[plugin] ?? plugin.notificationCounters;
+
+  List<SitePreferenceKey> _sitePreferenceKeysFor(
+    SitePreferencesPlugin plugin,
+  ) => _installed?.sitePreferenceKeys[plugin] ?? plugin.sitePreferenceKeys;
+
+  String _diagnosticsIdFor(DiagnosticsPlugin plugin) =>
+      _installed?.diagnosticsIds[plugin] ?? plugin.diagnosticsId;
+
+  List<UserPreferenceCodec> _preferenceCodecsFor(
+    UserPreferencesPlugin plugin,
+  ) => _installed?.preferenceCodecs[plugin] ?? plugin.userPreferenceCodecs;
+
+  List<GlobalSearchContribution> _searchContributionsFor(
+    GlobalSearchPlugin plugin,
+  ) => _installed?.searchContributions[plugin] ?? plugin.searchContributions;
 
   /// Every preference plugins keep per forum; see [SitePreferencesPlugin].
   List<SitePreferenceKey> get sitePreferenceKeys => List.unmodifiable([
     for (final plugin in plugins.whereType<SitePreferencesPlugin>())
-      ...plugin.sitePreferenceKeys,
+      ..._sitePreferenceKeysFor(plugin),
   ]);
 
   List<PluginIconCatalog> get iconCatalogs => List.unmodifiable([
     for (final plugin in plugins.whereType<IconCatalogPlugin>())
-      plugin.iconCatalog,
+      _iconCatalogFor(plugin),
   ]);
 
   @override
@@ -326,6 +423,7 @@ final class PluginRegistry
   DIconData? findIconNamed(String? name) {
     final core = name == null ? null : DIcons.byName[name];
     if (core != null) return core;
+    if (_installed != null) return _installed.iconsByName[name];
     for (final catalog in iconCatalogs) {
       final icon = catalog.iconNamed(name);
       if (icon != null) return icon;
@@ -333,13 +431,12 @@ final class PluginRegistry
     return null;
   }
 
-  static PluginId _owner(Object plugin) =>
-      PluginId((plugin as SitePlugin).name);
+  PluginId _owner(Object plugin) => PluginId(_ownerOf(plugin));
 
-  static BuildContext _uiContext(BuildContext context, Object plugin) =>
+  BuildContext _uiContext(BuildContext context, Object plugin) =>
       PluginUiScope.contextFor(context, _owner(plugin));
 
-  static Widget _owned(Object plugin, Widget child) {
+  Widget _owned(Object plugin, Widget child) {
     final owner = _owner(plugin);
     // HtmlWidget detects this marker before building it. Wrapping the marker
     // itself would turn an inline contribution into a block; keep the marker
@@ -355,11 +452,11 @@ final class PluginRegistry
     return PluginUiScope.own(owner, child);
   }
 
-  static List<Widget> _ownedAll(Object plugin, Iterable<Widget> children) => [
+  List<Widget> _ownedAll(Object plugin, Iterable<Widget> children) => [
     for (final child in children) _owned(plugin, child),
   ];
 
-  static SidebarDestination _ownedDestination(
+  SidebarDestination _ownedDestination(
     Object plugin,
     SidebarDestination destination,
   ) => SidebarDestination(
@@ -416,7 +513,7 @@ final class PluginRegistry
     feedPath: destination.feedPath,
   );
 
-  static SidebarSection _ownedSection(Object plugin, SidebarSection section) =>
+  SidebarSection _ownedSection(Object plugin, SidebarSection section) =>
       SidebarSection(
         id: section.id,
         title: section.title,
@@ -466,7 +563,7 @@ final class PluginRegistry
   Widget? groupContent(BuildContext context, PluginGroupContext group) {
     if (!group.route.isPlugin) return null;
     for (final plugin in plugins.whereType<GroupTabPlugin>()) {
-      if ((plugin as SitePlugin).name != group.route.pluginOwner) continue;
+      if (_ownerOf(plugin) != group.route.pluginOwner) continue;
       final content = plugin.groupContent(_uiContext(context, plugin), group);
       return content == null ? null : _owned(plugin, content);
     }
@@ -476,28 +573,25 @@ final class PluginRegistry
   Listenable? groupListenable(BuildContext context, PluginGroupContext group) {
     if (!group.route.isPlugin) return null;
     for (final plugin in plugins.whereType<GroupTabPlugin>()) {
-      if ((plugin as SitePlugin).name != group.route.pluginOwner) continue;
+      if (_ownerOf(plugin) != group.route.pluginOwner) continue;
       return plugin.groupListenable(_uiContext(context, plugin), group);
     }
     return null;
   }
 
-  static PluginGroupTab _validateGroupTab(
-    GroupTabPlugin plugin,
-    PluginGroupTab tab,
-  ) {
+  PluginGroupTab _validateGroupTab(GroupTabPlugin plugin, PluginGroupTab tab) {
     final section = tab.section;
     if (section.isEmpty ||
         section.trim() != section ||
         section.contains('/') ||
         section.contains('\\')) {
       throw StateError(
-        '${(plugin as SitePlugin).name} returned invalid group tab $section.',
+        '${_ownerOf(plugin)} returned invalid group tab $section.',
       );
     }
     if (tab.label.trim().isEmpty || (tab.count != null && tab.count! < 0)) {
       throw StateError(
-        '${(plugin as SitePlugin).name} returned invalid group tab metadata.',
+        '${_ownerOf(plugin)} returned invalid group tab metadata.',
       );
     }
     return tab;
@@ -508,7 +602,7 @@ final class PluginRegistry
       List.unmodifiable([
         for (final plugin
             in plugins.whereType<TopicRecommendationSourcePlugin>())
-          for (final codec in plugin.topicRecommendationSourceCodecs)
+          for (final codec in _recommendationCodecsFor(plugin))
             codec.definition,
       ]);
 
@@ -517,7 +611,7 @@ final class PluginRegistry
     Map<String, dynamic> json,
   ) => List.unmodifiable([
     for (final plugin in plugins.whereType<TopicRecommendationSourcePlugin>())
-      for (final codec in plugin.topicRecommendationSourceCodecs)
+      for (final codec in _recommendationCodecsFor(plugin))
         if (codec.decodeTopicRows(json) case final rows?)
           TopicRecommendationSourcePayload(
             definition: codec.definition,
@@ -527,8 +621,11 @@ final class PluginRegistry
 
   @override
   TopicRecommendationSourceId? migrateLegacyStoredId(String storedId) {
+    if (_installed != null) {
+      return _installed.recommendationIdsByLegacyId[storedId];
+    }
     for (final plugin in plugins.whereType<TopicRecommendationSourcePlugin>()) {
-      for (final codec in plugin.topicRecommendationSourceCodecs) {
+      for (final codec in _recommendationCodecsFor(plugin)) {
         if (codec.legacyStoredIds.contains(storedId)) {
           return codec.definition.id;
         }
@@ -537,30 +634,34 @@ final class PluginRegistry
     return null;
   }
 
-  List<PluginNotificationFeedSource> get notificationFeeds {
-    final declarations = _notificationFeedDeclarations;
-    return List.unmodifiable(
-      declarations == null
-          ? [
-              for (final plugin in plugins.whereType<NotificationFeedPlugin>())
-                ...plugin.notificationFeeds,
-            ]
-          : [for (final declaration in declarations) declaration.source],
-    );
-  }
+  List<_OwnedNotificationFeedDeclaration> get _notificationFeedDeclarations => [
+    for (final plugin in plugins.whereType<NotificationFeedPlugin>())
+      for (final source in _notificationFeedsFor(plugin))
+        (owner: _ownerOf(plugin), source: source),
+  ];
+
+  List<PluginNotificationFeedSource> get notificationFeeds =>
+      List.unmodifiable([
+        for (final declaration in _notificationFeedDeclarations)
+          declaration.source,
+      ]);
 
   PluginNotificationFeedSource? notificationFeed(PluginNotificationFeedId id) =>
-      notificationFeeds.where((source) => source.id == id).firstOrNull;
+      _installed != null
+      ? _installed.feedsById[id]
+      : notificationFeeds.where((source) => source.id == id).firstOrNull;
 
   List<PluginNotificationType> get notificationTypes => List.unmodifiable([
     for (final plugin in plugins.whereType<NotificationTypePlugin>())
-      ...plugin.notificationTypes,
+      ..._notificationTypesFor(plugin),
   ]);
 
   PluginNotificationType? notificationType(NotificationTypeId id) =>
-      notificationTypes
-          .where((definition) => definition.wireType.wireId == id.value)
-          .firstOrNull;
+      _installed != null
+      ? _installed.typesById[id]
+      : notificationTypes
+            .where((definition) => definition.wireType.wireId == id.value)
+            .firstOrNull;
 
   /// [notification] as it reads on [siteUrl], the forum it came from.
   ResolvedNotification resolveNotification(
@@ -592,12 +693,14 @@ final class PluginRegistry
   List<PluginNotificationCounter> get notificationCounters =>
       List.unmodifiable([
         for (final plugin in plugins.whereType<NotificationCounterPlugin>())
-          ...plugin.notificationCounters,
+          ..._notificationCountersFor(plugin),
       ]);
 
   PluginNotificationCounter? notificationCounter(
     PluginNotificationCounterId id,
-  ) => notificationCounters.where((counter) => counter.id == id).firstOrNull;
+  ) => _installed != null
+      ? _installed.countersById[id]
+      : notificationCounters.where((counter) => counter.id == id).firstOrNull;
 
   bool compactEmojiAncestor(dom.Element element) => plugins
       .whereType<CompactEmojiPlugin>()
@@ -621,25 +724,18 @@ final class PluginRegistry
         NotificationTypeName(type.wireType.wireName),
   });
 
-  final List<({String owner, UserPreferenceCodec codec})>?
-  _preferenceDeclarations;
-  final List<({String owner, GlobalSearchContribution contribution})>?
-  _searchDeclarations;
+  List<({String owner, UserPreferenceCodec codec})> get _preferences => [
+    for (final plugin in plugins.whereType<UserPreferencesPlugin>())
+      for (final codec in _preferenceCodecsFor(plugin))
+        (owner: _ownerOf(plugin), codec: codec),
+  ];
 
-  List<({String owner, UserPreferenceCodec codec})> get _preferences =>
-      _preferenceDeclarations ??
-      [
-        for (final plugin in plugins.whereType<UserPreferencesPlugin>())
-          for (final codec in plugin.userPreferenceCodecs)
-            (owner: (plugin as SitePlugin).name, codec: codec),
-      ];
-  List<({String owner, GlobalSearchContribution contribution})> get _search =>
-      _searchDeclarations ??
-      [
-        for (final plugin in plugins.whereType<GlobalSearchPlugin>())
-          for (final contribution in plugin.searchContributions)
-            (owner: (plugin as SitePlugin).name, contribution: contribution),
-      ];
+  List<({String owner, GlobalSearchContribution contribution})> get _search => [
+    for (final plugin in plugins.whereType<GlobalSearchPlugin>())
+      for (final contribution in _searchContributionsFor(plugin))
+        (owner: _ownerOf(plugin), contribution: contribution),
+  ];
+
   List<GlobalSearchContribution> get searchContributions =>
       List.unmodifiable([for (final entry in _search) entry.contribution]);
 
@@ -715,25 +811,36 @@ final class PluginRegistry
     for (final plugin in plugins) {
       if (plugin is PluginRecord<Object>) {
         final capability = plugin as PluginRecord<Object>;
-        _claimRecordOwner(owners, capability.record, plugin.name);
+        _claimRecordOwner(owners, _recordKeyFor(capability), _ownerOf(plugin));
       }
       if (plugin is GroupRecordPlugin<Object>) {
         final capability = plugin as GroupRecordPlugin<Object>;
-        _claimRecordOwner(owners, capability.groupRecord, plugin.name);
+        _claimRecordOwner(
+          owners,
+          _groupRecordKeyFor(capability),
+          _ownerOf(plugin),
+        );
       }
       if (plugin is SiteSettingsPlugin<Object>) {
         final capability = plugin as SiteSettingsPlugin<Object>;
-        _validateCodecOwner(capability.siteSettingsCodec, plugin.name);
+        _validateCodecOwner(
+          _siteSettingsCodecFor(capability),
+          _ownerOf(plugin),
+        );
         _claimRecordOwner(
           owners,
-          capability.siteSettingsCodec.key,
-          plugin.name,
+          _siteSettingsCodecFor(capability).key,
+          _ownerOf(plugin),
         );
       }
       if (plugin is CurrentUserPlugin<Object>) {
         final capability = plugin as CurrentUserPlugin<Object>;
-        _validateCodecOwner(capability.currentUserCodec, plugin.name);
-        _claimRecordOwner(owners, capability.currentUserCodec.key, plugin.name);
+        _validateCodecOwner(_currentUserCodecFor(capability), _ownerOf(plugin));
+        _claimRecordOwner(
+          owners,
+          _currentUserCodecFor(capability).key,
+          _ownerOf(plugin),
+        );
       }
     }
   }
@@ -746,8 +853,8 @@ final class PluginRegistry
       coreSuggestedTopicRecommendationLegacyStoredId: 'core',
     };
     for (final plugin in plugins.whereType<TopicRecommendationSourcePlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      for (final codec in plugin.topicRecommendationSourceCodecs) {
+      final pluginName = _ownerOf(plugin);
+      for (final codec in _recommendationCodecsFor(plugin)) {
         final source = codec.definition;
         if (!source.id.isNamespaced || source.id.namespace != pluginName) {
           throw ArgumentError(
@@ -795,8 +902,8 @@ final class PluginRegistry
       for (final name in DIcons.byName.keys) name: 'core',
     };
     for (final plugin in plugins.whereType<IconCatalogPlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      final catalog = plugin.iconCatalog;
+      final pluginName = _ownerOf(plugin);
+      final catalog = _iconCatalogFor(plugin);
       if (catalog.owner != PluginId(pluginName)) {
         throw ArgumentError(
           'Icon catalog ${catalog.owner} is registered by $pluginName.',
@@ -823,22 +930,15 @@ final class PluginRegistry
     final owners = <PluginNotificationFeedId, String>{};
     final declaredTypes = <NotificationTypeName, NotificationWireType>{
       for (final plugin in plugins.whereType<NotificationTypePlugin>())
-        for (final type in plugin.notificationTypes)
+        for (final type in _notificationTypesFor(plugin))
           NotificationTypeName(type.wireType.wireName): type.wireType,
     };
     final typeOwners = <NotificationTypeName, String>{
       for (final plugin in plugins.whereType<NotificationTypePlugin>())
-        for (final type in plugin.notificationTypes)
-          NotificationTypeName(type.wireType.wireName):
-              (plugin as SitePlugin).name,
+        for (final type in _notificationTypesFor(plugin))
+          NotificationTypeName(type.wireType.wireName): _ownerOf(plugin),
     };
-    final declarations =
-        _notificationFeedDeclarations ??
-        [
-          for (final plugin in plugins.whereType<NotificationFeedPlugin>())
-            for (final source in plugin.notificationFeeds)
-              (owner: (plugin as SitePlugin).name, source: source),
-        ];
+    final declarations = _notificationFeedDeclarations;
     for (final declaration in declarations) {
       final pluginName = declaration.owner;
       final source = declaration.source;
@@ -918,8 +1018,8 @@ final class PluginRegistry
         NotificationTypeName(definition.wireType.wireName): 'core',
     };
     for (final plugin in plugins.whereType<NotificationTypePlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      for (final definition in plugin.notificationTypes) {
+      final pluginName = _ownerOf(plugin);
+      for (final definition in _notificationTypesFor(plugin)) {
         if (definition.id.owner != PluginId(pluginName) ||
             definition.id.name.trim().isEmpty ||
             definition.id.name.contains('/')) {
@@ -980,8 +1080,8 @@ final class PluginRegistry
       for (final name in coreWireNames) name: 'core',
     };
     for (final plugin in plugins.whereType<NotificationCounterPlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
-      for (final counter in plugin.notificationCounters) {
+      final pluginName = _ownerOf(plugin);
+      for (final counter in _notificationCountersFor(plugin)) {
         if (counter.id.owner != PluginId(pluginName) ||
             counter.id.name.trim().isEmpty ||
             counter.id.name.contains('/')) {
@@ -1046,6 +1146,9 @@ final class PluginRegistry
     PluginDataKey<Object> key,
     String owner,
   ) {
+    if (key.owner != owner) {
+      throw ArgumentError('Plugin data key ${key.id} is registered by $owner.');
+    }
     final previous = owners[key];
     if (previous != null) {
       throw ArgumentError(
@@ -1061,7 +1164,7 @@ final class PluginRegistry
     for (final plugin in plugins.whereType<GroupRecordPlugin<Object>>()) {
       final value = plugin.readGroup(json, siteUrl);
       if (value != null) {
-        values = values.withValueFor(plugin.groupRecord, value);
+        values = values.withValueFor(_groupRecordKeyFor(plugin), value);
       }
     }
     return values;
@@ -1072,7 +1175,9 @@ final class PluginRegistry
     var values = PluginData.none;
     for (final plugin in plugins.whereType<PostRecordPlugin<Object>>()) {
       final value = plugin.readPost(json, siteUrl);
-      if (value != null) values = values.withValueFor(plugin.record, value);
+      if (value != null) {
+        values = values.withValueFor(_recordKeyFor(plugin), value);
+      }
     }
     return values;
   }
@@ -1082,7 +1187,9 @@ final class PluginRegistry
     var values = PluginData.none;
     for (final plugin in plugins.whereType<TopicRecordPlugin<Object>>()) {
       final value = plugin.readTopic(json, siteUrl);
-      if (value != null) values = values.withValueFor(plugin.record, value);
+      if (value != null) {
+        values = values.withValueFor(_recordKeyFor(plugin), value);
+      }
     }
     return values;
   }
@@ -1092,7 +1199,9 @@ final class PluginRegistry
     var values = PluginData.none;
     for (final plugin in plugins.whereType<UserCardRecordPlugin<Object>>()) {
       final value = plugin.readUserCard(json, siteUrl);
-      if (value != null) values = values.withValueFor(plugin.record, value);
+      if (value != null) {
+        values = values.withValueFor(_recordKeyFor(plugin), value);
+      }
     }
     return values;
   }
@@ -1103,7 +1212,7 @@ final class PluginRegistry
     for (final plugin in plugins.whereType<CurrentUserPlugin<Object>>()) {
       final value = plugin.readCurrentUser(json, siteUrl);
       if (value != null) {
-        values = values.withValueFor(plugin.currentUserCodec.key, value);
+        values = values.withValueFor(_currentUserCodecFor(plugin).key, value);
       }
     }
     return values;
@@ -1115,7 +1224,7 @@ final class PluginRegistry
     for (final plugin in plugins.whereType<SiteSettingsPlugin<Object>>()) {
       final value = plugin.readSiteSettings(json, siteUrl);
       if (value != null) {
-        values = values.withValueFor(plugin.siteSettingsCodec.key, value);
+        values = values.withValueFor(_siteSettingsCodecFor(plugin).key, value);
       }
     }
     return values;
@@ -1125,7 +1234,7 @@ final class PluginRegistry
   PluginData readStoredCurrentUser(Map<String, dynamic> json) => _readStored(
     json,
     plugins.whereType<CurrentUserPlugin<Object>>().map(
-      (plugin) => plugin.currentUserCodec,
+      (plugin) => _currentUserCodecFor(plugin),
     ),
   );
 
@@ -1133,7 +1242,7 @@ final class PluginRegistry
   PluginData readStoredSiteSettings(Map<String, dynamic> json) => _readStored(
     json,
     plugins.whereType<SiteSettingsPlugin<Object>>().map(
-      (plugin) => plugin.siteSettingsCodec,
+      (plugin) => _siteSettingsCodecFor(plugin),
     ),
   );
 
@@ -1165,7 +1274,7 @@ final class PluginRegistry
   Map<String, Object?> writeStoredCurrentUser(PluginData data) => _writeStored(
     data,
     plugins.whereType<CurrentUserPlugin<Object>>().map(
-      (plugin) => plugin.currentUserCodec,
+      (plugin) => _currentUserCodecFor(plugin),
     ),
   );
 
@@ -1173,7 +1282,7 @@ final class PluginRegistry
   Map<String, Object?> writeStoredSiteSettings(PluginData data) => _writeStored(
     data,
     plugins.whereType<SiteSettingsPlugin<Object>>().map(
-      (plugin) => plugin.siteSettingsCodec,
+      (plugin) => _siteSettingsCodecFor(plugin),
     ),
   );
 
@@ -1195,7 +1304,7 @@ final class PluginRegistry
 
   bool siteFeatureEnabled(String pluginId, PluginData siteSettings) {
     for (final plugin in plugins) {
-      if (plugin.name == pluginId && plugin is PluginSiteFeature) {
+      if (_ownerOf(plugin) == pluginId && plugin is PluginSiteFeature) {
         return (plugin as PluginSiteFeature).siteFeatureEnabled(siteSettings);
       }
     }
@@ -1204,7 +1313,7 @@ final class PluginRegistry
 
   bool currentUserFeatureEnabled(String pluginId, PluginData currentUser) {
     for (final plugin in plugins) {
-      if (plugin.name == pluginId && plugin is PluginCurrentUserFeature) {
+      if (_ownerOf(plugin) == pluginId && plugin is PluginCurrentUserFeature) {
         return (plugin as PluginCurrentUserFeature).currentUserFeatureEnabled(
           currentUser,
         );
@@ -1221,10 +1330,10 @@ final class PluginRegistry
     var merged = incoming;
     for (final plugin in plugins.whereType<PostRecordPlugin<Object>>()) {
       final value = plugin.mergeAfterPostEdit(
-        held.get(plugin.record),
-        merged.get(plugin.record),
+        held.get(_recordKeyFor(plugin)),
+        merged.get(_recordKeyFor(plugin)),
       );
-      merged = merged.withValueFor(plugin.record, value);
+      merged = merged.withValueFor(_recordKeyFor(plugin), value);
     }
     return merged;
   }
@@ -1288,12 +1397,13 @@ final class PluginRegistry
   List<Object?> postBodyRecords(PluginData records) {
     final owners = {
       for (final plugin in plugins)
-        if (plugin is PostBodyPlugin) plugin.name,
+        if (plugin is PostBodyPlugin) _ownerOf(plugin),
     };
     if (owners.isEmpty) return const [];
     return [
       for (final plugin in plugins.whereType<PostRecordPlugin<Object>>())
-        if (owners.contains(plugin.record.owner)) records.get(plugin.record),
+        if (owners.contains(_recordKeyFor(plugin).owner))
+          records.get(_recordKeyFor(plugin)),
     ];
   }
 
@@ -1308,35 +1418,48 @@ final class PluginRegistry
   HashtagPresentation? pluginHashtagPresentation(
     HashtagPresentationRequest request,
   ) {
+    final installed = _installed;
+    if (installed != null) {
+      final entry = installed.hashtagsByWireType[request.type];
+      return entry == null
+          ? null
+          : _presentHashtag(entry.owner, entry.kind, request);
+    }
     for (final plugin in plugins.whereType<HashtagKindPlugin>()) {
-      for (final kind in plugin.hashtagKinds) {
-        if (kind.wireType != request.type) continue;
-        try {
-          final presentation = kind.present(request);
-          // A presenter owns appearance, never the server's identity. Treat a
-          // broken contribution exactly like an absent one so the shell's
-          // neutral fallback can keep the original type readable.
-          return presentation.type == request.type ? presentation : null;
-        } catch (error, stackTrace) {
-          DiagnosticsSink.current.reportError(
-            error,
-            stackTrace,
-            operation: 'hashtag.kind.present',
-            source: (plugin as SitePlugin).name,
-            severity: DiagnosticSeverity.warning,
-            handled: true,
-            degraded: true,
-          );
-          return null;
+      for (final kind in _hashtagKindsFor(plugin)) {
+        if (kind.wireType == request.type) {
+          return _presentHashtag(_ownerOf(plugin), kind, request);
         }
       }
     }
     return null;
   }
 
+  static HashtagPresentation? _presentHashtag(
+    String owner,
+    PluginHashtagKind kind,
+    HashtagPresentationRequest request,
+  ) {
+    try {
+      final presentation = kind.present(request);
+      return presentation.type == request.type ? presentation : null;
+    } catch (error, stackTrace) {
+      DiagnosticsSink.current.reportError(
+        error,
+        stackTrace,
+        operation: 'hashtag.kind.present',
+        source: owner,
+        severity: DiagnosticSeverity.warning,
+        handled: true,
+        degraded: true,
+      );
+      return null;
+    }
+  }
+
   List<String> get pluginHashtagWireTypes => List.unmodifiable([
     for (final plugin in plugins.whereType<HashtagKindPlugin>())
-      for (final kind in plugin.hashtagKinds) kind.wireType,
+      for (final kind in _hashtagKindsFor(plugin)) kind.wireType,
   ]);
 
   CookedInlinePrefix? cookedInlinePrefix(dom.Element element) {
@@ -1644,10 +1767,13 @@ final class PluginRegistry
     ComposerTargetRequest request,
     ComposerTargetContext context,
   ) {
-    for (final plugin in plugins.whereType<ComposerTargetPlugin>()) {
-      if (plugin.composerTargetKind != request.kind) continue;
+    final candidates = _installed == null
+        ? plugins.whereType<ComposerTargetPlugin>()
+        : [?_installed.targetsByKind[request.kind]];
+    for (final plugin in candidates) {
+      if (_targetKindFor(plugin) != request.kind) continue;
       final policy = plugin.createComposerTarget(request, context);
-      final pluginName = (plugin as SitePlugin).name;
+      final pluginName = _ownerOf(plugin);
       if (policy.kind != request.kind) {
         throw StateError(
           '$pluginName returned policy ${policy.kind} '
@@ -1687,8 +1813,8 @@ final class PluginRegistry
     final registrations = <_OwnedComposerComponentRegistrar>[];
     for (final plugin in plugins.whereType<ComposerComponentPlugin>()) {
       final owned = _OwnedComposerComponentRegistrar(
-        pluginName: (plugin as SitePlugin).name,
-        kind: plugin.composerComponentKind,
+        pluginName: _ownerOf(plugin),
+        kind: _componentKindFor(plugin),
         registrar: registrar,
       );
       plugin.registerComposerComponent(context, owned);
@@ -1705,10 +1831,10 @@ final class PluginRegistry
     ComposerSyntaxPolicyContext context,
   ) {
     final policy = plugin.createComposerSyntaxPolicy(context);
-    if (policy.kind != plugin.composerSyntaxKind) {
+    if (policy.kind != _syntaxKindFor(plugin)) {
       throw StateError(
-        '${(plugin as SitePlugin).name} returned syntax policy ${policy.kind} '
-        'for ${plugin.composerSyntaxKind}.',
+        '${_ownerOf(plugin)} returned syntax policy ${policy.kind} '
+        'for ${_syntaxKindFor(plugin)}.',
       );
     }
     return policy;
@@ -1744,7 +1870,7 @@ final class PluginRegistry
     final sections = <PluginUserMenuSection>[];
     final owners = <PluginUserMenuSectionId>{};
     for (final plugin in plugins.whereType<UserMenuSectionPlugin>()) {
-      final pluginName = (plugin as SitePlugin).name;
+      final pluginName = _ownerOf(plugin);
       for (final section in plugin.userMenuSections(context)) {
         if (section.id.owner != PluginId(pluginName) ||
             section.id.name.trim().isEmpty ||
@@ -2131,9 +2257,21 @@ final class PluginRegistry
       ..._ownedAll(plugin, plugin.shellOverlays(_uiContext(context, plugin))),
   ];
 
+  HomepagePlugin? homepage(String id) {
+    if (_installed != null) return _installed.homepagesById[id];
+    return plugins
+        .whereType<HomepagePlugin>()
+        .where((plugin) => plugin.homepageId == id)
+        .firstOrNull;
+  }
+
   List<DiagnosticsPlugin> get diagnosticsPlugins => List.unmodifiable([
     for (final plugin in plugins.whereType<DiagnosticsPlugin>())
-      _OwnedDiagnosticsPlugin(_owner(plugin), plugin),
+      _OwnedDiagnosticsPlugin(
+        _owner(plugin),
+        plugin,
+        _installed?.diagnosticsIds[plugin],
+      ),
   ]);
 
   DateTime? futureBookmarkReminder(
@@ -2166,13 +2304,15 @@ final class PluginRegistry
 }
 
 final class _OwnedDiagnosticsPlugin implements DiagnosticsPlugin {
-  const _OwnedDiagnosticsPlugin(this.owner, this.delegate);
+  const _OwnedDiagnosticsPlugin(this.owner, this.delegate, this._diagnosticsId);
 
   final PluginId owner;
   final DiagnosticsPlugin delegate;
 
+  final String? _diagnosticsId;
+
   @override
-  String get diagnosticsId => delegate.diagnosticsId;
+  String get diagnosticsId => _diagnosticsId ?? delegate.diagnosticsId;
 
   @override
   String get diagnosticsLabel => delegate.diagnosticsLabel;
@@ -2245,4 +2385,269 @@ final class _InstalledPreferenceCodec implements UserPreferenceCodec {
     _validatePreferenceValue(this, value);
     return value;
   }
+}
+
+Map<P, V> _captureDeclarations<P extends Object, V>(
+  List<SitePlugin> plugins,
+  V Function(P plugin) read,
+) {
+  final values = Map<P, V>.identity();
+  for (final plugin in plugins.whereType<P>()) {
+    values.putIfAbsent(plugin, () => read(plugin));
+  }
+  return UnmodifiableMapView(values);
+}
+
+PluginIconCatalog _freezeIconCatalog(PluginIconCatalog source) =>
+    PluginIconCatalog(
+      owner: source.owner,
+      entries: Map.unmodifiable(source.entries),
+    );
+
+final class _InstalledDeclarations {
+  _InstalledDeclarations(List<SitePlugin> plugins)
+    : owners = _captureDeclarations<SitePlugin, String>(
+        plugins,
+        (plugin) => plugin.name,
+      ),
+      recordKeys =
+          _captureDeclarations<PluginRecord<Object>, PluginDataKey<Object>>(
+            plugins,
+            (plugin) => plugin.record,
+          ),
+      groupRecordKeys =
+          _captureDeclarations<
+            GroupRecordPlugin<Object>,
+            PluginDataKey<Object>
+          >(plugins, (plugin) => plugin.groupRecord),
+      siteSettingsCodecs =
+          _captureDeclarations<
+            SiteSettingsPlugin<Object>,
+            PluginDataPersistenceCodec<Object>
+          >(
+            plugins,
+            (plugin) => _InstalledPersistenceCodec(plugin.siteSettingsCodec),
+          ),
+      currentUserCodecs =
+          _captureDeclarations<
+            CurrentUserPlugin<Object>,
+            PluginDataPersistenceCodec<Object>
+          >(
+            plugins,
+            (plugin) => _InstalledPersistenceCodec(plugin.currentUserCodec),
+          ),
+      targetKinds =
+          _captureDeclarations<ComposerTargetPlugin, ComposerTargetKind>(
+            plugins,
+            (plugin) => plugin.composerTargetKind,
+          ),
+      syntaxKinds =
+          _captureDeclarations<ComposerSyntaxPlugin, ComposerSyntaxKind>(
+            plugins,
+            (plugin) => plugin.composerSyntaxKind,
+          ),
+      componentKinds =
+          _captureDeclarations<ComposerComponentPlugin, ComposerSyntaxKind>(
+            plugins,
+            (plugin) => plugin.composerComponentKind,
+          ),
+      hashtagKinds =
+          _captureDeclarations<HashtagKindPlugin, List<PluginHashtagKind>>(
+            plugins,
+            (plugin) => List.unmodifiable(plugin.hashtagKinds),
+          ),
+      recommendationCodecs =
+          _captureDeclarations<
+            TopicRecommendationSourcePlugin,
+            List<TopicRecommendationSourceCodec>
+          >(
+            plugins,
+            (plugin) => List.unmodifiable(
+              plugin.topicRecommendationSourceCodecs.map(
+                _InstalledRecommendationCodec.new,
+              ),
+            ),
+          ),
+      iconCatalogs = _captureDeclarations<IconCatalogPlugin, PluginIconCatalog>(
+        plugins,
+        (plugin) => _freezeIconCatalog(plugin.iconCatalog),
+      ),
+      notificationTypes =
+          _captureDeclarations<
+            NotificationTypePlugin,
+            List<PluginNotificationType>
+          >(plugins, (plugin) => List.unmodifiable(plugin.notificationTypes)),
+      notificationFeeds =
+          _captureDeclarations<
+            NotificationFeedPlugin,
+            List<PluginNotificationFeedSource>
+          >(
+            plugins,
+            (plugin) => List.unmodifiable(
+              plugin.notificationFeeds.map(_freezeNotificationFeedSource),
+            ),
+          ),
+      notificationCounters =
+          _captureDeclarations<
+            NotificationCounterPlugin,
+            List<PluginNotificationCounter>
+          >(
+            plugins,
+            (plugin) => List.unmodifiable(plugin.notificationCounters),
+          ),
+      sitePreferenceKeys =
+          _captureDeclarations<SitePreferencesPlugin, List<SitePreferenceKey>>(
+            plugins,
+            (plugin) => List.unmodifiable(plugin.sitePreferenceKeys),
+          ),
+      homepageIds = _captureDeclarations<HomepagePlugin, String>(
+        plugins,
+        (plugin) => plugin.homepageId,
+      ),
+      diagnosticsIds = _captureDeclarations<DiagnosticsPlugin, String>(
+        plugins,
+        (plugin) => plugin.diagnosticsId,
+      ),
+      preferenceCodecs =
+          _captureDeclarations<
+            UserPreferencesPlugin,
+            List<UserPreferenceCodec>
+          >(
+            plugins,
+            (plugin) => List.unmodifiable(
+              plugin.userPreferenceCodecs.map(_InstalledPreferenceCodec.new),
+            ),
+          ),
+      searchContributions =
+          _captureDeclarations<
+            GlobalSearchPlugin,
+            List<GlobalSearchContribution>
+          >(
+            plugins,
+            (plugin) => List.unmodifiable(
+              plugin.searchContributions.map(
+                InstalledGlobalSearchContribution.new,
+              ),
+            ),
+          );
+
+  final Map<SitePlugin, String> owners;
+  final Map<PluginRecord<Object>, PluginDataKey<Object>> recordKeys;
+  final Map<GroupRecordPlugin<Object>, PluginDataKey<Object>> groupRecordKeys;
+  final Map<SiteSettingsPlugin<Object>, PluginDataPersistenceCodec<Object>>
+  siteSettingsCodecs;
+  final Map<CurrentUserPlugin<Object>, PluginDataPersistenceCodec<Object>>
+  currentUserCodecs;
+  final Map<ComposerTargetPlugin, ComposerTargetKind> targetKinds;
+  final Map<ComposerSyntaxPlugin, ComposerSyntaxKind> syntaxKinds;
+  final Map<ComposerComponentPlugin, ComposerSyntaxKind> componentKinds;
+  final Map<HashtagKindPlugin, List<PluginHashtagKind>> hashtagKinds;
+  final Map<
+    TopicRecommendationSourcePlugin,
+    List<TopicRecommendationSourceCodec>
+  >
+  recommendationCodecs;
+  final Map<IconCatalogPlugin, PluginIconCatalog> iconCatalogs;
+  final Map<NotificationTypePlugin, List<PluginNotificationType>>
+  notificationTypes;
+  final Map<NotificationFeedPlugin, List<PluginNotificationFeedSource>>
+  notificationFeeds;
+  final Map<NotificationCounterPlugin, List<PluginNotificationCounter>>
+  notificationCounters;
+  final Map<SitePreferencesPlugin, List<SitePreferenceKey>> sitePreferenceKeys;
+  final Map<HomepagePlugin, String> homepageIds;
+  final Map<DiagnosticsPlugin, String> diagnosticsIds;
+  final Map<UserPreferencesPlugin, List<UserPreferenceCodec>> preferenceCodecs;
+  final Map<GlobalSearchPlugin, List<GlobalSearchContribution>>
+  searchContributions;
+
+  late final Map<String, HomepagePlugin> homepagesById = _indexHomepages();
+
+  Map<String, HomepagePlugin> _indexHomepages() {
+    final byId = <String, HomepagePlugin>{};
+    for (final entry in homepageIds.entries) {
+      byId.putIfAbsent(entry.value, () => entry.key);
+    }
+    return Map.unmodifiable(byId);
+  }
+
+  late final Map<NotificationTypeId, PluginNotificationType> typesById =
+      Map.unmodifiable({
+        for (final types in notificationTypes.values)
+          for (final type in types)
+            NotificationTypeId(type.wireType.wireId): type,
+      });
+  late final Map<PluginNotificationFeedId, PluginNotificationFeedSource>
+  feedsById = Map.unmodifiable({
+    for (final sources in notificationFeeds.values)
+      for (final source in sources) source.id: source,
+  });
+  late final Map<PluginNotificationCounterId, PluginNotificationCounter>
+  countersById = Map.unmodifiable({
+    for (final counters in notificationCounters.values)
+      for (final counter in counters) counter.id: counter,
+  });
+  late final Map<String, DIconData> iconsByName = Map.unmodifiable({
+    for (final catalog in iconCatalogs.values) ...catalog.entries,
+  });
+  late final Map<String, TopicRecommendationSourceId>
+  recommendationIdsByLegacyId = Map.unmodifiable({
+    for (final codecs in recommendationCodecs.values)
+      for (final codec in codecs)
+        for (final alias in codec.legacyStoredIds) alias: codec.definition.id,
+  });
+  late final Map<ComposerTargetKind, ComposerTargetPlugin> targetsByKind =
+      Map.unmodifiable({
+        for (final entry in targetKinds.entries) entry.value: entry.key,
+      });
+  late final Map<String, ({String owner, PluginHashtagKind kind})>
+  hashtagsByWireType = Map.unmodifiable({
+    for (final entry in hashtagKinds.entries)
+      for (final kind in entry.value)
+        kind.wireType: (owner: owners[entry.key as SitePlugin]!, kind: kind),
+  });
+}
+
+final class _InstalledRecommendationCodec
+    extends TopicRecommendationSourceCodec {
+  _InstalledRecommendationCodec(TopicRecommendationSourceCodec source)
+    : definition = source.definition,
+      legacyStoredIds = Set.unmodifiable(source.legacyStoredIds),
+      _decode = source.decodeTopicRows;
+
+  @override
+  final TopicRecommendationSourceDefinition definition;
+  @override
+  final Set<String> legacyStoredIds;
+  final List<Map<String, dynamic>>? Function(Map<String, dynamic>) _decode;
+
+  @override
+  List<Map<String, dynamic>>? decodeTopicRows(Map<String, dynamic> json) =>
+      _decode(json);
+}
+
+final class _InstalledPersistenceCodec
+    extends PluginDataPersistenceCodec<Object> {
+  _InstalledPersistenceCodec(this._source) : key = _source.key;
+
+  final PluginDataPersistenceCodec<Object> _source;
+  @override
+  final PluginDataKey<Object> key;
+
+  @override
+  Object? decode(Object? value) => _source.decode(value);
+  @override
+  Object? encode(Object value) => _source.encode(value);
+  @override
+  Object? decodeLegacy(Map<String, dynamic> json) => _source.decodeLegacy(json);
+  @override
+  Object? decodeStored({
+    required Object? namespacedValue,
+    required bool hasNamespacedValue,
+    required Map<String, dynamic> record,
+  }) => _source.decodeStored(
+    namespacedValue: namespacedValue,
+    hasNamespacedValue: hasNamespacedValue,
+    record: record,
+  );
 }
