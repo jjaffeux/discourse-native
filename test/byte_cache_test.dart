@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/manual_scheduler.dart';
+
 void main() {
   group('URL admission and redirect handling', () {
     test('rejects unsafe image URLs before reaching the transport', () async {
@@ -285,6 +287,140 @@ void main() {
   });
 
   group('response bounds and deadlines', () {
+    testWidgets('expires queued admission and frees its backlog capacity', (
+      tester,
+    ) async {
+      final coordinator = MediaRequestCoordinator(
+        maxConcurrent: 1,
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+      );
+      final held = await coordinator.acquire(
+        Uri.parse('https://site.test/held'),
+      );
+      final requested = <Uri>[];
+      final cache = _TestByteCache(
+        coordinator: coordinator,
+        timeout: const Duration(milliseconds: 100),
+        client: MockClient((request) async {
+          requested.add(request.url);
+          return http.Response.bytes([1], 200);
+        }),
+      );
+      var completed = false;
+      final load = cache.load('https://site.test/expired').whenComplete(() {
+        completed = true;
+      });
+      addTearDown(() {
+        cache.close();
+        held.release();
+        coordinator.close();
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(completed, isTrue);
+      expect(await load, isNull);
+      expect(requested, isEmpty);
+      final next = coordinator.acquire(Uri.parse('https://site.test/next'));
+      held.release();
+      (await next).release();
+      expect(requested, isEmpty);
+    });
+
+    testWidgets('closing one cache retires its shared admission waiter', (
+      tester,
+    ) async {
+      final coordinator = MediaRequestCoordinator(
+        maxConcurrent: 1,
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+      );
+      final held = await coordinator.acquire(
+        Uri.parse('https://site.test/held'),
+      );
+      final requested = <Uri>[];
+      final cache = _TestByteCache(
+        coordinator: coordinator,
+        client: MockClient((request) async {
+          requested.add(request.url);
+          return http.Response.bytes([1], 200);
+        }),
+      );
+      var completed = false;
+      final load = cache.load('https://site.test/abandoned').whenComplete(() {
+        completed = true;
+      });
+      addTearDown(() {
+        cache.close();
+        held.release();
+        coordinator.close();
+      });
+      await tester.pump();
+      cache.close();
+      await tester.pump();
+
+      expect(completed, isTrue);
+      expect(await load, isNull);
+      final peer = _TestByteCache(
+        coordinator: coordinator,
+        client: MockClient((_) async => http.Response.bytes([2], 200)),
+      );
+      addTearDown(peer.close);
+      final next = peer.load('https://site.test/next');
+      await tester.pump();
+      held.release();
+      expect(await next, orderedEquals([2]));
+      expect(requested, isEmpty);
+    });
+
+    test('expiry before a granted continuation prevents transport', () async {
+      final coordinator = MediaRequestCoordinator(
+        maxConcurrent: 1,
+        maxConcurrentPerOrigin: 1,
+      );
+      final held = await coordinator.acquire(
+        Uri.parse('https://site.test/held'),
+      );
+      final scheduler = ManualScheduler();
+      final diagnostics = _RecordingDiagnosticsSink();
+      addTearDown(DiagnosticsSink.install(diagnostics).close);
+      final requested = <Uri>[];
+      final cache = _TestByteCache(
+        coordinator: coordinator,
+        timeout: const Duration(seconds: 1),
+        client: MockClient((request) async {
+          requested.add(request.url);
+          return http.Response.bytes([1], 200);
+        }),
+      );
+      addTearDown(() {
+        cache.close();
+        held.release();
+        coordinator.close();
+      });
+      final load = runZoned(
+        () => cache.load('https://site.test/expired'),
+        zoneSpecification: ZoneSpecification(
+          createTimer: (_, _, zone, duration, callback) =>
+              scheduler.createTimer(duration, zone.bindCallback(callback)),
+        ),
+      );
+      await pumpEventQueue();
+      expect(scheduler.activeTimerCount, 1);
+
+      scheduler.advance(const Duration(seconds: 1));
+      held.release();
+
+      expect(await load, isNull);
+      expect(requested, isEmpty);
+      expect(diagnostics.errors, [isA<TimeoutException>()]);
+      expect(scheduler.activeTimerCount, 0);
+      (await coordinator.acquire(
+        Uri.parse('https://site.test/next'),
+      )).release();
+    });
+
     test(
       'rejects a declared oversized response before reading its body',
       () async {
@@ -693,6 +829,34 @@ void main() {
         expect(await held, orderedEquals([2]));
         expect(await Future.wait(queued), everyElement(isNull));
         expect(maximumActive, 2);
+      },
+    );
+
+    test(
+      'a closed coordinator observes errors from a supplied abort signal',
+      () async {
+        final coordinator = MediaRequestCoordinator()..close();
+        final unhandled = <Object>[];
+
+        await runZoned(
+          () async {
+            final abort = Completer<void>();
+            await expectLater(
+              coordinator.acquire(
+                Uri.parse('https://cdn.test/retired.png'),
+                abortTrigger: abort.future,
+              ),
+              throwsStateError,
+            );
+            abort.completeError(StateError('retired request'));
+            await pumpEventQueue();
+          },
+          zoneSpecification: ZoneSpecification(
+            handleUncaughtError: (_, _, _, error, _) => unhandled.add(error),
+          ),
+        );
+
+        expect(unhandled, isEmpty);
       },
     );
 

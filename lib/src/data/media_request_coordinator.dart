@@ -46,14 +46,12 @@ final class MediaRequestCoordinator {
     Uri url, {
     Uri? relatedUrl,
     MediaRequestPriority priority = MediaRequestPriority.normal,
+    Future<void>? abortTrigger,
   }) {
-    if (_gate.isClosed) {
-      return Future.error(StateError('Media request coordinator is closed.'));
-    }
-
     return _finishAcquire(
       _gate.acquire(
         url,
+        abortTrigger: abortTrigger,
         priority: switch (priority) {
           MediaRequestPriority.normal => OriginRequestPriority.normal,
           MediaRequestPriority.interactive => OriginRequestPriority.interactive,
@@ -76,6 +74,8 @@ final class MediaRequestCoordinator {
       throw MediaRequestOverloadException(error.origin, error.maxQueued);
     } on OriginRequestGateClosedException {
       throw StateError('Media request coordinator is closed.');
+    } on OriginRequestGateCancelledException {
+      throw const MediaRequestCancelledException();
     }
   }
 
@@ -107,6 +107,10 @@ final class MediaRequestCoordinator {
 }
 
 enum MediaRequestPriority { normal, interactive }
+
+final class MediaRequestCancelledException implements Exception {
+  const MediaRequestCancelledException();
+}
 
 /// A held origin slot. The caller releases it after consuming/cancelling the
 /// response body so the cap applies to complete downloads, not just headers.

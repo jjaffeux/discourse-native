@@ -154,6 +154,124 @@ void main() {
   );
 
   group('OriginRequestGate', () {
+    for (final useRun in [false, true]) {
+      test(
+        '${useRun ? 'run' : 'acquire'} cancellation frees queued capacity',
+        () async {
+          final gate = OriginRequestGate(
+            maxConcurrentPerOrigin: 1,
+            maxQueuedPerOrigin: 2,
+            cooldownPolicy: OriginRequestCooldownPolicy.wait,
+          );
+          addTearDown(gate.close);
+          final url = Uri.parse('https://example.com/work');
+          final held = await gate.acquire(url);
+          final abort = Completer<void>();
+          var started = false;
+          final Future<Object?> cancelled = useRun
+              ? gate.run<Object?>(url, (_) async {
+                  started = true;
+                  return null;
+                }, abortTrigger: abort.future)
+              : gate.acquire(url, abortTrigger: abort.future);
+          final survivor = gate.acquire(url);
+          final rejected = expectLater(
+            cancelled,
+            throwsA(isA<OriginRequestGateCancelledException>()),
+          );
+
+          abort.complete();
+          await rejected;
+          final next = gate.acquire(url);
+          next.ignore();
+          held.release();
+          final survivorLease = await survivor;
+          var nextGranted = false;
+          final nextReady = next.then((lease) {
+            nextGranted = true;
+            return lease;
+          });
+          await pumpEventQueue();
+          expect(started, isFalse);
+          expect(nextGranted, isFalse);
+          survivorLease.release();
+          (await nextReady).release();
+        },
+      );
+    }
+
+    test('an erroring abort signal cancels queued admission', () async {
+      final gate = OriginRequestGate(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+        cooldownPolicy: OriginRequestCooldownPolicy.wait,
+      );
+      addTearDown(gate.close);
+      final url = Uri.parse('https://example.com/work');
+      final held = await gate.acquire(url);
+      final abort = Completer<void>();
+      final cancelled = gate.acquire(url, abortTrigger: abort.future);
+      final rejected = expectLater(
+        cancelled,
+        throwsA(isA<OriginRequestGateCancelledException>()),
+      );
+
+      abort.completeError(StateError('cancelled by owner'));
+      await rejected;
+      final next = gate.acquire(url);
+      next.ignore();
+      held.release();
+      (await next).release();
+    });
+
+    test('cancellation after a grant leaves the lease caller-owned', () async {
+      final gate = OriginRequestGate(
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 1,
+        cooldownPolicy: OriginRequestCooldownPolicy.wait,
+      );
+      addTearDown(gate.close);
+      final url = Uri.parse('https://example.com/work');
+      final abort = Completer<void>();
+      final held = await gate.acquire(url, abortTrigger: abort.future);
+
+      abort.completeError(StateError('owner already has the lease'));
+      var nextGranted = false;
+      final next = gate.acquire(url).then((lease) {
+        nextGranted = true;
+        return lease;
+      });
+      await pumpEventQueue();
+
+      expect(nextGranted, isFalse);
+      held.release();
+      (await next).release();
+    });
+
+    test(
+      'cancellation after gate close leaves its rejection unchanged',
+      () async {
+        final gate = OriginRequestGate(
+          maxConcurrentPerOrigin: 1,
+          maxQueuedPerOrigin: 1,
+          cooldownPolicy: OriginRequestCooldownPolicy.wait,
+        );
+        final url = Uri.parse('https://example.com/work');
+        final held = await gate.acquire(url);
+        final abort = Completer<void>();
+        final pending = gate.acquire(url, abortTrigger: abort.future);
+        final rejected = expectLater(
+          pending,
+          throwsA(isA<OriginRequestGateClosedException>()),
+        );
+        gate.close();
+        await rejected;
+        abort.complete();
+        await pumpEventQueue();
+        held.release();
+      },
+    );
+
     test(
       'bounds a FIFO backlog independently for each normalized origin',
       () async {

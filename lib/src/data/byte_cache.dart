@@ -496,21 +496,35 @@ abstract class ByteCache<T extends Object> {
     })
   >
   _send(Uri url, Uri original, Stopwatch elapsed) async {
-    final lease = await _coordinator?.acquire(
-      url,
-      relatedUrl: original,
-      priority: requestPriority,
-    );
+    MediaRequestLease? lease;
     final timeoutAbort = Completer<void>();
-    if (_closed) {
-      lease?.release();
-      return Future.error(StateError('Byte cache is closed.'));
-    }
+    if (_closed) throw StateError('Byte cache is closed.');
     _activeAborts.add(timeoutAbort);
     Future<http.StreamedResponse>? response;
     try {
-      // A bounded request may have waited for admission. Do not start it after
-      // this load's complete timeout budget has elapsed.
+      if (_coordinator case final coordinator?) {
+        final admissionTimer = Timer(
+          _remaining(elapsed),
+          () => _abort(timeoutAbort),
+        );
+        try {
+          lease = await coordinator.acquire(
+            url,
+            relatedUrl: original,
+            priority: requestPriority,
+            abortTrigger: timeoutAbort.future,
+          );
+        } on MediaRequestCancelledException {
+          if (_closed) throw StateError('Byte cache is closed.');
+          throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
+        } finally {
+          admissionTimer.cancel();
+        }
+      }
+      if (_closed) throw StateError('Byte cache is closed.');
+      if (timeoutAbort.isCompleted) {
+        throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
+      }
       final remaining = _remaining(elapsed);
       final request =
           http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)

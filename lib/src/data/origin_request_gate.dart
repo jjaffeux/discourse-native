@@ -54,9 +54,11 @@ final class OriginRequestGate {
     Uri url, {
     OriginRequestPriority priority = OriginRequestPriority.normal,
     OriginRequestPriority Function()? resolvePriority,
+    Future<void>? abortTrigger,
   }) {
     final pending = _AcquireAdmission();
     _enqueue(url.origin, pending, resolvePriority ?? () => priority);
+    _watchAbort(pending, abortTrigger);
     return pending.result.future;
   }
 
@@ -77,22 +79,31 @@ final class OriginRequestGate {
   }) {
     final pending = _RunAdmission<T>(operation);
     _enqueue(url.origin, pending, resolvePriority ?? () => priority);
-    unawaited(
-      abortTrigger?.then((_) {
-        final index = _waiting.indexWhere(
-          (entry) => identical(entry.pending, pending),
-        );
-        if (index < 0) return; // Active requests cancel in the HTTP client.
-        final entry = _waiting.removeAt(index);
-        entry.state.waiting--;
-        pending.reject(
-          const OriginRequestGateCancelledException(),
-          StackTrace.current,
-        );
-        _forgetIdle(entry.origin, entry.state);
-      }),
-    );
+    _watchAbort(pending, abortTrigger);
     return pending.result.future;
+  }
+
+  void _watchAbort(_PendingAdmission pending, Future<void>? abortTrigger) {
+    unawaited(
+      abortTrigger?.then<void>(
+        (_) => _cancelQueued(pending),
+        onError: (Object _, StackTrace _) => _cancelQueued(pending),
+      ),
+    );
+  }
+
+  void _cancelQueued(_PendingAdmission pending) {
+    final index = _waiting.indexWhere(
+      (entry) => identical(entry.pending, pending),
+    );
+    if (index < 0) return;
+    final entry = _waiting.removeAt(index);
+    entry.state.waiting--;
+    pending.reject(
+      const OriginRequestGateCancelledException(),
+      StackTrace.current,
+    );
+    _forgetIdle(entry.origin, entry.state);
   }
 
   /// This is used when one request identifies a related origin which must be
