@@ -43,6 +43,71 @@ import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  testWidgets('background tracking updates stay off the visible shell', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    const site = 'https://meta.discourse.org';
+    const backgroundSite = 'https://team.discourse.org';
+    const user = DiscourseUser(
+      id: 7,
+      username: 'reader',
+      unifiedNewEnabled: true,
+    );
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org').copyWith(user: user),
+        instance('team.discourse.org').copyWith(user: user),
+      ]),
+      api: FakeDiscourseApi(user: user),
+      authenticator: FakeAuthenticator()
+        ..keys[site] = 'key'
+        ..keys[backgroundSite] = 'other-key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const AdaptiveShell(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final tracker = FakeSiteTracker.built.singleWhere(
+      (tracker) => tracker.siteUrl == backgroundSite,
+    );
+    var notifications = 0;
+    void count() => notifications++;
+    controller.addListener(count);
+    addTearDown(() => controller.removeListener(count));
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previous?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    tracker.deliverTopicTracking(const {
+      'topic_id': 99,
+      'message_type': 'unread',
+      'payload': {'highest_post_number': 3, 'notification_level': 2},
+    });
+    await tester.pump();
+    expect(notifications, 0);
+    expect(rebuilt, isEmpty);
+    expect(controller.newReplyCount, 0);
+    controller.selectInstance(1);
+    await tester.pumpAndSettle();
+    expect(controller.newReplyCount, 1);
+  });
+
   testWidgets('navigation does not rebuild account and sidebar chrome', (
     tester,
   ) async {

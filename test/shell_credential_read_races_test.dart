@@ -21,6 +21,39 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'retired tracker startup cannot open bootstrap after credential IO',
+    () async {
+      const reader = DiscourseUser(id: 7, username: 'reader');
+      final api = FakeDiscourseApi(user: reader);
+      final auth = _GatedAuthenticator()..keys[_siteUrl] = 'old-key';
+      final gate = auth.gateNextClientId();
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(user: reader),
+        ]),
+        api: api,
+        authenticator: auth,
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(shell.dispose);
+      addTearDown(() {
+        if (!gate.release.isCompleted) gate.release.complete();
+      });
+      final load = shell.load();
+      await gate.started.future;
+      expect(api.messageBusBootstrapRequests, isEmpty);
+      shell.lifecycle.invalidate(_siteUrl);
+      gate.release.complete();
+      await load;
+      await pumpEventQueue();
+      expect(api.messageBusBootstrapRequests, isEmpty);
+      expect(FakeSiteTracker.built, isEmpty);
+    },
+  );
+
+  test(
     'a retired viewport cannot mark posts read for a replacement account',
     () async {
       final fixture = await _fixture();

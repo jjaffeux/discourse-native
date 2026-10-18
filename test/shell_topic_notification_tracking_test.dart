@@ -59,6 +59,36 @@ const _firstPost = Post(
 );
 
 void main() {
+  test(
+    'late report keeps local reads through pending-choice rollback',
+    () async {
+      final gate = Completer<void>();
+      final fixture = await _Fixture.load(snapshotGate: gate);
+      final write = fixture.select(TopicNotificationLevel.muted);
+      await pumpEventQueue();
+      await fixture.shell.markTopicRead(_site, 7, 100, caughtUp: true);
+      fixture.tracker.deliverTopicTracking(const {
+        'topic_id': 7,
+        'message_type': 'unread',
+        'payload': {
+          'highest_post_number': 110,
+          'last_read_post_number': 80,
+          'notification_level': 2,
+        },
+      });
+      gate.complete();
+      await pumpEventQueue();
+      expect(fixture.shell.newReplyCount, 0);
+      expect(fixture.tracking.topic(7)?.lastReadPostNumber, 100);
+      fixture.finish(succeeds: false);
+      expect(await write, isFalse);
+      expect(fixture.tracking.topic(7)?.notificationLevel, 2);
+      expect(fixture.tracking.topic(7)?.lastReadPostNumber, 100);
+      expect(fixture.tracking.topic(7)?.highestPostNumber, 110);
+      expect(fixture.shell.newReplyCount, 1);
+    },
+  );
+
   for (final level in [
     TopicNotificationLevel.normal,
     TopicNotificationLevel.muted,

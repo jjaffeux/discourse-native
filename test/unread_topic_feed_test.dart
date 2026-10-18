@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/data/topic_tracking_reconciler.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
@@ -5,6 +6,50 @@ import 'package:discourse_native/src/shell/unread_topic_feed.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('reconciled reads leave unread queues until a newer reply arrives', () {
+    final tracking = TopicTrackingReconciler();
+    const row = Topic(
+      id: 1,
+      title: 'Topic',
+      slug: 'topic',
+      highestPostNumber: 10,
+      lastReadPostNumber: 4,
+      unreadPosts: 6,
+    );
+    TopicTrackingState report() => TopicTrackingState(const [
+      TrackedTopicState(
+        topicId: 1,
+        highestPostNumber: 10,
+        lastReadPostNumber: 4,
+        notificationLevel: 2,
+      ),
+    ]);
+    tracking.completeSnapshot(tracking.beginSnapshot()!, report());
+    final load = tracking.beginSnapshot()!;
+    tracking.markRead(1, 10);
+    tracking.completeSnapshot(load, report());
+    const source = TopicFeed(topicIds: [1, 2], loaded: true);
+    final queue = UnreadTopicFeed();
+    TopicFeed project() => queue.project(
+      source,
+      selectedTopicId: 2,
+      isRead: (id) =>
+          id == 1 &&
+          UnreadTopicFeed.isRead(
+            topic: row,
+            tracking: tracking.topic(1),
+            localReadPostNumber: null,
+          ),
+    );
+    expect(project().topicIds, [2]);
+    tracking.accept(const {
+      'topic_id': 1,
+      'message_type': 'unread',
+      'payload': {'highest_post_number': 11, 'last_read_post_number': 4},
+    });
+    expect(project().topicIds, [1, 2]);
+  });
+
   test('a dense feed still appends ordinary topic IDs', () {
     const source = TopicFeed(topicIds: [1, 2], loaded: true);
     final appended = source.copyWith(topicIds: [1, 2, 3]);

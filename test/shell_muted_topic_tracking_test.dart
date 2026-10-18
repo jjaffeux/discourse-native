@@ -92,6 +92,31 @@ final class _AccountApi extends FakeDiscourseApi {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'a later mute hint cannot undo an event admitted before the report',
+    () async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(user: _user(), trackingStateGate: gate);
+      final shell = await _loadShell(api);
+      final tracker = FakeSiteTracker.built.single;
+      tracker.deliver(const {'topic_id': 10, 'message_type': 'unmuted'});
+      tracker.deliver(_newTopic(10, 2));
+      tracker.deliver(const {'topic_id': 10, 'message_type': 'muted'});
+      tracker.deliver(_newTopic(11, 2));
+      gate.complete();
+      await pumpEventQueue();
+      expect(shell.topicListNewCounts, (all: 1, topics: 1, replies: 0));
+      expect(shell.sidebarBadgeFor('category-2'), const SidebarBadge.count(1));
+      tracker.deliver(_newTopic(10, 2));
+      tracker.deliverTopicTracking(const {
+        'topic_id': 11,
+        'message_type': 'unread',
+        'payload': {'highest_post_number': 3, 'category_id': 2},
+      });
+      expect(shell.topicListNewCounts, (all: 2, topics: 1, replies: 1));
+    },
+  );
+
   for (final duringLoad in [false, true]) {
     test(
       'muted public new topics stay out of counters ${duringLoad ? 'during snapshot replay' : 'after snapshot load'}',
