@@ -660,10 +660,8 @@ final class FileVoiceDiagnosticsPersistence
     required DateTime generatedAtUtc,
     required int reportFormatVersion,
     required Map<String, Object?> state,
-    DateTime? preparedCutoff,
   }) async {
-    final cutoff =
-        preparedCutoff ?? await _prepareReportSnapshot(generatedAtUtc);
+    final cutoff = await _prepareReportSnapshot(generatedAtUtc);
     output.writeln(
       jsonEncode(
         _reportHeader(

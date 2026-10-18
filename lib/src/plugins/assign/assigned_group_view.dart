@@ -268,7 +268,6 @@ class AssignedGroupPresentationView extends StatelessWidget {
   Widget _buildFeed({
     required double horizontalPadding,
     EdgeInsets insets = EdgeInsets.zero,
-    Widget? people,
   }) {
     final feed = state.feed;
     final topics = state.topics;
@@ -282,7 +281,6 @@ class AssignedGroupPresentationView extends StatelessWidget {
           padding: insets,
           sliver: SliverMainAxisGroup(
             slivers: [
-              if (people != null) SliverToBoxAdapter(child: people),
               if (feed.error case final error?)
                 SliverToBoxAdapter(
                   child: _AssignedError(message: error, onRetry: onRefresh),

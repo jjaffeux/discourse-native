@@ -1094,8 +1094,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     );
   }
 
-  void _scheduleLook({bool saveAnchor = false}) {
-    _viewport.scheduleLook(saveAnchor: saveAnchor);
+  void _scheduleLook() {
+    _viewport.scheduleLook();
   }
 
   void _inspectViewport(
