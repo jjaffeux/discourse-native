@@ -30,7 +30,6 @@ import 'user_status_editor.dart';
 
 typedef _UserMenuPanelSnapshot = ({
   String? siteUrl,
-  String? host,
   DiscourseUser? user,
   int draftCount,
   bool userStatusEnabled,
@@ -38,7 +37,6 @@ typedef _UserMenuPanelSnapshot = ({
 typedef _SectionListSnapshot = ({
   ShellController controller,
   String? siteUrl,
-  String? host,
   DiscourseUser? user,
   bool userStatusEnabled,
 });
@@ -53,7 +51,6 @@ _SectionListSnapshot _sectionListSnapshot(
   return (
     controller: controller,
     siteUrl: instance?.url,
-    host: instance?.host,
     user: instance?.user,
     userStatusEnabled: instance?.config.userStatusEnabled ?? false,
   );
@@ -63,7 +60,6 @@ _SectionListSnapshot _sectionListSnapshot(
 class UserMenuSection {
   const UserMenuSection({
     required this.id,
-    required this.icon,
     required this.label,
     this.rows = const [],
     this.badge = 0,
@@ -87,7 +83,6 @@ class UserMenuSection {
   static const String profileId = 'profile';
 
   final String id;
-  final DIconData icon;
   final String label;
 
   final List<UserMenuRow> rows;
@@ -122,7 +117,6 @@ class UserMenuRow {
     this.icon,
     this.title, {
     this.id,
-    this.detail,
     this.status,
     this.userId,
   });
@@ -131,7 +125,6 @@ class UserMenuRow {
   final String title;
   final String? id;
 
-  final String? detail;
   final UserStatus? status;
   final int? userId;
 
@@ -159,58 +152,49 @@ List<UserMenuSection> userMenuSections(
   return [
     UserMenuSection(
       id: UserMenuSection.notificationsId,
-      icon: DIcons.bell,
       label: appL10n.notifications,
       badge: notificationsBadge ?? totals?.unreadNotifications ?? 0,
     ),
     UserMenuSection(
       id: UserMenuSection.repliesId,
-      icon: DIcons.reply,
       label: appL10n.replies,
       badge: repliesBadge,
     ),
     if (user?.likesNotificationsDisabled != true)
       UserMenuSection(
         id: UserMenuSection.likesId,
-        icon: DIcons.heart,
         label: appL10n.likes,
         badge: likesBadge,
       ),
     UserMenuSection(
       id: UserMenuSection.messagesId,
-      icon: DIcons.envelope,
       label: appL10n.messages,
       badge: messagesBadge,
     ),
     UserMenuSection(
       id: UserMenuSection.bookmarksId,
-      icon: DIcons.bookmark,
       label: appL10n.bookmarks,
       badge: bookmarksBadge,
     ),
     if (user?.canInviteToForum == true)
       UserMenuSection(
         id: UserMenuSection.invitesId,
-        icon: DIcons.paperPlane,
         label: appL10n.invites,
       ),
     for (final contribution in pluginSections)
       UserMenuSection(
         id: contribution.id.id,
-        icon: contribution.icon,
         label: contribution.label,
         badge: contribution.badge,
         plugin: contribution,
       ),
     UserMenuSection(
       id: UserMenuSection.otherId,
-      icon: DIcons.ellipsis,
       label: appL10n.other,
       badge: otherBadge,
     ),
     UserMenuSection(
       id: UserMenuSection.profileId,
-      icon: DIcons.user,
       label: appL10n.profile,
       rows: [
         if (userStatusEnabled)
@@ -275,7 +259,6 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
       final instance = controller.currentInstance;
       return (
         siteUrl: instance?.url,
-        host: instance?.host,
         user: instance?.user,
         draftCount: instance?.user?.draftCount ?? 0,
         userStatusEnabled: instance?.config.userStatusEnabled ?? false,
@@ -337,7 +320,6 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
           final body = _SectionBody(
             section: section,
             siteUrl: menu.siteUrl,
-            host: menu.host,
             showHeader: widget.view == UserMenuView.profile,
             onDismiss: widget.onDismiss,
             onAbout: () => _openAboutAfterMenu(context, widget.onDismiss),
@@ -450,7 +432,6 @@ class _SectionBody extends StatelessWidget {
   const _SectionBody({
     required this.section,
     required this.siteUrl,
-    required this.host,
     required this.onDisconnect,
     required this.onDismiss,
     required this.onPauseNotifications,
@@ -460,7 +441,6 @@ class _SectionBody extends StatelessWidget {
 
   final UserMenuSection section;
   final String? siteUrl;
-  final String? host;
   final VoidCallback onDisconnect;
   final VoidCallback onPauseNotifications;
   final VoidCallback onAbout;
@@ -522,7 +502,7 @@ class _SectionBody extends StatelessWidget {
                       final count when count > 0 => '$count',
                       _ => null,
                     }
-                  : row.detail,
+                  : null,
               onTap: row.isUserStatus && siteUrl != null
                   ? () => unawaited(
                       showUserStatusEditor(context, siteUrl: siteUrl),
