@@ -44,8 +44,6 @@ class TopicInboxHeader extends StatelessWidget {
     this.topic,
     this.preview,
     this.loading = false,
-    this.scrollController,
-    this.hasEarlierPosts = false,
     this.bodyBuilder,
     this.headerControls,
     this.headerSuppressed,
@@ -67,8 +65,6 @@ class TopicInboxHeader extends StatelessWidget {
 
   /// Reserves the loaded header's rows with placeholders until [topic] arrives.
   final bool loading;
-  final ScrollController? scrollController;
-  final bool hasEarlierPosts;
   final Widget Function(DPageHeaderGeometry header)? bodyBuilder;
   final Widget? headerControls;
   final ValueListenable<bool>? headerSuppressed;
