@@ -74,13 +74,10 @@ class TopicCategoryValue extends StatelessWidget {
     this.editActionKey,
     this.editIconKey,
     this.saving = false,
-    this.onTap,
     this.onNavigate,
     this.onParentNavigate,
     this.onEdit,
-    this._tooltip,
-  }) : assert(onTap == null || onNavigate == null),
-       assert(parentCategory != null || onParentNavigate == null);
+  }) : assert(parentCategory != null || onParentNavigate == null);
 
   final String label;
   final Color? color;
@@ -94,12 +91,9 @@ class TopicCategoryValue extends StatelessWidget {
   final Key? editActionKey;
   final Key? editIconKey;
   final bool saving;
-  final VoidCallback? onTap;
   final VoidCallback? onNavigate;
   final VoidCallback? onParentNavigate;
   final VoidCallback? onEdit;
-  final String? _tooltip;
-  String get tooltip => _tooltip ?? appL10n.editTopicCategory;
 
   @override
   Widget build(BuildContext context) {
@@ -232,19 +226,6 @@ class TopicCategoryValue extends StatelessWidget {
           ),
         );
       }
-    } else if (onTap case final onTap?) {
-      value = DTooltip(
-        message: tooltip,
-        child: InlineAction(
-          key: actionKey,
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(5),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: categoryValue(label),
-          ),
-        ),
-      );
     }
 
     return Align(
@@ -344,7 +325,6 @@ class TopicTagsValue extends StatelessWidget {
     super.key,
     required this.tags,
     this.saving = false,
-    this.onTap,
     this.onTagNavigate,
     this.onEdit,
     this.tagKey,
@@ -354,7 +334,6 @@ class TopicTagsValue extends StatelessWidget {
 
   final List<TopicTag> tags;
   final bool saving;
-  final VoidCallback? onTap;
   final TopicTagNavigationCallback? onTagNavigate;
   final VoidCallback? onEdit;
   final Key? Function(TopicTag tag)? tagKey;
@@ -364,13 +343,12 @@ class TopicTagsValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tags.isEmpty) {
-      final edit = onEdit ?? onTap;
-      return edit == null && !saving
+      return onEdit == null && !saving
           ? _EmptyTopicProperty(appL10n.noTags)
           : _EditableEmptyTopicTags(
               actionKey: addKey,
               saving: saving,
-              onTap: edit,
+              onTap: onEdit,
             );
     }
 
@@ -378,8 +356,7 @@ class TopicTagsValue extends StatelessWidget {
       final built = _TopicTagPill(
         pillKey: tagKey?.call(tag),
         tag: tag,
-        onTap: onTagNavigate == null ? onTap : () => onTagNavigate!(tag),
-        isLink: onTagNavigate != null,
+        onTap: onTagNavigate == null ? null : () => onTagNavigate!(tag),
         semanticLabel: onTagNavigate == null
             ? null
             : context.l10n.tag((tag.name).toString()),
@@ -404,12 +381,6 @@ class TopicTagsValue extends StatelessWidget {
         dimension: 24,
         tooltip: appL10n.editTopicTagsPostactions,
         onTap: onEdit,
-      );
-    } else if (onTap case final onTap?) {
-      trailingAction = _TopicTagsAddButton(
-        actionKey: addKey,
-        iconKey: addIconKey,
-        onTap: onTap,
       );
     } else {
       trailingAction = null;
@@ -450,7 +421,6 @@ class _TopicTagPill extends StatelessWidget {
   const _TopicTagPill({
     required this.pillKey,
     required this.tag,
-    required this.isLink,
     this.semanticLabel,
     this.onTap,
   });
@@ -458,7 +428,6 @@ class _TopicTagPill extends StatelessWidget {
   final Key? pillKey;
   final TopicTag tag;
   final VoidCallback? onTap;
-  final bool isLink;
   final String? semanticLabel;
 
   @override
@@ -487,29 +456,20 @@ class _TopicTagPill extends StatelessWidget {
       color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
       shape: shape,
       clipBehavior: Clip.antiAlias,
-      child: onTap == null || isLink
-          ? content
-          : InlineAction(
-              onTap: onTap!,
-              borderRadius: BorderRadius.circular(DRadius.pill),
-              child: content,
-            ),
+      child: content,
     );
     if (onTap == null) return pill;
 
-    final action = isLink
-        ? InlineAction.link(
-            onTap: onTap!,
-            semanticLabel: semanticLabel,
-            excludeChildSemantics: true,
-            borderRadius: BorderRadius.circular(DRadius.pill),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              child: Align(widthFactor: 1, heightFactor: 1, child: pill),
-            ),
-          )
-        : pill;
-    return action;
+    return InlineAction.link(
+      onTap: onTap!,
+      semanticLabel: semanticLabel,
+      excludeChildSemantics: true,
+      borderRadius: BorderRadius.circular(DRadius.pill),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+        child: Align(widthFactor: 1, heightFactor: 1, child: pill),
+      ),
+    );
   }
 }
 
@@ -617,45 +577,6 @@ class _EditableEmptyTopicTags extends StatelessWidget {
       ),
     );
   }
-}
-
-class _TopicTagsAddButton extends StatelessWidget {
-  const _TopicTagsAddButton({
-    required this.actionKey,
-    required this.iconKey,
-    required this.onTap,
-  });
-
-  final Key? actionKey;
-  final Key? iconKey;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) => DTooltip(
-    message: context.l10n.addTag,
-    child: Material(
-      type: MaterialType.transparency,
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: actionKey,
-        onTap: onTap,
-        mouseCursor: onTap == null
-            ? MouseCursor.defer
-            : SystemMouseCursors.click,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(3),
-          child: DIcon(
-            DIcons.plus,
-            key: iconKey,
-            size: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 class _TopicTagsSavingIndicator extends StatelessWidget {
