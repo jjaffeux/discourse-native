@@ -18,13 +18,7 @@ void main() {
       ),
     );
 
-    notices.add(
-      const VoiceNotice(
-        "You've been made a speaker.",
-        siteUrl: 'https://voice.example.com',
-        roomId: 7,
-      ),
-    );
+    notices.add(const VoiceNotice("You've been made a speaker."));
     await tester.pump();
     await tester.pump();
 
@@ -59,13 +53,7 @@ void main() {
     await tester.pump();
 
     expect(first.hasListener, isFalse);
-    second.add(
-      const VoiceNotice(
-        'The recording has stopped.',
-        siteUrl: 'https://voice.example.com',
-        roomId: 7,
-      ),
-    );
+    second.add(const VoiceNotice('The recording has stopped.'));
     await tester.pump();
     await tester.pump();
 

@@ -227,19 +227,12 @@ class VoiceCallSnapshot {
 
 /// A transient, user-facing message about a room the user is in or watching:
 /// a role change, a dismissed request to speak, a recording starting. Shown
-/// once and never persisted; a surface that is not showing the room may drop
-/// it.
+/// once and never persisted.
 @immutable
 final class VoiceNotice {
-  const VoiceNotice(
-    this.message, {
-    required this.siteUrl,
-    required this.roomId,
-  });
+  const VoiceNotice(this.message);
 
   final String message;
-  final String siteUrl;
-  final int roomId;
 }
 
 /// At most this many rooms reached by link (rather than listed in the
@@ -763,8 +756,6 @@ final class VoiceController extends ChangeNotifier {
     if (!isCurrent()) return;
     if (warnAboutPrivacy) {
       _notify(
-        siteUrl,
-        room.id,
         appL10n
             .thisCallConnectsParticipantsDirectlySoOtherParticipantsMayBeAble,
       );
@@ -812,9 +803,9 @@ final class VoiceController extends ChangeNotifier {
     unawaited(_presentIncomingCall(siteUrl, call));
   }
 
-  void _notify(String siteUrl, int roomId, String message) {
+  void _notify(String message) {
     if (_disposed || _notices.isClosed) return;
-    _notices.add(VoiceNotice(message, siteUrl: siteUrl, roomId: roomId));
+    _notices.add(VoiceNotice(message));
   }
 
   void watchRoomVideo({required String siteUrl, required int roomId}) {
@@ -1427,7 +1418,7 @@ final class VoiceController extends ChangeNotifier {
         if (call.cameraEnabled) await _setCameraEnabled(false);
         if (call.screenSharing) await _setScreenSharing(false);
       }, 'voice.media.roomVideoDisabled');
-      _notify(siteUrl, room.id, appL10n.videoWasTurnedOffInThisRoom);
+      _notify(appL10n.videoWasTurnedOffInThisRoom);
     }
   }
 
@@ -1497,8 +1488,6 @@ final class VoiceController extends ChangeNotifier {
           _call?.siteUrl == siteUrl &&
           _call?.room.id == roomId) {
         _notify(
-          siteUrl,
-          roomId,
           event.role == VoiceRole.participant
               ? appL10n.youVeBeenMovedToListeners
               : appL10n.youVeBeenMadeASpeaker,
@@ -1541,10 +1530,10 @@ final class VoiceController extends ChangeNotifier {
         final recording = event.recording;
         if (recording != null && recording.active) {
           if (recording.startedById != _userIdFor(siteUrl)) {
-            _notify(siteUrl, roomId, appL10n.thisCallIsNowBeingRecorded);
+            _notify(appL10n.thisCallIsNowBeingRecorded);
           }
         } else if (wasRecording) {
-          _notify(siteUrl, roomId, appL10n.theRecordingHasStopped);
+          _notify(appL10n.theRecordingHasStopped);
         }
       }
     }
@@ -1576,7 +1565,7 @@ final class VoiceController extends ChangeNotifier {
     final held = inCall ? call.room : room(siteUrl, roomId);
     if (inCall && event.userId == userId) {
       if (!event.raised && event.reason == 'dismissed') {
-        _notify(siteUrl, roomId, appL10n.yourRequestToSpeakWasDismissed);
+        _notify(appL10n.yourRequestToSpeakWasDismissed);
       }
     } else if (inCall && event.raised && (held?.canManage ?? false)) {
       final raiser = held?.participants
@@ -1584,8 +1573,6 @@ final class VoiceController extends ChangeNotifier {
           .firstOrNull;
       if (raiser != null) {
         _notify(
-          siteUrl,
-          roomId,
           appL10n.raisedTheirHandToSpeak(
             (raiser.name ?? raiser.username).toString(),
           ),
@@ -2672,11 +2659,7 @@ final class VoiceController extends ChangeNotifier {
       );
     }
     if (state == VoiceIdleState.active && wasAutoMuted && call.muted) {
-      _notify(
-        call.siteUrl,
-        call.room.id,
-        appL10n.youWereAutoMutedAfterBeingIdleUnmuteToKeepTalking,
-      );
+      _notify(appL10n.youWereAutoMutedAfterBeingIdleUnmuteToKeepTalking);
     }
     unawaited(_requestHeartbeat());
     notifyListeners();
