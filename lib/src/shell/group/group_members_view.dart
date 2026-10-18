@@ -296,12 +296,12 @@ class _MembersToolbar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final search = TextField(
+          final search = DInput(
             key: const ValueKey('group-member-search'),
             controller: controller,
             onChanged: onSearch,
-            style: Theme.of(context).textTheme.labelLarge,
-            decoration: _groupSearchDecoration(context.l10n.searchMembers),
+            hintText: context.l10n.searchMembers,
+            prefix: const DIcon(DIcons.magnifyingGlass, size: 18),
           );
           final actions = [
             if (canManage)
