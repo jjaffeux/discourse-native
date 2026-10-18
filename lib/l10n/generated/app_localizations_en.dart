@@ -2705,9 +2705,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get couldnTSaveTheVoiceRoom => 'Couldn\'t save the voice room.';
 
   @override
-  String get couldnTDeleteTheVoiceRoom => 'Couldn\'t delete the voice room.';
-
-  @override
   String get couldnTLoadRoomChat => 'Couldn\'t load room chat.';
 
   @override

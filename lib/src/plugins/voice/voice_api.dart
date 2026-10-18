@@ -137,26 +137,6 @@ final class VoiceApi {
     clientId,
   );
 
-  Future<List<VoiceParticipant>> participants({
-    required String siteUrl,
-    required int roomId,
-    required String apiKey,
-    String? clientId,
-  }) async {
-    final body = await _transport.pluginGetJson(
-      siteUrl: siteUrl,
-      path: '/voice/rooms/$roomId/participants.json',
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    final raw = body['participants'];
-    return List.unmodifiable([
-      if (raw is List)
-        for (final value in raw)
-          if (value is Map<String, dynamic>) VoiceParticipant.fromJson(value),
-    ]);
-  }
-
   Future<void> signal({
     required String siteUrl,
     required int roomId,

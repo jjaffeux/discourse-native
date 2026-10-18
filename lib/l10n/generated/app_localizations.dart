@@ -4740,12 +4740,6 @@ abstract class AppLocalizations {
   /// English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'\'t delete the voice room.'**
-  String get couldnTDeleteTheVoiceRoom;
-
-  /// English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Couldn\'\'t load room chat.'**
   String get couldnTLoadRoomChat;
 

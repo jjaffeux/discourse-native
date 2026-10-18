@@ -3452,10 +3452,6 @@
   "@couldnTSaveTheVoiceRoom": {
     "description": "English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact."
   },
-  "couldnTDeleteTheVoiceRoom": "Couldn''t delete the voice room.",
-  "@couldnTDeleteTheVoiceRoom": {
-    "description": "English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact."
-  },
   "couldnTLoadRoomChat": "Couldn''t load room chat.",
   "@couldnTLoadRoomChat": {
     "description": "English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact."

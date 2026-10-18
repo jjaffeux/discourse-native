@@ -3926,37 +3926,6 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteRoom(String siteUrl, int roomId) => _runPublicOperation(
-    () => _deleteRoom(siteUrl, roomId),
-    'voice.deleteRoom',
-  );
-
-  Future<void> _deleteRoom(String siteUrl, int roomId) async {
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _requestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return;
-    try {
-      await api.deleteRoom(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey,
-      );
-      if (!isCurrent()) return;
-      await ensureLoaded(siteUrl, force: true);
-    } catch (error, stackTrace) {
-      if (!isCurrent()) return;
-      _errors[siteUrl] = error is WriteException
-          ? error.message
-          : appL10n.couldnTDeleteTheVoiceRoom;
-      _report(error, stackTrace, 'voice.deleteRoom');
-      notifyListeners();
-    }
-  }
-
   Future<void> openChat(String siteUrl, int roomId, {bool force = false}) =>
       _runPublicOperation(
         () => _openChat(siteUrl, roomId, force: force),
