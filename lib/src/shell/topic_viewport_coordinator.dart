@@ -67,8 +67,8 @@ final class _DartTopicViewportTimer implements TopicViewportTimer {
 /// The render-owned measurements needed by the viewport state machine.
 ///
 /// The coordinator deliberately does not retain build contexts or render
-/// objects. `TopicView` remains responsible for layout and translates its
-/// current geometry into this narrow interface.
+/// objects. The reader adapter translates its current layout into this
+/// narrow interface.
 abstract interface class TopicViewportGeometry {
   TopicViewportAnchor? captureAnchor(
     List<int> postIds, {
@@ -87,65 +87,6 @@ abstract interface class TopicViewportGeometry {
   void jumpToPost(int itemIndex, {required double viewportOffset});
 
   void jumpToPixels(double pixels);
-}
-
-final class TopicViewportGeometryCallbacks implements TopicViewportGeometry {
-  const TopicViewportGeometryCallbacks({
-    required TopicViewportAnchor? Function(
-      List<int> postIds, {
-      required bool hasHeader,
-    })
-    captureAnchor,
-    required double? Function(int postId) postViewportOffset,
-    required bool Function() canCorrectAnchor,
-    required TopicViewportScrollPosition Function() scrollPosition,
-    required void Function(int itemIndex, double viewportOffset) jumpToPost,
-    required void Function(double pixels) jumpToPixels,
-    double Function()? viewportTopInset,
-  }) : _captureAnchor = captureAnchor,
-       _postViewportOffset = postViewportOffset,
-       _canCorrectAnchor = canCorrectAnchor,
-       _scrollPosition = scrollPosition,
-       _jumpToPost = jumpToPost,
-       _jumpToPixels = jumpToPixels,
-       _viewportTopInset = viewportTopInset;
-
-  final TopicViewportAnchor? Function(
-    List<int> postIds, {
-    required bool hasHeader,
-  })
-  _captureAnchor;
-  final double? Function(int postId) _postViewportOffset;
-  final bool Function() _canCorrectAnchor;
-  final TopicViewportScrollPosition Function() _scrollPosition;
-  final void Function(int itemIndex, double viewportOffset) _jumpToPost;
-  final void Function(double pixels) _jumpToPixels;
-  final double Function()? _viewportTopInset;
-
-  @override
-  double get viewportTopInset => _viewportTopInset?.call() ?? 0;
-
-  @override
-  TopicViewportAnchor? captureAnchor(
-    List<int> postIds, {
-    required bool hasHeader,
-  }) => _captureAnchor(postIds, hasHeader: hasHeader);
-
-  @override
-  double? postViewportOffset(int postId) => _postViewportOffset(postId);
-
-  @override
-  bool get canCorrectAnchor => _canCorrectAnchor();
-
-  @override
-  TopicViewportScrollPosition get scrollPosition => _scrollPosition();
-
-  @override
-  void jumpToPost(int itemIndex, {required double viewportOffset}) =>
-      _jumpToPost(itemIndex, viewportOffset);
-
-  @override
-  void jumpToPixels(double pixels) => _jumpToPixels(pixels);
 }
 
 /// Shell operations captured for one topic viewport generation.

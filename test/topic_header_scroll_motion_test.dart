@@ -13,11 +13,16 @@ import 'support/mixed_topic_scroll_fixture.dart';
 import 'support/topic_post_list.dart';
 import 'support/topic_scroll_fixture.dart';
 
-void main() {
+void main({Size? shortTopicViewport}) {
   for (final inbox in [false, true]) {
     testWidgets('short topics keep the header visible (inbox: $inbox)', (
       tester,
     ) async {
+      if (shortTopicViewport != null) {
+        tester.view.physicalSize = shortTopicViewport;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+      }
       final controller = ShellController(
         instanceStore: FakeInstanceStore([instance('scroll.example')]),
         api: FakeDiscourseApi(
@@ -59,6 +64,20 @@ void main() {
         TopicScrollFixture(controller: controller, inbox: inbox),
       );
       await tester.pumpAndSettle();
+      if (shortTopicViewport != null) {
+        final position = topicPostList(tester).controller!.position;
+        final documentExtent =
+            position.viewportDimension +
+            position.maxScrollExtent -
+            position.minScrollExtent;
+        final chromeExtent =
+            shortTopicViewport.height - position.viewportDimension;
+        tester.view.physicalSize = Size(
+          shortTopicViewport.width,
+          chromeExtent + documentExtent * .75,
+        );
+        await tester.pumpAndSettle();
+      }
       final viewport = topicPostListFinder();
       final position = topicPostList(tester).controller!.position;
       final header = DPageSurface.headerGeometryOf(tester.element(viewport))!;

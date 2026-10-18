@@ -94,9 +94,6 @@ class TopicView extends StatefulWidget {
 
   static const double minimumPostHeight = 96;
 
-  static double _estimateChildExtent(int? index, double _) =>
-      index == null ? 0 : (index.isOdd ? 1 : 199);
-
   final bool showSidebar;
   final bool inbox;
   final bool keepTopicListOpen;
@@ -120,33 +117,6 @@ class TopicView extends StatefulWidget {
 
 typedef _TopicDayStart = ({DateTime day, int postIndex});
 typedef _TopicTimeGap = ({int daysSince, int postIndex});
-typedef _RetainedTopicPostExtent = ({
-  double width,
-  double height,
-  Post post,
-  TopicDetail topic,
-  bool summary,
-  bool summaryLoading,
-  int readTimeWordCount,
-});
-
-@visibleForTesting
-RevealedOffset? getOffsetToRevealIfLaidOut(
-  RenderAbstractViewport viewport,
-  RenderObject target,
-  double alignment,
-) {
-  var child = target;
-  while (child.parent != viewport) {
-    final parent = child.parent;
-    if (parent == null) return null;
-    if (parent is RenderSliver && parent.childScrollOffset(child) == null) {
-      return null;
-    }
-    child = parent;
-  }
-  return viewport.getOffsetToReveal(target, alignment);
-}
 
 /// Returns the web-style horizontal eyeline used to choose the current post.
 ///
@@ -197,29 +167,10 @@ double topicContextEyeline({
   return topBoundary + progress * (bottomBoundary - topBoundary);
 }
 
-final class TopicPostIndexProjection {
-  TopicPostIndexProjection(List<int> postIds) : _source = postIds {
-    for (var index = 0; index < postIds.length; index++) {
-      final postId = postIds[index];
-      // Topic streams should contain unique ids. Preserve List.indexOf's
-      // first-match behavior if a malformed payload repeats one anyway.
-      if (!_indexByPostId.containsKey(postId)) {
-        _indexByPostId[postId] = index;
-      }
-    }
-  }
-
-  final List<int> _source;
-  final Map<int, int> _indexByPostId = {};
-
-  bool represents(List<int> postIds) => identical(_source, postIds);
-
-  int? operator [](int postId) => _indexByPostId[postId];
-}
-
 class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   final Object _visibleTopicContextOwner = Object();
   late final TopicViewportCoordinator _viewport;
+  late final TopicReaderGeometry _reader;
   DPageHeaderGeometry? _headerGeometry;
 
   double get _visibleHeaderExtent => _headerGeometry?.visibleExtent ?? 0;
@@ -259,14 +210,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   Object? _dayJumpToken;
   bool _tickerEnabled = true;
   ValueListenable<TickerModeData>? _tickerMode;
-  TopicPostIndexProjection? _postIndexProjection;
-  final Map<int, BuildContext> _postContexts = {};
   final _postRetention = TopicPostRetention();
   final _animatedPostIds = FrameSafeValueNotifier<Set<int>>(const {});
-  final Map<int, _RetainedTopicPostExtent> _retainedPostExtents = {};
   bool _retainedGeometryRefreshScheduled = false;
-  double _laidOutPostWidth = 0;
-  int _extentGeneration = 0;
   // Only the scroll view reads this: warming its cache must not rebuild the
   // header, footer and body frame around it.
   final _warmCacheIdentity = ValueNotifier<(String, int, int)?>(null);
@@ -277,7 +223,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   (String, int, int)? _reportedScrollCaptureTopic;
   late Size _viewportLogicalSize;
   late double _devicePixelRatio;
-  GlobalKey _postSliverKey = GlobalKey();
   final _morePanelKey = GlobalKey();
   final _moreTopicsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
@@ -309,12 +254,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   int? get _anchorRestorePostId => _viewport.anchorRestorePostId;
   double get _anchorRestoreViewportOffset =>
       _viewport.anchorRestoreViewportOffset;
-
-  TopicPostIndexProjection _postIndexes(List<int> postIds) {
-    final held = _postIndexProjection;
-    if (held != null && held.represents(postIds)) return held;
-    return _postIndexProjection = TopicPostIndexProjection(postIds);
-  }
 
   bool get _isScrollCaptureRecording => _scrollCapture?.isRecording == true;
 
@@ -365,7 +304,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     'restoring': _restoring,
     'userDragging': _userDragging,
     'applyingAnchorRestore': _applyingAnchorRestore,
-    'extentGeneration': _extentGeneration,
+    'extentGeneration': _reader.extentGeneration,
   };
 
   Map<String, Object?> _scrollMetricsData(ScrollMetrics metrics) {
@@ -401,7 +340,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final data = <String, Object?>{
       'listAttached': list?.isAttached ?? false,
       'scrollAttached': scroll?.hasClients ?? false,
-      'attachedPostCount': _postContexts.length,
+      'attachedPostCount': _reader.attachedPostCount,
     };
     if (list != null && list.isAttached) {
       try {
@@ -473,16 +412,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (list != null && list.isAttached) {
       final range = list.visibleRange;
       if (range != null) {
-        final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
-        for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
-          if (childIndex.isOdd) continue;
-          final postIndex = childIndex ~/ 2 - leading;
-          if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+        for (final postIndex in _reader.window.postIndexesInRange(range)) {
           final postId = snapshot.postIds[postIndex];
           final post = _controller?.store.read<Post>(snapshot.siteUrl!, postId);
-          final bounds = _postViewportBounds(postId);
+          final bounds = _reader.boundsForPost(postId);
           visiblePosts.add({
-            'childIndex': childIndex,
+            'childIndex': _reader.window.childIndexForPostIndex(postIndex),
             'postIndex': postIndex,
             'postId': postId,
             'postNumber': post?.postNumber,
@@ -522,32 +457,44 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       // not run again. Give the new reader focus instead of retaining search.
       _entryFocus.requestFocus();
     });
+    _reader = TopicReaderGeometry(
+      scrollController: () => _scroll,
+      listController: () => _list,
+      topInset: () => _visibleHeaderExtent,
+      startsAtBeginning: () => _laidOutSnapshot?.hasEarlier == false,
+      postFrame: (callback) =>
+          WidgetsBinding.instance.addPostFrameCallback((_) => callback()),
+      diagnosticsEnabled: () => _isScrollCaptureRecording,
+      recordDiagnostic: _recordTopicScrollEvent,
+      layoutDiagnostics: _sliverLayoutData,
+    );
     _viewport = TopicViewportCoordinator(
       postFrame: (callback) =>
           WidgetsBinding.instance.addPostFrameCallback((_) => callback()),
-      geometry: TopicViewportGeometryCallbacks(
-        captureAnchor: _captureViewportAnchor,
-        postViewportOffset: _postViewportOffset,
-        viewportTopInset: () => _visibleHeaderExtent,
-        canCorrectAnchor: () =>
-            _list?.isAttached == true && _scroll?.hasClients == true,
-        scrollPosition: () {
-          final position = _scroll!.position;
-          return (
-            pixels: position.pixels,
-            minScrollExtent: position.minScrollExtent,
-            maxScrollExtent: position.maxScrollExtent,
-          );
-        },
-        jumpToPost: (itemIndex, viewportOffset) =>
-            _jumpTo(itemIndex, viewportOffset: viewportOffset),
-        jumpToPixels: (pixels) => _scroll!.jumpTo(pixels),
-      ),
+      geometry: _reader,
       inspectViewport: _inspectViewport,
       controllersFactory: () => (
         scroll: TopicPostScrollController(
-          _initialPostOffset,
-          anchorOffset: _heldPostOffset,
+          () {
+            final snapshot = _laidOutSnapshot;
+            if (snapshot == null) return null;
+            final position = _viewport.initialPositionFor(snapshot);
+            return position == null
+                ? null
+                : _reader.offsetForItem(
+                    position.itemIndex,
+                    viewportOffset: position.viewportOffset,
+                    startsAtBeginning: !snapshot.hasEarlier,
+                  );
+          },
+          anchorOffset: () {
+            final postId = _viewport.anchorRestorePostId;
+            if (postId == null || _viewport.userDragging) return null;
+            return _reader.offsetForPost(
+              postId,
+              viewportOffset: _viewport.anchorRestoreViewportOffset,
+            );
+          },
           topInset: () => _visibleHeaderExtent,
         ),
         list: ListController(),
@@ -662,123 +609,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       });
     }
     if (identical(previousScroll, _scroll)) return;
-    _postSliverKey = GlobalKey();
     _moreTopicsCovered.value = false;
     _initialBodyChecked = false;
     _openingPostId = null;
     _laidOutDayStarts = const [];
     _dayJumpToken = null;
-    _postIndexProjection = null;
     _visibleContextCurrentPostId = null;
-    _postContexts.clear();
+    _reader.clear();
     _postRetention.clear();
     _animatedPostIds.value = const {};
-    _retainedPostExtents.clear();
-    _laidOutPostWidth = 0;
-    _extentGeneration = 0;
     _sidebarOverlayOpen = false;
-  }
-
-  double? _initialPostOffset() {
-    final snapshot = _laidOutSnapshot;
-    if (snapshot == null) return null;
-    final position = _viewport.initialPositionFor(snapshot);
-    if (position == null) return null;
-    if (position.itemIndex == 0 &&
-        position.viewportOffset == 0 &&
-        !snapshot.hasEarlier) {
-      return 0;
-    }
-    final offset = TopicPostSliver.offsetToReveal(
-      _postSliverKey.currentContext,
-      position.itemIndex,
-    );
-    return offset == null
-        ? null
-        : offset - position.viewportOffset - _visibleHeaderExtent;
-  }
-
-  double? _heldPostOffset() {
-    final snapshot = _laidOutSnapshot;
-    final postId = _viewport.anchorRestorePostId;
-    if (snapshot == null || postId == null || _viewport.userDragging) {
-      return null;
-    }
-    final postIndex = snapshot.postIds.indexOf(postId);
-    if (postIndex < 0) return null;
-    final offset = TopicPostSliver.offsetToReveal(
-      _postSliverKey.currentContext,
-      postIndex + (snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0),
-    );
-    return offset == null
-        ? null
-        : offset - _viewport.anchorRestoreViewportOffset - _visibleHeaderExtent;
-  }
-
-  void _jumpTo(int index, {double viewportOffset = 0}) {
-    final list = _list;
-    final scroll = _scroll;
-    if (list == null || scroll == null) {
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('scroll.jump.skipped', {
-          'reason': 'controllers-unavailable',
-          'itemIndex': index,
-          'viewportOffset': viewportOffset,
-        });
-      }
-      return;
-    }
-    if (!list.isAttached || !scroll.hasClients) {
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('scroll.jump.skipped', {
-          'reason': 'controllers-detached',
-          'itemIndex': index,
-          'viewportOffset': viewportOffset,
-          'sliverLayout': _sliverLayoutData(),
-        });
-      }
-      return;
-    }
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('scroll.jump.requested', {
-        'itemIndex': index,
-        'expandedChildIndex': index * 2,
-        'viewportOffset': viewportOffset,
-        'before': _sliverLayoutData(),
-      });
-    }
-    // `separated` interleaves a separator after every logical item, and the
-    // ListController addresses that expanded child list.
-    if (index == 0 &&
-        viewportOffset == 0 &&
-        _viewport.laidOutSnapshot?.hasEarlier == false) {
-      scroll.jumpTo(scroll.position.minScrollExtent);
-      return;
-    } else {
-      list.jumpToItem(index: index * 2, scrollController: scroll, alignment: 0);
-    }
-    final targetInset = viewportOffset + _visibleHeaderExtent;
-    if (targetInset == 0 || !scroll.hasClients) {
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('scroll.jump.completed', {
-          'itemIndex': index,
-          'after': _sliverLayoutData(),
-        });
-      }
-      return;
-    }
-    final position = scroll.position;
-    scroll.jumpTo(
-      (position.pixels - targetInset)
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble(),
-    );
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('scroll.jump.completed', {
-        'itemIndex': index,
-        'after': _sliverLayoutData(),
-      });
-    }
   }
 
   bool _navigatePost(
@@ -810,7 +650,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final loadedIndex = snapshot.postIds.indexOf(nextId);
     if (loadedIndex >= 0) {
       _visibleContextCurrentPostId = nextId;
-      _jumpTo(loadedIndex + (snapshot.hasEarlier ? 1 : 0));
+      _reader.jumpToPost(loadedIndex + (snapshot.hasEarlier ? 1 : 0));
       _scheduleLook();
     } else {
       final token = Object();
@@ -835,12 +675,12 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   bool _scrollWithinPost(int postId, int direction) {
     final scroll = _scroll;
-    final bounds = _postViewportBounds(postId);
+    final bounds = _reader.boundsForPost(postId);
     if (scroll == null || !scroll.hasClients || bounds == null) return false;
     final position = scroll.position;
     final height = _readingViewportExtent;
     if (height <= 0 || bounds.bottom <= 0 || bounds.top >= height) return false;
-    if (_postContexts[postId] case StatefulElement(
+    if (_reader.postContext(postId) case StatefulElement(
       state: _TopicPostItemState(bodyComplete: false),
     )) {
       _keyboardPost.value = postId;
@@ -874,10 +714,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (!_restored || _restoring) return false;
     // A newly loaded or virtualized post can still be mounting its HTML.
     // Wait for its real height before landing on its last page.
-    if (_postContexts[postId] case StatefulElement(
+    if (_reader.postContext(postId) case StatefulElement(
       state: _TopicPostItemState(:final bodyComplete),
     ) when bodyComplete) {
-      final bounds = _postViewportBounds(postId);
+      final bounds = _reader.boundsForPost(postId);
       final scroll = _scroll;
       if (bounds == null || scroll == null || !scroll.hasClients) return false;
       _keyboardPostEndTarget = null;
@@ -1105,7 +945,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final controller = _controller;
     if (controller == null) return;
     if (_openingPostId case final postId?) {
-      final element = _postContexts[postId];
+      final element = _reader.postContext(postId);
       if (element is! StatefulElement ||
           element.state is! _TopicPostItemState ||
           !(element.state as _TopicPostItemState).initialLayoutReady(
@@ -1128,7 +968,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       _recordTopicScrollEvent('viewport.work', {
         'durationUs': timer.elapsedMicroseconds,
         'topicId': snapshot.topicId,
-        'attachedPostCount': _postContexts.length,
+        'attachedPostCount': _reader.attachedPostCount,
         'saveAnchor': saveAnchor,
       });
     }
@@ -1198,13 +1038,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       return;
     }
 
-    final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
     int? firstVisiblePostIndex;
-    for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
-      if (childIndex.isOdd) continue;
-      final postIndex = childIndex ~/ 2 - leading;
-      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
-      final bounds = _postViewportBounds(snapshot.postIds[postIndex]);
+    for (final postIndex in _reader.window.postIndexesInRange(range)) {
+      final bounds = _reader.boundsForPost(snapshot.postIds[postIndex]);
       if (bounds != null && bounds.bottom <= 0) continue;
       firstVisiblePostIndex = postIndex;
       break;
@@ -1232,7 +1068,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
     double? topOf(_TopicDayStart start) {
       // Offsets are relative to the visible edge below the floating header.
-      return _postViewportOffset(snapshot.postIds[start.postIndex]);
+      return _reader.postViewportOffset(snapshot.postIds[start.postIndex]);
     }
 
     // The first visible post can itself begin a day while its marker is still
@@ -1385,8 +1221,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         return calendarDay(post?.createdAt) == day;
       });
       if (postIndex < 0) return;
-      final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
-      _jumpTo(postIndex + leading);
+      _reader.jumpToPost(postIndex + _reader.window.leadingItems);
     }
 
     // A preceding page changes the list in the same event turn. Let it lay
@@ -1425,18 +1260,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       return;
     }
 
-    final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
     TopicViewportSeenPost? leadingPost;
-    for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
-      if (childIndex.isOdd) continue;
-      final itemIndex = childIndex ~/ 2;
-      final postIndex = itemIndex - leading;
-      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+    for (final postIndex in _reader.window.postIndexesInRange(range)) {
       final post = controller.store.read<Post>(
         snapshot.siteUrl!,
         snapshot.postIds[postIndex],
       );
-      final bounds = post == null ? null : _postViewportBounds(post.id);
+      final bounds = post == null ? null : _reader.boundsForPost(post.id);
       if (bounds != null && bounds.bottom <= 0) continue;
       if (post != null) {
         leadingPost = (
@@ -1451,17 +1281,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     // Track the farthest intersecting post separately from the leading
     // navigation position for read accounting and end-of-topic detection.
     TopicViewportSeenPost? visiblePost;
-    for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
-      if (childIndex.isOdd) continue;
-      final itemIndex = childIndex ~/ 2;
-      final postIndex = itemIndex - leading;
-      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+    for (final postIndex in _reader.window.postIndexesInRange(
+      range,
+      reverse: true,
+    )) {
       final post = controller.store.read<Post>(
         snapshot.siteUrl!,
         snapshot.postIds[postIndex],
       );
       if (post == null) continue;
-      final bounds = _postViewportBounds(post.id);
+      final bounds = _reader.boundsForPost(post.id);
       if (bounds != null && bounds.bottom <= 0) continue;
       visiblePost = (
         postId: post.id,
@@ -1478,21 +1307,17 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       maxScrollExtent: scrollPosition.maxScrollExtent,
       postStreamBottom: snapshot.hasMore || snapshot.postIds.isEmpty
           ? null
-          : _postViewportBounds(snapshot.postIds.last)?.bottom,
+          : _reader.boundsForPost(snapshot.postIds.last)?.bottom,
       hasMore: snapshot.hasMore,
     );
     TopicViewportSeenPost? contextPost;
-    for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
-      if (childIndex.isOdd) continue;
-      final itemIndex = childIndex ~/ 2;
-      final postIndex = itemIndex - leading;
-      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+    for (final postIndex in _reader.window.postIndexesInRange(range)) {
       final post = controller.store.read<Post>(
         snapshot.siteUrl!,
         snapshot.postIds[postIndex],
       );
       if (post == null) continue;
-      final bounds = _postViewportBounds(post.id);
+      final bounds = _reader.boundsForPost(post.id);
       if (bounds == null ||
           contextEyeline < bounds.top - 0.5 ||
           contextEyeline > bounds.bottom + 0.5) {
@@ -1526,7 +1351,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
     contextPost ??= leadingPost;
     _visibleContextCurrentPostId = contextPost?.postId;
-    if (_postContexts[contextPost?.postId] case final context?) {
+    if (_reader.postContext(contextPost?.postId) case final context?) {
       // Several async placeholders can initially fit in the viewport. Once
       // they expand, prefer the post being read over later offscreen rows.
       final html =
@@ -1559,17 +1384,16 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final viewportExtent = _readingViewportExtent;
     TopicViewportSeenPost? readablePost;
     final readablePostNumbers = <int>[];
-    for (var childIndex = range.$2; childIndex >= range.$1; childIndex--) {
-      if (childIndex.isOdd) continue;
-      final itemIndex = childIndex ~/ 2;
-      final postIndex = itemIndex - leading;
-      if (postIndex < 0 || postIndex >= snapshot.postIds.length) continue;
+    for (final postIndex in _reader.window.postIndexesInRange(
+      range,
+      reverse: true,
+    )) {
       final post = controller.store.read<Post>(
         snapshot.siteUrl!,
         snapshot.postIds[postIndex],
       );
       if (post == null) continue;
-      final bounds = _postViewportBounds(post.id);
+      final bounds = _reader.boundsForPost(post.id);
       if (bounds == null ||
           bounds.bottom <= 0 ||
           bounds.bottom > viewportExtent + 0.5) {
@@ -1616,7 +1440,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       _recordTopicScrollEvent('viewport.anchor.saved', {
         'postId': leadingPost.postId,
         'postNumber': leadingPost.postNumber,
-        'viewportOffset': _postViewportOffset(leadingPost.postId),
+        'viewportOffset': _reader.postViewportOffset(leadingPost.postId),
         'saveAfterScrollEnd': saveAnchor,
       });
     }
@@ -1695,13 +1519,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final range = _list?.isAttached == true ? _list!.visibleRange : null;
     final visible = <int>{};
     if (snapshot != null && range != null) {
-      final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
-      for (var index = range.$1; index <= range.$2; index++) {
-        if (index.isOdd) continue;
-        final postIndex = index ~/ 2 - leading;
-        if (postIndex >= 0 && postIndex < snapshot.postIds.length) {
-          visible.add(snapshot.postIds[postIndex]);
-        }
+      for (final postIndex in _reader.window.postIndexesInRange(range)) {
+        visible.add(snapshot.postIds[postIndex]);
       }
     }
     if (!setEquals(_animatedPostIds.value, visible)) {
@@ -1717,102 +1536,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     }
   }
 
-  void _invalidateRetainedExtents() {
-    final list = _list;
-    if (list == null || !list.isAttached) return;
-    if (!list.isLocked) {
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('sliver.extents.invalidated', {
-          'deferred': false,
-          'before': _sliverLayoutData(),
-        });
-      }
-      list.invalidateAllExtents();
-      return;
-    }
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('sliver.extentInvalidation.deferred', {
-        'before': _sliverLayoutData(),
-      });
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final current = _list;
-      if (current == null || !current.isAttached || current.isLocked) return;
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('sliver.extents.invalidated', {
-          'deferred': true,
-          'before': _sliverLayoutData(),
-        });
-      }
-      current.invalidateAllExtents();
-    });
-  }
-
-  bool _shiftRetainedExtents(TopicViewportWindowChange change) {
-    final list = _list;
-    if (list == null || !list.isAttached || list.isLocked) return false;
-    final previous = change.previousPostIds;
-    final current = change.currentPostIds;
-    if (previous.isEmpty) return false;
-    final inserted = current.indexOf(previous.first);
-    if (inserted < 0 || current.length < previous.length + inserted) {
-      return false;
-    }
-    for (var index = 0; index < previous.length; index++) {
-      if (previous[index] != current[index + inserted]) return false;
-    }
-    final previousLeading = change.previousHasHeader ? 1 : 0;
-    if (list.numberOfItems < (previous.length + previousLeading) * 2 - 1) {
-      return false;
-    }
-
-    // The sliver keeps heights by child index, while its keyed elements move
-    // with post IDs. Move the cached heights too, before updating the delegate;
-    // invalidating them alone leaves old heights assigned to different posts.
-    // Separated lists have two children per inserted post or loading header.
-    final previousTotalExtent = list.totalExtent;
-    if (change.previousHasHeader && !change.hasHeader) {
-      list
-        ..removeItem(0)
-        ..removeItem(0);
-    } else if (!change.previousHasHeader && change.hasHeader) {
-      list
-        ..addItem(0)
-        ..addItem(1);
-    }
-    final leading = change.hasHeader ? 2 : 0;
-    for (var child = 0; child < inserted * 2; child++) {
-      list.addItem(leading + child);
-    }
-    if (inserted > 0) {
-      // The old first post may gain or lose a day/time-gap divider now that
-      // its predecessor is loaded. Other retained posts keep their neighbors.
-      list.invalidateExtent(leading + inserted * 2);
-      if (change.hasHeader) list.invalidateExtent(1);
-    }
-    final scroll = _scroll;
-    if (scroll != null && scroll.hasClients) {
-      // Move the viewport by the inserted estimates before layout. Unlike a
-      // post-frame jump, this correction preserves an active drag's activity.
-      scroll.position.correctBy(list.totalExtent - previousTotalExtent);
-    }
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('sliver.extents.shifted', {
-        'retainedPostCount': previous.length,
-        'prependedPostCount': inserted,
-        'previousHasHeader': change.previousHasHeader,
-        'hasHeader': change.hasHeader,
-      });
-    }
-    return true;
-  }
-
   void _scheduleRetainedPostGeometryRefresh() {
     if (_retainedGeometryRefreshScheduled) return;
     _retainedGeometryRefreshScheduled = true;
+    final generation = _reader.extentGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _retainedGeometryRefreshScheduled = false;
-      if (!mounted) return;
+      if (!mounted || generation != _reader.extentGeneration) return;
       // Refresh the child delegate once after learning a new offscreen extent.
       // Rebuilding for an unchanged retained extent can recycle the same async
       // row indefinitely as it alternates between loading and settled heights.
@@ -1821,11 +1551,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   }
 
   void _registerPostContext(int postId, BuildContext context) {
-    _postContexts[postId] = context;
+    _reader.attachPost(postId, context);
     if (_isScrollCaptureRecording) {
       _recordTopicScrollEvent('sliver.post.attached', {
         'postId': postId,
-        'attachedPostCount': _postContexts.length,
+        'attachedPostCount': _reader.attachedPostCount,
       });
     }
   }
@@ -1835,171 +1565,25 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     BuildContext context,
     bool bodyComplete,
   ) {
-    if (identical(_postContexts[postId], context)) {
-      final retainedExtentChanged = bodyComplete && _rememberPostExtent(postId);
-      _postContexts.remove(postId);
+    if (identical(_reader.postContext(postId), context)) {
+      final snapshot = _laidOutSnapshot;
+      final post = snapshot == null
+          ? null
+          : _controller?.store.read<Post>(snapshot.siteUrl!, postId);
+      final retainedExtentChanged =
+          bodyComplete &&
+          post != null &&
+          snapshot != null &&
+          CookedHtml.buildsAsynchronously(post.cooked) &&
+          _reader.rememberPostExtent(postId, post: post, snapshot: snapshot);
+      _reader.detachPost(postId, context);
       if (retainedExtentChanged) _scheduleRetainedPostGeometryRefresh();
       if (_isScrollCaptureRecording) {
         _recordTopicScrollEvent('sliver.post.detached', {
           'postId': postId,
-          'attachedPostCount': _postContexts.length,
+          'attachedPostCount': _reader.attachedPostCount,
         });
       }
-    }
-  }
-
-  bool _rememberPostExtent(int postId) {
-    final snapshot = _laidOutSnapshot;
-    final controller = _controller;
-    final list = _list;
-    if (snapshot == null ||
-        controller == null ||
-        list == null ||
-        !list.isAttached) {
-      return false;
-    }
-    final postIndex = snapshot.postIds.indexOf(postId);
-    if (postIndex < 0) return false;
-    final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
-    final childIndex = (postIndex + leading) * 2;
-    if (childIndex >= list.numberOfItems) return false;
-    final extent = list.extentForIndex(childIndex);
-    if (extent.$2) return false;
-    final post = controller.store.read<Post>(snapshot.siteUrl!, postId);
-    final topic = snapshot.topic;
-    if (post == null ||
-        topic == null ||
-        !CookedHtml.buildsAsynchronously(post.cooked)) {
-      return false;
-    }
-    final width = _laidOutPostWidth;
-    final height = extent.$1;
-    final retained = (
-      width: width,
-      height: height,
-      post: post,
-      topic: topic,
-      summary: snapshot.summary,
-      summaryLoading: snapshot.summaryLoading,
-      readTimeWordCount: snapshot.readTimeWordCount,
-    );
-    final previous = _retainedPostExtents[postId];
-    // Do not let the asynchronous loading frame replace a settled extent for
-    // the same post. A changed post or topic gets a fresh measurement instead.
-    if (previous != null &&
-        identical(previous.post, post) &&
-        identical(previous.topic, topic) &&
-        previous.summary == snapshot.summary &&
-        previous.summaryLoading == snapshot.summaryLoading &&
-        previous.readTimeWordCount == snapshot.readTimeWordCount &&
-        (previous.width - width).abs() < 0.5 &&
-        previous.height >= height - 0.5) {
-      return false;
-    }
-    _retainedPostExtents[postId] = retained;
-    return true;
-  }
-
-  double? _retainedPostMinimumHeight({
-    required int postId,
-    required Post? post,
-    required TopicDetail topic,
-    required double width,
-    required bool summary,
-    required bool summaryLoading,
-    required int readTimeWordCount,
-  }) {
-    final retained = _retainedPostExtents[postId];
-    if (retained == null ||
-        post == null ||
-        !identical(retained.post, post) ||
-        !identical(retained.topic, topic) ||
-        retained.summary != summary ||
-        retained.summaryLoading != summaryLoading ||
-        retained.readTimeWordCount != readTimeWordCount ||
-        (retained.width - width).abs() >= 0.5) {
-      return null;
-    }
-    return retained.height;
-  }
-
-  ({double top, double bottom})? _postViewportBounds(int postId) {
-    final context = _postContexts[postId];
-    final scroll = _scroll;
-    if (context == null || scroll == null || !scroll.hasClients) return null;
-    final renderObject = context.findRenderObject();
-    if (renderObject is! RenderBox ||
-        !renderObject.attached ||
-        !renderObject.hasSize) {
-      return null;
-    }
-    final viewport = RenderAbstractViewport.maybeOf(renderObject);
-    if (viewport == null) return null;
-    final revealed = getOffsetToRevealIfLaidOut(viewport, renderObject, 0);
-    if (revealed == null) return null;
-    final top = revealed.offset - scroll.position.pixels - _visibleHeaderExtent;
-    return (top: top, bottom: top + renderObject.size.height);
-  }
-
-  double? _postViewportOffset(int postId) => _postViewportBounds(postId)?.top;
-
-  ({int postId, double viewportOffset})? _captureViewportAnchor(
-    List<int> postIds, {
-    required bool hasHeader,
-  }) {
-    final list = _list;
-    final scroll = _scroll;
-    if (list == null || scroll == null) return null;
-    if (!list.isAttached || !scroll.hasClients) return null;
-    final range = list.visibleRange;
-    if (range == null) return null;
-
-    final leading = hasHeader ? 1 : 0;
-    for (var childIndex = range.$1; childIndex <= range.$2; childIndex++) {
-      if (childIndex.isOdd) continue;
-      final postIndex = childIndex ~/ 2 - leading;
-      if (postIndex < 0 || postIndex >= postIds.length) continue;
-      final viewportOffset = _postViewportOffset(postIds[postIndex]);
-      if (viewportOffset == null) continue;
-      return (postId: postIds[postIndex], viewportOffset: viewportOffset);
-    }
-    return null;
-  }
-
-  void _applyWindowChange(TopicViewportWindowChange change) {
-    if (_isScrollCaptureRecording &&
-        change.previousPostIds.isNotEmpty &&
-        change.changed) {
-      _recordTopicScrollEvent('topic.window.changed', {
-        'previousPostCount': change.previousPostIds.length,
-        'currentPostCount': change.currentPostIds.length,
-        'previousFirstPostId': change.previousPostIds.firstOrNull,
-        'previousLastPostId': change.previousPostIds.lastOrNull,
-        'currentFirstPostId': change.currentPostIds.firstOrNull,
-        'currentLastPostId': change.currentPostIds.lastOrNull,
-        'previousFirstIndex': change.currentPostIds.indexOf(
-          change.previousPostIds.first,
-        ),
-        'prepended': change.prepended,
-        'appendOnly': change.appendOnly,
-        'headerChanged': change.previousHasHeader != change.hasHeader,
-      });
-    }
-    switch (change.extentAction) {
-      case TopicViewportExtentAction.none:
-        return;
-      case TopicViewportExtentAction.invalidate:
-        if (!_shiftRetainedExtents(change)) _invalidateRetainedExtents();
-        return;
-      case TopicViewportExtentAction.replace:
-        _extentGeneration++;
-        _postSliverKey = GlobalKey();
-        if (_isScrollCaptureRecording) {
-          _recordTopicScrollEvent('sliver.extentManager.replaced', {
-            'extentGeneration': _extentGeneration,
-            'reason': 'topic-window-replaced',
-          });
-        }
     }
   }
 
@@ -2041,8 +1625,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           availableWidth: math.max(0.0, width - sidebarInset),
           widthLimit: double.infinity,
         );
-        if (_laidOutPostWidth != lane.width) {
-          _laidOutPostWidth = lane.width;
+        if (_reader.postWidth != lane.width) {
+          _reader.postWidth = lane.width;
           _scheduleLook();
         }
         final layout = (canPinSidebar, lane.padding);
@@ -2466,7 +2050,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         snapshot.recommendations == null &&
         (snapshot.hasMore || snapshot.loadingMore);
     final postIds = snapshot.postIds;
-    final postIndexes = _postIndexes(postIds);
     final siteUrl = snapshot.siteUrl!;
     _syncViewport(controller, snapshot);
     final cacheIdentity = _topicIdentity;
@@ -2481,7 +2064,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         _warmCacheIdentity.value = cacheIdentity;
       });
     }
-    _laidOutPostWidth = readingLane.width;
+    _reader.postWidth = readingLane.width;
     _viewport.updateLaidOutSnapshot(snapshot);
     final dayStarts = _dayStarts(
       controller,
@@ -2541,7 +2124,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       }
     }
     _viewport.restoreInitialPost(snapshot);
-    _applyWindowChange(_viewport.updateWindow(snapshot, hasHeader: showHeader));
+    _reader.applyWindowChange(
+      _viewport.updateWindow(snapshot, hasHeader: showHeader),
+    );
     if (_isScrollCaptureRecording) {
       _recordTopicScrollEvent('topic.view.built', {
         'viewportWidth': viewportWidth,
@@ -2558,42 +2143,13 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
     final itemCount =
         postIds.length + (showHeader ? 1 : 0) + (showFooter ? 1 : 0);
+    final postWindow = _reader.window;
     final postList = TopicPostSliver(
-      key: _postSliverKey,
-      listController: _list,
-      extentEstimation: TopicView._estimateChildExtent,
+      geometry: _reader,
       delayPopulatingCacheArea: true,
       // Async HTML and live edits can dirty a retained row. Selection
       // geometry must be laid out even while that row is offscreen.
       layoutKeptAliveChildren: true,
-      // Keep existing post elements attached to their ids when a page is
-      // inserted before them; separated lists address the expanded index.
-      findChildIndexCallback: (key) {
-        if (key is ValueKey<(String, int)> &&
-            key.value.$1 == 'topic-post-separator') {
-          final postIndex = postIndexes[key.value.$2];
-          if (postIndex == null) return null;
-          final index = (postIndex + (showHeader ? 1 : 0)) * 2 - 1;
-          return index >= 0 ? index : null;
-        }
-        if (key is ValueKey<(String, int)> &&
-            key.value.$1 == 'topic-trailing-separator') {
-          return (postIds.length + (showHeader ? 1 : 0) + key.value.$2) * 2 - 1;
-        }
-        if (key is! ValueKey<int>) return null;
-        final postIndex = postIndexes[key.value];
-        if (postIndex == null) return null;
-        final childIndex = (postIndex + (showHeader ? 1 : 0)) * 2;
-        if (_isScrollCaptureRecording) {
-          _recordTopicScrollEvent('sliver.childIndex.resolved', {
-            'postId': key.value,
-            'postIndex': postIndex,
-            'childIndex': childIndex,
-            'showHeader': showHeader,
-          });
-        }
-        return childIndex;
-      },
       itemCount: itemCount,
       separatorBuilder: (context, index) {
         final nextPostIndex = index + 1 - (showHeader ? 1 : 0);
@@ -2605,12 +2161,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           });
         }
         return KeyedSubtree(
-          key: nextPostIndex < postIds.length
-              ? ValueKey(('topic-post-separator', postIds[nextPostIndex]))
-              : ValueKey((
-                  'topic-trailing-separator',
-                  nextPostIndex - postIds.length,
-                )),
+          key: postWindow.separatorKeyAfterItem(index),
           child:
               dayByPostIndex.containsKey(nextPostIndex) ||
                   nextPostIndex == firstUnreadIndex ||
@@ -2671,7 +2222,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
             'postIndex': postIndex,
             'postId': postId,
             'postNumber': post?.postNumber,
-            'wasAttached': _postContexts.containsKey(postId),
+            'wasAttached': (_reader.postContext(postId) != null),
             'hasDayBoundary': day != null,
             'hasTimeGap': timeGapByPostIndex.containsKey(postIndex),
           });
@@ -2685,14 +2236,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           animatedPostIds: _animatedPostIds,
           scrollCapture: _scrollCapture,
           viewportState: _viewportState,
-          retainedMinimumHeight: _retainedPostMinimumHeight(
-            postId: postId,
+          retainedMinimumHeight: _reader.minimumHeightFor(
+            postId,
             post: post,
-            topic: snapshot.topic!,
-            width: _laidOutPostWidth,
-            summary: snapshot.summary,
-            summaryLoading: snapshot.summaryLoading,
-            readTimeWordCount: snapshot.readTimeWordCount,
+            snapshot: snapshot,
           ),
           day: day,
           showDayDivider: post?.postNumber != 1,
@@ -2817,7 +2364,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 siteUrl,
                 snapshot.topicId,
                 _scroll,
-                _extentGeneration,
+                _reader.extentGeneration,
               )),
               controller: _scroll,
               // Lay out visible replies first, then prime the ordinary scroll

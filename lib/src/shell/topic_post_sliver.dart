@@ -8,7 +8,11 @@ import 'package:super_sliver_list/src/element.dart';
 import 'package:super_sliver_list/src/render_object.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../models/post.dart';
 import '../utils/pagination.dart';
+import 'topic_viewport_coordinator.dart';
+
+part 'topic_reader_geometry.dart';
 
 /// Positions the reader before paint, including while its anchor changes size.
 class TopicPostScrollController extends PaginationScrollController {
@@ -127,29 +131,18 @@ class _TopicPostScrollPosition extends PaginationScrollPosition {
 /// Keeps moved topic rows lazy while their measured extents shift with post IDs.
 class TopicPostSliver extends SuperSliverList {
   TopicPostSliver({
-    super.key,
+    required TopicReaderGeometry geometry,
     required super.itemBuilder,
     required super.separatorBuilder,
     required super.itemCount,
-    required super.findChildIndexCallback,
-    required super.listController,
-    required super.extentEstimation,
     super.delayPopulatingCacheArea,
     super.layoutKeptAliveChildren,
-  }) : super.separated();
-
-  static double? offsetToReveal(BuildContext? context, int itemIndex) {
-    final renderObject = context?.findRenderObject();
-    if (renderObject is! _TopicPostRenderSliver ||
-        renderObject.geometry == null) {
-      return null;
-    }
-    return renderObject.getOffsetToReveal(
-      itemIndex * 2,
-      0,
-      estimationOnly: true,
-    );
-  }
+  }) : super.separated(
+         key: geometry.sliverKey,
+         listController: geometry._list,
+         findChildIndexCallback: geometry.findChildIndexCallback,
+         extentEstimation: TopicReaderGeometry.estimateChildExtent,
+       );
 
   @override
   SliverMultiBoxAdaptorElement createElement() => _TopicPostSliverElement(this);
@@ -253,7 +246,7 @@ class _TopicPostSliverElement extends SuperSliverMultiBoxAdaptorElement {
   @override
   void performRebuild() {
     super.performRebuild();
-    // TopicView shifts the extent table before replacing the delegate. Flutter
+    // The adapter shifts the extent table before replacing the delegate. Flutter
     // clears offsets on moved children and copies offsets by their old index;
     // restore them from the shifted table instead. This lets the render sliver
     // start at the existing rows without constructing their vacated slots.

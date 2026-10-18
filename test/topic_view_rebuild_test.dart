@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_post_sliver.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -25,7 +26,7 @@ void main() {
       5000,
     ]);
 
-    final projection = TopicPostIndexProjection(postIds);
+    final projection = TopicPostWindow(postIds, hasHeader: false);
 
     expect(postIds.reads, postIds.length);
     postIds.reads = 0;
@@ -34,6 +35,12 @@ void main() {
     }
     expect(projection[5000], 4999);
     expect(projection[10001], isNull);
+    final withHeader = projection.withHeader(true);
+    expect(withHeader.childIndexForKey(const ValueKey(5000)), 10000);
+    expect(withHeader.postIndexesInRange((1, 5)), [0, 1]);
+    final withoutHeader = withHeader.withHeader(false);
+    expect(withoutHeader.childIndexForKey(const ValueKey(5000)), 9998);
+    expect(withoutHeader.postIndexesInRange((1, 5)), [1, 2]);
     expect(postIds.reads, 0);
   });
 
