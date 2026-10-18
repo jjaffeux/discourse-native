@@ -763,9 +763,22 @@ void main() {
         Completer<void>? channelGate,
         Completer<void>? channelDetailGate,
         Completer<void>? threadGate,
+        int? lastChannelId,
       }) async {
+        final currentUser = lastChannelId == null
+            ? _user
+            : _user.withPlugins(
+                _user.plugins.withValue(
+                  chatCurrentUserDataKey,
+                  ChatCurrentUser(
+                    hasChatEnabled: true,
+                    canDirectMessage: true,
+                    lastChannelId: lastChannelId,
+                  ),
+                ),
+              );
         final gatedApi = _ChannelDetailGateApi(
-          user: _user,
+          user: currentUser,
           feeds: const {'/latest.json': []},
           chatChannelGate: channelGate,
           channelDetailGate: channelDetailGate,
@@ -792,8 +805,8 @@ void main() {
         final gated = ShellController(
           plugins: installedPlugins,
           instanceStore: FakeInstanceStore([
-            instance('meta.discourse.org').copyWith(user: _user),
-            instance('other.example').copyWith(user: _user),
+            instance('meta.discourse.org').copyWith(user: currentUser),
+            instance('other.example').copyWith(user: currentUser),
           ]),
           api: gatedApi,
           authenticator: FakeAuthenticator()
@@ -808,6 +821,65 @@ void main() {
         addTearDown(gated.dispose);
         await gated.load();
         return (gated, gatedApi);
+      }
+
+      for (final stage in ['snapshot', 'channel detail']) {
+        for (final switchedTab in [false, true]) {
+          test(
+            'header $stage completion ${switchedTab ? 'ignores a different tab with the same route' : 'opens in its original tab'}',
+            () async {
+              final gate = Completer<void>();
+              addTearDown(() {
+                if (!gate.isCompleted) gate.complete();
+              });
+              final (gated, gatedApi) = await gatedShell(
+                channelGate: stage == 'snapshot' ? gate : null,
+                channelDetailGate: stage == 'channel detail' ? gate : null,
+                lastChannelId: stage == 'channel detail' ? 21 : null,
+              );
+              gated.accountActivity.applyCounts(
+                _site,
+                (_) => chatNotificationTotals(),
+              );
+              gated.desktopTopicTabs = true;
+              gated.openTopicUrl('$_site/t/better-images/77/4');
+              final sourceTab = gated.activeTabId!;
+              gated.createTab();
+              final otherTab = gated.activeTabId!;
+              gated.openTopicUrl('$_site/t/better-images/77/4');
+              gated.selectTab(sourceTab);
+              final before = gated.tabsForCurrentForum.toList();
+              final shortcut = gated.pluginSession
+                  .require(chatShellService)
+                  .openHeaderShortcut();
+              await pumpEventQueue();
+              if (stage == 'snapshot') {
+                expect(gatedApi.chatChannelsRequested, contains(_site));
+              } else {
+                expect(gatedApi.heldChannelDetails, [21]);
+              }
+              if (switchedTab) gated.selectTab(otherTab);
+              gate.complete();
+              await shortcut;
+
+              expect(gated.activeTabId, switchedTab ? otherTab : sourceTab);
+              if (switchedTab) {
+                expect(gated.currentContent?.id, 'topic-77');
+                expect(gated.tabsForCurrentForum, before);
+                expect(gated.chatNavigation.value, isNull);
+              } else {
+                expect(
+                  gated.currentContent?.id,
+                  stage == 'snapshot' ? ChatPlugin.browseRouteId : 'chat-c-21',
+                );
+                expect(
+                  gated.currentWorkspace!.tabById(otherTab),
+                  before.singleWhere((tab) => tab.id == otherTab),
+                );
+              }
+            },
+          );
+        }
       }
 
       for (final directory in [true, false]) {

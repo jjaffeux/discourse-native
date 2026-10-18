@@ -754,12 +754,14 @@ final class ChatShellService
     final instance = _host.currentInstance!;
     final siteUrl = instance.url;
     final sourceIdentity = currentContent?.destination.identity;
+    final sourceTabId = _host.activeTabId;
     bool stillCurrent() =>
         !_disposed &&
         !_host.isDisposed &&
         _host.currentInstance?.url == siteUrl &&
         currentUser?.id == instance.user?.id &&
         currentContent?.destination.identity == sourceIdentity &&
+        _host.activeTabId == sourceTabId &&
         _currentSiteCanUseChat;
     await chat.loadChannels(siteUrl);
     if (!stillCurrent()) return;
