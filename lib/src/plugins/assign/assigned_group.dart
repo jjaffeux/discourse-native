@@ -241,8 +241,6 @@ final class AssignedGroupMembersState {
   final String? error;
   final bool pageError;
 
-  bool get isEmpty => loaded && error == null && members.isEmpty;
-
   AssignedGroupMembersState loadingFirst() => AssignedGroupMembersState(
     members: members,
     assignmentCount: assignmentCount,

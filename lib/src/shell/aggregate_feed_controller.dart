@@ -69,8 +69,6 @@ final class AggregateFeedState {
   final bool hasMore;
   final DateTime? updatedAt;
 
-  bool get isEmpty => loaded && topics.isEmpty;
-
   AggregateFeedState copyWith({
     List<AggregateTopicRef>? topics,
     bool? loading,
