@@ -1019,7 +1019,6 @@ class EventCookedFallback extends StatelessWidget {
       key: key,
       title: visible.attributes['data-name'] ?? appL10n.event,
       start: visible.attributes['data-start'],
-      description: visible.text.trim(),
       descriptionHtml: visible.innerHtml.trim(),
       siteUrl: siteUrl,
     );
@@ -1028,13 +1027,11 @@ class EventCookedFallback extends StatelessWidget {
     super.key,
     required this.title,
     required this.start,
-    required this.description,
     required this.descriptionHtml,
     this.siteUrl,
   });
   final String title;
   final String? start;
-  final String description;
   final String descriptionHtml;
   final String? siteUrl;
   @override

@@ -221,7 +221,6 @@ class _ChatSearchViewState extends State<ChatSearchView> {
             );
           }
           return _ChatSearchResult(
-            siteUrl: widget.siteUrl,
             hit: state.hits[index],
             onOpen: () => unawaited(_open(state.hits[index])),
           );
@@ -473,13 +472,8 @@ class _SearchControls extends StatelessWidget {
 }
 
 class _ChatSearchResult extends StatelessWidget {
-  const _ChatSearchResult({
-    required this.siteUrl,
-    required this.hit,
-    required this.onOpen,
-  });
+  const _ChatSearchResult({required this.hit, required this.onOpen});
 
-  final String siteUrl;
   final ChatSearchHit hit;
   final VoidCallback onOpen;
 

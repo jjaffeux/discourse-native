@@ -122,22 +122,18 @@ class LocalDateSpec {
 @immutable
 class LocalDateResolved {
   const LocalDateResolved({
-    required this.spec,
     required this.source,
     required this.displayed,
     required this.readerTimezone,
     required this.sourceTimezone,
-    required this.displayedTimezone,
     required this.formatted,
     required this.past,
   });
 
-  final LocalDateSpec spec;
   final tz.TZDateTime source;
   final tz.TZDateTime displayed;
   final String readerTimezone;
   final String sourceTimezone;
-  final String displayedTimezone;
   final String formatted;
   final bool past;
 }
@@ -203,12 +199,10 @@ class LocalDateFormatter {
       sameLocalDayAsFrom: sameLocalDayAsFrom,
     );
     return LocalDateResolved(
-      spec: spec,
       source: source,
       displayed: displayed,
       readerTimezone: readerName,
       sourceTimezone: sourceName,
-      displayedTimezone: displayedName,
       formatted: formatted,
       past: spec.recurring == null && source.isBefore(instantNow),
     );
