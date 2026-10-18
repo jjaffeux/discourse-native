@@ -96,11 +96,12 @@ void main() {
         // draft uses a destructive tint rather than the solid kit fill. Image
         // and gallery actions use the same pill shape as the discard control.
         'lib/src/shell/composer/panel.dart': {
-          'foregroundColor': 13,
+          'foregroundColor': 12,
           'shape': 3,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
         },
+        'lib/src/shell/composer/components/image.dart': {'foregroundColor': 1},
         // The tab switcher uses Native's pill shape.
         'lib/src/shell/forum_tabs_bar.dart': {'shape': 1},
         // A day separator is a pill on the stream's own surface and border.

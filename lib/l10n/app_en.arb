@@ -12433,7 +12433,7 @@
   },
   "quoteFrom": "Quote from {title}",
   "@quoteFrom": {
-    "description": "English UI message used by shell/composer_quotes.dart. Keep placeholders intact.",
+    "description": "English UI message used by shell/composer/components/quote.dart. Keep placeholders intact.",
     "placeholders": {
       "title": {
         "type": "String"
@@ -13706,11 +13706,11 @@
   },
   "readOnlyUseTheRemoveQuoteButtonToDeleteIt": "Read only. Use the remove quote button to delete it.",
   "@readOnlyUseTheRemoveQuoteButtonToDeleteIt": {
-    "description": "English UI message used by shell/composer_quotes.dart. Keep placeholders intact."
+    "description": "English UI message used by shell/composer/components/quote.dart. Keep placeholders intact."
   },
   "removeQuote": "Remove quote",
   "@removeQuote": {
-    "description": "English UI message used by shell/composer_quotes.dart. Keep placeholders intact."
+    "description": "English UI message used by shell/composer/components/quote.dart. Keep placeholders intact."
   },
   "couldnTLoadMoreUsers": "Couldn''t load more users.",
   "@couldnTLoadMoreUsers": {

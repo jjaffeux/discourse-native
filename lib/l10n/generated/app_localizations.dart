@@ -15997,7 +15997,7 @@ abstract class AppLocalizations {
   /// **'Private category'**
   String get privateCategory;
 
-  /// English UI message used by shell/composer_quotes.dart. Keep placeholders intact.
+  /// English UI message used by shell/composer/components/quote.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
   /// **'Quote from {title}'**
@@ -17538,13 +17538,13 @@ abstract class AppLocalizations {
   /// **'Connect'**
   String get connect;
 
-  /// English UI message used by shell/composer_quotes.dart. Keep placeholders intact.
+  /// English UI message used by shell/composer/components/quote.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
   /// **'Read only. Use the remove quote button to delete it.'**
   String get readOnlyUseTheRemoveQuoteButtonToDeleteIt;
 
-  /// English UI message used by shell/composer_quotes.dart. Keep placeholders intact.
+  /// English UI message used by shell/composer/components/quote.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
   /// **'Remove quote'**

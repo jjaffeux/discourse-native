@@ -56,11 +56,6 @@ composer hooks to that module. Parsers, sheets, and embedded editors remain
 supporting files beside it. Existing syntax IDs and site enablement stay in the
 plugin registration path.
 
-`ComposerComponent<T>` and the `composer/document`, `composer/hybrid`, and
-`composer/surface` modules remain the separate typed-component editor work.
-They are not connected to the live field by this refactor. A new live component
-uses the syntax policy path above rather than adding a second registry.
-
 ## Design choice and verification
 
 Standalone builders keep the feature-specific types precise. A universal
