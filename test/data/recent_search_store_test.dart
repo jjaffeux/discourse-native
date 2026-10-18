@@ -5,6 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('keeps the newest 100 removed terms when history grows', () async {
+    const store = RecentSearchStore();
+    await store.write('https://example.com', 'sam', {
+      for (var index = 0; index < 105; index++) 'removed $index',
+    });
+
+    expect(await store.read('https://example.com', 'sam'), {
+      for (var index = 5; index < 105; index++) 'removed $index',
+    });
+  });
+
   test(
     'removed recents persist per site and account without affecting another account',
     () async {

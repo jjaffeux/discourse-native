@@ -5,6 +5,8 @@ import 'site_preference_keys.dart';
 class RecentSearchStore {
   const RecentSearchStore();
 
+  static const _maximumTerms = 100;
+
   static const keys = SitePreferenceKey(
     'search.removed',
     tail: SitePreferenceTail.name,
@@ -27,6 +29,8 @@ class RecentSearchStore {
   Future<void> write(String site, String username, Set<String> terms) =>
       preferences.write(
         SitePreferenceIdentity.account(site, username),
-        terms.take(100).toList(),
+        terms
+            .skip((terms.length - _maximumTerms).clamp(0, terms.length))
+            .toList(),
       );
 }
