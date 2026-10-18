@@ -5,9 +5,9 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../foundation/foreground_lifecycle.dart';
 import '../inline_video_playback.dart';
 import '../open_link.dart';
+import '../reader_media_host.dart';
 import '../shell_scope.dart';
 import 'embedded.dart';
 
@@ -62,66 +62,43 @@ class AudioOnebox extends StatefulWidget {
   State<AudioOnebox> createState() => _AudioOneboxState();
 }
 
-class _AudioOneboxState extends State<AudioOnebox> with WidgetsBindingObserver {
+class _AudioOneboxState extends State<AudioOnebox>
+    with ReaderMediaHost<AudioOnebox> {
   InlineVideoPlaybackSession? _session;
-  bool _visible = true;
-  bool _foreground = true;
-  InlineVideoPlaybackSession? _pausing;
+
+  Object get _mediaSource => (
+    widget.data.source,
+    widget.siteUrl,
+    widget.sessionFactory,
+    mediaAccountFor(widget.siteUrl)?.session,
+  );
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _foreground = isForegroundLifecycle(WidgetsBinding.instance.lifecycleState);
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _visible = TickerMode.valuesOf(context).enabled;
-    if (!_visible) unawaited(_session?.pause());
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = isForegroundLifecycle(state);
-    if (!_foreground) unawaited(_session?.pause());
+  void mediaAccountRetired() {
+    _retire();
+    if (mounted) setState(() {});
   }
 
   @override
   void didUpdateWidget(AudioOnebox oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data.source != widget.data.source ||
-        oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.sessionFactory != widget.sessionFactory) {
+    if (_session != null && mediaActivity.attachment?.source != _mediaSource) {
       _retire();
     }
   }
 
   void _retire() {
     _session?.removeListener(_changed);
-    _session?.dispose();
+    mediaActivity.retire();
     _session = null;
   }
 
   void _changed() {
-    final session = _session;
-    if ((!_visible || !_foreground) &&
-        session != null &&
-        session.state.isPlaying &&
-        !identical(_pausing, session)) {
-      _pausing = session;
-      unawaited(
-        session.pause().whenComplete(() {
-          if (identical(_pausing, session)) _pausing = null;
-        }),
-      );
-    }
     if (mounted) setState(() {});
   }
 
   void _start() {
-    if (!_foreground || !_visible) return;
+    if (!mediaActivity.mayStart) return;
     _retire();
     final shell = ShellScope.maybeIdentityOf(context);
     final session = widget.sessionFactory(
@@ -137,6 +114,12 @@ class _AudioOneboxState extends State<AudioOnebox> with WidgetsBindingObserver {
       ),
     );
     _session = session;
+    final account = mediaAccountFor(widget.siteUrl);
+    mediaActivity.attachPlayback(
+      source: _mediaSource,
+      session: session,
+      account: account,
+    );
     session.addListener(_changed);
     setState(() {});
     unawaited(session.start());
@@ -144,7 +127,6 @@ class _AudioOneboxState extends State<AudioOnebox> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _retire();
     super.dispose();
   }
@@ -183,7 +165,7 @@ class _AudioOneboxState extends State<AudioOnebox> with WidgetsBindingObserver {
               }
               if (session.state.isPlaying) {
                 unawaited(session.pause());
-              } else if (_foreground && _visible) {
+              } else if (mediaActivity.claimPlay(mediaActivity.attachment!)) {
                 unawaited(session.play());
               }
             },

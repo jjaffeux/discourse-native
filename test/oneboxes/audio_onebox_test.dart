@@ -2,9 +2,13 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/inline_video_playback.dart';
 import 'package:discourse_native/src/shell/oneboxes/audio.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
+
+import '../support/fakes.dart';
 
 void main() {
   test('core audio markup resolves uploads and rejects unsafe URLs', () {
@@ -122,6 +126,54 @@ void main() {
     expect(session.pauses, greaterThanOrEqualTo(1));
     await tester.pumpWidget(const SizedBox());
     expect(session.disposed, isTrue);
+  });
+
+  testWidgets('same-shell account retirement releases activated audio', (
+    tester,
+  ) async {
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([]),
+      api: FakeDiscourseApi(),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(shell.dispose);
+    final sessions = <_Session>[];
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          home: AudioOnebox(
+            siteUrl: 'https://forum.test',
+            data: AudioOneboxData(
+              source: Uri.parse('https://forum.test/a.mp3'),
+              title: 'Audio',
+            ),
+            sessionFactory: (_) {
+              final session = _Session();
+              sessions.add(session);
+              return session;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Play audio'));
+    await tester.pump();
+    shell.lifecycle.invalidate('https://forum.test');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    shell.notifyPluginStateChanged();
+    await tester.pump();
+    expect(sessions.single.disposed, isTrue);
+    expect(find.text('Play audio'), findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.tap(find.text('Play audio'));
+    await tester.pump();
+    expect(sessions, hasLength(2));
+    expect(sessions.last.disposed, isFalse);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('an unfocused window keeps audio playing until it is hidden', (

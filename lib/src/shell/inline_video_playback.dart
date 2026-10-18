@@ -14,6 +14,47 @@ import '../data/site_video_source.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import 'external_link.dart';
 import 'media_webview.dart';
+import 'reader_media_activity.dart';
+
+extension ReaderMediaPlaybackActivity on ReaderMediaActivity {
+  ReaderMediaAttachment attachPlayback({
+    required Object source,
+    required InlineVideoPlaybackSession session,
+    SiteLease? account,
+    bool exclusiveVideo = false,
+  }) {
+    final endpoint = _PlaybackActivityEndpoint(session);
+    final attachment = attach(
+      source: source,
+      endpoint: endpoint,
+      account: account,
+      exclusiveVideo: exclusiveVideo,
+    );
+    endpoint.changed = () =>
+        playbackChanged(attachment, session.state.isPlaying);
+    session.addListener(endpoint.changed);
+    playbackChanged(attachment, session.state.isPlaying);
+    return attachment;
+  }
+}
+
+final class _PlaybackActivityEndpoint implements ReaderMediaEndpoint {
+  _PlaybackActivityEndpoint(this.session);
+
+  final InlineVideoPlaybackSession session;
+  late final VoidCallback changed;
+
+  @override
+  Future<void> setPlaybackVisible(bool visible) async {
+    if (!visible) await session.pause();
+  }
+
+  @override
+  void retire() {
+    session.removeListener(changed);
+    session.dispose();
+  }
+}
 
 @immutable
 final class InlineVideoPlaybackRequest {

@@ -15,12 +15,13 @@ import 'package:webview_all/webview_all.dart';
 import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 
 import '../diagnostics/diagnostics_controller.dart';
-import '../foundation/foreground_lifecycle.dart';
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
 import '../ui/foundation/native_webview_scroll.dart';
 import 'external_link.dart';
 import 'media_webview.dart';
+import 'reader_media_activity.dart';
+import 'reader_media_host.dart';
 import 'site_image.dart';
 
 const Set<String> _youtubeHosts = {
@@ -333,6 +334,7 @@ class _YoutubeVideoState extends State<YoutubeVideo> {
       YoutubePlayerSurface(
         data: widget.data,
         forumOrigin: youtubeForumOrigin(widget.siteUrl),
+        siteUrl: widget.siteUrl,
         viewportAnchor: _usesRootPlayerOverlay ? _playerAnchorKey : null,
       );
 
@@ -620,11 +622,13 @@ class YoutubePlayerSurface extends StatefulWidget {
     super.key,
     required this.data,
     required this.forumOrigin,
+    this.siteUrl,
     this.viewportAnchor,
   });
 
   final YoutubeVideoData data;
   final Uri? forumOrigin;
+  final String? siteUrl;
   final GlobalKey? viewportAnchor;
 
   @override
@@ -632,119 +636,50 @@ class YoutubePlayerSurface extends StatefulWidget {
 }
 
 class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
-    with WidgetsBindingObserver {
+    with ReaderMediaHost<YoutubePlayerSurface> {
   final GlobalKey _surfaceKey = GlobalKey();
   WebViewController? _controller;
-  ScrollableState? _scrollable;
-  ScrollPosition? _scrollPosition;
+  Object? _attemptedSource;
   Object? _error;
-  int _generation = 0;
   bool _loadingDocument = true;
-  bool _tickerEnabled = true;
-  bool _appForeground = true;
-  bool _viewportVisible = true;
-  bool _viewportCheckScheduled = false;
-  bool? _requestedVisibility;
-  Future<void> _visibilityTail = Future<void>.value();
 
-  bool get _canPlay => _appForeground && _tickerEnabled && _viewportVisible;
+  Object get _mediaSource => (
+    widget.data.playbackIdentity,
+    widget.forumOrigin,
+    widget.siteUrl,
+    mediaAccountFor(widget.siteUrl ?? widget.forumOrigin?.toString())?.session,
+  );
 
   @override
-  void initState() {
-    super.initState();
-    _appForeground = isForegroundLifecycle(
-      WidgetsBinding.instance.lifecycleState,
-    );
-    WidgetsBinding.instance.addObserver(this);
-    _initialize();
-  }
+  bool get mediaNeedsGeometry => true;
+
+  @override
+  GlobalKey get mediaSourceAnchor => widget.viewportAnchor ?? _surfaceKey;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    final scrollable = Scrollable.maybeOf(context);
-    final position = scrollable?.position;
-    if (!identical(position, _scrollPosition)) {
-      _scrollPosition?.removeListener(_scheduleViewportCheck);
-      _scrollPosition = position;
-      position?.addListener(_scheduleViewportCheck);
-    }
-    _scrollable = scrollable;
-    _scheduleViewportCheck();
-    _syncPlaybackVisibility();
+    if (_controller == null && _error == null) _initialize();
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _appForeground = isForegroundLifecycle(state);
-    _syncPlaybackVisibility();
-  }
-
-  void _scheduleViewportCheck() {
-    if (_viewportCheckScheduled) return;
-    _viewportCheckScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewportCheckScheduled = false;
-      if (!mounted) return;
-      final surface = (widget.viewportAnchor ?? _surfaceKey).currentContext
-          ?.findRenderObject();
-      if (surface is! RenderBox || !surface.attached || !surface.hasSize) {
-        return;
-      }
-      final view = View.of(context);
-      var viewport = Offset.zero & (view.physicalSize / view.devicePixelRatio);
-      final scrollViewport = _scrollable?.context.findRenderObject();
-      if (scrollViewport is RenderBox &&
-          scrollViewport.attached &&
-          scrollViewport.hasSize) {
-        viewport = viewport.intersect(
-          scrollViewport.localToGlobal(Offset.zero) & scrollViewport.size,
-        );
-      }
-      final origin = surface.localToGlobal(Offset.zero);
-      final bounds = origin & surface.size;
-      final visible =
-          origin.dx.isFinite &&
-          origin.dy.isFinite &&
-          !viewport.isEmpty &&
-          bounds.overlaps(viewport);
-      if (_viewportVisible == visible) return;
-      _viewportVisible = visible;
-      _syncPlaybackVisibility();
-    });
-  }
-
-  void _syncPlaybackVisibility({bool force = false}) {
-    final controller = _controller;
-    final generation = _generation;
-    if (controller == null || (!force && _requestedVisibility == _canPlay)) {
-      return;
-    }
-    _requestedVisibility = _canPlay;
-    _visibilityTail = _visibilityTail.then((_) async {
-      if (!_isCurrent(controller, generation)) return;
-      await _tryWebViewCommand(
-        () => controller.runJavaScript(
-          'window.nativeYoutubeSetVisible?.($_canPlay);',
-        ),
-      );
-    });
+  void mediaAccountRetired() {
+    _controller = null;
+    _initialize();
+    if (mounted) setState(() {});
   }
 
   @override
   void didUpdateWidget(YoutubePlayerSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data.playbackIdentity != widget.data.playbackIdentity ||
-        oldWidget.forumOrigin != widget.forumOrigin) {
+    if (_attemptedSource != _mediaSource) {
       _initialize();
     }
   }
 
   void _initialize() {
     _retire();
-    final generation = _generation;
-    _visibilityTail = Future<void>.value();
+    _attemptedSource = _mediaSource;
     _loadingDocument = true;
     _error = null;
 
@@ -753,14 +688,22 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
         youtubeWebViewCreationParams(),
       );
       _controller = controller;
+      final account = mediaAccountFor(
+        widget.siteUrl ?? widget.forumOrigin?.toString(),
+      );
+      final attachment = mediaActivity.attach(
+        source: _attemptedSource!,
+        account: account,
+        endpoint: _YoutubeActivityEndpoint(controller, _release),
+      );
       unawaited(
         _configure(
           controller,
           widget.data,
           widget.forumOrigin,
-          generation,
+          attachment,
         ).catchError((Object error, StackTrace stack) {
-          if (!_isCurrent(controller, generation)) return;
+          if (!_isCurrent(controller, attachment)) return;
           _report(error, stack);
           _retire();
           setState(() {
@@ -775,37 +718,37 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
     }
   }
 
-  bool _isCurrent(WebViewController controller, int generation) =>
-      mounted &&
-      generation == _generation &&
-      identical(_controller, controller);
+  bool _isCurrent(
+    WebViewController controller,
+    ReaderMediaAttachment attachment,
+  ) => mounted && attachment.isCurrent && identical(_controller, controller);
 
   Future<void> _configure(
     WebViewController controller,
     YoutubeVideoData data,
     Uri? forumOrigin,
-    int generation,
+    ReaderMediaAttachment attachment,
   ) async {
     try {
       final documentBase = forumOrigin ?? Uri.parse('https://www.youtube.com');
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
-      if (!_isCurrent(controller, generation)) return;
+      if (!_isCurrent(controller, attachment)) return;
       await controller.addJavaScriptChannel(
         _youtubeVisibilityChannel,
         onMessageReceived: (message) {
           if (message.message == 'ready' &&
-              _isCurrent(controller, generation)) {
-            _syncPlaybackVisibility(force: true);
+              _isCurrent(controller, attachment)) {
+            mediaActivity.refresh(attachment);
           }
         },
       );
-      if (!_isCurrent(controller, generation)) return;
+      if (!_isCurrent(controller, attachment)) return;
       await controller.setBackgroundColor(Colors.black);
-      if (!_isCurrent(controller, generation)) return;
+      if (!_isCurrent(controller, attachment)) return;
       await controller.setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (request) {
-            if (!_isCurrent(controller, generation)) {
+            if (!_isCurrent(controller, attachment)) {
               return request.url == 'about:blank'
                   ? NavigationDecision.navigate
                   : NavigationDecision.prevent;
@@ -824,13 +767,13 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
             return NavigationDecision.prevent;
           },
           onPageFinished: (_) {
-            if (!_isCurrent(controller, generation)) return;
+            if (!_isCurrent(controller, attachment)) return;
             _loadingDocument = false;
-            _syncPlaybackVisibility(force: true);
+            mediaActivity.refresh(attachment);
           },
         ),
       );
-      if (!_isCurrent(controller, generation)) return;
+      if (!_isCurrent(controller, attachment)) return;
       if (defaultTargetPlatform == TargetPlatform.macOS) {
         if (controller.platform case final WebKitWebViewController webKit) {
           // WKWebView disables the Fullscreen API by default. Enable it before
@@ -841,7 +784,7 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
             'enableYoutubeFullscreen',
             webKit.webViewIdentifier,
           );
-          if (!_isCurrent(controller, generation)) return;
+          if (!_isCurrent(controller, attachment)) return;
         }
         await controller.addUserScript(
           const WebViewUserScript(
@@ -849,30 +792,27 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
             forMainFrameOnly: false,
           ),
         );
-        if (!_isCurrent(controller, generation)) return;
+        if (!_isCurrent(controller, attachment)) return;
       }
       await controller.loadHtmlString(
         buildYoutubeEmbedHtml(
           data,
           forumOrigin: forumOrigin,
-          visible: _canPlay,
+          visible: attachment.mayPlay,
         ),
         baseUrl: documentBase.toString(),
       );
-      if (_isCurrent(controller, generation)) {
-        _syncPlaybackVisibility(force: true);
+      if (_isCurrent(controller, attachment)) {
+        mediaActivity.refresh(attachment);
       }
     } finally {
-      if (!_isCurrent(controller, generation)) await _release(controller);
+      if (!_isCurrent(controller, attachment)) await _release(controller);
     }
   }
 
   void _retire() {
-    _generation++;
-    _requestedVisibility = null;
-    final controller = _controller;
     _controller = null;
-    if (controller != null) unawaited(_release(controller));
+    mediaActivity.retire();
   }
 
   Future<void> _release(WebViewController controller) async {
@@ -899,8 +839,6 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _scrollPosition?.removeListener(_scheduleViewportCheck);
     _retire();
     super.dispose();
   }
@@ -948,7 +886,7 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        _scheduleViewportCheck();
+        scheduleMediaGeometry();
         return Semantics(
           key: _surfaceKey,
           label: context.l10n.youTubePlayer((widget.data.title).toString()),
@@ -1034,6 +972,20 @@ Uri youtubeEmbedUri(YoutubeVideoData data, {Uri? forumOrigin}) {
   final videoId = data.videoId;
   final path = videoId == null ? '/embed/videoseries' : '/embed/$videoId';
   return Uri.https('www.youtube.com', path, query);
+}
+
+final class _YoutubeActivityEndpoint implements ReaderMediaEndpoint {
+  _YoutubeActivityEndpoint(this.controller, this.release);
+
+  final WebViewController controller;
+  final Future<void> Function(WebViewController) release;
+
+  @override
+  Future<void> setPlaybackVisible(bool visible) =>
+      controller.runJavaScript('window.nativeYoutubeSetVisible?.($visible);');
+
+  @override
+  void retire() => unawaited(release(controller));
 }
 
 String buildYoutubeEmbedHtml(

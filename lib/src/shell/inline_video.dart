@@ -11,12 +11,12 @@ import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
-import '../foundation/foreground_lifecycle.dart';
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'generated_video_poster.dart';
 import 'inline_video_playback.dart';
+import 'reader_media_host.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
 import 'site_url.dart';
@@ -424,64 +424,39 @@ class InlineVideoPlaybackSurface extends StatefulWidget {
 }
 
 class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
-    with WidgetsBindingObserver {
+    with ReaderMediaHost<InlineVideoPlaybackSurface> {
   InlineVideoPlaybackSession? _session;
   InlineVideoPlaybackSession? _fullscreenSession;
-  InlineVideoPlaybackSession? _pausingSession;
-  bool _tickerEnabled = true;
-  bool _fullscreenTickerEnabled = false;
-  bool _appForeground = true;
-  bool? _playbackVisible;
 
   bool get _fullscreenOpen => _fullscreenSession != null;
 
-  bool get _canPlay =>
-      _appForeground &&
-      (_tickerEnabled ||
-          (identical(_fullscreenSession, _session) &&
-              _fullscreenTickerEnabled));
-
-  @override
-  void initState() {
-    super.initState();
-    _appForeground = isForegroundLifecycle(
-      WidgetsBinding.instance.lifecycleState,
-    );
-    WidgetsBinding.instance.addObserver(this);
-  }
+  Object get _mediaSource => (
+    widget.data.playbackIdentity,
+    widget.siteUrl,
+    widget.credentials,
+    widget.lifecycle,
+    widget.sessionFactory,
+    mediaAccountFor(widget.siteUrl, lifecycle: widget.lifecycle)?.session,
+  );
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    if (_session == null) {
-      _replaceSession();
-    } else {
-      _syncPlaybackVisibility();
-    }
+    if (_session == null) _replaceSession();
   }
+
+  @override
+  void mediaAccountRetired() => _replaceSession();
 
   @override
   void didUpdateWidget(InlineVideoPlaybackSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.data.playbackIdentity != widget.data.playbackIdentity ||
-        oldWidget.siteUrl != widget.siteUrl ||
-        !identical(oldWidget.credentials, widget.credentials) ||
-        !identical(oldWidget.lifecycle, widget.lifecycle) ||
-        !identical(oldWidget.sessionFactory, widget.sessionFactory)) {
+    if (mediaActivity.attachment?.source != _mediaSource) {
       _replaceSession();
     }
   }
 
   void _replaceSession() {
-    final previous = _session;
-    _session = null;
-    if (previous != null) {
-      previous.removeListener(_syncPlaybackVisibility);
-      _InlineVideoPlaybackCoordinator.release(previous);
-      previous.dispose();
-    }
-
     final session = widget.sessionFactory(
       InlineVideoPlaybackRequest(
         source: widget.data.source,
@@ -494,48 +469,25 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
       ),
     );
     _session = session;
-    _playbackVisible = null;
-    session.addListener(_syncPlaybackVisibility);
-    _syncPlaybackVisibility();
+    final account = mediaAccountFor(
+      widget.siteUrl,
+      lifecycle: widget.lifecycle,
+    );
+    mediaActivity.attachPlayback(
+      source: _mediaSource,
+      session: session,
+      account: account,
+      exclusiveVideo: true,
+    );
     if (mounted) setState(() {});
     unawaited(session.start());
-  }
-
-  void _syncPlaybackVisibility() {
-    final session = _session;
-    if (!mounted || session == null) return;
-    final visible = _canPlay;
-    final changed = _playbackVisible != visible;
-    _playbackVisible = visible;
-    if (!visible) {
-      _InlineVideoPlaybackCoordinator.release(session);
-      if (changed || session.state.isPlaying) unawaited(_pauseHidden(session));
-    } else if (session.state.isPlaying) {
-      _InlineVideoPlaybackCoordinator.activate(session, session.pause);
-    }
-  }
-
-  Future<void> _pauseHidden(InlineVideoPlaybackSession session) async {
-    if (identical(_pausingSession, session)) return;
-    _pausingSession = session;
-    try {
-      await session.pause();
-    } on Object {
-      // A replaced platform view may already be detached.
-      return;
-    } finally {
-      if (identical(_pausingSession, session)) _pausingSession = null;
-    }
-    if (mounted && identical(_session, session) && !_canPlay) {
-      _syncPlaybackVisibility();
-    }
   }
 
   void _retry() => _replaceSession();
 
   Future<void> _togglePlayback() async {
     final session = _session;
-    if (!_canPlay ||
+    if (!(mediaActivity.attachment?.mayPlay ?? false) ||
         session == null ||
         session.state.phase != InlineVideoPlaybackPhase.ready) {
       return;
@@ -543,23 +495,22 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     if (session.state.isPlaying) {
       await session.pause();
     } else {
-      _InlineVideoPlaybackCoordinator.activate(session, session.pause);
+      mediaActivity.claimPlay(mediaActivity.attachment!);
       await session.play();
     }
   }
 
   Future<void> _openFullscreen() async {
     final session = _session;
-    if (!_canPlay ||
+    if (!(mediaActivity.attachment?.mayPlay ?? false) ||
         _fullscreenOpen ||
         session == null ||
         !session.state.supportsFullscreen) {
       return;
     }
-    setState(() {
-      _fullscreenSession = session;
-      _fullscreenTickerEnabled = true;
-    });
+    final attachment = mediaActivity.attachment!;
+    mediaActivity.fullscreen(attachment, visible: true);
+    setState(() => _fullscreenSession = session);
     try {
       await Navigator.of(context, rootNavigator: true).push(
         MaterialPageRoute<void>(
@@ -570,11 +521,10 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
             session: session,
             onVisibilityChanged: (visible) {
               if (!mounted || !identical(_fullscreenSession, session)) return;
-              _fullscreenTickerEnabled = visible;
               // Inline and fullscreen controls listen from different routes.
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted && identical(_fullscreenSession, session)) {
-                  _syncPlaybackVisibility();
+                  mediaActivity.fullscreen(attachment, visible: visible);
                 }
               });
             },
@@ -587,20 +537,13 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
       if (mounted) {
         setState(() {
           _fullscreenSession = null;
-          _fullscreenTickerEnabled = false;
         });
         // The source route receives its restored TickerMode during this frame.
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _syncPlaybackVisibility();
+          if (mounted) mediaActivity.endFullscreen(attachment);
         });
       }
     }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _appForeground = isForegroundLifecycle(state);
-    _syncPlaybackVisibility();
   }
 
   @override
@@ -659,19 +602,6 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
         },
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    final session = _session;
-    _session = null;
-    if (session != null) {
-      session.removeListener(_syncPlaybackVisibility);
-      _InlineVideoPlaybackCoordinator.release(session);
-      session.dispose();
-    }
-    super.dispose();
   }
 }
 
@@ -973,35 +903,6 @@ class _PlaybackTimeline extends StatelessWidget {
       );
     },
   );
-}
-
-final class _InlineVideoPlaybackCoordinator {
-  static Object? _owner;
-  static Future<void> Function()? _pauseCurrent;
-
-  static void activate(Object owner, Future<void> Function() pause) {
-    if (identical(_owner, owner)) return;
-    final previous = _pauseCurrent;
-    _owner = owner;
-    _pauseCurrent = pause;
-    if (previous != null) unawaited(_pauseIgnoringFailure(previous));
-  }
-
-  static void release(Object owner) {
-    if (!identical(_owner, owner)) return;
-    _owner = null;
-    _pauseCurrent = null;
-  }
-
-  static Future<void> _pauseIgnoringFailure(
-    Future<void> Function() pause,
-  ) async {
-    try {
-      await pause();
-    } on Object {
-      // A replaced platform view may already be detached.
-    }
-  }
 }
 
 class _ActiveVideoFrame extends StatelessWidget {

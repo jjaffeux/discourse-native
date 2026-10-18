@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_post_retention.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_platform_interface/webview_platform_interface.dart';
 
 import 'support/fake_media_webview.dart';
+import 'support/fakes.dart';
 
 const _video = YoutubeVideoData(
   videoId: 'first_video',
@@ -190,6 +193,10 @@ void main() {
       await tester.pump();
       expect(find.text("Couldn't load the YouTube player."), findsOneWidget);
 
+      await tester.pumpWidget(_player());
+      expect(platform.controllers, hasLength(1));
+      expect(find.text("Couldn't load the YouTube player."), findsOneWidget);
+
       expect(
         await delegate.navigate('https://www.youtube.com/watch?v=first_video'),
         NavigationDecision.prevent,
@@ -271,6 +278,53 @@ void main() {
     expect(platform.controllers.single, same(controller));
     expect(controller.documents, hasLength(1));
     expect(controller.scripts.where((s) => s.contains('playVideo')), isEmpty);
+  });
+
+  testWidgets('same-shell account replacement retires pending YouTube setup', (
+    tester,
+  ) async {
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([]),
+      api: FakeDiscourseApi(),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(shell.dispose);
+    final gate = Completer<void>();
+    platform.nextGate = (
+      MediaWebViewConfigurationStage.navigation,
+      gate.future,
+    );
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          home: YoutubePlayerSurface(
+            data: _video,
+            forumOrigin: _forum,
+            siteUrl: 'https://first.example/community/',
+          ),
+        ),
+      ),
+    );
+    final old = platform.controllers.single;
+    shell.lifecycle.invalidate('https://first.example/community/');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    shell.notifyPluginStateChanged();
+    await tester.pump();
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(platform.controllers, hasLength(2));
+    expect(old.documents.every((d) => !d.html.contains('<iframe')), isTrue);
+    expect(old.channels, isEmpty);
+    expect(
+      platform.controllers.last.documents.single.html,
+      contains('<iframe'),
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets('backgrounding pauses but losing focus preserves playback', (
