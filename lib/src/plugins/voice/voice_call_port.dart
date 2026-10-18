@@ -40,31 +40,6 @@ final class VoiceCallPresentation {
 
   /// Stable for one call so a replacement starts with a visible preview.
   final Object? identity;
-
-  VoiceCallPresentation copyWith({
-    String? roomName,
-    String? siteName,
-    int? participantCount,
-    VoiceCallPresentationStatus? status,
-    bool? muted,
-    bool? recording,
-    Widget? localVideoPreview,
-    String? failureMessage,
-    bool clearLocalVideoPreview = false,
-    bool clearFailure = false,
-  }) => VoiceCallPresentation(
-    roomName: roomName ?? this.roomName,
-    siteName: siteName ?? this.siteName,
-    participantCount: participantCount ?? this.participantCount,
-    status: status ?? this.status,
-    muted: muted ?? this.muted,
-    recording: recording ?? this.recording,
-    localVideoPreview: clearLocalVideoPreview
-        ? null
-        : localVideoPreview ?? this.localVideoPreview,
-    failureMessage: clearFailure ? null : failureMessage ?? this.failureMessage,
-    identity: identity,
-  );
 }
 
 @immutable
