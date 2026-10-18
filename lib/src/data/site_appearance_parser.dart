@@ -125,7 +125,7 @@ SiteAppearanceSelection? resolveSiteAppearanceSelection({
     final json = _stringMap(value);
     final id = _jsonInt(json?['id']);
     if (json == null || id == null) continue;
-    schemes[id] = _SchemeChoice(id: id, themeId: _jsonInt(json['theme_id']));
+    schemes[id] = _SchemeChoice(themeId: _jsonInt(json['theme_id']));
   }
 
   bool accepts(int id, int? themeDefault) {
@@ -215,9 +215,8 @@ final class _ThemeChoice {
 }
 
 final class _SchemeChoice {
-  const _SchemeChoice({required this.id, required this.themeId});
+  const _SchemeChoice({required this.themeId});
 
-  final int id;
   final int? themeId;
 }
 

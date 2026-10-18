@@ -459,7 +459,6 @@ class ShellController extends FrameSafeNotifier
   }) {
     if (isDisposed) return () {};
     final watch = _CookingWatch(
-      siteUrl: siteUrl,
       read: () => _cookingStamp(siteUrl),
       onChanged: onChanged,
     );
@@ -18440,12 +18439,10 @@ typedef _CookingSourceStamp = ({
 /// Active draft observers own only the bounded refs their source mentions.
 final class _CookingWatch {
   _CookingWatch({
-    required this.siteUrl,
     required this.read,
     required this.onChanged,
   }) : _stamp = read();
 
-  final String siteUrl;
   final _CookingSourceStamp Function() read;
   final VoidCallback onChanged;
   final List<VoidCallback> _retire = [];

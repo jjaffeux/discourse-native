@@ -28,7 +28,7 @@ final class EmojiPickerController extends ChangeNotifier {
     required this.store,
     required this.loadCatalog,
     required this.loadSearchAliases,
-    this.initialQuery = '',
+    String initialQuery = '',
     this.searchDebounce = const Duration(milliseconds: 250),
   }) : _query = initialQuery;
 
@@ -41,7 +41,6 @@ final class EmojiPickerController extends ChangeNotifier {
   final EmojiPreferenceStore store;
   final EmojiCatalogLoader loadCatalog;
   final EmojiSearchAliasLoader loadSearchAliases;
-  final String initialQuery;
   final Duration searchDebounce;
 
   SiteEmojiCatalog? _catalog;
