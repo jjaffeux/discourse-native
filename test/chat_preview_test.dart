@@ -475,7 +475,6 @@ void main() {
       final document = PreviewDocument(raw, [
         ChatPreviewCodeBlock(
           range: SourceRange(0, raw.length),
-          bodyRange: SourceRange(8, 8 + code.length),
           code: code,
           language: 'ruby',
         ),

@@ -31,9 +31,7 @@ class ChatMessageTile extends StatelessWidget {
     required this.messageId,
     required this.chained,
     this.previousMessageId,
-    this.joinsNext = false,
     this.endsGroup = true,
-    this.followsReactions = false,
     this.contextThreadId,
     this.onOpenThread,
     this.onJumpToMessage,
@@ -57,13 +55,9 @@ class ChatMessageTile extends StatelessWidget {
   /// The preceding message in this pane, independently of author grouping.
   final int? previousMessageId;
 
-  /// Whether the following bubble continues this visible sender run.
-  final bool joinsNext;
-
   /// Whether this is the last visible message in a consecutive-sender run.
   /// Adds breathing room after the final bubble; avatars mark the first row.
   final bool endsGroup;
-  final bool followsReactions;
 
   final ValueChanged<ChatThreadPreview>? onOpenThread;
 
@@ -158,9 +152,6 @@ class ChatMessageTile extends StatelessWidget {
       siteUrl: siteUrl,
       message: message,
       chained: chained,
-      joinsNext: joinsNext,
-      endsGroup: endsGroup,
-      followsReactions: followsReactions,
       onOpenThread: onOpenThread,
       onJumpToMessage: onJumpToMessage,
       showThreadSummary:
@@ -1153,9 +1144,6 @@ class _Tile extends StatelessWidget {
     required this.siteUrl,
     required this.message,
     required this.chained,
-    required this.joinsNext,
-    required this.endsGroup,
-    required this.followsReactions,
     required this.onOpenThread,
     required this.onJumpToMessage,
     required this.showThreadSummary,
@@ -1169,9 +1157,6 @@ class _Tile extends StatelessWidget {
   final String siteUrl;
   final ChatMessage message;
   final bool chained;
-  final bool joinsNext;
-  final bool endsGroup;
-  final bool followsReactions;
   final ValueChanged<ChatThreadPreview>? onOpenThread;
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;

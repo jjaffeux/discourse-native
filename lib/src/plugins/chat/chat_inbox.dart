@@ -71,15 +71,10 @@ class ChatInboxFilterBar extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.filters,
-    this.compact = false,
   });
 
   final String siteUrl;
   final ChatInboxFilters filters;
-
-  /// The desktop sidebar's narrow width: the type filter drops its icon so
-  /// both filters and presence share one line at the default width.
-  final bool compact;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -432,7 +427,6 @@ class ChatSidebarInboxHeader extends StatelessWidget {
               context,
               chatControllerService,
             ).inboxFilters,
-            compact: true,
           ),
         ),
       ),

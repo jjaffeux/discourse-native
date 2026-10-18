@@ -128,12 +128,10 @@ final class ChatPreviewSyntax extends ChatPreviewNode {
 final class ChatPreviewCodeBlock extends ChatPreviewNode {
   const ChatPreviewCodeBlock({
     required super.range,
-    required this.bodyRange,
     required this.code,
     this.language,
   });
 
-  final SourceRange bodyRange;
   final String code;
   final String? language;
 }

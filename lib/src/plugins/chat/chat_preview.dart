@@ -443,7 +443,6 @@ List<ChatPreviewNode> _buildDocument(
       nodes.add(
         ChatPreviewCodeBlock(
           range: fence.range,
-          bodyRange: fence.bodyRange,
           code: source.substring(fence.bodyRange.start, fence.bodyRange.end),
           language: fence.language,
         ),

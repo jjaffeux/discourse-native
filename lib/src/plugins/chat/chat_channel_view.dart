@@ -1733,23 +1733,9 @@ class _StreamState extends State<ChatMessageStream>
                             messageId: id,
                             chained: chained,
                             previousMessageId: _previousMessageId(id),
-                            joinsNext: switch (_itemAt(row - 1)) {
-                              ChatStreamMessage(:final chained) => chained,
-                              _ => false,
-                            },
                             endsGroup: switch (_itemAt(row - 1)) {
                               ChatStreamMessage(:final chained) => !chained,
                               _ => true,
-                            },
-                            followsReactions: switch (_itemAt(row + 1)) {
-                              ChatStreamMessage(:final id) =>
-                                _chat!
-                                        .messageRef(siteUrl, id)
-                                        .value
-                                        ?.reactions
-                                        .isNotEmpty ==
-                                    true,
-                              _ => false,
                             },
                             contextThreadId: widget.target.threadId,
                             onOpenThread: widget.onOpenThread,
