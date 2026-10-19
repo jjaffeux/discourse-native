@@ -2411,8 +2411,8 @@ void main() {
             ),
           )
           .style!;
-      expect(style.fontFamily, monospaceFontFamily);
-      expect(style.fontFamilyFallback, monospaceFallback);
+      expect(style.fontFamily, monospaceTextStyle.fontFamily);
+      expect(style.fontFamilyFallback, monospaceTextStyle.fontFamilyFallback);
       expect(style.fontFeatures, contains(const FontFeature.disable('liga')));
       // 0.875 of the 14px body text.
       expect(style.fontSize, 12.25);

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
+import '../foundation/bounded_lru_cache.dart';
+
 /// Words belong to one page in one tab, never to the global search editor.
 class SearchWords extends InheritedWidget {
   const SearchWords({super.key, required this.query, required super.child});
@@ -101,6 +103,14 @@ class SearchText extends StatelessWidget {
 String highlightSearchHtml(String html, String query) {
   final pattern = searchWordPattern(query);
   if (pattern == null) return html;
+  final inputCodeUnits = html.length + query.length;
+  final cacheKey = inputCodeUnits <= _highlightHtmlMaxEntryCodeUnits
+      ? (html, query)
+      : null;
+  final cached = cacheKey == null
+      ? null
+      : _highlightedSearchHtml.read(cacheKey);
+  if (cached != null) return cached;
   final fragment = html_parser.parseFragment(html);
   void visit(dom.Node node) {
     if (node is dom.Element &&
@@ -143,5 +153,13 @@ String highlightSearchHtml(String html, String query) {
   }
 
   visit(fragment);
-  return fragment.outerHtml;
+  final highlighted = fragment.outerHtml;
+  if (cacheKey != null &&
+      inputCodeUnits + highlighted.length <= _highlightHtmlMaxEntryCodeUnits) {
+    _highlightedSearchHtml.put(cacheKey, highlighted);
+  }
+  return highlighted;
 }
+
+const _highlightHtmlMaxEntryCodeUnits = 256 * 1024;
+final _highlightedSearchHtml = BoundedLruCache<(String, String), String>(16);
