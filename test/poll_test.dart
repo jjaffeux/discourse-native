@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_api.dart';
+import 'package:discourse_native/src/plugins/poll/poll_card.dart'
+    show calculateNumberPollAverage;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -137,6 +139,110 @@ void main() {
         RankedPollSelection(digest: 'a', rank: 2),
         RankedPollSelection(digest: 'b', rank: 1),
       ]);
+    });
+
+    for (final type in [
+      'regular',
+      'multiple',
+      'ranked_choice',
+      'quadratic',
+      'number',
+    ]) {
+      test('$type options preserve HTML, text, and numeric values', () {
+        const cases = [
+          (
+            html: ' \n<strong>Soup &amp; bread</strong>\t &#32; today ',
+            text: 'Soup & bread today',
+            number: null,
+          ),
+          (html: ' <b>&#52;2</b>\n', text: '42', number: 42),
+          (html: '\t<em>-2.5</em> ', text: '-2.5', number: -2.5),
+          (html: '<span>12 pieces</span>', text: '12 pieces', number: null),
+        ];
+        final poll = Poll.fromJson(
+          pollJson(
+            type: type,
+            options: [
+              for (var index = 0; index < cases.length; index++)
+                {'id': '$index', 'html': cases[index].html, 'votes': index},
+            ],
+          ),
+          'https://forum.example',
+        )!;
+
+        expect(poll.type.value, type);
+        for (var index = 0; index < cases.length; index++) {
+          final expected = cases[index];
+          final option = poll.options[index];
+          final standalone = PollOption.fromJson({
+            'id': '$index',
+            'html': expected.html,
+            'votes': index,
+          })!;
+          expect(option.html, expected.html);
+          expect(option.votes, index);
+          for (var read = 0; read < 3; read++) {
+            expect(option.plainText, expected.text);
+            expect(option.numericValue, expected.number);
+            expect(standalone.plainText, expected.text);
+            expect(standalone.numericValue, expected.number);
+          }
+          expect(option, standalone);
+          expect(option.hashCode, standalone.hashCode);
+        }
+        expect(poll.options[1].numericValue, isA<int>());
+        expect(poll.options[2].numericValue, isA<double>());
+      });
+    }
+
+    test('const and parsed options retain their value semantics', () {
+      const option = PollOption(id: 'score', html: ' <b>2.5</b> ', votes: 3);
+      const same = PollOption(id: 'score', html: ' <b>2.5</b> ', votes: 3);
+      final parsed = PollOption.fromJson({
+        'id': option.id,
+        'html': option.html,
+        'votes': option.votes,
+      })!;
+
+      expect(identical(option, same), isTrue);
+      expect(identical(option, parsed), isFalse);
+      expect(option, parsed);
+      expect(option.hashCode, parsed.hashCode);
+      for (var read = 0; read < 3; read++) {
+        expect(option.plainText, '2.5');
+        expect(option.numericValue, 2.5);
+      }
+      expect(
+        PollOption.fromJson({'id': 'private', 'html': 'A'})!.votes,
+        isNull,
+      );
+    });
+
+    test('number averages preserve repeated and invalid numeric results', () {
+      final poll = Poll.fromJson(
+        pollJson(
+          type: 'number',
+          options: [
+            {'id': 'a', 'html': ' <b>&#49;0</b> ', 'votes': 1},
+            {'id': 'b', 'html': '\n<em>2.5</em>\t', 'votes': 2},
+          ],
+        ),
+        'https://forum.example',
+      )!;
+      final invalid = Poll.fromJson(
+        pollJson(
+          type: 'number',
+          options: [
+            {'id': 'a', 'html': '<b>Not a number</b>', 'votes': 2},
+          ],
+        ),
+        'https://forum.example',
+      )!;
+
+      for (var read = 0; read < 3; read++) {
+        expect(calculateNumberPollAverage(poll), 7.5);
+        expect(calculateNumberPollAverage(invalid), isNull);
+      }
     });
 
     test('bounds option parsing to the server setting ceiling', () {

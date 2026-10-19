@@ -146,10 +146,17 @@ class PollOption {
   const PollOption({required this.id, required this.html, this.votes})
     : _plainText = null;
 
-  PollOption._parsed({required this.id, required this.html, this.votes})
-    : _plainText = _normalizedHtmlText(html);
+  PollOption._parsed({
+    required this.id,
+    required this.html,
+    this.votes,
+    required bool normalizeText,
+  }) : _plainText = normalizeText ? _normalizedHtmlText(html) : null;
 
-  static PollOption? fromJson(Object? value) {
+  static PollOption? fromJson(Object? value) =>
+      _fromJson(value, normalizeText: true);
+
+  static PollOption? _fromJson(Object? value, {required bool normalizeText}) {
     if (value is! Map<String, dynamic>) return null;
     final id = jsonText(value['id']);
     final cooked = value['html'];
@@ -158,6 +165,7 @@ class PollOption {
       id: id,
       html: cooked,
       votes: value.containsKey('votes') ? jsonIntOrNull(value['votes']) : null,
+      normalizeText: normalizeText,
     );
   }
 
@@ -169,7 +177,8 @@ class PollOption {
   String get plainText => _plainText ?? _normalizedHtmlText(html);
 
   num? get numericValue {
-    return int.tryParse(plainText) ?? double.tryParse(plainText);
+    final text = plainText;
+    return int.tryParse(text) ?? double.tryParse(text);
   }
 
   @override
@@ -459,9 +468,15 @@ class Poll {
       max: jsonIntOrNull(value['max']),
       step: jsonIntOrNull(value['step']),
       options: List.unmodifiable(
-        jsonArray(
-          value['options'],
-        ).take(maximumOptions).map(PollOption.fromJson).whereType<PollOption>(),
+        jsonArray(value['options'])
+            .take(maximumOptions)
+            .map(
+              (option) => PollOption._fromJson(
+                option,
+                normalizeText: type == PollType.number,
+              ),
+            )
+            .whereType<PollOption>(),
       ),
       voters: jsonInt(value['voters']),
       closeAt: jsonDate(value['close']),
