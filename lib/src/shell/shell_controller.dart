@@ -19,6 +19,7 @@ import '../data/authenticator.dart';
 import '../data/badges_api.dart';
 import '../data/composer_media_optimizer.dart';
 import '../data/current_user_reconciler.dart';
+import '../data/custom_sidebar_sections.dart';
 import '../data/destination_bookmarks_store.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/discover_sites.dart';
@@ -2760,7 +2761,7 @@ class ShellController extends FrameSafeNotifier
       }
       await _sessionUser(instance.url, apiKey, lease: lease, force: force);
       if (!lease.isCurrent || currentInstance?.url != instance.url) return;
-      await _refreshCustomSidebarSections(instance.url, apiKey, lease: lease);
+      await _customSidebar.ensure(instance.url, account: lease);
     } catch (_) {
       // Freshness-sensitive plugin capabilities remain unknown. Persisted
       // extension state must not authorize them in their place. A key that
@@ -2768,41 +2769,27 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  final Map<String, List<SidebarSection>> _customSidebarSections = {};
-  final Set<String> _customSidebarSectionsLoaded = {};
-  final Map<String, Future<void>> _customSidebarSectionRequests = {};
-  final Map<String, DateTime> _customSidebarSectionAttemptedAt = {};
-
-  /// Advanced when Core announces a section change, so a load that was
-  /// already in flight cannot commit the sections from before it.
-  final Map<String, int> _customSidebarSectionVersions = {};
-  final Map<
-    String,
-    ({
-      DiscourseInstance instance,
-      List<SidebarSection> custom,
-      List<SidebarSection> sections,
-    })
-  >
-  _sidebarSectionsCache = {};
-
-  static const _customSidebarRetryInterval = Duration(minutes: 5);
+  late final CustomSidebarSections _customSidebar = CustomSidebarSections(
+    api: api.site,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    instanceFor: _instanceAt,
+    selectedSite: () => currentInstance?.url,
+    onChanged: _notify,
+    reportFailure: (error, stackTrace) => _reportOperationalError(
+      error,
+      stackTrace,
+      'sidebar.loadCustomSections',
+      severity: DiagnosticSeverity.warning,
+    ),
+    clock: _clock,
+  );
 
   List<SidebarSection> customSidebarSectionsFor(String siteUrl) =>
-      _customSidebarSections[siteUrl] ?? const [];
+      _customSidebar.customFor(siteUrl);
 
-  final _sidebarReorders = <(String, int)>{};
-
-  bool canReorderSidebarLinks(String siteUrl, SidebarSection section) =>
-      canEditSidebarLinks(siteUrl, section) && section.destinations.length > 1;
-
-  bool canEditSidebarLinks(String siteUrl, SidebarSection section) {
-    final instance = _instanceAt(siteUrl);
-    return !isDisposed &&
-        instance?.isConnected == true &&
-        section.remoteId != null &&
-        (!section.public || instance?.user?.admin == true);
-  }
+  bool canEditSidebarLinks(String siteUrl, SidebarSection section) =>
+      _customSidebar.canEdit(siteUrl, section);
 
   /// [newIndex] is an insertion gap in the original list, as in Flutter's
   /// reorder callback and Core's sidebar drop handling.
@@ -2811,53 +2798,12 @@ class ShellController extends FrameSafeNotifier
     required SidebarSection section,
     required int oldIndex,
     required int newIndex,
-  }) async {
-    if (!canReorderSidebarLinks(siteUrl, section) ||
-        !customSidebarSectionsFor(siteUrl).contains(section) ||
-        oldIndex < 0 ||
-        oldIndex >= section.destinations.length ||
-        newIndex < 0 ||
-        newIndex > section.destinations.length ||
-        newIndex == oldIndex ||
-        newIndex == oldIndex + 1) {
-      return;
-    }
-    final operation = (siteUrl, section.remoteId!);
-    if (!_sidebarReorders.add(operation)) return;
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).credentials(credentials);
-      if (credential.apiKey == null) {
-        throw const WriteException(WriteFailure.forbidden);
-      }
-      if (!canReorderSidebarLinks(siteUrl, section)) return;
-      final ids = section.destinations.map((link) => link.linkId!).toList();
-      final moved = ids.removeAt(oldIndex);
-      ids.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, moved);
-      final updated = await credential.run(
-        () => api.site.reorderSidebarLinks(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          clientId: credential.clientId,
-          sectionId: section.remoteId!,
-          linksOrder: ids,
-        ),
-      );
-      if (isDisposed) return;
-      lease.commit(() {
-        _customSidebarSections[siteUrl] = [
-          for (final existing in customSidebarSectionsFor(siteUrl))
-            existing.remoteId == section.remoteId ? updated : existing,
-        ];
-        _notify();
-      });
-    } finally {
-      _sidebarReorders.remove(operation);
-    }
-  }
+  }) => _customSidebar.reorder(
+    siteUrl: siteUrl,
+    section: section,
+    oldIndex: oldIndex,
+    newIndex: newIndex,
+  );
 
   bool canMoveSidebarLink({
     required String siteUrl,
@@ -2865,17 +2811,13 @@ class ShellController extends FrameSafeNotifier
     required SidebarSection target,
     required int oldIndex,
     required int newIndex,
-  }) =>
-      source != target &&
-      canEditSidebarLinks(siteUrl, source) &&
-      canEditSidebarLinks(siteUrl, target) &&
-      customSidebarSectionsFor(siteUrl).contains(source) &&
-      customSidebarSectionsFor(siteUrl).contains(target) &&
-      oldIndex >= 0 &&
-      oldIndex < source.destinations.length &&
-      newIndex >= 0 &&
-      newIndex <= target.destinations.length &&
-      target.destinations.length < SidebarSection.maximumCustomLinks;
+  }) => _customSidebar.canMove(
+    siteUrl: siteUrl,
+    source: source,
+    target: target,
+    oldIndex: oldIndex,
+    newIndex: newIndex,
+  );
 
   Future<void> moveSidebarLink({
     required String siteUrl,
@@ -2883,203 +2825,16 @@ class ShellController extends FrameSafeNotifier
     required SidebarSection target,
     required int oldIndex,
     required int newIndex,
-  }) async {
-    bool allowed() => canMoveSidebarLink(
-      siteUrl: siteUrl,
-      source: source,
-      target: target,
-      oldIndex: oldIndex,
-      newIndex: newIndex,
-    );
-    if (!allowed()) return;
-    final operations = {
-      (siteUrl, source.remoteId!),
-      (siteUrl, target.remoteId!),
-    };
-    if (operations.any(_sidebarReorders.contains)) return;
-    _sidebarReorders.addAll(operations);
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).credentials(credentials);
-      if (credential.apiKey == null) {
-        throw const WriteException(WriteFailure.forbidden);
-      }
-      if (!allowed()) return;
-      final updated = await credential.run(
-        () => api.site.moveSidebarLink(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          clientId: credential.clientId,
-          sourceSectionId: source.remoteId!,
-          targetSectionId: target.remoteId!,
-          linkId: source.destinations[oldIndex].linkId!,
-          position: newIndex,
-        ),
-      );
-      if (isDisposed) return;
-      lease.commit(() {
-        _customSidebarSections[siteUrl] = [
-          for (final existing in customSidebarSectionsFor(siteUrl))
-            updated
-                    .where((section) => section.remoteId == existing.remoteId)
-                    .firstOrNull ??
-                existing,
-        ];
-        _notify();
-      });
-    } finally {
-      _sidebarReorders.removeAll(operations);
-    }
-  }
+  }) => _customSidebar.move(
+    siteUrl: siteUrl,
+    source: source,
+    target: target,
+    oldIndex: oldIndex,
+    newIndex: newIndex,
+  );
 
-  List<SidebarSection> sidebarSectionsFor(DiscourseInstance instance) {
-    final custom = customSidebarSectionsFor(instance.url);
-    final cached = _sidebarSectionsCache[instance.url];
-    if (cached != null &&
-        identical(cached.instance, instance) &&
-        identical(cached.custom, custom)) {
-      return cached.sections;
-    }
-    final sections = instance.sectionsWithCustomSections(custom);
-    _sidebarSectionsCache[instance.url] = (
-      instance: instance,
-      custom: custom,
-      sections: sections,
-    );
-    return sections;
-  }
-
-  Future<void> _refreshCustomSidebarSections(
-    String siteUrl,
-    String? apiKey, {
-    SiteLease? lease,
-    AccountRequestCredentials? requestCredentials,
-  }) {
-    // Custom sections belong only to the site on screen. A session lookup can
-    // finish after the reader has switched away, and must not turn that stale
-    // completion into another inactive-site request.
-    if (isDisposed || currentInstance?.url != siteUrl) return Future.value();
-    if (_customSidebarSectionsLoaded.contains(siteUrl)) return Future.value();
-
-    final active = _customSidebarSectionRequests[siteUrl];
-    if (active != null) return active;
-    final attemptedAt = _customSidebarSectionAttemptedAt[siteUrl];
-    if (attemptedAt != null &&
-        DateTime.now().difference(attemptedAt) < _customSidebarRetryInterval) {
-      return Future.value();
-    }
-
-    late final Future<void> request;
-    request =
-        _loadCustomSidebarSections(
-          siteUrl,
-          apiKey,
-          lease: lease,
-          requestCredentials: requestCredentials,
-        ).whenComplete(() {
-          if (identical(_customSidebarSectionRequests[siteUrl], request)) {
-            final removed = _customSidebarSectionRequests.remove(siteUrl);
-            assert(identical(removed, request));
-          }
-        });
-    _customSidebarSectionRequests[siteUrl] = request;
-    return request;
-  }
-
-  Future<void> _loadCustomSidebarSections(
-    String siteUrl,
-    String? apiKey, {
-    SiteLease? lease,
-    AccountRequestCredentials? requestCredentials,
-  }) async {
-    final session = lease ?? lifecycle.capture(siteUrl);
-    final version = _customSidebarSectionVersions[siteUrl] ?? 0;
-    try {
-      final requestSession = AccountRequestSession(siteUrl, session);
-      final credential =
-          requestCredentials ??
-          (apiKey == null
-              ? requestSession.anonymousCredentials()
-              : await requestSession.credentials(credentials));
-      if (!session.isCurrent ||
-          credential.apiKey != apiKey ||
-          currentInstance?.url != siteUrl) {
-        return;
-      }
-      _customSidebarSectionAttemptedAt[siteUrl] = DateTime.now();
-      final sections = await credential.run(
-        () => api.site.customSidebarSections(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      session.commit(() {
-        if ((_customSidebarSectionVersions[siteUrl] ?? 0) != version) return;
-        _customSidebarSections[siteUrl] = sections;
-        _customSidebarSectionsLoaded.add(siteUrl);
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !session.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'sidebar.loadCustomSections',
-        severity: DiagnosticSeverity.warning,
-      );
-    }
-  }
-
-  /// Core announces every public section create, edit, reorder, move and
-  /// delete to signed-in readers, and the web client re-fetches on it. Edits
-  /// to private sections announce nothing on either client.
-  void _invalidateCustomSidebarSections(String siteUrl, SiteLease lease) {
-    _customSidebarSectionsLoaded.remove(siteUrl);
-    _customSidebarSectionAttemptedAt.remove(siteUrl);
-    _customSidebarSectionRequests.remove(siteUrl)?.ignore();
-    _customSidebarSectionVersions.update(
-      siteUrl,
-      (value) => value + 1,
-      ifAbsent: () => 1,
-    );
-    // Another site's selection path reloads it once it is shown again.
-    if (currentInstance?.url != siteUrl) return;
-    unawaited(_reloadCustomSidebarSections(siteUrl, lease));
-  }
-
-  Future<void> _reloadCustomSidebarSections(
-    String siteUrl,
-    SiteLease lease,
-  ) async {
-    final AccountRequestCredentials credential;
-    try {
-      credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).credentials(credentials);
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'sidebar.loadCustomSections',
-        severity: DiagnosticSeverity.warning,
-      );
-      return;
-    }
-    if (credential.apiKey case final apiKey?) {
-      await _refreshCustomSidebarSections(
-        siteUrl,
-        apiKey,
-        lease: lease,
-        requestCredentials: credential,
-      );
-    }
-  }
+  List<SidebarSection> sidebarSectionsFor(DiscourseInstance instance) =>
+      _customSidebar.sectionsFor(instance);
 
   void _onTotalsLoaded(DiscourseInstance instance, NotificationTotals totals) {
     _notifyPluginTotals(instance, totals);
@@ -5270,8 +5025,9 @@ class ShellController extends FrameSafeNotifier
         try {
           tracker.watchPluginChannel(
             '/refresh-sidebar-sections',
-            (_) =>
-                commit(() => _invalidateCustomSidebarSections(siteUrl, lease)),
+            (_) => commit(
+              () => _customSidebar.invalidate(siteUrl, account: lease),
+            ),
           );
         } catch (error, stackTrace) {
           _reportOperationalError(
@@ -16328,9 +16084,7 @@ class ShellController extends FrameSafeNotifier
           _connectErrors.remove(instance.url);
           final connected = result.instance!;
           unawaited(_refreshOne(connected));
-          unawaited(
-            _refreshCustomSidebarSections(instance.url, result.apiKey!),
-          );
+          unawaited(_customSidebar.ensure(instance.url));
         case AccountConnectionOutcome.cancelled:
           _connectErrors.remove(instance.url);
         case AccountConnectionOutcome.failed:
@@ -16581,12 +16335,7 @@ class ShellController extends FrameSafeNotifier
     _tagDirectoryRequests.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
     _postActionCatalogs.remove(siteUrl);
-    _customSidebarSections.remove(siteUrl);
-    _sidebarSectionsCache.remove(siteUrl);
-    _customSidebarSectionsLoaded.remove(siteUrl);
-    _customSidebarSectionAttemptedAt.remove(siteUrl);
-    _customSidebarSectionRequests.remove(siteUrl)?.ignore();
-    _customSidebarSectionVersions.remove(siteUrl);
+    _customSidebar.forget(siteUrl);
     _siteNotificationTypes.remove(siteUrl);
     _siteNotificationTypeRequests.remove(siteUrl)?.ignore();
     _sitePresentation?.forget(siteUrl);
@@ -16692,7 +16441,7 @@ class ShellController extends FrameSafeNotifier
       unawaited(_presentation.warmConfig(instance.url));
       unawaited(_presentation.warmCustomEmojis(instance.url));
       if (!instance.isConnected) {
-        unawaited(_refreshCustomSidebarSections(instance.url, null));
+        unawaited(_customSidebar.ensure(instance.url));
       }
       // Warm the emoji catalog with the first feed to avoid a second title frame.
       unawaited(_presentation.warmEmojiCatalog(instance.url));
@@ -17630,6 +17379,7 @@ class ShellController extends FrameSafeNotifier
     _topicFlagWrites.clear();
     _topicJumpRuns.clear();
     _topicReads.dispose();
+    _customSidebar.dispose();
     _topicListFilterTagsCache.clear();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);
