@@ -15,6 +15,137 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
+  for (final appearanceFirst in [true, false]) {
+    test(
+      'shared metadata keeps appearance alive after ordinary cancellation, appearance first=$appearanceFirst',
+      () async {
+        const site = 'https://forum.example';
+        final marker = Object();
+        final observed = <Object?>[];
+        final release = Completer<void>();
+        final cancel = Completer<void>();
+        addTearDown(() {
+          if (!release.isCompleted) release.complete();
+        });
+        final client = _Client((request) async {
+          observed.add(Zone.current[marker]);
+          await release.future;
+          return _response(request, '{}');
+        });
+        final transport = DiscourseTransport(
+          SafeHttpClient.owned(client),
+          const Duration(seconds: 10),
+          1024,
+        );
+        addTearDown(transport.close);
+        final scope = AccountRequestSession(
+          site,
+          SiteLifecycle().capture(site),
+        ).anonymousCredentials();
+        Future<SiteAppearance?> appearance() => runZoned(
+          () => scope.run(() async {
+            final result = await transport.siteAppearance(siteUrl: site);
+            expect(Zone.current[marker], 'appearance');
+            return result;
+          }),
+          zoneValues: {marker: 'appearance'},
+        );
+        Future<http.Response> ordinary() => runZoned(
+          () => scope.run(() async {
+            try {
+              return await transport.get(
+                Uri.parse('$site/site.json'),
+                siteUrl: site,
+                accept: 'application/json',
+                abortTrigger: cancel.future,
+              );
+            } finally {
+              expect(Zone.current[marker], 'ordinary');
+            }
+          }),
+          zoneValues: {marker: 'ordinary'},
+        );
+        final first = appearanceFirst ? appearance() : ordinary();
+        final rejected = appearanceFirst
+            ? null
+            : expectLater(first, _ordinaryAborted);
+        await pumpEventQueue();
+        final second = appearanceFirst ? ordinary() : appearance();
+        final cancellation = appearanceFirst
+            ? expectLater(second, _ordinaryAborted)
+            : rejected!;
+        await pumpEventQueue();
+        expect(client.requests, hasLength(1));
+
+        cancel.complete();
+        await cancellation;
+        release.complete();
+        expect(await (appearanceFirst ? first : second), isNull);
+        expect(observed, [appearanceFirst ? 'appearance' : 'ordinary']);
+        expect(client.requests, hasLength(1));
+      },
+    );
+  }
+
+  test('CSS keeps its unscoped CDN chain after account retirement', () async {
+    const site = 'https://forum.example';
+    final lifecycle = SiteLifecycle();
+    final cssStarted = Completer<void>();
+    final releaseCss = Completer<void>();
+    var cssAborted = false;
+    addTearDown(() {
+      if (!releaseCss.isCompleted) releaseCss.complete();
+    });
+    final client = _Client((request) async {
+      if (request.url.path == '/colors.css') {
+        unawaited(
+          (request as http.Abortable).abortTrigger?.then((_) {
+            cssAborted = true;
+          }),
+        );
+        cssStarted.complete();
+        await releaseCss.future;
+        return _response(
+          request,
+          '',
+          statusCode: 302,
+          headers: {'location': 'https://cdn.example/palette.css'},
+        );
+      }
+      return switch (request.url.path) {
+        '/site.json' => _response(request, _siteJson(includeAlternate: false)),
+        '/color-scheme-stylesheet/10/5.json' => _response(
+          request,
+          _details('/colors.css'),
+        ),
+        '/' => _response(request, ''),
+        '/palette.css' => _response(request, _paletteCss),
+        _ => throw StateError('Unexpected request: ${request.url}'),
+      };
+    });
+    addTearDown(client.close);
+    final coordinator = DiscourseRequestCoordinator();
+    addTearDown(coordinator.close);
+    final scope = AccountRequestSession(
+      site,
+      lifecycle.capture(site),
+    ).anonymousCredentials();
+    final pending = scope.run(
+      () => SiteAppearanceLoader(
+        client: client,
+        coordinator: coordinator,
+      ).load(siteUrl: site),
+    );
+    await cssStarted.future;
+    lifecycle.invalidate(site);
+    await pumpEventQueue();
+    expect(cssAborted, isFalse);
+    releaseCss.complete();
+    expect(await pending, isA<SiteAppearance>());
+    expect(client.requests.last.url.host, 'cdn.example');
+    expect(client.requests.last.headers, isNot(contains('user-api-key')));
+  });
+
   test(
     'retired appearance metadata leaves the queue before HTTP dispatch',
     () async {
@@ -1030,6 +1161,14 @@ Matcher _failsWith(SiteAppearanceLoadFailure failure) => throwsA(
     (error) => error.failure,
     'failure',
     failure,
+  ),
+);
+
+final _ordinaryAborted = throwsA(
+  isA<SiteLookupException>().having(
+    (error) => error.cause,
+    'cause',
+    isA<http.RequestAbortedException>(),
   ),
 );
 
