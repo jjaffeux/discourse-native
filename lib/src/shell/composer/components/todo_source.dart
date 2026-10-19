@@ -29,13 +29,17 @@ class ComposerTodo {
 
 final _todoPrefix = RegExp(r'^( {0,3})(\[[ xX]?\])[ \t]*', multiLine: true);
 
+/// [listItems] must use the same source and reference markers when supplied.
 List<ComposerTodo> composerTodos(
   String source, {
   CodeRanges? codeRanges,
   Set<String> referenceMarkers = const {},
+  List<ComposerListItem>? listItems,
 }) {
   final matches = _todoPrefix.allMatches(source).toList();
-  final lists = composerListItems(source, referenceMarkers: referenceMarkers);
+  final lists =
+      listItems ??
+      composerListItems(source, referenceMarkers: referenceMarkers);
   final structured = <ComposerTodo>[];
   void visit(ComposerListItem item, int Function(int) map, int? parentStart) {
     final mappedStart = map(item.start);

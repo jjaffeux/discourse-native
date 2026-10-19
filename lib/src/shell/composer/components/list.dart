@@ -38,10 +38,10 @@ final class ComposerListPolicy implements ComposerSyntaxPolicy {
   TextInputFormatter? get inputFormatter => null;
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
-    for (final item in composerListItems(
-      source,
-      referenceMarkers: composer.text.todoReferenceMarkers,
-    ))
+    for (final item
+        in composer.text
+            .sourceAnalysisFor(source)
+            .listItems(referenceMarkers: composer.text.todoReferenceMarkers))
       // Wait for the separating space while a marker is being typed.
       if (item.source.length >= 2 &&
           item.contentStart > item.start + item.indent + item.marker.length)

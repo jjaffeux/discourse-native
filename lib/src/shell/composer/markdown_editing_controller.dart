@@ -28,6 +28,7 @@ import 'markdown_highlight.dart';
 import 'markdown_style.dart';
 import 'pills.dart';
 import 'projected_component_input.dart';
+import 'source_analysis.dart';
 import 'source_projection.dart';
 import 'text_scaling.dart';
 
@@ -149,6 +150,7 @@ class MarkdownEditingController extends TextEditingController {
     _separatorSource = text;
     final index = ComposerBlockIndex.parse(
       text,
+      analysis: sourceAnalysisFor(text),
       atoms: [
         for (final block in syntaxBlocks)
           if (block.projection is ComposerBlockSyntaxProjection &&
@@ -220,32 +222,28 @@ class MarkdownEditingController extends TextEditingController {
 
   ValueChanged<TextEditingValue>? onTodoChanged;
   ValueChanged<ComposerQuoteBlock>? onRemoveQuote;
-  String? _todoSource;
-  List<ComposerTodo> _todos = const [];
   Set<String> _todoReferenceMarkers = const {};
   Set<String> get todoReferenceMarkers => _todoReferenceMarkers;
   set todoReferenceMarkers(Set<String> value) {
     if (setEquals(_todoReferenceMarkers, value)) return;
-    _todoReferenceMarkers = value;
-    _todoSource = null;
+    _todoReferenceMarkers = Set.unmodifiable(value);
     _syntaxScanned = null;
     _cachedSpan = null;
   }
 
-  List<ComposerTodo> get todos {
-    if (!enableTodos) return const [];
-    if (_todoSource != text) {
-      _todoSource = text;
-      _todos = List.unmodifiable(
-        composerTodos(
-          text,
-          codeRanges: _codeRangesFor(text),
-          referenceMarkers: todoReferenceMarkers,
-        ),
-      );
-    }
-    return _todos;
+  ComposerSourceAnalysis? _sourceAnalysis;
+
+  ComposerSourceAnalysis sourceAnalysisFor(String source) {
+    if (_sourceAnalysis?.source == source) return _sourceAnalysis!;
+    return _sourceAnalysis = ComposerSourceAnalysis(
+      source,
+      codeRanges: _codeRangesFor(source),
+    );
   }
+
+  List<ComposerTodo> get todos => enableTodos
+      ? sourceAnalysisFor(text).todos(referenceMarkers: todoReferenceMarkers)
+      : const [];
 
   bool _todosReadOnly = false;
   bool _completedProse = false;
@@ -1086,33 +1084,11 @@ class MarkdownEditingController extends TextEditingController {
     if (!enableImageGalleries) return const [];
     if (_galleryScanned == source) return _galleryBlocks;
     _galleryScanned = source;
-    final parsed = parseComposerImageGalleries(
+    final blocks = parseComposerImageGalleries(
       source,
       codeRanges: _codeRangesFor(source),
+      images: _imageBlocksFor(source),
     );
-    // The gallery parser is deliberately standalone and therefore discovers
-    // its own image objects. Canonicalise those members to this controller's
-    // image scan so every public lookup, keyboard selection, and tile hit-test
-    // returns the same [ComposerImageBlock] instance.
-    final imagesByRange = {
-      for (final image in _imageBlocksFor(source))
-        (image.start, image.end): image,
-    };
-    final blocks = [
-      for (final gallery in parsed)
-        ComposerImageGalleryBlock(
-          start: gallery.start,
-          end: gallery.end,
-          contentStart: gallery.contentStart,
-          contentEnd: gallery.contentEnd,
-          source: gallery.source,
-          mode: gallery.mode,
-          images: List.unmodifiable([
-            for (final image in gallery.images)
-              imagesByRange[(image.start, image.end)] ?? image,
-          ]),
-        ),
-    ];
     _retainPillKeys(
       _galleryKeys,
       _galleryBlocks,

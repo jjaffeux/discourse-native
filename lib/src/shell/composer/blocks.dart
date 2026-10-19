@@ -2,8 +2,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/l10n/strings.dart';
 
-import 'components/list_source.dart';
-import 'components/todo_source.dart';
+import 'source_analysis.dart';
 
 /// Structural units in source Markdown. Inline components stay inside text.
 enum ComposerBlockKind {
@@ -83,6 +82,7 @@ class ComposerBlockIndex {
     int revision = 0,
     List<ComposerBlockAtom> atoms = const [],
     ComposerBlockIndex? previous,
+    ComposerSourceAnalysis? analysis,
   }) {
     atoms = [
       for (final atom in atoms)
@@ -95,7 +95,7 @@ class ComposerBlockIndex {
             label: atom.label,
           ),
     ];
-    final spans = _BlockScanner(source, atoms).scan();
+    final spans = _BlockScanner(source, atoms, analysis: analysis).scan();
     final old = previous?.blocks ?? const <ComposerBodyBlock>[];
     var nextId = old.fold(0, (n, b) => math.max(n, b.id + 1));
     var prefix = 0;
@@ -411,7 +411,10 @@ class _Line {
 }
 
 class _BlockScanner {
-  _BlockScanner(this.source, this.atoms) {
+  _BlockScanner(this.source, this.atoms, {ComposerSourceAnalysis? analysis})
+    : analysis = analysis?.source == source
+          ? analysis!
+          : ComposerSourceAnalysis(source) {
     var start = 0;
     while (start < source.length) {
       final newline = source.indexOf('\n', start);
@@ -424,9 +427,10 @@ class _BlockScanner {
 
   final String source;
   final List<ComposerBlockAtom> atoms;
+  final ComposerSourceAnalysis analysis;
   final List<_Line> lines = [];
   late final _listItems = {
-    for (final item in composerListItems(source)) item.start: item,
+    for (final item in analysis.listItems()) item.start: item,
   };
   late final _todoItems = {
     for (final item in _listItems.values)
@@ -434,7 +438,7 @@ class _BlockScanner {
   };
   late final _todoStarts = {
     ..._todoItems.keys,
-    for (final todo in composerTodos(source))
+    for (final todo in analysis.todos())
       // Legacy standalone checkboxes remain individually movable.
       if (source.substring(todo.start, todo.markerStart).trim().isEmpty)
         todo.start,

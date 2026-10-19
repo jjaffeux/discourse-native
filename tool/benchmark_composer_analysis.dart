@@ -7,17 +7,23 @@ import 'dart:isolate';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/shell/composer/blocks.dart';
+import 'package:discourse_native/src/shell/composer/components/list_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:pointycastle/digests/sha256.dart';
 import 'package:vm_service/vm_service.dart' as vm;
 import 'package:vm_service/vm_service_io.dart';
 
 const _outputPath = String.fromEnvironment('COMPOSER_ANALYSIS_OUTPUT');
 const _cpuOnly = bool.fromEnvironment('COMPOSER_ANALYSIS_CPU_ONLY');
+const _structure = bool.fromEnvironment('COMPOSER_ANALYSIS_STRUCTURE');
+const _structureSections = 160;
+const _structureWarmup = 12;
+const _structureSamples = 100;
 const _warmupEdits = 20;
 const _frameWarmupEdits = 3;
 const _samples = 7;
@@ -37,32 +43,45 @@ Future<void> main() async {
       return true;
     };
     _require(kProfileMode, 'Run this benchmark in Flutter profile mode.');
-    if (!_cpuOnly) {
-      runApp(const _BenchmarkApp());
-      await _nextFrame(binding);
-    }
-    for (final sections in [6, 60, 300]) {
-      final source = _draft(sections);
-      for (final position in _Position.values) {
-        for (final kind in _CpuKind.values) {
-          report.stage = '${sections}_${position.name}_${kind.name}';
-          report.rows.add(
-            _measureCpu(source, sections, position, kind, report),
-          );
-          report.checkFailures();
-        }
-        if (!_cpuOnly) {
-          report.stage = '${sections}_${position.name}_frame';
-          report.rows.add(
-            await _measureFrames(source, sections, position, binding, report),
-          );
+    if (_structure) {
+      for (final draft in _StructureDraft.values) {
+        for (final edit in _StructureEdit.values) {
+          report.stage = 'structure_${draft.name}_${edit.name}';
+          report.rows.add(_measureStructure(draft, edit, report));
           report.checkFailures();
         }
       }
+      report.stage = 'structure_diagnostics';
+      report.diagnostics = await _structureDiagnostics(report);
+      report.checkFailures();
+    } else {
+      if (!_cpuOnly) {
+        runApp(const _BenchmarkApp());
+        await _nextFrame(binding);
+      }
+      for (final sections in [6, 60, 300]) {
+        final source = _draft(sections);
+        for (final position in _Position.values) {
+          for (final kind in _CpuKind.values) {
+            report.stage = '${sections}_${position.name}_${kind.name}';
+            report.rows.add(
+              _measureCpu(source, sections, position, kind, report),
+            );
+            report.checkFailures();
+          }
+          if (!_cpuOnly) {
+            report.stage = '${sections}_${position.name}_frame';
+            report.rows.add(
+              await _measureFrames(source, sections, position, binding, report),
+            );
+            report.checkFailures();
+          }
+        }
+      }
+      report.stage = 'diagnostics';
+      report.diagnostics = await _diagnostics(report);
+      report.checkFailures();
     }
-    report.stage = 'diagnostics';
-    report.diagnostics = await _diagnostics(report);
-    report.checkFailures();
   } catch (error, stack) {
     if (error is! _RecordedFailure) {
       report.recordFailure('benchmark', error, stack);
@@ -209,6 +228,418 @@ Map<String, Object?> _measureCpu(
     };
   } finally {
     composer?.dispose();
+  }
+}
+
+enum _StructureDraft { plain, rich }
+
+enum _StructureEdit { middleInsertion, topInsertion, delimiter, undo }
+
+String _structureDraft(_StructureDraft kind) => List.generate(
+  _structureSections,
+  (i) => kind == _StructureDraft.plain
+      ? '''Section $i
+
+An ordinary editing anchor has enough words to represent a long plain draft. This paragraph contains prose about writing a clear message and reviewing the next sentence before sharing it.
+
+Another paragraph adds enough ordinary prose to retain realistic paragraph boundaries in this draft section.
+
+'''
+      : '''## Section $i
+
+An ordinary editing anchor has **emphasis**, _italics_, a [link](https://example.test/$i), and a Unicode sailor ⛵ who checks the next sentence.
+
+- First item $i
+  - Nested child with [another link](https://example.test/nested/$i)
+- Another item
+- [ ] Open task $i
+- [x] Completed task $i
+
+```text
+literal [grid] and ![not an image](upload://code$i)
+```
+
+[quote="sam, post:1, topic:1"]
+Quoted paragraph for section $i.
+[/quote]
+
+[grid]
+![First|100x100](upload://first$i)
+![Second|200x100](upload://second$i)
+[/grid]
+
+![Standalone|100x100](upload://standalone$i)
+
+[details="More $i"]
+A detailed paragraph.
+[/details]
+
+| First | Second |
+| --- | --- |
+| $i | Value |
+
+''',
+).join();
+
+final class _StructureRun {
+  _StructureRun(this.draft, this.edit)
+    : source = _structureDraft(draft),
+      composer = _composer(TextEditingValue(text: _structureDraft(draft))) {
+    final section = edit == _StructureEdit.topInsertion
+        ? 0
+        : _structureSections ~/ 2;
+    final heading = source.indexOf('Section $section\n');
+    offset = source.indexOf('ordinary editing anchor', heading) + 8;
+    _require(
+      heading >= 0 && offset >= 8,
+      'The structure edit anchor is missing.',
+    );
+    composer.text.selection = TextSelection.collapsed(offset: offset);
+    composer.history.startSession();
+    composer.blocks.index;
+    composer.text.blockGaps;
+    if (draft == _StructureDraft.rich) {
+      final kinds = composer.text.syntaxBlocks
+          .map((block) => block.kind.id)
+          .toSet();
+      _require(
+        kinds.containsAll({
+              'core/list-item',
+              'core/code-block',
+              'core/details',
+              'core/table',
+            }) &&
+            composer.text.imageBlocks.length == _structureSections * 3 &&
+            composer.text.galleryBlocks.length == _structureSections &&
+            composer.text.quoteBlocks.length == _structureSections,
+        'The rich fixture did not exercise its expected components.',
+      );
+    }
+  }
+
+  final _StructureDraft draft;
+  final _StructureEdit edit;
+  final ComposerController composer;
+  String source;
+  late int offset;
+  int sequence = 0;
+  List<int>? undoIds;
+
+  TextEditingValue _insert() {
+    source = source.replaceRange(
+      offset,
+      offset,
+      String.fromCharCode(0x61 + sequence % 26),
+    );
+    offset++;
+    return TextEditingValue(
+      text: source,
+      selection: TextSelection.collapsed(offset: offset),
+    );
+  }
+
+  TextEditingValue prepare() {
+    sequence++;
+    switch (edit) {
+      case _StructureEdit.middleInsertion:
+      case _StructureEdit.topInsertion:
+        return _insert();
+      case _StructureEdit.delimiter:
+        final section = 20 + (sequence - 1) % 120;
+        final anchor = source.indexOf(
+          draft == _StructureDraft.rich
+              ? '## Section $section\n'
+              : 'Section $section\n',
+        );
+        _require(anchor >= 0, 'The delimiter edit anchor is missing.');
+        source = source.replaceRange(
+          anchor,
+          anchor + (draft == _StructureDraft.rich ? 3 : 0),
+          draft == _StructureDraft.rich ? '' : '# ',
+        );
+        return TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: anchor),
+        );
+      case _StructureEdit.undo:
+        final before = _insert();
+        composer.text.value = before;
+        composer.history.flush();
+        undoIds = composer.blocks.index.blocks
+            .map((block) => block.id)
+            .toList();
+        composer.text.blockGaps;
+        composer.text.value = _insert();
+        composer.history.flush();
+        composer.blocks.index;
+        composer.text.blockGaps;
+        _require(composer.history.canUndo, 'The history has no edit to undo.');
+        source = before.text;
+        offset = before.selection.extentOffset;
+        return before;
+    }
+  }
+
+  ({int elapsed, ComposerBlockIndex index, List<TextRange> gaps}) run(
+    _Report report,
+  ) {
+    final expected = prepare();
+    final watch = Stopwatch()..start();
+    final restored = edit == _StructureEdit.undo
+        ? composer.history.undo()
+        : false;
+    if (edit != _StructureEdit.undo) composer.text.value = expected;
+    final index = composer.blocks.index;
+    final gaps = composer.text.blockGaps;
+    composer.text.todos;
+    watch.stop();
+    _require(composer.text.value == expected, 'The structure edit changed.');
+    if (edit == _StructureEdit.undo) {
+      _require(restored, 'History rejected undo.');
+      _require(
+        listEquals(undoIds, index.blocks.map((block) => block.id).toList()),
+        'Undo did not restore block identities.',
+      );
+    }
+    report.consume(_indexChecksum(index));
+    report.consume(_gapsChecksum(gaps));
+    return (elapsed: watch.elapsedMicroseconds, index: index, gaps: gaps);
+  }
+}
+
+Map<String, Object?> _measureStructure(
+  _StructureDraft draft,
+  _StructureEdit edit,
+  _Report report,
+) {
+  final run = _StructureRun(draft, edit);
+  final initialUnits = run.source.length;
+  final samples = <int>[];
+  var validated = 0;
+  final outputDigests = <String>[];
+  try {
+    for (var i = 0; i < _structureWarmup + _structureSamples; i++) {
+      final result = run.run(report);
+      if (i >= _structureWarmup) samples.add(result.elapsed);
+      final normalized = jsonEncode(_structureOutput(run.composer));
+      outputDigests.add(
+        SHA256Digest()
+            .process(utf8.encode(normalized))
+            .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+            .join(),
+      );
+      if (i % 10 == 0 || i + 1 == _structureWarmup + _structureSamples) {
+        _validateStructure(run.composer, result.index, result.gaps);
+        validated++;
+      }
+      report.checkFailures();
+    }
+    return {
+      'kind': 'controllerAndStructuralConsumers',
+      'draft': draft.name,
+      'edit': edit.name,
+      'sections': _structureSections,
+      'sourceUnits': initialUnits,
+      'warmupEdits': _structureWarmup,
+      'editsPerSample': 1,
+      'microsecondsPerEdit': samples,
+      'edits': run.sequence,
+      'freshValidatedEdits': validated,
+      'outputDigests': outputDigests,
+      'finalOutput': _structureOutput(run.composer),
+      'finalSourceUnits': run.source.length,
+      'sourceChecksum': _sourceChecksum(run.source),
+      'outputChecksum': _indexChecksum(run.composer.blocks.index),
+      'gapChecksum': _gapsChecksum(run.composer.text.blockGaps),
+      'outputCount': run.composer.blocks.index.blocks.length,
+      'gapCount': run.composer.text.blockGaps.length,
+      'syntaxCount': run.composer.text.syntaxBlocks.length,
+      'imageCount': run.composer.text.imageBlocks.length,
+      'galleryCount': run.composer.text.galleryBlocks.length,
+      'quoteCount': run.composer.text.quoteBlocks.length,
+      'todoCount': run.composer.text.todos.length,
+    };
+  } finally {
+    run.composer.dispose();
+  }
+}
+
+Map<String, Object?> _structureOutput(ComposerController composer) {
+  final text = composer.text;
+  return {
+    'source': text.text,
+    'blocks': [
+      for (final b in composer.blocks.index.blocks)
+        [
+          b.id,
+          b.start,
+          b.end,
+          b.kind.name,
+          b.source,
+          b.movable,
+          b.componentLabel,
+        ],
+    ],
+    'atoms': [
+      for (final a in composer.blocks.index.atoms) [a.start, a.end, a.label],
+    ],
+    'gaps': [
+      for (final gap in text.blockGaps) [gap.start, gap.end],
+    ],
+    'separators': [
+      for (final gap in text.blockSeparators) [gap.start, gap.end],
+    ],
+    'syntax': [
+      for (final b in text.syntaxBlocks)
+        [
+          b.start,
+          b.end,
+          b.kind.id,
+          b.source,
+          b.projection.runtimeType.toString(),
+        ],
+    ],
+    'listProjections': [
+      for (final block in text.syntaxBlocks)
+        if (block.kind.id == 'core/list-item')
+          _listPayload(
+            (block.projection as dynamic).item as ComposerListItem,
+            text.text,
+          ),
+    ],
+    'images': [
+      for (final b in text.imageBlocks)
+        [b.start, b.end, b.source, b.alt, b.url, b.width, b.height, b.scale],
+    ],
+    'galleries': [
+      for (final b in text.galleryBlocks)
+        [
+          b.start,
+          b.end,
+          b.contentStart,
+          b.contentEnd,
+          b.source,
+          b.mode.name,
+          [
+            for (final image in b.images) [image.start, image.end],
+          ],
+        ],
+    ],
+    'quotes': [
+      for (final b in text.quoteBlocks) [b.start, b.end, b.source],
+    ],
+    'todos': [
+      for (final b in text.todos)
+        [
+          b.start,
+          b.markerStart,
+          b.contentStart,
+          b.end,
+          b.checked,
+          b.itemEnd,
+          b.continuationIndent,
+          b.parentStart,
+        ],
+    ],
+  };
+}
+
+List<Object?> _listPayload(ComposerListItem item, String document) => [
+  item.document == document,
+  item.start,
+  item.end,
+  item.marker,
+  item.indent,
+  item.contentIndent,
+  item.contentStart,
+  item.firstLineEnd,
+  item.taskMarker,
+  item.taskMarkerStart,
+  item.closed,
+  item.number,
+  item.referenceMarkers.toList()..sort(),
+  item.source,
+  item.body.text,
+  [for (final child in item.children) _listPayload(child, item.body.text)],
+];
+
+int _gapsChecksum(List<TextRange> gaps) =>
+    gaps.fold(0, (sum, gap) => (sum + gap.start * 31 + gap.end) & 0x3fffffff);
+
+void _validateStructure(
+  ComposerController composer,
+  ComposerBlockIndex index,
+  List<TextRange> gaps,
+) {
+  _validateIndex(index, composer.text.text);
+  final reference = _composer(composer.text.value);
+  try {
+    final expected = reference.blocks.index;
+    _require(
+      listEquals(
+        [
+          for (final b in index.blocks)
+            (b.start, b.end, b.kind, b.source, b.movable, b.componentLabel),
+        ],
+        [
+          for (final b in expected.blocks)
+            (b.start, b.end, b.kind, b.source, b.movable, b.componentLabel),
+        ],
+      ),
+      'The structural index differs from a fresh controller.',
+    );
+    _require(
+      listEquals(gaps, reference.text.blockGaps),
+      'The structural gaps differ from a fresh controller.',
+    );
+    _require(
+      listEquals(
+        [
+          for (final b in composer.text.syntaxBlocks)
+            (b.start, b.end, b.source, b.kind),
+        ],
+        [
+          for (final b in reference.text.syntaxBlocks)
+            (b.start, b.end, b.source, b.kind),
+        ],
+      ),
+      'The syntax occurrences differ from a fresh controller.',
+    );
+    _require(
+      listEquals(
+            [
+              for (final b in composer.text.imageBlocks)
+                (b.start, b.end, b.source),
+            ],
+            [
+              for (final b in reference.text.imageBlocks)
+                (b.start, b.end, b.source),
+            ],
+          ) &&
+          listEquals(
+            [
+              for (final b in composer.text.galleryBlocks)
+                (b.start, b.end, b.source, b.images.length),
+            ],
+            [
+              for (final b in reference.text.galleryBlocks)
+                (b.start, b.end, b.source, b.images.length),
+            ],
+          ) &&
+          listEquals(
+            [
+              for (final b in composer.text.quoteBlocks)
+                (b.start, b.end, b.source),
+            ],
+            [
+              for (final b in reference.text.quoteBlocks)
+                (b.start, b.end, b.source),
+            ],
+          ),
+      'The media or quote analysis differs from a fresh controller.',
+    );
+  } finally {
+    reference.dispose();
   }
 }
 
@@ -433,6 +864,106 @@ int _validateRuns(List<MarkdownRun> runs, int sourceLength) {
   return _runsChecksum(runs);
 }
 
+Future<Map<String, Object?>> _structureDiagnostics(_Report report) async {
+  vm.VmService? service;
+  try {
+    final info = await developer.Service.getInfo().timeout(_timeout);
+    final uri = info.serverWebSocketUri;
+    final isolateId = developer.Service.getIsolateId(Isolate.current);
+    if (uri == null || isolateId == null) {
+      return {'status': 'unavailable', 'reason': 'VM Service is not enabled.'};
+    }
+    service = await vmServiceConnectUri(uri.toString()).timeout(_timeout);
+    final rows = <Map<String, Object?>>[];
+    for (final draft in _StructureDraft.values) {
+      for (final edit in _StructureEdit.values) {
+        final run = _StructureRun(draft, edit);
+        try {
+          for (var i = 0; i < _structureWarmup; i++) {
+            run.run(report);
+          }
+          final before = await service
+              .getAllocationProfile(isolateId, reset: true, gc: true)
+              .timeout(_timeout);
+          final origin = developer.Timeline.now;
+          for (var i = 0; i < _diagnosticEdits; i++) {
+            run.run(report);
+          }
+          final extent = developer.Timeline.now - origin;
+          final after = await service
+              .getAllocationProfile(isolateId)
+              .timeout(_timeout);
+          Map<String, Object?> cpu;
+          try {
+            final profile = await service
+                .getCpuSamples(isolateId, origin, extent)
+                .timeout(_timeout);
+            final functions = [...?profile.functions]
+              ..sort(
+                (a, b) =>
+                    (b.exclusiveTicks ?? 0).compareTo(a.exclusiveTicks ?? 0),
+              );
+            cpu = {
+              'status': 'available',
+              'sampleCount': profile.sampleCount,
+              'samplePeriodMicroseconds': profile.samplePeriod,
+              'intervalMicroseconds': extent,
+              'topFunctions': [
+                for (final entry in functions.take(20))
+                  {
+                    'name': _profileFunctionName(entry),
+                    'script': entry.resolvedUrl,
+                    'inclusiveTicks': entry.inclusiveTicks,
+                    'exclusiveTicks': entry.exclusiveTicks,
+                  },
+              ],
+            };
+          } catch (error) {
+            cpu = {
+              'status': 'unavailable',
+              'errorType': error.runtimeType.toString(),
+            };
+          }
+          _validateStructure(
+            run.composer,
+            run.composer.blocks.index,
+            run.composer.text.blockGaps,
+          );
+          rows.add({
+            'draft': draft.name,
+            'edit': edit.name,
+            'sections': _structureSections,
+            'sourceUnits': run.source.length,
+            'edits': _diagnosticEdits,
+            'allocations': _allocationDelta(before, after),
+            'cpu': cpu,
+          });
+        } finally {
+          run.composer.dispose();
+        }
+      }
+    }
+    return {
+      'status': 'available',
+      'timed': false,
+      'allocationScope':
+          'Whole isolate, including edit generation, result consumption and VM Service messages. Undo includes two setup insertions per restored edit.',
+      'allocationCounters':
+          'accumulatedSize and bytesCurrent deltas are reported separately.',
+      'rows': rows,
+    };
+  } catch (error, stack) {
+    report.recordFailure('structure_diagnostics', error, stack);
+    return {
+      'status': 'failed',
+      'errorType': error.runtimeType.toString(),
+      'stack': stack.toString(),
+    };
+  } finally {
+    await service?.dispose().timeout(_timeout);
+  }
+}
+
 Future<Map<String, Object?>> _diagnostics(_Report report) async {
   vm.VmService? service;
   try {
@@ -559,6 +1090,11 @@ Map<String, Object?> _allocationDelta(
   final parserClasses = <Map<String, Object?>>[];
   const parserNames = {
     'ComposerBlockIndex',
+    'ComposerSourceAnalysis',
+    '_ListAnalysis',
+    'ComposerListItem',
+    'ComposerListBody',
+    'ComposerTodo',
     'ComposerBodyBlock',
     'ComposerBlockAtom',
     '_BlockScanner',
@@ -569,6 +1105,14 @@ Map<String, Object?> _allocationDelta(
     '_RecentScan',
     'MarkdownRun',
     'CodeRanges',
+    'ComposerImageBlock',
+    'ComposerImageGalleryBlock',
+    'ComposerQuoteBlock',
+    'ComposerSyntaxOccurrence',
+    '_ListProjection',
+    '_CodeProjection',
+    '_TableProjection',
+    '_DetailsProjection',
   };
   for (final row in after.members ?? <vm.ClassHeapStats>[]) {
     _require(
@@ -654,13 +1198,21 @@ final class _Report {
     'platform': Platform.operatingSystem,
     'dartVersion': Platform.version,
     'processors': Platform.numberOfProcessors,
-    'surface': _cpuOnly ? 'synchronousController' : 'mountedEditor',
-    'fixture': 'composer_analysis_benchmark_test structured draft',
-    'edit':
-        'Cumulative single-letter insertion inside a prose word; markdownWhitespace inserts spaces for contextual fallback.',
-    'cpuTiming':
-        'Analysis or synchronous setter only. Excludes edit generation and verification.',
-    'frameTiming': _cpuOnly
+    'surface': _structure
+        ? 'controllerAndStructuralConsumers'
+        : _cpuOnly
+        ? 'synchronousController'
+        : 'mountedEditor',
+    'fixture': _structure
+        ? '160-section plain and rich drafts with core syntax, media and galleries'
+        : 'composer_analysis_benchmark_test structured draft',
+    'edit': _structure
+        ? 'Middle and top prose insertion, distinct heading delimiter edits, and actual history undo with exact caret and identity checks.'
+        : 'Cumulative single-letter insertion inside a prose word; markdownWhitespace inserts spaces for contextual fallback.',
+    'cpuTiming': _structure
+        ? 'Synchronous text.value setter or history.undo plus blocks.index, text.blockGaps and text.todos getters. Excludes edit generation, undo setup, checksum consumption and verification.'
+        : 'Analysis or synchronous setter only. Excludes edit generation and verification.',
+    'frameTiming': _cpuOnly || _structure
         ? 'Not measured in CPU-only mode.'
         : 'Controller update through UI-thread endOfFrame, including vsync wait, build, layout and paint.',
     'frameLimitations':

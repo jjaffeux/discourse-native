@@ -119,16 +119,18 @@ class ComposerImageGalleryBlock {
       offset >= start && (includeEnd ? offset <= end : offset < end);
 }
 
+/// [images] must be the complete image scan for [source] when supplied.
 List<ComposerImageGalleryBlock> parseComposerImageGalleries(
   String source, {
   CodeRanges? codeRanges,
+  List<ComposerImageBlock>? images,
 }) {
   // Its input formatter asks on every edit. A gallery needs an opening tag,
   // and a draft of links has brackets enough without one.
   if (!_gridOpener.hasMatch(source)) return const [];
 
   final code = codeRanges ?? markdownCodeRanges(source);
-  final images = parseComposerImages(source, codeRanges: code);
+  images ??= parseComposerImages(source, codeRanges: code);
   final pairs = <_GalleryTagPair>[];
   final stack = <_OpenGalleryTag>[];
   var offset = 0;

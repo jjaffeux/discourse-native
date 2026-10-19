@@ -41,6 +41,7 @@ class ComposerBlockController extends ChangeNotifier {
     _source,
     revision: _revision,
     previous: _index,
+    analysis: text.sourceAnalysisFor(_source),
     atoms: [
       for (final block in text.syntaxBlocks)
         if (block.projection is ComposerBlockSyntaxProjection)
