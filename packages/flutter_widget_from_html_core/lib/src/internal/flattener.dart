@@ -204,8 +204,13 @@ class Flattener implements Flattened {
           final child = builder(context, isLast: isLast_);
           if (child != null) {
             isLast_ = false;
-            children.insert(0, child);
+            children.add(child);
           }
+        }
+        for (var i = 0, j = children.length - 1; i < j; i++, j--) {
+          final child = children[i];
+          children[i] = children[j];
+          children[j] = child;
         }
 
         final text = scopedStrings.toText(

@@ -1233,7 +1233,10 @@ void main() {
       final original = controller.activeTab;
 
       await tester.tap(
-        find.byType(HashtagPill),
+        find.descendant(
+          of: find.byType(HashtagPill),
+          matching: find.text('support'),
+        ),
         kind: PointerDeviceKind.mouse,
         buttons: kMiddleMouseButton,
       );

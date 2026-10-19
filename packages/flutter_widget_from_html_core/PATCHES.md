@@ -55,6 +55,21 @@ Additional file:
 
 - `test/text_whitespace_test.dart`
 
+## Inline span assembly
+
+Formatted blocks evaluate inline span builders from right to left so that
+trailing whitespace can be trimmed after empty spans are removed. Non-empty
+results append to one list, which reverses in place after the builders finish.
+This replaces repeated insertion at the front of that list. Builder callbacks,
+trailing-whitespace decisions, text order, styles, recognizers and inline
+widgets retain the upstream behavior. The list passed to custom widget
+factories remains growable.
+
+Files:
+
+- `lib/src/internal/flattener.dart`
+- `test/flattener_span_order_test.dart`
+
 ## Provenance metadata
 
 Files:
