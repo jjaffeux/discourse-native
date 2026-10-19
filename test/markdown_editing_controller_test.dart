@@ -7,7 +7,6 @@ import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
-import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/blockquote.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';

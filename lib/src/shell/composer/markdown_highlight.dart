@@ -300,6 +300,13 @@ _RecentScan _scan(String source, DeferredFenceHighlight? deferHighlight) {
   if (source.isEmpty) return _RecentScan.empty;
 
   markdownScanCount += 1;
+  for (final previous in _recentScans) {
+    final incremental = _tryIncremental(previous, source);
+    if (incremental == null) continue;
+    _remember(incremental);
+    return incremental;
+  }
+
   var deferred = false;
   final scan = _Scan(
     source,
@@ -318,6 +325,7 @@ _RecentScan _scan(String source, DeferredFenceHighlight? deferHighlight) {
     List.unmodifiable(scan.runs()),
     List.unmodifiable(blocks),
     highlighted: !deferred,
+    cuts: Set.unmodifiable(scan._cuts),
   );
   _remember(recent);
   return recent;
@@ -326,6 +334,10 @@ _RecentScan _scan(String source, DeferredFenceHighlight? deferHighlight) {
 /// How many times [scanMarkdownBlocks] has actually scanned a source.
 @visibleForTesting
 int markdownScanCount = 0;
+
+/// UTF-16 code units submitted to the full or paragraph scanner.
+@visibleForTesting
+int markdownScannedCodeUnits = 0;
 
 /// [scanMarkdownBlocks] of [source], shared with every other reader of it.
 ///
@@ -354,18 +366,26 @@ const int _recentScanCapacity = 4;
 final List<_RecentScan> _recentScans = [];
 
 final class _RecentScan {
-  _RecentScan(this.source, this.runs, this.blocks, {required this.highlighted});
+  _RecentScan(
+    this.source,
+    this.runs,
+    this.blocks, {
+    required this.highlighted,
+    required this.cuts,
+  });
 
   static final _RecentScan empty = _RecentScan(
     '',
     const [],
     const [],
     highlighted: true,
+    cuts: const {},
   );
 
   final String source;
   final List<MarkdownRun> runs;
   final List<({int offset, String text})> blocks;
+  final Set<int> cuts;
 
   /// False when a fence's highlighting was deferred. Its runs then lack that
   /// fence's scopes, but code is exactly where a full scan would put it.
@@ -373,6 +393,168 @@ final class _RecentScan {
 
   late final CodeRanges code = CodeRanges.of(runs);
   late final CodeRanges fences = CodeRanges._marked(runs, Md.codeBlock);
+}
+
+bool _mayDeferFenceHighlight(int bodyLength) =>
+    bodyLength > maxSynchronousFenceChars;
+
+bool _isAsciiAlphanumeric(int unit) =>
+    (unit >= 0x30 && unit <= 0x39) ||
+    (unit >= 0x41 && unit <= 0x5A) ||
+    (unit >= 0x61 && unit <= 0x7A);
+
+_RecentScan? _tryIncremental(_RecentScan previous, String source) {
+  final before = previous.source;
+  if (!previous.highlighted ||
+      before == source ||
+      (before.length - source.length).abs() > 256) {
+    return null;
+  }
+  if (previous.fences.ranges.any(
+    (range) => _mayDeferFenceHighlight(range.$2 - range.$1),
+  )) {
+    return null;
+  }
+
+  var start = 0;
+  while (start < before.length &&
+      start < source.length &&
+      before.codeUnitAt(start) == source.codeUnitAt(start)) {
+    start += 1;
+  }
+  if (start == 0 || !_isAsciiAlphanumeric(before.codeUnitAt(start - 1))) {
+    return null;
+  }
+  var oldEnd = before.length;
+  var newEnd = source.length;
+  while (oldEnd > start &&
+      newEnd > start &&
+      before.codeUnitAt(oldEnd - 1) == source.codeUnitAt(newEnd - 1)) {
+    oldEnd -= 1;
+    newEnd -= 1;
+  }
+  if (oldEnd - start > 256 || newEnd - start > 256) return null;
+  for (var at = start; at < oldEnd; at += 1) {
+    if (!_isAsciiAlphanumeric(before.codeUnitAt(at))) return null;
+  }
+  for (var at = start; at < newEnd; at += 1) {
+    if (!_isAsciiAlphanumeric(source.codeUnitAt(at))) return null;
+  }
+
+  for (var index = 0; index < previous.blocks.length; index += 1) {
+    final block = previous.blocks[index];
+    final blockEnd = block.offset + block.text.length;
+    if (start <= block.offset || start > blockEnd || oldEnd > blockEnd) {
+      continue;
+    }
+    final delta = source.length - before.length;
+    final text = source.substring(block.offset, blockEnd + delta);
+    final fragment = _Scan(text, null)..blocks();
+    final blocks = fragment._blocks();
+    if (fragment._fences.isNotEmpty ||
+        blocks.length != 1 ||
+        blocks.single.offset != 0 ||
+        blocks.single.text.length != text.length) {
+      return null;
+    }
+    fragment.inlines(blocks);
+
+    final cuts = <int>{
+      for (final cut in previous.cuts)
+        if (cut < block.offset) cut else if (cut > blockEnd) cut + delta,
+      for (final cut in fragment._cuts) block.offset + cut,
+    };
+    return _RecentScan(
+      source,
+      List.unmodifiable(
+        _spliceRuns(previous, fragment, block.offset, blockEnd, delta, cuts),
+      ),
+      List.unmodifiable([
+        for (var at = 0; at < previous.blocks.length; at += 1)
+          if (at < index)
+            previous.blocks[at]
+          else if (at == index)
+            (offset: block.offset, text: text)
+          else
+            (
+              offset: previous.blocks[at].offset + delta,
+              text: previous.blocks[at].text,
+            ),
+      ]),
+      highlighted: true,
+      cuts: Set.unmodifiable(cuts),
+    );
+  }
+  return null;
+}
+
+List<MarkdownRun> _spliceRuns(
+  _RecentScan previous,
+  _Scan fragment,
+  int start,
+  int end,
+  int delta,
+  Set<int> cuts,
+) {
+  final runs = <MarkdownRun>[];
+  void add(MarkdownRun run) {
+    if (run.start >= run.end) return;
+    if (runs.isNotEmpty) {
+      final last = runs.last;
+      if (last.end == run.start &&
+          last.mask == run.mask &&
+          last.detail == run.detail &&
+          last.token == run.token &&
+          !cuts.contains(run.start)) {
+        runs[runs.length - 1] = MarkdownRun(
+          last.start,
+          run.end,
+          last.mask,
+          last.detail,
+          last.token,
+        );
+        return;
+      }
+    }
+    runs.add(run);
+  }
+
+  for (final run in previous.runs) {
+    if (run.start >= start) break;
+    add(
+      MarkdownRun(
+        run.start,
+        run.end < start ? run.end : start,
+        run.mask,
+        run.detail,
+        run.token,
+      ),
+    );
+  }
+  for (final run in fragment.runs()) {
+    add(
+      MarkdownRun(
+        run.start + start,
+        run.end + start,
+        run.mask,
+        run.detail,
+        run.token,
+      ),
+    );
+  }
+  for (final run in previous.runs) {
+    if (run.end <= end) continue;
+    add(
+      MarkdownRun(
+        (run.start > end ? run.start : end) + delta,
+        run.end + delta,
+        run.mask,
+        run.detail,
+        run.token,
+      ),
+    );
+  }
+  return runs;
 }
 
 _RecentScan _recentScan(String source, {bool highlightedOnly = false}) {
@@ -421,7 +603,9 @@ class _Scan {
       detail = List<String?>.filled(source.length, null),
       tokens = List<String?>.filled(source.length, null),
       _closed = List<bool>.filled(source.length, false),
-      _escaped = List<bool>.filled(source.length, false);
+      _escaped = List<bool>.filled(source.length, false) {
+    markdownScannedCodeUnits += source.length;
+  }
 
   final String source;
   final DeferredFenceHighlight? _deferHighlight;
@@ -572,7 +756,7 @@ class _Scan {
     // plain-path body costs a split, and skipping it would flash plain code on
     // every scan a *different* part of the source triggered.
     if (_deferHighlight case final defer?
-        when body.length > maxSynchronousFenceChars &&
+        when _mayDeferFenceHighlight(body.length) &&
             highlightNeedsParse(body, language)) {
       defer(body, language);
       return;
