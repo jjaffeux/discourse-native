@@ -1474,6 +1474,7 @@ class _EngineApi extends GlobalSearchApi {
     String? clientId,
     required GlobalSearchRequest request,
     Future<void>? abortTrigger,
+    void Function(List<GlobalSearchSection> sections)? onProgress,
   }) async {
     requests.add(request);
     clientIds.add(clientId);

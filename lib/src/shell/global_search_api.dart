@@ -129,12 +129,16 @@ class GlobalSearchApi {
     return next;
   }
 
+  /// All-scope progress replaces sections while peers remain pending. The future
+  /// alone signals completion. A consumer exception stops progress delivery and
+  /// is rethrown after all started source reads drain.
   Future<GlobalSearchPage> search({
     required String siteUrl,
     required String? apiKey,
     String? clientId,
     required GlobalSearchRequest request,
     Future<void>? abortTrigger,
+    void Function(List<GlobalSearchSection> sections)? onProgress,
   }) async {
     final r = request, c = r.capabilities;
     if (!c.scopes.contains(r.scope)) {
@@ -166,171 +170,201 @@ class GlobalSearchApi {
       throw FormatException(appL10n.thisOrderingIsUnavailable);
     }
     if (r.scope == GlobalSearchScope.all) {
-      final sections = <GlobalSearchSection>[];
-      final tasks = <Future<void>>[
-        if (r.contextTopicId != null && r.query.trim().isNotEmpty)
-          (() async {
-            try {
-              final body = await _get(
-                siteUrl,
-                _path('/search/query.json', {
-                  'term': r.query,
-                  'search_context[type]': 'topic',
-                  'search_context[id]': '${r.contextTopicId}',
-                }),
-                apiKey,
-                clientId,
-                abortTrigger: abortTrigger,
-              );
-              final page = _core(body, siteUrl, scope: GlobalSearchScope.forum);
-              final matches =
-                  [
-                    for (final result in page.results)
-                      if (result.source is SearchPostHit &&
-                          (result.source as SearchPostHit).topicId ==
-                              r.contextTopicId)
-                        result.inTopic(result.source as SearchPostHit),
-                  ]..sort(
-                    (a, b) => (a.source as SearchPostHit).postNumber.compareTo(
-                      (b.source as SearchPostHit).postNumber,
-                    ),
-                  );
-              sections.add(
-                GlobalSearchSection(
-                  scope: GlobalSearchScope.forum,
-                  topicId: r.contextTopicId,
-                  topicTitle: r.contextTopicTitle,
-                  results: matches,
-                ),
-              );
-            } catch (error) {
-              sections.add(
-                GlobalSearchSection(
-                  scope: GlobalSearchScope.forum,
-                  topicId: r.contextTopicId,
-                  topicTitle: r.contextTopicTitle,
-                  error: failureMessage(error),
-                ),
-              );
-            }
-          })(),
-        if (c.authenticated && r.query.trim().isNotEmpty)
-          (() async {
-            try {
-              final body = await _get(
-                siteUrl,
-                _path('/search/query.json', {
-                  'term': r.query,
-                  'type_filter': 'private_messages',
-                }),
-                apiKey,
-                clientId,
-                abortTrigger: abortTrigger,
-              );
-              sections.addAll(
-                _core(
-                  body,
-                  siteUrl,
-                  scope: GlobalSearchScope.messages,
-                ).sections,
-              );
-            } catch (error) {
-              sections.add(
-                GlobalSearchSection(
-                  scope: GlobalSearchScope.messages,
-                  error: failureMessage(error),
-                ),
-              );
-            }
-          })(),
-        (() async {
+      final sources = <Future<List<GlobalSearchSection>> Function()>[];
+      void source(
+        GlobalSearchScope scope,
+        Future<List<GlobalSearchSection>> Function() read, {
+        String? fallback,
+        int? topicId,
+        String? topicTitle,
+      }) {
+        sources.add(() async {
           try {
+            return await read();
+          } catch (error) {
+            return [
+              GlobalSearchSection(
+                scope: scope,
+                topicId: topicId,
+                topicTitle: topicTitle,
+                error: failureMessage(error, fallback: fallback),
+              ),
+            ];
+          }
+        });
+      }
+
+      if (r.contextTopicId != null && r.query.trim().isNotEmpty) {
+        source(
+          GlobalSearchScope.forum,
+          () async {
             final body = await _get(
               siteUrl,
-              _path('/search/query.json', {'term': r.query}),
+              _path('/search/query.json', {
+                'term': r.query,
+                'search_context[type]': 'topic',
+                'search_context[id]': '${r.contextTopicId}',
+              }),
               apiKey,
               clientId,
               abortTrigger: abortTrigger,
             );
-            sections.addAll(_core(body, siteUrl).sections);
-          } catch (error) {
-            sections.add(
+            final page = _core(body, siteUrl, scope: GlobalSearchScope.forum);
+            final matches =
+                [
+                  for (final result in page.results)
+                    if (result.source is SearchPostHit &&
+                        (result.source as SearchPostHit).topicId ==
+                            r.contextTopicId)
+                      result.inTopic(result.source as SearchPostHit),
+                ]..sort(
+                  (a, b) => (a.source as SearchPostHit).postNumber.compareTo(
+                    (b.source as SearchPostHit).postNumber,
+                  ),
+                );
+            return [
               GlobalSearchSection(
                 scope: GlobalSearchScope.forum,
-                error: failureMessage(
-                  error,
-                  fallback: appL10n.topicsUsersAndGroupsCouldNotLoad,
-                ),
+                topicId: r.contextTopicId,
+                topicTitle: r.contextTopicTitle,
+                results: matches,
               ),
-            );
-          }
-        })(),
-        for (final contribution in c.contributions)
-          if (c.enabledContributions.contains(contribution.owner) &&
-              r.query.trim().isNotEmpty)
-            for (final scope in contribution.scopes)
-              (() async {
-                try {
-                  final page = await contribution.search(
-                    _context(
-                      siteUrl,
-                      apiKey,
-                      clientId,
-                      abortTrigger: abortTrigger,
-                    ),
-                    GlobalSearchRequest(
-                      scope: scope,
-                      query: r.query,
-                      capabilities: c,
-                    ),
-                  );
-                  sections.addAll(page.sections);
-                } catch (error) {
-                  sections.add(
-                    GlobalSearchSection(
-                      scope: scope,
-                      error: failureMessage(
-                        error,
-                        fallback: appL10n.searchCouldNotLoadGlobalsearchapi(
-                          (scope.label).toString(),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-              })(),
-      ];
-      await Future.wait(tasks);
-      final merged = <String, GlobalSearchSection>{};
-      for (final section in sections) {
-        final key = '${section.scope.keyName}:${section.topicId ?? ''}';
-        final previous = merged[key];
-        merged[key] = GlobalSearchSection(
-          scope: section.scope,
-          topicId: section.topicId,
-          topicTitle: section.topicTitle,
-          results: {
-            for (final row in [...?previous?.results, ...section.results])
-              row.id: row,
-          }.values.toList(),
-          error: section.error ?? previous?.error,
-          hasMore: section.hasMore || previous?.hasMore == true,
+            ];
+          },
+          topicId: r.contextTopicId,
+          topicTitle: r.contextTopicTitle,
         );
       }
-      sections
-        ..clear()
-        ..addAll(
-          merged.values.where((section) => c.scopes.contains(section.scope)),
+      if (c.authenticated && r.query.trim().isNotEmpty) {
+        source(GlobalSearchScope.messages, () async {
+          final body = await _get(
+            siteUrl,
+            _path('/search/query.json', {
+              'term': r.query,
+              'type_filter': 'private_messages',
+            }),
+            apiKey,
+            clientId,
+            abortTrigger: abortTrigger,
+          );
+          return _core(
+            body,
+            siteUrl,
+            scope: GlobalSearchScope.messages,
+          ).sections;
+        });
+      }
+      source(GlobalSearchScope.forum, () async {
+        final body = await _get(
+          siteUrl,
+          _path('/search/query.json', {'term': r.query}),
+          apiKey,
+          clientId,
+          abortTrigger: abortTrigger,
         );
-      sections.sort(
-        (a, b) => a.topicId != null
-            ? (b.topicId != null ? 0 : -1)
-            : b.topicId != null
-            ? 1
-            : c.scopes.indexOf(a.scope).compareTo(c.scopes.indexOf(b.scope)),
+        return _core(body, siteUrl).sections;
+      }, fallback: appL10n.topicsUsersAndGroupsCouldNotLoad);
+      for (final contribution in c.contributions) {
+        if (!c.enabledContributions.contains(contribution.owner) ||
+            r.query.trim().isEmpty) {
+          continue;
+        }
+        for (final scope in contribution.scopes) {
+          source(scope, () async {
+            final page = await contribution.search(
+              _context(siteUrl, apiKey, clientId, abortTrigger: abortTrigger),
+              GlobalSearchRequest(
+                scope: scope,
+                query: r.query,
+                capabilities: c,
+              ),
+            );
+            return page.sections;
+          }, fallback: appL10n.searchCouldNotLoadGlobalsearchapi(scope.label));
+        }
+      }
+      final slots = List<List<GlobalSearchSection>?>.filled(
+        sources.length,
+        null,
       );
-      return GlobalSearchPage(sections: List.unmodifiable(sections));
+      GlobalSearchPage snapshot() {
+        final merged = <(String, int?), GlobalSearchSection>{};
+        for (final sections in slots) {
+          for (final section in sections ?? const <GlobalSearchSection>[]) {
+            final key = (section.scope.keyName, section.topicId);
+            final previous = merged[key];
+            merged[key] = GlobalSearchSection(
+              scope: section.scope,
+              topicId: section.topicId,
+              topicTitle: section.topicTitle,
+              results: List.unmodifiable(
+                {
+                  for (final row in [...?previous?.results, ...section.results])
+                    row.id: row,
+                }.values,
+              ),
+              error: section.error ?? previous?.error,
+              hasMore: section.hasMore || previous?.hasMore == true,
+            );
+          }
+        }
+        final sections = merged.values
+            .where((section) => c.scopes.contains(section.scope))
+            .toList();
+        final positions = {
+          for (var i = 0; i < sections.length; i++) sections[i]: i,
+        };
+        sections.sort((a, b) {
+          final order = a.topicId != null
+              ? (b.topicId != null ? 0 : -1)
+              : b.topicId != null
+              ? 1
+              : c.scopes.indexOf(a.scope).compareTo(c.scopes.indexOf(b.scope));
+          return order != 0 ? order : positions[a]!.compareTo(positions[b]!);
+        });
+        return GlobalSearchPage(sections: List.unmodifiable(sections));
+      }
+
+      var pending = sources.length;
+      var aborted = false;
+      if (abortTrigger != null) {
+        unawaited(abortTrigger.then((_) => aborted = true));
+      }
+      (Object, StackTrace)? callbackFailure;
+      await Future.wait([
+        for (var i = 0; i < sources.length; i++)
+          (() async {
+            final sections = await sources[i]();
+            slots[i] = List.unmodifiable([
+              for (final section in sections)
+                GlobalSearchSection(
+                  scope: section.scope,
+                  topicId: section.topicId,
+                  topicTitle: section.topicTitle,
+                  results: List.unmodifiable(section.results),
+                  error: section.error,
+                  hasMore: section.hasMore,
+                ),
+            ]);
+            pending--;
+            if (pending > 0 &&
+                !aborted &&
+                callbackFailure == null &&
+                onProgress != null) {
+              try {
+                onProgress(snapshot().sections);
+              } catch (error, stack) {
+                callbackFailure = (error, stack);
+              }
+            }
+          })(),
+      ]);
+      if (callbackFailure case final failure?) {
+        Error.throwWithStackTrace(failure.$1, failure.$2);
+      }
+      return snapshot();
     }
+
     if (r.scope == GlobalSearchScope.messages ||
         r.scope == GlobalSearchScope.categories ||
         r.scope == GlobalSearchScope.tags) {

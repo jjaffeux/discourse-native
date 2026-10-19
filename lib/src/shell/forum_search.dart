@@ -89,6 +89,7 @@ class _ForumSearchState extends State<ForumSearch> {
   double? _layoutWidth;
   Size? _layoutViewport;
   String? _selectedResultId;
+  Object? _selectedNavigationIdentity;
   TextEditingValue? _draftEditingValue;
   String? _openingExpression;
   final _panelKey = GlobalKey<GlobalSearchPanelState>();
@@ -258,11 +259,22 @@ class _ForumSearchState extends State<ForumSearch> {
     });
   }
 
+  void _selectResult(String? id) {
+    _selectedResultId = id;
+    _selectedNavigationIdentity = _global.results
+        .where((result) => result.id == id)
+        .firstOrNull
+        ?.navigationIdentity;
+  }
+
   void _globalChanged() {
     if (!mounted) return;
     _syncText();
-    if (!_global.results.any((row) => row.id == _selectedResultId)) {
-      _selectedResultId = null;
+    final selected = _global.results
+        .where((row) => row.id == _selectedResultId)
+        .firstOrNull;
+    if (selected?.navigationIdentity != _selectedNavigationIdentity) {
+      _selectResult(null);
     }
     setState(() {});
   }
@@ -438,7 +450,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _clear() {
     if (!_open) _requestFocus();
-    _selectedResultId = null;
+    _selectResult(null);
     _global.clearAllConditions();
     _setQuery('');
     _focus.requestFocus();
@@ -510,7 +522,7 @@ class _ForumSearchState extends State<ForumSearch> {
       final next = current < 0
           ? (down ? 0 : rows.length - 1)
           : (current + (down ? 1 : -1) + rows.length) % rows.length;
-      setState(() => _selectedResultId = rows[next].id);
+      setState(() => _selectResult(rows[next].id));
       _pageRevision.value++;
       return KeyEventResult.handled;
     }
@@ -707,7 +719,7 @@ class _ForumSearchState extends State<ForumSearch> {
             textInputAction: TextInputAction.search,
             onTap: _requestFocus,
             onChanged: (value) {
-              _selectedResultId = null;
+              _selectResult(null);
               _setQuery(value);
             },
             onSubmitted: (_) {
@@ -929,7 +941,7 @@ class _ForumSearchState extends State<ForumSearch> {
                       onOpenSection: _openSection,
                       onRefocus: _focus.requestFocus,
                       selectedResultId: _selectedResultId,
-                      onSelect: (id) => setState(() => _selectedResultId = id),
+                      onSelect: (id) => setState(() => _selectResult(id)),
                       onOpen: _openResult,
                     ),
                   ),
@@ -1060,7 +1072,7 @@ class _ForumSearchState extends State<ForumSearch> {
               onRefocus: _focus.requestFocus,
               selectedResultId: _selectedResultId,
               onSelect: (id) {
-                _selectedResultId = id;
+                _selectResult(id);
                 _pageRevision.value++;
               },
               onOpen: _openResult,

@@ -2,12 +2,12 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/plugin_api/global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
-import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -75,8 +75,181 @@ class _HeldChatChannelsApi extends GlobalSearchFixtureApi {
   }
 }
 
+class _LateResultContribution extends GlobalSearchContribution {
+  _LateResultContribution() : super('late-results');
+  final gate = Completer<GlobalSearchPage>();
+  @override
+  List<GlobalSearchScope> get scopes => const [
+    GlobalSearchScope.plugin(
+      owner: 'late-results',
+      name: 'matches',
+      label: 'Matches',
+    ),
+  ];
+  @override
+  bool available(
+    Map<String, dynamic> settings,
+    Map<String, dynamic> user,
+    bool authenticated,
+  ) => true;
+  @override
+  Future<GlobalSearchPage> search(
+    GlobalSearchReadContext context,
+    GlobalSearchRequest request,
+  ) => gate.future;
+}
+
+class _ProgressiveSearchApi extends GlobalSearchFixtureApi {
+  _ProgressiveSearchApi({required this.holdChat});
+  final bool holdChat;
+  final sourceGate = Completer<void>();
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    final uri = Uri.parse(path);
+    if (uri.path == '/chat/api/search.json' && holdChat ||
+        uri.path == '/search/query.json' && !holdChat) {
+      await sourceGate.future;
+    }
+    return super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+}
+
 void main({bool useDeviceMetrics = false}) {
   _useDeviceMetrics = useDeviceMetrics;
+  _testPresentation(
+    'outer search selection clears when a late duplicate changes destination',
+    (tester) async {
+      final shell = await _pumpSearch(tester);
+      await _openAndSearch(tester, 'design');
+      final late = _LateResultContribution();
+      shell.globalSearch.configure(
+        siteUrl: globalSearchFixtureSite,
+        capabilities: GlobalSearchCapabilities(
+          authenticated: true,
+          username: shell.globalSearch.capabilities.username,
+          contributions: [late],
+          enabledContributions: {late.owner},
+        ),
+      );
+      await _finishSearch(tester);
+      expect(shell.globalSearch.phase, GlobalSearchPhase.loading);
+      expect(
+        shell.globalSearch.capabilities.enabledContributions,
+        contains(late.owner),
+      );
+      final panelFinder = find.byType(GlobalSearchPanel);
+      var panel = tester.widget<GlobalSearchPanel>(panelFinder);
+      final selectedId = shell.globalSearch.results
+          .firstWhere((row) => row.scope == GlobalSearchScope.forum)
+          .id;
+      panel.onSelect!(selectedId);
+      await tester.pumpAndSettle();
+      panel = tester.widget<GlobalSearchPanel>(panelFinder);
+      expect(panel.selectedResultId, selectedId);
+      late.gate.complete(
+        GlobalSearchPage(
+          sections: [
+            GlobalSearchSection(
+              scope: GlobalSearchScope.forum,
+              results: [
+                GlobalSearchResult(
+                  id: selectedId,
+                  scope: GlobalSearchScope.forum,
+                  title: 'Different destination',
+                  path: '/t/different/999',
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      panel = tester.widget<GlobalSearchPanel>(panelFinder);
+      expect(shell.globalSearch.results.first.path, '/t/different/999');
+      expect(panel.selectedResultId, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final mobile in [false, true]) {
+    _testPresentation(
+      'progressive results activate before chat finishes on ${mobile ? 'mobile' : 'desktop'}',
+      (tester) async {
+        if (mobile) debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        final api = _ProgressiveSearchApi(holdChat: true);
+        final shell = await _pumpSearch(
+          tester,
+          api: api,
+          size: mobile ? phone : desktop,
+        );
+        await _openAndSearch(tester, 'design');
+        expect(shell.globalSearch.phase, GlobalSearchPhase.loading);
+        expect(api.sourceGate.isCompleted, isFalse);
+        final result = _panelText('A calmer, more useful global search').first;
+        await tester.ensureVisible(result);
+        await tester.pumpAndSettle();
+        await tester.tap(result);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.topicId, 1038);
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        api.sourceGate.complete();
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.topicId, 1038);
+        expect(tester.takeException(), isNull);
+      },
+    );
+    _testPresentation(
+      'progressive arrivals keep the selected chat action on ${mobile ? 'mobile' : 'desktop'}',
+      (tester) async {
+        if (mobile) debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        final api = _ProgressiveSearchApi(holdChat: false);
+        final shell = await _pumpSearch(
+          tester,
+          api: api,
+          size: mobile ? phone : desktop,
+        );
+        await _openAndSearch(tester, 'design');
+        expect(shell.globalSearch.phase, GlobalSearchPhase.loading);
+        expect(shell.globalSearch.results.single.id, 'chat:3001');
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        final selected = find.byWidgetPredicate(
+          (widget) => widget is DItem && widget.selected,
+        );
+        final chatRow = find.byKey(
+          const ValueKey('global-search-result-chat:3001'),
+        );
+        expect(tester.widget<DItem>(chatRow).selected, isTrue);
+        expect(selected, findsOneWidget);
+        api.sourceGate.complete();
+        await tester.pumpAndSettle();
+        expect(shell.globalSearch.phase, GlobalSearchPhase.results);
+        expect(
+          shell.globalSearch.sections.first.scope,
+          GlobalSearchScope.forum,
+        );
+        expect(tester.widget<DItem>(chatRow).selected, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.id, 'chat-c-2');
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final separateTab in [false, true]) {
     _testPresentation(
       'pending Chat result cannot write words to another visit (separate tab: $separateTab)',

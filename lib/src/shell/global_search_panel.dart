@@ -64,6 +64,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   final Map<String, GlobalKey> _resultKeys = {};
   final _actions = <({String id, VoidCallback open, VoidCallback? into})>[];
   String? _selected;
+  Object? _selectedNavigationIdentity;
   final _drill = <int>[];
   Object? _lookupKey;
   int _lookupRevision = 0;
@@ -74,7 +75,21 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   int _categoryPage = 0;
   bool _hasMoreChoices = false;
 
+  Object? _targetFor(String? id) => widget.controller.results
+      .where((result) => result.id == id)
+      .firstOrNull
+      ?.navigationIdentity;
+
+  void _checkSelectionTarget() {
+    if (_selectedNavigationIdentity != null &&
+        _targetFor(_selected) != _selectedNavigationIdentity) {
+      _selected = null;
+      _selectedNavigationIdentity = null;
+    }
+  }
+
   bool handleKey(LogicalKeyboardKey key, {bool reverse = false}) {
+    _checkSelectionTarget();
     if (key == LogicalKeyboardKey.tab ||
         (widget.controller.query.isEmpty &&
             (key == LogicalKeyboardKey.arrowLeft ||
@@ -111,7 +126,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       final next = current < 0
           ? (down ? 0 : _actions.length - 1)
           : (current + (down ? 1 : -1) + _actions.length) % _actions.length;
-      setState(() => _selected = _actions[next].id);
+      setState(() {
+        _selected = _actions[next].id;
+        _selectedNavigationIdentity = _targetFor(_selected);
+      });
       _revealSelection(
         _actions[next].id,
         _navigationSignature,
@@ -188,6 +206,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   void resetSelection() {
     _selected = null;
+    _selectedNavigationIdentity = null;
     _drill.clear();
   }
 
@@ -636,6 +655,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         resetSelection();
         _navigationSignature = signature;
       }
+      _checkSelectionTarget();
       _actions.clear();
       final liveIds = controller.results.map((result) => result.id).toSet();
       _resultKeys.removeWhere(

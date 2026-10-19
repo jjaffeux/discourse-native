@@ -321,6 +321,11 @@ class GlobalSearchResult {
   final SearchResult? source;
   final bool privateMessage, closed, archived;
 
+  Object get navigationIdentity => switch (source) {
+    SearchPostHit hit => (scope, hit.topicId, hit.postNumber),
+    _ => (scope, path, destination?.identity),
+  };
+
   GlobalSearchResult inTopic(SearchPostHit hit) => GlobalSearchResult(
     id: 'in-topic:$id',
     scope: scope,

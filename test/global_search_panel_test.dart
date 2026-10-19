@@ -26,6 +26,53 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  for (final changeTarget in [false, true]) {
+    testWidgets(
+      'progressive selection ${changeTarget ? 'clears a changed target' : 'survives metadata updates'}',
+      (tester) async {
+        final api = _ProgressivePanelApi();
+        final opened = <GlobalSearchResult>[];
+        final controller = await _pump(tester, api: api, onOpen: opened.add);
+        controller.setQuery('design');
+        await tester.pumpAndSettle();
+        expect(controller.phase, GlobalSearchPhase.loading);
+        final state = tester.state<GlobalSearchPanelState>(
+          find.byType(GlobalSearchPanel),
+        );
+        state.handleKey(LogicalKeyboardKey.arrowDown);
+        state.handleKey(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        final row = _key('global-search-result-shared');
+        expect(tester.widget<DItem>(row).selected, isTrue);
+        api.gate.complete(
+          GlobalSearchPage(
+            sections: [
+              GlobalSearchSection(
+                scope: GlobalSearchScope.forum,
+                results: [
+                  GlobalSearchResult(
+                    id: 'shared',
+                    scope: GlobalSearchScope.forum,
+                    title: 'Updated metadata',
+                    path: changeTarget ? '/t/second/2' : '/t/first/1',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.widget<DItem>(row).selected, !changeTarget);
+        expect(state.handleKey(LogicalKeyboardKey.enter), !changeTarget);
+        expect(
+          opened.map((r) => r.path),
+          changeTarget ? isEmpty : ['/t/first/1'],
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final height in [300.0, 650.0]) {
     for (final textScale in [1.0, 2.0]) {
       testWidgets(
@@ -895,6 +942,7 @@ Future<GlobalSearchController> _pump(
   double height = 500,
   List<GlobalSearchResult> results = const [],
   _PanelApi? api,
+  ValueChanged<GlobalSearchResult>? onOpen,
   Size viewport = const Size(1000, 800),
   double textScale = 1,
   bool dark = true,
@@ -955,7 +1003,10 @@ Future<GlobalSearchController> _pump(
           child: SizedBox(
             width: width,
             height: height,
-            child: GlobalSearchPanel(controller: controller, onOpen: (_) {}),
+            child: GlobalSearchPanel(
+              controller: controller,
+              onOpen: onOpen ?? (_) {},
+            ),
           ),
         ),
       ),
@@ -1013,6 +1064,7 @@ class _PanelApi extends GlobalSearchApi {
     String? clientId,
     required GlobalSearchRequest request,
     Future<void>? abortTrigger,
+    void Function(List<GlobalSearchSection> sections)? onProgress,
   }) async => GlobalSearchPage(
     sections: [
       GlobalSearchSection(scope: GlobalSearchScope.forum, results: results),
@@ -1046,5 +1098,34 @@ class _PanelApi extends GlobalSearchApi {
             GlobalSearchFilterChoice(value: '2', label: 'Development'),
           ]
         : filter.choices;
+  }
+}
+
+class _ProgressivePanelApi extends _PanelApi {
+  final gate = Completer<GlobalSearchPage>();
+
+  @override
+  Future<GlobalSearchPage> search({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+    required GlobalSearchRequest request,
+    Future<void>? abortTrigger,
+    void Function(List<GlobalSearchSection> sections)? onProgress,
+  }) async {
+    onProgress?.call(const [
+      GlobalSearchSection(
+        scope: GlobalSearchScope.forum,
+        results: [
+          GlobalSearchResult(
+            id: 'shared',
+            scope: GlobalSearchScope.forum,
+            title: 'First result',
+            path: '/t/first/1',
+          ),
+        ],
+      ),
+    ]);
+    return gate.future;
   }
 }

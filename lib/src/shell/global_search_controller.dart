@@ -1003,9 +1003,21 @@ class GlobalSearchController extends ChangeNotifier {
           clientId: client,
           request: request,
           abortTrigger: abort.future,
+          onProgress: request.scope == GlobalSearchScope.all && !append
+              ? (sections) {
+                  if (!current() || abort.isCompleted) return;
+                  _sections = sections;
+                  _error = _sections
+                      .where((s) => s.error != null)
+                      .map((s) => s.error)
+                      .firstOrNull;
+                  _phase = GlobalSearchPhase.loading;
+                  _notify();
+                }
+              : null,
         ),
       );
-      if (!current()) return;
+      if (!current() || abort.isCompleted) return;
       if (append) {
         final all = <GlobalSearchScope, GlobalSearchSection>{
           for (final s in _sections) s.scope: s,
