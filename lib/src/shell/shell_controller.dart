@@ -140,6 +140,7 @@ import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
+import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
 import 'topic_filter_controller.dart' show splitTopicFilterQuery;
 import 'topic_filter_scope.dart';
@@ -230,20 +231,6 @@ final class _PluginBookmarkWriteContext extends _BookmarkWriteContext {
 }
 
 const _pluginBookmarkWriteContext = _PluginBookmarkWriteContext();
-
-/// The held posts of one topic that one synchronous run of live messages
-/// named for a re-read. It is also the owner token of each post's read, so a
-/// write that disowns a queued post keeps it out of the request.
-final class _PostRefreshBatch {
-  _PostRefreshBatch(this.siteUrl, this.topicId, this.lease);
-
-  final String siteUrl;
-  final int topicId;
-  final SiteLease lease;
-
-  /// In the order the run named them; a post named twice is read once.
-  final Set<int> postIds = {};
-}
 
 final class PostPermanentDeleteTarget {
   const PostPermanentDeleteTarget._({
@@ -772,7 +759,7 @@ class ShellController extends FrameSafeNotifier
         corePluginTopicRefreshPort,
         PluginTopicRefreshHost(
           reloadTopic: (siteUrl, topicId) =>
-              _refetchTopic(siteUrl, topicId, ''),
+              _topicData.forSite(siteUrl).refresh(topicId, slug: ''),
         ),
       ),
       _pluginTrackerHostPort(),
@@ -996,13 +983,13 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool beginPluginPostWrite(String siteUrl, int postId) =>
-      _beginPostWrite(_postKey(siteUrl, postId));
+      _topicData.forSite(siteUrl).beginPluginWrite(postId);
 
   void endPluginPostWrite(String siteUrl, int postId) =>
-      _endPostWrite(siteUrl, postId);
+      _topicData.forSite(siteUrl).endPluginWrite(postId);
 
   bool pluginPostWriteInFlight(String siteUrl, int postId) =>
-      _postWritesInFlight.containsKey(_postKey(siteUrl, postId));
+      _topicData.forSite(siteUrl).postWriting(postId);
 
   Future<void> refreshPluginPost(
     String siteUrl,
@@ -1010,7 +997,11 @@ class ShellController extends FrameSafeNotifier
     int postId,
     String? apiKey,
     SiteLease lease,
-  ) => _refreshPost(siteUrl, topicId, postId, apiKey, lease);
+  ) async {
+    await _topicData
+        .forLease(siteUrl, lease)
+        ?.repairPost(topicId, postId, apiKey, lease);
+  }
 
   void notifyPluginStateChanged() => _notify();
 
@@ -1078,29 +1069,6 @@ class ShellController extends FrameSafeNotifier
         failure: const WriteException(WriteFailure.unreachable),
       );
     }
-  }
-
-  Future<T> _awaitTopicLoadStage<T>(
-    Future<T> stage,
-    Stopwatch elapsed,
-    String description,
-  ) {
-    final remaining = topicLoadTimeout - elapsed.elapsed;
-    if (remaining <= Duration.zero) {
-      return Future<T>.error(
-        TimeoutException(
-          appL10n.timedOut((description).toString()),
-          topicLoadTimeout,
-        ),
-      );
-    }
-    return stage.timeout(
-      remaining,
-      onTimeout: () => throw TimeoutException(
-        appL10n.timedOut((description).toString()),
-        topicLoadTimeout,
-      ),
-    );
   }
 
   final SiteTrackerFactory trackers;
@@ -1206,7 +1174,8 @@ class ShellController extends FrameSafeNotifier
         );
         await _taxonomy.ensureCategoryIds(instance, categoryIds);
       },
-      readPersonalizationVersion: _siteBookmarkVersion,
+      readPersonalizationVersion: (siteUrl) =>
+          _topicData.forSite(siteUrl).bookmarkEpoch,
       prepareTopicForStore: _prepareTopicForStore,
       incomingFilterFor: _incomingTopicsFilter,
       onFeedLoaded: (instance, _, _, _) => _trackIncomingLists(instance.url),
@@ -4180,13 +4149,19 @@ class ShellController extends FrameSafeNotifier
           if (core.stream ||
               plugins.registry.staleTopic(topicId, channel, data)) {
             unawaited(
-              _refetchTopic(siteUrl, topicId, routes[topicId]?.slug ?? ''),
+              _topicData
+                  .forSite(siteUrl)
+                  .refresh(topicId, slug: routes[topicId]?.slug ?? ''),
             );
           }
           final stale = plugins.registry.stalePosts(channel, data);
-          if (stale.isNotEmpty) _refreshPosts(siteUrl, topicId, stale);
+          if (stale.isNotEmpty) {
+            _topicData.forSite(siteUrl).invalidatePosts(topicId, stale);
+          }
           if (core.post case final id?) {
-            _refreshPosts(siteUrl, topicId, {id}, deletion: core.deletion);
+            _topicData.forSite(siteUrl).invalidatePosts(topicId, {
+              id,
+            }, deletion: core.deletion);
           }
         }
       },
@@ -4246,18 +4221,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  /// The newest `posts_count` a core `stats` message carried while a
-  /// deletion's re-read of the topic was out, by [_topicKey]. Core publishes
-  /// that count right after the deletion, and a re-read that then omits the
-  /// post lowers the held count for it again, so the count waits for the
-  /// re-read to decide.
-  final Map<String, int> _deferredTopicPostsCounts = {};
-
-  /// `Topic.publish_stats_to_clients!`: the topic's totals after a like, a new
-  /// post, a deletion or a recovery. As on the web client, each total the
-  /// message carries replaces the held one; nothing is read again for it. Its
-  /// last-post fields have no held counterpart: a row's activity time is
-  /// `bumped_at`, which this message does not carry.
   void _applyTopicStatsMessage(
     String siteUrl,
     int topicId,
@@ -4267,237 +4230,13 @@ class ShellController extends FrameSafeNotifier
     if (!lease.isCurrent || isDisposed) return;
     if (data is! Map || data['type'] != 'stats') return;
     int? total(Object? value) => value is int && value >= 0 ? value : null;
-    final likeCount = total(data['like_count']);
-    var postsCount = total(data['posts_count']);
-    if (postsCount != null && _awaitsTopicDeletionRead(siteUrl, topicId)) {
-      _deferredTopicPostsCounts[_topicKey(siteUrl, topicId)] = postsCount;
-      postsCount = null;
-    }
-    _setTopicTotals(
-      siteUrl,
-      topicId,
-      likeCount: likeCount,
-      postsCount: postsCount,
-    );
-  }
-
-  bool _awaitsTopicDeletionRead(String siteUrl, int topicId) =>
-      _postRefreshDeletions.any(
-        (key) =>
-            key.startsWith('$siteUrl~') && _postRefreshTopics[key] == topicId,
-      );
-
-  void _releaseDeferredTopicPostsCount(String siteUrl, int topicId) {
-    final key = _topicKey(siteUrl, topicId);
-    if (!_deferredTopicPostsCounts.containsKey(key) ||
-        _awaitsTopicDeletionRead(siteUrl, topicId)) {
-      return;
-    }
-    _setTopicTotals(
-      siteUrl,
-      topicId,
-      postsCount: _deferredTopicPostsCounts.remove(key),
-    );
-  }
-
-  void _setTopicTotals(
-    String siteUrl,
-    int topicId, {
-    int? likeCount,
-    int? postsCount,
-  }) {
-    if (likeCount == null && postsCount == null) return;
-    bool holds(int held, int? next) => next == null || next == held;
-    var changed = false;
-    store.update<TopicDetail>(siteUrl, topicId, (topic) {
-      if (holds(topic.likeCount, likeCount) &&
-          holds(topic.postsCount, postsCount)) {
-        return topic;
-      }
-      changed = true;
-      return topic.copyWith(likeCount: likeCount, postsCount: postsCount);
-    });
-    // A list row listens to its own ref, so only the topic needs the shell.
-    store.update<Topic>(
-      siteUrl,
-      topicId,
-      (row) =>
-          holds(row.likeCount, likeCount) && holds(row.postsCount, postsCount)
-          ? row
-          : row.copyWith(likeCount: likeCount, postsCount: postsCount),
-    );
-    if (changed && !isDisposed && currentInstance?.url == siteUrl) {
-      _notifyLiveChange();
-    }
-  }
-
-  /// Re-reads of held posts that have not left yet, by [_topicKey]. One poll
-  /// answer can name many held posts, some several times: a backlog replayed
-  /// on resume, or the likes of a busy thread. Each request counts against
-  /// the site's per-minute user API budget, which the reader's own actions
-  /// share, so the posts a run names leave together once it is delivered.
-  final Map<String, _PostRefreshBatch> _queuedPostRefreshes = {};
-
-  void _refreshPosts(
-    String siteUrl,
-    int topicId,
-    Set<int> postIds, {
-    bool deletion = false,
-  }) {
-    final eligible = <int>[];
-    for (final id in postIds) {
-      final key = _postKey(siteUrl, id);
-      if (store.read<Post>(siteUrl, id) == null) {
-        _postRefreshDeletions.remove(key);
-        continue;
-      }
-      // Kept until a read of this post commits, since the read that answers
-      // may be a replay after an earlier read or a write.
-      if (deletion) _postRefreshDeletions.add(key);
-      if (_postWritesInFlight.containsKey(key)) {
-        // A poll/reaction echo received during a write is useful, but not yet:
-        // the pre-write personalized post could land over the write response.
-        // Remember it and re-read as soon as the post lease is released.
-        _postRefreshPending.add(key);
-        _postRefreshTopics[key] = topicId;
-      } else {
-        eligible.add(id);
-      }
-    }
-    // A deleted post that a write's own re-read already took out holds no
-    // count back.
-    _releaseDeferredTopicPostsCount(siteUrl, topicId);
-    final topicKey = _topicKey(siteUrl, topicId);
-    for (final id in eligible) {
-      final key = _postKey(siteUrl, id);
-      final owner = _postRefreshRequests[key];
-      if (owner == null) {
-        final batch = _queuedPostRefreshes.putIfAbsent(topicKey, () {
-          final batch = _PostRefreshBatch(
-            siteUrl,
-            topicId,
-            lifecycle.capture(siteUrl),
-          );
-          scheduleMicrotask(() => _sendPostRefreshBatch(batch));
-          return batch;
-        });
-        batch.postIds.add(id);
-        _postRefreshRequests[key] = batch;
-        // Keep the topic beside every active read as well as beside reads that
-        // arrive during a write. If a write starts now, it invalidates this
-        // pre-write response and needs enough context to replay it afterward.
-        _postRefreshTopics[key] = topicId;
-      } else if (!identical(owner, _queuedPostRefreshes[topicKey])) {
-        // The read already out may have been answered before this change.
-        _postRefreshPending.add(key);
-      }
-    }
-  }
-
-  /// Sends what [batch] still owns, as reads by id of at most
-  /// [TopicDetail.maximumInitialPosts] posts, the page the web client reads
-  /// a stream in.
-  void _sendPostRefreshBatch(_PostRefreshBatch batch) {
-    final topicKey = _topicKey(batch.siteUrl, batch.topicId);
-    // A forgotten site took its queued reads with it.
-    if (!identical(_queuedPostRefreshes[topicKey], batch)) return;
-    _queuedPostRefreshes.remove(topicKey);
-    if (isDisposed) return;
-    final owned = [
-      for (final id in batch.postIds)
-        if (identical(_postRefreshRequests[_postKey(batch.siteUrl, id)], batch))
-          id,
-    ];
-    const page = TopicDetail.maximumInitialPosts;
-    for (var start = 0; start < owned.length; start += page) {
-      final end = math.min(start + page, owned.length);
-      unawaited(_readRefreshedPosts(batch, owned.sublist(start, end)));
-    }
-  }
-
-  Future<void> _readRefreshedPosts(
-    _PostRefreshBatch batch,
-    List<int> wanted,
-  ) async {
-    final _PostRefreshBatch(:siteUrl, :topicId, :lease) = batch;
-
-    bool requestOwns(int postId) =>
-        identical(_postRefreshRequests[_postKey(siteUrl, postId)], batch);
-
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
-      final posts = await credential.run(
-        () => api.topicContent.posts(
-          siteUrl: siteUrl,
-          topicId: topicId,
-          ids: wanted,
-          apiKey: credential.apiKey,
-        ),
-      );
-      lease.commit(() {
-        bool current(int postId) =>
-            requestOwns(postId) &&
-            !_postRefreshPending.contains(_postKey(siteUrl, postId));
-        final fresh = [
-          for (final post in posts)
-            if (current(post.id)) post,
-        ];
-        // After a deletion, a read by id that leaves the post out means this
-        // reader can no longer see it, as the web client concludes when its
-        // own read fails. A full topic refetch keeps an omitted id that ends
-        // the stream, so nothing else would take the last post out. No other
-        // live re-read's omission removes a post.
-        final answered = {for (final post in posts) post.id};
-        final gone = [
-          for (final id in wanted)
-            if (!answered.contains(id) &&
-                current(id) &&
-                _postRefreshDeletions.contains(_postKey(siteUrl, id)))
-              id,
-        ];
-        if (fresh.isEmpty && gone.isEmpty) return;
-        store.putAll(siteUrl, fresh);
-        for (final id in gone) {
-          _removeTopicPost(siteUrl, topicId, id);
-        }
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      final stillRelevant = wanted.any((id) {
-        final key = _postKey(siteUrl, id);
-        return requestOwns(id) && !_postRefreshPending.contains(key);
-      });
-      if (!isDisposed && lease.isCurrent && stillRelevant) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'post.refreshFromMessageBus',
-          severity: DiagnosticSeverity.warning,
+    _topicData
+        .forLease(siteUrl, lease)
+        ?.acceptTotals(
+          topicId,
+          likeCount: total(data['like_count']),
+          postsCount: total(data['posts_count']),
         );
-      }
-    } finally {
-      final retry = <int>{};
-      lease.commit(() {
-        for (final id in wanted) {
-          final key = _postKey(siteUrl, id);
-          if (requestOwns(id)) {
-            _postRefreshRequests.remove(key);
-            if (_postRefreshPending.remove(key)) {
-              retry.add(id);
-            } else {
-              _postRefreshTopics.remove(key);
-              _postRefreshDeletions.remove(key);
-            }
-          }
-        }
-        _releaseDeferredTopicPostsCount(siteUrl, topicId);
-      });
-      if (retry.isNotEmpty) _refreshPosts(siteUrl, topicId, retry);
-    }
   }
 
   void _acceptLiveNotificationState(
@@ -5808,7 +5547,7 @@ class ShellController extends FrameSafeNotifier
   void setForeground(bool foreground) {
     if (foreground == _foreground) return;
     _foreground = foreground;
-    if (!foreground) _topicPrefetch.validate();
+    if (!foreground) _topicData.validatePrefetch();
     final backgroundedAt = _backgroundedAt;
     _backgroundedAt = foreground ? null : _clock();
     // The OS may suspend the process before a debounce timer fires again.
@@ -5849,19 +5588,29 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  final _topicPrefetch = TopicPrefetchController();
-  final Set<String> _topicsLoading = {};
-  final Set<String> _topicRefreshPending = {};
-  final Map<String, int> _topicRefreshPostNumbers = {};
-  // A failed forced reconciliation, or a write whose effect on the topic was
-  // only projected, must not turn the held topic into a permanent cache hit.
-  // The next ordinary open reads it again automatically.
-  final Set<String> _topicsStale = {};
-  final Set<String> _postsLoading = {};
-  final Set<String> _earlierPostsLoading = {};
-  final Map<String, List<int>> _topicSummaryStreams = {};
-  final Set<String> _topicSummariesLoading = {};
-  final Set<(String, int, int, bool)> _postGapsLoading = {};
+  late final TopicDataOwner _topicData = TopicDataOwner(
+    content: api.topicContent,
+    feeds: api.topicFeeds,
+    models: api.models,
+    store: store,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    changed: _notify,
+    liveChanged: (siteUrl) {
+      if (currentInstance?.url == siteUrl) _notifyLiveChange();
+    },
+    published: (siteUrl, detail) {
+      final changed = _retitle(siteUrl, detail.id, detail.title);
+      _armTopicPostHighlightIfLoaded();
+      return changed;
+    },
+    prepareCategories: (siteUrl, ids) async {
+      final instance = _instanceAt(siteUrl);
+      if (instance != null) await _taxonomy.ensureCategoryIds(instance, ids);
+    },
+    report: _reportOperationalError,
+    loadTimeout: topicLoadTimeout,
+  );
   final Map<String, _QueuedTopicNotification> _topicNotificationWrites = {};
   final Map<String, Future<void>> _topicNotificationTails = {};
   final Map<String, _QueuedCategoryNotification> _categoryNotificationWrites =
@@ -5894,9 +5643,6 @@ class ShellController extends FrameSafeNotifier
 
   bool get currentTopicSummaryLoading =>
       focusedTabContext.currentTopicSummaryLoading;
-
-  List<int> _topicStream(String siteUrl, TopicDetail detail) =>
-      _topicSummaryStreams[_topicKey(siteUrl, detail.id)] ?? detail.stream;
 
   List<int> get currentTopicStreamIds =>
       focusedTabContext.currentTopicStreamIds;
@@ -5986,16 +5732,6 @@ class ShellController extends FrameSafeNotifier
     }
     return pending;
   }
-
-  /// The loaded post the open mega topic pages from on the [newer] side of
-  /// its window, or null where there is nothing to read past it by post
-  /// number.
-  ///
-  /// A mega topic's stream is only the run read so far
-  /// (TopicDetail.isMegaTopic), so past an end of the window that is also an
-  /// end of the stream the topic goes on by post number, until the window
-  /// holds the topic's last post id or its first post, as on the web client.
-  /// A summary stream is read whole and pages by id.
 
   /// Whether the stream continues past the loaded window.
   ///
@@ -6437,7 +6173,7 @@ class ShellController extends FrameSafeNotifier
         : '';
     SurfaceOpeningTrace.mark('topic.request');
     if (currentInstance case final instance?) {
-      _topicSummaryStreams.remove(_topicKey(instance.url, topicId));
+      _topicData.forSite(instance.url).clearSummary(topicId);
     }
     final route = ContentRoute.topic(
       topicId: topicId,
@@ -6586,11 +6322,11 @@ class ShellController extends FrameSafeNotifier
     required Bookmark? bookmark,
   }) {
     final lease = lifecycle.capture(siteUrl);
-    final version = _bookmarkVersion(siteUrl, topicId);
+    final bookmarkCurrent = _topicData.forSite(siteUrl).bookmarkGuard(topicId);
     return BookmarkLinkAction(
       bookmark: bookmark,
       invoke: () async {
-        if (!lease.isCurrent || version != _bookmarkVersion(siteUrl, topicId)) {
+        if (!lease.isCurrent || !bookmarkCurrent()) {
           return BookmarkWriteResult.refused(
             appL10n.bookmarkChangedRefreshMenu,
           );
@@ -6644,7 +6380,9 @@ class ShellController extends FrameSafeNotifier
       if (targetBookmark != null && targetBookmark.coreTargetType == null) {
         return null;
       }
-      final version = _bookmarkVersion(siteUrl, link.topicId);
+      final bookmarkCurrent = _topicData
+          .forSite(siteUrl)
+          .bookmarkGuard(link.topicId);
       final credential = await AccountRequestSession(
         siteUrl,
         lease,
@@ -6661,7 +6399,7 @@ class ShellController extends FrameSafeNotifier
       );
       if (!lease.isCurrent ||
           payload.detail.id != link.topicId ||
-          version != _bookmarkVersion(siteUrl, link.topicId)) {
+          !bookmarkCurrent()) {
         return null;
       }
       final topicTarget =
@@ -7077,28 +6815,10 @@ class ShellController extends FrameSafeNotifier
       var target = store.read<Post>(instance.url, targetId);
       final loadAroundPost = target == null;
       if (target == null) {
-        final credential = await AccountRequestSession(
-          instance.url,
-          lease,
-        ).keyCredentials(credentials);
-        if (!lease.isCurrent || !isCurrent()) return false;
-        final bookmarkVersion = _bookmarkVersion(instance.url, topic.id);
-        final fetched = await credential.run(
-          () => api.topicContent.posts(
-            siteUrl: instance.url,
-            topicId: topic.id,
-            ids: [targetId],
-            apiKey: credential.apiKey,
-          ),
-        );
-        if (!isCurrent()) return false;
-        target = fetched.where((post) => post.id == targetId).firstOrNull;
+        target = await _topicData
+            .forLease(instance.url, lease)
+            ?.ensurePost(topic.id, targetId, isInterested: isCurrent);
         if (target == null) return false;
-        lease.commit(
-          () => _putTopicPosts(instance.url, topic.id, [
-            target!,
-          ], bookmarkVersionAtDispatch: bookmarkVersion),
-        );
       }
       if (!isCurrent()) return false;
       openCurrentTopicPost(target.postNumber, loadAroundPost: loadAroundPost);
@@ -7210,100 +6930,32 @@ class ShellController extends FrameSafeNotifier
         readingTopicId == topic.id) {
       return () {};
     }
-    final topicKey = _topicKey(siteUrl, topic.id);
-    final postNumber = topic.lastUnreadPostNumber;
-    if (_topicsLoading.contains(topicKey) ||
-        (!_topicsStale.contains(topicKey) &&
-            _hasTopicPost(siteUrl, topic.id, postNumber))) {
-      return () {};
-    }
-    final lease = lifecycle.capture(siteUrl);
-    final owner = (
+    final origin = (
       activeTabId,
       currentContent?.destination.identity,
       topicListContent?.destination.identity,
     );
-    return _topicPrefetch.hover(
-      (
-        siteUrl: siteUrl,
-        session: lease.session,
-        topicId: topic.id,
-        postNumber: postNumber,
-      ),
-      intent: intent,
-      isCurrent: () =>
-          !isDisposed &&
-          (isInterested?.call() ?? true) &&
-          _foreground &&
-          lease.isCurrent &&
-          currentInstance?.url == siteUrl &&
-          rootMode == ShellRootMode.forum &&
-          ((
-                    activeTabId,
-                    currentContent?.destination.identity,
-                    topicListContent?.destination.identity,
-                  ) ==
-                  owner ||
-              (currentContent?.topicId == topic.id &&
-                  currentContent?.postNumber == postNumber)),
-      load: (cancellation) async {
-        final elapsed = Stopwatch()..start();
-        final bookmarkVersion = _bookmarkVersion(siteUrl, topic.id);
-        final archiveVersion = _messageArchiveVersion(siteUrl, topic.id);
-        final postRemovalVersion = _topicPostRemovalVersion(siteUrl, topic.id);
-        try {
-          final credential = await _awaitTopicLoadStage(
-            Future.any<AccountRequestCredentials?>([
-              AccountRequestSession(siteUrl, lease).credentials(credentials),
-              cancellation.trigger.then((_) => null),
-            ]),
-            elapsed,
-            'reading credentials for topic prefetch',
-          );
-          if (credential == null ||
-              !lease.isCurrent ||
-              cancellation.isCancelled) {
-            return null;
-          }
-          final payload = await _awaitTopicLoadStage(
-            credential.run(
-              () => api.topicContent.topic(
-                siteUrl: siteUrl,
-                slug: topic.slug,
-                id: topic.id,
-                postNumber: postNumber,
-                apiKey: credential.apiKey,
-                clientId: credential.clientId,
-                abortTrigger: cancellation.trigger,
-              ),
-            ),
-            elapsed,
-            'prefetching topic ${topic.id}',
-          );
-          if (isDisposed || !lease.isCurrent || cancellation.isCancelled) {
-            return null;
-          }
-          return PrefetchedTopic(
-            payload,
-            bookmarkVersion,
-            archiveVersion,
-            postRemovalVersion,
-          );
-        } catch (_) {
-          cancellation.cancel();
-          return null;
-        }
-      },
-    );
-  }
-
-  bool _hasTopicPost(String siteUrl, int topicId, int? postNumber) {
-    final held = store.read<TopicDetail>(siteUrl, topicId);
-    return held != null &&
-        (postNumber == null ||
-            held.stream.any(
-              (id) => store.read<Post>(siteUrl, id)?.postNumber == postNumber,
-            ));
+    final postNumber = topic.lastUnreadPostNumber;
+    return _topicData
+        .forSite(siteUrl)
+        .prefetch(
+          topic,
+          intent: intent,
+          isInterested: () =>
+              !isDisposed &&
+              (isInterested?.call() ?? true) &&
+              _foreground &&
+              currentInstance?.url == siteUrl &&
+              rootMode == ShellRootMode.forum &&
+              ((
+                        activeTabId,
+                        currentContent?.destination.identity,
+                        topicListContent?.destination.identity,
+                      ) ==
+                      origin ||
+                  (currentContent?.topicId == topic.id &&
+                      currentContent?.postNumber == postNumber)),
+        );
   }
 
   Future<void> loadTopic(
@@ -7332,14 +6984,12 @@ class ShellController extends FrameSafeNotifier
   }) async {
     if (!identical(context.shell, this) || !context.isCurrent) return;
     final instance = currentInstance;
-    if (instance == null) return;
-    if (instance.loginRequired && !instance.isConnected) return;
-    final requestedPostNumber =
+    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
+      return;
+    }
+    final requested =
         postNumber ?? topicScrollPostNumber(topicId, tabId: context.tabId);
-    final tabId = context.tabId;
-
-    // Start presentation fetches before cache/in-flight guards so failures stay
-    // retryable even for topics already in the store.
+    final data = _topicData.forSite(instance.url);
     unawaited(
       RequestIntent.background().run(
         () => _presentation.ensureConfig(instance.url),
@@ -7350,8 +7000,6 @@ class ShellController extends FrameSafeNotifier
         () => _presentation.ensureCustomEmojis(instance.url),
       ),
     );
-    // Hashtags need category colors even when a notification or link opened
-    // the topic without first loading a feed.
     unawaited(
       RequestIntent.background().run(
         () => _taxonomy.ensureCategoriesFor(
@@ -7362,211 +7010,30 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
     );
-
-    final key = _topicKey(instance.url, topicId);
-    if (_topicsLoading.contains(key)) {
-      if (force || requestedPostNumber != null) {
-        _topicRefreshPending.add(key);
-        if (requestedPostNumber != null) {
-          _topicRefreshPostNumbers[key] = requestedPostNumber;
-        }
-      }
-      return;
-    }
-    final held = store.read<TopicDetail>(instance.url, topicId);
-    if (held != null) _ensureMessageListParent(instance.url, tabId, held);
-    final heldResumePostNumber = held?.resumePostNumber;
-    if (requestedPostNumber == null &&
-        !force &&
-        !_topicsStale.contains(key) &&
-        heldResumePostNumber != null &&
-        topicScrollPostNumber(topicId, tabId: context.tabId) == null) {
-      final target = _targetCurrentTopicPost(
-        heldResumePostNumber,
-        context: context,
-        topicId: topicId,
-      );
-      if (target != null) {
-        await _loadTopic(
-          target.topicId,
-          target.slug,
-          force: false,
-          context: context,
-          postNumber: heldResumePostNumber,
-        );
-        return;
-      }
-    }
-    if (held != null && !force && !_topicsStale.contains(key)) {
-      final targetHeld = requestedPostNumber == null
-          ? true
-          : held.stream.any((id) {
-              final post = store.read<Post>(instance.url, id);
-              return post?.postNumber == requestedPostNumber;
-            });
-      if (targetHeld) {
-        SurfaceOpeningTrace.mark('topic.cacheHit');
-        // A link names its topic by a title spelled from the slug, and no read
-        // follows to replace it with the one the site holds.
-        if (_retitle(instance.url, topicId, held.title)) _notify();
-        return;
-      }
-    }
-    final lease = lifecycle.capture(instance.url);
-    final elapsed = Stopwatch()..start();
-    final prefetchKey = (
-      siteUrl: instance.url,
-      session: lease.session,
-      topicId: topicId,
-      postNumber: requestedPostNumber,
-    );
-    if (force || _topicsStale.contains(key)) {
-      _topicPrefetch.discard(prefetchKey);
-    }
-    final prefetched = _topicPrefetch.take(prefetchKey);
-    var bookmarkVersion = _bookmarkVersion(instance.url, topicId);
-    var messageArchiveVersion = _messageArchiveVersion(instance.url, topicId);
-    var postRemovalVersion = _topicPostRemovalVersion(instance.url, topicId);
-
-    _topicsLoading.add(key);
-    _notify();
-
-    int? resumePostNumber;
-    var replayRefresh = false;
-    int? replayPostNumber;
-    try {
-      final credential = await _awaitTopicLoadStage(
-        AccountRequestSession(instance.url, lease).credentials(credentials),
-        elapsed,
-        'reading credentials for topic $topicId',
-      );
-      if (!lease.isCurrent) return;
-      final warmed = prefetched == null
-          ? null
-          : await _awaitTopicLoadStage(
-              prefetched,
-              elapsed,
-              'waiting for topic prefetch $topicId',
-            );
-      if (isDisposed || !lease.isCurrent) return;
-      if (warmed != null) {
-        SurfaceOpeningTrace.mark('topic.prefetchUsed');
-        bookmarkVersion = warmed.bookmarkVersion;
-        messageArchiveVersion = warmed.archiveVersion;
-        postRemovalVersion = warmed.postRemovalVersion;
-      }
-      final fetched =
-          warmed?.payload ??
-          await _awaitTopicLoadStage<TopicPayload>(
-            credential.run(
-              () => api.topicContent.topic(
-                siteUrl: instance.url,
-                slug: slug,
-                id: topicId,
-                postNumber: requestedPostNumber,
-                apiKey: credential.apiKey,
-                clientId: credential.clientId,
-              ),
-            ),
-            elapsed,
-            'loading topic $topicId',
-          );
-      if (isDisposed || !lease.isCurrent) return;
-      SurfaceOpeningTrace.mark('topic.response');
-      try {
-        await _awaitTopicLoadStage(
-          _taxonomy.ensureCategoryIds(instance, [
-            ?fetched.detail.categoryId,
-            for (final source
-                in fetched.detail.recommendations?.sources ??
-                    const <TopicRecommendationSource>[])
-              for (final topic in source.topics) ?topic.categoryId,
-          ]),
-          elapsed,
-          'loading the category for topic $topicId',
-        );
-      } on TimeoutException catch (error, stackTrace) {
-        if (isDisposed || !lease.isCurrent) return;
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'topic.categories',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-      if (isDisposed || !lease.isCurrent) return;
-      lease.commit(() {
-        SurfaceOpeningTrace.mark('topic.publish');
-        final detail = _absorb(
-          instance.url,
-          fetched,
-          bookmarkVersionAtDispatch: bookmarkVersion,
-          messageArchiveVersionAtDispatch: messageArchiveVersion,
-          postRemovalVersionAtDispatch: postRemovalVersion,
-          positioned: requestedPostNumber != null,
-        );
-        _ensureMessageListParent(instance.url, tabId, detail);
-        if (requestedPostNumber == null &&
-            currentInstance?.url == instance.url &&
+    await data.open(
+      topicId,
+      slug: slug,
+      postNumber: requested,
+      force: force,
+      opening: TopicOpening(
+        received: (detail) =>
+            _ensureMessageListParent(instance.url, context.tabId, detail),
+        canResume: () =>
+            context.isCurrent &&
             context.currentContent?.topicId == topicId &&
-            topicScrollPostNumber(topicId, tabId: context.tabId) == null) {
-          resumePostNumber = detail.resumePostNumber;
-        }
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(error, stackTrace, 'topic.load', degraded: false);
-    } finally {
-      lease.commit(() {
-        _topicsLoading.remove(key);
-        replayRefresh = _topicRefreshPending.remove(key);
-        if (replayRefresh) {
-          replayPostNumber = _topicRefreshPostNumbers.remove(key);
-        }
-        _notify();
-      });
-      if (replayRefresh && lease.isCurrent) {
-        var replaySlug = '';
-        final fallbackPostNumber = resumePostNumber;
-        if (replayPostNumber == null && fallbackPostNumber != null) {
+            topicScrollPostNumber(topicId, tabId: context.tabId) == null,
+        resume: (number) {
           final target = _targetCurrentTopicPost(
-            fallbackPostNumber,
+            number,
             context: context,
             topicId: topicId,
           );
-          if (target != null) {
-            replayPostNumber = fallbackPostNumber;
-            replaySlug = target.slug;
-          }
-        }
-        unawaited(
-          _refetchTopic(
-            instance.url,
-            topicId,
-            replaySlug,
-            postNumber: replayPostNumber,
-          ),
-        );
-      }
-    }
-
-    final targetPostNumber = resumePostNumber;
-    if (!replayRefresh && lease.isCurrent && targetPostNumber != null) {
-      final target = _targetCurrentTopicPost(
-        targetPostNumber,
-        context: context,
-        topicId: topicId,
-      );
-      if (target != null) {
-        await _loadTopic(
-          target.topicId,
-          target.slug,
-          force: false,
-          context: context,
-          postNumber: targetPostNumber,
-        );
-      }
-    }
+          return target == null
+              ? null
+              : (slug: target.slug, postNumber: number);
+        },
+      ),
+    );
   }
 
   void _ensureMessageListParent(
@@ -7685,170 +7152,6 @@ class ShellController extends FrameSafeNotifier
     return changed;
   }
 
-  /// Advances each time this reader takes a post out of a topic.
-  final Map<String, int> _topicPostRemovalVersions = {};
-
-  /// The removal version at which each removed post left its topic.
-  final Map<String, Map<int, int>> _removedTopicPosts = {};
-
-  int _topicPostRemovalVersion(String siteUrl, int topicId) =>
-      _topicPostRemovalVersions[_topicKey(siteUrl, topicId)] ?? 0;
-
-  /// Advances each time a stream read of a topic is stored.
-  final Map<String, int> _topicStreamReadVersions = {};
-
-  int _topicStreamReadVersion(String siteUrl, int topicId) =>
-      _topicStreamReadVersions[_topicKey(siteUrl, topicId)] ?? 0;
-
-  void _removeTopicPost(String siteUrl, int topicId, int postId) {
-    final key = _topicKey(siteUrl, topicId);
-    final version = _topicPostRemovalVersion(siteUrl, topicId) + 1;
-    _topicPostRemovalVersions[key] = version;
-    (_removedTopicPosts[key] ??= {})[postId] = version;
-    store.remove<Post>(siteUrl, postId);
-    store.update<TopicDetail>(
-      siteUrl,
-      topicId,
-      (detail) => detail.withoutPostId(postId),
-    );
-    // While summarizing, the window is read from the top replies stream, and
-    // would otherwise end at the removed post.
-    final summary = _topicSummaryStreams[key];
-    if (summary != null && summary.contains(postId)) {
-      _topicSummaryStreams[key] = List.unmodifiable([
-        for (final id in summary)
-          if (id != postId) id,
-      ]);
-    }
-  }
-
-  /// A stream read that left before a removal still carries the removed post.
-  /// Stored, it would be back as a held post, which paging never reads again,
-  /// and `TopicDetail.merge` keeps an omitted id that ends the stream, so the
-  /// last post would stay for good. The rest of the read stands; a read that
-  /// leaves after the removal, such as the one a recovery starts, restores
-  /// the post.
-  TopicPayload _withoutPostsRemovedSince(
-    String siteUrl,
-    TopicPayload payload,
-    int? versionAtDispatch,
-  ) {
-    if (versionAtDispatch == null) return payload;
-    final removed = _topicPostsRemovedSince(
-      siteUrl,
-      payload.detail.id,
-      versionAtDispatch,
-    );
-    if (removed.isEmpty) return payload;
-    return (
-      detail: removed.fold(
-        payload.detail,
-        (detail, postId) => detail.withoutPostId(postId),
-      ),
-      posts: [
-        for (final post in payload.posts)
-          if (!removed.contains(post.id)) post,
-      ],
-    );
-  }
-
-  Set<int> _topicPostsRemovedSince(
-    String siteUrl,
-    int topicId,
-    int versionAtDispatch,
-  ) {
-    if (versionAtDispatch == _topicPostRemovalVersion(siteUrl, topicId)) {
-      return const {};
-    }
-    final removals =
-        _removedTopicPosts[_topicKey(siteUrl, topicId)] ?? const {};
-    return {
-      for (final MapEntry(key: postId, value: version) in removals.entries)
-        if (version > versionAtDispatch) postId,
-    };
-  }
-
-  /// Stores a topic read. [positioned] says the read named the post the
-  /// reader is going to.
-  TopicDetail _absorb(
-    String siteUrl,
-    TopicPayload response, {
-    int? bookmarkVersionAtDispatch,
-    int? messageArchiveVersionAtDispatch,
-    int? postRemovalVersionAtDispatch,
-    bool positioned = false,
-  }) {
-    final payload = _withoutPostsRemovedSince(
-      siteUrl,
-      response,
-      postRemovalVersionAtDispatch,
-    );
-    _topicStreamReadVersions.update(
-      _topicKey(siteUrl, payload.detail.id),
-      (version) => version + 1,
-      ifAbsent: () => 1,
-    );
-    final preserveBookmarks =
-        bookmarkVersionAtDispatch != null &&
-        bookmarkVersionAtDispatch !=
-            _bookmarkVersion(siteUrl, payload.detail.id);
-    final heldDetail = store.read<TopicDetail>(siteUrl, payload.detail.id);
-    final posts = preserveBookmarks
-        ? [
-            for (final incoming in payload.posts)
-              switch (store.read<Post>(siteUrl, incoming.id)) {
-                final held? => incoming.withBookmarkOf(held),
-                null => incoming,
-              },
-          ]
-        : payload.posts;
-    store.putAll(siteUrl, posts);
-    var incomingDetail = preserveBookmarks && heldDetail != null
-        ? payload.detail.withBookmarksOf(heldDetail)
-        : payload.detail;
-    if (heldDetail != null &&
-        messageArchiveVersionAtDispatch != null &&
-        messageArchiveVersionAtDispatch !=
-            _messageArchiveVersion(siteUrl, payload.detail.id)) {
-      incomingDetail = incomingDetail.copyWith(
-        messageArchived: heldDetail.messageArchived,
-      );
-    }
-    var detail = store.put(siteUrl, incomingDetail);
-    // A mega topic keeps its run over a read of another part of it
-    // (TopicDetail.merge), but one that names a post is where the reader is
-    // going: its page becomes the run.
-    if (positioned && detail.isMegaTopic && incomingDetail.stream.isNotEmpty) {
-      final run = detail.stream.toSet();
-      if (!incomingDetail.stream.any(run.contains)) {
-        store.update<TopicDetail>(
-          siteUrl,
-          detail.id,
-          (held) => held.copyWith(stream: incomingDetail.stream),
-        );
-        detail = store.read<TopicDetail>(siteUrl, detail.id) ?? detail;
-      }
-    }
-    _topicsStale.remove(_topicKey(siteUrl, detail.id));
-    store.update<Topic>(
-      siteUrl,
-      detail.id,
-      (row) => row
-          .copyWith(
-            title: detail.title,
-            postsCount: detail.postsCount,
-            bookmarked: detail.hasBookmarks,
-          )
-          .withPlugins(detail.plugins),
-    );
-    // Routes name the topic in its tab and header, so a read that brings a
-    // rename, such as the reload a live `revised` message asks for, has to
-    // reach them as well as the stored topic.
-    _retitle(siteUrl, detail.id, detail.title);
-    _armTopicPostHighlightIfLoaded();
-    return detail;
-  }
-
   Future<void> expandPostGap({
     required int anchorPostId,
     required bool before,
@@ -7856,70 +7159,9 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return;
-
-    final detail = store.read<TopicDetail>(instance.url, topicId);
-    if (detail == null) return;
-    final gap = (before ? detail.gapsBefore : detail.gapsAfter)[anchorPostId];
-    if (gap == null || gap.isEmpty) return;
-
-    final requestIds = gap.take(TopicDetail.maximumInitialPosts).toList();
-    final key = (instance.url, topicId, anchorPostId, before);
-    if (!_postGapsLoading.add(key)) return;
-    final lease = lifecycle.capture(instance.url);
-    final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
-
-    try {
-      final credential = await AccountRequestSession(
-        instance.url,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
-      final fetched = await credential.run(
-        () => api.topicContent.posts(
-          siteUrl: instance.url,
-          topicId: topicId,
-          ids: requestIds,
-          apiKey: credential.apiKey,
-        ),
-      );
-      if (!lease.isCurrent) return;
-
-      final requested = requestIds.toSet();
-      final byId = <int, Post>{
-        for (final post in fetched)
-          if (requested.contains(post.id)) post.id: post,
-      };
-      final revealed = [
-        for (final id in requestIds)
-          if (byId.containsKey(id)) id,
-      ];
-      lease.commit(() {
-        _putTopicPosts(instance.url, topicId, [
-          for (final id in revealed) byId[id]!,
-        ], bookmarkVersionAtDispatch: bookmarkVersion);
-        store.update<TopicDetail>(
-          instance.url,
-          topicId,
-          (held) => held.withExpandedGap(
-            anchorPostId: anchorPostId,
-            before: before,
-            consumedIds: requestIds,
-            revealedIds: revealed,
-          ),
-        );
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'topic.expandPostGap',
-        severity: DiagnosticSeverity.warning,
-      );
-    } finally {
-      lease.commit(() => _postGapsLoading.remove(key));
-    }
+    await _topicData
+        .forSite(instance.url)
+        .expandGap(topicId, anchorPostId: anchorPostId, before: before);
   }
 
   Future<bool> updateTopicNotificationLevel(
@@ -8464,10 +7706,6 @@ class ShellController extends FrameSafeNotifier
   }
 
   final Set<String> _messageArchiveWrites = {};
-  final Map<String, int> _messageArchiveVersions = {};
-
-  int _messageArchiveVersion(String siteUrl, int topicId) =>
-      _messageArchiveVersions[_topicKey(siteUrl, topicId)] ?? 0;
 
   Future<String?> updateMessageArchived(
     String siteUrl,
@@ -8508,13 +7746,7 @@ class ShellController extends FrameSafeNotifier
         ),
       );
       if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
-      _messageArchiveVersions[key] =
-          _messageArchiveVersion(siteUrl, topicId) + 1;
-      store.update<TopicDetail>(
-        siteUrl,
-        topicId,
-        (topic) => topic.copyWith(messageArchived: archived),
-      );
+      _topicData.forLease(siteUrl, lease)?.acceptArchive(topicId, archived);
       // Core moves it for the user and each of its groups they belong to. The
       // account's message groups can predate a group's first message; the
       // topic names its groups as they are.
@@ -8736,7 +7968,7 @@ class ShellController extends FrameSafeNotifier
       }
       if (!lease.isCurrent || isDisposed) return null;
       lease.commit(() {
-        _applyTopicDeletion(siteUrl, topicId, deleted);
+        _applyTopicDeletion(siteUrl, topicId, deleted, lease);
         _notify();
       });
       return null;
@@ -8759,7 +7991,14 @@ class ShellController extends FrameSafeNotifier
   /// answers with the topic, so the held one takes what PostDestroyer is known
   /// to do to it, its list row follows the closed state, and it is read again
   /// for what that leaves to the server.
-  void _applyTopicDeletion(String siteUrl, int topicId, bool deleted) {
+  void _applyTopicDeletion(
+    String siteUrl,
+    int topicId,
+    bool deleted,
+    SiteLease lease,
+  ) {
+    final data = _topicData.forLease(siteUrl, lease);
+    if (data == null) return;
     final held = store.read<TopicDetail>(siteUrl, topicId);
     if (held == null) return;
     final next = deleted
@@ -8767,6 +8006,7 @@ class ShellController extends FrameSafeNotifier
         : held.afterRecovery();
     if (identical(next, held)) return;
     store.update<TopicDetail>(siteUrl, topicId, (_) => next);
+    if (!lease.isCurrent) return;
     if (next.closed != held.closed) {
       store.update<Topic>(
         siteUrl,
@@ -8776,104 +8016,13 @@ class ShellController extends FrameSafeNotifier
     }
     if (!deleted) {
       // Only the server knows whether the recovered topic takes replies again.
-      unawaited(_refetchTopic(siteUrl, topicId, ''));
+      unawaited(data.refresh(topicId, slug: ''));
       return;
     }
     // Site settings decide whether an author's deletion withdrew or trashed
     // the topic, and a deleter may no longer be allowed to read a trashed
     // one, so it is read when next opened rather than now.
-    _rereadTopicWhenOpened(siteUrl, topicId);
-  }
-
-  /// Has [topicId] read again when it is next opened, after a write changed
-  /// it on the server without answering with it. A read already on its way
-  /// predates the write and is repeated.
-  void _rereadTopicWhenOpened(String siteUrl, int topicId) {
-    final key = _topicKey(siteUrl, topicId);
-    if (_topicsLoading.contains(key)) {
-      _topicRefreshPending.add(key);
-    } else {
-      _topicsStale.add(key);
-    }
-  }
-
-  void _putTopicPosts(
-    String siteUrl,
-    int topicId,
-    Iterable<Post> incoming, {
-    required int bookmarkVersionAtDispatch,
-  }) {
-    final preserveBookmarks =
-        bookmarkVersionAtDispatch != _bookmarkVersion(siteUrl, topicId);
-    store.putAll(
-      siteUrl,
-      preserveBookmarks
-          ? [
-              for (final post in incoming)
-                switch (store.read<Post>(siteUrl, post.id)) {
-                  final held? => post.withBookmarkOf(held),
-                  null => post,
-                },
-            ]
-          : incoming,
-    );
-  }
-
-  void _putUnloadedPagePosts(
-    String siteUrl,
-    int topicId,
-    Iterable<Post> incoming, {
-    required int bookmarkVersionAtDispatch,
-    required int removalVersionAtDispatch,
-  }) {
-    final removed = _topicPostsRemovedSince(
-      siteUrl,
-      topicId,
-      removalVersionAtDispatch,
-    );
-    final unloaded = [
-      for (final post in incoming)
-        if (!removed.contains(post.id) &&
-            !store.containsRecord<Post>(siteUrl, post.id))
-          post,
-    ];
-    _putTopicPosts(
-      siteUrl,
-      topicId,
-      unloaded,
-      bookmarkVersionAtDispatch: bookmarkVersionAtDispatch,
-    );
-  }
-
-  /// A page that leaves out a post it asked for is answered by a site that no
-  /// longer serves that post to this reader: deleted, moved or made a whisper
-  /// since the stream was read. The loaded window ends at the first post it
-  /// does not hold, so kept, the id would stop paging there for good; the web
-  /// client steps over it instead. A stream read stored since the page left,
-  /// or still out, may carry a recovery the page predates, and settles the
-  /// stream itself.
-  void _removeOmittedTopicPosts(
-    String siteUrl,
-    int topicId,
-    List<int> requested,
-    Iterable<Post> answered, {
-    required int streamReadVersionAtDispatch,
-  }) {
-    if (streamReadVersionAtDispatch !=
-            _topicStreamReadVersion(siteUrl, topicId) ||
-        _topicsLoading.contains(_topicKey(siteUrl, topicId))) {
-      return;
-    }
-    final stream = store.read<TopicDetail>(siteUrl, topicId)?.stream;
-    if (stream == null) return;
-    final served = {for (final post in answered) post.id};
-    for (final id in requested) {
-      if (!served.contains(id) &&
-          stream.contains(id) &&
-          store.read<Post>(siteUrl, id) == null) {
-        _removeTopicPost(siteUrl, topicId, id);
-      }
-    }
+    data.refreshWhenOpened(topicId);
   }
 
   final Map<String, Object> _topicUnreadWrites = {};
@@ -8931,7 +8080,7 @@ class ShellController extends FrameSafeNotifier
           route?.topicId == topicId) {
         handleBack(canReturnToSidebar: false);
       }
-      await _refetchTopic(siteUrl, topicId, '');
+      await _topicData.forLease(siteUrl, lease)?.refresh(topicId, slug: '');
       return null;
     } on WriteException catch (error) {
       return lease.isCurrent ? error.message : null;
@@ -8977,270 +8126,54 @@ class ShellController extends FrameSafeNotifier
     final context = tabId == null ? focusedTabContext : tabContext(tabId);
     if (!context.isCurrent) return;
     final instance = currentInstance;
-    final route = context.currentContent;
-    final topicId = route?.topicId;
+    final topicId = context.currentContent?.topicId;
     if (instance == null || topicId == null) return;
-
-    final key = _topicKey(instance.url, topicId);
     final detail = store.read<TopicDetail>(instance.url, topicId);
     if (detail == null) return;
-    if (_postsLoading.contains(key)) return;
-
-    final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
+    final data = _topicData.forSite(instance.url);
+    if (data.paging(topicId, newer: true)) return;
+    final bounded = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
     final pending = _pendingPostIds(
       instance.url,
       context._currentPostWindow(),
-      boundedBatch + 1,
+      bounded + 1,
     );
     if (pending.isEmpty) {
       final edge = context._currentMegaTopicEdge(newer: true);
-      if (edge != null) {
-        await _loadMegaTopicPage(instance.url, detail, edge, newer: true);
-      }
+      if (edge != null) await data.pageMega(detail, edge, newer: true);
       return;
     }
-    final requestIds = pending.take(boundedBatch).toList();
-    // Recommendations are dynamic: resolve them only at the final window and
-    // never replace an existing snapshot with a later empty response.
-    final resolveRecommendations =
-        detail.recommendations == null && requestIds.length == pending.length;
-    final lease = lifecycle.capture(instance.url);
-    final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
-    final streamReadVersion = _topicStreamReadVersion(instance.url, topicId);
-    final removalVersion = _topicPostRemovalVersion(instance.url, topicId);
-
-    _postsLoading.add(key);
-    _notify();
-
-    try {
-      final credential = await AccountRequestSession(
-        instance.url,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
-      final page = await credential.run(
-        () async => resolveRecommendations
-            ? await api.topicContent.topicPosts(
-                siteUrl: instance.url,
-                topicId: topicId,
-                ids: requestIds,
-                apiKey: credential.apiKey,
-              )
-            : (
-                posts: await api.topicContent.posts(
-                  siteUrl: instance.url,
-                  topicId: topicId,
-                  ids: requestIds,
-                  apiKey: credential.apiKey,
-                ),
-                recommendations: null,
-              ),
-      );
-      lease.commit(() {
-        _putUnloadedPagePosts(
-          instance.url,
-          topicId,
-          page.posts,
-          bookmarkVersionAtDispatch: bookmarkVersion,
-          removalVersionAtDispatch: removalVersion,
-        );
-        _removeOmittedTopicPosts(
-          instance.url,
-          topicId,
-          requestIds,
-          page.posts,
-          streamReadVersionAtDispatch: streamReadVersion,
-        );
-        if (page.recommendations case final recommendations?) {
-          store.update<TopicDetail>(
-            instance.url,
-            topicId,
-            // A topic refetch may have supplied a snapshot while this post
-            // page was in flight. Paging only fills an unresolved value; it
-            // never replaces a recommendation set that arrived later.
-            (detail) => detail.recommendations == null
-                ? detail.withRecommendations(recommendations)
-                : detail,
-          );
-        }
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'topic.loadMorePosts',
-        severity: DiagnosticSeverity.warning,
-      );
-    } finally {
-      lease.commit(() {
-        _postsLoading.remove(key);
-        _notify();
-      });
-    }
+    final ids = pending.take(bounded).toList();
+    await data.pageIds(
+      topicId,
+      ids: ids,
+      newer: true,
+      reachesEnd: ids.length == pending.length,
+    );
   }
 
   Future<void> loadEarlierPosts({int batchSize = 20, String? tabId}) async {
     final context = tabId == null ? focusedTabContext : tabContext(tabId);
     if (!context.isCurrent) return;
     final instance = currentInstance;
-    final route = context.currentContent;
-    final topicId = route?.topicId;
+    final topicId = context.currentContent?.topicId;
     if (instance == null || topicId == null) return;
-
-    final key = _topicKey(instance.url, topicId);
     final detail = store.read<TopicDetail>(instance.url, topicId);
     if (detail == null) return;
-    if (_earlierPostsLoading.contains(key)) return;
-
-    final boundedBatch = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
+    final data = _topicData.forSite(instance.url);
+    if (data.paging(topicId, newer: false)) return;
+    final bounded = batchSize.clamp(1, TopicDetail.maximumInitialPosts);
     final pending = context._pendingEarlierPostIds(
       instance.url,
       detail,
-      boundedBatch,
+      bounded,
     );
     if (pending.isEmpty) {
       final edge = context._currentMegaTopicEdge(newer: false);
-      if (edge != null) {
-        await _loadMegaTopicPage(instance.url, detail, edge, newer: false);
-      }
+      if (edge != null) await data.pageMega(detail, edge, newer: false);
       return;
     }
-    final lease = lifecycle.capture(instance.url);
-    final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
-    final streamReadVersion = _topicStreamReadVersion(instance.url, topicId);
-    final removalVersion = _topicPostRemovalVersion(instance.url, topicId);
-
-    _earlierPostsLoading.add(key);
-    _notify();
-
-    try {
-      final credential = await AccountRequestSession(
-        instance.url,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
-      final posts = await credential.run(
-        () => api.topicContent.posts(
-          siteUrl: instance.url,
-          topicId: topicId,
-          ids: pending,
-          apiKey: credential.apiKey,
-        ),
-      );
-      lease.commit(() {
-        _putUnloadedPagePosts(
-          instance.url,
-          topicId,
-          posts,
-          bookmarkVersionAtDispatch: bookmarkVersion,
-          removalVersionAtDispatch: removalVersion,
-        );
-        _removeOmittedTopicPosts(
-          instance.url,
-          topicId,
-          pending,
-          posts,
-          streamReadVersionAtDispatch: streamReadVersion,
-        );
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'topic.loadEarlierPosts',
-        severity: DiagnosticSeverity.warning,
-      );
-    } finally {
-      lease.commit(() {
-        _earlierPostsLoading.remove(key);
-        _notify();
-      });
-    }
-  }
-
-  /// Reads the page of a mega topic past [edge] of its run by post number,
-  /// the newer side when [newer], under the loading flag of the page by ids
-  /// it stands in for.
-  Future<void> _loadMegaTopicPage(
-    String siteUrl,
-    TopicDetail detail,
-    Post edge, {
-    required bool newer,
-  }) async {
-    final topicId = detail.id;
-    final key = _topicKey(siteUrl, topicId);
-    final loading = newer ? _postsLoading : _earlierPostsLoading;
-    final lease = lifecycle.capture(siteUrl);
-    final bookmarkVersion = _bookmarkVersion(siteUrl, topicId);
-    final removalVersion = _topicPostRemovalVersion(siteUrl, topicId);
-
-    loading.add(key);
-    _notify();
-
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
-      final posts = await credential.run(
-        () => api.topicContent.postsFromNumber(
-          siteUrl: siteUrl,
-          topicId: topicId,
-          postNumber: edge.postNumber,
-          ascending: newer,
-          apiKey: credential.apiKey,
-        ),
-      );
-      lease.commit(() {
-        // Paged in, a post this reader took out while the page was out would
-        // be back in the run for good.
-        final removed = _topicPostsRemovedSince(
-          siteUrl,
-          topicId,
-          removalVersion,
-        );
-        final page = [
-          for (final post in posts)
-            if (!removed.contains(post.id) &&
-                (newer
-                    ? post.postNumber > edge.postNumber
-                    : post.postNumber < edge.postNumber))
-              post,
-        ];
-        _putTopicPosts(
-          siteUrl,
-          topicId,
-          page,
-          bookmarkVersionAtDispatch: bookmarkVersion,
-        );
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (held) => held.withMegaTopicPage(
-            anchorPostId: edge.id,
-            newer: newer,
-            postIds: [for (final post in page) post.id],
-            lastPostIdAtDispatch: detail.lastPostId,
-          ),
-        );
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        newer ? 'topic.loadMorePosts' : 'topic.loadEarlierPosts',
-        severity: DiagnosticSeverity.warning,
-      );
-    } finally {
-      lease.commit(() {
-        loading.remove(key);
-        _notify();
-      });
-    }
+    await data.pageIds(topicId, ids: pending, newer: false);
   }
 
   bool get loadingMorePosts => focusedTabContext.loadingMorePosts;
@@ -9251,59 +8184,10 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     final topic = currentTopic;
     if (instance == null || topic == null || !topic.hasSummary) return null;
-
-    final key = _topicKey(instance.url, topic.id);
-    if (_topicSummaryStreams.remove(key) != null) {
-      _notify();
-      return null;
-    }
-    if (!_topicSummariesLoading.add(key)) return null;
-    final lease = lifecycle.capture(instance.url);
-    final postRemovalVersion = _topicPostRemovalVersion(instance.url, topic.id);
-    _notify();
-
-    try {
-      final credential = await AccountRequestSession(
-        instance.url,
-        lease,
-      ).credentials(credentials);
-      if (!lease.isCurrent) return null;
-      final response = await credential.run(
-        () => api.topicContent.topic(
-          siteUrl: instance.url,
-          slug: currentContent?.slug ?? '',
-          id: topic.id,
-          summary: true,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      lease.commit(() {
-        final payload = _withoutPostsRemovedSince(
-          instance.url,
-          response,
-          postRemovalVersion,
-        );
-        store.putAll(instance.url, payload.posts);
-        _topicSummaryStreams[key] = List.unmodifiable(payload.detail.stream);
-      });
-      return null;
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'topic.loadSummary',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-      return appL10n.couldnTLoadThisTopicSSummary;
-    } finally {
-      lease.commit(() {
-        _topicSummariesLoading.remove(key);
-        _notify();
-      });
-    }
+    final success = await _topicData
+        .forSite(instance.url)
+        .toggleSummary(topic.id, slug: currentContent?.slug ?? '');
+    return success ? null : appL10n.couldnTLoadThisTopicSSummary;
   }
 
   final Set<ComposerController> _composers = {};
@@ -10494,9 +9378,11 @@ class ShellController extends FrameSafeNotifier
       return appL10n.theSelectedTextCouldNotBeMatchedSafely;
     }
 
-    final key = _postKey(siteUrl, post.id);
     final lease = lifecycle.capture(siteUrl);
-    if (!_beginPostWrite(key)) {
+    final releasePost = _topicData
+        .forLease(siteUrl, lease)
+        ?.beginPostWrite(post.id);
+    if (releasePost == null) {
       return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
 
@@ -10554,7 +9440,9 @@ class ShellController extends FrameSafeNotifier
         return appL10n.theTopicChangedBeforeTheEditCouldBeSaved;
       }
       lease.commit(() {
-        _storeEditedPost(siteUrl, updated, raw: nextRaw);
+        _topicData
+            .forLease(siteUrl, lease)
+            ?.acceptEditedPost(updated, raw: nextRaw);
         _notify();
       });
       return null;
@@ -10566,7 +9454,7 @@ class ShellController extends FrameSafeNotifier
       }
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      lease.commit(() => _endPostWrite(siteUrl, post.id));
+      lease.commit(releasePost);
     }
   }
 
@@ -11326,7 +10214,7 @@ class ShellController extends FrameSafeNotifier
       // PostMover publishes nothing to the destination's readers, so a copy
       // held from an earlier visit would open without the arrived posts.
       target._lease.commit(
-        () => _rereadTopicWhenOpened(siteUrl, destinationTopicId),
+        () => _topicData.forSite(siteUrl).refreshWhenOpened(destinationTopicId),
       );
     });
     if (!isTopicPostMoveTargetCurrent(target)) {
@@ -11517,7 +10405,10 @@ class ShellController extends FrameSafeNotifier
     String? refusal() =>
         _topicPostOwnerRefusal(target, [postId], trimmedUsername);
     if (refusal() case final error?) return error;
-    if (!_beginPostWrite(_postKey(siteUrl, postId))) {
+    final releasePost = _topicData
+        .forLease(siteUrl, lease)
+        ?.beginPostWrite(postId);
+    if (releasePost == null) {
       return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
 
@@ -11538,13 +10429,9 @@ class ShellController extends FrameSafeNotifier
         ),
       );
       if (!_ownsTopicPostOwnerTarget(target)) return _obsoleteTopicPostOwner;
-      await _refreshPost(
-        siteUrl,
-        target.topicId,
-        postId,
-        credential.apiKey,
-        lease,
-      );
+      await _topicData
+          .forLease(siteUrl, lease)
+          ?.repairPost(target.topicId, postId, credential.apiKey, lease);
       return _ownsTopicPostOwnerTarget(target) ? null : _obsoleteTopicPostOwner;
     } on WriteException catch (error) {
       return _ownsTopicPostOwnerTarget(target)
@@ -11555,15 +10442,14 @@ class ShellController extends FrameSafeNotifier
       _reportOperationalError(error, stackTrace, 'post.changeOwner');
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      lease.commit(() => _endPostWrite(siteUrl, postId));
+      lease.commit(releasePost);
     }
   }
 
   Future<String?> deletePost(Post post) async {
     if (!post.canDelete) return null;
     final siteUrl = currentInstance?.url;
-    if (siteUrl != null &&
-        _postWritesInFlight.containsKey(_postKey(siteUrl, post.id))) {
+    if (siteUrl != null && _topicData.forSite(siteUrl).postWriting(post.id)) {
       return null;
     }
     final editing = switch (_composer?.target) {
@@ -11684,12 +10570,16 @@ class ShellController extends FrameSafeNotifier
     final postId = target.postId;
     final lease = target._lease;
     final topicKey = _topicKey(siteUrl, topicId);
+    void Function()? releasePost;
     if (target.deletesTopic) {
       if (!_topicDeletionWrites.add(topicKey)) {
         return appL10n.anotherTopicActionIsStillFinishing;
       }
       _notify();
-    } else if (!_beginPostWrite(_postKey(siteUrl, postId))) {
+    } else if ((releasePost = _topicData
+            .forLease(siteUrl, lease)
+            ?.beginPostWrite(postId)) ==
+        null) {
       return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
 
@@ -11716,7 +10606,9 @@ class ShellController extends FrameSafeNotifier
         if (!lease.isCurrent || isDisposed) {
           return _obsoletePermanentPostDeletion;
         }
-        await _refreshPost(siteUrl, topicId, postId, credential.apiKey, lease);
+        await _topicData
+            .forLease(siteUrl, lease)
+            ?.repairPost(topicId, postId, credential.apiKey, lease);
         return lease.isCurrent && !isDisposed
             ? null
             : _obsoletePermanentPostDeletion;
@@ -11724,7 +10616,6 @@ class ShellController extends FrameSafeNotifier
 
       final clientId = credential.request!.clientId;
       if (_permanentPostDeletionRefusal(target) case final error?) return error;
-      final topic = store.read<TopicDetail>(siteUrl, topicId)!;
       await credential.request!.run(
         () => api.topicMutations.permanentlyDeleteTopic(
           siteUrl: siteUrl,
@@ -11737,11 +10628,7 @@ class ShellController extends FrameSafeNotifier
         return _obsoletePermanentPostDeletion;
       }
       lease.commit(() {
-        for (final postId in topic.stream) {
-          store.remove<Post>(siteUrl, postId);
-        }
-        store.remove<TopicDetail>(siteUrl, topicId);
-        store.remove<Topic>(siteUrl, topicId);
+        _topicData.forLease(siteUrl, lease)?.removeTopicPermanently(topicId);
         _notify();
       });
       if (!lease.isCurrent || isDisposed) {
@@ -11774,7 +10661,7 @@ class ShellController extends FrameSafeNotifier
           _topicDeletionWrites.remove(topicKey);
           _notify();
         } else {
-          _endPostWrite(siteUrl, postId);
+          releasePost?.call();
         }
       });
     }
@@ -11783,8 +10670,7 @@ class ShellController extends FrameSafeNotifier
   Future<String?> recoverPost(Post post) async {
     if (!post.canRecover) return null;
     final siteUrl = currentInstance?.url;
-    if (siteUrl != null &&
-        _postWritesInFlight.containsKey(_postKey(siteUrl, post.id))) {
+    if (siteUrl != null && _topicData.forSite(siteUrl).postWriting(post.id)) {
       return null;
     }
     return _mutatePost(
@@ -11798,7 +10684,8 @@ class ShellController extends FrameSafeNotifier
       // only topic message it publishes is a stats one, so the held topic has
       // to be recovered here, as after the header's recover.
       accepted: post.postNumber == 1
-          ? (siteUrl, topicId) => _applyTopicDeletion(siteUrl, topicId, false)
+          ? (siteUrl, topicId, lease) =>
+                _applyTopicDeletion(siteUrl, topicId, false, lease)
           : null,
     );
   }
@@ -11911,7 +10798,10 @@ class ShellController extends FrameSafeNotifier
     final lease = target._lease;
     final next = notice == null || notice.trim().isEmpty ? null : notice;
     if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) return null;
-    if (!_beginPostWrite(_postKey(siteUrl, postId))) {
+    final releasePost = _topicData
+        .forLease(siteUrl, lease)
+        ?.beginPostWrite(postId);
+    if (releasePost == null) {
       return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
 
@@ -11933,13 +10823,9 @@ class ShellController extends FrameSafeNotifier
         ),
       );
       if (!lease.isCurrent) return _obsoletePostNotice;
-      await _refreshPost(
-        siteUrl,
-        target.topicId,
-        postId,
-        credential.apiKey,
-        lease,
-      );
+      await _topicData
+          .forLease(siteUrl, lease)
+          ?.repairPost(target.topicId, postId, credential.apiKey, lease);
       return lease.isCurrent ? null : _obsoletePostNotice;
     } on WriteException catch (error) {
       return lease.isCurrent ? error.message : _obsoletePostNotice;
@@ -11948,7 +10834,7 @@ class ShellController extends FrameSafeNotifier
       _reportOperationalError(error, stackTrace, 'post.setNotice');
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
-      lease.commit(() => _endPostWrite(siteUrl, postId));
+      lease.commit(releasePost);
     }
   }
 
@@ -11992,9 +10878,11 @@ class ShellController extends FrameSafeNotifier
       );
     }
 
-    final key = _postKey(siteUrl, held.id);
     final lease = lifecycle.capture(siteUrl);
-    if (!_beginPostWrite(key)) {
+    final releasePost = _topicData
+        .forLease(siteUrl, lease)
+        ?.beginPostWrite(held.id);
+    if (releasePost == null) {
       return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
     try {
@@ -12019,11 +10907,7 @@ class ShellController extends FrameSafeNotifier
           return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
         }
         lease.commit(() {
-          final current = store.read<Post>(siteUrl, fresh.id);
-          store.put(
-            siteUrl,
-            current == null ? fresh : fresh.withBookmarkOf(current),
-          );
+          _topicData.forLease(siteUrl, lease)?.acceptPostAction(fresh);
           _notify();
         });
         return null;
@@ -12036,7 +10920,7 @@ class ShellController extends FrameSafeNotifier
         return const WriteException(WriteFailure.unreachable).message;
       }
     } finally {
-      lease.commit(() => _endPostWrite(siteUrl, held.id));
+      lease.commit(releasePost);
     }
   }
 
@@ -12157,6 +11041,8 @@ class ShellController extends FrameSafeNotifier
       return appL10n.anotherPostActionIsStillFinishing;
     }
     final lease = lifecycle.capture(siteUrl);
+    final data = _topicData.forLease(siteUrl, lease);
+    if (data == null) return null;
     String? apiKey;
     AccountRequestCredentials? requestCredential;
     late final PostChecklistWrite operation;
@@ -12164,42 +11050,9 @@ class ShellController extends FrameSafeNotifier
       post: held,
       isCurrent: () =>
           lease.isCurrent && identical(_postChecklistWrites[key], operation),
-      publish: (previous, next) {
-        final current = store.read<Post>(siteUrl, post.id);
-        if (current == null ||
-            current.cooked != previous.cooked ||
-            current.version != previous.version ||
-            current.updatedAt != previous.updatedAt ||
-            current.canEdit != previous.canEdit ||
-            current.isLocalized != previous.isLocalized ||
-            current.isDeleted != previous.isDeleted) {
-          return false;
-        }
-        store.put(
-          siteUrl,
-          current.copyWith(
-            cooked: next.cooked,
-            raw: next.raw,
-            updatedAt: next.updatedAt,
-            version: next.version,
-            canEdit: next.canEdit,
-            isLocalized: next.isLocalized,
-          ),
-        );
-        _notify();
-        return true;
-      },
+      publish: data.publishChecklist,
       load: () async {
-        final posts = await requestCredential!.run(
-          () => api.topicContent.posts(
-            siteUrl: siteUrl,
-            topicId: topicId,
-            ids: [post.id],
-            includeRaw: true,
-            apiKey: apiKey,
-          ),
-        );
-        final fresh = posts.where((item) => item.id == post.id).firstOrNull;
+        final fresh = await data.checklistPost(topicId, post.id, apiKey);
         if (fresh == null || fresh.raw == null || fresh.updatedAt == null) {
           throw const WriteException(WriteFailure.unreachable);
         }
@@ -12219,7 +11072,7 @@ class ShellController extends FrameSafeNotifier
       ),
     );
     _postChecklistWrites[key] = operation;
-    _holdPostWrite(key);
+    final releasePost = data.holdPostWrite(post.id);
     try {
       if (!operation.toggle(post, target, checked)) return null;
       if (!lease.isCurrent) return null;
@@ -12236,7 +11089,7 @@ class ShellController extends FrameSafeNotifier
       if (identical(_postChecklistWrites[key], operation)) {
         _postChecklistWrites.remove(key);
       }
-      lease.commit(() => _endPostWrite(siteUrl, post.id));
+      lease.commit(releasePost);
     }
   }
 
@@ -12247,18 +11100,16 @@ class ShellController extends FrameSafeNotifier
     final held = store.read<Post>(targetSite, post.id);
     if (held != null && held.liked != post.liked) return null;
 
-    final key = _postKey(targetSite, post.id);
-    // One at a time per post. Without this a double tap sends a like and an
-    // undo at once — the second reads the guess the first just wrote — and
-    // whichever answer lands last decides what is drawn, which is not
-    // necessarily the one the site ended up believing.
     final lease = lifecycle.capture(targetSite);
-    if (!_beginPostWrite(key)) return null;
+    final releasePost = _topicData
+        .forLease(targetSite, lease)
+        ?.beginPostWrite(post.id);
+    if (releasePost == null) return null;
 
     try {
       return await _writeLike(targetSite, post, lease);
     } finally {
-      lease.commit(() => _endPostWrite(targetSite, post.id));
+      lease.commit(releasePost);
     }
   }
 
@@ -12267,27 +11118,21 @@ class ShellController extends FrameSafeNotifier
     if (!lease.isCurrent) return null;
     if (credential.failure case final failure?) return failure.message;
     final apiKey = credential.apiKey!;
+    final data = _topicData.forLease(siteUrl, lease);
+    if (data == null) return null;
 
     final liked = !post.liked;
     // Apply the guess to the current store value: a re-read can land during
     // credential lookup, and a 204 response will not correct a stale put.
     final applied = lease.commit(() {
-      store.update<Post>(siteUrl, post.id, (held) => held.withLike(liked));
+      data.guessLike(post.id, liked);
       _notify();
     });
     if (!applied || !lease.isCurrent) return null;
 
     void revert() {
       lease.commit(() {
-        // Undo only this reader's own guess, and only where it still stands.
-        // A re-read that landed during the request already carries the
-        // site's count; the tap-time snapshot would rewind other readers'
-        // likes with it.
-        store.update<Post>(
-          siteUrl,
-          post.id,
-          (held) => held.liked == liked ? held.withLike(post.liked) : held,
-        );
+        data.rejectLike(post.id, guessed: liked, original: post.liked);
         _notify();
       });
     }
@@ -12312,8 +11157,7 @@ class ShellController extends FrameSafeNotifier
       // — the guess above stands until the post is read again.
       if (fresh != null) {
         lease.commit(() {
-          final held = store.read<Post>(siteUrl, fresh.id);
-          store.put(siteUrl, held == null ? fresh : fresh.withBookmarkOf(held));
+          data.acceptPostAction(fresh);
           _notify();
         });
       }
@@ -12333,10 +11177,9 @@ class ShellController extends FrameSafeNotifier
   bool postWriteInFlight(int postId, {String? siteUrl}) {
     final targetSite = siteUrl ?? currentInstance?.url;
     return targetSite != null &&
-        _postWritesInFlight.containsKey(_postKey(targetSite, postId));
+        _topicData.forSite(targetSite).postWriting(postId);
   }
 
-  final Map<String, int> _postWritesInFlight = {};
   final Set<String> _postBookmarkWritesInFlight = {};
   final Map<String, Set<int>> _topicPostSelections = {};
   final Set<String> _topicPostSelectionWrites = {};
@@ -12348,8 +11191,6 @@ class ShellController extends FrameSafeNotifier
   _coreBookmarkTargetHosts = {};
   final Map<BookmarkTargetType, _ShellPluginBookmarkTargetHost>
   _pluginBookmarkTargetHosts = {};
-  final Map<String, int> _bookmarkVersions = {};
-  final Map<String, int> _siteBookmarkVersions = {};
 
   @override
   BookmarkTargetHost bookmarkTarget(BookmarkTargetType targetType) {
@@ -12374,38 +11215,16 @@ class ShellController extends FrameSafeNotifier
     () => _ShellPluginBookmarkTargetHost(this, targetType),
   );
 
-  int _bookmarkVersion(String siteUrl, int topicId) =>
-      _bookmarkVersions[_topicKey(siteUrl, topicId)] ?? 0;
-
-  int _siteBookmarkVersion(String siteUrl) =>
-      _siteBookmarkVersions[siteUrl] ?? 0;
-
-  void _advanceBookmarkVersion(String siteUrl, int topicId) {
-    final key = _topicKey(siteUrl, topicId);
-    _bookmarkVersions[key] = _bookmarkVersion(siteUrl, topicId) + 1;
-    _siteBookmarkVersions[siteUrl] = _siteBookmarkVersion(siteUrl) + 1;
-  }
-
   Topic _prepareTopicForStore(
     String siteUrl,
     Topic incoming,
     int? versionAtDispatch,
-  ) {
-    incoming = _projectTopicTracking(
-      siteUrl,
-      _topicReads.project(siteUrl, incoming),
-    );
-    if (versionAtDispatch == null ||
-        versionAtDispatch == _siteBookmarkVersion(siteUrl)) {
-      return incoming;
-    }
-    final held = store.read<Topic>(siteUrl, incoming.id);
-    final heldDetail = store.read<TopicDetail>(siteUrl, incoming.id);
-    if (held == null && heldDetail == null) return incoming;
-    return incoming.copyWith(
-      bookmarked: held?.bookmarked ?? heldDetail?.hasBookmarks ?? false,
-    );
-  }
+  ) => _topicData
+      .forSite(siteUrl)
+      .prepareRow(
+        _projectTopicTracking(siteUrl, _topicReads.project(siteUrl, incoming)),
+        versionAtDispatch,
+      );
 
   bool bookmarkWriteInFlight({
     required String siteUrl,
@@ -12437,7 +11256,7 @@ class ShellController extends FrameSafeNotifier
     required int targetId,
   }) {
     if (targetType == BookmarkTargetType.post) {
-      return _postBookmarkWriteInFlight(_postKey(siteUrl, targetId));
+      return _postBookmarkWriteInFlight(siteUrl, targetId);
     }
     if (targetType == BookmarkTargetType.topic) {
       if (context case _TopicBookmarkWriteContext(:final topicId)) {
@@ -12452,10 +11271,12 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  bool _postBookmarkWriteInFlight(String key) =>
-      _postBookmarkWritesInFlight.contains(key) ||
-      (_postWritesInFlight.containsKey(key) &&
-          _postChecklistWrites[key]?.isCurrent() != true);
+  bool _postBookmarkWriteInFlight(String siteUrl, int postId) {
+    final key = _postKey(siteUrl, postId);
+    return _postBookmarkWritesInFlight.contains(key) ||
+        (_topicData.forSite(siteUrl).postWriting(postId) &&
+            !_postChecklistWrites.containsKey(key));
+  }
 
   PluginBookmarkTargetStrategy? _pluginBookmarkStrategy(
     BookmarkTargetType targetType,
@@ -12505,50 +11326,6 @@ class ShellController extends FrameSafeNotifier
     };
   }
 
-  final Map<String, Object> _postRefreshRequests = {};
-
-  final Set<String> _postRefreshPending = {};
-
-  final Map<String, int> _postRefreshTopics = {};
-
-  /// Posts named by a core deletion whose next committed re-read decides
-  /// whether they are still visible.
-  final Set<String> _postRefreshDeletions = {};
-
-  bool _beginPostWrite(String key) {
-    if (_postWritesInFlight.containsKey(key)) return false;
-    _holdPostWrite(key);
-    _notify();
-    return true;
-  }
-
-  /// A live invalidation may already be reading the pre-write snapshot. It
-  /// must not land over the optimistic write or the write's own re-read, so
-  /// its request is disowned here and replayed when the write ends.
-  void _holdPostWrite(String key) {
-    // Bookmark and checklist writes can overlap. Keep refreshes deferred until
-    // both finish, while other post mutations still require exclusive access.
-    _postWritesInFlight.update(key, (count) => count + 1, ifAbsent: () => 1);
-    if (_postRefreshRequests.remove(key) != null) {
-      _postRefreshPending.add(key);
-    }
-  }
-
-  void _endPostWrite(String siteUrl, int postId, {bool notify = true}) {
-    final key = _postKey(siteUrl, postId);
-    final count = _postWritesInFlight[key] ?? 0;
-    if (count > 1) {
-      _postWritesInFlight[key] = count - 1;
-      if (notify) _notify();
-      return;
-    }
-    _postWritesInFlight.remove(key);
-    if (notify) _notify();
-    if (!_postRefreshPending.remove(key)) return;
-    final topicId = _postRefreshTopics.remove(key);
-    if (topicId != null) _refreshPosts(siteUrl, topicId, {postId});
-  }
-
   Future<BookmarkWriteResult> createBookmark({
     required String siteUrl,
     required int topicId,
@@ -12596,7 +11373,13 @@ class ShellController extends FrameSafeNotifier
       );
     }
     final lease = lifecycle.capture(siteUrl);
-    if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
+    final releaseBookmark = _beginBookmarkWrite(
+      siteUrl,
+      context,
+      targetType,
+      targetId,
+    );
+    if (releaseBookmark == null) {
       return BookmarkWriteResult.refused(
         appL10n.anotherActionOnThisBookmarkIsStillFinishing,
       );
@@ -12690,9 +11473,7 @@ class ShellController extends FrameSafeNotifier
       );
       return BookmarkWriteResult.saved(bookmark);
     } finally {
-      lease.commit(
-        () => _endBookmarkWrite(siteUrl, context, targetType, targetId),
-      );
+      lease.commit(releaseBookmark);
     }
   }
 
@@ -12738,7 +11519,13 @@ class ShellController extends FrameSafeNotifier
     }
     final refreshTarget = targetType.refreshLabel;
     final lease = lifecycle.capture(siteUrl);
-    if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
+    final releaseBookmark = _beginBookmarkWrite(
+      siteUrl,
+      context,
+      targetType,
+      targetId,
+    );
+    if (releaseBookmark == null) {
       return BookmarkWriteResult.refused(
         appL10n.anotherActionOnThisBookmarkIsStillFinishing,
       );
@@ -12821,9 +11608,7 @@ class ShellController extends FrameSafeNotifier
       );
       return BookmarkWriteResult.saved(updated);
     } finally {
-      lease.commit(
-        () => _endBookmarkWrite(siteUrl, context, targetType, targetId),
-      );
+      lease.commit(releaseBookmark);
     }
   }
 
@@ -12872,7 +11657,13 @@ class ShellController extends FrameSafeNotifier
     }
     final refreshTarget = targetType.refreshLabel;
     final lease = lifecycle.capture(siteUrl);
-    if (!_beginBookmarkWrite(siteUrl, context, targetType, targetId)) {
+    final releaseBookmark = _beginBookmarkWrite(
+      siteUrl,
+      context,
+      targetType,
+      targetId,
+    );
+    if (releaseBookmark == null) {
       return BookmarkWriteResult.refused(
         appL10n.anotherActionOnThisBookmarkIsStillFinishing,
       );
@@ -12955,9 +11746,7 @@ class ShellController extends FrameSafeNotifier
       );
       return const BookmarkWriteResult.saved();
     } finally {
-      lease.commit(
-        () => _endBookmarkWrite(siteUrl, context, targetType, targetId),
-      );
+      lease.commit(releaseBookmark);
     }
   }
 
@@ -12983,15 +11772,18 @@ class ShellController extends FrameSafeNotifier
         const <int>{};
     final postKeys = {for (final postId in postIds) _postKey(siteUrl, postId)};
     if (_topicBookmarkWritesInFlight.contains(key) ||
-        postKeys.any(_postBookmarkWriteInFlight)) {
+        postIds.any((id) => _postBookmarkWriteInFlight(siteUrl, id))) {
       return BookmarkWriteResult.refused(
         appL10n.anotherBookmarkActionIsStillFinishing,
       );
     }
-    final lease = lifecycle.capture(siteUrl);
+    final data = _topicData.forSite(siteUrl);
+    final lease = data.lease;
     _topicBookmarkWritesInFlight.add(key);
     _postBookmarkWritesInFlight.addAll(postKeys);
-    postKeys.forEach(_holdPostWrite);
+    final releases = [
+      for (final id in postIds) data.holdPostWrite(id, notifyOnRelease: false),
+    ];
     _notify();
     try {
       final credential = await _credentialForWrite(siteUrl, lease: lease);
@@ -13028,7 +11820,7 @@ class ShellController extends FrameSafeNotifier
           appL10n.couldnTConfirmTheDeletionTheTopicIsBeingRefreshed,
         );
       }
-      lease.commit(() => _removeAllBookmarks(siteUrl, topicId));
+      lease.commit(() => _topicData.forSite(siteUrl).clearBookmarks(topicId));
       _reconcileBookmarks(instance, context, lease);
       return const BookmarkWriteResult.saved();
     } finally {
@@ -13036,14 +11828,16 @@ class ShellController extends FrameSafeNotifier
         _topicBookmarkWritesInFlight.remove(key);
         for (final postId in postIds) {
           _postBookmarkWritesInFlight.remove(_postKey(siteUrl, postId));
-          _endPostWrite(siteUrl, postId, notify: false);
+        }
+        for (final release in releases) {
+          release();
         }
         _notify();
       });
     }
   }
 
-  bool _beginBookmarkWrite(
+  void Function()? _beginBookmarkWrite(
     String siteUrl,
     _BookmarkWriteContext context,
     BookmarkTargetType targetType,
@@ -13051,49 +11845,32 @@ class ShellController extends FrameSafeNotifier
   ) {
     if (targetType == BookmarkTargetType.post) {
       final key = _postKey(siteUrl, targetId);
-      if (_postBookmarkWriteInFlight(key)) return false;
+      if (_postBookmarkWriteInFlight(siteUrl, targetId)) return null;
       _postBookmarkWritesInFlight.add(key);
-      _holdPostWrite(key);
+      final release = _topicData.forSite(siteUrl).holdPostWrite(targetId);
       _notify();
-      return true;
+      return () {
+        _postBookmarkWritesInFlight.remove(key);
+        release();
+      };
     }
     if (targetType == BookmarkTargetType.topic) {
       final topicId = (context as _TopicBookmarkWriteContext).topicId;
-      return _beginTopicBookmarkWrite(_topicKey(siteUrl, topicId));
+      final key = _topicKey(siteUrl, topicId);
+      if (!_topicBookmarkWritesInFlight.add(key)) return null;
+      _notify();
+      return () {
+        _topicBookmarkWritesInFlight.remove(key);
+        _notify();
+      };
     }
     final key = _pluginBookmarkKey(siteUrl, targetType, targetId);
-    if (!_pluginBookmarkWritesInFlight.add(key)) return false;
+    if (!_pluginBookmarkWritesInFlight.add(key)) return null;
     _notify();
-    return true;
-  }
-
-  bool _beginTopicBookmarkWrite(String key) {
-    if (!_topicBookmarkWritesInFlight.add(key)) return false;
-    _notify();
-    return true;
-  }
-
-  void _endBookmarkWrite(
-    String siteUrl,
-    _BookmarkWriteContext context,
-    BookmarkTargetType targetType,
-    int targetId,
-  ) {
-    if (targetType == BookmarkTargetType.post) {
-      _postBookmarkWritesInFlight.remove(_postKey(siteUrl, targetId));
-      _endPostWrite(siteUrl, targetId);
-      return;
-    }
-    if (targetType == BookmarkTargetType.topic) {
-      final topicId = (context as _TopicBookmarkWriteContext).topicId;
-      _topicBookmarkWritesInFlight.remove(_topicKey(siteUrl, topicId));
+    return () {
+      _pluginBookmarkWritesInFlight.remove(key);
       _notify();
-      return;
-    }
-    _pluginBookmarkWritesInFlight.remove(
-      _pluginBookmarkKey(siteUrl, targetType, targetId),
-    );
-    _notify();
+    };
   }
 
   void _applyBookmark(
@@ -13113,27 +11890,13 @@ class ShellController extends FrameSafeNotifier
       _notify();
       return;
     }
-    final topicId = (context as _TopicBookmarkWriteContext).topicId;
-    _advanceBookmarkVersion(siteUrl, topicId);
-    store.update<TopicDetail>(
-      siteUrl,
-      topicId,
-      (detail) => detail.withBookmark(bookmark),
-    );
-    final postId = bookmark.bookmarkableId;
-    if (targetType == BookmarkTargetType.post && postId != null) {
-      store.update<Post>(
-        siteUrl,
-        postId,
-        (post) => post.withBookmark(bookmark),
-      );
-    }
-    store.update<Topic>(
-      siteUrl,
-      topicId,
-      (topic) => topic.copyWith(bookmarked: true),
-    );
-    _notify();
+    _topicData
+        .forSite(siteUrl)
+        .acceptBookmark(
+          (context as _TopicBookmarkWriteContext).topicId,
+          bookmark,
+          isPost: targetType == BookmarkTargetType.post,
+        );
   }
 
   void _removeBookmark(
@@ -13152,40 +11915,14 @@ class ShellController extends FrameSafeNotifier
       _notify();
       return;
     }
-    final topicId = (context as _TopicBookmarkWriteContext).topicId;
-    _advanceBookmarkVersion(siteUrl, topicId);
-    store.update<TopicDetail>(
-      siteUrl,
-      topicId,
-      (detail) => detail.withoutBookmark(bookmark.id),
-    );
-    final postId = bookmark.bookmarkableId;
-    if (targetType == BookmarkTargetType.post && postId != null) {
-      store.update<Post>(siteUrl, postId, (post) => post.withBookmark(null));
-    }
-    store.update<Topic>(
-      siteUrl,
-      topicId,
-      (topic) => topic.copyWith(bookmarked: topicBookmarked == true),
-    );
-    _notify();
-  }
-
-  void _removeAllBookmarks(String siteUrl, int topicId) {
-    _advanceBookmarkVersion(siteUrl, topicId);
-    final detail = store.read<TopicDetail>(siteUrl, topicId);
-    if (detail != null) {
-      for (final postId in detail.stream) {
-        store.update<Post>(siteUrl, postId, (post) => post.withBookmark(null));
-      }
-      store.put(siteUrl, detail.withoutBookmarks());
-    }
-    store.update<Topic>(
-      siteUrl,
-      topicId,
-      (topic) => topic.copyWith(bookmarked: false),
-    );
-    _notify();
+    _topicData
+        .forSite(siteUrl)
+        .removeBookmark(
+          (context as _TopicBookmarkWriteContext).topicId,
+          bookmark,
+          isPost: targetType == BookmarkTargetType.post,
+          topicBookmarked: topicBookmarked,
+        );
   }
 
   void _reconcileBookmarks(
@@ -13209,74 +11946,17 @@ class ShellController extends FrameSafeNotifier
       final route = currentContent;
       final row = store.read<Topic>(instance.url, topicId);
       unawaited(
-        _refreshTopicBookmarks(
-          instance.url,
-          topicId,
-          route?.topicId == topicId ? route?.slug ?? '' : row?.slug ?? '',
-          lease,
-        ),
+        _topicData
+            .forLease(instance.url, lease)
+            ?.refreshBookmarks(
+              topicId,
+              route?.topicId == topicId ? route?.slug ?? '' : row?.slug ?? '',
+            ),
       );
     }
     if (isDisposed || !lease.isCurrent) return;
     unawaited(accountActivity.loadBookmarks(instance, force: true));
     unawaited(accountActivity.refreshLoadedBookmarkList(instance));
-  }
-
-  Future<void> _refreshTopicBookmarks(
-    String siteUrl,
-    int topicId,
-    String slug,
-    SiteLease lease,
-  ) async {
-    // Reconciliation owns bookmark metadata only. A full topic replacement
-    // could erase a checklist's optimistic state or its newer saved content.
-    _advanceBookmarkVersion(siteUrl, topicId);
-    final version = _bookmarkVersion(siteUrl, topicId);
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).credentials(credentials);
-      if (!lease.isCurrent) return;
-      final payload = await credential.run(
-        () => api.topicContent.topic(
-          siteUrl: siteUrl,
-          slug: slug,
-          id: topicId,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      lease.commit(() {
-        if (version != _bookmarkVersion(siteUrl, topicId)) return;
-        for (final incoming in payload.posts) {
-          store.update<Post>(
-            siteUrl,
-            incoming.id,
-            (held) => held.withBookmarkOf(incoming),
-          );
-        }
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (held) => held.withBookmarksOf(payload.detail),
-        );
-        store.update<Topic>(
-          siteUrl,
-          topicId,
-          (held) => held.copyWith(bookmarked: payload.detail.hasBookmarks),
-        );
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'bookmark.refreshAfterWrite',
-        severity: DiagnosticSeverity.warning,
-      );
-    }
   }
 
   static String _postKey(String siteUrl, int postId) => '$siteUrl~$postId';
@@ -13405,7 +12085,7 @@ class ShellController extends FrameSafeNotifier
   Future<String?> _mutatePost(
     Post post,
     Future<void> Function(String siteUrl, String apiKey) write, {
-    void Function(String siteUrl, int topicId)? accepted,
+    void Function(String siteUrl, int topicId, SiteLease lease)? accepted,
   }) async {
     final instance = currentInstance;
     final topicId = currentContent?.topicId;
@@ -13413,8 +12093,10 @@ class ShellController extends FrameSafeNotifier
 
     final siteUrl = instance.url;
     final lease = lifecycle.capture(siteUrl);
-    final key = _postKey(siteUrl, post.id);
-    if (!_beginPostWrite(key)) return null;
+    final releasePost = _topicData
+        .forLease(siteUrl, lease)
+        ?.beginPostWrite(post.id);
+    if (releasePost == null) return null;
 
     try {
       final credential = await _credentialForWrite(siteUrl, lease: lease);
@@ -13436,14 +12118,16 @@ class ShellController extends FrameSafeNotifier
       if (!lease.isCurrent) return null;
       if (accepted != null) {
         lease.commit(() {
-          accepted(siteUrl, topicId);
+          accepted(siteUrl, topicId, lease);
           _notify();
         });
       }
-      await _refreshPost(siteUrl, topicId, post.id, apiKey, lease);
+      await _topicData
+          .forLease(siteUrl, lease)
+          ?.repairPost(topicId, post.id, apiKey, lease);
       return null;
     } finally {
-      lease.commit(() => _endPostWrite(siteUrl, post.id));
+      lease.commit(releasePost);
     }
   }
 
@@ -13454,14 +12138,18 @@ class ShellController extends FrameSafeNotifier
     Future<void> Function(String apiKey, List<int> ids) write,
   ) async {
     final topicKey = _topicKey(siteUrl, topicId);
-    final postKeys = [for (final post in posts) _postKey(siteUrl, post.id)];
+    final idsToHold = [for (final post in posts) post.id];
+    final data = _topicData.forSite(siteUrl);
     if (_topicPostSelectionWrites.contains(topicKey) ||
-        postKeys.any(_postWritesInFlight.containsKey)) {
+        idsToHold.any(data.postWriting)) {
       return null;
     }
-    final lease = lifecycle.capture(siteUrl);
+    final lease = data.lease;
     _topicPostSelectionWrites.add(topicKey);
-    postKeys.forEach(_holdPostWrite);
+    final releases = [
+      for (final id in idsToHold)
+        data.holdPostWrite(id, notifyOnRelease: false),
+    ];
     _notify();
 
     var succeeded = false;
@@ -13485,136 +12173,21 @@ class ShellController extends FrameSafeNotifier
         return const WriteException(WriteFailure.unreachable).message;
       }
       if (!lease.isCurrent) return null;
-      await _refreshSelectedTopicPosts(
-        siteUrl,
-        topicId,
-        ids,
-        credential.apiKey,
-        lease,
-      );
+      await _topicData
+          .forLease(siteUrl, lease)
+          ?.repairSelectedPosts(topicId, ids, credential.apiKey, lease);
       succeeded = true;
       return null;
     } finally {
       lease.commit(() {
         _topicPostSelectionWrites.remove(topicKey);
         if (succeeded) _topicPostSelections.remove(topicKey);
-        for (final post in posts) {
-          _endPostWrite(siteUrl, post.id, notify: false);
+        for (final release in releases) {
+          release();
         }
         _notify();
       });
     }
-  }
-
-  Future<void> _refreshSelectedTopicPosts(
-    String siteUrl,
-    int topicId,
-    List<int> postIds,
-    String? apiKey,
-    SiteLease lease,
-  ) async {
-    final freshById = <int, Post>{};
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).keyCredentials(credentials);
-      if (credential.apiKey != apiKey) return;
-      for (var start = 0; start < postIds.length; start += 20) {
-        if (isDisposed || !lease.isCurrent) return;
-        final end = start + 20 < postIds.length ? start + 20 : postIds.length;
-        final fetched = await credential.run(
-          () => api.topicContent.posts(
-            siteUrl: siteUrl,
-            topicId: topicId,
-            ids: postIds.sublist(start, end),
-            apiKey: credential.apiKey,
-          ),
-        );
-        if (isDisposed || !lease.isCurrent) return;
-        for (final post in fetched) {
-          if (postIds.contains(post.id)) freshById[post.id] = post;
-        }
-      }
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'topic.selectedPosts.refreshAfterWrite',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-      return;
-    }
-
-    lease.commit(() {
-      for (final postId in postIds) {
-        final fresh = freshById[postId];
-        if (fresh == null) {
-          _removeTopicPost(siteUrl, topicId, postId);
-        } else {
-          store.put(siteUrl, fresh);
-          store.update<TopicDetail>(
-            siteUrl,
-            topicId,
-            (detail) => detail.withPostId(postId),
-          );
-        }
-      }
-      _notify();
-    });
-  }
-
-  Future<void> _refreshPost(
-    String siteUrl,
-    int topicId,
-    int postId,
-    String? apiKey,
-    SiteLease lease,
-  ) async {
-    if (isDisposed || !lease.isCurrent) return;
-    List<Post> fetched;
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).keyCredentials(credentials);
-      if (credential.apiKey != apiKey) return;
-      fetched = await credential.run(
-        () => api.topicContent.posts(
-          siteUrl: siteUrl,
-          topicId: topicId,
-          ids: [postId],
-          apiKey: credential.apiKey,
-        ),
-      );
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'post.refreshAfterWrite',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-      return;
-    }
-
-    lease.commit(() {
-      final fresh = fetched.where((p) => p.id == postId).firstOrNull;
-      if (fresh == null) {
-        _removeTopicPost(siteUrl, topicId, postId);
-      } else {
-        store.put(siteUrl, fresh);
-        store.update<TopicDetail>(
-          siteUrl,
-          topicId,
-          (detail) => detail.withPostId(postId),
-        );
-      }
-      _notify();
-    });
   }
 
   bool _replaceComposer() {
@@ -13996,8 +12569,10 @@ class ShellController extends FrameSafeNotifier
       case TagsEditComposerTarget():
         return _submitTagsEdit(composer, target);
       case PostEditingComposerTarget():
-        final key = _postKey(target.siteUrl, target.editingPostId);
-        if (!_beginPostWrite(key)) {
+        final releasePost = _topicData
+            .forLease(target.siteUrl, lease)
+            ?.beginPostWrite(target.editingPostId);
+        if (releasePost == null) {
           composer.failed(
             WriteException(
               WriteFailure.conflict,
@@ -14009,9 +12584,7 @@ class ShellController extends FrameSafeNotifier
         try {
           await _submitEditNow(composer, target, raw, lease);
         } finally {
-          lease.commit(
-            () => _endPostWrite(target.siteUrl, target.editingPostId),
-          );
+          lease.commit(releasePost);
         }
     }
   }
@@ -14128,34 +12701,11 @@ class ShellController extends FrameSafeNotifier
     }
 
     lease.commit(() {
-      _storeEditedPost(target.siteUrl, updated, raw: raw);
+      _topicData
+          .forLease(target.siteUrl, lease)
+          ?.acceptEditedPost(updated, raw: raw);
       _closeSubmittedComposer(composer);
     });
-  }
-
-  void _storeEditedPost(String siteUrl, Post updated, {required String raw}) {
-    final held = store.read<Post>(siteUrl, updated.id);
-    // The answer carries the raw the site stored, whitespace normalized; it is
-    // the next edit's `original_text`, so it wins over the text that was sent.
-    final withRaw = updated.raw == null ? updated.withRaw(raw) : updated;
-    // Edit responses omit reader-specific actions and plugin state; preserve
-    // those values from the held post.
-    store.put(
-      siteUrl,
-      held == null
-          ? withRaw
-          : withRaw
-                .copyWith(isLocalized: held.isLocalized)
-                .withLikesOf(held)
-                .withPostActionsOf(held)
-                .withBookmarkOf(held)
-                .withPlugins(
-                  api.models.mergeAfterPostEdit(
-                    held: held.plugins,
-                    incoming: updated.plugins,
-                  ),
-                ),
-    );
   }
 
   Future<void> _submitTagsEdit(
@@ -14311,32 +12861,6 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  static const int _reconcileWindow = 5;
-
-  static final RegExp _unicodeSpace = RegExp(
-    '[\u00A0\u1680\u180E\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]',
-  );
-
-  /// Raw as the site stores it: PostCreator keeps
-  /// `TextCleaner.normalize_whitespaces(raw)` right-stripped, and the composer
-  /// sends it trimmed, so both ends go.
-  static String _storedRaw(String raw) =>
-      raw.replaceAll(_unicodeSpace, ' ').trim();
-
-  /// A key that survives `TextCleaner.clean_title`: prettifying changes case,
-  /// collapses repeated `!`/`?` and runs of spaces, and drops trailing
-  /// periods. It only narrows which topics are read; the first post's raw is
-  /// what identifies ours.
-  static String _titleKey(String title) => title
-      .replaceAll(_unicodeSpace, ' ')
-      .replaceAll('\u200B', '')
-      .toLowerCase()
-      .replaceAll(RegExp(r'!+'), '!')
-      .replaceAll(RegExp(r'\?+'), '?')
-      .replaceAll(RegExp(r'[\s.!?]+$'), '')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-
   Future<void> _reconcileNewTopic(
     TopicCreationComposerTarget target,
     ComposerSubmission sent,
@@ -14346,7 +12870,12 @@ class ShellController extends FrameSafeNotifier
   }) async {
     final session = lease ?? lifecycle.capture(target.siteUrl);
     if (!session.commit(composer.checking)) return;
-    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
+    final data = _topicData.forLease(target.siteUrl, session);
+    if (data == null) return;
+    final credential = await _credentialForWrite(
+      target.siteUrl,
+      lease: session,
+    );
     if (!session.isCurrent || credential.failure != null) {
       session.commit(composer.unresolved);
       return;
@@ -14378,68 +12907,28 @@ class ShellController extends FrameSafeNotifier
         session.commit(composer.unresolved);
         return;
       }
-      final recentPath = target.isPrivateMessage
-          ? '/topics/private-messages-sent/${Uri.encodeComponent(username)}.json'
-          : '/topics/created-by/${Uri.encodeComponent(username)}.json';
-      final recent = await credential.request!.run(
-        () => api.topicFeeds.topicList(
-          siteUrl: target.siteUrl,
-          path: recentPath,
-          apiKey: apiKey,
-        ),
+
+      final match = await data.findCreatedTopic(
+        username: username,
+        title: sent.title,
+        raw: sent.raw,
+        privateMessage: target.isPrivateMessage,
+        credential: credential.request!,
       );
-      final matches = <TopicPayload>[];
-      final titleKey = _titleKey(sent.title);
-      final storedRaw = _storedRaw(sent.raw);
-      for (final row
-          in recent.topics
-              .where((topic) => _titleKey(topic.title) == titleKey)
-              .take(_reconcileWindow)) {
-        final payload = await credential.request!.run(
-          () => api.topicContent.topic(
-            siteUrl: target.siteUrl,
-            slug: row.slug,
-            id: row.id,
-            apiKey: apiKey,
-          ),
-        );
-        final firstId = payload.detail.stream.firstOrNull;
-        if (firstId == null) continue;
-        final posts = await credential.request!.run(
-          () => api.topicContent.posts(
-            siteUrl: target.siteUrl,
-            topicId: row.id,
-            ids: [firstId],
-            includeRaw: true,
-            apiKey: apiKey,
-          ),
-        );
-        if (posts.firstOrNull?.raw case final landed?
-            when _storedRaw(landed) == storedRaw) {
-          matches.add(payload);
-        }
-      }
-      if (!session.isCurrent) return;
-      if (matches.length == 1) {
-        final payload = matches.single;
-        session.commit(() {
-          _absorb(target.siteUrl, payload);
+      session.commit(() {
+        if (match == null) {
+          composer.unresolved();
+        } else {
           _finishCreatedTopic(
             target,
             composer,
             session,
-            payload.detail.id,
-            recent.topics
-                    .where((topic) => topic.id == payload.detail.id)
-                    .firstOrNull
-                    ?.slug ??
-                '',
-            payload.detail.title,
+            match.topicId,
+            match.slug,
+            match.title,
           );
-        });
-      } else {
-        session.commit(composer.unresolved);
-      }
+        }
+      });
     } catch (error, stackTrace) {
       if (session.isCurrent) {
         _reportOperationalError(
@@ -14462,9 +12951,13 @@ class ShellController extends FrameSafeNotifier
   }) async {
     final session = lease ?? lifecycle.capture(target.siteUrl);
     if (!session.commit(composer.checking)) return;
-
+    final data = _topicData.forLease(target.siteUrl, session);
+    if (data == null) return;
     final username = _instanceAt(target.siteUrl)?.user?.username;
-    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
+    final credential = await _credentialForWrite(
+      target.siteUrl,
+      lease: session,
+    );
     if (!session.isCurrent) return;
     if (credential.failure != null) {
       session.commit(() {
@@ -14473,46 +12966,15 @@ class ShellController extends FrameSafeNotifier
       });
       return;
     }
-    final apiKey = credential.apiKey;
-
-    late TopicPayload topic;
-    late List<Post> posts;
     Post? landed;
     try {
-      topic = await credential.request!.run(
-        () => api.topicContent.topic(
-          siteUrl: target.siteUrl,
-          slug: target.slug,
-          id: target.topicId,
-          apiKey: apiKey,
-        ),
+      landed = await data.findReply(
+        topicId: target.topicId,
+        slug: target.slug,
+        username: username,
+        raw: raw,
+        credential: credential.request!,
       );
-
-      // Ours would be at the end, and a topic answers with its first chunk of
-      // posts — so the tail has to be asked for by id.
-      final stream = topic.detail.stream;
-      final tail = stream.length <= _reconcileWindow
-          ? stream
-          : stream.sublist(stream.length - _reconcileWindow);
-
-      posts = await credential.request!.run(
-        () => api.topicContent.posts(
-          siteUrl: target.siteUrl,
-          topicId: target.topicId,
-          ids: tail,
-          includeRaw: true,
-          apiKey: apiKey,
-        ),
-      );
-      final storedRaw = _storedRaw(raw);
-      for (final post in posts) {
-        if (post.username == username &&
-            post.raw != null &&
-            _storedRaw(post.raw!) == storedRaw) {
-          landed = post;
-          break;
-        }
-      }
     } catch (error, stackTrace) {
       if (session.isCurrent) {
         _reportOperationalError(
@@ -14522,32 +12984,18 @@ class ShellController extends FrameSafeNotifier
           severity: DiagnosticSeverity.warning,
         );
       }
-      // Still unknown, and saying "it failed" would invite the second post
-      // this whole path exists to prevent.
       session.commit(() {
         composer.unresolved();
         _notify();
       });
       return;
     }
-
     session.commit(() {
-      _absorb(target.siteUrl, topic);
-      store.putAll(target.siteUrl, posts);
       if (landed == null) {
         composer.checkedNotPosted(failure);
         _notify();
         return;
       }
-
-      store.update<TopicDetail>(
-        target.siteUrl,
-        target.topicId,
-        (detail) => detail.withPostId(landed!.id),
-      );
-      // Found posted is accepted as surely as a creation that answered: the
-      // site dropped its draft, so the local copy goes too. Kept, it restores
-      // into the next reply, whose first save puts the posted text back.
       _composerDrafts.settleAfterSubmission(composer, session);
       store.update<TopicDetail>(
         target.siteUrl,
@@ -14577,12 +13025,10 @@ class ShellController extends FrameSafeNotifier
   ) {
     final post = creation.post;
     if (post != null) {
-      store.put(target.siteUrl, post);
-      store.update<TopicDetail>(
-        target.siteUrl,
-        target.topicId,
-        (detail) => detail.withPostId(post.id),
-      );
+      _topicData
+          .forLease(target.siteUrl, lease)
+          ?.acceptReply(target.topicId, post);
+      if (!lease.isCurrent) return;
     }
 
     // Accepting a post deletes its draft and advances the sequence server side,
@@ -14611,9 +13057,11 @@ class ShellController extends FrameSafeNotifier
     }
     _notify();
 
-    // The appended post is what the author sees immediately; this repairs the
-    // stream and the count, and picks up whatever landed while they typed.
-    unawaited(_refetchTopic(target.siteUrl, target.topicId, target.slug));
+    unawaited(
+      _topicData
+          .forLease(target.siteUrl, lease)
+          ?.refresh(target.topicId, slug: target.slug),
+    );
   }
 
   void _applyTopicCreation(
@@ -14637,7 +13085,10 @@ class ShellController extends FrameSafeNotifier
       composer.failed(const WriteException(WriteFailure.unreachable));
       return;
     }
-    if (creation.post case final post?) store.put(target.siteUrl, post);
+    if (creation.post case final post?) {
+      _topicData.forLease(target.siteUrl, lease)?.acceptNewTopicPost(post);
+      if (!lease.isCurrent) return;
+    }
     _finishCreatedTopic(
       target,
       composer,
@@ -14694,83 +13145,6 @@ class ShellController extends FrameSafeNotifier
           ),
         );
         _notify();
-      }
-    }
-  }
-
-  Future<void> _refetchTopic(
-    String siteUrl,
-    int topicId,
-    String slug, {
-    int? postNumber,
-  }) async {
-    final key = _topicKey(siteUrl, topicId);
-    if (_topicsLoading.contains(key)) {
-      // A live echo can start a read while an Assign write is still landing.
-      // Remember the later invalidation so the pre-write snapshot cannot be
-      // the last answer stored.
-      _topicRefreshPending.add(key);
-      if (postNumber != null) {
-        _topicRefreshPostNumbers[key] = postNumber;
-      }
-      return;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    final bookmarkVersion = _bookmarkVersion(siteUrl, topicId);
-    final messageArchiveVersion = _messageArchiveVersion(siteUrl, topicId);
-    final postRemovalVersion = _topicPostRemovalVersion(siteUrl, topicId);
-    _topicsLoading.add(key);
-
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).credentials(credentials);
-      if (!lease.isCurrent) return;
-      final topic = await credential.run(
-        () => api.topicContent.topic(
-          siteUrl: siteUrl,
-          slug: slug,
-          id: topicId,
-          postNumber: postNumber,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      lease.commit(
-        () => _absorb(
-          siteUrl,
-          topic,
-          bookmarkVersionAtDispatch: bookmarkVersion,
-          messageArchiveVersionAtDispatch: messageArchiveVersion,
-          postRemovalVersionAtDispatch: postRemovalVersion,
-          positioned: postNumber != null,
-        ),
-      );
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      lease.commit(() => _topicsStale.add(key));
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'topic.refetchAfterWrite',
-        severity: DiagnosticSeverity.warning,
-      );
-    } finally {
-      var replayRefresh = false;
-      int? replayPostNumber;
-      lease.commit(() {
-        _topicsLoading.remove(key);
-        replayRefresh = _topicRefreshPending.remove(key);
-        if (replayRefresh) {
-          replayPostNumber = _topicRefreshPostNumbers.remove(key);
-        }
-        _notify();
-      });
-      if (replayRefresh && lease.isCurrent) {
-        unawaited(
-          _refetchTopic(siteUrl, topicId, '', postNumber: replayPostNumber),
-        );
       }
     }
   }
@@ -15515,9 +13889,10 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _forgetSiteState(String siteUrl, {bool invalidateLifecycle = true}) {
-    _topicPrefetch.clear();
+    _topicData.clearPrefetch();
     cooking.forget(siteUrl);
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
+    _topicData.forget(siteUrl);
     siteImages.forget(siteUrl);
     videoThumbnails.forget(siteUrl);
     pdfThumbnails.forget(siteUrl);
@@ -15543,7 +13918,6 @@ class ShellController extends FrameSafeNotifier
 
     likerRequests.forget(siteUrl);
     userCardRequests.forget(siteUrl);
-    _postWritesInFlight.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _postBookmarkWritesInFlight.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
     );
@@ -15557,27 +13931,6 @@ class ShellController extends FrameSafeNotifier
     _pluginBookmarkWritesInFlight.removeWhere(
       (key) => key.startsWith('$siteUrl~'),
     );
-    _bookmarkVersions.removeWhere((key, _) => key.startsWith('$siteUrl#'));
-    _siteBookmarkVersions.remove(siteUrl);
-    _postRefreshRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _postRefreshPending.removeWhere((key) => key.startsWith('$siteUrl~'));
-    _postRefreshTopics.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _postRefreshDeletions.removeWhere((key) => key.startsWith('$siteUrl~'));
-    _queuedPostRefreshes.removeWhere((key, _) => key.startsWith('$siteUrl#'));
-    _deferredTopicPostsCounts.removeWhere(
-      (key, _) => key.startsWith('$siteUrl#'),
-    );
-    _topicsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _topicRefreshPending.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _topicRefreshPostNumbers.removeWhere(
-      (key, _) => key.startsWith('$siteUrl#'),
-    );
-    _topicsStale.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _postsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _earlierPostsLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _postGapsLoading.removeWhere((key) => key.$1 == siteUrl);
-    _topicSummaryStreams.removeWhere((key, _) => key.startsWith('$siteUrl#'));
-    _topicSummariesLoading.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicNotificationWrites.removeWhere(
       (key, _) => key.startsWith('$siteUrl#'),
     );
@@ -15598,16 +13951,6 @@ class ShellController extends FrameSafeNotifier
     _topicPinWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicStatusWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _messageArchiveWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _messageArchiveVersions.removeWhere(
-      (key, _) => key.startsWith('$siteUrl#'),
-    );
-    _topicPostRemovalVersions.removeWhere(
-      (key, _) => key.startsWith('$siteUrl#'),
-    );
-    _removedTopicPosts.removeWhere((key, _) => key.startsWith('$siteUrl#'));
-    _topicStreamReadVersions.removeWhere(
-      (key, _) => key.startsWith('$siteUrl#'),
-    );
     _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicJumpRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicReads.forget(siteUrl);
@@ -16531,7 +14874,7 @@ class ShellController extends FrameSafeNotifier
       _workspace.persist();
     }
     _rememberCurrentContent();
-    _topicPrefetch.validate();
+    _topicData.validatePrefetch();
     if (mobileNavigationEnabled) {
       if (_mobilePane == MobilePane.sidebar &&
           mobileNavigation.panelOwner == null &&
@@ -16608,7 +14951,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void dispose() {
-    _topicPrefetch.clear();
+    _topicData.dispose();
     // Queue the final local draft before lifecycle invalidation without
     // entering the normal remote-sync callback.
     for (final composer in _composers) {
@@ -16644,7 +14987,6 @@ class ShellController extends FrameSafeNotifier
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
     _messageArchiveWrites.clear();
-    _messageArchiveVersions.clear();
     _userStatusWrites.clear();
     _optimisticHidePresence.clear();
     _hidePresenceWrites.clear();

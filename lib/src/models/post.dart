@@ -1226,7 +1226,7 @@ class TopicDetail with Storable<TopicDetail> {
   /// shares none is of another part of the topic, such as the opening page a
   /// live reload reads while the reader is further in, and leaves the run
   /// where the reader is; a read that names a post moves the run in
-  /// ShellController instead.
+  /// the topic data owner instead.
   TopicDetail _mergeMegaTopic(TopicDetail incoming) {
     final arrived = incoming.stream.toSet();
     final first = stream.indexWhere(arrived.contains);

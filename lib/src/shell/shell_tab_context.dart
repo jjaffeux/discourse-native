@@ -201,25 +201,21 @@ final class ShellTabContext {
     final instance = _instance;
     final detail = currentTopic;
     if (instance == null || detail == null) return const [];
-    return shell._topicStream(instance.url, detail);
+    return shell._topicData.forSite(instance.url).streamFor(detail);
   }
 
   bool get currentTopicSummary {
     final instance = _instance;
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return false;
-    return shell._topicSummaryStreams.containsKey(
-      ShellController._topicKey(instance.url, topicId),
-    );
+    return shell._topicData.forSite(instance.url).showingSummary(topicId);
   }
 
   bool get currentTopicSummaryLoading {
     final instance = _instance;
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return false;
-    return shell._topicSummariesLoading.contains(
-      ShellController._topicKey(instance.url, topicId),
-    );
+    return shell._topicData.forSite(instance.url).summaryLoading(topicId);
   }
 
   bool get currentTopicHasMore {
@@ -241,27 +237,21 @@ final class ShellTabContext {
     final instance = _instance;
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return false;
-    return shell._topicsLoading.contains(
-      ShellController._topicKey(instance.url, topicId),
-    );
+    return shell._topicData.forSite(instance.url).loading(topicId);
   }
 
   bool get loadingMorePosts {
     final instance = _instance;
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return false;
-    return shell._postsLoading.contains(
-      ShellController._topicKey(instance.url, topicId),
-    );
+    return shell._topicData.forSite(instance.url).paging(topicId, newer: true);
   }
 
   bool get loadingEarlierPosts {
     final instance = _instance;
     final topicId = currentContent?.topicId;
     if (instance == null || topicId == null) return false;
-    return shell._earlierPostsLoading.contains(
-      ShellController._topicKey(instance.url, topicId),
-    );
+    return shell._topicData.forSite(instance.url).paging(topicId, newer: false);
   }
 
   int get topicNavigationRevision =>
@@ -296,7 +286,7 @@ final class ShellTabContext {
     if (instance == null || detail == null) {
       return ShellController._emptyPostWindow;
     }
-    final stream = shell._topicStream(instance.url, detail);
+    final stream = shell._topicData.forSite(instance.url).streamFor(detail);
     final key = (
       instance.url,
       detail,
@@ -330,7 +320,8 @@ final class ShellTabContext {
     TopicDetail detail, {
     List<int>? stream,
   }) {
-    final effectiveStream = stream ?? shell._topicStream(siteUrl, detail);
+    final effectiveStream =
+        stream ?? shell._topicData.forSite(siteUrl).streamFor(detail);
     if (effectiveStream.isEmpty) return null;
 
     final target = currentContent?.postNumber;
@@ -376,7 +367,7 @@ final class ShellTabContext {
     TopicDetail detail,
     int batchSize,
   ) {
-    final stream = shell._topicStream(siteUrl, detail);
+    final stream = shell._topicData.forSite(siteUrl).streamFor(detail);
     final range = _loadedPostRange(siteUrl, detail, stream: stream);
     if (range == null || range.$1 == 0) return const [];
     final start = range.$1 > batchSize ? range.$1 - batchSize : 0;
