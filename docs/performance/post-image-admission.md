@@ -30,7 +30,7 @@ The focused batch passed 116 tests across the repository, image widget, public m
 
 ## Limits
 
-FIFO admission does not establish viewport visibility or cancel obsolete images during ordinary scrolling. `SiteImage` currently ignores late delivery after disposal, while multiple consumers can await one shared request. A cancellation API would need consumer ownership. Visible priority would need a visibility signal and queued promotion. This change adds neither signal.
+The admission measurements above describe the original FIFO change. Consumer-owned image requests now add visible priority, queued promotion and ordinary-scroll cancellation while preserving the same transfer limits. See [Visible post-image delivery](visible-post-image-delivery.md) for the ownership contract, layout exceptions and the later paired measurements.
 
 Waiting for the shared coordinator still counts against a download's timeout when several account caches contend. The cache-local queue keeps ordinary single-account backlog outside that timeout and avoids overflowing the coordinator's 64-waiter origin queue for large single-account galleries. Extreme contention across many account caches can still hit the bounded coordinator backlog.
 

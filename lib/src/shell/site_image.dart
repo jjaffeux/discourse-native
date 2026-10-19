@@ -231,8 +231,9 @@ class _SiteImageState extends State<SiteImage> {
   bool? _viewportDemand() {
     if (!_tickerEnabled) return null;
     final source = context.findRenderObject();
-    if (source is! RenderBox || !source.attached || !source.hasSize)
+    if (source is! RenderBox || !source.attached || !source.hasSize) {
       return null;
+    }
     final view = View.of(context);
     var viewport = Offset.zero & (view.physicalSize / view.devicePixelRatio);
     RenderObject child = source;
