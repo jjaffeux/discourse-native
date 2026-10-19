@@ -481,6 +481,7 @@ class ImageGridTile extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: SiteImage(
+                viewportAware: true,
                 url: srcsetCandidate(
                   src: src,
                   srcset: item.plainSrcset,

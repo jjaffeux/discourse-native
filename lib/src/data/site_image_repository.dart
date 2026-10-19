@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -55,24 +57,64 @@ final class SiteImageRepository {
   /// Ordered from least to most recently used.
   final Map<String, _SiteImageSession> _sessions = {};
   final Map<String, _SiteImageOpening> _opening = {};
+  final Set<SiteImageRequest> _requests = {};
   bool _disposed = false;
 
   Future<SiteImageBytes?> load({
     required String siteUrl,
     required String url,
-  }) async {
-    if (_disposed) return null;
-    final session = await _session(siteUrl);
-    if (_disposed || session == null || !session.lease.isCurrent) return null;
+  }) => request(siteUrl: siteUrl, url: url).result;
 
-    final bytes = await session.cache.load(url);
-    if (_disposed ||
-        !session.lease.isCurrent ||
-        !identical(_sessions[siteUrl], session)) {
-      return null;
+  /// Retains one consumer while credentials open and while bytes are loaded.
+  SiteImageRequest request({required String siteUrl, required String url}) {
+    final account = lifecycle.capture(siteUrl);
+    late final SiteImageRequest request;
+    request = SiteImageRequest._(siteUrl, () => _requests.remove(request));
+    if (_disposed) return request..release();
+    _requests.add(request);
+    request._removeRetirement = account.onRetire(request.release);
+    unawaited(_resolve(request, account, url));
+    return request;
+  }
+
+  Future<void> _resolve(
+    SiteImageRequest request,
+    SiteLease account,
+    String url,
+  ) async {
+    try {
+      final siteUrl = request._siteUrl;
+      final session = await _session(siteUrl);
+      if (request._done) return;
+      if (_disposed ||
+          !account.isCurrent ||
+          session == null ||
+          !identical(account.session, session.lease.session) ||
+          !identical(_sessions[siteUrl], session)) {
+        request.release();
+        return;
+      }
+      final owner = session.cache.request(url);
+      request._owner = owner;
+      request.setVisible(request._visible);
+      final bytes = await owner.result;
+      if (request._done) return;
+      if (_disposed ||
+          !account.isCurrent ||
+          !identical(_sessions[siteUrl], session)) {
+        request.release();
+        return;
+      }
+      _trimOtherSessions(session);
+      request._complete(bytes);
+    } catch (error, stackTrace) {
+      if (request._done) return;
+      if (_disposed || !account.isCurrent) {
+        request.release();
+      } else {
+        request._completeError(error, stackTrace);
+      }
     }
-    _trimOtherSessions(session);
-    return bytes;
   }
 
   bool isCached({required String siteUrl, required String url}) =>
@@ -171,6 +213,9 @@ final class SiteImageRepository {
   }
 
   void forget(String siteUrl) {
+    for (final request in _requests.toList(growable: false)) {
+      if (request._siteUrl == siteUrl) request.release();
+    }
     final _ = _opening.remove(siteUrl);
     _sessions.remove(siteUrl)?.cache.close();
   }
@@ -178,6 +223,9 @@ final class SiteImageRepository {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    for (final request in _requests.toList(growable: false)) {
+      request.release();
+    }
     _opening.clear();
     for (final session in _sessions.values) {
       session.cache.close();
@@ -185,6 +233,52 @@ final class SiteImageRepository {
     _sessions.clear();
     _coordinator.close();
     if (_ownsClient) _client.close();
+  }
+}
+
+/// One image consumer. Releasing it leaves other consumers and saves intact.
+final class SiteImageRequest {
+  SiteImageRequest._(this._siteUrl, this._onDone);
+
+  final String _siteUrl;
+  final void Function() _onDone;
+  final Completer<SiteImageBytes?> _result = Completer<SiteImageBytes?>();
+  ByteCacheRequest<SiteImageBytes>? _owner;
+  void Function()? _removeRetirement;
+  bool _visible = false;
+  bool _done = false;
+
+  Future<SiteImageBytes?> get result => _result.future;
+
+  void setVisible(bool visible) {
+    if (_done) return;
+    _visible = visible;
+    _owner?.priority = visible
+        ? MediaRequestPriority.interactive
+        : MediaRequestPriority.normal;
+  }
+
+  void release() => _complete(null);
+
+  void _finish() {
+    _done = true;
+    _removeRetirement?.call();
+    _removeRetirement = null;
+    _owner?.release();
+    _owner = null;
+    _onDone();
+  }
+
+  void _complete(SiteImageBytes? value) {
+    if (_done) return;
+    _finish();
+    _result.complete(value);
+  }
+
+  void _completeError(Object error, StackTrace stackTrace) {
+    if (_done) return;
+    _finish();
+    _result.completeError(error, stackTrace);
   }
 }
 

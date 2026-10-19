@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:discourse_native/l10n/strings.dart';
@@ -83,12 +82,13 @@ abstract class ByteCache<T extends Object> {
 
   final Map<String, _CacheEntry<T>> _cache = {};
   final Map<String, DateTime> _transientFailures = {};
-  final Map<String, Future<T?>> _inFlight = {};
-  final Queue<_CacheWaiter> _waiting = Queue<_CacheWaiter>();
+  final Map<String, _ByteCacheTransfer<T>> _inFlight = {};
+  final Set<_ByteCacheTransfer<T>> _transfers = {};
+  final List<_CacheWaiter<T>> _waiting = [];
+  int _interactiveOvertakes = 0;
   int _active = 0;
   int _cachedBytes = 0;
   Object _generation = Object();
-  final Set<Completer<void>> _activeAborts = {};
   bool _closed = false;
 
   @protected
@@ -194,16 +194,27 @@ abstract class ByteCache<T extends Object> {
     return DateTime.now().difference(failedAt) > retryAfter;
   }
 
-  Future<T?> load(String url) {
-    if (_closed) return Future.value(null);
-    // Validate before consulting either memory or persistent storage. An
-    // unsafe key must never be served merely because another cache generation
-    // or a tampered cache directory happened to retain bytes under it.
+  Future<T?> load(String url) => _request(url, requestPriority).result;
+
+  /// Owns demand for one URL until completion or [ByteCacheRequest.release].
+  ByteCacheRequest<T> request(
+    String url, {
+    MediaRequestPriority priority = MediaRequestPriority.normal,
+  }) {
+    if (requestPool != null) {
+      throw StateError('Pooled byte caches require completion-owned loads.');
+    }
+    return _request(url, priority);
+  }
+
+  ByteCacheRequest<T> _request(String url, MediaRequestPriority priority) {
+    final owner = ByteCacheRequest<T>._(priority);
+    if (_closed) return owner.._complete(null);
     try {
       requireSafeHttpUrl(Uri.parse(url));
     } catch (error, stackTrace) {
       _report(error, stackTrace, url, 'image.url');
-      return Future.value(null);
+      return owner.._complete(null);
     }
     if (_cooledDown(url)) {
       _cache.remove(url);
@@ -211,30 +222,63 @@ abstract class ByteCache<T extends Object> {
     }
     if (_cache.containsKey(url)) {
       _touch(url);
-      return Future.value(_cache[url]?.value);
+      return owner.._complete(_cache[url]?.value);
     }
-    // A failure evicted to make room is still a failure: the eviction freed
-    // the memory, not the rate limit that earned it.
-    if (_transientFailures.containsKey(url)) return Future.value(null);
-    final pending = _inFlight[url];
-    if (pending != null) return pending;
-    // A page can name arbitrarily many distinct remote images. The cache
-    // capacity is also a natural bound for work waiting behind the semaphore:
-    // accepting more requests than can be retained only grows Futures and URL
-    // strings while a slow peer is preventing any of them from progressing.
-    // Overflow is not cached, so a later visible rebuild can try again.
-    if (_inFlight.length >= maxEntries) return Future.value(null);
-
-    final generation = _generation;
-    late final Future<T?> request;
-    request = _fetch(url, generation).whenComplete(() {
-      if (identical(_inFlight[url], request)) {
-        final _ = _inFlight.remove(url);
-      }
-    });
-    _inFlight[url] = request;
-    return request;
+    if (_transientFailures.containsKey(url)) return owner.._complete(null);
+    var transfer = _inFlight[url];
+    if (transfer == null) {
+      if (_inFlight.length >= maxEntries) return owner.._complete(null);
+      transfer = _ByteCacheTransfer<T>(url, _generation);
+      _inFlight[url] = transfer;
+      _transfers.add(transfer);
+    }
+    final active = transfer;
+    active.owners.add(owner);
+    owner._onRelease = () {
+      active.owners.remove(owner);
+      if (active.owners.isEmpty) _retire(active);
+    };
+    if (!active.started) {
+      active.started = true;
+      unawaited(_run(active));
+    }
+    return owner;
   }
+
+  Future<void> _run(_ByteCacheTransfer<T> transfer) async {
+    final value = await _fetch(transfer);
+    if (identical(_inFlight[transfer.url], transfer)) {
+      _inFlight.remove(transfer.url);
+    }
+    _transfers.remove(transfer);
+    for (final owner in transfer.owners) {
+      owner._complete(_closed || transfer.cancelled ? null : value);
+    }
+    transfer.owners.clear();
+  }
+
+  void _retire(_ByteCacheTransfer<T> transfer) {
+    if (transfer.cancelled) return;
+    transfer.cancelled = true;
+    if (identical(_inFlight[transfer.url], transfer)) {
+      _inFlight.remove(transfer.url);
+    }
+    for (var index = _waiting.length - 1; index >= 0; index--) {
+      if (identical(_waiting[index].transfer, transfer)) {
+        _waiting.removeAt(index).result.complete(false);
+      }
+    }
+    transfer.abort.complete();
+    for (final owner in transfer.owners) {
+      owner._complete(null);
+    }
+    transfer.owners.clear();
+  }
+
+  bool _canPublish(_ByteCacheTransfer<T> transfer) =>
+      !transfer.cancelled &&
+      identical(_generation, transfer.generation) &&
+      identical(_inFlight[transfer.url], transfer);
 
   void _put(String url, T? value, {required int byteSize}) {
     final replaced = _cache.remove(url);
@@ -267,11 +311,14 @@ abstract class ByteCache<T extends Object> {
     }
   }
 
-  Future<T?> _fetch(String url, Object generation) async {
+  Future<T?> _fetch(_ByteCacheTransfer<T> transfer) async {
+    final url = transfer.url;
+    final generation = transfer.generation;
+    bool current() => _canPublish(transfer);
     // When this cache opts into work limiting, take its slot before disk too;
     // otherwise a cold screen could bypass the intended bound with one
     // filesystem read per visible image.
-    if (!await _acquire(generation)) return null;
+    if (!await _acquire(transfer)) return null;
     try {
       final persistent = store;
       if (persistent != null) {
@@ -279,11 +326,10 @@ abstract class ByteCache<T extends Object> {
           final bytes = await _storeOperations.read<Uint8List?>(
             owner: persistent,
             key: url,
-            operation: () => identical(_generation, generation)
-                ? persistent.read(url)
-                : Future.value(null),
+            operation: () =>
+                current() ? persistent.read(url) : Future.value(null),
           );
-          if (bytes != null && identical(_generation, generation)) {
+          if (bytes != null && current()) {
             final response = http.Response.bytes(
               bytes,
               200,
@@ -301,14 +347,15 @@ abstract class ByteCache<T extends Object> {
           _report(error, stackTrace, url, 'image.cacheRead');
         }
       }
+      transfer.checkDemand();
       if (!identical(_generation, generation)) return null;
 
       final downloaded = await switch (requestPool) {
-        final pool? => pool.run(url, () => _download(url)),
-        null => _download(url),
+        final pool? => pool.run(url, () => _download(transfer)),
+        null => _download(transfer),
       };
       final response = downloaded.response;
-      bool current() => identical(_generation, generation);
+      transfer.checkDemand();
 
       if (response.statusCode != 200) {
         if (current() &&
@@ -368,11 +415,13 @@ abstract class ByteCache<T extends Object> {
         }
       }
       return _closed ? null : decoded;
+    } on _ByteCacheRequestCancelled {
+      return null;
     } on MediaOriginRateLimitedException {
       // This URL never reached the network: another native-managed media
       // request put its whole origin into cooldown. Remember it as transient
       // without producing one diagnostic per rejected avatar/emoji.
-      if (identical(_generation, generation)) {
+      if (current()) {
         _rememberTransientFailure(url);
         _put(url, null, byteSize: 0);
       }
@@ -384,9 +433,11 @@ abstract class ByteCache<T extends Object> {
       // visible rebuild can try again once the backlog drains.
       return null;
     } catch (error, stackTrace) {
-      if (!identical(_generation, generation)) return null;
+      if (transfer.cancelled || !identical(_generation, generation)) {
+        return null;
+      }
       _report(error, stackTrace, url, 'image.load');
-      if (identical(_generation, generation)) {
+      if (current()) {
         _rememberTransientFailure(url);
         _put(url, null, byteSize: 0);
       }
@@ -415,7 +466,8 @@ abstract class ByteCache<T extends Object> {
     );
   }
 
-  Future<ByteCacheDownload> _download(String url) async {
+  Future<ByteCacheDownload> _download(_ByteCacheTransfer<T> transfer) async {
+    final url = transfer.url;
     final elapsed = Stopwatch()..start();
     final original = requireSafeHttpUrl(Uri.parse(url));
     var current = original;
@@ -423,7 +475,8 @@ abstract class ByteCache<T extends Object> {
     var persistable = true;
 
     while (true) {
-      final sent = await _send(current, original, elapsed);
+      transfer.checkDemand();
+      final sent = await _send(current, original, elapsed, transfer);
       try {
         final streamed = sent.response;
         // The bytes are keyed by the original URL, so every response which
@@ -471,7 +524,7 @@ abstract class ByteCache<T extends Object> {
         }
         final Uint8List? bytes;
         try {
-          bytes = await _readAtMost(streamed.stream, remaining);
+          bytes = await _readAtMost(streamed.stream, remaining, transfer);
         } on TimeoutException {
           _abort(sent.timeoutAbort);
           rethrow;
@@ -482,7 +535,6 @@ abstract class ByteCache<T extends Object> {
           persistable: persistable,
         );
       } finally {
-        _activeAborts.remove(sent.timeoutAbort);
         sent.lease?.release();
       }
     }
@@ -495,11 +547,17 @@ abstract class ByteCache<T extends Object> {
       MediaRequestLease? lease,
     })
   >
-  _send(Uri url, Uri original, Stopwatch elapsed) async {
+  _send(
+    Uri url,
+    Uri original,
+    Stopwatch elapsed,
+    _ByteCacheTransfer<T> transfer,
+  ) async {
     MediaRequestLease? lease;
-    final timeoutAbort = Completer<void>();
+    final timeoutAbort = Completer<void>.sync();
+    transfer.checkDemand();
     if (_closed) throw StateError('Byte cache is closed.');
-    _activeAborts.add(timeoutAbort);
+    unawaited(transfer.abort.future.then((_) => _abort(timeoutAbort)));
     Future<http.StreamedResponse>? response;
     try {
       if (_coordinator case final coordinator?) {
@@ -511,16 +569,18 @@ abstract class ByteCache<T extends Object> {
           lease = await coordinator.acquire(
             url,
             relatedUrl: original,
-            priority: requestPriority,
+            resolvePriority: () => transfer.priority,
             abortTrigger: timeoutAbort.future,
           );
         } on MediaRequestCancelledException {
+          transfer.checkDemand();
           if (_closed) throw StateError('Byte cache is closed.');
           throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
         } finally {
           admissionTimer.cancel();
         }
       }
+      transfer.checkDemand();
       if (_closed) throw StateError('Byte cache is closed.');
       if (timeoutAbort.isCompleted) {
         throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
@@ -532,26 +592,27 @@ abstract class ByteCache<T extends Object> {
             ..followRedirects = false;
       request.headers.addAll(requestHeaders(url, original));
       response = _client.send(request);
-      final streamed = await response.timeout(remaining);
+      final streamed = await Future.any<http.StreamedResponse>([
+        response,
+        transfer.abort.future.then(
+          (_) => throw const _ByteCacheRequestCancelled(),
+        ),
+      ]).timeout(remaining);
+      transfer.checkDemand();
       if (streamed.statusCode == 429 && lease != null) {
         // A CDN 429 also gates the source forum. Otherwise queued forum avatar
         // URLs would all continue producing redirects into the blocked CDN.
         lease.rateLimited(streamed.headers);
       }
       return (response: streamed, timeoutAbort: timeoutAbort, lease: lease);
-    } on TimeoutException {
-      _abort(timeoutAbort);
-      _activeAborts.remove(timeoutAbort);
+    } catch (error) {
+      if (error is TimeoutException || transfer.cancelled) _abort(timeoutAbort);
       response
           ?.then<void>(
             (lateResponse) => _cancel(lateResponse.stream),
             onError: (Object _, StackTrace _) {},
           )
           .ignore();
-      lease?.release();
-      rethrow;
-    } catch (_) {
-      _activeAborts.remove(timeoutAbort);
       lease?.release();
       rethrow;
     }
@@ -568,7 +629,11 @@ abstract class ByteCache<T extends Object> {
     if (!abort.isCompleted) abort.complete();
   }
 
-  Future<Uint8List?> _readAtMost(Stream<List<int>> stream, Duration remaining) {
+  Future<Uint8List?> _readAtMost(
+    Stream<List<int>> stream,
+    Duration remaining,
+    _ByteCacheTransfer<T> transfer,
+  ) {
     final chunks = BytesBuilder(copy: false);
     final result = Completer<Uint8List?>();
     StreamSubscription<List<int>>? subscription;
@@ -583,10 +648,19 @@ abstract class ByteCache<T extends Object> {
       }
     }
 
+    unawaited(
+      transfer.abort.future.then((_) {
+        if (result.isCompleted) return;
+        chunks.clear();
+        result.completeError(const _ByteCacheRequestCancelled());
+        cancel();
+      }),
+    );
     subscription = stream.listen(
       (chunk) {
         if (result.isCompleted) return;
         if (chunks.length + chunk.length > maxResponseBytes) {
+          chunks.clear();
           result.complete(null);
           cancel();
           return;
@@ -594,6 +668,7 @@ abstract class ByteCache<T extends Object> {
         chunks.add(chunk);
       },
       onError: (Object error, StackTrace stackTrace) {
+        chunks.clear();
         if (!result.isCompleted) result.completeError(error, stackTrace);
       },
       onDone: () {
@@ -606,6 +681,7 @@ abstract class ByteCache<T extends Object> {
     return result.future.timeout(
       remaining,
       onTimeout: () {
+        chunks.clear();
         cancel();
         throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
       },
@@ -636,31 +712,48 @@ abstract class ByteCache<T extends Object> {
     reasonPhrase: streamed.reasonPhrase,
   );
 
-  Future<bool> _acquire(Object generation) {
-    if (!identical(_generation, generation)) return Future.value(false);
+  Future<bool> _acquire(_ByteCacheTransfer<T> transfer) {
+    if (transfer.cancelled || !identical(_generation, transfer.generation)) {
+      return Future.value(false);
+    }
     final limit = maxConcurrent;
     if (limit == null) return Future.value(true);
     if (_active < limit) {
       _active++;
       return Future.value(true);
     }
-    final waiter = _CacheWaiter(generation);
+    final waiter = _CacheWaiter(transfer);
     _waiting.add(waiter);
     return waiter.result.future;
   }
 
   void _release() {
     if (maxConcurrent == null) return;
-    while (_waiting.isNotEmpty) {
-      final waiter = _waiting.removeFirst();
-      if (!identical(waiter.generation, _generation)) {
-        waiter.result.complete(false);
-        continue;
+    for (var index = _waiting.length - 1; index >= 0; index--) {
+      final waiter = _waiting[index];
+      if (waiter.transfer.cancelled ||
+          !identical(waiter.transfer.generation, _generation)) {
+        _waiting.removeAt(index).result.complete(false);
       }
-      waiter.result.complete(true);
+    }
+    if (_waiting.isEmpty) {
+      _active--;
+      _interactiveOvertakes = 0;
       return;
     }
-    _active--;
+    final normal = _waiting.indexWhere(
+      (waiter) => waiter.transfer.priority == MediaRequestPriority.normal,
+    );
+    final interactive = _waiting.indexWhere(
+      (waiter) => waiter.transfer.priority == MediaRequestPriority.interactive,
+    );
+    final index = normal >= 0 && (interactive < 0 || _interactiveOvertakes >= 3)
+        ? normal
+        : interactive;
+    _interactiveOvertakes = normal >= 0 && index == interactive
+        ? _interactiveOvertakes + 1
+        : 0;
+    _waiting.removeAt(index).result.complete(true);
   }
 
   void clear() {
@@ -670,18 +763,17 @@ abstract class ByteCache<T extends Object> {
     _inFlight.clear();
     _transientFailures.clear();
     while (_waiting.isNotEmpty) {
-      _waiting.removeFirst().result.complete(false);
+      _waiting.removeAt(0).result.complete(false);
     }
   }
 
   void close() {
     if (_closed) return;
     _closed = true;
-    clear();
-    for (final abort in _activeAborts.toList(growable: false)) {
-      _abort(abort);
+    for (final transfer in _transfers.toList(growable: false)) {
+      _retire(transfer);
     }
-    _activeAborts.clear();
+    clear();
     if (_ownsCoordinator) _coordinator?.close();
     _client.close();
   }
@@ -728,10 +820,58 @@ final class ByteCacheRequestPool {
   }
 }
 
-final class _CacheWaiter {
-  _CacheWaiter(this.generation);
+/// A single consumer's demand, independent of other consumers of the URL.
+final class ByteCacheRequest<T extends Object> {
+  ByteCacheRequest._(this.priority);
 
+  final Completer<T?> _result = Completer<T?>();
+  void Function()? _onRelease;
+  MediaRequestPriority priority;
+
+  Future<T?> get result => _result.future;
+
+  void release() {
+    final release = _onRelease;
+    _onRelease = null;
+    _complete(null);
+    release?.call();
+  }
+
+  void _complete(T? value) {
+    _onRelease = null;
+    if (!_result.isCompleted) _result.complete(value);
+  }
+}
+
+final class _ByteCacheTransfer<T extends Object> {
+  _ByteCacheTransfer(this.url, this.generation);
+
+  final String url;
   final Object generation;
+  final Set<ByteCacheRequest<T>> owners = {};
+  // A revisit must not see an abandoned admission occupying the backlog cap.
+  final Completer<void> abort = Completer<void>.sync();
+  bool started = false;
+  bool cancelled = false;
+
+  MediaRequestPriority get priority =>
+      owners.any((owner) => owner.priority == MediaRequestPriority.interactive)
+      ? MediaRequestPriority.interactive
+      : MediaRequestPriority.normal;
+
+  void checkDemand() {
+    if (cancelled) throw const _ByteCacheRequestCancelled();
+  }
+}
+
+final class _ByteCacheRequestCancelled implements Exception {
+  const _ByteCacheRequestCancelled();
+}
+
+final class _CacheWaiter<T extends Object> {
+  _CacheWaiter(this.transfer);
+
+  final _ByteCacheTransfer<T> transfer;
   final Completer<bool> result = Completer<bool>();
 }
 

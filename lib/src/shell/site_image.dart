@@ -27,6 +27,7 @@ class SiteImage extends StatefulWidget {
     required this.url,
     required this.siteUrl,
     this.repository,
+    this.viewportAware = false,
     this.fit,
     this.width,
     this.height,
@@ -49,6 +50,9 @@ class SiteImage extends StatefulWidget {
   final String url;
   final String? siteUrl;
   final SiteImageRepository? repository;
+
+  /// Limits unfinished post-image delivery to the viewport and its cache region.
+  final bool viewportAware;
   final BoxFit? fit;
   final double? width;
   final double? height;
@@ -74,6 +78,9 @@ class SiteImage extends StatefulWidget {
 
 class _SiteImageState extends State<SiteImage> {
   SiteImageRepository? _repository;
+  SiteImageRequest? _request;
+  bool _viewportCheckScheduled = false;
+  bool _tickerEnabled = true;
   SiteImageBytes? _bytes;
   Object? _error;
   StackTrace? _errorStack;
@@ -88,6 +95,8 @@ class _SiteImageState extends State<SiteImage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _tickerEnabled = TickerMode.valuesOf(context).enabled;
+    _scheduleViewportCheck();
     final repository =
         widget.repository ?? ShellScope.maybeIdentityOf(context)?.siteImages;
     if (identical(repository, _repository) && _configured) return;
@@ -100,6 +109,7 @@ class _SiteImageState extends State<SiteImage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.url != widget.url ||
         oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.viewportAware != widget.viewportAware ||
         !identical(oldWidget.repository, widget.repository) ||
         (oldWidget.onNaturalSize == null) != (widget.onNaturalSize == null)) {
       _repository =
@@ -110,7 +120,8 @@ class _SiteImageState extends State<SiteImage> {
 
   void _resolve() {
     _configured = true;
-    final generation = ++_generation;
+    ++_generation;
+    _releaseRequest();
     _stopListening();
     _bytes = null;
     _error = null;
@@ -142,31 +153,122 @@ class _SiteImageState extends State<SiteImage> {
     }
 
     _resolved = false;
+    if (widget.viewportAware) {
+      _scheduleViewportCheck();
+    } else {
+      _startRequest(visible: false);
+    }
+  }
+
+  void _startRequest({required bool visible}) {
+    final repository = _repository;
+    final siteUrl = widget.siteUrl;
+    if (repository == null || siteUrl == null) return;
+    final url = _url;
+    final generation = _generation;
+    final request = repository.request(siteUrl: siteUrl, url: url);
+    request.setVisible(visible);
+    _request = request;
     unawaited(
-      repository
-          .load(siteUrl: siteUrl, url: url)
-          .then(
-            (bytes) {
-              if (!mounted || generation != _generation) return;
-              setState(() {
-                _bytes = bytes;
-                _resolved = true;
-                if (bytes == null) {
-                  _error = SiteImageUnavailableException(url);
-                }
-              });
-              _listenToBytes();
-            },
-            onError: (Object error, StackTrace stackTrace) {
-              if (!mounted || generation != _generation) return;
-              setState(() {
-                _resolved = true;
-                _error = error;
-                _errorStack = stackTrace;
-              });
-            },
-          ),
+      request.result.then(
+        (bytes) {
+          if (!mounted ||
+              generation != _generation ||
+              !identical(_request, request)) {
+            return;
+          }
+          _releaseRequest();
+          setState(() {
+            _bytes = bytes;
+            _resolved = true;
+            if (bytes == null) _error = SiteImageUnavailableException(url);
+          });
+          _listenToBytes();
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!mounted ||
+              generation != _generation ||
+              !identical(_request, request)) {
+            return;
+          }
+          _releaseRequest();
+          setState(() {
+            _resolved = true;
+            _error = error;
+            _errorStack = stackTrace;
+          });
+        },
+      ),
     );
+  }
+
+  void _releaseRequest() {
+    final request = _request;
+    _request = null;
+    request?.release();
+  }
+
+  void _scheduleViewportCheck() {
+    if (_viewportCheckScheduled || !widget.viewportAware || _resolved) return;
+    _viewportCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _viewportCheckScheduled = false;
+      if (!mounted || !widget.viewportAware || _resolved) return;
+      final visible = _viewportDemand();
+      if (visible == null) {
+        _releaseRequest();
+      } else if (_request case final request?) {
+        request.setVisible(visible);
+      } else {
+        _startRequest(visible: visible);
+      }
+      // Recheck ancestor-only layout changes on natural frames without
+      // requesting another frame while an image waits outside the viewport.
+      _scheduleViewportCheck();
+    });
+  }
+
+  bool? _viewportDemand() {
+    if (!_tickerEnabled) return null;
+    final source = context.findRenderObject();
+    if (source is! RenderBox || !source.attached || !source.hasSize)
+      return null;
+    final view = View.of(context);
+    var viewport = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+    RenderObject child = source;
+    for (var parent = child.parent; parent != null; parent = child.parent) {
+      if (!parent.paintsChild(child)) return null;
+      if (parent is RenderAbstractViewport && parent is RenderBox) {
+        viewport = viewport.intersect(
+          MatrixUtils.transformRect(
+            parent.getTransformTo(null),
+            parent.paintBounds,
+          ),
+        );
+      }
+      child = parent;
+    }
+    if (!viewport.isFinite || viewport.isEmpty) return null;
+    final bounds = MatrixUtils.transformRect(
+      source.getTransformTo(null),
+      source.paintBounds,
+    );
+    if (!bounds.isFinite) return null;
+    // Unknown-size HTML images start as a point in the text flow. Requiring
+    // positive bounds would prevent them from ever fetching their dimensions.
+    bool intersects(Rect region) =>
+        bounds.left <= region.right &&
+        bounds.right >= region.left &&
+        bounds.top <= region.bottom &&
+        bounds.bottom >= region.top;
+    if (intersects(viewport)) return true;
+    final near = Rect.fromLTRB(
+      viewport.left,
+      viewport.top - viewport.height,
+      viewport.right,
+      viewport.bottom + viewport.height,
+    );
+    return intersects(near) ? false : null;
   }
 
   void _listenToBytes() {
@@ -235,6 +337,7 @@ class _SiteImageState extends State<SiteImage> {
   @override
   void dispose() {
     _generation++;
+    _releaseRequest();
     _stopListening();
     super.dispose();
   }
@@ -609,13 +712,14 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     if (data is ImageSource && _isAvatar(tree)) return _avatarFallback;
     final child = super.onLoadingBuilder(context, tree, loadingProgress, data);
     final needsLayout =
-        data == null ||
-        (data is ImageSource &&
-            ((data.width ?? 0) <= 0 || (data.height ?? 0) <= 0));
+        data == null || (data is ImageSource && !_hasImageDimensions(data));
     return needsLayout && columnBodyMode is ProgressiveHtmlMode
         ? HtmlBodyLoading(child: child ?? const SizedBox.shrink())
         : child;
   }
+
+  static bool _hasImageDimensions(ImageSource source) =>
+      (source.width ?? 0) > 0 && (source.height ?? 0) > 0;
 
   // Remote images load through [SiteImage], whose site-scoped cache bounds
   // response size, refuses unsafe redirects and remembers failures, and an
@@ -683,7 +787,10 @@ final class SiteImageWidgetFactory extends WidgetFactory {
                 const SizedBox.shrink(),
           );
         }
+        final layoutOwned =
+            columnBodyMode is ProgressiveHtmlMode && !_hasImageDimensions(src);
         return SiteImage(
+          viewportAware: !layoutOwned,
           url: _densitySource(context, src.url, srcset),
           siteUrl: siteUrl,
           fit: BoxFit.fill,

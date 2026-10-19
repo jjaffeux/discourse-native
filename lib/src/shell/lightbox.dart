@@ -328,6 +328,7 @@ class LightboxTile extends StatelessWidget {
           child: Hero(
             tag: image.heroTag,
             child: SiteImage(
+              viewportAware: true,
               url: thumbnail == null
                   ? image.fullSrc
                   : srcsetCandidate(

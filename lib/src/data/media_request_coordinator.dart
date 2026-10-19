@@ -47,11 +47,19 @@ final class MediaRequestCoordinator {
     Uri? relatedUrl,
     MediaRequestPriority priority = MediaRequestPriority.normal,
     Future<void>? abortTrigger,
+    MediaRequestPriority Function()? resolvePriority,
   }) {
     return _finishAcquire(
       _gate.acquire(
         url,
         abortTrigger: abortTrigger,
+        resolvePriority: resolvePriority == null
+            ? null
+            : () => switch (resolvePriority()) {
+                MediaRequestPriority.normal => OriginRequestPriority.normal,
+                MediaRequestPriority.interactive =>
+                  OriginRequestPriority.interactive,
+              },
         priority: switch (priority) {
           MediaRequestPriority.normal => OriginRequestPriority.normal,
           MediaRequestPriority.interactive => OriginRequestPriority.interactive,

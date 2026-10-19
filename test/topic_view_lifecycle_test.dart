@@ -150,12 +150,16 @@ void main() {
           (tester) async {
             final site = instance('meta.example').copyWith(user: _reader);
             final imageResponse = Completer<http.Response>();
+            var imageRequests = 0;
             final lifecycle = SiteLifecycle();
             final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
             final siteImages = SiteImageRepository(
               credentials: authenticator,
               lifecycle: lifecycle,
-              client: MockClient((_) => imageResponse.future),
+              client: MockClient((_) {
+                imageRequests++;
+                return imageResponse.future;
+              }),
             );
             final controller = ShellController(
               instanceStore: FakeInstanceStore([site]),
@@ -203,9 +207,19 @@ void main() {
               findsOneWidget,
             );
 
-            final siteImage = tester.widget<SiteImage>(
-              find.byType(SiteImage, skipOffstage: false),
+            final pendingImage = find.byType(SiteImage, skipOffstage: false);
+            expect(
+              find.ancestor(
+                of: pendingImage,
+                matching: find.byWidgetPredicate(
+                  (widget) => widget is Offstage && widget.offstage,
+                  skipOffstage: false,
+                ),
+              ),
+              findsOneWidget,
             );
+            expect(imageRequests, 1);
+            final siteImage = tester.widget<SiteImage>(pendingImage);
             final ImageProvider<Object> imageProvider =
                 siteImage.cacheWidth == null
                 ? MemoryImage(_tallPng)
@@ -255,6 +269,126 @@ void main() {
           },
         );
       }
+
+      testWidgets(
+        'completes distant unknown-size media before keyboard post paging',
+        (tester) async {
+          final site = instance('meta.example').copyWith(user: _reader);
+          final imageResponse = Completer<http.Response>();
+          var imageRequests = 0;
+          final lifecycle = SiteLifecycle();
+          final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+          final siteImages = SiteImageRepository(
+            credentials: authenticator,
+            lifecycle: lifecycle,
+            client: MockClient((_) {
+              imageRequests++;
+              return imageResponse.future;
+            }),
+          );
+          final controller = ShellController(
+            instanceStore: FakeInstanceStore([site]),
+            api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+            authenticator: authenticator,
+            drafts: FakeDraftStore(),
+            lifecycle: lifecycle,
+            siteImages: siteImages,
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(controller.dispose);
+          await controller.load();
+          final beforeImage = List.filled(
+            100,
+            '<p>Before distant image</p>',
+          ).join();
+          controller.store
+            ..put(
+              site.url,
+              const TopicDetail(
+                id: 1,
+                title: 'One',
+                stream: [1],
+                postsCount: 1,
+              ),
+            )
+            ..put(
+              site.url,
+              Post(
+                id: 1,
+                postNumber: 1,
+                username: 'sam',
+                cooked:
+                    '$beforeImage<img style="display:block" '
+                    'src="/uploads/tall.png" alt="Distant image">'
+                    '<p>After distant image</p>',
+              ),
+            );
+          controller.pushContent(
+            ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+          );
+
+          await tester.pumpWidget(_topicView(controller));
+          await _pumpUntilRendered(
+            tester,
+            'After distant image',
+            skipOffstage: false,
+          );
+          await tester.pump();
+          final pendingImage = find.byType(SiteImage, skipOffstage: false);
+          final view = tester.getRect(find.byType(TopicView));
+          expect(
+            tester.getTopLeft(pendingImage).dy,
+            greaterThan(view.bottom + view.height),
+          );
+          expect(imageRequests, 1);
+
+          final siteImage = tester.widget<SiteImage>(pendingImage);
+          final ImageProvider<Object> imageProvider =
+              siteImage.cacheWidth == null
+              ? MemoryImage(_tallPng)
+              : FittedMemoryImage(_tallPng, width: siteImage.cacheWidth);
+          await tester.runAsync(
+            () => precacheImage(
+              imageProvider,
+              tester.element(find.byType(TopicView)),
+            ),
+          );
+          imageResponse.complete(
+            http.Response.bytes(
+              _tallPng,
+              200,
+              headers: const {'content-type': 'image/png'},
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey(1)), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('topic-loading-skeleton')),
+            findsNothing,
+          );
+          expect(
+            find.descendant(
+              of: find.byType(SiteImage),
+              matching: find.byType(Image),
+            ),
+            findsOneWidget,
+          );
+
+          final position = topicPostList(tester).controller!.position;
+          final before = position.pixels;
+          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyJ), isTrue);
+          await tester.pumpAndSettle();
+          expect(position.pixels, greaterThan(before));
+          expect(position.pixels, lessThan(position.maxScrollExtent));
+          expect(controller.currentContent?.topicId, 1);
+          expect(_lastVisiblePost(topicPostList(tester)), 1);
+          expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyK), isTrue);
+          await tester.pumpAndSettle();
+          expect(position.pixels, closeTo(before, 1));
+          expect(imageRequests, 1);
+          expect(tester.takeException(), isNull);
+        },
+      );
 
       testWidgets('leaves a glimpsed tall final post unread', (tester) async {
         final site = instance('meta.example').copyWith(user: _reader);
