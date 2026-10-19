@@ -18,6 +18,7 @@ void main() {
     'hidden then shown',
     'selection moved then restored',
     'route changed',
+    'unmounted',
   ]) {
     testWidgets('pending keyboard selection respects $action', (tester) async {
       final site = instance('one.example');
@@ -86,6 +87,8 @@ void main() {
         case 'route changed':
           controller.openTopic(_topic(2));
           await tester.pump();
+        case 'unmounted':
+          await tester.pumpWidget(const SizedBox.shrink());
         case 'visible':
           break;
       }

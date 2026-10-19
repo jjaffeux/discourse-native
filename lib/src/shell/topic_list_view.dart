@@ -35,7 +35,7 @@ import 'site_emoji_text.dart';
 import 'site_url.dart';
 import 'skeleton_fill.dart';
 import 'topic_card_taxonomy_layout.dart';
-import 'topic_feed_controller.dart';
+import 'topic_list_cursor_coordinator.dart';
 import 'topic_list_indicators.dart';
 import 'topic_list_layout.dart';
 import 'topic_pointer_predictor.dart';
@@ -49,7 +49,6 @@ part 'topic_row_content.dart';
 part 'topic_card_metadata.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String, Object?);
-typedef _TopicListCursor = ({int topicId, int index, bool keyboard});
 
 Widget _restoringRow(BuildContext context) => DSkeletonRegion(
   semanticsLabel: appL10n.loadingTopics,
@@ -80,9 +79,8 @@ class _TopicListViewState extends State<TopicListView> {
   final ReadingFocusNode _keyboardFocus = ReadingFocusNode(
     debugLabel: 'Topic list cursor',
   );
-  ValueNotifier<_TopicListCursor?>? _cursor;
-  Object? _keyboardMoveToken;
-  Object? _selectionRestoreToken;
+  TopicListCursorCoordinator? _cursorOwner;
+  ValueListenable<TopicListCursor?>? get _cursor => _cursorOwner?.cursor;
   Object? _loadMoreToken;
   Object? _rangeToken;
   Object? _incomingRevealToken;
@@ -112,7 +110,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (controller != null &&
         identity != null &&
         _isCurrent(controller, identity)) {
-      _syncCursor(oldWidget.feed, widget.feed);
+      _cursorOwner!.updateFeed(widget.feed);
     }
     if (controller == null ||
         identity == null ||
@@ -217,28 +215,6 @@ class _TopicListViewState extends State<TopicListView> {
     return source == null ? -1 : feed.visibleRowForSource(source);
   }
 
-  void _syncCursor(TopicFeed previous, TopicFeed next) {
-    final cursor = _cursor?.value;
-    if (cursor == null) return;
-    var index = _visibleIndexFor(next, cursor.topicId);
-    if (index < 0) {
-      var source = previous.sourceRowFor(cursor.index);
-      if (previous.loadingIncoming && !next.loadingIncoming) {
-        source +=
-            (next.totalRows ?? next.rowCount) -
-            (previous.totalRows ?? previous.rowCount);
-      }
-      index = next.visibleRowForSource(source);
-    }
-    if (index != cursor.index) {
-      _saveCursor((
-        topicId: cursor.topicId,
-        index: index,
-        keyboard: cursor.keyboard,
-      ));
-    }
-  }
-
   RenderBox? _renderedRow(int topicIndex) {
     RenderBox? result;
     void visit(RenderObject object) {
@@ -290,7 +266,7 @@ class _TopicListViewState extends State<TopicListView> {
     // Availability gates prefetching, not the rows' appearance. Do not rebuild
     // the whole list whenever its retained tab is hidden or shown.
     _prefetch.setEnabled(!_touch && _tickerMode!.value.enabled);
-    if (!_tickerMode!.value.enabled) _selectionRestoreToken = null;
+    if (!_tickerMode!.value.enabled) _cursorOwner?.cancelSelectionRestore();
   }
 
   void _recordScrollEvent(String name, Map<String, Object?> data) {
@@ -350,7 +326,7 @@ class _TopicListViewState extends State<TopicListView> {
         !_isCurrent(controller, identity)) {
       return;
     }
-    _rememberTopic(topicId);
+    _cursorOwner!.remember(topicId);
     _revealCursor();
   }
 
@@ -377,12 +353,30 @@ class _TopicListViewState extends State<TopicListView> {
     _readingTopicId = null;
     _scroll = PaginationScrollController();
     _list = ListController();
-    _keyboardMoveToken = null;
-    _selectionRestoreToken = null;
     final saved = PageStorage.maybeOf(
       context,
     )?.readState(context, identifier: ('topic-list-keyboard', feedIdentity));
-    _cursor = ValueNotifier(saved is _TopicListCursor ? saved : null);
+    _cursorOwner = TopicListCursorCoordinator(
+      tab: _tab!,
+      feed: widget.feed,
+      savedCursor: saved is TopicListCursor ? saved : null,
+      keyboardAvailable: () => mounted && navigationShortcutsAllowed(context),
+      afterFrame: (callback) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => callback());
+        WidgetsBinding.instance.scheduleFrame();
+      },
+      onCursorChanged: (cursor) => PageStorage.maybeOf(context)?.writeState(
+        context,
+        cursor,
+        identifier: ('topic-list-keyboard', feedIdentity),
+      ),
+      onKeyboardSelection: (topic) {
+        _keyboardFocus.requestFocus();
+        if (topic != null) _prefetch.keyboard(topic);
+      },
+      revealRow: (row) => _jumpTo(row * 2),
+      openTopic: (topic) => _openRow(topic, keyboard: true),
+    );
   }
 
   void _restore(
@@ -482,7 +476,8 @@ class _TopicListViewState extends State<TopicListView> {
     // leave the scrollable holding a dead position.
     final scroll = _scroll;
     final list = _list;
-    final cursor = _cursor;
+    final cursor = _cursorOwner;
+    cursor?.retire();
     if (scroll == null && list == null) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -495,7 +490,7 @@ class _TopicListViewState extends State<TopicListView> {
   @override
   void deactivate() {
     _prefetch.setEnabled(false);
-    _selectionRestoreToken = null;
+    _cursorOwner?.cancelSelectionRestore();
     super.deactivate();
   }
 
@@ -667,148 +662,13 @@ class _TopicListViewState extends State<TopicListView> {
     return _tab!.currentFeed ?? widget.feed;
   }
 
-  void _rememberTopic(int topicId, {bool? keyboard}) {
-    final index = _latestFeed().indexOfTopic(topicId);
-    if (index < 0) return;
-    // Mouse navigation remembers the position without leaving a keyboard
-    // highlight behind after the reader closes.
-    final previous = _cursor!.value;
-    final cursor = (
-      topicId: topicId,
-      index: index,
-      keyboard:
-          keyboard ?? (previous?.topicId == topicId && previous!.keyboard),
-    );
-    _saveCursor(cursor);
-  }
-
-  void _saveCursor(_TopicListCursor cursor) {
-    _cursor!.value = cursor;
-    PageStorage.maybeOf(context)?.writeState(
-      context,
-      cursor,
-      identifier: ('topic-list-keyboard', _feedIdentity),
-    );
-  }
-
-  bool _moveSelection(int direction) {
-    _selectionRestoreToken = null;
-    if (widget.feed.rowCount == 0) return false;
-    if (_keyboardMoveToken != null) return true;
-    unawaited(_moveSelectionTo(direction));
-    return true;
-  }
-
-  Future<void> _moveSelectionTo(int direction) async {
-    final controller = _controller!;
-    final identity = _feedIdentity!;
-    final token = Object();
-    _keyboardMoveToken = token;
-    final route = _tab!.currentContent;
-    bool isCurrent() =>
-        _isCurrent(controller, identity) &&
-        identical(_keyboardMoveToken, token) &&
-        _tab!.currentContent == route &&
-        navigationShortcutsAllowed(context);
-    try {
-      var feed = widget.feed;
-      final cursor = _cursor!.value;
-      final anchor = cursor?.topicId ?? _tab!.readingTopicId;
-      var index = anchor == null ? -1 : feed.indexOfTopic(anchor);
-      TopicFeed sourceFeed() =>
-          controller.topicFeeds.feedFor(identity.$1!, identity.$4) ?? feed;
-      if (index < 0 &&
-          cursor != null &&
-          sourceFeed().rowCount > sourceFeed().topicIds.length) {
-        final hint = feed.sourceRowFor(cursor.index);
-        await _ensureSourceRange(
-          controller,
-          identity,
-          hint - TopicFeedController.incomingPageSize,
-          hint + TopicFeedController.incomingPageSize,
-        );
-        if (!isCurrent()) return;
-        feed = _latestFeed();
-        if (feed.error != null) return;
-        for (
-          var row = 0;
-          sourceFeed().indexOfTopic(cursor.topicId) < 0 &&
-              row < sourceFeed().rowCount;
-          row += TopicFeedController.incomingPageSize
-        ) {
-          await _ensureSourceRange(
-            controller,
-            identity,
-            row,
-            row + TopicFeedController.incomingPageSize - 1,
-          );
-          if (!isCurrent()) return;
-          feed = _latestFeed();
-          if (feed.error != null) return;
-        }
-        if (sourceFeed().indexOfTopic(cursor.topicId) < 0) return;
-        index = feed.indexOfTopic(cursor.topicId);
-      }
-      final sourceIndex = anchor == null
-          ? -1
-          : sourceFeed().indexOfTopic(anchor);
-      final removedIndex = sourceIndex < 0
-          ? null
-          : feed.visibleRowForSource(sourceIndex);
-      var target = index >= 0
-          ? index + direction
-          : removedIndex != null
-          ? removedIndex + (direction < 0 ? -1 : 0)
-          : cursor != null
-          ? cursor.index +
-                (feed.topicIdAt(cursor.index) == null
-                    ? direction
-                    : direction < 0
-                    ? -1
-                    : 0)
-          : (_list?.visibleRange?.$1 ?? 0) ~/ 2;
-      if (target >= feed.rowCount && feed.hasMore) {
-        await _tab!.loadMoreFeed(identity.$4);
-        if (!isCurrent()) return;
-      }
-      var current = _latestFeed();
-      if (!isCurrent() || current.rowCount == 0) return;
-      target = target.clamp(0, current.rowCount - 1);
-      final candidate = current.topicIdAt(target);
-      if (candidate == null ||
-          !controller.store.containsRecord<Topic>(identity.$1!, candidate)) {
-        await _ensureRange(controller, identity, target, target);
-        if (!isCurrent()) return;
-        current = _latestFeed();
-      }
-      final topicId = current.topicIdAt(target);
-      if (topicId == null) return;
-      _rememberTopic(topicId, keyboard: true);
-      _keyboardFocus.requestFocus();
-      final siteUrl = controller.currentInstance?.url;
-      final topic = siteUrl == null
-          ? null
-          : controller.store.read<Topic>(siteUrl, topicId);
-      if (topic != null) _prefetch.keyboard(topic);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!isCurrent()) return;
-        _jumpTo(target * 2);
-      });
-      WidgetsBinding.instance.scheduleFrame();
-    } finally {
-      // Keep the token through the reveal callback, but accept the next key
-      // after that frame. Context changes invalidate both callbacks.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (identical(_keyboardMoveToken, token)) _keyboardMoveToken = null;
-      });
-      WidgetsBinding.instance.scheduleFrame();
-    }
-  }
+  bool _moveSelection(int direction) => _cursorOwner!.move(
+    direction,
+    firstVisibleRow: (_list?.visibleRange?.$1 ?? 0) ~/ 2,
+  );
 
   void _openRow(Topic topic, {bool keyboard = false}) {
-    _keyboardMoveToken = null;
-    _selectionRestoreToken = null;
-    _rememberTopic(topic.id, keyboard: keyboard);
+    _cursorOwner!.opened(topic.id, keyboard: keyboard);
     if (keyboard && _tab!.readingTopicId == topic.id) return;
     handleTabOpenResult(
       context,
@@ -818,46 +678,6 @@ class _TopicListViewState extends State<TopicListView> {
     );
     // Navigation adopts the request before loss of keyboard focus releases it.
     if (keyboard) FocusManager.instance.primaryFocus?.unfocus();
-  }
-
-  bool _openSelection() {
-    final cursor = _cursor?.value;
-    final controller = _controller!;
-    final siteUrl = controller.currentInstance?.url;
-    if (cursor == null || siteUrl == null) return false;
-    final topic = controller.store.read<Topic>(siteUrl, cursor.topicId);
-    if (topic != null && widget.feed.topicIds.contains(cursor.topicId)) {
-      _openRow(topic, keyboard: true);
-    } else {
-      unawaited(_restoreSelection(controller, _feedIdentity!, cursor));
-    }
-    return true;
-  }
-
-  Future<void> _restoreSelection(
-    ShellController controller,
-    _TopicListIdentity identity,
-    _TopicListCursor cursor,
-  ) async {
-    final token = Object();
-    _selectionRestoreToken = token;
-    final route = _tab!.currentContent;
-    bool isCurrent() =>
-        _isCurrent(controller, identity) &&
-        identical(_selectionRestoreToken, token) &&
-        _cursor?.value?.topicId == cursor.topicId &&
-        _tab!.currentContent == route &&
-        navigationShortcutsAllowed(context);
-    try {
-      if (!isCurrent()) return;
-      var topic = controller.store.read<Topic>(identity.$1!, cursor.topicId);
-      topic ??= await _tab!.restoreFeedTopic(identity.$4, cursor.topicId);
-      if (isCurrent() && topic != null) _openRow(topic, keyboard: true);
-    } finally {
-      if (identical(_selectionRestoreToken, token)) {
-        _selectionRestoreToken = null;
-      }
-    }
   }
 
   @override
@@ -876,6 +696,7 @@ class _TopicListViewState extends State<TopicListView> {
       _releaseFeed?.call();
       _releaseFeed = null;
       _feedIdentity = null;
+      _cursorOwner?.retire();
       // A replaced shell keeps its own pending anchor window; this list no
       // longer feeds it, so the window is written rather than left behind.
       _controller?.flushAnchorPersist();
@@ -1003,7 +824,7 @@ class _TopicListViewState extends State<TopicListView> {
           _revealCursor();
         }
       } else if (feed.topicIds.contains(readingTopicId)) {
-        _rememberTopic(readingTopicId);
+        _cursorOwner!.remember(readingTopicId);
       }
     }
 
@@ -1083,7 +904,7 @@ class _TopicListViewState extends State<TopicListView> {
                   ReadingCommand.previousPost: () =>
                       _tab!.currentContent?.isTopic != true &&
                       _moveSelection(-1),
-                  ReadingCommand.openTopic: _openSelection,
+                  ReadingCommand.openTopic: _cursorOwner!.openSelection,
                 },
                 child: ListBoundaryShortcuts(
                   key: ValueKey(('topic-list-boundary', feedIdentity)),
@@ -1119,7 +940,7 @@ class _TopicListViewState extends State<TopicListView> {
                             : feed.visibleRowForSource(source) * 2;
                       },
                       separatorBuilder: (context, index) =>
-                          ValueListenableBuilder<_TopicListCursor?>(
+                          ValueListenableBuilder<TopicListCursor?>(
                             valueListenable: _cursor!,
                             builder: (context, cursor, _) {
                               final current = feed.topicIdAt(index);
@@ -1196,7 +1017,7 @@ class _TopicListViewState extends State<TopicListView> {
                                 : _restoringRow(context),
                           );
                         }
-                        return ValueListenableBuilder<_TopicListCursor?>(
+                        return ValueListenableBuilder<TopicListCursor?>(
                           key: ValueKey(topicId),
                           valueListenable: _cursor!,
                           builder: (context, cursor, child) =>
