@@ -174,6 +174,34 @@ final class ForumSettingsController extends FrameSafeNotifier {
     if (!isDisposed) notifySafely();
   }
 
+  /// Restores saved forums before synchronous selection can show their values.
+  Future<void> restoreSavedForums(
+    Iterable<String> siteUrls, {
+    required AppThemeMode initialMode,
+  }) async {
+    if (isDisposed) return;
+    final sites = [for (final url in siteUrls) requireStoredForumBase(url)];
+    final themeSites = [homeSite, ...sites];
+    Future<ForumThemeLibrary>? library;
+    await Future.wait([
+      _themeModes.ensure(homeSite, () => store.loadThemeMode(homeSite)),
+      for (final site in sites)
+        _themeModes.ensure(
+          site,
+          () => store.loadThemeMode(site, initialMode: initialMode),
+        ),
+      _shared.ensure(_everyForum, () => store.loadAppearance(sites: sites)),
+      for (final site in themeSites)
+        _themes.ensure(
+          site,
+          () => (library ??= store.loadThemeLibrary(
+            themeSites,
+          )).then((value) => value.forSite(site)),
+        ),
+    ]);
+    if (!isDisposed) notifySafely();
+  }
+
   Future<void> setShared(SharedAppearance value) {
     if (isDisposed) return Future.value();
     if (_shared.peek(_everyForum) == value) {

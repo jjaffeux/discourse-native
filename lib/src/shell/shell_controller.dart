@@ -2142,10 +2142,9 @@ class ShellController extends FrameSafeNotifier
       );
     }
     await Future.wait([
-      forumSettings.load(ForumSettingsController.homeSite),
-      for (final instance in stored)
-        forumSettings.load(instance.url, initialMode: appSettings.themeMode),
-      forumSettings.loadShared([for (final instance in stored) instance.url]),
+      forumSettings.restoreSavedForums([
+        for (final instance in stored) instance.url,
+      ], initialMode: appSettings.themeMode),
       for (final instance in stored) topicSidebar.ensure(siteUrl: instance.url),
       // Only forums on the rail keep their preferences: a removal may have
       // ended before they were dropped, and older builds kept them.

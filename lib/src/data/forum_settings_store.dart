@@ -203,14 +203,31 @@ final class ForumSettingsStore {
     );
   }
 
-  Future<ForumThemePreferences> loadThemes(String siteUrl) => _operations.run(
-    owner: _persistence,
-    key: themeLibraryKey,
-    operation: () async {
-      final site = requireStoredForumBase(siteUrl);
-      try {
-        final library = await _readThemeLibrary();
-        final migrated = await _migrateThemes(library, site);
+  /// Restores one library and migrates missing forums in [siteUrls] order.
+  Future<ForumThemeLibrary> loadThemeLibrary(Iterable<String> siteUrls) {
+    final sites = [for (final url in siteUrls) requireStoredForumBase(url)];
+    return _operations.run(
+      owner: _persistence,
+      key: themeLibraryKey,
+      operation: () async {
+        ForumThemeLibrary? library;
+        var attempts = sites.isEmpty ? 1 : sites.length;
+        while (library == null) {
+          try {
+            library = await _readThemeLibrary();
+          } catch (error, stackTrace) {
+            reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
+            if (--attempts == 0) return _themeLibrary;
+          }
+        }
+        var migrated = library;
+        for (final site in sites) {
+          try {
+            migrated = await _migrateThemes(migrated, site);
+          } catch (error, stackTrace) {
+            reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
+          }
+        }
         if (!identical(library, migrated) ||
             _pendingThemeMigrations.isNotEmpty) {
           // Keep the legacy document until the whole migration is durable.
@@ -228,13 +245,15 @@ final class ForumSettingsStore {
         } else {
           _themeLibrary = library;
         }
-        return migrated.forSite(site);
-      } catch (error, stackTrace) {
-        reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
-        return _themeLibrary.forSite(site);
-      }
-    },
-  );
+        return migrated;
+      },
+    );
+  }
+
+  Future<ForumThemePreferences> loadThemes(String siteUrl) async {
+    final site = requireStoredForumBase(siteUrl);
+    return (await loadThemeLibrary([site])).forSite(site);
+  }
 
   Future<void> writeThemes(
     String siteUrl,
