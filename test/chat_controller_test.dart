@@ -29,6 +29,7 @@ import 'package:discourse_native/src/plugins/chat/chat_send_coordinator.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -9546,6 +9547,90 @@ void main() {
   });
 
   group('forgetting a disconnected site', () {
+    test('keeps another site’s observed window and Store pins alive', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(1)]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.chat.beginViewingChannel(site, 9);
+      subject.chat.beginViewingChannel(other, 9);
+      await subject.chat.openChannel(site, 9);
+      await subject.chat.openChannel(other, 9);
+      final remaining = subject.chat.streamListenable(other, 9);
+      var changes = 0;
+      remaining.addListener(() => changes++);
+      expect(subject.chat.pinnedMessageCountForTesting(site), 1);
+      expect(subject.chat.pinnedMessageCountForTesting(other), 1);
+
+      subject.chat.forget(site);
+
+      expect(subject.chat.pinnedMessageCountForTesting(site), 0);
+      expect(subject.chat.pinnedMessageCountForTesting(other), 1);
+      expect(remaining.value.messageIds, [1]);
+      expect(subject.chat.streamListenable(other, 9), same(remaining));
+      expect(subject.store.read<ChatMessage>(other, 1), isNotNull);
+      expect(changes, 0);
+    });
+
+    test('detaches every old stream before retirement listeners run', () async {
+      final subject = build(
+        messages: {
+          key(9): page([message(1)]),
+          key(10): page([message(2)]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.openChannel(site, 9);
+      await subject.chat.openChannel(site, 10);
+      final first = subject.chat.streamListenable(site, 9);
+      final second = subject.chat.streamListenable(site, 10);
+      ValueListenable<ChatStreamState>? successor;
+      void onRetired() {
+        if (first.value.messageIds.isEmpty) {
+          successor = subject.chat.streamListenable(site, 10);
+        }
+      }
+
+      first.addListener(onRetired);
+
+      subject.chat.forget(site);
+
+      expect(successor, isNotNull);
+      expect(successor, isNot(same(second)));
+      expect(first.value.messageIds, isEmpty);
+      expect(second.value.messageIds, isEmpty);
+      first.removeListener(onRetired);
+      await subject.chat.openChannel(site, 10);
+      expect(successor!.value.messageIds, [2]);
+      expect(second.value.messageIds, isEmpty);
+    });
+
+    test('a retired page cannot finish a successor window page', () async {
+      final api = _PagingRaceApi();
+      final subject = build(api: api);
+      addTearDown(subject.chat.dispose);
+      await subject.chat.openChannel(site, 9);
+      final oldPage = subject.chat.loadOlder(site, 9);
+      await api.oldPageStarted.future;
+
+      subject.chat.forget(site);
+      await subject.chat.openChannel(site, 9, targetMessageId: 9, force: true);
+      final newPage = subject.chat.loadOlder(site, 9);
+      await api.newPageStarted.future;
+      api.oldPage.complete(page([message(4, minute: 4)]));
+      await oldPage;
+
+      expect(subject.chat.stream(site, 9).messageIds, [9]);
+      expect(subject.chat.stream(site, 9).loadingOlder, isTrue);
+      expect(subject.store.read<ChatMessage>(site, 4), isNull);
+      api.newPage.complete(page([message(8, minute: 8)]));
+      await newPage;
+      expect(subject.chat.stream(site, 9).messageIds, [8, 9]);
+      expect(subject.chat.stream(site, 9).loadingOlder, isFalse);
+    });
+
     test('drops its channels, its streams and what was being asked', () async {
       final subject = build(
         channels: {

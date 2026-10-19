@@ -32,6 +32,8 @@ import 'chat_thread.dart';
 import 'chat_thread_list_refresh.dart';
 import 'chat_wire.dart';
 
+part 'chat_conversation_stream.dart';
+
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
 typedef _ChatReactorsKey = ({
   String siteUrl,
@@ -667,22 +669,25 @@ class ChatController extends FrameSafeNotifier {
 
   @visibleForTesting
   int retainedTargetCountForTesting(String siteUrl) =>
-      _retainedTargets.values.where((entry) => entry.siteUrl == siteUrl).length;
+      _conversations.values.where((owner) => owner.siteUrl == siteUrl).length;
 
   @visibleForTesting
-  int retainedCanonicalMessageIdCountForTesting(String siteUrl) => _streams
-      .entries
-      .where((entry) => _retainedTargets[entry.key]?.siteUrl == siteUrl)
-      .fold(0, (total, entry) => total + entry.value.messageIds.length);
+  int retainedCanonicalMessageIdCountForTesting(String siteUrl) =>
+      _conversations.values
+          .where((owner) => owner.siteUrl == siteUrl)
+          .fold(
+            0,
+            (total, owner) => total + (owner._window?.messageIds.length ?? 0),
+          );
 
   @visibleForTesting
   int pinSnapshotCountForTesting(String siteUrl) =>
       _pinListRefs.keys.where((key) => key.startsWith('$siteUrl~')).length;
 
   @visibleForTesting
-  int pinnedMessageCountForTesting(String siteUrl) => _messagePins.entries
-      .where((entry) => _retainedTargets[entry.key]?.siteUrl == siteUrl)
-      .fold(0, (total, entry) => total + entry.value.length);
+  int pinnedMessageCountForTesting(String siteUrl) => _conversations.values
+      .where((owner) => owner.siteUrl == siteUrl)
+      .fold(0, (total, owner) => total + (owner._messagePins?.length ?? 0));
 
   PluginSiteLease captureSession(String siteUrl) => _requests.capture(siteUrl);
 
@@ -758,33 +763,13 @@ class ChatController extends FrameSafeNotifier {
   final Set<String> _threadDetailDirty = {};
   final Map<String, Object> _threadDetailRuns = {};
 
-  final Map<String, ChatStreamState> _streams = {};
-  final LinkedHashMap<String, ({String siteUrl, ChatStreamTarget target})>
-  _retainedTargets = LinkedHashMap();
-  final Map<String, _ChatMessagePinSet> _messagePins = {};
-  final Map<String, FrameSafeValueNotifier<ChatStreamState>> _streamRefs = {};
-  final Map<String, Object> _streamGenerations = {};
-  final Map<String, DateTime> _windowAttemptedAt = {};
-  final Map<String, Object> _pageRequests = {};
-  final Map<String, Set<int>> _pendingLiveMessageIds = {};
+  final LinkedHashMap<String, _ChatConversationStream> _conversations =
+      LinkedHashMap();
 
   /// Per site, message id to channel id for rows a delete hid from this
   /// reader. Their ids stay in held windows as paging slots with no record
   /// behind them, so only a record lost any other way is a hole.
   final Map<String, Map<int, int>> _hiddenDeletedMessageChannelIds = {};
-  final Map<String, Timer> _streamNoticeTimers = {};
-  final Map<
-    String,
-    ({
-      String siteUrl,
-      ChatStreamTarget target,
-      int messageId,
-      PluginSiteLease lease,
-    })
-  >
-  _queuedReadReceipts = {};
-  final Map<String, Future<void>> _readReceiptTasks = {};
-  final Map<String, Object> _readReceiptRuns = {};
   final Map<String, int> _threadNotificationRevisions = {};
   final Map<String, Future<void>> _threadNotificationTails = {};
   final Map<String, ChatThreadMembership?> _threadNotificationConfirmed = {};
@@ -821,8 +806,6 @@ class ChatController extends FrameSafeNotifier {
       _targetKey(siteUrl, ChatChannelTarget(id));
   static String _pinsKey(String siteUrl, int channelId) =>
       '$siteUrl~channel-$channelId-pins';
-  static String _olderTargetKey(String targetKey) => '$targetKey~past';
-  static String _newerTargetKey(String targetKey) => '$targetKey~future';
 
   /// Rechecks ownership after credential awaits so stale account requests are
   /// never sent after disconnect, disposal, or generation replacement.
@@ -1004,7 +987,8 @@ class ChatController extends FrameSafeNotifier {
     if (raw.isEmpty && retainedUploads.isEmpty && replyTo == null) {
       _preparedCooking?.cancel(('draft', key));
       _composerDraftRefs[key]?.value = null;
-      if (!_streams.containsKey(key) && _canEvictRetainedTarget(key)) {
+      if (_conversations[key]?._window == null &&
+          _canEvictRetainedTarget(key)) {
         _evictRetainedTarget(key);
       }
       _enforceSiteRetention(siteUrl);
@@ -2416,7 +2400,7 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed) return token;
     final key = _targetKey(siteUrl, target);
     _rememberTarget(siteUrl, target);
-    _syncMessagePins(siteUrl, key, target, streamFor(siteUrl, target));
+    _conversations[key]?.syncMessagePins();
     _enforceSiteRetention(siteUrl, keep: key);
     _advanceLastViewedAt(siteUrl, channelId);
     return token;
@@ -2426,12 +2410,7 @@ class ChatController extends FrameSafeNotifier {
   void endViewingChannel(String siteUrl, int channelId, Object token) {
     _liveSync.endViewingChannel(siteUrl, channelId, token);
     final target = ChatChannelTarget(channelId);
-    _syncMessagePins(
-      siteUrl,
-      _targetKey(siteUrl, target),
-      target,
-      streamFor(siteUrl, target),
-    );
+    _conversations[_targetKey(siteUrl, target)]?.syncMessagePins();
     _enforceRetentionAfterViewEnds(siteUrl);
   }
 
@@ -2440,19 +2419,14 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed) return token;
     final key = _targetKey(siteUrl, target);
     _rememberTarget(siteUrl, target);
-    _syncMessagePins(siteUrl, key, target, streamFor(siteUrl, target));
+    _conversations[key]?.syncMessagePins();
     _enforceSiteRetention(siteUrl, keep: key);
     return token;
   }
 
   void endViewingThread(String siteUrl, ChatThreadTarget target, Object token) {
     _liveSync.endViewingThread(siteUrl, target, token);
-    _syncMessagePins(
-      siteUrl,
-      _targetKey(siteUrl, target),
-      target,
-      streamFor(siteUrl, target),
-    );
+    _conversations[_targetKey(siteUrl, target)]?.syncMessagePins();
     _enforceRetentionAfterViewEnds(siteUrl);
   }
 
@@ -3887,7 +3861,8 @@ class ChatController extends FrameSafeNotifier {
       streamFor(siteUrl, ChatChannelTarget(channelId));
 
   ChatStreamState streamFor(String siteUrl, ChatStreamTarget target) =>
-      _streams[_targetKey(siteUrl, target)] ?? const ChatStreamState();
+      _conversations[_targetKey(siteUrl, target)]?.snapshot ??
+      const ChatStreamState();
 
   ValueListenable<ChatStreamState> streamListenable(
     String siteUrl,
@@ -3901,10 +3876,7 @@ class ChatController extends FrameSafeNotifier {
     final key = _targetKey(siteUrl, target);
     _rememberTarget(siteUrl, target);
     _enforceSiteRetention(siteUrl, keep: key);
-    return _streamRefs.putIfAbsent(
-      key,
-      () => FrameSafeValueNotifier(_streams[key] ?? const ChatStreamState()),
-    );
+    return _conversations[key]!.listenable;
   }
 
   bool isOnline(String siteUrl, int userId) =>
@@ -3961,19 +3933,17 @@ class ChatController extends FrameSafeNotifier {
     _threadDetailRequests.removeWhere((key, _) => key.startsWith(threadPrefix));
     _threadDetailDirty.removeWhere((key) => key.startsWith(threadPrefix));
 
-    final unavailableStreams = _streams.keys
+    final unavailableStreams = _conversations.values
         .where(
-          (targetKey) => targetKey == key || targetKey.startsWith(threadPrefix),
+          (owner) =>
+              owner._window != null &&
+              (owner.key == key || owner.key.startsWith(threadPrefix)),
         )
         .toList(growable: false);
-    for (final targetKey in unavailableStreams) {
-      final target = _retainedTargets[targetKey]?.target;
-      if (target == null) continue;
-      _abandonWindowWork(targetKey);
-      final current = _streams[targetKey]!;
-      _setStream(
-        siteUrl,
-        target,
+    for (final owner in unavailableStreams) {
+      final current = owner.snapshot;
+      owner.abandonWindowWork();
+      owner.publish(
         ChatStreamState(
           fetchedOnce: true,
           fetches: current.fetches,
@@ -4020,14 +3990,7 @@ class ChatController extends FrameSafeNotifier {
     ChatStreamTarget target,
     ChatMessage message,
   ) {
-    final key = _targetKey(siteUrl, target);
-    _applyLiveMessage(
-      siteUrl,
-      key,
-      target,
-      streamFor(siteUrl, target),
-      message,
-    );
+    _conversations[_targetKey(siteUrl, target)]?.admitLive(message);
   }
 
   /// Lazy lookup means only clock-skew insertion walks the canonical window.
@@ -4108,22 +4071,15 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void _bumpStreamsHolding(String siteUrl, int messageId) {
-    final prefix = '$siteUrl~';
     final stale = [
-      for (final entry in _streams.entries)
-        if (entry.key.startsWith(prefix) &&
-            entry.value.messageIds.contains(messageId))
-          entry.key,
+      for (final owner in _conversations.values)
+        if (owner.siteUrl == siteUrl &&
+            (owner._window?.messageIds.contains(messageId) ?? false))
+          owner,
     ];
-    for (final key in stale) {
-      final target = _retainedTargets[key]?.target;
-      if (target == null) continue;
-      final window = _streams[key]!;
-      _setStream(
-        siteUrl,
-        target,
-        window.copyWith(revision: window.revision + 1),
-      );
+    for (final owner in stale) {
+      final window = owner.snapshot;
+      owner.publish(window.copyWith(revision: window.revision + 1));
     }
   }
 
@@ -4456,52 +4412,6 @@ class ChatController extends FrameSafeNotifier {
     _store.put(siteUrl, message.withReactions(reactions));
   }
 
-  void _applyLiveMessage(
-    String siteUrl,
-    String key,
-    ChatStreamTarget target,
-    ChatStreamState window,
-    ChatMessage message,
-  ) {
-    if (!window.fetchedOnce) {
-      // Only a page establishes a window: subscriptions resume from an older
-      // snapshot cursor, so a replayed arrival would stand in for the present
-      // and let a read receipt skip the unread backlog. The record is already
-      // stored; a page in flight settles the parked id at its edge, and any
-      // later page is requested after the arrival was published.
-      if (_loading.contains(key)) {
-        _pendingLiveMessageIds.putIfAbsent(key, () => {}).add(message.id);
-      }
-      return;
-    }
-    if (window.canLoadMoreFuture) {
-      // Never merge a live edge into anchored history; the resulting hole
-      // could not be filled by either paging direction.
-      final pending = _pendingLiveMessageIds.putIfAbsent(key, () => {});
-      if (!pending.add(message.id)) return;
-      _setStream(
-        siteUrl,
-        target,
-        window.copyWith(pendingNewMessages: pending.length, clearError: true),
-      );
-      return;
-    }
-    _pendingLiveMessageIds[key]?.remove(message.id);
-    _setStream(
-      siteUrl,
-      target,
-      window.copyWith(
-        messageIds: ChatMessageTimeline.admitLive(
-          held: _timelineSnapshot(siteUrl, window.messageIds),
-          message: message,
-        ),
-        localMessageIds: _retireCanonicalLocals(siteUrl, window, [message]),
-        clearError: true,
-      ),
-      growth: _ChatWindowGrowth.future,
-    );
-  }
-
   void _scheduleThreadDetailRefresh(String siteUrl, ChatThreadTarget target) {
     // A refresh during the in-flight request dirties its answer and makes the
     // per-target drain fetch again before callers complete.
@@ -4513,154 +4423,31 @@ class ChatController extends FrameSafeNotifier {
     ChatStreamTarget target,
     ChatStreamState stream, {
     _ChatWindowGrowth? growth,
-  }) {
-    final key = _targetKey(siteUrl, target);
-    final previous = _streams[key];
-    final retained = growth == null
-        ? stream
-        : _retainCanonicalWindow(siteUrl, stream, growth);
-    _streams[key] = retained;
-    _rememberTarget(siteUrl, target);
-    _syncMessagePins(siteUrl, key, target, retained);
-    if (previous != null && previous.localMessageIds.isNotEmpty) {
-      final remaining = retained.localMessageIds.toSet();
-      for (final id in previous.localMessageIds) {
-        if (!remaining.contains(id)) {
-          _store.remove<ChatMessage>(siteUrl, id);
-        }
-      }
-    }
-    _streamRefs[key]?.value = retained;
-    _enforceSiteRetention(siteUrl, keep: key);
-  }
+  }) => _conversationFor(siteUrl, target).publish(stream, growth: growth);
 
-  void _rememberTarget(String siteUrl, ChatStreamTarget target) {
-    final key = _targetKey(siteUrl, target);
-    _retainedTargets.remove(key);
-    _retainedTargets[key] = (siteUrl: siteUrl, target: target);
-  }
-
-  ChatStreamState _retainCanonicalWindow(
+  _ChatConversationStream _conversationFor(
     String siteUrl,
-    ChatStreamState stream,
-    _ChatWindowGrowth growth,
+    ChatStreamTarget target,
   ) {
-    final original = stream.messageIds;
-    var ids = original;
-    var droppedPast = false;
-    var droppedFuture = false;
-    final limit = _maxRetainedCanonicalMessageIdsPerSite;
-    if (limit != null && ids.length > limit) {
-      if (growth == _ChatWindowGrowth.replacement) {
-        final anchor = stream.anchorMessageId ?? stream.lastReadOnOpen;
-        final anchorIndex = anchor == null ? -1 : ids.indexOf(anchor);
-        var start = anchorIndex < 0
-            ? ids.length - limit
-            : anchorIndex - (limit ~/ 2);
-        final latestStart = ids.length - limit;
-        if (start < 0) start = 0;
-        if (start > latestStart) start = latestStart;
-        droppedPast = start > 0;
-        droppedFuture = start + limit < ids.length;
-        ids = List.unmodifiable(ids.sublist(start, start + limit));
-      } else {
-        final retained = ChatMessageTimeline.retain(
-          ids: ids,
-          maxLength: limit,
-          edge: growth == _ChatWindowGrowth.past
-              ? ChatTimelineRetainedEdge.past
-              : ChatTimelineRetainedEdge.future,
-        );
-        ids = retained.ids;
-        droppedPast = retained.droppedPast;
-        droppedFuture = retained.droppedFuture;
-      }
-    }
-
-    final backed = _backedRange(siteUrl, ids, growth, stream);
-    if (backed == null) {
-      if (ids.isNotEmpty) {
-        ids = const [];
-        droppedPast = true;
-        droppedFuture = true;
-      }
-    } else if (backed.start != 0 || backed.end != ids.length) {
-      droppedPast = droppedPast || backed.start > 0;
-      droppedFuture = droppedFuture || backed.end < ids.length;
-      ids = List.unmodifiable(ids.sublist(backed.start, backed.end));
-    }
-
-    if (identical(ids, original) && !droppedPast && !droppedFuture) {
-      return stream;
-    }
-    return stream.copyWith(
-      messageIds: ids,
-      canLoadMorePast: stream.canLoadMorePast || droppedPast,
-      canLoadMoreFuture: stream.canLoadMoreFuture || droppedFuture,
-      fetchedOnce: ids.isNotEmpty || original.isEmpty
-          ? stream.fetchedOnce
-          : false,
+    final key = _targetKey(siteUrl, target);
+    return _conversations.putIfAbsent(
+      key,
+      () => _ChatConversationStream(this, siteUrl, target),
     );
   }
 
-  ({int start, int end})? _backedRange(
-    String siteUrl,
-    List<int> ids,
-    _ChatWindowGrowth growth,
-    ChatStreamState stream,
-  ) {
-    if (ids.isEmpty) return (start: 0, end: 0);
-    final runs = <({int start, int end})>[];
-    var index = 0;
-    while (index < ids.length) {
-      while (index < ids.length && !_holdsMessageSlot(siteUrl, ids[index])) {
-        index++;
-      }
-      if (index == ids.length) break;
-      final start = index;
-      while (index < ids.length && _holdsMessageSlot(siteUrl, ids[index])) {
-        index++;
-      }
-      runs.add((start: start, end: index));
-    }
-    if (runs.isEmpty) return null;
-    if (growth == _ChatWindowGrowth.past) return runs.first;
-    if (growth == _ChatWindowGrowth.future) return runs.last;
+  void _rememberTarget(String siteUrl, ChatStreamTarget target) =>
+      _rememberConversation(_conversationFor(siteUrl, target));
 
-    final anchor = stream.anchorMessageId ?? stream.lastReadOnOpen;
-    final anchorIndex = anchor == null ? -1 : ids.indexOf(anchor);
-    if (anchorIndex >= 0) {
-      for (final run in runs) {
-        if (run.start <= anchorIndex && anchorIndex < run.end) return run;
-      }
-    }
-    var longest = runs.last;
-    for (final run in runs) {
-      if (run.end - run.start > longest.end - longest.start) longest = run;
-    }
-    return longest;
-  }
-
-  void _syncMessagePins(
-    String siteUrl,
-    String key,
-    ChatStreamTarget target,
-    ChatStreamState stream,
-  ) {
-    final desired = <int>{...stream.localMessageIds};
-    if (_liveSync.isViewingTarget(siteUrl, target)) {
-      desired.addAll(stream.messageIds);
-    }
-    if (desired.isEmpty) {
-      _messagePins.remove(key)?.release();
-      return;
-    }
-    (_messagePins[key] ??= _ChatMessagePinSet(_store, siteUrl)).retain(desired);
+  void _rememberConversation(_ChatConversationStream owner) {
+    if (!owner.isCurrent) return;
+    _conversations.remove(owner.key);
+    _conversations[owner.key] = owner;
   }
 
   /// The pinned-message snapshot key owned by a retained channel target.
   String? _retainedPinsKey(String key) {
-    final identity = _retainedTargets[key];
+    final identity = _conversations[key];
     if (identity == null || identity.target is! ChatChannelTarget) return null;
     return _pinsKey(identity.siteUrl, identity.target.channelId);
   }
@@ -4670,7 +4457,7 @@ class ChatController extends FrameSafeNotifier {
   /// the budget is derived from; a pin also inside the window is counted
   /// twice, which can only evict sooner.
   int _retentionWeight(String key) {
-    final messageCount = _streams[key]?.messageIds.length ?? 0;
+    final messageCount = _conversations[key]?._window?.messageIds.length ?? 0;
     final windowWeight = messageCount < pageSize ? pageSize : messageCount;
     final pinsKey = _retainedPinsKey(key);
     final pinCount = pinsKey == null
@@ -4683,7 +4470,7 @@ class ChatController extends FrameSafeNotifier {
     final budget = _maxRetainedCanonicalMessageIdsPerSite;
     if (budget == null) return;
     final candidates = [
-      for (final entry in _retainedTargets.entries)
+      for (final entry in _conversations.entries)
         if (entry.value.siteUrl == siteUrl) entry.key,
     ];
     var retained = candidates.fold<int>(
@@ -4700,23 +4487,15 @@ class ChatController extends FrameSafeNotifier {
   }
 
   bool _canEvictRetainedTarget(String key) {
-    final identity = _retainedTargets[key];
+    final identity = _conversations[key];
     final pinsKey = _retainedPinsKey(key);
     if (identity == null ||
         _liveSync.isViewingTarget(identity.siteUrl, identity.target) ||
-        (_streamRefs[key]?.hasListeners ?? false) ||
+        (identity._ref?.hasListeners ?? false) ||
+        identity.preventsEviction ||
         (pinsKey != null && (_pinListRefs[pinsKey]?.hasListeners ?? false)) ||
         (_composerDraftRefs[key]?.hasListeners ?? false) ||
         _composerDraftRefs[key]?.value != null ||
-        (_streams[key]?.localMessageIds.isNotEmpty ?? false) ||
-        (_pendingLiveMessageIds[key]?.isNotEmpty ?? false) ||
-        _loading.contains(key) ||
-        _pageRequests.containsKey(_olderTargetKey(key)) ||
-        _pageRequests.containsKey(_newerTargetKey(key)) ||
-        _streamNoticeTimers.containsKey(key) ||
-        _queuedReadReceipts.containsKey(key) ||
-        _readReceiptTasks.containsKey(key) ||
-        _readReceiptRuns.containsKey(key) ||
         _threadNotificationRevisions.containsKey(key) ||
         _threadNotificationTails.containsKey(key) ||
         _threadNotificationConfirmed.containsKey(key) ||
@@ -4726,8 +4505,7 @@ class ChatController extends FrameSafeNotifier {
         _channelSettingsWrites.containsKey(key) ||
         _threadTitleWrites.containsKey(key) ||
         _threadDetailRequests.containsKey(key) ||
-        _threadDetailDirty.contains(key) ||
-        (_messagePins[key]?.length ?? 0) > 0) {
+        _threadDetailDirty.contains(key)) {
       return false;
     }
     return true;
@@ -4746,42 +4524,12 @@ class ChatController extends FrameSafeNotifier {
         pinsRef.dispose();
       }
     }
-    _retainedTargets.remove(key);
-    _streams.remove(key);
-    _abandonWindowWork(key);
-    _messagePins.remove(key)?.release();
-    final streamRef = _streamRefs.remove(key);
-    if (streamRef != null) {
-      streamRef.value = const ChatStreamState();
-      streamRef.dispose();
-    }
+    final owner = _conversations.remove(key);
+    owner?.retire();
+    owner?.resetReference(dispose: true);
     final draftRef = _composerDraftRefs[key];
     if (draftRef != null && draftRef.value == null && !draftRef.hasListeners) {
       _composerDraftRefs.remove(key)?.dispose();
-    }
-  }
-
-  /// Invalidates every request and parked arrival keyed to a target's window.
-  /// An invalidated request skips its own cleanup, so whatever discards a
-  /// window clears their guards here: a stale page guard would pin the target
-  /// against eviction, and a stale attempt time would throttle reopening it.
-  void _abandonWindowWork(String key) {
-    _streamGenerations.remove(key);
-    _loading.remove(key);
-    _windowAttemptedAt.remove(key);
-    _pageRequests.remove(_olderTargetKey(key));
-    _pageRequests.remove(_newerTargetKey(key));
-    _pendingLiveMessageIds.remove(key);
-    _streamNoticeTimers.remove(key)?.cancel();
-  }
-
-  void _releaseMessagePinsForSite(String siteUrl) {
-    final keys = [
-      for (final entry in _messagePins.entries)
-        if (entry.value.siteUrl == siteUrl) entry.key,
-    ];
-    for (final key in keys) {
-      _messagePins.remove(key)?.release();
     }
   }
 
@@ -4789,28 +4537,7 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     ChatStreamTarget target,
     String notice,
-  ) {
-    final key = _targetKey(siteUrl, target);
-    _streamNoticeTimers.remove(key)?.cancel();
-    _setStream(
-      siteUrl,
-      target,
-      streamFor(siteUrl, target).copyWith(notice: notice),
-    );
-
-    final lease = _requests.capture(siteUrl);
-    late final Timer timer;
-    timer = Timer(const Duration(seconds: 4), () {
-      if (!identical(_streamNoticeTimers[key], timer)) return;
-      _streamNoticeTimers.remove(key);
-      if (!lease.isCurrent || isDisposed) return;
-      final current = _streams[key];
-      if (current?.notice == notice) {
-        _setStream(siteUrl, target, current!.copyWith(clearNotice: true));
-      }
-    });
-    _streamNoticeTimers[key] = timer;
-  }
+  ) => _conversationFor(siteUrl, target).showNotice(notice);
 
   /// Retires optimistic overlays by server ID, or by author, target, and
   /// millisecond wire timestamp when a GET outruns both POST and MessageBus.
@@ -5175,7 +4902,7 @@ class ChatController extends FrameSafeNotifier {
   ) {
     _cancelMessageCooking(siteUrl, localId);
     final key = _targetKey(siteUrl, target);
-    final window = _streams[key];
+    final window = _conversations[key]?._window;
     if (window == null || !window.localMessageIds.contains(localId)) return;
     _setStream(
       siteUrl,
@@ -5280,8 +5007,8 @@ class ChatController extends FrameSafeNotifier {
     for (final siteUrl in _publicIds.keys.toList()) {
       unawaited(loadChannels(siteUrl, revalidate: true));
     }
-    for (final (:siteUrl, :target) in _retainedTargets.values.toList()) {
-      _resyncViewedWindow(siteUrl, target);
+    for (final owner in _conversations.values.toList()) {
+      _resyncViewedWindow(owner.siteUrl, owner.target);
     }
   }
 
@@ -5295,12 +5022,13 @@ class ChatController extends FrameSafeNotifier {
   /// its next open makes.
   void _resyncViewedWindow(String siteUrl, ChatStreamTarget target) {
     final key = _targetKey(siteUrl, target);
-    final window = _streams[key];
+    final conversation = _conversations[key];
+    final window = conversation?._window;
     if (window == null ||
         !window.fetchedOnce ||
         !window.atPresent ||
         window.error != null ||
-        _loading.contains(key) ||
+        (_conversations[key]?._loading ?? false) ||
         !_liveSync.isViewingTarget(siteUrl, target)) {
       return;
     }
@@ -5309,17 +5037,14 @@ class ChatController extends FrameSafeNotifier {
       unawaited(
         reporter.runOperation(
           'chat.loadWindow',
-          () => _fetchWindow(
-            siteUrl,
-            target,
-            fromLastRead: target.threadId == null,
-          ),
+          () =>
+              conversation!.fetchWindow(fromLastRead: target.threadId == null),
         ),
       );
       return;
     }
     _setStream(siteUrl, target, window.copyWith(canLoadMoreFuture: true));
-    unawaited(loadNewerFor(siteUrl, target));
+    unawaited(conversation!.loadNewer());
   }
 
   /// Shares one bounded initial sidebar load per site; live tracking keeps it
@@ -5722,26 +5447,23 @@ class ChatController extends FrameSafeNotifier {
     if (!force &&
         targetMessageId == null &&
         _windowAttemptedRecently(key) &&
-        (_loading.contains(key) || held.fetchedOnce && backed)) {
+        ((_conversations[key]?._loading ?? false) ||
+            held.fetchedOnce && backed)) {
       return;
     }
     if (!backed) _discardStaleCanonicalWindow(siteUrl, target, held);
+    final conversation = _conversationFor(siteUrl, target);
     await reporter.runOperation(
       'chat.loadWindow',
-      () => _fetchWindow(
-        siteUrl,
-        target,
+      () => conversation.fetchWindow(
         fromLastRead: targetMessageId == null,
         targetMessageId: targetMessageId,
       ),
     );
   }
 
-  bool _windowAttemptedRecently(String key) {
-    final attemptedAt = _windowAttemptedAt[key];
-    return attemptedAt != null &&
-        _clock().difference(attemptedAt) < minimumWindowRefreshInterval;
-  }
+  bool _windowAttemptedRecently(String key) =>
+      _conversations[key]?.attemptedRecently ?? false;
 
   bool _canonicalWindowIsBacked(String siteUrl, ChatStreamState stream) =>
       stream.messageIds.every((id) => _holdsMessageSlot(siteUrl, id));
@@ -5777,18 +5499,18 @@ class ChatController extends FrameSafeNotifier {
     if (!force &&
         targetMessageId == null &&
         _windowAttemptedRecently(key) &&
-        (_loading.contains(key) || held.fetchedOnce && backed)) {
+        ((_conversations[key]?._loading ?? false) ||
+            held.fetchedOnce && backed)) {
       return;
     }
     if (!backed) _discardStaleCanonicalWindow(siteUrl, target, held);
+    final conversation = _conversationFor(siteUrl, target);
     final detail = await refreshThreadDetail(siteUrl, target);
-    if (detail == null || isDisposed) return;
+    if (detail == null || !conversation.isCurrent) return;
     _liveSync.ensureThreadSubscription(siteUrl, target);
     final result = await reporter.runOperation(
       'chat.loadThreadWindow',
-      () => _fetchWindow(
-        siteUrl,
-        target,
+      () => conversation.fetchWindow(
         fromLastRead: false,
         targetMessageId: targetMessageId,
       ),
@@ -5797,12 +5519,10 @@ class ChatController extends FrameSafeNotifier {
         targetMessageId != null) {
       final fallback = await reporter.runOperation(
         'chat.loadThreadWindowFallback',
-        () => _fetchWindow(siteUrl, target, fromLastRead: false),
+        () => conversation.fetchWindow(fromLastRead: false),
       );
       if (fallback == _ChatWindowFetchResult.loaded) {
-        _showStreamNotice(
-          siteUrl,
-          target,
+        conversation.showNotice(
           appL10n.thatMessageIsUnavailableShowingTheThreadInstead,
         );
       }
@@ -6272,431 +5992,31 @@ class ChatController extends FrameSafeNotifier {
   Future<void> showLatestFor(String siteUrl, ChatStreamTarget target) async {
     if (isDisposed || target.channelId <= 0) return;
     if (streamFor(siteUrl, target).atPresent) return;
+    final conversation = _conversationFor(siteUrl, target);
     await reporter.runOperation(
       'chat.loadLatest',
-      () =>
-          _fetchWindow(siteUrl, target, fromLastRead: false, anchorAtEnd: true),
+      () => conversation.fetchWindow(fromLastRead: false, anchorAtEnd: true),
     );
-  }
-
-  Future<_ChatWindowFetchResult> _fetchWindow(
-    String siteUrl,
-    ChatStreamTarget target, {
-    required bool fromLastRead,
-    int? targetMessageId,
-    bool anchorAtEnd = false,
-  }) async {
-    final key = _targetKey(siteUrl, target);
-    // Replacement fetches are latest-wins; generations cancel stale targets.
-    _loading.add(key);
-    _streamNoticeTimers.remove(key)?.cancel();
-    _windowAttemptedAt[key] = _clock();
-
-    final lease = _requests.capture(siteUrl);
-    final generation = Object();
-    _streamGenerations[key] = generation;
-    bool ownsRequest() => identical(_streamGenerations[key], generation);
-    _pageRequests.remove(_olderTargetKey(key));
-    _pageRequests.remove(_newerTargetKey(key));
-    final held = streamFor(siteUrl, target);
-    _setStream(
-      siteUrl,
-      target,
-      held.copyWith(
-        loading: held.messageIds.isEmpty,
-        loadingOlder: false,
-        loadingNewer: false,
-        clearError: true,
-        clearNotice: true,
-      ),
-    );
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(lease, ownsRequest)) {
-        return _ChatWindowFetchResult.cancelled;
-      }
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(lease, ownsRequest)) {
-        return _ChatWindowFetchResult.cancelled;
-      }
-
-      final bookmarkVersion = _bookmarkVersion(siteUrl);
-      final page = target.threadId == null
-          ? await api.chatMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              targetMessageId: targetMessageId,
-              fromLastRead: fromLastRead,
-              pageSize: pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
-            )
-          : await api.chatThreadMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              threadId: target.threadId!,
-              targetMessageId: targetMessageId,
-              pageSize: pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
-            );
-      if (!_requestIsCurrent(lease, ownsRequest)) {
-        return _ChatWindowFetchResult.cancelled;
-      }
-      lease.commit(() {
-        if (!identical(_streamGenerations[key], generation)) return;
-        final current = _streams[key] ?? held;
-        final heldIds = held.messageIds.toSet();
-        final pageIds = {for (final message in page.messages) message.id};
-        final arrivedWhileLoading = [
-          for (final id in current.messageIds)
-            if (!heldIds.contains(id) && !pageIds.contains(id))
-              ?_store.read<ChatMessage>(siteUrl, id),
-        ];
-        _putMessages(
-          siteUrl,
-          page.messages,
-          bookmarkVersionAtDispatch: bookmarkVersion,
-        );
-        final pendingIds = _pendingLiveMessageIds.putIfAbsent(key, () => {});
-        final List<int> messageIds;
-        var retired = page.messages;
-        if (page.canLoadMoreFuture) {
-          messageIds = ChatMessageTimeline.merge(
-            held: _timelineSnapshot(siteUrl, const []),
-            arrived: page.messages,
-            mode: ChatTimelineMergeMode.sortedUnion,
-          );
-          pendingIds
-            ..removeAll(pageIds)
-            ..addAll(arrivedWhileLoading.map((message) => message.id));
-        } else {
-          // Admit parked sent events that outran the page reaching present.
-          final seam = _withSeamStragglers(
-            siteUrl,
-            pendingIds,
-            ChatMessageTimeline.merge(
-              held: _timelineSnapshot(siteUrl, const []),
-              arrived: [...page.messages, ...arrivedWhileLoading],
-              mode: ChatTimelineMergeMode.sortedUnion,
-            ),
-          );
-          messageIds = seam.ids;
-          retired = [...page.messages, ...seam.stragglers];
-        }
-        final lastReadOnOpen = target.threadId == null
-            ? channel(siteUrl, target.channelId)?.membership.lastReadMessageId
-            : thread(siteUrl, target.threadId!)?.membership?.lastReadMessageId;
-        _setStream(
-          siteUrl,
-          target,
-          ChatStreamState(
-            messageIds: messageIds,
-            localMessageIds: _retireCanonicalLocals(siteUrl, current, retired),
-            canLoadMorePast: page.canLoadMorePast,
-            canLoadMoreFuture: page.canLoadMoreFuture,
-            pendingNewMessages: pendingIds.length,
-            fetchedOnce: true,
-            fetches: held.fetches + 1,
-            lastReadOnOpen: lastReadOnOpen,
-            // An explicit jump to latest must not return to the read marker
-            // when that message is also present in the newest page.
-            anchorMessageId: anchorAtEnd
-                ? messageIds.lastOrNull
-                : targetMessageId ?? page.targetMessageId ?? lastReadOnOpen,
-          ),
-          growth: _ChatWindowGrowth.replacement,
-        );
-        _sendCoordinator.releaseReconciliationIfSettled(siteUrl, target);
-      });
-      return _ChatWindowFetchResult.loaded;
-    } catch (error, stackTrace) {
-      if (!_requestIsCurrent(lease, ownsRequest)) {
-        return _ChatWindowFetchResult.cancelled;
-      }
-      _report(error, stackTrace, 'chat.loadWindow', degraded: false);
-      lease.commit(() {
-        if (!identical(_streamGenerations[key], generation)) return;
-        final current = _streams[key] ?? const ChatStreamState();
-        // A retry's page holds whatever was parked for a failed first page.
-        if (!current.fetchedOnce) _pendingLiveMessageIds.remove(key);
-        final replacesDestination =
-            current.messageIds.isEmpty && current.localMessageIds.isEmpty;
-        _setStream(
-          siteUrl,
-          target,
-          current.copyWith(
-            fetchedOnce: true,
-            error: replacesDestination
-                ? target.threadId == null
-                      ? appL10n.couldNotLoadThisChannel
-                      : appL10n.couldNotLoadThisThread
-                : null,
-          ),
-        );
-        final siteDidNotAnswer =
-            error is SiteLookupException &&
-            error.failure == SiteLookupFailure.unreachable &&
-            error.statusCode == null;
-        if (replacesDestination && siteDidNotAnswer) {
-          onSiteUnreachable?.call(siteUrl);
-        }
-      });
-      return targetMessageId != null &&
-              error is SiteLookupException &&
-              error.statusCode == 404
-          ? _ChatWindowFetchResult.missingTarget
-          : _ChatWindowFetchResult.failed;
-    } finally {
-      if (_requestIsCurrent(lease, ownsRequest)) {
-        lease.commit(() {
-          if (!identical(_streamGenerations[key], generation)) return;
-          final current = _streams[key];
-          if (current != null && current.loading) {
-            _setStream(siteUrl, target, current.copyWith(loading: false));
-          }
-          _loading.remove(key);
-        });
-      }
-    }
   }
 
   Future<void> loadOlder(String siteUrl, int channelId) async {
     return loadOlderFor(siteUrl, ChatChannelTarget(channelId));
   }
 
-  Future<void> loadOlderFor(String siteUrl, ChatStreamTarget target) async {
-    if (isDisposed || target.channelId <= 0) return;
-    final key = _targetKey(siteUrl, target);
-    final held = streamFor(siteUrl, target);
-    final before = held.oldestId;
-    if (!held.canLoadMorePast || before == null) return;
-
-    final guard = _olderTargetKey(key);
-    if (_loading.contains(key) || _pageRequests.containsKey(guard)) return;
-
-    final lease = _requests.capture(siteUrl);
-    final generation = _streamGenerations.putIfAbsent(key, Object.new);
-    final request = Object();
-    _pageRequests[guard] = request;
-    bool ownsRequest() =>
-        identical(_streamGenerations[key], generation) &&
-        identical(_pageRequests[guard], request);
-    _setStream(siteUrl, target, held.copyWith(loadingOlder: true));
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-
-      final bookmarkVersion = _bookmarkVersion(siteUrl);
-      final page = target.threadId == null
-          ? await api.chatMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              before: before,
-              pageSize: pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
-            )
-          : await api.chatThreadMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              threadId: target.threadId!,
-              before: before,
-              pageSize: pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
-            );
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      lease.commit(() {
-        if (!identical(_streamGenerations[key], generation) ||
-            !identical(_pageRequests[guard], request)) {
-          return;
-        }
-        _putMessages(
-          siteUrl,
-          page.messages,
-          bookmarkVersionAtDispatch: bookmarkVersion,
-        );
-        final current = _streams[key] ?? const ChatStreamState();
-        final merged = ChatMessageTimeline.merge(
-          held: _timelineSnapshot(siteUrl, current.messageIds),
-          arrived: page.messages,
-          mode: ChatTimelineMergeMode.prependPage,
-        );
-        _setStream(
-          siteUrl,
-          target,
-          current.copyWith(
-            messageIds: merged,
-            localMessageIds: _retireCanonicalLocals(
-              siteUrl,
-              current,
-              page.messages,
-            ),
-            canLoadMorePast:
-                merged.length > current.messageIds.length &&
-                page.canLoadMorePast,
-            fetchedOnce: true,
-          ),
-          growth: _ChatWindowGrowth.past,
-        );
-        _sendCoordinator.releaseReconciliationIfSettled(siteUrl, target);
-      });
-    } catch (error, stackTrace) {
-      if (!_requestIsCurrent(lease, ownsRequest)) {
-        return;
-      }
-      _report(
-        error,
-        stackTrace,
-        'chat.loadOlder',
-        severity: DiagnosticSeverity.warning,
-      );
-      // Paging failure leaves valid held history and retries on the next scroll.
-    } finally {
-      if (_requestIsCurrent(lease, ownsRequest)) {
-        lease.commit(() {
-          if (!identical(_streamGenerations[key], generation) ||
-              !identical(_pageRequests[guard], request)) {
-            return;
-          }
-          final current = _streams[key];
-          if (current != null) {
-            _setStream(siteUrl, target, current.copyWith(loadingOlder: false));
-          }
-          _pageRequests.remove(guard);
-        });
-      }
-    }
+  Future<void> loadOlderFor(String siteUrl, ChatStreamTarget target) {
+    if (isDisposed || target.channelId <= 0) return Future.value();
+    return _conversations[_targetKey(siteUrl, target)]?.loadOlder() ??
+        Future.value();
   }
 
   Future<void> loadNewer(String siteUrl, int channelId) async {
     return loadNewerFor(siteUrl, ChatChannelTarget(channelId));
   }
 
-  Future<void> loadNewerFor(String siteUrl, ChatStreamTarget target) async {
-    if (isDisposed || target.channelId <= 0) return;
-    final key = _targetKey(siteUrl, target);
-    final held = streamFor(siteUrl, target);
-    final after = held.newestId;
-    if (!held.canLoadMoreFuture || after == null) return;
-
-    final guard = _newerTargetKey(key);
-    if (_loading.contains(key) || _pageRequests.containsKey(guard)) return;
-
-    final lease = _requests.capture(siteUrl);
-    final generation = _streamGenerations.putIfAbsent(key, Object.new);
-    final request = Object();
-    _pageRequests[guard] = request;
-    bool ownsRequest() =>
-        identical(_streamGenerations[key], generation) &&
-        identical(_pageRequests[guard], request);
-    _setStream(siteUrl, target, held.copyWith(loadingNewer: true));
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-
-      final bookmarkVersion = _bookmarkVersion(siteUrl);
-      final page = target.threadId == null
-          ? await api.chatMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              after: after,
-              pageSize: pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
-            )
-          : await api.chatThreadMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              threadId: target.threadId!,
-              after: after,
-              pageSize: pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
-            );
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      lease.commit(() {
-        if (!identical(_streamGenerations[key], generation) ||
-            !identical(_pageRequests[guard], request)) {
-          return;
-        }
-        _putMessages(
-          siteUrl,
-          page.messages,
-          bookmarkVersionAtDispatch: bookmarkVersion,
-        );
-        final current = _streams[key] ?? const ChatStreamState();
-        var merged = ChatMessageTimeline.merge(
-          held: _timelineSnapshot(siteUrl, current.messageIds),
-          arrived: page.messages,
-          mode: ChatTimelineMergeMode.appendPage,
-        );
-        final canLoadMoreFuture =
-            merged.length > current.messageIds.length && page.canLoadMoreFuture;
-        final pendingIds = _pendingLiveMessageIds[key];
-        var retired = page.messages;
-        if (pendingIds != null) {
-          pendingIds.removeAll(page.messages.map((message) => message.id));
-          if (!canLoadMoreFuture) {
-            final seam = _withSeamStragglers(siteUrl, pendingIds, merged);
-            merged = seam.ids;
-            retired = [...page.messages, ...seam.stragglers];
-          }
-        }
-
-        _setStream(
-          siteUrl,
-          target,
-          current.copyWith(
-            messageIds: merged,
-            localMessageIds: _retireCanonicalLocals(siteUrl, current, retired),
-            canLoadMoreFuture: canLoadMoreFuture,
-            pendingNewMessages: canLoadMoreFuture
-                ? pendingIds?.length ?? current.pendingNewMessages
-                : 0,
-            fetchedOnce: true,
-          ),
-          growth: _ChatWindowGrowth.future,
-        );
-        _sendCoordinator.releaseReconciliationIfSettled(siteUrl, target);
-      });
-    } catch (error, stackTrace) {
-      if (!_requestIsCurrent(lease, ownsRequest)) {
-        return;
-      }
-      _report(
-        error,
-        stackTrace,
-        'chat.loadNewer',
-        severity: DiagnosticSeverity.warning,
-      );
-      // Paging failure leaves valid held history and retries on the next scroll.
-    } finally {
-      if (_requestIsCurrent(lease, ownsRequest)) {
-        lease.commit(() {
-          if (!identical(_streamGenerations[key], generation) ||
-              !identical(_pageRequests[guard], request)) {
-            return;
-          }
-          final current = _streams[key];
-          if (current != null) {
-            _setStream(siteUrl, target, current.copyWith(loadingNewer: false));
-          }
-          _pageRequests.remove(guard);
-        });
-      }
-    }
+  Future<void> loadNewerFor(String siteUrl, ChatStreamTarget target) {
+    if (isDisposed || target.channelId <= 0) return Future.value();
+    return _conversations[_targetKey(siteUrl, target)]?.loadNewer() ??
+        Future.value();
   }
 
   /// Optimistic read receipts are not rolled back; the next channel snapshot
@@ -6750,6 +6070,7 @@ class ChatController extends FrameSafeNotifier {
             channelHeld.tracking.mentionCount > 0);
     if (alreadyRead && !hasStaleChannelCounts) return Future.value();
 
+    final conversation = _conversationFor(siteUrl, target);
     // Queue before the credential await so concurrent viewport ticks coalesce.
     final viewedAt = _clock().toUtc();
     if (target.threadId == null) {
@@ -6788,94 +6109,7 @@ class ChatController extends FrameSafeNotifier {
 
     if (alreadyRead) return Future.value();
 
-    return _queueReadReceipt(
-      siteUrl: siteUrl,
-      target: target,
-      messageId: messageId,
-      lease: lease,
-    );
-  }
-
-  Future<void> _queueReadReceipt({
-    required String siteUrl,
-    required ChatStreamTarget target,
-    required int messageId,
-    required PluginSiteLease lease,
-  }) {
-    final key = _targetKey(siteUrl, target);
-    // Serialize per channel and retain only the furthest queued cursor.
-    _queuedReadReceipts[key] = (
-      siteUrl: siteUrl,
-      target: target,
-      messageId: messageId,
-      lease: lease,
-    );
-
-    final running = _readReceiptTasks[key];
-    if (running != null) return running;
-
-    final run = Object();
-    _readReceiptRuns[key] = run;
-    final task = _drainReadReceipts(key, run);
-    _readReceiptTasks[key] = task;
-    return task;
-  }
-
-  Future<void> _drainReadReceipts(String key, Object run) async {
-    while (true) {
-      // An invalidated run must not dequeue a new session's same-key receipt.
-      if (!identical(_readReceiptRuns[key], run)) return;
-      final receipt = _queuedReadReceipts.remove(key);
-      if (receipt == null) {
-        // Identity prevents an old session from clearing a replacement run.
-        if (identical(_readReceiptRuns[key], run)) {
-          _readReceiptRuns.remove(key);
-          final _ = _readReceiptTasks.remove(key);
-        }
-        return;
-      }
-      bool ownsRequest() => identical(_readReceiptRuns[key], run);
-      try {
-        final requestCredentials = await _requests.credentialsFor(
-          receipt.siteUrl,
-        );
-        final apiKey = requestCredentials.apiKey;
-        if (!_requestIsCurrent(receipt.lease, ownsRequest)) continue;
-        // Unsigned macOS keychain failure leaves the optimistic read in place.
-        if (apiKey == null) continue;
-
-        final clientId = requestCredentials.clientId;
-        if (!_requestIsCurrent(receipt.lease, ownsRequest)) continue;
-        if (receipt.target.threadId == null) {
-          await api.markChatChannelRead(
-            siteUrl: receipt.siteUrl,
-            apiKey: apiKey,
-            channelId: receipt.target.channelId,
-            messageId: receipt.messageId,
-            clientId: clientId,
-          );
-        } else {
-          await api.markChatThreadRead(
-            siteUrl: receipt.siteUrl,
-            apiKey: apiKey,
-            channelId: receipt.target.channelId,
-            threadId: receipt.target.threadId!,
-            messageId: receipt.messageId,
-            clientId: clientId,
-          );
-        }
-      } catch (error, stackTrace) {
-        if (_requestIsCurrent(receipt.lease, ownsRequest)) {
-          _report(
-            error,
-            stackTrace,
-            'chat.markRead',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-        // Keep draining newer queued positions after a failed receipt.
-      }
-    }
+    return conversation.queueReadReceipt(messageId, lease);
   }
 
   void forget(String siteUrl) {
@@ -6888,8 +6122,15 @@ class ChatController extends FrameSafeNotifier {
     _channelRefreshes.remove(siteUrl);
     _threadListRefreshes.remove(siteUrl);
     _liveSync.forget(siteUrl);
-    _releaseMessagePinsForSite(siteUrl);
-    _retainedTargets.removeWhere((_, entry) => entry.siteUrl == siteUrl);
+    final forgottenConversations = <_ChatConversationStream>[];
+    _conversations.removeWhere((_, owner) {
+      if (owner.siteUrl != siteUrl) return false;
+      forgottenConversations.add(owner);
+      return true;
+    });
+    for (final owner in forgottenConversations) {
+      owner.retire();
+    }
     final forgottenDraftRefs = <FrameSafeValueNotifier<ChatComposerDraft?>>[];
     _composerDraftRefs.removeWhere((key, ref) {
       if (!key.startsWith('$siteUrl~')) return false;
@@ -6939,21 +6180,7 @@ class ChatController extends FrameSafeNotifier {
     _channelThreadListRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _attempts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _streams.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _streamGenerations.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _windowAttemptedAt.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _pageRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _pendingLiveMessageIds.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _hiddenDeletedMessageChannelIds.remove(siteUrl);
-    for (final key
-        in _streamNoticeTimers.keys
-            .where((key) => key.startsWith('$siteUrl~'))
-            .toList()) {
-      _streamNoticeTimers.remove(key)?.cancel();
-    }
-    _queuedReadReceipts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _readReceiptTasks.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _readReceiptRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadNotificationRevisions.removeWhere(
       (key, _) => key.startsWith('$siteUrl~'),
     );
@@ -6971,16 +6198,8 @@ class ChatController extends FrameSafeNotifier {
     _channelFollowWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelSettingsWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadTitleWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    final forgottenRefs = <FrameSafeValueNotifier<ChatStreamState>>[];
-    _streamRefs.removeWhere((key, ref) {
-      if (!key.startsWith('$siteUrl~')) return false;
-      forgottenRefs.add(ref);
-      return true;
-    });
-    // Detach before notifying so a reentrant lookup gets a new-session ref;
-    // widgets may still listen to the old ref during their removal frame.
-    for (final ref in forgottenRefs) {
-      ref.value = const ChatStreamState();
+    for (final owner in forgottenConversations) {
+      owner.resetReference();
     }
     _publicIds.remove(siteUrl);
     _directIds.remove(siteUrl);
@@ -7010,26 +6229,18 @@ class ChatController extends FrameSafeNotifier {
     _channelRefreshes.clear();
     _threadListRefreshes.clear();
     _liveSync.dispose();
-    for (final pins in _messagePins.values) {
-      pins.release();
+    final conversations = _conversations.values.toList(growable: false);
+    _conversations.clear();
+    for (final owner in conversations) {
+      owner.retire();
+      owner.disposeReference();
     }
-    _messagePins.clear();
-    _retainedTargets.clear();
     _threadDetailRequests.clear();
     _threadDetailRuns.clear();
     _threadDetailDirty.clear();
     _channelDetailRequests.clear();
     _channelDetailRuns.clear();
-    _windowAttemptedAt.clear();
-    _pendingLiveMessageIds.clear();
     _hiddenDeletedMessageChannelIds.clear();
-    for (final timer in _streamNoticeTimers.values) {
-      timer.cancel();
-    }
-    _streamNoticeTimers.clear();
-    _queuedReadReceipts.clear();
-    _readReceiptTasks.clear();
-    _readReceiptRuns.clear();
     _threadNotificationRevisions.clear();
     _threadNotificationTails.clear();
     _threadNotificationConfirmed.clear();
@@ -7062,10 +6273,6 @@ class ChatController extends FrameSafeNotifier {
       ref.dispose();
     }
     _composerDraftRefs.clear();
-    for (final ref in _streamRefs.values) {
-      ref.dispose();
-    }
-    _streamRefs.clear();
     super.dispose();
   }
 }

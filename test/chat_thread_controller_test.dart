@@ -1373,6 +1373,42 @@ void main() {
     },
   );
 
+  testWidgets('a notice expires when its listener starts history paging', (
+    tester,
+  ) async {
+    final api = _AdversarialThreadApi(
+      detail: threadDetail(),
+      missingTargetMessageId: 999,
+      pages: {
+        'thread-9-22': threadPage([16, 17, 18], canLoadMorePast: true),
+        'thread-9-22~past~16': threadPage([15]),
+      },
+    );
+    final subject = _controllerFor(api);
+    final stream = subject.chat.streamListenableFor(site, target);
+    Future<void>? paging;
+    var pagingStarted = false;
+    void loadHistoryOnNotice() {
+      if (stream.value.notice != null && !pagingStarted) {
+        pagingStarted = true;
+        paging = subject.chat.loadOlderFor(site, target);
+      }
+    }
+
+    stream.addListener(loadHistoryOnNotice);
+
+    await subject.chat.openThread(site, target, targetMessageId: 999);
+    expect(paging, isNotNull);
+    await paging;
+    expect(stream.value.messageIds, [15, 16, 17, 18]);
+    expect(stream.value.notice, isNotNull);
+
+    await tester.pump(const Duration(seconds: 4));
+
+    expect(stream.value.notice, isNull);
+    stream.removeListener(loadHistoryOnNotice);
+  });
+
   test(
     'sending a thread reply includes its ID and never enters the channel stream',
     () async {
