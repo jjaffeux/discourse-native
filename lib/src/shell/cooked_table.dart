@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
+import 'package:html/html_escape.dart';
 
 import '../theme/d_icons.dart';
 import 'cooked_document.dart';
@@ -59,23 +60,58 @@ class _Cell {
   _Cell(dom.Element element)
     : text = element.text.trim().replaceAll(RegExp(r'\s+'), ' '),
       copyText = _copyCellText(element),
-      html =
-          (dom.Element.tag('div')
-                ..attributes.addAll(element.attributes)
-                ..innerHtml = element.innerHtml)
-              .outerHtml;
+      html = _cellHtml(element);
 
   final String text;
   final String copyText;
   final String html;
 }
 
-String _copyCellText(dom.Element element) {
-  final copy = element.clone(true);
-  for (final br in copy.querySelectorAll('br')) {
-    br.replaceWith(dom.Text('<br>'));
+final _cellRawText = RegExp(
+  r'<(?:plaintext|script)(?:\s|>)',
+  caseSensitive: false,
+);
+
+String _cellHtml(dom.Element element) {
+  final body = element.innerHtml;
+  if (_cellRawText.hasMatch(body)) {
+    return (dom.Element.tag('div')
+          ..attributes.addAll(element.attributes)
+          ..innerHtml = body)
+        .outerHtml;
   }
-  return copy.text.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final html = StringBuffer('<div');
+  element.attributes.forEach((name, value) {
+    html
+      ..write(' ')
+      ..write(name)
+      ..write('="')
+      ..write(htmlSerializeEscape(value, attributeMode: true))
+      ..write('"');
+  });
+  return (html
+        ..write('>')
+        ..write(body)
+        ..write('</div>'))
+      .toString();
+}
+
+String _copyCellText(dom.Element element) {
+  final text = StringBuffer();
+  void visit(dom.Node node) {
+    if (node is dom.Text) {
+      text.write(node.data);
+    } else if (node is dom.Element && node.localName == 'br') {
+      text.write('<br>');
+    } else {
+      for (final child in node.nodes) {
+        visit(child);
+      }
+    }
+  }
+
+  visit(element);
+  return text.toString().trim().replaceAll(RegExp(r'\s+'), ' ');
 }
 
 class _CookedTable extends StatefulWidget {
