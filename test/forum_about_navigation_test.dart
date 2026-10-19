@@ -96,7 +96,7 @@ void main() {
       expect(shell.currentContent?.isForumAbout, isTrue);
       expect(find.byType(ForumAboutPage), findsOneWidget);
       expect(api.requests.single.apiKey, isNull);
-      expect(api.requests.single.clientId, isNull);
+      expect(api.requests.single.clientId, isEmpty);
       expect(find.text('17 voice participants'), findsOneWidget);
       expect(launched, isEmpty);
       await shell.refreshCurrentTab();
