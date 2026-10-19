@@ -23,6 +23,7 @@ import 'voice_video_handle.dart';
 
 part 'voice_call_manager.dart';
 part 'voice_call_session.dart';
+part 'voice_room_directory.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
 
@@ -233,17 +234,6 @@ final class VoiceNotice {
   final String message;
 }
 
-/// At most this many rooms reached by link (rather than listed in the
-/// directory) keep a live subscription per site. Direct-call rooms are the
-/// usual case: they never appear in the directory, and the server reaps them
-/// once empty, so nothing else would ever release their channel.
-const _maxLinkedRoomsPerSite = 8;
-
-/// Destroyed rooms remembered per site, so a read requested before the
-/// destroy cannot bring one back. Room ids are never reused, so keeping a
-/// tombstone is never wrong; the bound only keeps the oldest from piling up.
-const _maxDestroyedRoomsPerSite = 16;
-
 typedef VoiceTrackerLookup = PluginLiveChannelHandle? Function(String siteUrl);
 typedef VoiceSiteFlagReader = bool Function(String siteUrl);
 typedef VoiceSiteNameLookup = String? Function(String siteUrl);
@@ -363,23 +353,15 @@ final class VoiceController extends ChangeNotifier {
   // ignore: cancel_subscriptions
   late final StreamSubscription<VoiceSystemCallAction> _systemActions;
 
-  final Map<String, VoiceDirectory> _directories = {};
+  final Map<String, _VoiceRoomDirectory> _roomDirectories = {};
+  final Set<_VoiceRoomDirectory> _closingDirectories = {};
   final Map<String, PluginLiveChannelHandle> _attachedTrackers = {};
-  final Map<String, Map<int, VoiceRoom>> _linkedRooms = {};
-  final Set<String> _loadingSites = {};
-  final Set<String> _unavailableSites = {};
-  final Map<String, PluginLiveChannelSubscription> _directorySubscriptions = {};
-  final Map<String, Map<int, PluginLiveChannelSubscription>>
-  _roomSubscriptions = {};
-  final Map<String, _VoiceLiveCursors> _liveCursors = {};
-  final Map<String, String> _errors = {};
   final Map<String, _VoiceChatAssociation> _chats = {};
   final Map<String, Object> _siteSessions = {};
-  final Map<String, Object> _directoryRequests = {};
-  final Map<String, Map<int, int>> _roomResponseVersions = {};
-  final Map<String, Map<int, int>> _roomLiveVersions = {};
-  final Map<String, Map<int, int>> _destroyedRoomVersions = {};
-  int _roomRequestVersion = 0;
+  final ChangeNotifier _roomListChanges = ChangeNotifier();
+  Map<String, VoiceDirectory> _publishedDirectories = {};
+  Set<(String, int)> _publishedJoining = {};
+
   final Map<String, Object> _chatRequests = {};
   final Map<String, _VoiceInviteRef> _pendingInviteRefs = {};
   final Map<String, int> _roomVideoWatchers = {};
@@ -402,6 +384,7 @@ final class VoiceController extends ChangeNotifier {
   VoiceCallSnapshot? get call => _call;
 
   void _notifyCallChanged() {
+    _notifyRoomListChanged();
     if (!_disposed) notifyListeners();
   }
 
@@ -503,8 +486,7 @@ final class VoiceController extends ChangeNotifier {
     );
     if (!isCurrent()) return null;
     _record('call.direct.started', data: {..._roomDiagnosticData(room)});
-    _rememberLinkedRoom(siteUrl, room);
-    _syncSubscriptions(siteUrl);
+    _roomDirectory(siteUrl).rememberLinkedRoom(room);
     notifyListeners();
     return isCurrent() ? VoiceOutgoingCall._(siteUrl, room, isCurrent) : null;
   }
@@ -798,9 +780,45 @@ final class VoiceController extends ChangeNotifier {
   bool _isWatching(VoiceCallSnapshot call) =>
       (_roomVideoWatchers['${call.siteUrl}#${call.room.id}'] ?? 0) > 0;
 
-  VoiceDirectory? directory(String siteUrl) => _directories[siteUrl];
-  String? errorFor(String siteUrl) => _errors[siteUrl];
-  bool isLoading(String siteUrl) => _loadingSites.contains(siteUrl);
+  /// Room directory and join-loading changes, independent of call controls,
+  /// incoming rings, embedded Chat and device preferences.
+  Listenable get roomListenable => _roomListChanges;
+
+  _VoiceRoomDirectory _roomDirectory(String siteUrl) =>
+      _roomDirectories.putIfAbsent(
+        siteUrl,
+        () => _VoiceRoomDirectory(this, siteUrl, _siteSession(siteUrl)),
+      );
+
+  VoiceDirectory? directory(String siteUrl) =>
+      _roomDirectories[siteUrl]?.snapshot;
+  String? errorFor(String siteUrl) => _roomDirectories[siteUrl]?.error;
+  bool isLoading(String siteUrl) => _roomDirectories[siteUrl]?.loading ?? false;
+
+  void _setSiteError(String siteUrl, String? error) =>
+      _roomDirectory(siteUrl).setError(error);
+
+  void _notifyDirectoryChanged(_VoiceRoomDirectory directory) {
+    if (!directory.isCurrent) return;
+    _notifyRoomListChanged();
+    if (directory.isCurrent) notifyListeners();
+  }
+
+  void _notifyRoomListChanged() {
+    if (_disposed) return;
+    final directories = {
+      for (final entry in _roomDirectories.entries)
+        entry.key: ?entry.value.snapshot,
+    };
+    final joining = _calls.joiningRooms;
+    if (!mapEquals(directories, _publishedDirectories) ||
+        !setEquals(joining, _publishedJoining)) {
+      _publishedDirectories = directories;
+      _publishedJoining = joining;
+      _roomListChanges.notifyListeners();
+    }
+  }
+
   VoiceChatSnapshot? chat(String siteUrl, int roomId) {
     final state = _chats['$siteUrl#$roomId'];
     if (state == null) return null;
@@ -815,13 +833,27 @@ final class VoiceController extends ChangeNotifier {
     );
   }
 
-  VoiceRoom? room(String siteUrl, int roomId) {
-    for (final room in _directories[siteUrl]?.rooms ?? const <VoiceRoom>[]) {
-      if (room.id == roomId) return room;
+  VoiceRoom? room(String siteUrl, int roomId) =>
+      _roomDirectories[siteUrl]?.room(roomId) ??
+      (_retainedRoom(siteUrl)?.id == roomId ? _retainedRoom(siteUrl) : null);
+
+  VoiceRoom? _retainedRoom(String siteUrl) =>
+      _call?.siteUrl == siteUrl ? _call?.room : null;
+
+  void _refreshRetainedRoom(String siteUrl, VoiceRoom room) =>
+      _calls.current?._refreshCallRoom(siteUrl, room);
+
+  void _directoryRoomDestroyed(String siteUrl, int roomId) {
+    _removeChatAssociation(siteUrl, roomId);
+    if (_call?.siteUrl == siteUrl && _call?.room.id == roomId) {
+      _observe(
+        () => _leave(
+          notifyServer: false,
+          reason: _VoiceLeaveReason.roomDestroyed,
+        ),
+        'voice.roomDestroyed',
+      );
     }
-    final call = _call;
-    if (call?.siteUrl == siteUrl && call?.room.id == roomId) return call?.room;
-    return _linkedRooms[siteUrl]?[roomId];
   }
 
   void rememberInviteRef({
@@ -853,209 +885,13 @@ final class VoiceController extends ChangeNotifier {
     String siteUrl,
     String slug, {
     bool Function()? ifCurrent,
-  }) async {
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() =>
-        _isCurrentSiteSession(siteUrl, siteSession) &&
-        (ifCurrent?.call() ?? true);
-    if (!isCurrent() || _unavailableSites.contains(siteUrl)) return null;
-    try {
-      final capabilityEnabled = await _capabilityEnabledFor(siteUrl);
-      if (!isCurrent() || capabilityEnabled == false) return null;
-      final directory = _directories[siteUrl];
-      for (final room in directory?.rooms ?? const <VoiceRoom>[]) {
-        if (room.slug == slug) return room;
-      }
-      final credentials = await _requestCredentials(
-        siteUrl,
-        ifCurrent: isCurrent,
-      );
-      if (credentials == null) return null;
-      final requestVersion = ++_roomRequestVersion;
-      var room = await credentials.run(
-        () => api.room(
-          siteUrl: siteUrl,
-          slug: slug,
-          apiKey: credentials.apiKey!,
-          clientId: credentials.clientId,
-        ),
-      );
-      if (!isCurrent() || _destroyedSince(siteUrl, room.id, requestVersion)) {
-        return null;
-      }
-      room = _acceptRoomResponse(siteUrl, room, requestVersion);
-      _rememberLinkedRoom(siteUrl, room);
-      _syncSubscriptions(siteUrl);
-      if (!isCurrent()) return null;
-      notifyListeners();
-      return isCurrent() ? room : null;
-    } catch (error, stackTrace) {
-      if (isCurrent()) _report(error, stackTrace, 'voice.room');
-      return null;
-    }
-  }
-
-  /// A room reached by link is held (and subscribed) beside the directory
-  /// so its roster and signals arrive like any listed room's. Bounded: the
-  /// oldest link goes first, but never the room of the active call.
-  void _rememberLinkedRoom(String siteUrl, VoiceRoom room) {
-    final previous = this.room(siteUrl, room.id);
-    _refreshRoom(siteUrl, room);
-    final linked = _linkedRooms[siteUrl] ??= {};
-    linked.remove(room.id);
-    linked[room.id] = _mergeRoom(previous, room);
-    final call = _call;
-    final protectedId = call?.siteUrl == siteUrl ? call?.room.id : null;
-    for (final id in linked.keys.toList()) {
-      if (linked.length <= _maxLinkedRoomsPerSite) break;
-      if (id == room.id || id == protectedId) continue;
-      linked.remove(id);
-    }
-  }
+  }) => _roomDirectory(siteUrl).resolveRoom(slug, ifCurrent: ifCurrent);
 
   Future<void> ensureLoaded(String siteUrl, {bool force = false}) =>
       _runPublicOperation(
-        () => _ensureLoaded(siteUrl, force: force),
+        () => _roomDirectory(siteUrl).ensureLoaded(force: force),
         'voice.directory',
       );
-
-  Future<void> _ensureLoaded(String siteUrl, {bool force = false}) async {
-    if (!supportedPlatform) return;
-    if (_disposed ||
-        _loadingSites.contains(siteUrl) ||
-        _unavailableSites.contains(siteUrl)) {
-      return;
-    }
-    if (!force && _directories.containsKey(siteUrl)) {
-      attachTracker(siteUrl);
-      return;
-    }
-    _record(
-      'room.directory.load_started',
-      component: 'room',
-      data: {'force': force},
-    );
-    _recordRaw(
-      'room.directory.load_context',
-      component: 'room',
-      data: {'siteUrl': siteUrl},
-    );
-    final siteSession = _siteSession(siteUrl);
-    final request = Object();
-    _directoryRequests[siteUrl] = request;
-    bool isCurrent() =>
-        _isCurrentSiteSession(siteUrl, siteSession) &&
-        identical(_directoryRequests[siteUrl], request);
-    final capabilityEnabled = await _capabilityEnabledFor(siteUrl);
-    if (!isCurrent()) return;
-    if (capabilityEnabled == false) {
-      _directories.remove(siteUrl);
-      _pruneChatAssociations(siteUrl, const {});
-      _directoryRequests.remove(siteUrl);
-      _record('room.directory.skipped', component: 'room');
-      notifyListeners();
-      return;
-    }
-    final credentials = await _requestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) {
-      if (!isCurrent()) return;
-      forget(siteUrl);
-      return;
-    }
-    _loadingSites.add(siteUrl);
-    _errors.remove(siteUrl);
-    notifyListeners();
-    if (!isCurrent()) return;
-    try {
-      final requestVersion = ++_roomRequestVersion;
-      final directory = await credentials.run(
-        () => api.rooms(
-          siteUrl: siteUrl,
-          apiKey: credentials.apiKey!,
-          clientId: credentials.clientId,
-        ),
-      );
-      if (!isCurrent()) return;
-      final incomingRooms = [
-        for (final room in directory.rooms)
-          if (!_destroyedSince(siteUrl, room.id, requestVersion))
-            _acceptRoomResponse(siteUrl, room, requestVersion),
-      ];
-      final heldRooms = _heldRooms(siteUrl);
-      final listedIds = {for (final room in incomingRooms) room.id};
-      final liveVersions = _roomLiveVersions[siteUrl] ?? const <int, int>{};
-      _directories[siteUrl] = VoiceDirectory(
-        rooms: List.unmodifiable([
-          for (final room in incomingRooms)
-            _mergeRoom(heldRooms[room.id], room),
-          // A room a live event listed after this read was requested.
-          for (final room
-              in _directories[siteUrl]?.rooms ?? const <VoiceRoom>[])
-            if (!listedIds.contains(room.id) &&
-                (liveVersions[room.id] ?? 0) > requestVersion)
-              room,
-        ]),
-        canCreateRoom: directory.canCreateRoom,
-        messageBusLastId: directory.messageBusLastId,
-      );
-      for (final room in incomingRooms) {
-        final linked = _linkedRooms[siteUrl];
-        if (linked?[room.id] case final previous?) {
-          linked![room.id] = _mergeRoom(previous, room);
-        }
-        _calls.current?._refreshCallRoom(siteUrl, room);
-      }
-      // Read after the new listing is installed: a room that left it and is
-      // neither linked nor in the call is released, while a linked or direct
-      // call room — which the directory never lists — keeps its open Chat as
-      // it keeps its subscription.
-      final retainedIds = _heldRooms(siteUrl).keys.toSet();
-      _roomResponseVersions[siteUrl]?.removeWhere(
-        (id, _) => !retainedIds.contains(id),
-      );
-      _roomLiveVersions[siteUrl]?.removeWhere(
-        (id, _) => !retainedIds.contains(id),
-      );
-      _pruneChatAssociations(siteUrl, retainedIds);
-      _record(
-        'room.directory.load_completed',
-        component: 'room',
-        data: {'roomCount': directory.rooms.length},
-      );
-      _syncSubscriptions(siteUrl);
-    } on SiteLookupException catch (error, stackTrace) {
-      if (!isCurrent()) return;
-      // Plugin absence and account refusal both mean no section for this site
-      // session. Remember that negative capability so every later activation
-      // does not probe the same missing route again. Network, rate-limit, 5xx,
-      // and parse failures stay retryable without claiming the plugin exists.
-      if (_isUnavailableDirectoryFailure(error)) {
-        _directories.remove(siteUrl);
-        _pruneChatAssociations(siteUrl, const {});
-        _unavailableSites.add(siteUrl);
-      } else {
-        _errors[siteUrl] = appL10n.couldnTLoadVoiceRooms;
-        _report(error, stackTrace, 'voice.directory');
-      }
-    } catch (error, stackTrace) {
-      if (!isCurrent()) return;
-      _errors[siteUrl] = appL10n.couldnTLoadVoiceRooms;
-      _report(error, stackTrace, 'voice.directory');
-    } finally {
-      if (isCurrent()) {
-        _directoryRequests.remove(siteUrl);
-        _loadingSites.remove(siteUrl);
-        notifyListeners();
-      }
-    }
-  }
-
-  static bool _isUnavailableDirectoryFailure(SiteLookupException error) =>
-      error.failure == SiteLookupFailure.notDiscourse ||
-      error.statusCode == HttpStatus.notFound;
 
   Object _siteSession(String siteUrl) =>
       _siteSessions.putIfAbsent(siteUrl, Object.new);
@@ -1098,14 +934,14 @@ final class VoiceController extends ChangeNotifier {
       _cancelTrackerSubscriptions(siteUrl);
       _attachedTrackers[siteUrl] = tracker;
     }
-    _syncSubscriptions(siteUrl);
+    _roomDirectory(siteUrl).syncSubscriptions();
   }
 
   PluginLiveChannelHandle? _trackerFor(String siteUrl) =>
       _attachedTrackers[siteUrl] ?? trackerFor(siteUrl);
 
   void _cancelTrackerSubscriptions(String siteUrl) {
-    _directorySubscriptions.remove(siteUrl)?.cancel();
+    _roomDirectories[siteUrl]?.detachTracker();
     _ringSubscriptions.remove(siteUrl)?.cancel();
     for (final entry in _chats.entries) {
       if (entry.key.startsWith('$siteUrl#')) _unwatchChatUpdates(entry.value);
@@ -1113,51 +949,13 @@ final class VoiceController extends ChangeNotifier {
     if (_incomingCall?.siteUrl == siteUrl) {
       _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     }
-    for (final subscription
-        in _roomSubscriptions.remove(siteUrl)?.values ??
-            const <PluginLiveChannelSubscription>[]) {
-      subscription.cancel();
-    }
   }
 
-  /// Every room this controller holds for the site: the directory listing,
-  /// rooms reached by link, and the active call's room. A direct call's
-  /// ephemeral room is in none of the first two until it is linked or
-  /// joined, and the directory never lists it at all.
-  Map<int, VoiceRoom> _heldRooms(String siteUrl) => {
-    for (final room in _directories[siteUrl]?.rooms ?? const <VoiceRoom>[])
-      room.id: room,
-    for (final room in _linkedRooms[siteUrl]?.values ?? const <VoiceRoom>[])
-      room.id: room,
-    if (_call case final call? when call.siteUrl == siteUrl)
-      call.room.id: call.room,
-  };
-
-  /// Brings the site's subscriptions in line with what it holds: the index
-  /// (once a directory has loaded) and every held room without one are
-  /// subscribed, rooms no longer held are cancelled. A live subscription
-  /// keeps its own position on the wire and is never replaced here:
-  /// re-subscribing from the snapshot cursor would replay every message
-  /// published since the load, and each replay would arrive in
-  /// [_onDirectoryEvent] to trigger the next. Subscriptions are replaced only
-  /// with the tracker ([attachTracker]) and dropped only with the site
-  /// ([forget]).
-  void _syncSubscriptions(String siteUrl) {
-    final tracker = _trackerFor(siteUrl);
-    if (tracker == null) return;
-    final cursors = _liveCursors.putIfAbsent(siteUrl, _VoiceLiveCursors.new);
+  bool _syncAuxiliarySubscriptions(
+    String siteUrl,
+    PluginLiveChannelHandle tracker,
+  ) {
     var changed = false;
-    final directory = _directories[siteUrl];
-    if (directory != null && !_directorySubscriptions.containsKey(siteUrl)) {
-      _directorySubscriptions[siteUrl] = tracker.subscribe(
-        '/voice/rooms/index',
-        (data, messageId) => _onDirectoryEvent(siteUrl, data, messageId),
-        lastId: cursors.directoryCursor(directory.messageBusLastId),
-      );
-      changed = true;
-    }
-    // Rings arrive whether or not any Voice surface is on screen, so the
-    // per-user ring channel is watched as soon as the site has a tracker.
     final userId = _userIdFor(siteUrl);
     if (userId != null && !_ringSubscriptions.containsKey(siteUrl)) {
       _ringSubscriptions[siteUrl] = tracker.subscribe(
@@ -1166,149 +964,15 @@ final class VoiceController extends ChangeNotifier {
       );
       changed = true;
     }
-    final subscriptions = _roomSubscriptions.putIfAbsent(siteUrl, () => {});
-    final wanted = _heldRooms(siteUrl);
-    for (final id
-        in subscriptions.keys.where((id) => !wanted.containsKey(id)).toList()) {
-      subscriptions.remove(id)?.cancel();
-      cursors.dropRoom(id);
-      changed = true;
-    }
-    for (final room in wanted.values) {
-      if (subscriptions.containsKey(room.id)) continue;
-      subscriptions[room.id] = tracker.subscribe(
-        '/voice/rooms/${room.id}',
-        (data, messageId) => _onRoomEvent(siteUrl, room.id, data, messageId),
-        lastId: cursors.roomCursor(room.id, room.messageBusLastId),
-      );
-      changed = true;
-    }
     for (final entry in _chats.entries) {
       if (!entry.key.startsWith('$siteUrl#') || !entry.value.visible) continue;
       final roomId = int.tryParse(entry.key.substring(siteUrl.length + 1));
-      if (roomId == null) continue;
-      _watchChatUpdates(siteUrl, roomId, entry.key, entry.value);
+      if (roomId != null) {
+        _watchChatUpdates(siteUrl, roomId, entry.key, entry.value);
+      }
     }
-    if (!changed) return;
-    _record(
-      'room.subscriptions.synced',
-      component: 'room',
-      correlationId: _correlationForSite(siteUrl),
-      data: {'roomCount': wanted.length},
-    );
+    return changed;
   }
-
-  void _onDirectoryEvent(String siteUrl, Object? data, int messageId) {
-    if (_disposed) return;
-    // A delivered message is consumed whether or not its payload is
-    // understood; the cursor moves so a replacement tracker is not handed it
-    // again.
-    _liveCursors[siteUrl]?.directoryDelivered(messageId);
-    if (data is! Map<String, dynamic>) return;
-    final rawRoom = data['room'];
-    if (rawRoom is! Map<String, dynamic>) return;
-    final incoming = VoiceRoom.fromJson(rawRoom);
-    final call = _call;
-    _record(
-      'room.directory_event',
-      component: 'room',
-      correlationId: call?.siteUrl == siteUrl && call?.room.id == incoming.id
-          ? _correlationFor(call)
-          : null,
-      data: {
-        ..._roomDiagnosticData(incoming),
-        'type': _voiceDirectoryDiagnosticType(data['type']),
-      },
-    );
-    final held = _directories[siteUrl];
-    if (held == null) return;
-    final rooms = [...held.rooms];
-    final index = rooms.indexWhere((room) => room.id == incoming.id);
-    switch (data['type']) {
-      case 'created':
-      case 'updated':
-        if (index < 0) {
-          rooms.add(
-            _mergeRoom(
-              room(siteUrl, incoming.id),
-              incoming,
-              preserveRecording: true,
-            ),
-          );
-        } else {
-          rooms[index] = _mergeRoom(
-            rooms[index],
-            incoming,
-            preserveRecording: true,
-          );
-        }
-        final linked = _linkedRooms[siteUrl];
-        if (linked?[incoming.id] case final previous?) {
-          linked![incoming.id] = _mergeRoom(previous, incoming);
-        }
-        _calls.current?._refreshCallRoom(siteUrl, incoming);
-        _liveRoomChanged(siteUrl, incoming.id);
-      case 'destroyed':
-        _roomResponseVersions[siteUrl]?.remove(incoming.id);
-        _roomLiveVersions[siteUrl]?.remove(incoming.id);
-        final destroyed = _destroyedRoomVersions.putIfAbsent(siteUrl, () => {});
-        destroyed[incoming.id] = ++_roomRequestVersion;
-        while (destroyed.length > _maxDestroyedRoomsPerSite) {
-          destroyed.remove(destroyed.keys.first);
-        }
-        rooms.removeWhere((room) => room.id == incoming.id);
-        _linkedRooms[siteUrl]?.remove(incoming.id);
-        _removeChatAssociation(siteUrl, incoming.id);
-        if (_call case final call?
-            when call.siteUrl == siteUrl && call.room.id == incoming.id) {
-          _observe(
-            () => _leave(
-              notifyServer: false,
-              reason: _VoiceLeaveReason.roomDestroyed,
-            ),
-            'voice.roomDestroyed',
-          );
-        }
-      default:
-        return;
-    }
-    _directories[siteUrl] = VoiceDirectory(
-      rooms: List.unmodifiable(rooms),
-      canCreateRoom: held.canCreateRoom,
-      messageBusLastId: held.messageBusLastId,
-    );
-    _syncSubscriptions(siteUrl);
-    notifyListeners();
-  }
-
-  // Reads started before a completed join or edit must not undo that write.
-  // Concurrent reads use request order; successful writes advance it on receipt.
-  // So do live events, but a broadcast omits the user's own fields: a read it
-  // overtook keeps the room as the events left it and supplies only those.
-  VoiceRoom _acceptRoomResponse(
-    String siteUrl,
-    VoiceRoom incoming,
-    int requestVersion,
-  ) {
-    final versions = _roomResponseVersions.putIfAbsent(siteUrl, () => {});
-    if ((versions[incoming.id] ?? 0) > requestVersion) {
-      return _heldRooms(siteUrl)[incoming.id] ?? incoming;
-    }
-    versions[incoming.id] = requestVersion;
-    if ((_roomLiveVersions[siteUrl]?[incoming.id] ?? 0) <= requestVersion) {
-      return incoming;
-    }
-    return _heldRooms(siteUrl)[incoming.id]?.withUserFieldsFrom(incoming) ??
-        incoming;
-  }
-
-  void _liveRoomChanged(String siteUrl, int roomId) {
-    _roomLiveVersions.putIfAbsent(siteUrl, () => {})[roomId] =
-        ++_roomRequestVersion;
-  }
-
-  bool _destroyedSince(String siteUrl, int roomId, int requestVersion) =>
-      (_destroyedRoomVersions[siteUrl]?[roomId] ?? 0) > requestVersion;
 
   static VoiceRoom _mergeRoom(
     VoiceRoom? held,
@@ -1326,19 +990,8 @@ final class VoiceController extends ChangeNotifier {
             : incoming.recording,
       );
 
-  void _refreshRoom(String siteUrl, VoiceRoom incoming) {
-    _updateRoom(
-      siteUrl,
-      incoming.id,
-      (held) => _mergeRoom(held, incoming),
-      updateCall: false,
-    );
-    _calls.current?._refreshCallRoom(siteUrl, incoming);
-  }
-
   void _onRoomEvent(String siteUrl, int roomId, Object? data, int messageId) {
     if (_disposed) return;
-    _liveCursors[siteUrl]?.roomDelivered(roomId, messageId);
     if (data is! Map<String, dynamic>) return;
     if (data['type'] == 'signal') {
       _observe(
@@ -1366,7 +1019,7 @@ final class VoiceController extends ChangeNotifier {
       }
       return;
     }
-    _liveRoomChanged(siteUrl, roomId);
+    _roomDirectories[siteUrl]?.liveRoomChanged(roomId);
     if (event is VoiceRoleChangedEvent) {
       _record(
         'room.role_changed',
@@ -1415,6 +1068,7 @@ final class VoiceController extends ChangeNotifier {
     }
     if (event is VoiceRingingEvent) {
       _updateRoom(siteUrl, roomId, (room) => room.withRinging(event.entry));
+      _notifyRoomListChanged();
       notifyListeners();
       return;
     }
@@ -1493,6 +1147,7 @@ final class VoiceController extends ChangeNotifier {
         );
       }
     }
+    _notifyRoomListChanged();
     notifyListeners();
   }
 
@@ -1572,23 +1227,15 @@ final class VoiceController extends ChangeNotifier {
             ...activeCall.room.participants,
             participant,
           ]);
-          final held = _directories[siteUrl];
-          if (held != null) {
-            _directories[siteUrl] = VoiceDirectory(
-              rooms: [
-                for (final room in held.rooms)
-                  room.id == roomId
-                      ? room.withParticipants(participants)
-                      : room,
-              ],
-              canCreateRoom: held.canCreateRoom,
-              messageBusLastId: held.messageBusLastId,
-            );
-          }
+          _roomDirectories[siteUrl]?.updateListedRoom(
+            roomId,
+            (room) => room.withParticipants(participants),
+          );
           if (identical(_call?.media, activeCall.media)) {
             _calls.current?.updateRoom(
               (room) => room.withParticipants(participants),
             );
+            _notifyRoomListChanged();
             notifyListeners();
             await activeCall.media.syncParticipants(participants);
           }
@@ -1671,20 +1318,7 @@ final class VoiceController extends ChangeNotifier {
     VoiceRoom Function(VoiceRoom room) update, {
     bool updateCall = true,
   }) {
-    final held = _directories[siteUrl];
-    if (held != null && held.rooms.any((room) => room.id == roomId)) {
-      _directories[siteUrl] = VoiceDirectory(
-        rooms: List.unmodifiable([
-          for (final room in held.rooms)
-            room.id == roomId ? update(room) : room,
-        ]),
-        canCreateRoom: held.canCreateRoom,
-        messageBusLastId: held.messageBusLastId,
-      );
-    }
-    final linked = _linkedRooms[siteUrl];
-    final linkedRoom = linked?[roomId];
-    if (linkedRoom != null) linked![roomId] = update(linkedRoom);
+    _roomDirectories[siteUrl]?.updateRoom(roomId, update);
     final call = _call;
     if (updateCall &&
         call != null &&
@@ -1700,6 +1334,7 @@ final class VoiceController extends ChangeNotifier {
     VoiceRecording? recording,
   ) {
     _updateRoom(siteUrl, roomId, (room) => room.withRecording(recording));
+    _notifyRoomListChanged();
     notifyListeners();
   }
 
@@ -1717,6 +1352,7 @@ final class VoiceController extends ChangeNotifier {
     if (_calls.current case final session?) {
       session.receiveParticipants(siteUrl, roomId, participants);
     } else {
+      _notifyRoomListChanged();
       notifyListeners();
     }
   }
@@ -1800,7 +1436,7 @@ final class VoiceController extends ChangeNotifier {
 
   void dismissCallError([String? siteUrl]) {
     if (_disposed) return;
-    final clearedSiteError = siteUrl != null && _errors.remove(siteUrl) != null;
+    final clearedSiteError = _roomDirectories[siteUrl]?.setError(null) ?? false;
     final clearedCallError = _call?.error != null;
     if (clearedCallError) _calls.current?.dismissError();
     if (clearedSiteError || clearedCallError) notifyListeners();
@@ -2272,55 +1908,10 @@ final class VoiceController extends ChangeNotifier {
     required VoiceRoomDraft draft,
     int? roomId,
   }) => _runPublicValueOperation<VoiceRoom?>(
-    () => _saveRoom(siteUrl: siteUrl, draft: draft, roomId: roomId),
+    () => _roomDirectory(siteUrl).saveRoom(draft: draft, roomId: roomId),
     'voice.saveRoom',
     fallback: null,
   );
-
-  Future<VoiceRoom?> _saveRoom({
-    required String siteUrl,
-    required VoiceRoomDraft draft,
-    int? roomId,
-  }) async {
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _keyRequestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return null;
-    try {
-      var room = roomId == null
-          ? await credentials.run(
-              () => api.createRoom(
-                siteUrl: siteUrl,
-                apiKey: credentials.apiKey!,
-                draft: draft,
-              ),
-            )
-          : await credentials.run(
-              () => api.updateRoom(
-                siteUrl: siteUrl,
-                roomId: roomId,
-                apiKey: credentials.apiKey!,
-                draft: draft,
-              ),
-            );
-      if (!isCurrent()) return null;
-      room = _acceptRoomResponse(siteUrl, room, ++_roomRequestVersion);
-      _refreshRoom(siteUrl, room);
-      await ensureLoaded(siteUrl, force: true);
-      return isCurrent() ? room : null;
-    } catch (error, stackTrace) {
-      if (!isCurrent()) return null;
-      _errors[siteUrl] = error is WriteException
-          ? error.message
-          : appL10n.couldnTSaveTheVoiceRoom;
-      _report(error, stackTrace, 'voice.saveRoom');
-      notifyListeners();
-      return null;
-    }
-  }
 
   Future<void> openChat(String siteUrl, int roomId, {bool force = false}) =>
       _runPublicOperation(
@@ -3232,20 +2823,21 @@ final class VoiceController extends ChangeNotifier {
       );
     }
     _siteSessions.remove(siteUrl);
+    final directory = _roomDirectories.remove(siteUrl);
+    if (directory != null) {
+      _closingDirectories.add(directory);
+      unawaited(
+        directory.close().whenComplete(
+          () => _closingDirectories.remove(directory),
+        ),
+      );
+    }
     _agentPermissions.remove(siteUrl);
     _agentPermissionRequests.remove(siteUrl);
     _agentSubmissions.removeWhere((key, _) => key.$1 == siteUrl);
-    _directoryRequests.remove(siteUrl);
-    _roomResponseVersions.remove(siteUrl);
-    _roomLiveVersions.remove(siteUrl);
-    _destroyedRoomVersions.remove(siteUrl);
     _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _pendingInviteRefs.remove(siteUrl);
-    _directories.remove(siteUrl);
-    _liveCursors.remove(siteUrl);
     _attachedTrackers.remove(siteUrl);
-    _unavailableSites.remove(siteUrl);
-    _linkedRooms.remove(siteUrl);
     final forgottenChats = <_VoiceChatAssociation>[];
     _chats.removeWhere((key, state) {
       if (!key.startsWith('$siteUrl#')) return false;
@@ -3257,8 +2849,7 @@ final class VoiceController extends ChangeNotifier {
       _closeChatConversation(state);
     }
     _cancelTrackerSubscriptions(siteUrl);
-    _errors.remove(siteUrl);
-    _loadingSites.remove(siteUrl);
+    _notifyRoomListChanged();
     if (!_disposed) notifyListeners();
   }
 
@@ -3525,22 +3116,21 @@ final class VoiceController extends ChangeNotifier {
 
     // Detach UI listeners synchronously, matching ChangeNotifier's disposal
     // contract even when the caller intentionally does not await [close].
+    _roomListChanges.dispose();
     super.dispose();
     return operation;
   }
 
   Future<void> _cancelSubscriptions() {
     final subscriptions = <PluginLiveChannelSubscription>[
-      ..._directorySubscriptions.values,
       ..._ringSubscriptions.values,
-      for (final siteSubscriptions in _roomSubscriptions.values)
-        ...siteSubscriptions.values,
     ];
-    _directorySubscriptions.clear();
     _ringSubscriptions.clear();
-    _roomSubscriptions.clear();
     _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
+    final directories = [..._roomDirectories.values, ..._closingDirectories];
+    _roomDirectories.clear();
     return Future.wait([
+      for (final directory in directories) directory.close(),
       for (final subscription in subscriptions)
         _cancelSubscription(subscription),
     ]);
@@ -3591,31 +3181,4 @@ final class _VoiceInviteRef {
 
   final String roomSlug;
   final String username;
-}
-
-/// Where a site's live channels have been read to. The directory and room
-/// records keep the cursors their payloads were served with; these advance
-/// with every delivered message, so a replacement tracker resumes after the
-/// last message this client consumed instead of replaying everything the
-/// server published since the load.
-final class _VoiceLiveCursors {
-  int? _directory;
-  final Map<int, int> _rooms = {};
-
-  int? directoryCursor(int? snapshot) => _newerCursor(snapshot, _directory);
-
-  int? roomCursor(int roomId, int? snapshot) =>
-      _newerCursor(snapshot, _rooms[roomId]);
-
-  void directoryDelivered(int messageId) {
-    final current = _directory;
-    if (current == null || messageId > current) _directory = messageId;
-  }
-
-  void roomDelivered(int roomId, int messageId) {
-    final current = _rooms[roomId];
-    if (current == null || messageId > current) _rooms[roomId] = messageId;
-  }
-
-  void dropRoom(int roomId) => _rooms.remove(roomId);
 }

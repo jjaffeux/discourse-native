@@ -7,7 +7,7 @@ final class _VoicePendingJoin {
     this.correlationId,
     this.completion,
   );
-  final String key;
+  final (String, int) key;
   final Object siteSession;
   final String correlationId;
   final Future<void> completion;
@@ -34,7 +34,7 @@ final class _VoiceCallManager {
   }
 
   bool isJoining(String siteUrl, int roomId) =>
-      (_pending?.key == '$siteUrl#$roomId' &&
+      (_pending?.key == (siteUrl, roomId) &&
           identical(
             _pending?.siteSession,
             controller._siteSessions[siteUrl],
@@ -43,13 +43,25 @@ final class _VoiceCallManager {
           current?._call?.room.id == roomId &&
           current?._call?.status == VoiceCallStatus.joining);
 
+  Set<(String, int)> get joiningRooms => {
+    if (_pending case final pending?
+        when identical(
+          pending.siteSession,
+          controller._siteSessions[pending.key.$1],
+        ))
+      pending.key,
+    if (current?._call case final call?
+        when call.status == VoiceCallStatus.joining)
+      (call.siteUrl, call.room.id),
+  };
+
   Future<void> join({
     required String siteUrl,
     required String siteName,
     required VoiceRoom room,
   }) {
     final siteSession = controller._siteSession(siteUrl);
-    final key = '$siteUrl#${room.id}';
+    final key = (siteUrl, room.id);
     final pending = _pending;
     if (pending?.key == key &&
         identical(pending?.siteSession, siteSession) &&

@@ -746,6 +746,20 @@ final class _CountingTracker extends RecordingPluginLiveChannels {
   }
 }
 
+final class _QueuedCallbackTracker extends RecordingPluginLiveChannels {
+  final Map<String, void Function(Object?, int)> callbacks = {};
+
+  @override
+  PluginLiveChannelSubscription subscribe(
+    String channel,
+    void Function(Object? data, int messageId) onMessage, {
+    int? lastId,
+  }) {
+    callbacks[channel] = onMessage;
+    return super.subscribe(channel, onMessage, lastId: lastId);
+  }
+}
+
 final class _PendingPluginGet {
   _PendingPluginGet(this.path);
 
@@ -921,6 +935,7 @@ void main() {
   void useTransport(
     RecordingPluginTransport value, {
     VoiceCapabilityResolver? capabilityEnabledFor,
+    VoiceTrackerLookup? trackerLookup,
     VoiceUserIdLookup? userIdFor,
     int Function(String)? videoMaxPublishersFor,
     FakeChatConversationCapability? conversations,
@@ -936,11 +951,13 @@ void main() {
       api: VoiceApi(transport),
       chatConversations: chatConversations,
       requests: requests,
-      trackerFor: (siteUrl) => siteUrl == firstSite
-          ? firstTracker
-          : siteUrl == secondSite
-          ? secondTracker
-          : null,
+      trackerFor:
+          trackerLookup ??
+          (siteUrl) => siteUrl == firstSite
+              ? firstTracker
+              : siteUrl == secondSite
+              ? secondTracker
+              : null,
       userIdFor: userIdFor ?? (_) => 1,
       videoMaxPublishersFor: videoMaxPublishersFor,
       capabilityEnabledFor: capabilityEnabledFor,
@@ -1063,6 +1080,65 @@ void main() {
   );
 
   group('directory loading', () {
+    for (final oldResponseFirst in [true, false]) {
+      test('a forgotten directory response cannot affect a replacement load '
+          'when it completes ${oldResponseFirst ? 'first' : 'last'}', () async {
+        final controlled = _ControlledVoiceTransport()
+          ..heldPluginPaths.add('/voice/rooms.json');
+        useTransport(controlled);
+
+        final oldLoad = controller.ensureLoaded(firstSite);
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(1));
+
+        controller.forget(firstSite);
+        final newLoad = controller.ensureLoaded(firstSite);
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(2));
+        expect(controller.isLoading(firstSite), isTrue);
+
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+        final newDirectory = fixture('directory');
+        final replacement =
+            (newDirectory['rooms'] as List<dynamic>).first
+                as Map<String, dynamic>;
+        replacement['name'] = 'Replacement room';
+
+        if (oldResponseFirst) {
+          controlled.pendingPluginGets.first.response.complete(
+            fixture('directory'),
+          );
+          await oldLoad;
+          expect(controller.isLoading(firstSite), isTrue);
+          expect(controller.directory(firstSite), isNull);
+          expect(notifications, 0);
+        }
+
+        controlled.pendingPluginGets.last.response.complete(newDirectory);
+        await newLoad;
+        expect(controller.isLoading(firstSite), isFalse);
+        expect(
+          controller.directory(firstSite)?.rooms.single.name,
+          'Replacement room',
+        );
+
+        if (!oldResponseFirst) {
+          final successorNotifications = notifications;
+          controlled.pendingPluginGets.first.response.complete(
+            fixture('directory'),
+          );
+          await oldLoad;
+          expect(
+            controller.directory(firstSite)?.rooms.single.name,
+            'Replacement room',
+          );
+          expect(controller.isLoading(firstSite), isFalse);
+          expect(notifications, successorNotifications);
+        }
+      });
+    }
+
     test(
       'caches confirmed plugin unavailability until the site is forgotten',
       () async {
@@ -1158,6 +1234,60 @@ void main() {
       expect(controlled.pluginGets, ['/voice/rooms.json', '/voice/rooms.json']);
       expect(controller.directory(firstSite), isNotNull);
     });
+
+    for (final unavailableByCapability in [true, false]) {
+      test(
+        'an active call survives '
+        '${unavailableByCapability ? 'disabled capability' : 'directory absence'}',
+        () async {
+          var capabilityEnabled = true;
+          final controlled = _ControlledVoiceTransport(
+            responses: transport.responses,
+          );
+          useTransport(
+            controlled,
+            capabilityEnabledFor: (_) async => capabilityEnabled,
+          );
+          await controller.ensureLoaded(firstSite);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          await controller.selectAudioInput('chosen-microphone');
+          final call = controller.call!;
+          final media = mediaFactory.sessions.single;
+          expect(firstTracker.subscriberCount('/voice/call-ring/1'), 1);
+          expect(firstTracker.subscriberCount('/voice/rooms/7'), 1);
+
+          if (unavailableByCapability) {
+            capabilityEnabled = false;
+          } else {
+            controlled.pluginGetFailures['/voice/rooms.json'] =
+                const SiteLookupException(
+                  SiteLookupFailure.unreachable,
+                  firstSite,
+                  statusCode: HttpStatus.notFound,
+                );
+          }
+          await controller.ensureLoaded(firstSite, force: true);
+
+          expect(controller.directory(firstSite), isNull);
+          expect(controller.call, same(call));
+          expect(controller.call!.media, same(media));
+          expect(media.disposeCount, 0);
+          expect(systemCall.ends, 0);
+          expect(controller.audioInputDeviceId, 'chosen-microphone');
+          expect(media.selectedAudioInput, 'chosen-microphone');
+          expect(firstTracker.subscriberCount('/voice/call-ring/1'), 1);
+          expect(firstTracker.subscriberCount('/voice/rooms/7'), 1);
+
+          await controller.setMuted(!call.muted);
+          expect(controller.call!.muted, !call.muted);
+          expect(media.muted, !call.muted);
+        },
+      );
+    }
 
     test('rechecks site ownership before reading credentials', () async {
       final counting = _CountingRequestHost();
@@ -2203,6 +2333,52 @@ void main() {
   });
 
   group('site invalidation', () {
+    test('close drains watches detached by tracker replacement', () async {
+      final awaitable = _AwaitableSubscriptionTracker();
+      firstTracker = awaitable;
+      useTransport(transport, userIdFor: (_) => null);
+      await controller.ensureLoaded(firstSite);
+
+      final replacement = tracker(firstSite);
+      controller.attachTracker(firstSite, replacement);
+      await awaitable.firstCancellationStarted.future;
+      expect(awaitable.channels, isEmpty);
+      expect(awaitable.cancellationsStarted, 2);
+      var closed = false;
+      final closing = controller.close().then((_) => closed = true);
+      await pumpEventQueue();
+      expect(replacement.channels, isEmpty);
+      expect(closed, isFalse);
+
+      awaitable.cancellationGate.complete();
+      await closing;
+      expect(closed, isTrue);
+    });
+
+    test(
+      'close drains a directory already retired by account removal',
+      () async {
+        final awaitable = _AwaitableSubscriptionTracker();
+        firstTracker = awaitable;
+        useTransport(transport, userIdFor: (_) => null);
+        await controller.ensureLoaded(firstSite);
+
+        controller.forget(firstSite);
+        await awaitable.firstCancellationStarted.future;
+        expect(controller.directory(firstSite), isNull);
+        expect(awaitable.channels, isEmpty);
+        expect(awaitable.cancellationsStarted, 2);
+        var closed = false;
+        final closing = controller.close().then((_) => closed = true);
+        await pumpEventQueue();
+        expect(closed, isFalse);
+
+        awaitable.cancellationGate.complete();
+        await closing;
+        expect(closed, isTrue);
+      },
+    );
+
     test(
       'discards a late directory response after the site is forgotten',
       () async {
@@ -2373,6 +2549,94 @@ void main() {
   });
 
   group('live tracking and media signaling', () {
+    for (final withoutTracker in [false, true]) {
+      test('tracker attachment retains served cursors without delivery '
+          '(initial tracker: ${!withoutTracker})', () async {
+        if (withoutTracker) useTransport(transport, trackerLookup: (_) => null);
+        await controller.ensureLoaded(firstSite);
+        for (final cursor in [200, 100]) {
+          transport.responses['GET /voice/rooms.json'] = {
+            'index_message_bus_last_id': cursor,
+            'rooms': [
+              {...fixture('room'), 'message_bus_last_id': cursor},
+            ],
+          };
+          await controller.ensureLoaded(firstSite, force: true);
+        }
+
+        final replacement = tracker(firstSite);
+        controller.attachTracker(firstSite, replacement);
+
+        expect(replacement.lastIds['/voice/rooms/index'], 200);
+        expect(replacement.lastIds['/voice/rooms/7'], 200);
+      });
+    }
+
+    test(
+      'room-list join loading notifies once per effective transition',
+      () async {
+        final connectStarted = Completer<void>();
+        final connectGate = Completer<void>();
+        mediaFactory
+          ..nextConnectStarted = connectStarted
+          ..nextConnectGate = connectGate;
+        addTearDown(() {
+          if (!connectGate.isCompleted) connectGate.complete();
+        });
+        final loading = <bool>[];
+        controller.roomListenable.addListener(
+          () => loading.add(controller.isJoining(firstSite, 7)),
+        );
+
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(fixture('room')),
+        );
+        await connectStarted.future;
+        expect(loading, [true]);
+        connectGate.complete();
+        await joining;
+
+        expect(loading, [true, false]);
+      },
+    );
+
+    for (final replacement in [false, true]) {
+      test(
+        'ignores queued directory callbacks after '
+        '${replacement ? 'tracker replacement' : 'account retirement'}',
+        () async {
+          final queued = _QueuedCallbackTracker();
+          firstTracker = queued;
+          await controller.ensureLoaded(firstSite);
+          final directoryCallback = queued.callbacks['/voice/rooms/index']!;
+          final roomCallback = queued.callbacks['/voice/rooms/7']!;
+          final next = tracker(firstSite);
+          if (replacement) {
+            controller.attachTracker(firstSite, next);
+          } else {
+            controller.forget(firstSite);
+            await controller.ensureLoaded(firstSite);
+            controller.attachTracker(firstSite, next);
+          }
+          var notifications = 0;
+          controller.roomListenable.addListener(() => notifications++);
+          final directory = controller.directory(firstSite);
+
+          directoryCallback(renamedRoomEvent(type: 'destroyed'), 999);
+          roomCallback(speakerRosterEvent('retired'), 999);
+
+          expect(controller.directory(firstSite), same(directory));
+          expect(notifications, 0);
+          final lastTracker = tracker(firstSite);
+          controller.attachTracker(firstSite, lastTracker);
+          expect(lastTracker.lastIds['/voice/rooms/index'], 144);
+          expect(lastTracker.lastIds['/voice/rooms/7'], 91);
+        },
+      );
+    }
+
     test(
       'subscribe from both snapshot cursors and apply live roster updates',
       () async {

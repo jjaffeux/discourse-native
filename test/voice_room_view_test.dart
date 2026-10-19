@@ -3189,6 +3189,134 @@ void main() {
 }
 
 void _joinLoadingTests() {
+  testWidgets('inbox notifies only for rooms and join loading', (tester) async {
+    final room = _room(
+      videoAllowed: true,
+      participants: const [
+        VoiceParticipant(id: 1, username: 'sam', role: VoiceRole.moderator),
+        VoiceParticipant(id: 2, username: 'lee', role: VoiceRole.participant),
+      ],
+    );
+    final tracker = RecordingPluginLiveChannels();
+    final harness = _Harness(
+      joinRoom: room,
+      tracker: tracker,
+      clock: () => tester.binding.clock.now(),
+    );
+    addTearDown(harness.dispose);
+    harness.transport.responses['GET /voice/rooms.json'] = {
+      'rooms': [_joinPayload(room)['room']],
+    };
+    harness.transport.responses['GET /voice/rooms/7/chat_session.json'] = {
+      'channel_id': 42,
+      'thread_id': 99,
+    };
+    await harness.controller.ensureLoaded(_siteUrl);
+    final inbox = VoiceChatInbox(
+      harness.controller,
+      _voiceShell(
+        harness.controller,
+        site: const PluginRouteSite(
+          url: _siteUrl,
+          title: 'Voice',
+          isConnected: true,
+        ),
+      ),
+    );
+    var inboxChanges = 0;
+    void countInboxChange() => inboxChanges++;
+    inbox.addListener(countInboxChange);
+    addTearDown(() => inbox.removeListener(countInboxChange));
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: inbox,
+            builder: (context, _) =>
+                ChatInboxRoomRow(room: inbox.rooms(_siteUrl).single),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Lounge'), findsOneWidget);
+
+    final requestGate = Completer<Map<String, dynamic>>();
+    harness.transport.responders['POST /voice/rooms/7/join.json'] = (_) =>
+        requestGate.future;
+    final joining = _join(harness, room);
+    await tester.pump();
+    expect(inbox.rooms(_siteUrl).single.loading, isTrue);
+    final loadingChanges = inboxChanges;
+    expect(loadingChanges, greaterThan(0));
+
+    requestGate.complete(_joinPayload(room));
+    await joining;
+    await tester.pump();
+    expect(inbox.rooms(_siteUrl).single.loading, isFalse);
+    expect(inboxChanges, greaterThan(loadingChanges));
+    final stableChanges = inboxChanges;
+
+    await harness.controller.setMuted(true);
+    await harness.controller.setCameraEnabled(true);
+    harness.media.sessions.single.setSpeakingParticipantIds({2});
+    await harness.controller.selectAudioInput('microphone-1');
+    await harness.controller.selectAudioOutput('speaker-1');
+    await harness.controller.setParticipantVolume(_siteUrl, room.id, 2, 0.5);
+    await harness.controller.setPushToTalkEnabled(true);
+    await tester.pump();
+    expect(harness.controller.call?.muted, isTrue);
+    expect(harness.controller.call?.cameraEnabled, isTrue);
+    expect(inboxChanges, stableChanges);
+
+    tracker.deliver('/voice/call-ring/1', {
+      'room_id': 9,
+      'room_slug': 'other-room',
+      'room_name': 'Other room',
+      'caller_username': 'kim',
+      'sent_at': tester.binding.clock.now().millisecondsSinceEpoch ~/ 1000,
+      'ring_seconds': 60,
+    });
+    await tester.pump();
+    expect(harness.controller.incomingCall, isNotNull);
+    expect(inboxChanges, stableChanges);
+
+    await harness.controller.openChat(_siteUrl, room.id);
+    await tester.pump();
+    expect(harness.controller.chat(_siteUrl, room.id)?.session, isNotNull);
+    harness.controller.closeChat(_siteUrl, room.id);
+    await tester.pump();
+    expect(inboxChanges, stableChanges);
+
+    tracker.deliver('/voice/rooms/index', {
+      'type': 'updated',
+      'room': {
+        ..._joinPayload(room)['room'] as Map<String, dynamic>,
+        'name': 'Renamed Lounge',
+      },
+    });
+    await tester.pump();
+    expect(inbox.rooms(_siteUrl).single.name, 'Renamed Lounge');
+    expect(find.text('Renamed Lounge'), findsOneWidget);
+    expect(inboxChanges, greaterThan(stableChanges));
+    final renamedChanges = inboxChanges;
+
+    tracker.deliver('/voice/rooms/7', {
+      'type': 'participants',
+      'participants': [
+        {'id': 1, 'username': 'sam', 'role': 'moderator'},
+        {'id': 2, 'username': 'lee', 'role': 'participant'},
+        {'id': 3, 'username': 'kim', 'role': 'participant'},
+      ],
+    });
+    await tester.pump();
+    expect(inbox.rooms(_siteUrl).single.people, 3);
+    expect(inboxChanges, greaterThan(renamedChanges));
+    await tester.pumpWidget(const SizedBox.shrink());
+    harness.dispose();
+    await tester.pump();
+  });
+
   for (final mobile in [true, false]) {
     testWidgets(
       'join loading covers request and connection on ${mobile ? 'mobile' : 'desktop'}',
@@ -5427,6 +5555,7 @@ final class _Harness {
     ChatConversationCapability? chatConversations,
     RecordingPluginLiveChannels? tracker,
     _SystemCall? systemCall,
+    DateTime Function()? clock,
     VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
   }) : preferences = preferences ?? _Preferences(),
        chatConversations =
@@ -5476,6 +5605,7 @@ final class _Harness {
       diagnostics: diagnostics,
       preferences: persistentPreferences ?? this.preferences,
       heartbeatInterval: const Duration(days: 1),
+      clock: clock,
     );
   }
 

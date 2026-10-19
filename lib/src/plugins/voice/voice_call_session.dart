@@ -170,7 +170,7 @@ final class _VoiceCallSession {
       );
       return;
     }
-    controller._errors.remove(siteUrl);
+    controller._setSiteError(siteUrl, null);
     final apiKey = credentials.apiKey!;
     final clientId = credentials.clientId;
     final invitedBy = controller._consumeInviteRef(siteUrl, room);
@@ -409,11 +409,9 @@ final class _VoiceCallSession {
           tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
         );
       }
-      final roomResponse = controller._acceptRoomResponse(
-        siteUrl,
-        response.room,
-        ++controller._roomRequestVersion,
-      );
+      final roomResponse = controller
+          ._roomDirectory(siteUrl)
+          .acceptWrite(response.room);
       _call = VoiceCallSnapshot(
         siteUrl: siteUrl,
         siteName: siteName,
@@ -424,12 +422,6 @@ final class _VoiceCallSession {
         status: VoiceCallStatus.joining,
         media: media,
         muted: initiallyMuted,
-      );
-      controller._updateRoom(
-        siteUrl,
-        room.id,
-        (held) => VoiceController._mergeRoom(held, roomResponse),
-        updateCall: false,
       );
       _restoreParticipantVolumes(_call!);
       if (controller.systemCall
@@ -573,7 +565,7 @@ final class _VoiceCallSession {
         if (_serverJoinActive) {
           controller._removeLocalParticipant(siteUrl, room.id);
         }
-        controller._errors[siteUrl] = _joinFailureMessage(error, room);
+        controller._setSiteError(siteUrl, _joinFailureMessage(error, room));
         controller._onCallSiteChanged();
         controller._notifyCallChanged();
       }
@@ -706,9 +698,12 @@ final class _VoiceCallSession {
           severity: DiagnosticSeverity.warning,
           data: {'statusCode': error.statusCode},
         );
-        controller._errors[call.siteUrl] = error.errors.isNotEmpty
-            ? error.errors.join('\n')
-            : appL10n.yourCallSessionHasExpiredRejoinTheRoomToStartA;
+        controller._setSiteError(
+          call.siteUrl,
+          error.errors.isNotEmpty
+              ? error.errors.join('\n')
+              : appL10n.yourCallSessionHasExpiredRejoinTheRoomToStartA,
+        );
         await close(
           notifyServer: error.statusCode != HttpStatus.notFound,
           reason: _VoiceLeaveReason.sessionExpired,
@@ -824,8 +819,12 @@ final class _VoiceCallSession {
       correlationId: correlationId,
       severity: DiagnosticSeverity.warning,
     );
-    controller._errors[call.siteUrl] = appL10n
-        .youWereDisconnectedFromDueToInactivity((call.room.name).toString());
+    controller._setSiteError(
+      call.siteUrl,
+      appL10n.youWereDisconnectedFromDueToInactivity(
+        (call.room.name).toString(),
+      ),
+    );
     controller._observe(
       () => close(notifyServer: true, reason: _VoiceLeaveReason.idleDisconnect),
       'voice.idle.disconnect',
@@ -1407,7 +1406,7 @@ final class _VoiceCallSession {
         // The instance ended, so teardown must not leave a failed call owning
         // capture or send a leave against a replacement instance. The room's
         // existing error surface explains why the user needs to rejoin.
-        controller._errors[call.siteUrl] = error.message;
+        controller._setSiteError(call.siteUrl, error.message);
         controller._observe(
           () => close(
             notifyServer: false,

@@ -17,10 +17,11 @@ final class VoiceChatInbox implements ChatInboxRoomProvider {
   final VoiceShellService shell;
 
   @override
-  void addListener(VoidCallback listener) => controller.addListener(listener);
+  void addListener(VoidCallback listener) =>
+      controller.roomListenable.addListener(listener);
   @override
   void removeListener(VoidCallback listener) =>
-      controller.removeListener(listener);
+      controller.roomListenable.removeListener(listener);
 
   @override
   bool available(String siteUrl) =>

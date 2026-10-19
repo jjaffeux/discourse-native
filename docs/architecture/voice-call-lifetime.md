@@ -1,7 +1,12 @@
 # Voice call lifetime
 
-`VoiceController` keeps the public call API, account and room directories,
-incoming-ring routing, video-view watches, and device preferences.
+`VoiceController` keeps the public call API, account identities, incoming-ring
+routing, video-view watches, and device preferences. Each account's private
+`_VoiceRoomDirectory` owns room snapshots, linked rooms, request identity,
+HTTP/live precedence, capability state, cursors, and directory/room subscriptions.
+The facade coordinates directory updates with retained calls and embedded Chat.
+`roomListenable` publishes listed-room and join-loading changes independently of
+call controls, incoming rings, embedded Chat, and device preferences.
 `_VoiceCallManager` serializes room transitions and coalesces matching pending
 joins under the captured account identity. Its admission identity also fences
 incoming-answer continuations.
