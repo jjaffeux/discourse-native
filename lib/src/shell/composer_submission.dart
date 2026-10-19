@@ -472,9 +472,9 @@ final class _ComposerSubmissionOwner {
   void _settleDraft(_ComposerAttempt attempt, {int? sequence}) {
     if (!_accountCurrent(attempt)) return;
     final editor = attempt.editor;
-    // Disposal retires authoring but not an accepted server draft. A live
-    // editor reused for another document must keep that document's draft.
-    if (!editor.isDisposed && !editor.ownsSubmission(attempt)) return;
+    final settlesOriginalDraft =
+        editor.isDisposed || editor.ownsSubmission(attempt);
+    if (!settlesOriginalDraft) return;
     shell._composerDrafts.settleAfterSubmission(
       editor,
       attempt.lease,
