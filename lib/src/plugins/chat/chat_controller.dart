@@ -35,6 +35,7 @@ import 'chat_wire.dart';
 part 'chat_conversation_stream.dart';
 part 'chat_channel_directory.dart';
 part 'chat_thread_catalog.dart';
+part 'chat_message_write_owner.dart';
 
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
 typedef _ChatReactorsKey = ({
@@ -811,13 +812,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, int> _threadNotificationRevisions = {};
   final Map<String, Future<void>> _threadNotificationTails = {};
   final Map<String, ChatThreadMembership?> _threadNotificationConfirmed = {};
-  final Map<({String siteUrl, int messageId}), Object> _messageEditWrites = {};
-  final Map<({String siteUrl, int messageId}), Object> _messageDeletionWrites =
-      {};
-  final Map<({String siteUrl, int messageId}), Object> _messagePinWrites = {};
-  final Map<({String siteUrl, int messageId}), Object> _messageFlagWrites = {};
-  final Map<({String siteUrl, int messageId}), Object> _messageRebakeWrites =
-      {};
+  final Map<String, _AccountMessageWrites> _messageWriteOwners = {};
   final Map<({String siteUrl, int channelId}), Object> _messageQuoteWrites = {};
   final Map<String, Object> _pinListRequests = {};
   final Map<String, FrameSafeValueNotifier<ChatPinsState>> _pinListRefs = {};
@@ -835,6 +830,22 @@ class ChatController extends FrameSafeNotifier {
       _targetKey(siteUrl, ChatChannelTarget(id));
   static String _pinsKey(String siteUrl, int channelId) =>
       '$siteUrl~channel-$channelId-pins';
+
+  _AccountMessageWrites _messageWritesFor(String siteUrl) {
+    final held = _messageWriteOwners[siteUrl];
+    if (held != null && held.isCurrent) return held;
+    if (held != null) {
+      _messageWriteOwners.remove(siteUrl);
+      held.retire();
+    }
+    final owner = _AccountMessageWrites(
+      this,
+      siteUrl,
+      _requests.capture(siteUrl),
+    );
+    _messageWriteOwners[siteUrl] = owner;
+    return owner;
+  }
 
   /// Rechecks ownership after credential awaits so stale account requests are
   /// never sent after disconnect, disposal, or generation replacement.
@@ -1730,174 +1741,13 @@ class ChatController extends FrameSafeNotifier {
     int messageId,
     PostFlagType flagType, {
     String? message,
-  }) async {
-    final held = _store.read<ChatMessage>(siteUrl, messageId);
-    if (held == null || !canFlagMessage(siteUrl, held)) {
-      return appL10n.thisMessageCanNoLongerBeFlagged;
-    }
-    if (!flagType.enabled ||
-        !flagType.appliesToTarget(chatMessageWireType) ||
-        !held.availableFlags.contains(flagType.nameKey)) {
-      return appL10n.thisFlagReasonIsNoLongerAvailable;
-    }
-    final submittedMessage = flagType.requireMessage ? message ?? '' : null;
-    final minimum = flagMessageMinimumLength(siteUrl);
-    final length = submittedMessage?.length ?? 0;
-    if (flagType.requireMessage &&
-        (length < minimum || length > PostFlagType.maximumMessageLength)) {
-      return appL10n.yourMessageMustBeBetweenAndCharacters(
-        (minimum).toString(),
-        (PostFlagType.maximumMessageLength).toString(),
-      );
-    }
+  }) => _messageWritesFor(siteUrl).flag(messageId, flagType, message: message);
 
-    final key = (siteUrl: siteUrl, messageId: messageId);
-    if (_messageFlagWrites.containsKey(key) ||
-        _messageEditWrites.containsKey(key) ||
-        _messageDeletionWrites.containsKey(key) ||
-        _messagePinWrites.containsKey(key) ||
-        _messageRebakeWrites.containsKey(key)) {
-      return appL10n.anotherMessageChangeIsStillFinishing;
-    }
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _messageFlagWrites[key] = request;
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_messageFlagWrites[key], request);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return null;
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return null;
-      final current = _store.read<ChatMessage>(siteUrl, messageId);
-      if (current == null ||
-          !canFlagMessage(siteUrl, current) ||
-          !current.availableFlags.contains(flagType.nameKey)) {
-        return appL10n.thisMessageCanNoLongerBeFlagged;
-      }
-      await requestCredentials.run(
-        () => api.flagChatMessage(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: current.channelId,
-          messageId: current.id,
-          flagTypeId: flagType.id,
-          message: submittedMessage,
-        ),
-      );
-      if (!ownsRequest()) return null;
-      lease.commit(() {
-        _store.update<ChatMessage>(
-          siteUrl,
-          messageId,
-          (message) => message.withUserFlagStatus(0),
-        );
-      });
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) _report(error, stackTrace, 'chat.flagMessage');
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_messageFlagWrites[key], request)) {
-        _messageFlagWrites.remove(key);
-      }
-    }
-  }
-
-  /// Rollback preserves unrelated fields changed while the pin request runs.
   Future<String?> setMessagePinned(
     String siteUrl,
     int messageId, {
     required bool pinned,
-  }) async {
-    final held = _store.read<ChatMessage>(siteUrl, messageId);
-    if (held == null || !canPinMessage(siteUrl, held)) {
-      return appL10n.thisMessageCanNoLongerBe((pinned).toString());
-    }
-    if (held.pinned == pinned) return null;
-
-    final key = (siteUrl: siteUrl, messageId: messageId);
-    if (_messagePinWrites.containsKey(key) ||
-        _messageEditWrites.containsKey(key) ||
-        _messageDeletionWrites.containsKey(key) ||
-        _messageFlagWrites.containsKey(key) ||
-        _messageRebakeWrites.containsKey(key)) {
-      return appL10n.anotherMessageChangeIsStillFinishing;
-    }
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _messagePinWrites[key] = request;
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_messagePinWrites[key], request);
-
-    void project(bool next) {
-      lease.commit(() {
-        final latest = _store.read<ChatMessage>(siteUrl, messageId);
-        if (latest == null || latest.pinned == next) return;
-        _store.put(siteUrl, latest.withPinned(next));
-        _updateChannel(
-          siteUrl,
-          latest.channelId,
-          (channel) => channel.withPinnedMessagesCount(
-            channel.pinnedMessagesCount + (next ? 1 : -1),
-          ),
-        );
-        // Pinning forces the message to begin a speaker run in core.
-        _bumpStreamsHolding(siteUrl, messageId);
-      });
-    }
-
-    project(pinned);
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return null;
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return null;
-      final current = _store.read<ChatMessage>(siteUrl, messageId);
-      if (current == null || !canPinMessage(siteUrl, current)) {
-        project(held.pinned);
-        return appL10n.thisMessageCanNoLongerBe((pinned).toString());
-      }
-      await requestCredentials.run(
-        () => api.updateChatMessagePinned(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: held.channelId,
-          messageId: held.id,
-          pinned: pinned,
-        ),
-      );
-      return null;
-    } on WriteException catch (error) {
-      if (ownsRequest()) project(held.pinned);
-      return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        _report(error, stackTrace, 'chat.${pinned ? 'pin' : 'unpin'}Message');
-        project(held.pinned);
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_messagePinWrites[key], request)) {
-        _messagePinWrites.remove(key);
-      }
-    }
-  }
+  }) => _messageWritesFor(siteUrl).pin(messageId, pinned: pinned);
 
   bool canRestoreMessage(String siteUrl, ChatMessage message) {
     final user = _currentUserFor(siteUrl);
@@ -1919,7 +1769,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   Future<String?> deleteMessage(String siteUrl, int messageId) =>
-      _setMessageDeleted(siteUrl, messageId, deleted: true);
+      _messageWritesFor(siteUrl).setDeleted(messageId, deleted: true);
 
   static const int maximumBulkDeleteMessages = 200;
 
@@ -1942,79 +1792,7 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl,
     int channelId,
     Iterable<int> messageIds,
-  ) async {
-    final ids = messageIds.toSet().toList()..sort();
-    if (ids.isEmpty) return appL10n.selectAtLeastOneMessage;
-    if (ids.length > maximumBulkDeleteMessages) {
-      return appL10n.selectNoMoreThanMessagesToDelete(
-        (maximumBulkDeleteMessages).toString(),
-      );
-    }
-    if (!canDeleteMessages(siteUrl, channelId, ids)) {
-      return appL10n.oneOrMoreMessagesCanNoLongerBeDeleted;
-    }
-
-    final keys = [for (final id in ids) (siteUrl: siteUrl, messageId: id)];
-    for (final key in keys) {
-      if (_messageDeletionWrites.containsKey(key) ||
-          _messageEditWrites.containsKey(key) ||
-          _messagePinWrites.containsKey(key) ||
-          _messageFlagWrites.containsKey(key) ||
-          _messageRebakeWrites.containsKey(key)) {
-        return appL10n.anotherMessageChangeIsStillFinishing;
-      }
-    }
-
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    for (final key in keys) {
-      _messageDeletionWrites[key] = request;
-    }
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        keys.every((key) => identical(_messageDeletionWrites[key], request));
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return null;
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return null;
-      if (!canDeleteMessages(siteUrl, channelId, ids)) {
-        return appL10n.oneOrMoreMessagesCanNoLongerBeDeleted;
-      }
-
-      await requestCredentials.run(
-        () => api.deleteChatMessages(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: channelId,
-          messageIds: ids,
-        ),
-      );
-      if (!ownsRequest()) return null;
-
-      lease.commit(() => _markMessagesDeleted(siteUrl, channelId, ids));
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        _report(error, stackTrace, 'chat.deleteMessages');
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      for (final key in keys) {
-        if (identical(_messageDeletionWrites[key], request)) {
-          _messageDeletionWrites.remove(key);
-        }
-      }
-    }
-  }
+  ) => _messageWritesFor(siteUrl).deleteMany(channelId, messageIds);
 
   bool canMoveMessages(
     String siteUrl,
@@ -2058,268 +1836,29 @@ class ChatController extends FrameSafeNotifier {
     int channelId,
     int destinationChannelId,
     Iterable<int> messageIds,
-  ) async {
-    final ids = messageIds.toSet().toList()..sort();
-    if (!canMoveMessages(siteUrl, channelId, ids)) {
-      return (move: null, error: appL10n.oneOrMoreMessagesCanNoLongerBeMoved);
-    }
-    final destinations = messageMoveDestinations(siteUrl, channelId);
-    if (!destinations.any((channel) => channel.id == destinationChannelId)) {
-      return (move: null, error: appL10n.chooseAnotherPublicChannel);
-    }
-
-    final keys = [for (final id in ids) (siteUrl: siteUrl, messageId: id)];
-    for (final key in keys) {
-      if (_messageDeletionWrites.containsKey(key) ||
-          _messageEditWrites.containsKey(key) ||
-          _messagePinWrites.containsKey(key) ||
-          _messageFlagWrites.containsKey(key) ||
-          _messageRebakeWrites.containsKey(key)) {
-        return (
-          move: null,
-          error: appL10n.anotherMessageChangeIsStillFinishing,
-        );
-      }
-    }
-
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    for (final key in keys) {
-      _messageDeletionWrites[key] = request;
-    }
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        keys.every((key) => identical(_messageDeletionWrites[key], request));
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return (move: null, error: null);
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return (move: null, error: null);
-      if (!canMoveMessages(siteUrl, channelId, ids) ||
-          !messageMoveDestinations(
-            siteUrl,
-            channelId,
-          ).any((channel) => channel.id == destinationChannelId)) {
-        return (
-          move: null,
-          error: appL10n.theSelectedMessagesOrDestinationChanged,
-        );
-      }
-
-      final move = await requestCredentials.run(
-        () => api.moveChatMessages(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: channelId,
-          destinationChannelId: destinationChannelId,
-          messageIds: ids,
-        ),
-      );
-      if (!ownsRequest()) return (move: null, error: null);
-
-      lease.commit(() => _markMessagesDeleted(siteUrl, channelId, ids));
-      return (move: move, error: null);
-    } on WriteException catch (error) {
-      return (move: null, error: error.message);
-    } catch (error, stackTrace) {
-      if (ownsRequest()) _report(error, stackTrace, 'chat.moveMessages');
-      return (
-        move: null,
-        error: const WriteException(WriteFailure.unreachable).message,
-      );
-    } finally {
-      for (final key in keys) {
-        if (identical(_messageDeletionWrites[key], request)) {
-          _messageDeletionWrites.remove(key);
-        }
-      }
-    }
-  }
+  ) => _messageWritesFor(
+    siteUrl,
+  ).move(channelId, destinationChannelId, messageIds);
 
   Future<String?> restoreMessage(String siteUrl, int messageId) =>
-      _setMessageDeleted(siteUrl, messageId, deleted: false);
-
-  Future<String?> _setMessageDeleted(
-    String siteUrl,
-    int messageId, {
-    required bool deleted,
-  }) async {
-    final held = _store.read<ChatMessage>(siteUrl, messageId);
-    final allowed =
-        held != null &&
-        (deleted
-            ? canDeleteMessage(siteUrl, held)
-            : canRestoreMessage(siteUrl, held));
-    if (!allowed) {
-      return deleted
-          ? appL10n.thisMessageCanNoLongerBeDeleted
-          : appL10n.thisMessageCanNoLongerBeRestored;
-    }
-
-    final key = (siteUrl: siteUrl, messageId: messageId);
-    if (_messageDeletionWrites.containsKey(key) ||
-        _messageEditWrites.containsKey(key) ||
-        _messagePinWrites.containsKey(key) ||
-        _messageFlagWrites.containsKey(key) ||
-        _messageRebakeWrites.containsKey(key)) {
-      return appL10n.anotherMessageChangeIsStillFinishing;
-    }
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _messageDeletionWrites[key] = request;
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_messageDeletionWrites[key], request);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return null;
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return null;
-      final current = _store.read<ChatMessage>(siteUrl, messageId);
-      if (current == null ||
-          !(deleted
-              ? canDeleteMessage(siteUrl, current)
-              : canRestoreMessage(siteUrl, current))) {
-        return deleted
-            ? appL10n.thisMessageCanNoLongerBeDeleted
-            : appL10n.thisMessageCanNoLongerBeRestored;
-      }
-      if (deleted) {
-        await requestCredentials.run(
-          () => api.deleteChatMessage(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            clientId: clientId,
-            channelId: held.channelId,
-            messageId: held.id,
-          ),
-        );
-      } else {
-        await requestCredentials.run(
-          () => api.restoreChatMessage(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            clientId: clientId,
-            channelId: held.channelId,
-            messageId: held.id,
-          ),
-        );
-      }
-      if (!ownsRequest()) return null;
-      lease.commit(() {
-        final latest = _store.read<ChatMessage>(siteUrl, messageId);
-        if (latest == null || latest.isDeleted == deleted) return;
-        final deletedAt = deleted ? _clock().toUtc() : null;
-        final updated = latest.withDeletedAt(
-          deletedAt,
-          deletedById: deleted ? _currentUserFor(siteUrl)?.id : null,
-          clearDeletedById: !deleted,
-        );
-        _store.put(siteUrl, updated);
-        _updateChannelMessagePreview(siteUrl, updated);
-        _bumpStreamsHolding(siteUrl, messageId);
-        _setLoadedThreadOriginalDeleted(
-          siteUrl,
-          latest.channelId,
-          messageId,
-          deletedAt: deletedAt,
-          clear: !deleted,
-        );
-      });
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        _report(
-          error,
-          stackTrace,
-          'chat.${deleted ? 'delete' : 'restore'}Message',
-        );
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_messageDeletionWrites[key], request)) {
-        _messageDeletionWrites.remove(key);
-      }
-    }
-  }
+      _messageWritesFor(siteUrl).setDeleted(messageId, deleted: false);
 
   bool messageEditWriteInFlight(String siteUrl, int messageId) =>
-      _messageEditWrites.containsKey((siteUrl: siteUrl, messageId: messageId));
+      _messageWriteOwners[siteUrl]?.inFlight(
+        messageId,
+        _MessageWriteKind.edit,
+      ) ??
+      false;
 
   bool messageRebakeWriteInFlight(String siteUrl, int messageId) =>
-      _messageRebakeWrites.containsKey((
-        siteUrl: siteUrl,
-        messageId: messageId,
-      ));
+      _messageWriteOwners[siteUrl]?.inFlight(
+        messageId,
+        _MessageWriteKind.rebake,
+      ) ??
+      false;
 
-  Future<String?> rebakeMessage(String siteUrl, int messageId) async {
-    final held = _store.read<ChatMessage>(siteUrl, messageId);
-    if (held == null || !canRebakeMessage(siteUrl, held)) {
-      return appL10n.thisMessageCanNoLongerBeRebuilt;
-    }
-
-    final key = (siteUrl: siteUrl, messageId: messageId);
-    if (_messageRebakeWrites.containsKey(key) ||
-        _messageEditWrites.containsKey(key) ||
-        _messageDeletionWrites.containsKey(key) ||
-        _messagePinWrites.containsKey(key) ||
-        _messageFlagWrites.containsKey(key)) {
-      return appL10n.anotherMessageChangeIsStillFinishing;
-    }
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _messageRebakeWrites[key] = request;
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_messageRebakeWrites[key], request);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return null;
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return null;
-      final current = _store.read<ChatMessage>(siteUrl, messageId);
-      if (current == null || !canRebakeMessage(siteUrl, current)) {
-        return appL10n.thisMessageCanNoLongerBeRebuilt;
-      }
-      await requestCredentials.run(
-        () => api.rebakeChatMessage(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: current.channelId,
-          messageId: current.id,
-        ),
-      );
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) _report(error, stackTrace, 'chat.rebakeMessage');
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_messageRebakeWrites[key], request)) {
-        _messageRebakeWrites.remove(key);
-      }
-    }
-  }
+  Future<String?> rebakeMessage(String siteUrl, int messageId) =>
+      _messageWritesFor(siteUrl).rebake(messageId);
 
   bool messageQuoteWriteInFlight(String siteUrl, int channelId) =>
       _messageQuoteWrites.containsKey((siteUrl: siteUrl, channelId: channelId));
@@ -2399,123 +1938,9 @@ class ChatController extends FrameSafeNotifier {
     String raw, {
     List<ChatUpload>? uploads,
     Object? cookingOwner,
-  }) async {
-    final held = _store.read<ChatMessage>(siteUrl, messageId);
-    if (held == null || !canEditMessage(siteUrl, held)) {
-      return appL10n.thisMessageCanNoLongerBeEdited;
-    }
-    if (raw.length > ChatMessage.maximumEditLength) {
-      return appL10n.messagesCanBeAtMostCharacters(
-        (ChatMessage.maximumEditLength).toString(),
-      );
-    }
-    final editedUploads = List<ChatUpload>.unmodifiable(
-      (uploads ?? held.uploads).take(ChatMessage.maximumUploadsPerMessage),
-    );
-    final uploadIds = [
-      for (final upload in editedUploads)
-        if (upload.id > 0) upload.id,
-    ];
-    if (raw.trim().isEmpty && uploadIds.isEmpty) {
-      return appL10n.aMessageCannotBeEmpty;
-    }
-    bool hasUploadIds(List<ChatUpload> candidate) => listEquals([
-      for (final upload in candidate)
-        if (upload.id > 0) upload.id,
-    ], uploadIds);
-    if (raw == held.raw && hasUploadIds(held.uploads)) return null;
-
-    final key = (siteUrl: siteUrl, messageId: messageId);
-    if (_messageEditWrites.containsKey(key) ||
-        _messageDeletionWrites.containsKey(key) ||
-        _messagePinWrites.containsKey(key) ||
-        _messageFlagWrites.containsKey(key) ||
-        _messageRebakeWrites.containsKey(key)) {
-      return appL10n.anotherEditIsStillFinishing;
-    }
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _messageEditWrites[key] = request;
-    _cancelMessageCooking(siteUrl, messageId);
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_messageEditWrites[key], request);
-
-    final preview = _projectPreview(siteUrl, OutgoingChatMessage.text(raw));
-    var pending = held.withPendingEdit(raw, preview, uploads: editedUploads);
-    final ready = _preparedCooking?.takeReady(
-      key: ('editDraft', siteUrl, messageId, cookingOwner),
-      raw: raw,
-    );
-    if (ready != null) pending = pending.withProvisionalCooked(ready);
-    _store.put(siteUrl, pending);
-    _updateChannelMessagePreview(siteUrl, pending);
-    if (ready == null) _cookMessage(siteUrl, pending, author: held);
-
-    bool canonicalEditArrived() {
-      final current = _store.read<ChatMessage>(siteUrl, messageId);
-      return current?.canonicalReceived == true &&
-          current?.raw == raw &&
-          hasUploadIds(current!.uploads);
-    }
-
-    void rollback() {
-      if (!ownsRequest()) return;
-      _cancelMessageCooking(siteUrl, messageId);
-      lease.commit(() {
-        final latest = _store.read<ChatMessage>(siteUrl, messageId);
-        // Any newer canonical edit wins, including a different server raw.
-        if (latest != null && !latest.canonicalReceived && latest.raw == raw) {
-          final restored = latest.withContentOf(held);
-          _store.put(siteUrl, restored);
-          _updateChannelMessagePreview(siteUrl, restored);
-        }
-      });
-    }
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return null;
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return null;
-      final current = _store.read<ChatMessage>(siteUrl, messageId);
-      if (current == null ||
-          current.raw != raw ||
-          !hasUploadIds(current.uploads)) {
-        rollback();
-        return appL10n.thisMessageChangedBeforeTheEditCouldBeSaved;
-      }
-      await requestCredentials.run(
-        () => api.editChatMessage(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: held.channelId,
-          messageId: held.id,
-          message: raw,
-          uploadIds: uploadIds,
-        ),
-      );
-      return null;
-    } on WriteException catch (error) {
-      if (canonicalEditArrived()) return null;
-      rollback();
-      return error.message;
-    } catch (error, stackTrace) {
-      if (canonicalEditArrived()) return null;
-      if (ownsRequest()) _report(error, stackTrace, 'chat.editMessage');
-      rollback();
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_messageEditWrites[key], request)) {
-        _messageEditWrites.remove(key);
-      }
-    }
-  }
+  }) => _messageWritesFor(
+    siteUrl,
+  ).edit(messageId, raw, uploads: uploads, cookingOwner: cookingOwner);
 
   int _bookmarkVersion(String siteUrl) => _bookmarkVersions[siteUrl] ?? 0;
 
@@ -4777,6 +4202,7 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
+    _messageWriteOwners.remove(siteUrl)?.retire();
     _directories.remove(siteUrl)?.retire();
     _preparedCooking?.forget(siteUrl);
     _cookingLocales.remove(siteUrl);
@@ -4808,11 +4234,6 @@ class ChatController extends FrameSafeNotifier {
       ref.value = null;
     }
     _reactionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _messageEditWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _messageDeletionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _messagePinWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _messageFlagWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _messageRebakeWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
     _messageQuoteWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
     _pinListRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     final forgottenPinRefs = <FrameSafeValueNotifier<ChatPinsState>>[];
@@ -4851,6 +4272,13 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    final messageWriteOwners = _messageWriteOwners.values.toList(
+      growable: false,
+    );
+    _messageWriteOwners.clear();
+    for (final owner in messageWriteOwners) {
+      owner.retire();
+    }
     final directories = _directories.values.toList(growable: false);
     _directories.clear();
     for (final directory in directories) {
@@ -4883,11 +4311,6 @@ class ChatController extends FrameSafeNotifier {
     _threadNotificationConfirmed.clear();
     _threadTitleWrites.clear();
     _reactionWrites.clear();
-    _messageEditWrites.clear();
-    _messageDeletionWrites.clear();
-    _messagePinWrites.clear();
-    _messageFlagWrites.clear();
-    _messageRebakeWrites.clear();
     _messageQuoteWrites.clear();
     _pinListRequests.clear();
     for (final ref in _pinListRefs.values) {

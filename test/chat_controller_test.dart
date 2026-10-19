@@ -6211,6 +6211,14 @@ void main() {
             await started;
             final projected = subject.chat.message(site, 12)!;
             final calls = credentials.apiKeyCalls;
+            expect(
+              subject.chat.messageEditWriteInFlight(site, 12),
+              first == _MessageAction.edit,
+            );
+            expect(
+              subject.chat.messageRebakeWriteInFlight(site, 12),
+              first == _MessageAction.rebake,
+            );
 
             subject.store.put(site, _actionMessage(second, 12));
             expect(
@@ -6419,6 +6427,47 @@ void main() {
         expect(subject.api.chatMessagesRebaked, hasLength(1));
         gate.complete();
         expect(await reaction, isNull);
+      },
+    );
+
+    test(
+      'a replacement account gets a new owner before explicit forget',
+      () async {
+        final gate = Completer<void>();
+        final credentials = _ControllableCredentials();
+        final lifecycle = SiteLifecycle();
+        final subject = build(
+          currentUser: staff,
+          editGate: gate,
+          credentialReader: credentials,
+          lifecycle: lifecycle,
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store
+          ..put(site, source)
+          ..put(site, message(12, authorId: 7));
+        final old = subject.chat.editMessage(site, 12, 'old account');
+        await Future<void>.delayed(Duration.zero);
+        expect(subject.api.chatMessagesEdited, hasLength(1));
+        lifecycle.invalidate(site);
+        expect(subject.chat.messageEditWriteInFlight(site, 12), isTrue);
+        final fresh = message(12, raw: 'replacement', authorId: 7);
+        subject.store.put(site, fresh);
+        final started = credentials.blockApiKey();
+        final replacement = subject.chat.rebakeMessage(site, 12);
+        await started;
+        expect(subject.chat.messageEditWriteInFlight(site, 12), isFalse);
+        expect(subject.chat.messageRebakeWriteInFlight(site, 12), isTrue);
+        gate.complete();
+        expect(await old, isNull);
+        expect(subject.chat.message(site, 12), same(fresh));
+        expect(
+          await subject.chat.deleteMessage(site, 12),
+          'Another message change is still finishing.',
+        );
+        credentials.releaseApiKey();
+        expect(await replacement, isNull);
+        expect(subject.chat.messageRebakeWriteInFlight(site, 12), isFalse);
       },
     );
 
