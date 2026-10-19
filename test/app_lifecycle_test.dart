@@ -8,6 +8,7 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_manifest.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -212,6 +213,84 @@ void main() {
   });
 
   group('plugin lifecycle and diagnostics', () {
+    for (final injected in [false, true]) {
+      testWidgets(
+        'replacement waits for session teardown with ${injected ? 'injected' : 'owned'} plugins',
+        (tester) async {
+          final key = GlobalKey();
+          final sessionClosing = Completer<void>();
+          final pluginsClosing = Completer<void>();
+          final session = _GatedCloseSession(sessionClosing.future);
+          final lifecycle = _GatedCloseLifecycle(pluginsClosing.future);
+          final manifest = PluginManifest([
+            _RetirementTestModule(lifecycle, session),
+          ]);
+          final installed = injected ? PluginInstaller.install(manifest) : null;
+          final firstApi = FakeDiscourseApi();
+          final secondApi = FakeDiscourseApi();
+          final store = FakeInstanceStore();
+          final authenticator = FakeAuthenticator();
+          final drafts = FakeDraftStore();
+          final forumTabs = FakeForumTabStore();
+          final trackers = FakeSiteTracker.reset();
+          final updater = FakeUpdater();
+          final updateStore = FakeUpdateStore();
+
+          Widget app({required bool replacement}) => DiscourseApp(
+            key: key,
+            store: store,
+            api: replacement ? secondApi : firstApi,
+            authenticator: authenticator,
+            drafts: drafts,
+            forumTabs: forumTabs,
+            trackers: trackers,
+            updater: updater,
+            updateStore: updateStore,
+            plugins: replacement ? null : installed,
+            pluginManifest: replacement || injected
+                ? corePluginManifest
+                : manifest,
+          );
+
+          try {
+            await tester.pumpWidget(app(replacement: false));
+            await tester.pumpAndSettle();
+            final previousController = _controller(tester);
+            await tester.pumpWidget(app(replacement: true));
+            await tester.pumpAndSettle();
+
+            expect(_controller(tester), isNot(same(previousController)));
+            expect(_controller(tester).loadStatus, InstanceLoadStatus.ready);
+            expect(session.closeStarted, isTrue);
+            expect(lifecycle.closeStarted, isFalse);
+            expect(firstApi.closeCalls, 0);
+            expect(secondApi.closeCalls, 0);
+
+            sessionClosing.complete();
+            await tester.pumpAndSettle();
+            expect(lifecycle.closeStarted, !injected);
+            expect(firstApi.closeCalls, injected ? 1 : 0);
+
+            pluginsClosing.complete();
+            await tester.pumpAndSettle();
+            expect(firstApi.closeCalls, 1);
+            expect(secondApi.closeCalls, 0);
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+            expect(firstApi.closeCalls, 1);
+            expect(secondApi.closeCalls, 1);
+            expect(lifecycle.closeStarted, !injected);
+          } finally {
+            if (!sessionClosing.isCompleted) sessionClosing.complete();
+            if (!pluginsClosing.isCompleted) pluginsClosing.complete();
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+            await installed?.close();
+          }
+        },
+      );
+    }
+
     testWidgets('keeps the API open until the plugins have closed', (
       tester,
     ) async {
@@ -905,6 +984,38 @@ final class _GatedCloseLifecycle extends PluginAppLifecycle {
   Future<void> close() async {
     closeStarted = true;
     await _gate;
+  }
+}
+
+final class _RetirementTestModule implements PluginModule {
+  const _RetirementTestModule(this.lifecycle, this.session);
+
+  final PluginAppLifecycle lifecycle;
+  final PluginSessionLifecycle session;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('retirement-probe'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addAppLifecycle(lifecycle);
+    registrar.addSession(
+      (_, _) => PluginSessionContribution(lifecycle: session),
+    );
+  }
+}
+
+final class _GatedCloseSession extends PluginSessionLifecycle {
+  _GatedCloseSession(this.gate);
+
+  final Future<void> gate;
+  bool closeStarted = false;
+
+  @override
+  Future<void> close() async {
+    closeStarted = true;
+    await gate;
   }
 }
 
