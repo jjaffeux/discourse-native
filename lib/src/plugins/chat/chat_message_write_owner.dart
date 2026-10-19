@@ -19,7 +19,7 @@ final class _AccountMessageWrites {
   final Map<int, _MessageWrite> _active = {};
   bool _retired = false;
 
-  bool get isCurrent => !_retired && !chat.isDisposed && lease.isCurrent;
+  bool get isCurrent => chat._requestIsCurrent(lease, () => !_retired);
 
   bool inFlight(int id, _MessageWriteKind kind) =>
       !_retired && _active[id]?.kind == kind;
