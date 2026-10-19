@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_credentials.dart';
 import 'http_transport.dart';
+import 'site_asset_account.dart';
 import 'site_lifecycle.dart';
 
 /// A URL the native player can request without leaking forum credentials.
@@ -70,23 +71,21 @@ final class SiteVideoSourceResolver {
 
     final elapsed = Stopwatch()..start();
     final lease = lifecycle.capture(siteUrl);
-    final apiKey = await _guard(credentials.apiKeyFor(siteUrl), elapsed);
+    final account = await SiteAssetAccount.open(
+      siteUrl: siteUrl,
+      credentials: credentials,
+      requireCurrent: () => _requireCurrent(lease),
+      waitForCredential: <T>(Future<T> operation) => _guard(operation, elapsed),
+    );
     _requireCurrent(lease);
-    if (apiKey == null) return SiteVideoSource(current);
-
-    final clientId = await _guard(credentials.clientId(), elapsed);
-    _requireCurrent(lease);
-    final forumHeaders = <String, String>{
-      'User-Api-Key': apiKey,
-      if (clientId.isNotEmpty) 'User-Api-Client-Id': clientId,
-    };
+    if (!account.hasCredentials) return SiteVideoSource(current);
 
     for (var redirects = 0; ; redirects++) {
       _requireCurrent(lease);
-      final onForum = current.origin == site.origin;
+      final onForum = account.isForumHop(current);
       final response = await _sendHead(
         current,
-        onForum ? forumHeaders : const {},
+        account.headersFor(current),
         elapsed,
       );
       _requireCurrent(lease);

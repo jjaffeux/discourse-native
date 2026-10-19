@@ -5,6 +5,7 @@ import 'api_credentials.dart';
 import 'avatar_loader.dart';
 import 'byte_cache.dart';
 import 'media_request_coordinator.dart';
+import 'site_asset_account.dart';
 import 'site_lifecycle.dart';
 
 final class SiteImageBytes {
@@ -136,22 +137,25 @@ final class SiteImageRepository {
     _SiteImageOpening opening,
   ) async {
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
-      if (!_isCurrentOpening(siteUrl, opening)) return null;
-      final clientId = apiKey == null ? null : await credentials.clientId();
+      final account = await SiteAssetAccount.open(
+        siteUrl: siteUrl,
+        credentials: credentials,
+        requireCurrent: () {
+          if (!_isCurrentOpening(siteUrl, opening)) {
+            throw StateError('Image account opening is no longer current.');
+          }
+        },
+      );
       if (!_isCurrentOpening(siteUrl, opening)) return null;
 
-      final origin = Uri.tryParse(siteUrl)?.origin;
-      if (origin == null || origin.isEmpty) return null;
+      if (!account.hasOrigin) return null;
       final session = _SiteImageSession(
         lease: opening.lease,
         cache: _AuthenticatedSiteImageCache(
           client: _client,
           maxCachedBytes: maxCachedBytes,
           coordinator: _coordinator,
-          authenticatedOrigin: origin,
-          apiKey: apiKey,
-          clientId: clientId,
+          account: account,
         ),
       );
       _sessions[siteUrl] = session;
@@ -203,28 +207,18 @@ final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
     required super.client,
     required super.maxCachedBytes,
     required super.coordinator,
-    required this.authenticatedOrigin,
-    required this.apiKey,
-    required this.clientId,
+    required this.account,
   }) : super(
          maxConcurrent: MediaRequestCoordinator.defaultMaxConcurrentPerOrigin,
          maxEntries: 256,
          maxResponseBytes: 32 * 1024 * 1024,
        );
 
-  final String authenticatedOrigin;
-  final String? apiKey;
-  final String? clientId;
+  final SiteAssetAccount account;
 
   @override
-  Map<String, String> requestHeaders(Uri url, Uri original) {
-    final key = apiKey;
-    if (key == null || url.origin != authenticatedOrigin) return const {};
-    return {
-      'User-Api-Key': key,
-      if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
-    };
-  }
+  Map<String, String> requestHeaders(Uri url, Uri original) =>
+      account.headersFor(url);
 
   @override
   SiteImageBytes? decode(http.Response response) {
