@@ -25,25 +25,34 @@ List<ChatChannel> chatInboxConversations(
 ) {
   if (filter.kind == ChatInboxKind.voiceRooms) return const [];
   final settings = chat.siteConfigFor(siteUrl).chatSettings;
-  return [
-      if (settings.publicChannelsEnabled &&
-          filter.kind != ChatInboxKind.directMessages)
-        ...chat.publicChannels(siteUrl),
-      if (filter.kind != ChatInboxKind.channels)
-        ...chat.directChannels(siteUrl),
-    ].where((channel) => !filter.unreadOnly || channel.badge.isVisible).toList()
-    ..sort((a, b) {
-      final aTime = chatInboxActivityAt(a);
-      final bTime = chatInboxActivityAt(b);
-      final recent = aTime == null
-          ? (bTime == null ? 0 : 1)
-          : bTime == null
-          ? -1
-          : bTime.compareTo(aTime);
-      if (recent != 0) return recent;
-      final title = a.title.toLowerCase().compareTo(b.title.toLowerCase());
-      return title != 0 ? title : a.id.compareTo(b.id);
-    });
+  final channels = [
+    if (settings.publicChannelsEnabled &&
+        filter.kind != ChatInboxKind.directMessages)
+      ...chat.publicChannels(siteUrl),
+    if (filter.kind != ChatInboxKind.channels) ...chat.directChannels(siteUrl),
+  ].where((channel) => !filter.unreadOnly || channel.badge.isVisible).toList();
+  if (channels.length < 2) return channels;
+  final ranked =
+      [
+        for (final channel in channels)
+          (
+            channel: channel,
+            activityAt: chatInboxActivityAt(channel),
+            title: channel.title.toLowerCase(),
+          ),
+      ]..sort((a, b) {
+        final aTime = a.activityAt;
+        final bTime = b.activityAt;
+        final recent = aTime == null
+            ? (bTime == null ? 0 : 1)
+            : bTime == null
+            ? -1
+            : bTime.compareTo(aTime);
+        if (recent != 0) return recent;
+        final title = a.title.compareTo(b.title);
+        return title != 0 ? title : a.channel.id.compareTo(b.channel.id);
+      });
+  return [for (final entry in ranked) entry.channel];
 }
 
 String chatInboxEmptyMessage(ChatInboxFilter filter) => filter.unreadOnly
