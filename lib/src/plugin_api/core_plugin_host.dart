@@ -42,7 +42,10 @@ typedef PluginTargetSnapshot<T extends Object> = ({bool valid, T? value});
 typedef PluginCurrentSiteReader = String? Function();
 typedef PluginPostFlagCatalogReader =
     List<PostFlagType> Function(String siteUrl);
-typedef PluginWriteCredential = ({String? apiKey, WriteException? failure});
+typedef PluginWriteCredential = ({
+  PluginRequestCredentials? credentials,
+  WriteException? failure,
+});
 typedef PluginComposerBuilder =
     ComposerController? Function(ComposerTargetRequest request);
 typedef PluginNewTopicComposerOpener =

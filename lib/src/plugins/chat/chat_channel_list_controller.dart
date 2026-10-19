@@ -126,15 +126,18 @@ final class ChatChannelListController extends FrameSafeNotifier {
       final credentials = await requests.credentialsFor(siteUrl);
       if (!current()) return false;
       if (credentials.apiKey == null) throw StateError('Account disconnected');
-      final result = await host!.api.updateUserPreferences(
-        siteUrl: siteUrl,
-        apiKey: credentials.apiKey!,
-        clientId: credentials.clientId,
-        username: account.username,
-        values: {field: value},
-        fallback: UserPreferences(
+      final result = await credentials.run(
+        () => host!.api.updateUserPreferences(
+          siteUrl: siteUrl,
+          apiKey: credentials.apiKey!,
+          clientId: credentials.clientId,
           username: account.username,
-        ).withChatPreferences(channelList: preferences.withValue(field, value)),
+          values: {field: value},
+          fallback: UserPreferences(username: account.username)
+              .withChatPreferences(
+                channelList: preferences.withValue(field, value),
+              ),
+        ),
       );
       if (!current()) return false;
       final confirmed =

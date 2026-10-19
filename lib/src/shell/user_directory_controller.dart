@@ -1,6 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../data/user_directory_api.dart';
@@ -126,7 +127,6 @@ final class UserDirectoryState {
 }
 
 typedef _DirectoryKey = ({String siteUrl, UserDirectoryQuery query});
-typedef _DirectoryCredentials = ({String? apiKey, String? clientId});
 
 final class UserDirectoryController extends FrameSafeNotifier {
   UserDirectoryController({
@@ -245,17 +245,19 @@ final class UserDirectoryController extends FrameSafeNotifier {
       if (auth == null || !_isCurrent(key, token, lease)) return;
       final metadata = await _ensureMetadata(instance, auth, lease);
       if (!_isCurrent(key, token, lease)) return;
-      final page = await api.directory(
-        siteUrl: instance.url,
-        apiKey: auth.apiKey,
-        clientId: auth.clientId,
-        period: query.period,
-        columns: metadata.columns,
-        page: more ? held.nextPage : 0,
-        order: query.order,
-        ascending: query.ascending,
-        name: query.search,
-        group: query.group,
+      final page = await auth.run(
+        () => api.directory(
+          siteUrl: instance.url,
+          apiKey: auth.apiKey,
+          clientId: auth.apiKey == null ? null : auth.clientId,
+          period: query.period,
+          columns: metadata.columns,
+          page: more ? held.nextPage : 0,
+          order: query.order,
+          ascending: query.ascending,
+          name: query.search,
+          group: query.group,
+        ),
       );
       if (!_isCurrent(key, token, lease)) return;
       lease.commit(() {
@@ -343,15 +345,21 @@ final class UserDirectoryController extends FrameSafeNotifier {
         identical(_columnUpdates[instance.url], token);
 
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).credentials(credentials);
+      final apiKey = auth.apiKey;
       if (!isCurrent() || apiKey == null) return false;
-      final clientId = await credentials.clientId();
+      final clientId = auth.clientId;
       if (!isCurrent()) return false;
-      await api.updateColumns(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        clientId: clientId,
-        columns: columns,
+      await auth.run(
+        () => api.updateColumns(
+          siteUrl: instance.url,
+          apiKey: apiKey,
+          clientId: clientId,
+          columns: columns,
+        ),
       );
       if (!isCurrent()) return false;
 
@@ -390,18 +398,20 @@ final class UserDirectoryController extends FrameSafeNotifier {
 
   Future<UserDirectoryMetadata> _ensureMetadata(
     DiscourseInstance instance,
-    _DirectoryCredentials auth,
+    AccountRequestCredentials auth,
     SiteLease lease,
   ) async {
     final cached = _metadata[instance.url];
     if (cached != null) return cached;
     final existing = _metadataLoads[instance.url];
     if (existing != null) return existing;
-    final future = api.metadata(
-      siteUrl: instance.url,
-      apiKey: auth.apiKey,
-      clientId: auth.clientId,
-      canManageColumns: instance.user?.staff == true,
+    final future = auth.run(
+      () => api.metadata(
+        siteUrl: instance.url,
+        apiKey: auth.apiKey,
+        clientId: auth.apiKey == null ? null : auth.clientId,
+        canManageColumns: instance.user?.staff == true,
+      ),
     );
     _metadataLoads[instance.url] = future;
     try {
@@ -419,24 +429,18 @@ final class UserDirectoryController extends FrameSafeNotifier {
     }
   }
 
-  Future<_DirectoryCredentials?> _credentialsFor(
+  Future<AccountRequestCredentials?> _credentialsFor(
     DiscourseInstance instance,
     _DirectoryKey key,
     Object token,
     SiteLease lease,
   ) async {
-    if (!instance.isConnected) {
-      return _isCurrent(key, token, lease)
-          ? (apiKey: null, clientId: null)
-          : null;
-    }
-    final apiKey = await credentials.apiKeyFor(instance.url);
     if (!_isCurrent(key, token, lease)) return null;
-    if (apiKey == null) return (apiKey: null, clientId: null);
-    final clientId = await credentials.clientId();
-    return _isCurrent(key, token, lease)
-        ? (apiKey: apiKey, clientId: clientId)
-        : null;
+    final session = AccountRequestSession(instance.url, lease);
+    final auth = instance.isConnected
+        ? await session.credentials(credentials)
+        : session.anonymousCredentials();
+    return _isCurrent(key, token, lease) ? auth : null;
   }
 
   bool _isCurrent(_DirectoryKey key, Object token, SiteLease lease) =>

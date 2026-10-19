@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/serial_operation_queue.dart';
@@ -209,7 +210,7 @@ final class PreferencesController extends FrameSafeNotifier {
     try {
       final session = await _readCredentials(lease, siteUrl);
       if (!_isCurrentLoad(lease, lane, request)) return;
-      if (session == null) {
+      if (session.apiKey == null) {
         _commitLoad(lease, lane, request, () {
           final state = _states[siteUrl]!;
           _states[siteUrl] = state.copyWith(
@@ -227,11 +228,13 @@ final class PreferencesController extends FrameSafeNotifier {
         key: (lane: lane, session: lease.session),
         operation: () async {
           if (!_isCurrentLoad(lease, lane, request)) return null;
-          return api.loadUserPreferences(
-            siteUrl: siteUrl,
-            apiKey: session.apiKey,
-            clientId: session.clientId,
-            username: instance.user!.username,
+          return session.run(
+            () => api.loadUserPreferences(
+              siteUrl: siteUrl,
+              apiKey: session.apiKey!,
+              clientId: session.clientId,
+              username: instance.user!.username,
+            ),
           );
         },
       );
@@ -346,16 +349,18 @@ final class PreferencesController extends FrameSafeNotifier {
           if (!_isCurrentSave(lease, saveKey, request)) return null;
           final session = await _readCredentials(lease, instance.url);
           if (!_isCurrentSave(lease, saveKey, request)) return null;
-          if (session == null) {
+          if (session.apiKey == null) {
             throw const WriteException(WriteFailure.forbidden);
           }
-          return api.updateUserPreferences(
-            siteUrl: instance.url,
-            apiKey: session.apiKey,
-            clientId: session.clientId,
-            username: state.username,
-            fallback: draft,
-            values: values,
+          return session.run(
+            () => api.updateUserPreferences(
+              siteUrl: instance.url,
+              apiKey: session.apiKey!,
+              clientId: session.clientId,
+              username: state.username,
+              fallback: draft,
+              values: values,
+            ),
           );
         },
       );
@@ -427,16 +432,10 @@ final class PreferencesController extends FrameSafeNotifier {
     if (changed && !isDisposed) notifySafely();
   }
 
-  Future<({String apiKey, String clientId})?> _readCredentials(
+  Future<AccountRequestCredentials> _readCredentials(
     SiteLease lease,
     String siteUrl,
-  ) async {
-    final apiKey = await credentials.apiKeyFor(siteUrl);
-    if (isDisposed || !lease.isCurrent || apiKey == null) return null;
-    final clientId = await credentials.clientId();
-    if (isDisposed || !lease.isCurrent) return null;
-    return (apiKey: apiKey, clientId: clientId);
-  }
+  ) => AccountRequestSession(siteUrl, lease).credentials(credentials);
 
   bool _isCurrentLoad(SiteLease lease, _PreferencesLane lane, Object request) =>
       !isDisposed &&

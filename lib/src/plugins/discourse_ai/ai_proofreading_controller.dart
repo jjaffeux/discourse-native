@@ -169,10 +169,12 @@ final class AiProofreadingController extends FrameSafeNotifier
         );
       }
       if (credential.failure case final failure?) throw failure;
-      suggestion = await api.proofread(
-        siteUrl: composer.siteUrl,
-        apiKey: credential.apiKey!,
-        text: source,
+      suggestion = await credential.credentials!.run(
+        () => api.proofread(
+          siteUrl: composer.siteUrl,
+          apiKey: credential.credentials!.apiKey!,
+          text: source,
+        ),
       );
     } catch (error, stackTrace) {
       diagnostics.reportError(

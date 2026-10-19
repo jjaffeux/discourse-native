@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -240,14 +241,17 @@ final class AccountActivityController extends FrameSafeNotifier {
     final before = _totals[instance.url] ?? const NotificationTotals();
     final authority = _captureTotalsAuthority(instance.url);
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (apiKey == null ||
           !_ownsRequest(lease, _totalsRequests[instance.url], request)) {
         return null;
       }
-      final totals = await api.notificationTotals(
-        siteUrl: instance.url,
-        apiKey: apiKey,
+      final totals = await auth.run(
+        () => api.notificationTotals(siteUrl: instance.url, apiKey: apiKey),
       );
       NotificationTotals? applied;
       final accepted = _commit(lease, () {
@@ -590,17 +594,23 @@ final class AccountActivityController extends FrameSafeNotifier {
     );
 
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final auth = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (isDisposed || !lease.isCurrent) return;
       if (apiKey == null) {
         throw StateError(
           'Reconnect to ${instance.host} to dismiss notifications.',
         );
       }
-      await api.markNotificationsRead(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        types: dismissedTypeNames,
+      await auth.run(
+        () => api.markNotificationsRead(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          types: dismissedTypeNames,
+        ),
       );
       if (isDisposed || !lease.isCurrent) return;
 
@@ -733,7 +743,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!ownsRequest()) {
         return;
       }
@@ -745,7 +759,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         });
         return;
       }
-      final notifications = await fetch(apiKey, ownsRequest);
+      final notifications = await auth.run(() => fetch(apiKey, ownsRequest));
       _commit(lease, () {
         if (!identical(requests[instance.url], request)) return;
         feeds[instance.url] = NotificationFeed.of(
@@ -879,7 +893,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!_ownsRequest(lease, _bookmarkRequests[instance.url], request)) {
         return;
       }
@@ -893,10 +911,12 @@ final class AccountActivityController extends FrameSafeNotifier {
         });
         return;
       }
-      final bookmarks = await api.bookmarks(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        username: username,
+      final bookmarks = await auth.run(
+        () => api.bookmarks(
+          siteUrl: instance.url,
+          apiKey: apiKey,
+          username: username,
+        ),
       );
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
@@ -1056,7 +1076,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final auth = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!_ownsRequest(lease, _bookmarkListRequests[siteUrl], request)) {
         return;
       }
@@ -1070,11 +1094,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         });
         return;
       }
-      final loaded = await api.bookmarkListPage(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        username: username,
-        page: page,
+      final loaded = await auth.run(
+        () => api.bookmarkListPage(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          username: username,
+          page: page,
+        ),
       );
       if (prepend &&
           !loaded.hasMore &&
@@ -1233,7 +1259,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final auth = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!_ownsRequest(lease, _userActivityRequests[siteUrl], request)) {
         return;
       }
@@ -1247,12 +1277,14 @@ final class AccountActivityController extends FrameSafeNotifier {
         });
         return;
       }
-      final page = await api.userActivity(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        username: username,
-        offset: offset,
-        limit: limit,
+      final page = await auth.run(
+        () => api.userActivity(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          username: username,
+          offset: offset,
+          limit: limit,
+        ),
       );
       if (prepend &&
           page.rawItemCount < limit &&
@@ -1365,7 +1397,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
 
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       final key = (instance.url, notification.id);
       if (!_ownsRequest(lease, _notificationReadRequests[key], request)) {
         return;
@@ -1374,10 +1410,12 @@ final class AccountActivityController extends FrameSafeNotifier {
         abandonOptimisticRead();
         return;
       }
-      await api.markNotificationRead(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        id: notification.id,
+      await auth.run(
+        () => api.markNotificationRead(
+          siteUrl: instance.url,
+          apiKey: apiKey,
+          id: notification.id,
+        ),
       );
     } catch (error, stackTrace) {
       final key = (instance.url, notification.id);

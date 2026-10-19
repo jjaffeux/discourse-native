@@ -54,12 +54,16 @@ final class SolvedController {
         // Solved returns an accepted-answer array (or null). The shared write
         // transport validates status; fresh guardian-filtered records are the
         // source of truth, including a formerly accepted answer on this topic.
-        await transport.pluginWriteJson(
-          siteUrl: siteUrl,
-          path: accepted ? '/solution/accept.json' : '/solution/unaccept.json',
-          method: 'POST',
-          apiKey: credential.apiKey!,
-          body: {'id': postId},
+        await credential.credentials!.run(
+          () => transport.pluginWriteJson(
+            siteUrl: siteUrl,
+            path: accepted
+                ? '/solution/accept.json'
+                : '/solution/unaccept.json',
+            method: 'POST',
+            apiKey: credential.credentials!.apiKey!,
+            body: {'id': postId},
+          ),
         );
         if (!current()) return null;
         final refreshIds = <int>{
@@ -79,7 +83,7 @@ final class SolvedController {
             siteUrl: siteUrl,
             topicId: topic.id,
             postId: id,
-            apiKey: credential.apiKey,
+            apiKey: credential.credentials!.apiKey,
             lease: lease,
           );
         }

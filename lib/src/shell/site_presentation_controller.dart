@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/request_intent.dart';
 import '../data/site_lifecycle.dart';
@@ -630,12 +631,14 @@ final class SitePresentationController extends FrameSafeNotifier {
     SiteLease lease,
     Future<T> Function(String? apiKey, String? clientId) load,
   ) async {
-    final apiKey = await credentials.apiKeyFor(siteUrl);
+    final auth = await AccountRequestSession(
+      siteUrl,
+      lease,
+    ).credentials(credentials);
     if (isDisposed || !lease.isCurrent) return null;
-    if (apiKey == null) return load(null, null);
-    final clientId = await credentials.clientId();
-    if (isDisposed || !lease.isCurrent) return null;
-    return load(apiKey, clientId);
+    return auth.run(
+      () => load(auth.apiKey, auth.apiKey == null ? null : auth.clientId),
+    );
   }
 
   static String _resolveUrl(String siteUrl, String value) {

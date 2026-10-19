@@ -51,6 +51,71 @@ void main() {
     );
   }
 
+  test('key-only capture never reads or sends a client ID', () async {
+    final fixture = _Fixture();
+    addTearDown(fixture.api.close);
+    final reader = _Credentials();
+    final snapshot = await AccountRequestSession(
+      _site,
+      fixture.lifecycle.capture(_site),
+    ).keyCredentials(reader);
+    expect(snapshot.clientId, isEmpty);
+    expect(reader.clientReads, 0);
+    final pending = snapshot.run(
+      () => fixture.api.topic(
+        siteUrl: _site,
+        slug: '',
+        id: 1,
+        apiKey: snapshot.apiKey,
+      ),
+    );
+    await pumpEventQueue();
+    expect(
+      fixture.client.requests.single.request.headers['User-Api-Client-Id'],
+      isNull,
+    );
+    fixture.client.requests.single.complete();
+    await pending;
+  });
+
+  test('key-only acquisition rejects retirement during storage read', () async {
+    final lifecycle = SiteLifecycle();
+    final reader = _Credentials()..keyGate = Completer<String>();
+    final pending = AccountRequestSession(
+      _site,
+      lifecycle.capture(_site),
+    ).keyCredentials(reader);
+    final rejected = expectLater(
+      pending,
+      throwsA(isA<AccountRequestRetiredException>()),
+    );
+    await pumpEventQueue();
+    lifecycle.invalidate(_site);
+    reader.keyGate!.complete('replacement-key');
+    await rejected;
+    expect(reader.clientReads, 0);
+  });
+
+  test(
+    'explicit anonymous capture needs no credential reader and retires',
+    () async {
+      final lifecycle = SiteLifecycle();
+      final session = AccountRequestSession(_site, lifecycle.capture(_site));
+      final snapshot = session.anonymousCredentials();
+      expect(snapshot.apiKey, isNull);
+      expect(snapshot.clientId, isEmpty);
+      lifecycle.invalidate(_site);
+      expect(
+        session.anonymousCredentials,
+        throwsA(isA<AccountRequestRetiredException>()),
+      );
+      await expectLater(
+        snapshot.run(() async => 1),
+        throwsA(isA<AccountRequestRetiredException>()),
+      );
+    },
+  );
+
   test('anonymous reads never access the client ID', () async {
     final lifecycle = SiteLifecycle();
     final reader = _Credentials()..key = null;

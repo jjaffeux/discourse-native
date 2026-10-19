@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:discourse_native/l10n/strings.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -97,14 +98,18 @@ final class DoNotDisturbController extends FrameSafeNotifier {
         identical(_requests[siteUrl], request);
 
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final auth = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).credentials(credentials);
+      final apiKey = auth.apiKey;
       if (!isCurrent()) return null;
       if (apiKey == null) {
         return const WriteException(WriteFailure.forbidden).message;
       }
-      final clientId = await credentials.clientId();
+      final clientId = auth.clientId;
       if (!isCurrent()) return null;
-      final until = await send(apiKey, clientId);
+      final until = await auth.run(() => send(apiKey, clientId));
       if (!isCurrent()) return null;
 
       confirmed = true;

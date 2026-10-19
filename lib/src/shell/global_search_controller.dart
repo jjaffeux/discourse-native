@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/recent_search_store.dart';
 import '../data/site_lifecycle.dart';
@@ -378,15 +379,21 @@ class GlobalSearchController extends ChangeNotifier {
   ) async {
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
     try {
-      final key = await credentials.apiKeyFor(site);
+      final auth = await AccountRequestSession(
+        site,
+        lease,
+      ).credentials(credentials);
+      final key = auth.apiKey;
       if (!current()) return;
-      final client = key == null ? null : await credentials.clientId();
+      final client = key == null ? null : auth.clientId;
       if (!current()) return;
-      final loaded = await api.capabilities(
-        siteUrl: site,
-        apiKey: key,
-        clientId: client,
-        base: base,
+      final loaded = await auth.run(
+        () => api.capabilities(
+          siteUrl: site,
+          apiKey: key,
+          clientId: client,
+          base: base,
+        ),
       );
       if (!current() || loaded.fingerprint == capabilities.fingerprint) return;
       _capabilities = loaded;
@@ -770,14 +777,20 @@ class GlobalSearchController extends ChangeNotifier {
     if (site == null || lease == null || !capabilities.authenticated) return;
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
     try {
-      final key = await credentials.apiKeyFor(site);
+      final auth = await AccountRequestSession(
+        site,
+        lease,
+      ).credentials(credentials);
+      final key = auth.apiKey;
       if (key == null || !current()) return;
-      final client = await credentials.clientId();
+      final client = auth.clientId;
       if (!current()) return;
-      await api.clearRecentSearches(
-        siteUrl: site,
-        apiKey: key,
-        clientId: client,
+      await auth.run(
+        () => api.clearRecentSearches(
+          siteUrl: site,
+          apiKey: key,
+          clientId: client,
+        ),
       );
     } catch (_) {
       if (!current()) return;
@@ -796,15 +809,21 @@ class GlobalSearchController extends ChangeNotifier {
     if (site == null || lease == null || !capabilities.logSearchQueries) return;
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
     try {
-      final key = await credentials.apiKeyFor(site);
+      final auth = await AccountRequestSession(
+        site,
+        lease,
+      ).credentials(credentials);
+      final key = auth.apiKey;
       if (key == null || !current()) return;
-      final client = await credentials.clientId();
+      final client = auth.clientId;
       if (!current()) return;
-      await api.logClick(
-        siteUrl: site,
-        apiKey: key,
-        clientId: client,
-        result: result,
+      await auth.run(
+        () => api.logClick(
+          siteUrl: site,
+          apiKey: key,
+          clientId: client,
+          result: result,
+        ),
       );
     } catch (_) {
       /* Selection succeeds even if analytics are unavailable. */
@@ -822,43 +841,54 @@ class GlobalSearchController extends ChangeNotifier {
       return const [];
     }
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
-    final key = await credentials.apiKeyFor(site);
-    if (!current()) return const [];
-    final client = key == null ? null : await credentials.clientId();
-    if (!current()) return const [];
-    final values = await api.lookupChoices(
-      capabilities: capabilities,
-      siteUrl: site,
-      apiKey: key,
-      clientId: client,
-      filter: filter,
-      term: term,
-    );
-    if (!current()) return const [];
-    if (filter.id == 'tags') {
-      for (final choice in values) {
-        _tagChoices.remove(choice.value);
-        _tagChoices[choice.value] = choice;
+    try {
+      final auth = await AccountRequestSession(
+        site,
+        lease,
+      ).credentials(credentials);
+      final key = auth.apiKey;
+      if (!current()) return const [];
+      final client = key == null ? null : auth.clientId;
+      if (!current()) return const [];
+      final values = await auth.run(
+        () => api.lookupChoices(
+          capabilities: capabilities,
+          siteUrl: site,
+          apiKey: key,
+          clientId: client,
+          filter: filter,
+          term: term,
+        ),
+      );
+      if (!current()) return const [];
+      if (filter.id == 'tags') {
+        for (final choice in values) {
+          _tagChoices.remove(choice.value);
+          _tagChoices[choice.value] = choice;
+        }
+        while (_tagChoices.length > 512) {
+          _tagChoices.remove(_tagChoices.keys.first);
+        }
       }
-      while (_tagChoices.length > 512) {
-        _tagChoices.remove(_tagChoices.keys.first);
+      final ordered = values.toList();
+      if (filter.lookup == GlobalSearchLookup.users) {
+        ordered.sort((a, b) {
+          final mine = a.value == capabilities.username
+              ? -1
+              : b.value == capabilities.username
+              ? 1
+              : 0;
+          return mine != 0
+              ? mine
+              : a.label.toLowerCase().compareTo(b.label.toLowerCase());
+        });
       }
+      _rememberChoices(filter.id, ordered);
+      return ordered;
+    } catch (_) {
+      if (!current()) return const [];
+      rethrow;
     }
-    final ordered = values.toList();
-    if (filter.lookup == GlobalSearchLookup.users) {
-      ordered.sort((a, b) {
-        final mine = a.value == capabilities.username
-            ? -1
-            : b.value == capabilities.username
-            ? 1
-            : 0;
-        return mine != 0
-            ? mine
-            : a.label.toLowerCase().compareTo(b.label.toLowerCase());
-      });
-    }
-    _rememberChoices(filter.id, ordered);
-    return ordered;
   }
 
   Future<GlobalSearchCategoryPage> lookupCategoryChoices(
@@ -868,20 +898,31 @@ class GlobalSearchController extends ChangeNotifier {
     final site = siteUrl, lease = _lease, epoch = _configuration;
     if (site == null || lease == null) return const GlobalSearchCategoryPage();
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
-    final key = await credentials.apiKeyFor(site);
-    if (!current()) return const GlobalSearchCategoryPage();
-    final client = key == null ? null : await credentials.clientId();
-    if (!current()) return const GlobalSearchCategoryPage();
-    final result = await api.lookupCategoryChoices(
-      siteUrl: site,
-      apiKey: key,
-      clientId: client,
-      term: term,
-      page: page,
-    );
-    if (!current()) return const GlobalSearchCategoryPage();
-    _rememberChoices('category', result.choices);
-    return result;
+    try {
+      final auth = await AccountRequestSession(
+        site,
+        lease,
+      ).credentials(credentials);
+      final key = auth.apiKey;
+      if (!current()) return const GlobalSearchCategoryPage();
+      final client = key == null ? null : auth.clientId;
+      if (!current()) return const GlobalSearchCategoryPage();
+      final result = await auth.run(
+        () => api.lookupCategoryChoices(
+          siteUrl: site,
+          apiKey: key,
+          clientId: client,
+          term: term,
+          page: page,
+        ),
+      );
+      if (!current()) return const GlobalSearchCategoryPage();
+      _rememberChoices('category', result.choices);
+      return result;
+    } catch (_) {
+      if (!current()) return const GlobalSearchCategoryPage();
+      rethrow;
+    }
   }
 
   void _rememberChoices(
@@ -1042,16 +1083,22 @@ class GlobalSearchController extends ChangeNotifier {
         revision == _revision &&
         site == siteUrl;
     try {
-      final key = await credentials.apiKeyFor(site);
+      final auth = await AccountRequestSession(
+        site,
+        lease,
+      ).credentials(credentials);
+      final key = auth.apiKey;
       if (!current()) return;
-      final client = key == null ? null : await credentials.clientId();
+      final client = key == null ? null : auth.clientId;
       if (!current()) return;
-      final page = await api.search(
-        siteUrl: site,
-        apiKey: key,
-        clientId: client,
-        request: request,
-        abortTrigger: abort.future,
+      final page = await auth.run(
+        () => api.search(
+          siteUrl: site,
+          apiKey: key,
+          clientId: client,
+          request: request,
+          abortTrigger: abort.future,
+        ),
       );
       if (!current()) return;
       if (append) {

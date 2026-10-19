@@ -637,8 +637,10 @@ final class _RequestHost implements PluginRequestHost {
       const PluginRequestCredentials(apiKey: 'key', clientId: 'test-client');
 
   @override
-  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async =>
-      (apiKey: 'key', failure: null);
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async => (
+    credentials: const PluginRequestCredentials(apiKey: 'key', clientId: ''),
+    failure: null,
+  );
 }
 
 final class _GatedRequestHost implements PluginRequestHost {
@@ -660,8 +662,10 @@ final class _GatedRequestHost implements PluginRequestHost {
   }
 
   @override
-  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async =>
-      (apiKey: 'key', failure: null);
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async => (
+    credentials: const PluginRequestCredentials(apiKey: 'key', clientId: ''),
+    failure: null,
+  );
 
   void invalidate() {
     for (final lease in _leases) {

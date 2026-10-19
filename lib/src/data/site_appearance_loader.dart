@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/site_appearance.dart';
+import 'account_request_session.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
@@ -88,6 +89,7 @@ final class SiteAppearanceLoader {
     String? apiKey,
     String? clientId,
   }) async {
+    AccountRequestScope.current?.validate(siteUrl, apiKey, clientId);
     final Uri siteBase;
     try {
       final parsed = Uri.parse(siteUrl);
@@ -166,99 +168,112 @@ final class SiteAppearanceLoader {
     // failure attribution is unchanged; ignore() stops a scheme or href
     // failure from leaving this in-flight future's error unobserved, without
     // consuming the result the later await still needs.
+    final documentAbort = Completer<void>();
     final documentLoad = _loadText(
       apiBase,
       // Some forums challenge browser-style HTML requests from native clients.
       accept: '*/*',
+      scope: AccountRequestScope.current,
+      abortTrigger: documentAbort.future,
       headers: forumHeaders,
       redirectOrigin: apiKey == null ? null : apiBase.origin,
     );
     documentLoad.ignore();
-    final details = await schemeDetails;
+    try {
+      final details = await schemeDetails;
 
-    final stylesheetUrls = <int, Uri>{};
-    for (var index = 0; index < schemeIds.length; index++) {
-      final response = details[index];
-      final href = _newStylesheetHref(response.value);
-      if (href == null) {
+      final stylesheetUrls = <int, Uri>{};
+      for (var index = 0; index < schemeIds.length; index++) {
+        final response = details[index];
+        final href = _newStylesheetHref(response.value);
+        if (href == null) {
+          throw SiteAppearanceLoadException(
+            SiteAppearanceLoadFailure.malformed,
+            url: response.url,
+            detail: appL10n.stylesheetJSONHasNoNewHref,
+          );
+        }
+        final url = response.url.resolve(href);
+        _requireSafeStylesheetUrl(response.url, url);
+        stylesheetUrls[schemeIds.elementAt(index)] = url;
+      }
+
+      final document = await documentLoad;
+      final themeDocument = (
+        source: document.source,
+        documentUrl: document.url,
+        themeId: selection.themeId,
+      );
+      final themeStylesheetUrls =
+          document.source.length < _backgroundAppearanceParseThreshold
+          ? _discoverThemeStylesheets(themeDocument)
+          : await compute(
+              _discoverThemeStylesheets,
+              themeDocument,
+              debugLabel: 'Discourse appearance HTML',
+            );
+      for (final url in themeStylesheetUrls) {
+        _requireSafeStylesheetUrl(document.url, url);
+      }
+
+      final uniqueUrls = {...stylesheetUrls.values, ...themeStylesheetUrls};
+      final loaded = await Future.wait([
+        for (final url in uniqueUrls)
+          _loadText(
+            url,
+            accept: 'text/css',
+            headers: const {'User-Agent': _userAgent},
+          ),
+      ]);
+      final sources = {
+        for (var index = 0; index < uniqueUrls.length; index++)
+          uniqueUrls.elementAt(index): loaded[index].source,
+      };
+
+      final themeSources = [
+        for (final url in themeStylesheetUrls) sources[url]!,
+      ];
+      final baseUrl = stylesheetUrls[selection.baseSchemeId]!;
+      final alternateUrl = stylesheetUrls[selection.alternateSchemeId];
+      final appearanceSources = (
+        base: [sources[baseUrl]!, ...themeSources],
+        baseUrl: baseUrl,
+        alternate: alternateUrl == null
+            ? null
+            : [sources[alternateUrl]!, ...themeSources],
+        alternateUrl: alternateUrl,
+        mode: selection.mode,
+      );
+      // Count the work, including the parent theme again for an alternate
+      // palette. Both cascades run in one short-lived worker, in the same order
+      // as inline parsing; no per-stylesheet or per-palette fan-out is needed.
+      final parseLength = [
+        ...appearanceSources.base,
+        ...?appearanceSources.alternate,
+      ].fold<int>(0, (length, source) => length + source.length);
+      try {
+        if (parseLength < _backgroundAppearanceParseThreshold) {
+          return _parseAppearance(appearanceSources);
+        }
+        return await compute(
+          _parseAppearance,
+          appearanceSources,
+          debugLabel: 'Discourse appearance CSS',
+        );
+      } on SiteAppearanceLoadException {
+        rethrow;
+      } on Object catch (error) {
         throw SiteAppearanceLoadException(
           SiteAppearanceLoadFailure.malformed,
-          url: response.url,
-          detail: appL10n.stylesheetJSONHasNoNewHref,
+          url: baseUrl,
+          detail: error,
         );
       }
-      final url = response.url.resolve(href);
-      _requireSafeStylesheetUrl(response.url, url);
-      stylesheetUrls[schemeIds.elementAt(index)] = url;
-    }
-
-    final document = await documentLoad;
-    final themeDocument = (
-      source: document.source,
-      documentUrl: document.url,
-      themeId: selection.themeId,
-    );
-    final themeStylesheetUrls =
-        document.source.length < _backgroundAppearanceParseThreshold
-        ? _discoverThemeStylesheets(themeDocument)
-        : await compute(
-            _discoverThemeStylesheets,
-            themeDocument,
-            debugLabel: 'Discourse appearance HTML',
-          );
-    for (final url in themeStylesheetUrls) {
-      _requireSafeStylesheetUrl(document.url, url);
-    }
-
-    final uniqueUrls = {...stylesheetUrls.values, ...themeStylesheetUrls};
-    final loaded = await Future.wait([
-      for (final url in uniqueUrls)
-        _loadText(
-          url,
-          accept: 'text/css',
-          headers: const {'User-Agent': _userAgent},
-        ),
-    ]);
-    final sources = {
-      for (var index = 0; index < uniqueUrls.length; index++)
-        uniqueUrls.elementAt(index): loaded[index].source,
-    };
-
-    final themeSources = [for (final url in themeStylesheetUrls) sources[url]!];
-    final baseUrl = stylesheetUrls[selection.baseSchemeId]!;
-    final alternateUrl = stylesheetUrls[selection.alternateSchemeId];
-    final appearanceSources = (
-      base: [sources[baseUrl]!, ...themeSources],
-      baseUrl: baseUrl,
-      alternate: alternateUrl == null
-          ? null
-          : [sources[alternateUrl]!, ...themeSources],
-      alternateUrl: alternateUrl,
-      mode: selection.mode,
-    );
-    // Count the work, including the parent theme again for an alternate
-    // palette. Both cascades run in one short-lived worker, in the same order
-    // as inline parsing; no per-stylesheet or per-palette fan-out is needed.
-    final parseLength = [
-      ...appearanceSources.base,
-      ...?appearanceSources.alternate,
-    ].fold<int>(0, (length, source) => length + source.length);
-    try {
-      if (parseLength < _backgroundAppearanceParseThreshold) {
-        return _parseAppearance(appearanceSources);
-      }
-      return await compute(
-        _parseAppearance,
-        appearanceSources,
-        debugLabel: 'Discourse appearance CSS',
-      );
-    } on SiteAppearanceLoadException {
-      rethrow;
-    } on Object catch (error) {
-      throw SiteAppearanceLoadException(
-        SiteAppearanceLoadFailure.malformed,
-        url: baseUrl,
-        detail: error,
+    } finally {
+      documentAbort.complete();
+      await documentLoad.then<void>(
+        (_) {},
+        onError: (Object _, StackTrace _) {},
       );
     }
   }
@@ -291,6 +306,7 @@ final class SiteAppearanceLoader {
     final loaded = await _loadText(
       url,
       accept: 'application/json',
+      scope: AccountRequestScope.current,
       headers: headers,
       redirectOrigin: redirectOrigin,
     );
@@ -312,6 +328,8 @@ final class SiteAppearanceLoader {
     required String accept,
     required Map<String, String> headers,
     String? redirectOrigin,
+    AccountRequestScope? scope,
+    Future<void>? abortTrigger,
   }) async {
     var current = initialUrl;
 
@@ -320,6 +338,8 @@ final class SiteAppearanceLoader {
         http.Request('GET', current)
           ..headers['Accept'] = accept
           ..headers.addAll(headers),
+        scope: scope,
+        abortTrigger: abortTrigger,
       );
 
       if (!_isRedirect(response.statusCode)) {
@@ -380,8 +400,52 @@ final class SiteAppearanceLoader {
     }
   }
 
-  Future<http.Response> _send(http.BaseRequest request) async {
+  Future<http.Response> _send(
+    http.BaseRequest request, {
+    AccountRequestScope? scope,
+    Future<void>? abortTrigger,
+  }) async {
     try {
+      if (scope != null || abortTrigger != null) {
+        scope?.validateHeaders(request.headers);
+        final cancellation = scope == null
+            ? abortTrigger
+            : abortTrigger == null
+            ? scope.retired
+            : Future.any([scope.retired, abortTrigger]);
+        return await _coordinator.runGet(
+          request.url,
+          (abort) {
+            if (scope != null && !scope.isCurrent) {
+              throw DiscourseQueuedRequestCancelledException(request.url);
+            }
+            final outgoing =
+                http.AbortableRequest(
+                    request.method,
+                    request.url,
+                    abortTrigger: abort,
+                  )
+                  ..headers.addAll(request.headers)
+                  ..followRedirects = request.followRedirects
+                  ..maxRedirects = request.maxRedirects
+                  ..persistentConnection = request.persistentConnection;
+            return sendBoundedHttpRequest(
+              _client,
+              outgoing,
+              timeout: timeout,
+              maxBodyBytes: maxResponseBytes,
+            );
+          },
+          coalesce: DiscourseGetRequestKey(
+            request.url,
+            headers: request.headers,
+            timeout: timeout,
+            maxResponseBytes: maxResponseBytes,
+            session: scope?.session,
+          ),
+          abortTrigger: cancellation,
+        );
+      }
       return await _coordinator.run(
         request.url,
         () => sendBoundedHttpRequest(

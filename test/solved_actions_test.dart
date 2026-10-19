@@ -93,7 +93,13 @@ void main() {
       final pending = f.change(true);
       await Future<void>.delayed(Duration.zero);
       f.requests.lease.current = false;
-      f.requests.gate!.complete((apiKey: 'retired', failure: null));
+      f.requests.gate!.complete((
+        credentials: const PluginRequestCredentials(
+          apiKey: 'retired',
+          clientId: '',
+        ),
+        failure: null,
+      ));
       await pending;
       expect(f.api.calls, isEmpty);
       expect(f.posts.ends, 0);
@@ -107,7 +113,13 @@ void main() {
       f.requests.gate = Completer();
       final pending = f.change(true);
       f.posts.records[2] = post(2, canAccept: false);
-      f.requests.gate!.complete((apiKey: 'key', failure: null));
+      f.requests.gate!.complete((
+        credentials: const PluginRequestCredentials(
+          apiKey: 'key',
+          clientId: '',
+        ),
+        failure: null,
+      ));
       await pending;
       expect(f.api.calls, isEmpty);
       expect(f.posts.ends, 1);
@@ -128,7 +140,10 @@ void main() {
     f.requests.gate = Completer();
     final pending = f.change(true);
     await f.change(true);
-    f.requests.gate!.complete((apiKey: 'key', failure: null));
+    f.requests.gate!.complete((
+      credentials: const PluginRequestCredentials(apiKey: 'key', clientId: ''),
+      failure: null,
+    ));
     await pending;
     expect(f.api.calls, hasLength(1));
   });
@@ -177,7 +192,15 @@ class _Requests implements PluginRequestHost {
   PluginSiteLease capture(String siteUrl) => lease;
   @override
   Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async =>
-      gate == null ? (apiKey: 'key', failure: null) : await gate!.future;
+      gate == null
+      ? (
+          credentials: const PluginRequestCredentials(
+            apiKey: 'key',
+            clientId: '',
+          ),
+          failure: null,
+        )
+      : await gate!.future;
   @override
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
       const PluginRequestCredentials(apiKey: 'key', clientId: 'client');

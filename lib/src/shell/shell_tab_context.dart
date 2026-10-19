@@ -719,12 +719,11 @@ final class ShellTabContext {
         instance.user?.unifiedNewEnabled == true &&
         mode != TopicListMode.newTopics;
     try {
-      final credential = await shell._readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => shell.credentials.apiKeyFor(siteUrl),
-      );
-      final identity = await shell._readClientIdFor(lease, credential?.value);
-      if (credential?.value == null || identity == null || !lease.isCurrent) {
+      ).credentials(shell.credentials);
+      if (credential.apiKey == null || !lease.isCurrent) {
         return appL10n.reconnectToDismissNewTopics;
       }
       // Core accepts one tag. Resolve the full intersection before a bulk
@@ -735,11 +734,14 @@ final class ShellTabContext {
         String? path = route.feedPath;
         final visited = <String>{};
         while (path != null && visited.add(path)) {
-          final page = await shell.api.topicFeeds.topicList(
-            siteUrl: siteUrl,
-            path: path,
-            apiKey: credential!.value,
-            clientId: identity.value,
+          final requestPath = path;
+          final page = await credential.run(
+            () => shell.api.topicFeeds.topicList(
+              siteUrl: siteUrl,
+              path: requestPath,
+              apiKey: credential.apiKey,
+              clientId: credential.clientId,
+            ),
           );
           if (!lease.isCurrent || shell._tabContextDisposed) return null;
           topicIds.addAll(page.topics.map((topic) => topic.id));
@@ -750,15 +752,17 @@ final class ShellTabContext {
         }
       }
       if (!lease.isCurrent || shell._tabContextDisposed) return null;
-      final ids = await shell.api.topicFeeds.dismissNewTopics(
-        siteUrl: siteUrl,
-        apiKey: credential!.value!,
-        clientId: identity.value,
-        dismissTopics: topics,
-        dismissPosts: posts,
-        categoryId: route.categoryId,
-        tagName: scope.tagName,
-        topicIds: topicIds,
+      final ids = await credential.run(
+        () => shell.api.topicFeeds.dismissNewTopics(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          clientId: credential.clientId,
+          dismissTopics: topics,
+          dismissPosts: posts,
+          categoryId: route.categoryId,
+          tagName: scope.tagName,
+          topicIds: topicIds,
+        ),
       );
       if (!lease.isCurrent || shell._tabContextDisposed) return null;
       for (final type in [

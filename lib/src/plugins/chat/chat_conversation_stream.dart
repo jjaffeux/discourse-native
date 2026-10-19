@@ -345,23 +345,27 @@ final class _ChatConversationStream {
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
       final page = target.threadId == null
-          ? await _controller.api.chatMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              targetMessageId: targetMessageId,
-              fromLastRead: fromLastRead,
-              pageSize: ChatController.pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
+          ? await requestCredentials.run(
+              () => _controller.api.chatMessages(
+                siteUrl: siteUrl,
+                channelId: target.channelId,
+                targetMessageId: targetMessageId,
+                fromLastRead: fromLastRead,
+                pageSize: ChatController.pageSize,
+                apiKey: apiKey,
+                clientId: clientId,
+              ),
             )
-          : await _controller.api.chatThreadMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              threadId: target.threadId!,
-              targetMessageId: targetMessageId,
-              pageSize: ChatController.pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
+          : await requestCredentials.run(
+              () => _controller.api.chatThreadMessages(
+                siteUrl: siteUrl,
+                channelId: target.channelId,
+                threadId: target.threadId!,
+                targetMessageId: targetMessageId,
+                pageSize: ChatController.pageSize,
+                apiKey: apiKey,
+                clientId: clientId,
+              ),
             );
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return _ChatWindowFetchResult.cancelled;
@@ -523,22 +527,26 @@ final class _ChatConversationStream {
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
       final page = target.threadId == null
-          ? await _controller.api.chatMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              before: before,
-              pageSize: ChatController.pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
+          ? await requestCredentials.run(
+              () => _controller.api.chatMessages(
+                siteUrl: siteUrl,
+                channelId: target.channelId,
+                before: before,
+                pageSize: ChatController.pageSize,
+                apiKey: apiKey,
+                clientId: clientId,
+              ),
             )
-          : await _controller.api.chatThreadMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              threadId: target.threadId!,
-              before: before,
-              pageSize: ChatController.pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
+          : await requestCredentials.run(
+              () => _controller.api.chatThreadMessages(
+                siteUrl: siteUrl,
+                channelId: target.channelId,
+                threadId: target.threadId!,
+                before: before,
+                pageSize: ChatController.pageSize,
+                apiKey: apiKey,
+                clientId: clientId,
+              ),
             );
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
@@ -631,22 +639,26 @@ final class _ChatConversationStream {
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
       final page = target.threadId == null
-          ? await _controller.api.chatMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              after: after,
-              pageSize: ChatController.pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
+          ? await requestCredentials.run(
+              () => _controller.api.chatMessages(
+                siteUrl: siteUrl,
+                channelId: target.channelId,
+                after: after,
+                pageSize: ChatController.pageSize,
+                apiKey: apiKey,
+                clientId: clientId,
+              ),
             )
-          : await _controller.api.chatThreadMessages(
-              siteUrl: siteUrl,
-              channelId: target.channelId,
-              threadId: target.threadId!,
-              after: after,
-              pageSize: ChatController.pageSize,
-              apiKey: apiKey,
-              clientId: clientId,
+          : await requestCredentials.run(
+              () => _controller.api.chatThreadMessages(
+                siteUrl: siteUrl,
+                channelId: target.channelId,
+                threadId: target.threadId!,
+                after: after,
+                pageSize: ChatController.pageSize,
+                apiKey: apiKey,
+                clientId: clientId,
+              ),
             );
       if (!_controller._requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
@@ -763,21 +775,25 @@ final class _ChatConversationStream {
           continue;
         }
         if (target.threadId == null) {
-          await _controller.api.markChatChannelRead(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            channelId: target.channelId,
-            messageId: receipt.messageId,
-            clientId: clientId,
+          await requestCredentials.run(
+            () => _controller.api.markChatChannelRead(
+              siteUrl: siteUrl,
+              apiKey: apiKey,
+              channelId: target.channelId,
+              messageId: receipt.messageId,
+              clientId: clientId,
+            ),
           );
         } else {
-          await _controller.api.markChatThreadRead(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            channelId: target.channelId,
-            threadId: target.threadId!,
-            messageId: receipt.messageId,
-            clientId: clientId,
+          await requestCredentials.run(
+            () => _controller.api.markChatThreadRead(
+              siteUrl: siteUrl,
+              apiKey: apiKey,
+              channelId: target.channelId,
+              threadId: target.threadId!,
+              messageId: receipt.messageId,
+              clientId: clientId,
+            ),
           );
         }
       } catch (error, stackTrace) {

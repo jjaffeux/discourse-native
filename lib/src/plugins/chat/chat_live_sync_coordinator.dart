@@ -1168,11 +1168,13 @@ final class ChatLiveSyncCoordinator {
       final credentials = await _requests.credentialsFor(site.siteUrl);
       final apiKey = credentials.apiKey;
       if (!isCurrent() || apiKey == null) return;
-      final membership = await _host.followChannel(
-        site.siteUrl,
-        apiKey,
-        credentials.clientId,
-        incoming.id,
+      final membership = await credentials.run(
+        () => _host.followChannel(
+          site.siteUrl,
+          apiKey,
+          credentials.clientId,
+          incoming.id,
+        ),
       );
       if (!isCurrent()) return;
       lease.commit(() {

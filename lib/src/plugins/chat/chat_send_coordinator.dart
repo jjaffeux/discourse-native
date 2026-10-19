@@ -481,19 +481,21 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
           return;
         }
       }
-      final serverId = await _api.sendChatMessage(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: target.channelId,
-        threadId: target.threadId,
-        inReplyToId: local.replyTo?.id,
-        message: local.optimisticRaw!,
-        uploadIds: item.uploadIds,
-        stagedId: local.stagedId,
-        clientCreatedAt: local.createdAt,
-        contextTopicId: item.context?.topicId,
-        contextPostIds: item.context?.postIds ?? const [],
+      final serverId = await requestCredentials.run(
+        () => _api.sendChatMessage(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: target.channelId,
+          threadId: target.threadId,
+          inReplyToId: local.replyTo?.id,
+          message: local.optimisticRaw!,
+          uploadIds: item.uploadIds,
+          stagedId: local.stagedId,
+          clientCreatedAt: local.createdAt,
+          contextTopicId: item.context?.topicId,
+          contextPostIds: item.context?.postIds ?? const [],
+        ),
       );
       if (!_requestIsCurrent(item.lease, queue, item)) {
         item.complete(ChatSendResult.cancelled);

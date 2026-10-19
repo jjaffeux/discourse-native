@@ -15,6 +15,20 @@ final class AccountRequestSession {
     if (!lease.isCurrent) throw const AccountRequestRetiredException();
   }
 
+  Future<AccountRequestCredentials> keyCredentials(
+    SiteApiKeyReader reader,
+  ) async {
+    _requireCurrent();
+    final apiKey = await reader.apiKeyFor(siteUrl);
+    _requireCurrent();
+    return AccountRequestCredentials._(this, apiKey, '');
+  }
+
+  AccountRequestCredentials anonymousCredentials() {
+    _requireCurrent();
+    return AccountRequestCredentials._(this, null, '');
+  }
+
   Future<AccountRequestCredentials> credentials(
     ApiCredentialReader reader,
   ) async {
@@ -74,6 +88,10 @@ final class AccountRequestScope {
     if (url.origin != Uri.parse(_credentials._session.siteUrl).origin) {
       throw StateError('Request destination does not belong to this session.');
     }
+    validateHeaders(headers);
+  }
+
+  void validateHeaders(Map<String, String> headers) {
     validate(
       _credentials._session.siteUrl,
       headers['User-Api-Key'],

@@ -452,7 +452,9 @@ abstract class _RequestHostBase implements PluginRequestHost {
   Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async {
     final credentials = await credentialsFor(siteUrl);
     return (
-      apiKey: credentials.apiKey,
+      credentials: credentials.apiKey == null
+          ? null
+          : PluginRequestCredentials(apiKey: credentials.apiKey, clientId: ''),
       failure: credentials.apiKey == null
           ? const WriteException(WriteFailure.forbidden)
           : null,

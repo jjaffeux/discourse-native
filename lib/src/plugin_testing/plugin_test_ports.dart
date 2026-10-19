@@ -32,7 +32,9 @@ final class PluginTestRequestHost implements PluginRequestHost {
   Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async {
     final apiKey = apiKeys[siteUrl];
     return (
-      apiKey: apiKey,
+      credentials: apiKey == null
+          ? null
+          : PluginRequestCredentials(apiKey: apiKey, clientId: ''),
       failure: apiKey == null
           ? const WriteException(WriteFailure.forbidden)
           : null,

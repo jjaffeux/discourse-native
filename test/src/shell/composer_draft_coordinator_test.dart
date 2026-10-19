@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -44,6 +45,23 @@ const _listedTopicDraft = UserDraft(
 );
 
 void main() {
+  test(
+    'draft save retains account scope and payload owner without migration header',
+    () async {
+      final api = _ScopedDraftApi();
+      final harness = _Harness(api: api);
+      addTearDown(harness.dispose);
+      final composer = harness.open(_replyTarget).composer;
+      composer.text.text = 'Save this draft';
+      await composer.flushDraft();
+      expect(api.owner, 'client-id');
+      expect(api.saves, 1);
+      composer.text.clear();
+      await composer.flushDraft();
+      expect(api.deletes, 1);
+    },
+  );
+
   test('empty and metadata-only drafts are never saved', () async {
     final harness = _Harness();
     addTearDown(harness.dispose);
@@ -902,7 +920,7 @@ final class _Harness {
       persistence: this.api,
       draftsApi: this.api,
       lifecycle: lifecycle,
-      readCredential: (_) async => (apiKey: 'api-key', failure: null),
+      credentials: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
       readClientId: () async => 'client-id',
       isDisposed: () => disposed,
       isCurrentComposer: composers.contains,
@@ -1037,4 +1055,59 @@ final class _FailingClearStore extends FakeDraftStore {
   }) async => fail
       ? false
       : super.clearChecked(siteUrl, draftKey, ifCurrent: ifCurrent);
+}
+
+final class _ScopedDraftApi extends FakeDiscourseApi {
+  String? owner;
+  int saves = 0;
+  int deletes = 0;
+
+  void validate(String siteUrl, String apiKey, String? clientId) {
+    expect(AccountRequestScope.current, isNotNull);
+    AccountRequestScope.current!.validate(siteUrl, apiKey, clientId);
+    expect(clientId, isNull);
+  }
+
+  @override
+  Future<int?> saveDraft({
+    required String siteUrl,
+    required String apiKey,
+    required String draftKey,
+    required int sequence,
+    required String data,
+    String? owner,
+    String? clientId,
+  }) {
+    validate(siteUrl, apiKey, clientId);
+    this.owner = owner;
+    saves++;
+    return super.saveDraft(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      draftKey: draftKey,
+      sequence: sequence,
+      data: data,
+      owner: owner,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<void> deleteUserDraft({
+    required String siteUrl,
+    required String apiKey,
+    required String draftKey,
+    required int sequence,
+    String? clientId,
+  }) {
+    validate(siteUrl, apiKey, clientId);
+    deletes++;
+    return super.deleteUserDraft(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      draftKey: draftKey,
+      sequence: sequence,
+      clientId: clientId,
+    );
+  }
 }

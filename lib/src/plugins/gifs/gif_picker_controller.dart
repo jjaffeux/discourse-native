@@ -89,10 +89,12 @@ final class GifPickerController extends ChangeNotifier {
         _categoriesError = _missingCredentials;
         return;
       }
-      final categories = await api.gifCategories(
-        siteUrl: siteUrl,
-        apiKey: session.apiKey,
-        clientId: session.clientId,
+      final categories = await session.run(
+        () => api.gifCategories(
+          siteUrl: siteUrl,
+          apiKey: session.apiKey!,
+          clientId: session.clientId,
+        ),
       );
       if (!_categoryIsCurrent(request)) return;
       _categories = List.unmodifiable(categories);
@@ -221,13 +223,15 @@ final class GifPickerController extends ChangeNotifier {
         _searchError = _missingCredentials;
         return;
       }
-      final page = await api.searchGifs(
-        siteUrl: siteUrl,
-        apiKey: session.apiKey,
-        clientId: session.clientId,
-        query: query,
-        fileDetail: fileDetail,
-        position: position,
+      final page = await session.run(
+        () => api.searchGifs(
+          siteUrl: siteUrl,
+          apiKey: session.apiKey!,
+          clientId: session.clientId,
+          query: query,
+          fileDetail: fileDetail,
+          position: position,
+        ),
       );
       if (!_searchIsCurrent(request)) return;
 
@@ -259,16 +263,13 @@ final class GifPickerController extends ChangeNotifier {
     }
   }
 
-  Future<_GifSession?> _session() async {
+  Future<PluginRequestCredentials?> _session() async {
     if (!_isCurrent) return null;
     final credentials = await _requests.credentialsFor(siteUrl);
     if (!_isCurrent || credentials.apiKey == null) {
       return null;
     }
-    return _GifSession(
-      apiKey: credentials.apiKey!,
-      clientId: credentials.clientId,
-    );
+    return credentials;
   }
 
   bool _categoryIsCurrent(int request) =>
@@ -303,12 +304,4 @@ String _errorMessage(Object error) {
     };
   }
   return appL10n.couldnTLoadGIFsCheckTheConnectionAndTryAgain;
-}
-
-@immutable
-final class _GifSession {
-  const _GifSession({required this.apiKey, required this.clientId});
-
-  final String apiKey;
-  final String clientId;
 }

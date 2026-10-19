@@ -248,13 +248,15 @@ final class ChatSearchController {
       if (apiKey == null) throw StateError('Chat search requires an account.');
       final clientId = requestCredentials.clientId;
       if (!current()) return;
-      final page = await api.searchChatMessages(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        query: term,
-        sort: requestedSort,
-        offset: append ? held.nextOffset : 0,
+      final page = await requestCredentials.run(
+        () => api.searchChatMessages(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          query: term,
+          sort: requestedSort,
+          offset: append ? held.nextOffset : 0,
+        ),
       );
       if (!current()) return;
       lease.commit(() {

@@ -253,7 +253,6 @@ typedef VoiceIncomingCallAnswered =
     void Function(String siteUrl, VoiceRoom room);
 typedef VoiceUserIdLookup = int? Function(String siteUrl);
 typedef VoiceCapabilityResolver = Future<bool?> Function(String siteUrl);
-typedef _VoiceRequestCredentials = ({String apiKey, String clientId});
 
 /// The media state the controller's listeners read through
 /// [VoiceCallSnapshot.media] rather than from the snapshot itself: the call
@@ -538,11 +537,13 @@ final class VoiceController extends ChangeNotifier {
     }
     final room = await _reporter.runOperation(
       'voice.call',
-      () => api.callUser(
-        siteUrl: siteUrl,
-        apiKey: credentials.apiKey,
-        username: username,
-        clientId: credentials.clientId,
+      () => credentials.run(
+        () => api.callUser(
+          siteUrl: siteUrl,
+          apiKey: credentials.apiKey!,
+          username: username,
+          clientId: credentials.clientId,
+        ),
       ),
     );
     if (!isCurrent()) return null;
@@ -914,11 +915,13 @@ final class VoiceController extends ChangeNotifier {
       );
       if (credentials == null) return null;
       final requestVersion = ++_roomRequestVersion;
-      var room = await api.room(
-        siteUrl: siteUrl,
-        slug: slug,
-        apiKey: credentials.apiKey,
-        clientId: credentials.clientId,
+      var room = await credentials.run(
+        () => api.room(
+          siteUrl: siteUrl,
+          slug: slug,
+          apiKey: credentials.apiKey!,
+          clientId: credentials.clientId,
+        ),
       );
       if (!isCurrent() || _destroyedSince(siteUrl, room.id, requestVersion)) {
         return null;
@@ -1011,10 +1014,12 @@ final class VoiceController extends ChangeNotifier {
     if (!isCurrent()) return;
     try {
       final requestVersion = ++_roomRequestVersion;
-      final directory = await api.rooms(
-        siteUrl: siteUrl,
-        apiKey: credentials.apiKey,
-        clientId: credentials.clientId,
+      final directory = await credentials.run(
+        () => api.rooms(
+          siteUrl: siteUrl,
+          apiKey: credentials.apiKey!,
+          clientId: credentials.clientId,
+        ),
       );
       if (!isCurrent()) return;
       final incomingRooms = [
@@ -1098,16 +1103,27 @@ final class VoiceController extends ChangeNotifier {
   Object _siteSession(String siteUrl) =>
       _siteSessions.putIfAbsent(siteUrl, Object.new);
 
-  Future<_VoiceRequestCredentials?> _requestCredentials(
+  Future<PluginRequestCredentials?> _requestCredentials(
     String siteUrl, {
     bool Function()? ifCurrent,
   }) async {
     final snapshot = await _requests.credentialsFor(siteUrl);
     if (ifCurrent != null && !ifCurrent()) return null;
     final apiKey = snapshot.apiKey;
-    return apiKey == null
-        ? null
-        : (apiKey: apiKey, clientId: snapshot.clientId);
+    return apiKey == null ? null : snapshot;
+  }
+
+  Future<PluginRequestCredentials?> _keyRequestCredentials(
+    String siteUrl, {
+    bool Function()? ifCurrent,
+  }) async {
+    final result = await _requests.writeCredentialFor(siteUrl);
+    if (ifCurrent != null && !ifCurrent()) return null;
+    if (result.failure case final failure?) {
+      if (failure.failure == WriteFailure.forbidden) return null;
+      throw failure;
+    }
+    return result.credentials;
   }
 
   bool _isCurrentSiteSession(String siteUrl, Object session) =>
@@ -2026,7 +2042,7 @@ final class VoiceController extends ChangeNotifier {
       return;
     }
     _errors.remove(siteUrl);
-    final apiKey = credentials.apiKey;
+    final apiKey = credentials.apiKey!;
     final clientId = credentials.clientId;
     final invitedBy = _consumeInviteRef(siteUrl, room);
     VoiceMediaSession? media;
@@ -2041,13 +2057,15 @@ final class VoiceController extends ChangeNotifier {
           correlationId: correlationId,
           data: {'roomId': room.id},
         );
-        response = await api.join(
-          siteUrl: siteUrl,
-          roomId: room.id,
-          apiKey: apiKey,
-          skipStatus: !_autoStatusEnabled,
-          invitedBy: invitedBy,
-          clientId: clientId,
+        response = await credentials.run(
+          () => api.join(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            skipStatus: !_autoStatusEnabled,
+            invitedBy: invitedBy,
+            clientId: clientId,
+          ),
         );
       } on WriteException catch (error) {
         if (error.failure != WriteFailure.rateLimited) rethrow;
@@ -2069,13 +2087,15 @@ final class VoiceController extends ChangeNotifier {
               const Duration(milliseconds: 150),
         );
         if (!isCurrent()) return;
-        response = await api.join(
-          siteUrl: siteUrl,
-          roomId: room.id,
-          apiKey: apiKey,
-          skipStatus: !_autoStatusEnabled,
-          invitedBy: invitedBy,
-          clientId: clientId,
+        response = await credentials.run(
+          () => api.join(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            skipStatus: !_autoStatusEnabled,
+            invitedBy: invitedBy,
+            clientId: clientId,
+          ),
         );
       }
       joinedParticipantSessionId = response.participantSessionId;
@@ -2504,7 +2524,7 @@ final class VoiceController extends ChangeNotifier {
           'idleState': _idleState.name,
         },
       );
-      final credentials = await _requestCredentials(
+      final credentials = await _keyRequestCredentials(
         call.siteUrl,
         ifCurrent: isCurrent,
       );
@@ -2524,12 +2544,14 @@ final class VoiceController extends ChangeNotifier {
       }
       await _reporter.runOperation(
         'voice.heartbeat',
-        () => api.heartbeat(
-          siteUrl: call.siteUrl,
-          roomId: call.room.id,
-          apiKey: credentials.apiKey,
-          idle: _idleState,
-          participantSessionId: _participantSessions[call.media]?.id,
+        () => credentials.run(
+          () => api.heartbeat(
+            siteUrl: call.siteUrl,
+            roomId: call.room.id,
+            apiKey: credentials.apiKey!,
+            idle: _idleState,
+            participantSessionId: _participantSessions[call.media]?.id,
+          ),
         ),
         correlationId: correlationId,
       );
@@ -3573,23 +3595,25 @@ final class VoiceController extends ChangeNotifier {
             'watching': _isWatching(call),
           },
         );
-        final credentials = await _requestCredentials(
+        final credentials = await _keyRequestCredentials(
           call.siteUrl,
           ifCurrent: isCurrent,
         );
         if (credentials == null) return;
         await _reporter.runOperation(
           'voice.state',
-          () => api.state(
-            siteUrl: call.siteUrl,
-            roomId: call.room.id,
-            apiKey: credentials.apiKey,
-            muted: call.muted,
-            deafened: call.deafened,
-            video: call.cameraEnabled,
-            screen: call.screenSharing,
-            watching: _isWatching(call),
-            participantSessionId: _participantSessions[call.media]?.id,
+          () => credentials.run(
+            () => api.state(
+              siteUrl: call.siteUrl,
+              roomId: call.room.id,
+              apiKey: credentials.apiKey!,
+              muted: call.muted,
+              deafened: call.deafened,
+              video: call.cameraEnabled,
+              screen: call.screenSharing,
+              watching: _isWatching(call),
+              participantSessionId: _participantSessions[call.media]?.id,
+            ),
           ),
           correlationId: correlationId,
         );
@@ -3764,7 +3788,7 @@ final class VoiceController extends ChangeNotifier {
               () => api.leave(
                 siteUrl: call.siteUrl,
                 roomId: call.room.id,
-                apiKey: credentials.apiKey,
+                apiKey: credentials.apiKey!,
                 participantSessionId: _participantSessions[call.media]?.id,
               ),
               correlationId: correlationId,
@@ -3875,23 +3899,27 @@ final class VoiceController extends ChangeNotifier {
   }) async {
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) return null;
     try {
       var room = roomId == null
-          ? await api.createRoom(
-              siteUrl: siteUrl,
-              apiKey: credentials.apiKey,
-              draft: draft,
+          ? await credentials.run(
+              () => api.createRoom(
+                siteUrl: siteUrl,
+                apiKey: credentials.apiKey!,
+                draft: draft,
+              ),
             )
-          : await api.updateRoom(
-              siteUrl: siteUrl,
-              roomId: roomId,
-              apiKey: credentials.apiKey,
-              draft: draft,
+          : await credentials.run(
+              () => api.updateRoom(
+                siteUrl: siteUrl,
+                roomId: roomId,
+                apiKey: credentials.apiKey!,
+                draft: draft,
+              ),
             );
       if (!isCurrent()) return null;
       room = _acceptRoomResponse(siteUrl, room, ++_roomRequestVersion);
@@ -3948,15 +3976,17 @@ final class VoiceController extends ChangeNotifier {
       ..error = null;
     notifyListeners();
     try {
-      final credentials = await _requestCredentials(
+      final credentials = await _keyRequestCredentials(
         siteUrl,
         ifCurrent: isCurrent,
       );
       if (credentials == null) return;
-      final session = await api.chatSession(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey,
+      final session = await credentials.run(
+        () => api.chatSession(
+          siteUrl: siteUrl,
+          roomId: roomId,
+          apiKey: credentials.apiKey!,
+        ),
       );
       if (!isCurrent()) return;
       state.session = session;
@@ -4033,15 +4063,17 @@ final class VoiceController extends ChangeNotifier {
         identical(_chats[key], state) &&
         state.visible;
     try {
-      final credentials = await _requestCredentials(
+      final credentials = await _keyRequestCredentials(
         siteUrl,
         ifCurrent: isCurrent,
       );
       if (credentials == null) return;
-      final session = await api.chatSession(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey,
+      final session = await credentials.run(
+        () => api.chatSession(
+          siteUrl: siteUrl,
+          roomId: roomId,
+          apiKey: credentials.apiKey!,
+        ),
       );
       if (!isCurrent()) return;
       final changed =
@@ -4094,12 +4126,12 @@ final class VoiceController extends ChangeNotifier {
     }
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) return;
-    final apiKey = credentials.apiKey;
+    final apiKey = credentials.apiKey!;
     state
       ..sending = true
       ..error = null;
@@ -4107,21 +4139,25 @@ final class VoiceController extends ChangeNotifier {
     try {
       var session = state.session;
       if (session.channelId == null) {
-        session = await api.chatSession(
-          siteUrl: siteUrl,
-          roomId: roomId,
-          apiKey: apiKey,
-          ensure: true,
+        session = await credentials.run(
+          () => api.chatSession(
+            siteUrl: siteUrl,
+            roomId: roomId,
+            apiKey: apiKey,
+            ensure: true,
+          ),
         );
         if (!isCurrent()) return;
       }
       var sentFirstMessage = false;
       if (session.threadId == null) {
-        session = await api.firstChatMessage(
-          siteUrl: siteUrl,
-          roomId: roomId,
-          apiKey: apiKey,
-          message: message,
+        session = await credentials.run(
+          () => api.firstChatMessage(
+            siteUrl: siteUrl,
+            roomId: roomId,
+            apiKey: apiKey,
+            message: message,
+          ),
         );
         if (!isCurrent()) return;
         sentFirstMessage = true;
@@ -4269,18 +4305,20 @@ final class VoiceController extends ChangeNotifier {
     if (call == null) return;
     final siteSession = _siteSession(call.siteUrl);
     bool isCurrent() => _isCurrentCall(call, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       call.siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) return;
-    await api.requestToSpeak(
-      siteUrl: call.siteUrl,
-      roomId: call.room.id,
-      apiKey: credentials.apiKey,
-      userId: userId,
-      raised: raised,
-      participantSessionId: _participantSessions[call.media]?.id,
+    await credentials.run(
+      () => api.requestToSpeak(
+        siteUrl: call.siteUrl,
+        roomId: call.room.id,
+        apiKey: credentials.apiKey!,
+        userId: userId,
+        raised: raised,
+        participantSessionId: _participantSessions[call.media]?.id,
+      ),
     );
   }
 
@@ -4311,13 +4349,15 @@ final class VoiceController extends ChangeNotifier {
       ifCurrent: isCurrent,
     );
     if (credentials == null) return;
-    await api.addMembership(
-      siteUrl: call.siteUrl,
-      roomId: call.room.id,
-      apiKey: credentials.apiKey,
-      userId: userId,
-      role: role,
-      clientId: credentials.clientId,
+    await credentials.run(
+      () => api.addMembership(
+        siteUrl: call.siteUrl,
+        roomId: call.room.id,
+        apiKey: credentials.apiKey!,
+        userId: userId,
+        role: role,
+        clientId: credentials.clientId,
+      ),
     );
   }
 
@@ -4332,16 +4372,18 @@ final class VoiceController extends ChangeNotifier {
     if (call == null) return;
     final siteSession = _siteSession(call.siteUrl);
     bool isCurrent() => _isCurrentCall(call, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       call.siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) return;
-    await api.kick(
-      siteUrl: call.siteUrl,
-      roomId: call.room.id,
-      apiKey: credentials.apiKey,
-      userId: userId,
+    await credentials.run(
+      () => api.kick(
+        siteUrl: call.siteUrl,
+        roomId: call.room.id,
+        apiKey: credentials.apiKey!,
+        userId: userId,
+      ),
     );
   }
 
@@ -4364,19 +4406,28 @@ final class VoiceController extends ChangeNotifier {
       ifCurrent: isCurrent,
     );
     if (credentials == null) return false;
-    final flagTypeId = await api.notifyModeratorsFlagType(
-      siteUrl: call.siteUrl,
-      apiKey: credentials.apiKey,
-      clientId: credentials.clientId,
+    final flagTypeId = await credentials.run(
+      () => api.notifyModeratorsFlagType(
+        siteUrl: call.siteUrl,
+        apiKey: credentials.apiKey!,
+        clientId: credentials.clientId,
+      ),
     );
     if (flagTypeId == null || !isCurrent()) return false;
-    await api.flag(
-      siteUrl: call.siteUrl,
-      roomId: call.room.id,
-      apiKey: credentials.apiKey,
-      userId: userId,
-      flagTypeId: flagTypeId,
-      message: text,
+    final writeCredentials = await _keyRequestCredentials(
+      call.siteUrl,
+      ifCurrent: isCurrent,
+    );
+    if (writeCredentials == null) return false;
+    await writeCredentials.run(
+      () => api.flag(
+        siteUrl: call.siteUrl,
+        roomId: call.room.id,
+        apiKey: writeCredentials.apiKey!,
+        userId: userId,
+        flagTypeId: flagTypeId,
+        message: text,
+      ),
     );
     return true;
   }
@@ -4392,16 +4443,18 @@ final class VoiceController extends ChangeNotifier {
     if (call == null) return;
     final siteSession = _siteSession(call.siteUrl);
     bool isCurrent() => _isCurrentCall(call, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       call.siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) return;
-    await api.setRecording(
-      siteUrl: call.siteUrl,
-      roomId: call.room.id,
-      apiKey: credentials.apiKey,
-      active: active,
+    await credentials.run(
+      () => api.setRecording(
+        siteUrl: call.siteUrl,
+        roomId: call.room.id,
+        apiKey: credentials.apiKey!,
+        active: active,
+      ),
     );
   }
 
@@ -4430,10 +4483,12 @@ final class VoiceController extends ChangeNotifier {
         ifCurrent: current,
       );
       if (credentials == null) return;
-      final permission = await api.agentPermission(
-        siteUrl: siteUrl,
-        apiKey: credentials.apiKey,
-        clientId: credentials.clientId,
+      final permission = await credentials.run(
+        () => api.agentPermission(
+          siteUrl: siteUrl,
+          apiKey: credentials.apiKey!,
+          clientId: credentials.clientId,
+        ),
       );
       if (!current()) return;
       _agentPermissions[siteUrl] = (
@@ -4484,11 +4539,13 @@ final class VoiceController extends ChangeNotifier {
           ifCurrent: available,
         );
         if (credentials == null) return const [];
-        final names = await api.agents(
-          siteUrl: siteUrl,
-          apiKey: credentials.apiKey,
-          clientId: credentials.clientId,
-          refresh: refresh,
+        final names = await credentials.run(
+          () => api.agents(
+            siteUrl: siteUrl,
+            apiKey: credentials.apiKey!,
+            clientId: credentials.clientId,
+            refresh: refresh,
+          ),
         );
         return available() ? names : const [];
       },
@@ -4503,12 +4560,14 @@ final class VoiceController extends ChangeNotifier {
             ifCurrent: available,
           );
           if (credentials == null) return false;
-          await api.inviteAgent(
-            siteUrl: siteUrl,
-            roomId: roomId,
-            apiKey: credentials.apiKey,
-            clientId: credentials.clientId,
-            agentName: name,
+          await credentials.run(
+            () => api.inviteAgent(
+              siteUrl: siteUrl,
+              roomId: roomId,
+              apiKey: credentials.apiKey!,
+              clientId: credentials.clientId,
+              agentName: name,
+            ),
           );
           return current();
         } finally {
@@ -4540,12 +4599,14 @@ final class VoiceController extends ChangeNotifier {
     }
     final result = await _reporter.runOperation(
       'voice.invite',
-      () => api.invite(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey,
-        usernames: usernames,
-        clientId: credentials.clientId,
+      () => credentials.run(
+        () => api.invite(
+          siteUrl: siteUrl,
+          roomId: roomId,
+          apiKey: credentials.apiKey!,
+          usernames: usernames,
+          clientId: credentials.clientId,
+        ),
       ),
       correlationId: _correlationForRoom(siteUrl, roomId),
     );
@@ -4571,11 +4632,13 @@ final class VoiceController extends ChangeNotifier {
     () async {
       final credentials = await _requestCredentials(siteUrl);
       if (credentials == null) return const [];
-      return api.inviteSuggestions(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey,
-        clientId: credentials.clientId,
+      return credentials.run(
+        () => api.inviteSuggestions(
+          siteUrl: siteUrl,
+          roomId: roomId,
+          apiKey: credentials.apiKey!,
+          clientId: credentials.clientId,
+        ),
       );
     },
     'voice.inviteSuggestions',
@@ -4597,15 +4660,17 @@ final class VoiceController extends ChangeNotifier {
   ) async {
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) return null;
-    final memberships = await api.memberships(
-      siteUrl: siteUrl,
-      roomId: roomId,
-      apiKey: credentials.apiKey,
+    final memberships = await credentials.run(
+      () => api.memberships(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey!,
+      ),
     );
     return isCurrent() ? memberships : null;
   }
@@ -4631,19 +4696,21 @@ final class VoiceController extends ChangeNotifier {
   ) async {
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) {
       throw const WriteException(WriteFailure.forbidden);
     }
-    await api.addMembership(
-      siteUrl: siteUrl,
-      roomId: roomId,
-      apiKey: credentials.apiKey,
-      username: username,
-      role: role,
+    await credentials.run(
+      () => api.addMembership(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey!,
+        username: username,
+        role: role,
+      ),
     );
   }
 
@@ -4668,19 +4735,21 @@ final class VoiceController extends ChangeNotifier {
   ) async {
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) {
       throw const WriteException(WriteFailure.forbidden);
     }
-    await api.updateMembership(
-      siteUrl: siteUrl,
-      roomId: roomId,
-      membershipId: membershipId,
-      apiKey: credentials.apiKey,
-      role: role,
+    await credentials.run(
+      () => api.updateMembership(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        membershipId: membershipId,
+        apiKey: credentials.apiKey!,
+        role: role,
+      ),
     );
   }
 
@@ -4700,18 +4769,20 @@ final class VoiceController extends ChangeNotifier {
   ) async {
     final siteSession = _siteSession(siteUrl);
     bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _requestCredentials(
+    final credentials = await _keyRequestCredentials(
       siteUrl,
       ifCurrent: isCurrent,
     );
     if (credentials == null) {
       throw const WriteException(WriteFailure.forbidden);
     }
-    await api.removeMembership(
-      siteUrl: siteUrl,
-      roomId: roomId,
-      membershipId: membershipId,
-      apiKey: credentials.apiKey,
+    await credentials.run(
+      () => api.removeMembership(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        membershipId: membershipId,
+        apiKey: credentials.apiKey!,
+      ),
     );
   }
 

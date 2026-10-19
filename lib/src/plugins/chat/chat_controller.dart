@@ -1068,12 +1068,14 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
-      await api.updateChatChannelStarred(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        channelId: channelId,
-        starred: starred,
-        clientId: clientId,
+      await requestCredentials.run(
+        () => api.updateChatChannelStarred(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          channelId: channelId,
+          starred: starred,
+          clientId: clientId,
+        ),
       );
       return null;
     } on WriteException catch (error) {
@@ -1178,13 +1180,15 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
-      final membership = await api.updateChatChannelNotifications(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        channelId: channelId,
-        muted: muted,
-        notificationLevel: notificationLevel,
-        clientId: clientId,
+      final membership = await requestCredentials.run(
+        () => api.updateChatChannelNotifications(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          channelId: channelId,
+          muted: muted,
+          notificationLevel: notificationLevel,
+          clientId: clientId,
+        ),
       );
       if (isCurrent()) project(membership);
       return null;
@@ -1236,11 +1240,13 @@ class ChatController extends FrameSafeNotifier {
         if (!isCurrent() || apiKey == null) return;
         final clientId = requestCredentials.clientId;
         if (!isCurrent()) return;
-        final fresh = await api.chatChannel(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: channelId,
+        final fresh = await requestCredentials.run(
+          () => api.chatChannel(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+            channelId: channelId,
+          ),
         );
         if (!isCurrent() || fresh.id != channelId) return;
         lease.commit(() {
@@ -1297,14 +1303,16 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return (page: null, error: null);
-      final page = await api.chatChannelMembers(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        channelId: channelId,
-        username: username,
-        offset: offset,
-        limit: limit,
-        clientId: clientId,
+      final page = await requestCredentials.run(
+        () => api.chatChannelMembers(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          channelId: channelId,
+          username: username,
+          offset: offset,
+          limit: limit,
+          clientId: clientId,
+        ),
       );
       return isCurrent()
           ? (page: page, error: null)
@@ -1349,14 +1357,16 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return (page: null, error: null);
-      final page = await api.browseChatChannels(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        filter: filter,
-        status: status,
-        offset: offset,
-        limit: limit,
-        clientId: clientId,
+      final page = await requestCredentials.run(
+        () => api.browseChatChannels(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          filter: filter,
+          status: status,
+          offset: offset,
+          limit: limit,
+          clientId: clientId,
+        ),
       );
       return isCurrent()
           ? (page: page, error: null)
@@ -1466,15 +1476,17 @@ class ChatController extends FrameSafeNotifier {
       if (!isCurrent()) return null;
       // Events received before credentials resolved precede this write.
       token.receivedMetadata = false;
-      final fresh = await api.updateChatChannel(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        channelId: channelId,
-        name: name == null ? null : nextName,
-        slug: nextSlug,
-        description: description,
-        threadingEnabled: threadingEnabled,
-        clientId: clientId,
+      final fresh = await requestCredentials.run(
+        () => api.updateChatChannel(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          channelId: channelId,
+          name: name == null ? null : nextName,
+          slug: nextSlug,
+          description: description,
+          threadingEnabled: threadingEnabled,
+          clientId: clientId,
+        ),
       );
       if (!isCurrent()) return null;
       lease.commit(() {
@@ -1583,12 +1595,14 @@ class ChatController extends FrameSafeNotifier {
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
       token.receivedStatus = false;
-      final fresh = await api.updateChatChannelStatus(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        channelId: channelId,
-        status: target,
-        clientId: clientId,
+      final fresh = await requestCredentials.run(
+        () => api.updateChatChannelStatus(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          channelId: channelId,
+          status: target,
+          clientId: clientId,
+        ),
       );
       if (!isCurrent()) return null;
       lease.commit(() {
@@ -1658,17 +1672,21 @@ class ChatController extends FrameSafeNotifier {
       final clientId = requestCredentials.clientId;
       if (!isCurrent()) return null;
       final membership = following
-          ? await api.followChatChannel(
-              siteUrl: siteUrl,
-              apiKey: apiKey,
-              channelId: held.id,
-              clientId: clientId,
+          ? await requestCredentials.run(
+              () => api.followChatChannel(
+                siteUrl: siteUrl,
+                apiKey: apiKey,
+                channelId: held.id,
+                clientId: clientId,
+              ),
             )
-          : await api.unfollowChatChannel(
-              siteUrl: siteUrl,
-              apiKey: apiKey,
-              channelId: held.id,
-              clientId: clientId,
+          : await requestCredentials.run(
+              () => api.unfollowChatChannel(
+                siteUrl: siteUrl,
+                apiKey: apiKey,
+                channelId: held.id,
+                clientId: clientId,
+              ),
             );
       if (!isCurrent()) return null;
 
@@ -1843,25 +1861,29 @@ class ChatController extends FrameSafeNotifier {
       }
       final clientId = requestCredentials.clientId;
       if (isDisposed || !lease.isCurrent) return null;
-      var channel = await api.createChatDirectMessageChannel(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        usernames: targets,
-        groups: targetGroups,
-        name: channelName,
-        upsert: upsert,
+      var channel = await requestCredentials.run(
+        () => api.createChatDirectMessageChannel(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          usernames: targets,
+          groups: targetGroups,
+          name: channelName,
+          upsert: upsert,
+        ),
       );
       if (isDisposed || !lease.isCurrent || channel.id <= 0) return null;
 
       // Creation omits current_user_membership, including when upserting an
       // existing DM. Following returns the membership required for reactions.
       if (!channel.membership.following) {
-        final membership = await api.followChatChannel(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: channel.id,
+        final membership = await requestCredentials.run(
+          () => api.followChatChannel(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+            channelId: channel.id,
+          ),
         );
         if (isDisposed || !lease.isCurrent) return null;
         channel = channel.withMembership(membership);
@@ -1912,14 +1934,16 @@ class ChatController extends FrameSafeNotifier {
       return ChatDirectMessageSearchResults(const []);
     }
     if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-    final result = await api.searchChatDirectMessages(
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: requestCredentials.clientId,
-      term: query,
-      includeGroups: includeGroups,
-      includeDirectMessageChannels: includeDirectMessageChannels,
-      includeCategoryChannels: includeCategoryChannels,
+    final result = await requestCredentials.run(
+      () => api.searchChatDirectMessages(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: requestCredentials.clientId,
+        term: query,
+        includeGroups: includeGroups,
+        includeDirectMessageChannels: includeDirectMessageChannels,
+        includeCategoryChannels: includeCategoryChannels,
+      ),
     );
     if (isDisposed || !lease.isCurrent) {
       return ChatDirectMessageSearchResults(const []);
@@ -2305,11 +2329,13 @@ class ChatController extends FrameSafeNotifier {
       if (!_requestIsCurrent(lease, ownsRequest) || apiKey == null) return null;
       final clientId = requestCredentials.clientId;
       if (!_requestIsCurrent(lease, ownsRequest)) return null;
-      final fetched = await api.chatChannel(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
+      final fetched = await requestCredentials.run(
+        () => api.chatChannel(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+        ),
       );
       if (!_requestIsCurrent(lease, ownsRequest) || fetched.id != channelId) {
         return null;
@@ -2504,11 +2530,13 @@ class ChatController extends FrameSafeNotifier {
       if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
       final clientId = requestCredentials.clientId;
       if (!ownsRequest()) return;
-      final snapshot = await api.chatPinnedMessages(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
+      final snapshot = await requestCredentials.run(
+        () => api.chatPinnedMessages(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+        ),
       );
       if (!ownsRequest()) return;
       lease.commit(() {
@@ -2557,11 +2585,13 @@ class ChatController extends FrameSafeNotifier {
       if (isDisposed || !lease.isCurrent || apiKey == null) return;
       final clientId = requestCredentials.clientId;
       if (isDisposed || !lease.isCurrent) return;
-      await api.markChatPinsRead(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
+      await requestCredentials.run(
+        () => api.markChatPinsRead(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+        ),
       );
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -2599,20 +2629,24 @@ class ChatController extends FrameSafeNotifier {
     }
     final threadId = link.route.threadId;
     final page = threadId == null
-        ? await api.chatMessages(
-            siteUrl: siteUrl,
-            channelId: link.route.channelId,
-            targetMessageId: messageId,
-            apiKey: credentials.apiKey,
-            clientId: credentials.clientId,
+        ? await credentials.run(
+            () => api.chatMessages(
+              siteUrl: siteUrl,
+              channelId: link.route.channelId,
+              targetMessageId: messageId,
+              apiKey: credentials.apiKey,
+              clientId: credentials.clientId,
+            ),
           )
-        : await api.chatThreadMessages(
-            siteUrl: siteUrl,
-            channelId: link.route.channelId,
-            threadId: threadId,
-            targetMessageId: messageId,
-            apiKey: credentials.apiKey,
-            clientId: credentials.clientId,
+        : await credentials.run(
+            () => api.chatThreadMessages(
+              siteUrl: siteUrl,
+              channelId: link.route.channelId,
+              threadId: threadId,
+              targetMessageId: messageId,
+              apiKey: credentials.apiKey,
+              clientId: credentials.clientId,
+            ),
           );
     if (!lease.isCurrent ||
         isDisposed ||
@@ -2792,14 +2826,16 @@ class ChatController extends FrameSafeNotifier {
           !current.availableFlags.contains(flagType.nameKey)) {
         return appL10n.thisMessageCanNoLongerBeFlagged;
       }
-      await api.flagChatMessage(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: current.channelId,
-        messageId: current.id,
-        flagTypeId: flagType.id,
-        message: submittedMessage,
+      await requestCredentials.run(
+        () => api.flagChatMessage(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: current.channelId,
+          messageId: current.id,
+          flagTypeId: flagType.id,
+          message: submittedMessage,
+        ),
       );
       if (!ownsRequest()) return null;
       lease.commit(() {
@@ -2881,13 +2917,15 @@ class ChatController extends FrameSafeNotifier {
         project(held.pinned);
         return appL10n.thisMessageCanNoLongerBe((pinned).toString());
       }
-      await api.updateChatMessagePinned(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: held.channelId,
-        messageId: held.id,
-        pinned: pinned,
+      await requestCredentials.run(
+        () => api.updateChatMessagePinned(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: held.channelId,
+          messageId: held.id,
+          pinned: pinned,
+        ),
       );
       return null;
     } on WriteException catch (error) {
@@ -2994,12 +3032,14 @@ class ChatController extends FrameSafeNotifier {
         return appL10n.oneOrMoreMessagesCanNoLongerBeDeleted;
       }
 
-      await api.deleteChatMessages(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
-        messageIds: ids,
+      await requestCredentials.run(
+        () => api.deleteChatMessages(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+          messageIds: ids,
+        ),
       );
       if (!ownsRequest()) return null;
 
@@ -3116,13 +3156,15 @@ class ChatController extends FrameSafeNotifier {
         );
       }
 
-      final move = await api.moveChatMessages(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
-        destinationChannelId: destinationChannelId,
-        messageIds: ids,
+      final move = await requestCredentials.run(
+        () => api.moveChatMessages(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+          destinationChannelId: destinationChannelId,
+          messageIds: ids,
+        ),
       );
       if (!ownsRequest()) return (move: null, error: null);
 
@@ -3199,20 +3241,24 @@ class ChatController extends FrameSafeNotifier {
             : appL10n.thisMessageCanNoLongerBeRestored;
       }
       if (deleted) {
-        await api.deleteChatMessage(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: held.channelId,
-          messageId: held.id,
+        await requestCredentials.run(
+          () => api.deleteChatMessage(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+            channelId: held.channelId,
+            messageId: held.id,
+          ),
         );
       } else {
-        await api.restoreChatMessage(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: held.channelId,
-          messageId: held.id,
+        await requestCredentials.run(
+          () => api.restoreChatMessage(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+            channelId: held.channelId,
+            messageId: held.id,
+          ),
         );
       }
       if (!ownsRequest()) return null;
@@ -3298,12 +3344,14 @@ class ChatController extends FrameSafeNotifier {
       if (current == null || !canRebakeMessage(siteUrl, current)) {
         return appL10n.thisMessageCanNoLongerBeRebuilt;
       }
-      await api.rebakeChatMessage(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: current.channelId,
-        messageId: current.id,
+      await requestCredentials.run(
+        () => api.rebakeChatMessage(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: current.channelId,
+          messageId: current.id,
+        ),
       );
       return null;
     } on WriteException catch (error) {
@@ -3361,12 +3409,14 @@ class ChatController extends FrameSafeNotifier {
       if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
       final clientId = requestCredentials.clientId;
       if (!ownsRequest()) return (markdown: null, error: null);
-      final markdown = await api.generateChatQuote(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
-        messageIds: ids,
+      final markdown = await requestCredentials.run(
+        () => api.generateChatQuote(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+          messageIds: ids,
+        ),
       );
       return ownsRequest()
           ? (markdown: markdown, error: null)
@@ -3484,14 +3534,16 @@ class ChatController extends FrameSafeNotifier {
         rollback();
         return appL10n.thisMessageChangedBeforeTheEditCouldBeSaved;
       }
-      await api.editChatMessage(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: held.channelId,
-        messageId: held.id,
-        message: raw,
-        uploadIds: uploadIds,
+      await requestCredentials.run(
+        () => api.editChatMessage(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: held.channelId,
+          messageId: held.id,
+          message: raw,
+          uploadIds: uploadIds,
+        ),
       );
       return null;
     } on WriteException catch (error) {
@@ -3730,14 +3782,16 @@ class ChatController extends FrameSafeNotifier {
         rollback();
         return null;
       }
-      await api.setChatMessageReaction(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: message.channelId,
-        messageId: message.id,
-        emoji: emoji,
-        action: adding ? ChatReactionAction.add : ChatReactionAction.remove,
+      await requestCredentials.run(
+        () => api.setChatMessageReaction(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: message.channelId,
+          messageId: message.id,
+          emoji: emoji,
+          action: adding ? ChatReactionAction.add : ChatReactionAction.remove,
+        ),
       );
       if (!ownsRequest()) return null;
       lease.commit(() {
@@ -3822,13 +3876,15 @@ class ChatController extends FrameSafeNotifier {
 
       final clientId = requestCredentials.clientId;
       if (!_requestIsCurrent(lease, ownsRequest)) return;
-      final fetched = await api.chatMessageReactors(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
-        messageId: messageId,
-        reaction: filter,
+      final fetched = await requestCredentials.run(
+        () => api.chatMessageReactors(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+          messageId: messageId,
+          reaction: filter,
+        ),
       );
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
@@ -5125,10 +5181,12 @@ class ChatController extends FrameSafeNotifier {
       );
       _channelRefreshes[siteUrl] = refresh;
       final hadThreads = hasThreads(siteUrl);
-      final snapshot = await api.chatChannels(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
+      final snapshot = await requestCredentials.run(
+        () => api.chatChannels(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        ),
       );
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
@@ -5235,11 +5293,13 @@ class ChatController extends FrameSafeNotifier {
       final clientId = requestCredentials.clientId;
       if (!_requestIsCurrent(lease, ownsRequest)) return;
 
-      final page = await api.chatThreads(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        offset: offset,
+      final page = await requestCredentials.run(
+        () => api.chatThreads(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          offset: offset,
+        ),
       );
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
@@ -5374,12 +5434,14 @@ class ChatController extends FrameSafeNotifier {
       if (!_requestIsCurrent(lease, ownsRequest) || apiKey == null) return;
       final clientId = requestCredentials.clientId;
       if (!_requestIsCurrent(lease, ownsRequest)) return;
-      final page = await api.chatChannelThreads(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        channelId: channelId,
-        offset: offset,
+      final page = await requestCredentials.run(
+        () => api.chatChannelThreads(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+          channelId: channelId,
+          offset: offset,
+        ),
       );
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
@@ -5578,12 +5640,14 @@ class ChatController extends FrameSafeNotifier {
         if (!_requestIsCurrent(lease, ownsRequest)) return null;
         final clientId = requestCredentials.clientId;
         if (!_requestIsCurrent(lease, ownsRequest)) return null;
-        final detail = await api.chatThread(
-          siteUrl: siteUrl,
-          channelId: target.channelId,
-          threadId: target.threadId,
-          apiKey: apiKey,
-          clientId: clientId,
+        final detail = await requestCredentials.run(
+          () => api.chatThread(
+            siteUrl: siteUrl,
+            channelId: target.channelId,
+            threadId: target.threadId,
+            apiKey: apiKey,
+            clientId: clientId,
+          ),
         );
         if (!_requestIsCurrent(lease, ownsRequest)) return null;
         if (detail.id != target.threadId ||
@@ -5677,12 +5741,14 @@ class ChatController extends FrameSafeNotifier {
       if (!lease.isCurrent || !_canCreateThread(siteUrl, channelId)) {
         return null;
       }
-      final created = await api.createChatThread(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        channelId: channelId,
-        originalMessageId: originalMessageId,
-        clientId: clientId,
+      final created = await requestCredentials.run(
+        () => api.createChatThread(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          channelId: channelId,
+          originalMessageId: originalMessageId,
+          clientId: clientId,
+        ),
       );
       if (!lease.isCurrent || !_canCreateThread(siteUrl, channelId)) {
         return null;
@@ -5779,13 +5845,15 @@ class ChatController extends FrameSafeNotifier {
           !canEditThreadTitle(siteUrl, thread(siteUrl, target.threadId))) {
         return false;
       }
-      await api.updateChatThreadTitle(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        channelId: target.channelId,
-        threadId: target.threadId,
-        title: title,
-        clientId: clientId,
+      await requestCredentials.run(
+        () => api.updateChatThreadTitle(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          channelId: target.channelId,
+          threadId: target.threadId,
+          title: title,
+          clientId: clientId,
+        ),
       );
       if (!isCurrent()) return false;
       lease.commit(() {
@@ -5900,13 +5968,15 @@ class ChatController extends FrameSafeNotifier {
         write.complete(false);
         return;
       }
-      final membership = await api.updateChatThreadNotificationLevel(
-        siteUrl: write.siteUrl,
-        apiKey: apiKey,
-        channelId: write.target.channelId,
-        threadId: write.target.threadId,
-        notificationLevel: write.level,
-        clientId: clientId,
+      final membership = await requestCredentials.run(
+        () => api.updateChatThreadNotificationLevel(
+          siteUrl: write.siteUrl,
+          apiKey: apiKey,
+          channelId: write.target.channelId,
+          threadId: write.target.threadId,
+          notificationLevel: write.level,
+          clientId: clientId,
+        ),
       );
       if (!write.lease.isCurrent || isDisposed) {
         write.complete(false);

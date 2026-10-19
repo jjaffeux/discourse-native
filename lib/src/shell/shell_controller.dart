@@ -181,7 +181,11 @@ typedef TopicMoveDestinationSearchResult = ({
   String? error,
 });
 typedef TopicPostMoveResult = ({String? destinationUrl, String? error});
-typedef _SessionValue<T> = ({T value});
+typedef _ShellWriteCredential = ({
+  String? apiKey,
+  AccountRequestCredentials? request,
+  WriteException? failure,
+});
 typedef _CategorySidebarCache = ({
   List<TopicCategory> categories,
   DiscourseUser? user,
@@ -986,8 +990,39 @@ class ShellController extends FrameSafeNotifier
 
   Set<String> get _pluginBackgroundSiteUrls => _backgroundRetention.siteUrls;
 
-  Future<PluginWriteCredential> pluginWriteCredential(String siteUrl) =>
-      _credentialForWrite(siteUrl);
+  Future<PluginWriteCredential> pluginWriteCredential(String siteUrl) async {
+    try {
+      final lease = lifecycle.capture(siteUrl);
+      final snapshot = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      if (snapshot.apiKey == null) {
+        return (
+          credentials: null,
+          failure: const WriteException(WriteFailure.forbidden),
+        );
+      }
+      return (
+        credentials: PluginRequestCredentials(
+          apiKey: snapshot.apiKey,
+          clientId: '',
+          execute: snapshot.run,
+        ),
+        failure: null,
+      );
+    } catch (error, stackTrace) {
+      _reportOperationalError(
+        error,
+        stackTrace,
+        'authentication.readWriteCredential',
+      );
+      return (
+        credentials: null,
+        failure: const WriteException(WriteFailure.unreachable),
+      );
+    }
+  }
 
   bool beginPluginPostWrite(String siteUrl, int postId) =>
       _beginPostWrite(_postKey(siteUrl, postId));
@@ -1039,15 +1074,27 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  Future<PluginWriteCredential> _credentialForWrite(String siteUrl) async {
+  Future<_ShellWriteCredential> _credentialForWrite(
+    String siteUrl, {
+    SiteLease? lease,
+    bool withClientId = false,
+  }) async {
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final session = AccountRequestSession(
+        siteUrl,
+        lease ?? lifecycle.capture(siteUrl),
+      );
+      final request = withClientId
+          ? await session.credentials(credentials)
+          : await session.keyCredentials(credentials);
+      final apiKey = request.apiKey;
       return apiKey == null
           ? (
               apiKey: null,
+              request: null,
               failure: const WriteException(WriteFailure.forbidden),
             )
-          : (apiKey: apiKey, failure: null);
+          : (apiKey: apiKey, request: request, failure: null);
     } catch (error, stackTrace) {
       _reportOperationalError(
         error,
@@ -1056,30 +1103,11 @@ class ShellController extends FrameSafeNotifier
       );
       return (
         apiKey: null,
+        request: null,
         failure: const WriteException(WriteFailure.unreachable),
       );
     }
   }
-
-  Future<_SessionValue<T>?> _readSessionValue<T>(
-    SiteLease lease,
-    Future<T> Function() read,
-  ) async {
-    final value = await read();
-    if (isDisposed || !lease.isCurrent) return null;
-    return (value: value);
-  }
-
-  /// Reads the client id to send beside [apiKey]; an anonymous request reads
-  /// none, since reading it can raise the platform's notification prompt (see
-  /// [ApiCredentialReader.clientId]).
-  Future<_SessionValue<String?>?> _readClientIdFor(
-    SiteLease lease,
-    String? apiKey,
-  ) => _readSessionValue(
-    lease,
-    () async => apiKey == null ? null : await authenticator.clientId(),
-  );
 
   Future<T> _awaitTopicLoadStage<T>(
     Future<T> stage,
@@ -1204,7 +1232,7 @@ class ShellController extends FrameSafeNotifier
         unawaited(
           RequestIntent.background().run(() => _ensureCategoriesFor(instance)),
         );
-        await _ensureCategoryIds(instance, apiKey, categoryIds);
+        await _ensureCategoryIds(instance, categoryIds);
       },
       readPersonalizationVersion: _siteBookmarkVersion,
       prepareTopicForStore: _prepareTopicForStore,
@@ -1299,23 +1327,19 @@ class ShellController extends FrameSafeNotifier
     if (instance == null || (instance.loginRequired && !instance.isConnected)) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
-    final credential = await _readSessionValue(
-      lease,
-      () async =>
-          instance.isConnected ? await credentials.apiKeyFor(siteUrl) : null,
-    );
-    if (credential == null ||
-        (instance.isConnected && credential.value == null)) {
+    final session = AccountRequestSession(siteUrl, lease);
+    final credential = instance.isConnected
+        ? await session.credentials(credentials)
+        : session.anonymousCredentials();
+    if (instance.isConnected && credential.apiKey == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
     }
-    final client = await _readClientIdFor(lease, credential.value);
-    if (client == null) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-    final about = await api.site.forumAbout(
-      siteUrl: siteUrl,
-      apiKey: credential.value,
-      clientId: client.value,
+    final about = await credential.run(
+      () => api.site.forumAbout(
+        siteUrl: siteUrl,
+        apiKey: credential.apiKey,
+        clientId: credential.clientId,
+      ),
     );
     if (isDisposed || !lease.isCurrent) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
@@ -2733,12 +2757,12 @@ class ShellController extends FrameSafeNotifier
   }) async {
     final lease = lifecycle.capture(instance.url);
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        instance.url,
         lease,
-        () => credentials.apiKeyFor(instance.url),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final apiKey = credential.value;
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final apiKey = credential.apiKey;
       if (apiKey == null) {
         await _expireMissingAccount(instance.url, lease);
         return;
@@ -2811,25 +2835,25 @@ class ShellController extends FrameSafeNotifier
     if (!_sidebarReorders.add(operation)) return;
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return;
-      if (credential.value == null) {
+      ).credentials(credentials);
+      if (credential.apiKey == null) {
         throw const WriteException(WriteFailure.forbidden);
       }
-      final identity = await _readSessionValue(lease, authenticator.clientId);
-      if (identity == null || !canReorderSidebarLinks(siteUrl, section)) return;
+      if (!canReorderSidebarLinks(siteUrl, section)) return;
       final ids = section.destinations.map((link) => link.linkId!).toList();
       final moved = ids.removeAt(oldIndex);
       ids.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, moved);
-      final updated = await api.site.reorderSidebarLinks(
-        siteUrl: siteUrl,
-        apiKey: credential.value!,
-        clientId: identity.value,
-        sectionId: section.remoteId!,
-        linksOrder: ids,
+      final updated = await credential.run(
+        () => api.site.reorderSidebarLinks(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          clientId: credential.clientId,
+          sectionId: section.remoteId!,
+          linksOrder: ids,
+        ),
       );
       if (isDisposed) return;
       lease.commit(() {
@@ -2885,24 +2909,24 @@ class ShellController extends FrameSafeNotifier
     _sidebarReorders.addAll(operations);
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return;
-      if (credential.value == null) {
+      ).credentials(credentials);
+      if (credential.apiKey == null) {
         throw const WriteException(WriteFailure.forbidden);
       }
-      final identity = await _readSessionValue(lease, authenticator.clientId);
-      if (identity == null || !allowed()) return;
-      final updated = await api.site.moveSidebarLink(
-        siteUrl: siteUrl,
-        apiKey: credential.value!,
-        clientId: identity.value,
-        sourceSectionId: source.remoteId!,
-        targetSectionId: target.remoteId!,
-        linkId: source.destinations[oldIndex].linkId!,
-        position: newIndex,
+      if (!allowed()) return;
+      final updated = await credential.run(
+        () => api.site.moveSidebarLink(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          clientId: credential.clientId,
+          sourceSectionId: source.remoteId!,
+          targetSectionId: target.remoteId!,
+          linkId: source.destinations[oldIndex].linkId!,
+          position: newIndex,
+        ),
       );
       if (isDisposed) return;
       lease.commit(() {
@@ -2941,6 +2965,7 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     String? apiKey, {
     SiteLease? lease,
+    AccountRequestCredentials? requestCredentials,
   }) {
     // Custom sections belong only to the site on screen. A session lookup can
     // finish after the reader has switched away, and must not turn that stale
@@ -2957,8 +2982,13 @@ class ShellController extends FrameSafeNotifier
     }
 
     late final Future<void> request;
-    request = _loadCustomSidebarSections(siteUrl, apiKey, lease: lease)
-        .whenComplete(() {
+    request =
+        _loadCustomSidebarSections(
+          siteUrl,
+          apiKey,
+          lease: lease,
+          requestCredentials: requestCredentials,
+        ).whenComplete(() {
           if (identical(_customSidebarSectionRequests[siteUrl], request)) {
             final removed = _customSidebarSectionRequests.remove(siteUrl);
             assert(identical(removed, request));
@@ -2972,21 +3002,29 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     String? apiKey, {
     SiteLease? lease,
+    AccountRequestCredentials? requestCredentials,
   }) async {
     final session = lease ?? lifecycle.capture(siteUrl);
     final version = _customSidebarSectionVersions[siteUrl] ?? 0;
     try {
-      final identity = await _readClientIdFor(session, apiKey);
-      if (identity == null ||
-          !session.isCurrent ||
+      final requestSession = AccountRequestSession(siteUrl, session);
+      final credential =
+          requestCredentials ??
+          (apiKey == null
+              ? requestSession.anonymousCredentials()
+              : await requestSession.credentials(credentials));
+      if (!session.isCurrent ||
+          credential.apiKey != apiKey ||
           currentInstance?.url != siteUrl) {
         return;
       }
       _customSidebarSectionAttemptedAt[siteUrl] = DateTime.now();
-      final sections = await api.site.customSidebarSections(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: identity.value,
+      final sections = await credential.run(
+        () => api.site.customSidebarSections(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       session.commit(() {
         if ((_customSidebarSectionVersions[siteUrl] ?? 0) != version) return;
@@ -3026,12 +3064,12 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     SiteLease lease,
   ) async {
-    final _SessionValue<String?>? credential;
+    final AccountRequestCredentials credential;
     try {
-      credential = await _readSessionValue(
+      credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
+      ).credentials(credentials);
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(
@@ -3042,8 +3080,13 @@ class ShellController extends FrameSafeNotifier
       );
       return;
     }
-    if (credential?.value case final apiKey?) {
-      await _refreshCustomSidebarSections(siteUrl, apiKey, lease: lease);
+    if (credential.apiKey case final apiKey?) {
+      await _refreshCustomSidebarSections(
+        siteUrl,
+        apiKey,
+        lease: lease,
+        requestCredentials: credential,
+      );
     }
   }
 
@@ -3159,9 +3202,17 @@ class ShellController extends FrameSafeNotifier
     final instance = _instanceAt(siteUrl);
     if (instance == null || !instance.isConnected) return;
     final lease = lifecycle.capture(siteUrl);
-    final key = await credentials.apiKeyFor(siteUrl);
-    if (!lease.isCurrent || key == null) return;
-    final types = await _siteNotificationTypesFor(instance, key);
+    final credential = await AccountRequestSession(
+      siteUrl,
+      lease,
+    ).keyCredentials(credentials);
+    if (!lease.isCurrent || credential.apiKey == null) return;
+    final types = await _siteNotificationTypesFor(
+      instance,
+      credential.apiKey!,
+      lease: lease,
+      requestCredentials: credential,
+    );
     if (!lease.isCurrent) return;
     await accountActivity.markAllNotificationsRead(instance, types);
   }
@@ -3347,20 +3398,37 @@ class ShellController extends FrameSafeNotifier
 
   Future<List<NotificationWireType>> _siteNotificationTypesFor(
     DiscourseInstance instance,
-    String apiKey,
-  ) {
+    String apiKey, {
+    SiteLease? lease,
+    AccountRequestCredentials? requestCredentials,
+  }) {
     final cached = _siteNotificationTypes[instance.url];
     if (cached != null) return Future.value(cached);
     final active = _siteNotificationTypeRequests[instance.url];
     if (active != null) return active;
 
-    final lease = lifecycle.capture(instance.url);
+    final requestLease = lease ?? lifecycle.capture(instance.url);
+    final credentialFuture = requestCredentials == null
+        ? AccountRequestSession(
+            instance.url,
+            requestLease,
+          ).keyCredentials(credentials)
+        : Future<AccountRequestCredentials>.value(requestCredentials);
     late final Future<List<NotificationWireType>> request;
-    request = api.site
-        .siteNotificationTypes(siteUrl: instance.url, apiKey: apiKey)
+    request = credentialFuture
+        .then(
+          (credential) => credential.run(
+            () => api.site.siteNotificationTypes(
+              siteUrl: instance.url,
+              apiKey: credential.apiKey!,
+            ),
+          ),
+        )
         .then((types) {
           final immutable = List<NotificationWireType>.unmodifiable(types);
-          lease.commit(() => _siteNotificationTypes[instance.url] = immutable);
+          requestLease.commit(
+            () => _siteNotificationTypes[instance.url] = immutable,
+          );
           return immutable;
         })
         .whenComplete(() {
@@ -4310,14 +4378,14 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
+      ).credentials(credentials);
+      if (!lease.isCurrent) return const [];
+      final found = await credential.run(
+        () => lookup(credential.apiKey, credential.clientId),
       );
-      if (credential == null) return const [];
-      final identity = await _readClientIdFor(lease, credential.value);
-      if (identity == null || !lease.isCurrent) return const [];
-      final found = await lookup(credential.value, identity.value);
       return !isDisposed && lease.isCurrent ? found : const [];
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -4877,16 +4945,18 @@ class ShellController extends FrameSafeNotifier
         identical(_postRefreshRequests[_postKey(siteUrl, postId)], batch);
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final posts = await api.topicContent.posts(
-        siteUrl: siteUrl,
-        topicId: topicId,
-        ids: wanted,
-        apiKey: credential.value,
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final posts = await credential.run(
+        () => api.topicContent.posts(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          ids: wanted,
+          apiKey: credential.apiKey,
+        ),
       );
       lease.commit(() {
         bool current(int postId) =>
@@ -5007,15 +5077,18 @@ class ShellController extends FrameSafeNotifier
 
     final String? apiKey;
     final String? clientId;
+    final AccountRequestCredentials requestCredentials;
     try {
       // The persisted account state, not a credential that may have failed
       // to delete, decides whether this session may open private channels.
-      apiKey = instance.isConnected
-          ? await credentials.apiKeyFor(siteUrl)
-          : null;
+      final requestSession = AccountRequestSession(siteUrl, lease);
+      requestCredentials = instance.isConnected
+          ? await requestSession.credentials(credentials)
+          : requestSession.anonymousCredentials();
+      apiKey = requestCredentials.apiKey;
       // An anonymous bus sends no client id, and a signed-out forum must not
       // raise the platform's notification prompt by reading one.
-      clientId = apiKey == null ? null : await authenticator.clientId();
+      clientId = apiKey == null ? null : requestCredentials.clientId;
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
       _reportOperationalError(error, stackTrace, 'messageBus.readCredentials');
@@ -5040,9 +5113,8 @@ class ShellController extends FrameSafeNotifier
         ? null
         : await _messageBusBootstrap(
             siteUrl: siteUrl,
-            apiKey: apiKey,
-            clientId: clientId,
             lease: lease,
+            requestCredentials: requestCredentials,
           );
     final bootstrapUser = bootstrap?.currentUser;
     final freshBootstrapUser = bootstrapUser == null
@@ -5186,11 +5258,10 @@ class ShellController extends FrameSafeNotifier
             _loadTopicTrackingState(
               siteUrl: siteUrl,
               username: trackingUsername!,
-              apiKey: apiKey,
-              clientId: clientId,
               lease: lease,
               tracking: tracking,
               ticket: loadTicket,
+              requestCredentials: requestCredentials,
             ),
           );
         }
@@ -5291,16 +5362,17 @@ class ShellController extends FrameSafeNotifier
 
   Future<SiteMessageBusBootstrap?> _messageBusBootstrap({
     required String siteUrl,
-    required String apiKey,
-    required String clientId,
     required SiteLease lease,
+    required AccountRequestCredentials requestCredentials,
   }) async {
     try {
       final bootstrap = await RequestIntent.background().run(
-        () => api.site.messageBusBootstrap(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
+        () => requestCredentials.run(
+          () => api.site.messageBusBootstrap(
+            siteUrl: siteUrl,
+            apiKey: requestCredentials.apiKey!,
+            clientId: requestCredentials.clientId,
+          ),
         ),
       );
       if (isDisposed || !lease.isCurrent) return null;
@@ -5333,30 +5405,41 @@ class ShellController extends FrameSafeNotifier
   Future<void> _loadTopicTrackingState({
     required String siteUrl,
     required String username,
-    required String apiKey,
-    required String clientId,
     required SiteLease lease,
     required TopicTrackingReconciler tracking,
     required TopicTrackingSnapshot ticket,
     Future<void> Function()? refreshCategoryPreferences,
+    AccountRequestCredentials? requestCredentials,
   }) async {
     bool ownsLoad() =>
         !isDisposed &&
         lease.isCurrent &&
         identical(_topicTrackingBySite[siteUrl], tracking) &&
         tracking.owns(ticket);
+    AccountRequestCredentials? heldCredentials = requestCredentials;
     try {
       if (!ownsLoad()) return;
       if (refreshCategoryPreferences != null) {
         await refreshCategoryPreferences();
         if (!ownsLoad() || !tracking.preferencesReady(ticket)) return;
       }
+      final credential =
+          heldCredentials ??
+          await AccountRequestSession(siteUrl, lease).credentials(credentials);
+      heldCredentials = credential;
+      if (!ownsLoad()) return;
+      if (credential.apiKey == null) {
+        tracking.cancelSnapshot(ticket);
+        return;
+      }
       final snapshot = await RequestIntent.background().run(
-        () => api.site.topicTrackingState(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          username: username,
-          clientId: clientId,
+        () => credential.run(
+          () => api.site.topicTrackingState(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            username: username,
+            clientId: credential.clientId,
+          ),
         ),
       );
       if (!ownsLoad()) return;
@@ -5383,12 +5466,11 @@ class ShellController extends FrameSafeNotifier
           load: (nextTicket) => _loadTopicTrackingState(
             siteUrl: siteUrl,
             username: username,
-            apiKey: apiKey,
-            clientId: clientId,
             lease: lease,
             tracking: tracking,
             ticket: nextTicket,
             refreshCategoryPreferences: refreshCategoryPreferences,
+            requestCredentials: heldCredentials,
           ),
         );
       }
@@ -5541,12 +5623,24 @@ class ShellController extends FrameSafeNotifier
         identical(_topicTrackingBySite[siteUrl], tracking) &&
         tracking.owns(ticket);
     unawaited(() async {
-      String? apiKey;
-      String? clientId;
       try {
-        apiKey = await credentials.apiKeyFor(siteUrl);
+        final requestCredentials = await AccountRequestSession(
+          siteUrl,
+          lease,
+        ).credentials(credentials);
         if (!ownsResync()) return;
-        clientId = apiKey == null ? null : await authenticator.clientId();
+        if (requestCredentials.apiKey == null) {
+          tracking.cancelSnapshot(ticket);
+          return;
+        }
+        await _loadTopicTrackingState(
+          siteUrl: siteUrl,
+          username: username,
+          lease: lease,
+          tracking: tracking,
+          ticket: ticket,
+          requestCredentials: requestCredentials,
+        );
       } catch (error, stackTrace) {
         if (ownsResync()) {
           _reportOperationalError(
@@ -5555,22 +5649,9 @@ class ShellController extends FrameSafeNotifier
             'topicTracking.readCredentials',
             severity: DiagnosticSeverity.warning,
           );
+          tracking.cancelSnapshot(ticket);
         }
       }
-      if (!ownsResync()) return;
-      if (apiKey == null || clientId == null) {
-        tracking.cancelSnapshot(ticket);
-        return;
-      }
-      await _loadTopicTrackingState(
-        siteUrl: siteUrl,
-        username: username,
-        apiKey: apiKey,
-        clientId: clientId,
-        lease: lease,
-        tracking: tracking,
-        ticket: ticket,
-      );
     }());
   }
 
@@ -5657,9 +5738,14 @@ class ShellController extends FrameSafeNotifier
 
     final DiscourseUser responseUser;
     try {
-      responseUser = await api.site.currentUser(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
+      final credential = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      if (credential.apiKey == null) return null;
+      responseUser = await credential.run(
+        () =>
+            api.site.currentUser(siteUrl: siteUrl, apiKey: credential.apiKey!),
       );
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return null;
@@ -5986,12 +6072,12 @@ class ShellController extends FrameSafeNotifier
     _notify();
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return;
-      final apiKey = credential.value;
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final apiKey = credential.apiKey;
       if (apiKey == null) {
         lease.commit(() {
           _hidePresenceErrors[siteUrl] =
@@ -6039,7 +6125,11 @@ class ShellController extends FrameSafeNotifier
         identical(_hidePresenceWrites[siteUrl], request);
 
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(
+        siteUrl,
+        lease: lease,
+        withClientId: true,
+      );
       if (!isCurrent()) return;
       if (credential.failure case final failure?) {
         _finishHidePresenceWrite(
@@ -6050,14 +6140,15 @@ class ShellController extends FrameSafeNotifier
         );
         return;
       }
-      final identity = await _readSessionValue(lease, authenticator.clientId);
-      if (identity == null || !isCurrent()) return;
-      await api.site.updateHidePresence(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        username: user.username,
-        hidePresence: desired,
-        clientId: identity.value,
+      if (!isCurrent()) return;
+      await credential.request!.run(
+        () => api.site.updateHidePresence(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          username: user.username,
+          hidePresence: desired,
+          clientId: credential.request!.clientId,
+        ),
       );
       if (!isCurrent()) return;
       _finishHidePresenceWrite(siteUrl, request, lease, confirmed: desired);
@@ -6168,21 +6259,27 @@ class ShellController extends FrameSafeNotifier
     _notify();
     try {
       if (!ownsWrite()) return null;
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(
+        siteUrl,
+        lease: lease,
+        withClientId: true,
+      );
       if (!ownsWrite()) return null;
       if (credential.failure case final failure?) return failure.message;
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (!ownsWrite()) return null;
       if (endsAt != null && !endsAt.isAfter(_clock())) {
         return appL10n.chooseATimeInTheFuture;
       }
-      await api.site.setUserStatus(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        description: description,
-        emoji: emoji,
-        endsAt: endsAt,
-        clientId: clientId,
+      await credential.request!.run(
+        () => api.site.setUserStatus(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          description: description,
+          emoji: emoji,
+          endsAt: endsAt,
+          clientId: clientId,
+        ),
       );
       if (!ownsWrite()) return null;
       final status = UserStatus(
@@ -6253,15 +6350,21 @@ class ShellController extends FrameSafeNotifier
     _notify();
     try {
       if (!ownsWrite()) return null;
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(
+        siteUrl,
+        lease: lease,
+        withClientId: true,
+      );
       if (!ownsWrite()) return null;
       if (credential.failure case final failure?) return failure.message;
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (!ownsWrite()) return null;
-      await api.site.clearUserStatus(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        clientId: clientId,
+      await credential.request!.run(
+        () => api.site.clearUserStatus(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          clientId: clientId,
+        ),
       );
       if (!ownsWrite()) return null;
       lease.commit(() {
@@ -7179,17 +7282,19 @@ class ShellController extends FrameSafeNotifier
         return null;
       }
       final version = _bookmarkVersion(siteUrl, link.topicId);
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential?.value == null || !lease.isCurrent) return null;
-      final payload = await api.topicContent.topic(
-        siteUrl: siteUrl,
-        slug: link.slug,
-        id: link.topicId,
-        postNumber: link.postNumber,
-        apiKey: credential!.value,
+      ).keyCredentials(credentials);
+      if (credential.apiKey == null || !lease.isCurrent) return null;
+      final payload = await credential.run(
+        () => api.topicContent.topic(
+          siteUrl: siteUrl,
+          slug: link.slug,
+          id: link.topicId,
+          postNumber: link.postNumber,
+          apiKey: credential.apiKey,
+        ),
       );
       if (!lease.isCurrent ||
           payload.detail.id != link.topicId ||
@@ -7609,17 +7714,19 @@ class ShellController extends FrameSafeNotifier
       var target = store.read<Post>(instance.url, targetId);
       final loadAroundPost = target == null;
       if (target == null) {
-        final credential = await _readSessionValue(
+        final credential = await AccountRequestSession(
+          instance.url,
           lease,
-          () => credentials.apiKeyFor(instance.url),
-        );
-        if (credential == null || !isCurrent()) return false;
+        ).keyCredentials(credentials);
+        if (!lease.isCurrent || !isCurrent()) return false;
         final bookmarkVersion = _bookmarkVersion(instance.url, topic.id);
-        final fetched = await api.topicContent.posts(
-          siteUrl: instance.url,
-          topicId: topic.id,
-          ids: [targetId],
-          apiKey: credential.value,
+        final fetched = await credential.run(
+          () => api.topicContent.posts(
+            siteUrl: instance.url,
+            topicId: topic.id,
+            ids: [targetId],
+            apiKey: credential.apiKey,
+          ),
         );
         if (!isCurrent()) return false;
         target = fetched.where((post) => post.id == targetId).firstOrNull;
@@ -8005,7 +8112,7 @@ class ShellController extends FrameSafeNotifier
       SurfaceOpeningTrace.mark('topic.response');
       try {
         await _awaitTopicLoadStage(
-          _ensureCategoryIds(instance, credential.apiKey, [
+          _ensureCategoryIds(instance, [
             ?fetched.detail.categoryId,
             for (final source
                 in fetched.detail.recommendations?.sources ??
@@ -8399,16 +8506,18 @@ class ShellController extends FrameSafeNotifier
     final bookmarkVersion = _bookmarkVersion(instance.url, topicId);
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        instance.url,
         lease,
-        () => credentials.apiKeyFor(instance.url),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final fetched = await api.topicContent.posts(
-        siteUrl: instance.url,
-        topicId: topicId,
-        ids: requestIds,
-        apiKey: credential.value,
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final fetched = await credential.run(
+        () => api.topicContent.posts(
+          siteUrl: instance.url,
+          topicId: topicId,
+          ids: requestIds,
+          apiKey: credential.apiKey,
+        ),
       );
       if (!lease.isCurrent) return;
 
@@ -8519,7 +8628,11 @@ class ShellController extends FrameSafeNotifier
     }
 
     try {
-      final credential = await _credentialForWrite(write.siteUrl);
+      final credential = await _credentialForWrite(
+        write.siteUrl,
+        lease: write.lease,
+        withClientId: true,
+      );
       if (!isLatest()) {
         write.complete(false);
         return;
@@ -8529,17 +8642,19 @@ class ShellController extends FrameSafeNotifier
         write.complete(false);
         return;
       }
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (!isLatest()) {
         write.complete(false);
         return;
       }
-      await api.topicMutations.updateTopicNotificationLevel(
-        siteUrl: write.siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: write.topicId,
-        notificationLevel: write.level,
-        clientId: clientId,
+      await credential.request!.run(
+        () => api.topicMutations.updateTopicNotificationLevel(
+          siteUrl: write.siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: write.topicId,
+          notificationLevel: write.level,
+          clientId: clientId,
+        ),
       );
       if (!write.lease.isCurrent || isDisposed) {
         write.complete(false);
@@ -8695,9 +8810,14 @@ class ShellController extends FrameSafeNotifier
 
     late final String apiKey;
     late final String clientId;
+    late final AccountRequestCredentials requestCredentials;
     final List<int>? indirectlyMuted;
     try {
-      final credential = await _credentialForWrite(write.siteUrl);
+      final credential = await _credentialForWrite(
+        write.siteUrl,
+        lease: write.lease,
+        withClientId: true,
+      );
       if (!isLatest()) {
         write.complete(false);
         return;
@@ -8708,19 +8828,21 @@ class ShellController extends FrameSafeNotifier
         return;
       }
       apiKey = credential.apiKey!;
-      clientId = await authenticator.clientId();
+      clientId = credential.request!.clientId;
+      requestCredentials = credential.request!;
       if (!isLatest()) {
         write.complete(false);
         return;
       }
-      indirectlyMuted = await api.categoryMutations
-          .updateCategoryNotificationLevel(
-            siteUrl: write.siteUrl,
-            apiKey: apiKey,
-            categoryId: write.categoryId,
-            notificationLevel: write.level,
-            clientId: clientId,
-          );
+      indirectlyMuted = await credential.request!.run(
+        () => api.categoryMutations.updateCategoryNotificationLevel(
+          siteUrl: write.siteUrl,
+          apiKey: apiKey,
+          categoryId: write.categoryId,
+          notificationLevel: write.level,
+          clientId: clientId,
+        ),
+      );
     } catch (error, stackTrace) {
       if (write.lease.isCurrent && !isDisposed) {
         _reportOperationalError(
@@ -8792,20 +8914,21 @@ class ShellController extends FrameSafeNotifier
       _loadTopicTrackingState(
         siteUrl: write.siteUrl,
         username: username,
-        apiKey: apiKey,
-        clientId: clientId,
         lease: write.lease,
         tracking: tracking,
         ticket: ticket,
+        requestCredentials: requestCredentials,
         refreshCategoryPreferences:
             indirectlyMuted == null ||
                 user?.followedCategoryIds == null ||
                 user?.mutedCategoryIds == null
             ? () async {
-                final response = await api.site.currentUser(
-                  siteUrl: write.siteUrl,
-                  apiKey: apiKey,
-                  clientId: clientId,
+                final response = await requestCredentials.run(
+                  () => api.site.currentUser(
+                    siteUrl: write.siteUrl,
+                    apiKey: apiKey,
+                    clientId: clientId,
+                  ),
                 );
                 if (!write.lease.isCurrent ||
                     isDisposed ||
@@ -8951,20 +9074,26 @@ class ShellController extends FrameSafeNotifier
 
     project(pinned, !pinned);
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(
+        siteUrl,
+        lease: lease,
+        withClientId: true,
+      );
       if (!lease.isCurrent || isDisposed) return null;
       if (credential.failure case final failure?) {
         rollback();
         return failure.message;
       }
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (!lease.isCurrent || isDisposed) return null;
-      await api.topicMutations.updateTopicPinForUser(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: topicId,
-        pinned: pinned,
-        clientId: clientId,
+      await credential.request!.run(
+        () => api.topicMutations.updateTopicPinForUser(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          pinned: pinned,
+          clientId: clientId,
+        ),
       );
       return null;
     } on WriteException catch (error) {
@@ -9010,17 +9139,23 @@ class ShellController extends FrameSafeNotifier
     }
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(
+        siteUrl,
+        lease: lease,
+        withClientId: true,
+      );
       if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
       if (credential.failure case final failure?) return failure.message;
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
-      await api.topicMutations.updateMessageArchived(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: topicId,
-        archived: archived,
-        clientId: clientId,
+      await credential.request!.run(
+        () => api.topicMutations.updateMessageArchived(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          archived: archived,
+          clientId: clientId,
+        ),
       );
       if (!lease.isCurrent || isDisposed) return appL10n.theAccountHasChanged;
       _messageArchiveVersions[key] =
@@ -9143,18 +9278,24 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     _notify();
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(
+        siteUrl,
+        lease: lease,
+        withClientId: true,
+      );
       if (!lease.isCurrent || isDisposed) return null;
       if (credential.failure case final failure?) return failure.message;
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (!lease.isCurrent || isDisposed) return null;
-      await api.topicMutations.updateTopicStatus(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: topicId,
-        status: status,
-        enabled: enabled,
-        clientId: clientId,
+      await credential.request!.run(
+        () => api.topicMutations.updateTopicStatus(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          status: status,
+          enabled: enabled,
+          clientId: clientId,
+        ),
       );
       if (!lease.isCurrent || isDisposed) return null;
       lease.commit(() {
@@ -9215,24 +9356,32 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     _notify();
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(
+        siteUrl,
+        lease: lease,
+        withClientId: true,
+      );
       if (!lease.isCurrent || isDisposed) return null;
       if (credential.failure case final failure?) return failure.message;
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (!lease.isCurrent || isDisposed) return null;
       if (deleted) {
-        await api.topicMutations.deleteTopic(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          clientId: clientId,
+        await credential.request!.run(
+          () => api.topicMutations.deleteTopic(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            topicId: topicId,
+            clientId: clientId,
+          ),
         );
       } else {
-        await api.topicMutations.recoverTopic(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          clientId: clientId,
+        await credential.request!.run(
+          () => api.topicMutations.recoverTopic(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            topicId: topicId,
+            clientId: clientId,
+          ),
         );
       }
       if (!lease.isCurrent || isDisposed) return null;
@@ -9399,15 +9548,17 @@ class ShellController extends FrameSafeNotifier
       // observations are suppressed until this operation has left the topic.
       await _topicReads.finishPending(siteUrl, topicId);
       if (isDisposed || !lease.isCurrent) return null;
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (isDisposed || !lease.isCurrent) return null;
       if (credential.failure case final failure?) return failure.message;
-      await api.pluginTransport.pluginWriteJson(
-        siteUrl: siteUrl,
-        path: '/t/$topicId/timings.json?last=1',
-        method: 'DELETE',
-        apiKey: credential.apiKey!,
-        body: const {},
+      await credential.request!.run(
+        () => api.pluginTransport.pluginWriteJson(
+          siteUrl: siteUrl,
+          path: '/t/$topicId/timings.json?last=1',
+          method: 'DELETE',
+          apiKey: credential.apiKey!,
+          body: const {},
+        ),
       );
       if (isDisposed || !lease.isCurrent) return null;
       _topicReads.forgetTopic(siteUrl, topicId);
@@ -9512,27 +9663,29 @@ class ShellController extends FrameSafeNotifier
     _notify();
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        instance.url,
         lease,
-        () => credentials.apiKeyFor(instance.url),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final page = resolveRecommendations
-          ? await api.topicContent.topicPosts(
-              siteUrl: instance.url,
-              topicId: topicId,
-              ids: requestIds,
-              apiKey: credential.value,
-            )
-          : (
-              posts: await api.topicContent.posts(
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final page = await credential.run(
+        () async => resolveRecommendations
+            ? await api.topicContent.topicPosts(
                 siteUrl: instance.url,
                 topicId: topicId,
                 ids: requestIds,
-                apiKey: credential.value,
+                apiKey: credential.apiKey,
+              )
+            : (
+                posts: await api.topicContent.posts(
+                  siteUrl: instance.url,
+                  topicId: topicId,
+                  ids: requestIds,
+                  apiKey: credential.apiKey,
+                ),
+                recommendations: null,
               ),
-              recommendations: null,
-            );
+      );
       lease.commit(() {
         _putUnloadedPagePosts(
           instance.url,
@@ -9612,16 +9765,18 @@ class ShellController extends FrameSafeNotifier
     _notify();
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        instance.url,
         lease,
-        () => credentials.apiKeyFor(instance.url),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final posts = await api.topicContent.posts(
-        siteUrl: instance.url,
-        topicId: topicId,
-        ids: pending,
-        apiKey: credential.value,
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final posts = await credential.run(
+        () => api.topicContent.posts(
+          siteUrl: instance.url,
+          topicId: topicId,
+          ids: pending,
+          apiKey: credential.apiKey,
+        ),
       );
       lease.commit(() {
         _putUnloadedPagePosts(
@@ -9675,17 +9830,19 @@ class ShellController extends FrameSafeNotifier
     _notify();
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final posts = await api.topicContent.postsFromNumber(
-        siteUrl: siteUrl,
-        topicId: topicId,
-        postNumber: edge.postNumber,
-        ascending: newer,
-        apiKey: credential.value,
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final posts = await credential.run(
+        () => api.topicContent.postsFromNumber(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          postNumber: edge.postNumber,
+          ascending: newer,
+          apiKey: credential.apiKey,
+        ),
       );
       lease.commit(() {
         // Paged in, a post this reader took out while the page was out would
@@ -9892,7 +10049,7 @@ class ShellController extends FrameSafeNotifier
         persistence: api.composerPersistence,
         draftsApi: api.drafts,
         lifecycle: lifecycle,
-        readCredential: _credentialForWrite,
+        credentials: credentials,
         readClientId: authenticator.clientId,
         isDisposed: () => isDisposed,
         isCurrentComposer: _ownsComposer,
@@ -10361,14 +10518,14 @@ class ShellController extends FrameSafeNotifier
     ]);
     if (!isCurrent()) return;
 
-    String? apiKey;
-    var apiKeyRead = false;
-    Future<String?> readApiKey() async {
-      if (apiKeyRead) return apiKey;
-      apiKeyRead = true;
-      final credential = await _credentialForWrite(siteUrl);
+    AccountRequestCredentials? requestCredentials;
+    var credentialsRead = false;
+    Future<AccountRequestCredentials?> readCredentials() async {
+      if (credentialsRead) return requestCredentials;
+      credentialsRead = true;
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!isCurrent() || credential.failure != null) return null;
-      return apiKey = credential.apiKey;
+      return requestCredentials = credential.request;
     }
 
     final loadedCategory = categoryFor(categoryId, siteUrl: siteUrl);
@@ -10376,14 +10533,16 @@ class ShellController extends FrameSafeNotifier
         placeholderCategory != null &&
         identical(loadedCategory, placeholderCategory);
     if (categoryId != null && (loadedCategory == null || stillHasPlaceholder)) {
-      final key = await readApiKey();
+      final credential = await readCredentials();
       if (!isCurrent()) return;
-      if (key != null) {
+      if (credential != null) {
         try {
-          final found = await api.categories.findCategories(
-            siteUrl: siteUrl,
-            ids: [categoryId],
-            apiKey: key,
+          final found = await credential.run(
+            () => api.categories.findCategories(
+              siteUrl: siteUrl,
+              ids: [categoryId],
+              apiKey: credential.apiKey!,
+            ),
           );
           if (!isCurrent()) return;
           if (found.isNotEmpty) {
@@ -10406,22 +10565,25 @@ class ShellController extends FrameSafeNotifier
 
     final capabilities = topicComposerCapabilities(siteUrl);
     if (link?.kind == ListKind.tag && capabilities.canTagTopics) {
-      final key = await readApiKey();
+      final tagLink = link!;
+      final credential = await readCredentials();
       if (!isCurrent()) return;
-      if (key != null) {
+      if (credential != null) {
         try {
-          final result = await api.topicComposerQueries.searchTopicTags(
-            siteUrl: siteUrl,
-            apiKey: key,
-            term: link!.slug,
-            categoryId: categoryId,
+          final result = await credential.run(
+            () => api.topicComposerQueries.searchTopicTags(
+              siteUrl: siteUrl,
+              apiKey: credential.apiKey!,
+              term: tagLink.slug,
+              categoryId: categoryId,
+            ),
           );
           if (!isCurrent()) return;
           final exact = result.results.where(
             (tag) =>
-                tag.id == link.id ||
-                tag.name.toLowerCase() == link.slug.toLowerCase() ||
-                tag.slug?.toLowerCase() == link.slug.toLowerCase(),
+                tag.id == tagLink.id ||
+                tag.name.toLowerCase() == tagLink.slug.toLowerCase() ||
+                tag.slug?.toLowerCase() == tagLink.slug.toLowerCase(),
           );
           if (exact.isNotEmpty && !exact.first.disabled) {
             composer.applyInitialTagsIfUntouched([exact.first]);
@@ -10679,27 +10841,26 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final target = composer.target;
     final lease = lifecycle.capture(target.siteUrl);
-    final held = await _readSessionValue(
-      lease,
-      () => _credentialForWrite(target.siteUrl),
-    );
-    if (held == null || !lease.isCurrent || !_ownsComposer(composer)) {
+    final held = await _credentialForWrite(target.siteUrl, lease: lease);
+    if (!lease.isCurrent || !_ownsComposer(composer)) {
       return const TopicTagSearch();
     }
-    if (held.value.failure case final failure?) {
+    if (held.failure case final failure?) {
       throw failure;
     }
-    return api.topicComposerQueries.searchTopicTags(
-      siteUrl: target.siteUrl,
-      apiKey: held.value.apiKey!,
-      term: term,
-      categoryId: composer.categoryId,
-      selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
-      // Core rejects a page larger than the site's own setting outright, so
-      // the site sets this and the client only caps what it will render.
-      limit: siteConfigFor(
-        target.siteUrl,
-      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+    return held.request!.run(
+      () => api.topicComposerQueries.searchTopicTags(
+        siteUrl: target.siteUrl,
+        apiKey: held.apiKey!,
+        term: term,
+        categoryId: composer.categoryId,
+        selectedTagIds: composer.tags.map((tag) => tag.id).whereType<int>(),
+        // Core rejects a page larger than the site's own setting outright, so
+        // the site sets this and the client only caps what it will render.
+        limit: siteConfigFor(
+          target.siteUrl,
+        ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+      ),
     );
   }
 
@@ -10710,21 +10871,20 @@ class ShellController extends FrameSafeNotifier
     required String term,
   }) async {
     final lease = lifecycle.capture(siteUrl);
-    final held = await _readSessionValue(
-      lease,
-      () => _credentialForWrite(siteUrl),
-    );
-    if (held == null || !lease.isCurrent) return const TopicTagSearch();
-    if (held.value.failure case final failure?) throw failure;
-    return api.topicComposerQueries.searchTopicTags(
-      siteUrl: siteUrl,
-      apiKey: held.value.apiKey!,
-      term: term,
-      categoryId: categoryId,
-      selectedTagIds: selectedTags.map((tag) => tag.id).whereType<int>(),
-      limit: siteConfigFor(
-        siteUrl,
-      ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+    final held = await _credentialForWrite(siteUrl, lease: lease);
+    if (!lease.isCurrent) return const TopicTagSearch();
+    if (held.failure case final failure?) throw failure;
+    return held.request!.run(
+      () => api.topicComposerQueries.searchTopicTags(
+        siteUrl: siteUrl,
+        apiKey: held.apiKey!,
+        term: term,
+        categoryId: categoryId,
+        selectedTagIds: selectedTags.map((tag) => tag.id).whereType<int>(),
+        limit: siteConfigFor(
+          siteUrl,
+        ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+      ),
     );
   }
 
@@ -10733,18 +10893,17 @@ class ShellController extends FrameSafeNotifier
     required String term,
   }) async {
     final lease = lifecycle.capture(siteUrl);
-    final held = await _readSessionValue(
-      lease,
-      () => _credentialForWrite(siteUrl),
-    );
-    if (held == null || !lease.isCurrent) return const [];
-    if (held.value.failure case final failure?) throw failure;
+    final held = await _credentialForWrite(siteUrl, lease: lease);
+    if (!lease.isCurrent) return const [];
+    if (held.failure case final failure?) throw failure;
 
-    final categories = await api.categories.searchCategories(
-      siteUrl: siteUrl,
-      apiKey: held.value.apiKey!,
-      term: term,
-      includeUncategorized: siteConfigFor(siteUrl).allowUncategorizedTopics,
+    final categories = await held.request!.run(
+      () => api.categories.searchCategories(
+        siteUrl: siteUrl,
+        apiKey: held.apiKey!,
+        term: term,
+        includeUncategorized: siteConfigFor(siteUrl).allowUncategorizedTopics,
+      ),
     );
     if (!lease.isCurrent) return const [];
     lease.commit(() {
@@ -11012,19 +11171,21 @@ class ShellController extends FrameSafeNotifier
     }
 
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent ||
           !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
         return appL10n.theTopicChangedBeforeTheEditCouldBeSaved;
       }
       if (credential.failure case final failure?) return failure.message;
 
-      final fetched = await api.topicContent.posts(
-        siteUrl: siteUrl,
-        topicId: topicId,
-        ids: [post.id],
-        includeRaw: true,
-        apiKey: credential.apiKey!,
+      final fetched = await credential.request!.run(
+        () => api.topicContent.posts(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          ids: [post.id],
+          includeRaw: true,
+          apiKey: credential.apiKey!,
+        ),
       );
       if (!lease.isCurrent ||
           !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
@@ -11049,12 +11210,14 @@ class ShellController extends FrameSafeNotifier
       final nextRaw = raw.replaceRange(match.start, match.end, replacement);
       if (nextRaw == raw) return null;
 
-      final updated = await api.composerPersistence.updatePost(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        postId: post.id,
-        raw: nextRaw,
-        originalText: raw,
+      final updated = await credential.request!.run(
+        () => api.composerPersistence.updatePost(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          postId: post.id,
+          raw: nextRaw,
+          originalText: raw,
+        ),
       );
       if (!lease.isCurrent ||
           !_fastEditContextCurrent(siteUrl, topicId, post.id)) {
@@ -11107,18 +11270,20 @@ class ShellController extends FrameSafeNotifier
     if (nextTitle == detail!.title.trim()) return null;
 
     final lease = lifecycle.capture(siteUrl);
-    final credential = await _credentialForWrite(siteUrl);
+    final credential = await _credentialForWrite(siteUrl, lease: lease);
     if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheTitleSaved;
     if (credential.failure case final failure?) return failure.message;
 
     final TopicUpdate update;
     try {
-      update = await api.topicMutations.updateTopic(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: topicId,
-        title: nextTitle,
-        originalTitle: originalTitle ?? detail.title,
+      update = await credential.request!.run(
+        () => api.topicMutations.updateTopic(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          title: nextTitle,
+          originalTitle: originalTitle ?? detail.title,
+        ),
       );
     } on WriteException catch (error) {
       return error.message;
@@ -11159,13 +11324,13 @@ class ShellController extends FrameSafeNotifier
     }
     if (detail!.categoryId == categoryId) return null;
     final lease = lifecycle.capture(siteUrl);
-    final credential = await _credentialForWrite(siteUrl);
+    final credential = await _credentialForWrite(siteUrl, lease: lease);
     if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheCategorySaved;
     if (credential.failure case final failure?) return failure.message;
 
     final tags = await _tagsAllowedInCategory(
       siteUrl: siteUrl,
-      apiKey: credential.apiKey!,
+      credential: credential.request!,
       categoryId: categoryId,
       selected: detail.tags,
     );
@@ -11173,15 +11338,17 @@ class ShellController extends FrameSafeNotifier
 
     final TopicUpdate update;
     try {
-      update = await api.topicMutations.updateTopic(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: topicId,
-        title: detail.title,
-        originalTitle: detail.title,
-        categoryId: categoryId,
-        tags: tags,
-        originalTags: detail.tags,
+      update = await credential.request!.run(
+        () => api.topicMutations.updateTopic(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          title: detail.title,
+          originalTitle: detail.title,
+          categoryId: categoryId,
+          tags: tags,
+          originalTags: detail.tags,
+        ),
       );
     } on WriteException catch (error) {
       return error.message;
@@ -11215,7 +11382,7 @@ class ShellController extends FrameSafeNotifier
 
   Future<List<TopicTag>> _tagsAllowedInCategory({
     required String siteUrl,
-    required String apiKey,
+    required AccountRequestCredentials credential,
     required int categoryId,
     required List<TopicTag> selected,
   }) async {
@@ -11223,15 +11390,17 @@ class ShellController extends FrameSafeNotifier
     final kept = <TopicTag>[];
     for (final tag in selected) {
       try {
-        final result = await api.topicComposerQueries.searchTopicTags(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          term: tag.name,
-          categoryId: categoryId,
-          selectedTagIds: selected.map((item) => item.id).whereType<int>(),
-          limit: siteConfigFor(
-            siteUrl,
-          ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+        final result = await credential.run(
+          () => api.topicComposerQueries.searchTopicTags(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            term: tag.name,
+            categoryId: categoryId,
+            selectedTagIds: selected.map((item) => item.id).whereType<int>(),
+            limit: siteConfigFor(
+              siteUrl,
+            ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
+          ),
         );
         final match = result.results
             .where(
@@ -11307,15 +11476,17 @@ class ShellController extends FrameSafeNotifier
     }
     final next = List<TopicTag>.unmodifiable(tags);
     final lease = lifecycle.capture(siteUrl);
-    final credential = await _credentialForWrite(siteUrl);
+    final credential = await _credentialForWrite(siteUrl, lease: lease);
     if (!lease.isCurrent) return appL10n.theSiteChangedBeforeTagsWereSaved;
     if (credential.failure case final failure?) return failure.message;
     try {
-      await api.topicMutations.updateTopicTags(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: topicId,
-        tags: next,
+      await credential.request!.run(
+        () => api.topicMutations.updateTopicTags(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          tags: next,
+        ),
       );
     } on WriteException catch (error) {
       return error.message;
@@ -11341,13 +11512,14 @@ class ShellController extends FrameSafeNotifier
     if (_topicComposerCapabilities.containsKey(siteUrl)) return;
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent || credential.failure != null) return;
-      final capabilities = await api.topicComposerQueries
-          .topicComposerCapabilities(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-          );
+      final capabilities = await credential.request!.run(
+        () => api.topicComposerQueries.topicComposerCapabilities(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+        ),
+      );
       lease.commit(() {
         _topicComposerCapabilities[siteUrl] = capabilities;
         _notify();
@@ -11469,19 +11641,21 @@ class ShellController extends FrameSafeNotifier
     composer.beginLoadingBody();
     final lease = lifecycle.capture(target.siteUrl);
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        target.siteUrl,
         lease,
-        () => credentials.apiKeyFor(target.siteUrl),
-      );
-      if (credential == null || !lease.isCurrent || !_ownsComposer(composer)) {
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent || !_ownsComposer(composer)) {
         return;
       }
-      final fetched = await api.topicContent.posts(
-        siteUrl: target.siteUrl,
-        topicId: target.topicId,
-        ids: [post.id],
-        includeRaw: true,
-        apiKey: credential.value,
+      final fetched = await credential.run(
+        () => api.topicContent.posts(
+          siteUrl: target.siteUrl,
+          topicId: target.topicId,
+          ids: [post.id],
+          includeRaw: true,
+          apiKey: credential.apiKey,
+        ),
       );
       final raw = fetched.firstWhere((p) => p.id == post.id).raw;
       lease.commit(() {
@@ -11718,7 +11892,7 @@ class ShellController extends FrameSafeNotifier
     if (trimmed.isEmpty) {
       return (destinations: const <TopicMoveDestination>[], error: null);
     }
-    final credential = await _credentialForWrite(siteUrl);
+    final credential = await _credentialForWrite(siteUrl, lease: target._lease);
     if (_topicPostMoveRefusal(target) case final error?) {
       return (destinations: const <TopicMoveDestination>[], error: error);
     }
@@ -11732,15 +11906,17 @@ class ShellController extends FrameSafeNotifier
       // The server refuses a move between a message and a topic, so each
       // searches only its own archetype, as web's topic and message choosers
       // do.
-      final results = await api.search.searchPosts(
-        siteUrl: siteUrl,
-        term: trimmed,
-        typeFilter: target.privateMessage ? 'private_messages' : 'topic',
-        searchForId: true,
-        restrictToArchetype: target.privateMessage
-            ? 'private_message'
-            : 'regular',
-        apiKey: credential.apiKey,
+      final results = await credential.request!.run(
+        () => api.search.searchPosts(
+          siteUrl: siteUrl,
+          term: trimmed,
+          typeFilter: target.privateMessage ? 'private_messages' : 'topic',
+          searchForId: true,
+          restrictToArchetype: target.privateMessage
+              ? 'private_message'
+              : 'regular',
+          apiKey: credential.apiKey,
+        ),
       );
       if (_topicPostMoveRefusal(target) case final error?) {
         return (destinations: const <TopicMoveDestination>[], error: error);
@@ -12019,15 +12195,17 @@ class ShellController extends FrameSafeNotifier
       // The write guard notifies listeners. Recheck the opening account and
       // current target records both there and after acquiring credentials.
       if (refusal() case final error?) return error;
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (refusal() case final error?) return error;
       if (credential.failure case final failure?) return failure.message;
-      await api.postMutations.changePostOwners(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: target.topicId,
-        postIds: [postId],
-        username: trimmedUsername,
+      await credential.request!.run(
+        () => api.postMutations.changePostOwners(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: target.topicId,
+          postIds: [postId],
+          username: trimmedUsername,
+        ),
       );
       if (!_ownsTopicPostOwnerTarget(target)) return _obsoleteTopicPostOwner;
       await _refreshPost(
@@ -12132,16 +12310,22 @@ class ShellController extends FrameSafeNotifier
     if (_permanentPostDeletionRefusal(target) case final error?) return error;
     final lease = target._lease;
     try {
-      final credential = await _credentialForWrite(target.siteUrl);
+      final credential = await _credentialForWrite(
+        target.siteUrl,
+        lease: lease,
+        withClientId: true,
+      );
       if (_permanentPostDeletionRefusal(target) case final error?) return error;
       if (credential.failure case final failure?) return failure.message;
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (_permanentPostDeletionRefusal(target) case final error?) return error;
-      final result = await api.postMutations.checkPermanentPostDeletion(
-        siteUrl: target.siteUrl,
-        apiKey: credential.apiKey!,
-        postId: target.postId,
-        clientId: clientId,
+      final result = await credential.request!.run(
+        () => api.postMutations.checkPermanentPostDeletion(
+          siteUrl: target.siteUrl,
+          apiKey: credential.apiKey!,
+          postId: target.postId,
+          clientId: clientId,
+        ),
       );
       if (_permanentPostDeletionRefusal(target) case final error?) return error;
       return result.allowed
@@ -12183,15 +12367,21 @@ class ShellController extends FrameSafeNotifier
       // The write guard notifies listeners. Retain the opening account even
       // if a listener replaces it before credentials are read.
       if (_permanentPostDeletionRefusal(target) case final error?) return error;
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(
+        siteUrl,
+        lease: lease,
+        withClientId: target.deletesTopic,
+      );
       if (_permanentPostDeletionRefusal(target) case final error?) return error;
       if (credential.failure case final failure?) return failure.message;
       if (!target.deletesTopic) {
-        await api.postMutations.permanentlyDeletePost(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          postId: postId,
+        await credential.request!.run(
+          () => api.postMutations.permanentlyDeletePost(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            topicId: topicId,
+            postId: postId,
+          ),
         );
         if (!lease.isCurrent || isDisposed) {
           return _obsoletePermanentPostDeletion;
@@ -12202,14 +12392,16 @@ class ShellController extends FrameSafeNotifier
             : _obsoletePermanentPostDeletion;
       }
 
-      final clientId = await authenticator.clientId();
+      final clientId = credential.request!.clientId;
       if (_permanentPostDeletionRefusal(target) case final error?) return error;
       final topic = store.read<TopicDetail>(siteUrl, topicId)!;
-      await api.topicMutations.permanentlyDeleteTopic(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: topicId,
-        clientId: clientId,
+      await credential.request!.run(
+        () => api.topicMutations.permanentlyDeleteTopic(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: topicId,
+          clientId: clientId,
+        ),
       );
       if (!lease.isCurrent || isDisposed) {
         return _obsoletePermanentPostDeletion;
@@ -12397,16 +12589,18 @@ class ShellController extends FrameSafeNotifier
       // Acquiring the write guard notifies listeners, which may retire the
       // opening account. Keep that lease through credential reads and refresh.
       if (_postNoticeRefusal(target) case final error?) return error;
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (_postNoticeRefusal(target) case final error?) return error;
       if (credential.failure case final failure?) return failure.message;
       if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) return null;
 
-      await api.postMutations.updatePostNotice(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey!,
-        postId: postId,
-        notice: next,
+      await credential.request!.run(
+        () => api.postMutations.updatePostNotice(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey!,
+          postId: postId,
+          notice: next,
+        ),
       );
       if (!lease.isCurrent) return _obsoletePostNotice;
       await _refreshPost(
@@ -12474,19 +12668,22 @@ class ShellController extends FrameSafeNotifier
       return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) {
         return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
       }
       if (credential.failure case final failure?) return failure.message;
 
       try {
-        final fresh = await api.postMutations.createPostFlag(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          postId: held.id,
-          postActionTypeId: currentType.id,
-          message: submittedMessage,
+        final flagActionTypeId = currentType.id;
+        final fresh = await credential.request!.run(
+          () => api.postMutations.createPostFlag(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            postId: held.id,
+            postActionTypeId: flagActionTypeId,
+            message: submittedMessage,
+          ),
         );
         if (!lease.isCurrent) {
           return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
@@ -12556,19 +12753,21 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     _notify();
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) {
         return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
       }
       if (credential.failure case final failure?) return failure.message;
 
       try {
-        await api.postMutations.createTopicFlag(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: held.id,
-          postActionTypeId: currentType.id,
-          message: submittedMessage,
+        await credential.request!.run(
+          () => api.postMutations.createTopicFlag(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            topicId: held.id,
+            postActionTypeId: currentType.id,
+            message: submittedMessage,
+          ),
         );
         if (!lease.isCurrent) {
           return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
@@ -12629,6 +12828,7 @@ class ShellController extends FrameSafeNotifier
     }
     final lease = lifecycle.capture(siteUrl);
     String? apiKey;
+    AccountRequestCredentials? requestCredential;
     late final PostChecklistWrite operation;
     operation = PostChecklistWrite(
       post: held,
@@ -12660,12 +12860,14 @@ class ShellController extends FrameSafeNotifier
         return true;
       },
       load: () async {
-        final posts = await api.topicContent.posts(
-          siteUrl: siteUrl,
-          topicId: topicId,
-          ids: [post.id],
-          includeRaw: true,
-          apiKey: apiKey,
+        final posts = await requestCredential!.run(
+          () => api.topicContent.posts(
+            siteUrl: siteUrl,
+            topicId: topicId,
+            ids: [post.id],
+            includeRaw: true,
+            apiKey: apiKey,
+          ),
         );
         final fresh = posts.where((item) => item.id == post.id).firstOrNull;
         if (fresh == null || fresh.raw == null || fresh.updatedAt == null) {
@@ -12673,15 +12875,17 @@ class ShellController extends FrameSafeNotifier
         }
         return fresh;
       },
-      save: (baseline, toggles) => api.postMutations.togglePostChecklist(
-        siteUrl: siteUrl,
-        apiKey: apiKey!,
-        postId: post.id,
-        toggles: toggles,
-        expectedRaw: baseline.raw!,
-        expectedUpdatedAt: baseline.updatedAt!,
-        mutationId:
-            'native-${DateTime.now().microsecondsSinceEpoch}-${_checklistMutationSequence++}',
+      save: (baseline, toggles) => requestCredential!.run(
+        () => api.postMutations.togglePostChecklist(
+          siteUrl: siteUrl,
+          apiKey: apiKey!,
+          postId: post.id,
+          toggles: toggles,
+          expectedRaw: baseline.raw!,
+          expectedUpdatedAt: baseline.updatedAt!,
+          mutationId:
+              'native-${DateTime.now().microsecondsSinceEpoch}-${_checklistMutationSequence++}',
+        ),
       ),
     );
     _postChecklistWrites[key] = operation;
@@ -12689,13 +12893,14 @@ class ShellController extends FrameSafeNotifier
     try {
       if (!operation.toggle(post, target, checked)) return null;
       if (!lease.isCurrent) return null;
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) return null;
       if (credential.failure case final failure?) {
         operation.reject();
         return failure.message;
       }
       apiKey = credential.apiKey!;
+      requestCredential = credential.request!;
       return await operation.run();
     } finally {
       if (identical(_postChecklistWrites[key], operation)) {
@@ -12728,7 +12933,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<String?> _writeLike(String siteUrl, Post post, SiteLease lease) async {
-    final credential = await _credentialForWrite(siteUrl);
+    final credential = await _credentialForWrite(siteUrl, lease: lease);
     if (!lease.isCurrent) return null;
     if (credential.failure case final failure?) return failure.message;
     final apiKey = credential.apiKey!;
@@ -12759,15 +12964,19 @@ class ShellController extends FrameSafeNotifier
 
     try {
       final fresh = liked
-          ? await api.postMutations.likePost(
-              siteUrl: siteUrl,
-              apiKey: apiKey,
-              postId: post.id,
+          ? await credential.request!.run(
+              () => api.postMutations.likePost(
+                siteUrl: siteUrl,
+                apiKey: apiKey,
+                postId: post.id,
+              ),
             )
-          : await api.postMutations.unlikePost(
-              siteUrl: siteUrl,
-              apiKey: apiKey,
-              postId: post.id,
+          : await credential.request!.run(
+              () => api.postMutations.unlikePost(
+                siteUrl: siteUrl,
+                apiKey: apiKey,
+                postId: post.id,
+              ),
             );
       // A route that answered with nothing still did the thing it was asked to
       // — the guess above stands until the post is read again.
@@ -13063,7 +13272,7 @@ class ShellController extends FrameSafeNotifier
       );
     }
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) {
         return BookmarkWriteResult.reconciled(
           appL10n.theForumChangedBeforeTheBookmarkFinished,
@@ -13078,14 +13287,16 @@ class ShellController extends FrameSafeNotifier
           BookmarkAutoDeletePreference.clearReminder;
       final int id;
       try {
-        id = await api.bookmarks.createBookmark(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          targetType: targetType,
-          targetId: targetId,
-          name: name,
-          reminderAt: reminderAt,
-          autoDeletePreference: preference,
+        id = await credential.request!.run(
+          () => api.bookmarks.createBookmark(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            targetType: targetType,
+            targetId: targetId,
+            name: name,
+            reminderAt: reminderAt,
+            autoDeletePreference: preference,
+          ),
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
@@ -13203,7 +13414,7 @@ class ShellController extends FrameSafeNotifier
       );
     }
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) {
         return BookmarkWriteResult.reconciled(
           appL10n.theForumChangedBeforeTheBookmarkFinished,
@@ -13213,13 +13424,15 @@ class ShellController extends FrameSafeNotifier
         return BookmarkWriteResult.refused(failure.message);
       }
       try {
-        await api.bookmarks.updateBookmark(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          bookmarkId: bookmark.id,
-          name: name,
-          reminderAt: reminderAt,
-          autoDeletePreference: autoDeletePreference,
+        await credential.request!.run(
+          () => api.bookmarks.updateBookmark(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            bookmarkId: bookmark.id,
+            name: name,
+            reminderAt: reminderAt,
+            autoDeletePreference: autoDeletePreference,
+          ),
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
@@ -13335,7 +13548,7 @@ class ShellController extends FrameSafeNotifier
       );
     }
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) {
         return BookmarkWriteResult.reconciled(
           appL10n.theForumChangedBeforeTheBookmarkFinished,
@@ -13346,11 +13559,13 @@ class ShellController extends FrameSafeNotifier
       }
       final bool? topicBookmarked;
       try {
-        topicBookmarked = await api.bookmarks.deleteBookmark(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          bookmarkId: bookmark.id,
-          targetType: targetType,
+        topicBookmarked = await credential.request!.run(
+          () => api.bookmarks.deleteBookmark(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            bookmarkId: bookmark.id,
+            targetType: targetType,
+          ),
         );
         if (targetType.updatesTopicBookmarkState && topicBookmarked == null) {
           throw const WriteException(WriteFailure.unreachable);
@@ -13449,7 +13664,7 @@ class ShellController extends FrameSafeNotifier
     postKeys.forEach(_holdPostWrite);
     _notify();
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) {
         return BookmarkWriteResult.reconciled(
           appL10n.theForumChangedBeforeTheBookmarksWereDeleted,
@@ -13459,10 +13674,12 @@ class ShellController extends FrameSafeNotifier
         return BookmarkWriteResult.refused(failure.message);
       }
       try {
-        await api.bookmarks.deleteTopicBookmarks(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
+        await credential.request!.run(
+          () => api.bookmarks.deleteTopicBookmarks(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey!,
+            topicId: topicId,
+          ),
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
@@ -13767,17 +13984,19 @@ class ShellController extends FrameSafeNotifier
     String? failure;
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        targetSite,
         lease,
-        () => credentials.apiKeyFor(targetSite),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final fetched = await api.topicContent.postLikers(
-        siteUrl: targetSite,
-        postId: postId,
-        // Keep credential reads inside the guarded try: macOS entitlement
-        // failures must not strand the fetch in [likerRequests].
-        apiKey: credential.value,
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final fetched = await credential.run(
+        () => api.topicContent.postLikers(
+          siteUrl: targetSite,
+          postId: postId,
+          // Keep credential reads inside the guarded try: macOS entitlement
+          // failures must not strand the fetch in [likerRequests].
+          apiKey: credential.apiKey,
+        ),
       );
       lease.commit(() => store.put(targetSite, fetched));
     } on SiteLookupException catch (e, stackTrace) {
@@ -13823,16 +14042,18 @@ class ShellController extends FrameSafeNotifier
     if (_instanceAt(siteUrl) == null) return null;
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        siteUrl,
         lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null || !lease.isCurrent) return null;
-      final fetched = await api.topicContent.postRevision(
-        siteUrl: siteUrl,
-        postId: postId,
-        revision: revision,
-        apiKey: credential.value,
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return null;
+      final fetched = await credential.run(
+        () => api.topicContent.postRevision(
+          siteUrl: siteUrl,
+          postId: postId,
+          revision: revision,
+          apiKey: credential.apiKey,
+        ),
       );
       return lease.isCurrent ? fetched : null;
     } catch (error, stackTrace) {
@@ -13866,13 +14087,13 @@ class ShellController extends FrameSafeNotifier
     if (!_beginPostWrite(key)) return null;
 
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) return null;
       if (credential.failure case final failure?) return failure.message;
       final apiKey = credential.apiKey!;
 
       try {
-        await write(siteUrl, apiKey);
+        await credential.request!.run(() => write(siteUrl, apiKey));
       } on WriteException catch (e) {
         return e.message;
       } catch (error, stackTrace) {
@@ -13915,12 +14136,12 @@ class ShellController extends FrameSafeNotifier
 
     var succeeded = false;
     try {
-      final credential = await _credentialForWrite(siteUrl);
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
       if (!lease.isCurrent) return null;
       if (credential.failure case final failure?) return failure.message;
       final ids = List<int>.unmodifiable(posts.map((post) => post.id));
       try {
-        await write(credential.apiKey!, ids);
+        await credential.request!.run(() => write(credential.apiKey!, ids));
       } on WriteException catch (error) {
         return error.message;
       } catch (error, stackTrace) {
@@ -13964,14 +14185,21 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final freshById = <int, Post>{};
     try {
+      final credential = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      if (credential.apiKey != apiKey) return;
       for (var start = 0; start < postIds.length; start += 20) {
         if (isDisposed || !lease.isCurrent) return;
         final end = start + 20 < postIds.length ? start + 20 : postIds.length;
-        final fetched = await api.topicContent.posts(
-          siteUrl: siteUrl,
-          topicId: topicId,
-          ids: postIds.sublist(start, end),
-          apiKey: apiKey,
+        final fetched = await credential.run(
+          () => api.topicContent.posts(
+            siteUrl: siteUrl,
+            topicId: topicId,
+            ids: postIds.sublist(start, end),
+            apiKey: credential.apiKey,
+          ),
         );
         if (isDisposed || !lease.isCurrent) return;
         for (final post in fetched) {
@@ -14018,11 +14246,18 @@ class ShellController extends FrameSafeNotifier
     if (isDisposed || !lease.isCurrent) return;
     List<Post> fetched;
     try {
-      fetched = await api.topicContent.posts(
-        siteUrl: siteUrl,
-        topicId: topicId,
-        ids: [postId],
-        apiKey: apiKey,
+      final credential = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      if (credential.apiKey != apiKey) return;
+      fetched = await credential.run(
+        () => api.topicContent.posts(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          ids: [postId],
+          apiKey: credential.apiKey,
+        ),
       );
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -14147,36 +14382,35 @@ class ShellController extends FrameSafeNotifier
       throw ComposerUploadException(appL10n.uploadCancelled);
     }
     final lease = lifecycle.capture(target.siteUrl);
-    final held = await _readSessionValue(
-      lease,
-      () => _credentialForWrite(target.siteUrl),
+    final held = await _credentialForWrite(
+      target.siteUrl,
+      lease: lease,
+      withClientId: true,
     );
-    if (held == null) {
+    if (isDisposed || !lease.isCurrent) {
       throw ComposerUploadException(appL10n.uploadCancelled);
     }
-    if (held.value.failure case final failure?) {
+    if (held.failure case final failure?) {
       throw ComposerUploadException(failure.message);
     }
-    final identity = await _readSessionValue(lease, authenticator.clientId);
-    if (identity == null || !lease.isCurrent) {
-      throw ComposerUploadException(appL10n.uploadCancelled);
-    }
     final forPrivateMessage = _uploadsForPrivateMessage(target);
-    return api.composerPersistence.uploadComposerImage(
-      siteUrl: target.siteUrl,
-      apiKey: held.value.apiKey!,
-      clientId: identity.value,
-      file: file,
-      onProgress: onProgress,
-      abortTrigger: abortTrigger,
-      uploadType: target is PluginComposerTarget
-          ? target.policy.uploadType
-          : ComposerUploadType.composer,
-      forPrivateMessage: forPrivateMessage,
-      sizeLimit: siteConfigFor(target.siteUrl).uploadSizeLimit(
-        file.name,
-        staff: currentUserFor(target.siteUrl)?.staff == true,
-        privateMessage: forPrivateMessage,
+    return held.request!.run(
+      () => api.composerPersistence.uploadComposerImage(
+        siteUrl: target.siteUrl,
+        apiKey: held.apiKey!,
+        clientId: held.request!.clientId,
+        file: file,
+        onProgress: onProgress,
+        abortTrigger: abortTrigger,
+        uploadType: target is PluginComposerTarget
+            ? target.policy.uploadType
+            : ComposerUploadType.composer,
+        forPrivateMessage: forPrivateMessage,
+        sizeLimit: siteConfigFor(target.siteUrl).uploadSizeLimit(
+          file.name,
+          staff: currentUserFor(target.siteUrl)?.staff == true,
+          privateMessage: forPrivateMessage,
+        ),
       ),
     );
   }
@@ -14191,21 +14425,22 @@ class ShellController extends FrameSafeNotifier
     Iterable<String> urls,
   ) async {
     final lease = lifecycle.capture(target.siteUrl);
-    final held = await _readSessionValue(
-      lease,
-      () => _credentialForWrite(target.siteUrl),
+    final held = await _credentialForWrite(
+      target.siteUrl,
+      lease: lease,
+      withClientId: true,
     );
-    if (held == null) return const {};
-    if (held.value.failure case final failure?) {
+    if (isDisposed || !lease.isCurrent) return const {};
+    if (held.failure case final failure?) {
       throw ComposerUploadException(failure.message);
     }
-    final identity = await _readSessionValue(lease, authenticator.clientId);
-    if (identity == null || !lease.isCurrent) return const {};
-    return api.composerPersistence.lookupUploadUrls(
-      siteUrl: target.siteUrl,
-      apiKey: held.value.apiKey!,
-      clientId: identity.value,
-      shortUrls: urls,
+    return held.request!.run(
+      () => api.composerPersistence.lookupUploadUrls(
+        siteUrl: target.siteUrl,
+        apiKey: held.apiKey!,
+        clientId: held.request!.clientId,
+        shortUrls: urls,
+      ),
     );
   }
 
@@ -14300,7 +14535,7 @@ class ShellController extends FrameSafeNotifier
     final sent = composer.recordSubmission();
     final raw = sent.raw;
 
-    final credential = await _credentialForWrite(target.siteUrl);
+    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
     if (!lease.isCurrent) return;
     if (credential.failure case final failure?) {
       lease.commit(() => composer.failed(failure));
@@ -14309,35 +14544,37 @@ class ShellController extends FrameSafeNotifier
     final apiKey = credential.apiKey!;
     final PostCreation creation;
     try {
-      creation = switch (target) {
-        TopicCreationComposerTarget() =>
-          await api.composerPersistence.createTopic(
+      creation = await credential.request!.run(
+        () async => switch (target) {
+          TopicCreationComposerTarget() =>
+            await api.composerPersistence.createTopic(
+              siteUrl: target.siteUrl,
+              apiKey: apiKey,
+              title: sent.title,
+              raw: raw,
+              categoryId: composer.categoryId,
+              tags: composer.tags,
+              typingDuration: composer.typingDuration,
+              composerOpenDuration: composer.openDuration,
+              targetRecipients: target.targetRecipients,
+              draftKey: target.draftKey,
+            ),
+          ReplyComposerTarget() => await api.composerPersistence.createPost(
             siteUrl: target.siteUrl,
             apiKey: apiKey,
-            title: sent.title,
+            topicId: target.topicId,
             raw: raw,
-            categoryId: composer.categoryId,
-            tags: composer.tags,
+            replyToPostNumber: target.replyToPostNumber,
+            whisper: whisper,
             typingDuration: composer.typingDuration,
             composerOpenDuration: composer.openDuration,
-            targetRecipients: target.targetRecipients,
             draftKey: target.draftKey,
           ),
-        ReplyComposerTarget() => await api.composerPersistence.createPost(
-          siteUrl: target.siteUrl,
-          apiKey: apiKey,
-          topicId: target.topicId,
-          raw: raw,
-          replyToPostNumber: target.replyToPostNumber,
-          whisper: whisper,
-          typingDuration: composer.typingDuration,
-          composerOpenDuration: composer.openDuration,
-          draftKey: target.draftKey,
-        ),
-        EditComposerTarget() || PluginComposerTarget() => throw StateError(
-          'Unsupported forum submission target',
-        ),
-      };
+          EditComposerTarget() || PluginComposerTarget() => throw StateError(
+            'Unsupported forum submission target',
+          ),
+        },
+      );
     } on WriteException catch (e) {
       // A refusal is certain — the site answered and said no. Not reaching it
       // is not: the post may well have been created and only the answer lost.
@@ -14463,7 +14700,7 @@ class ShellController extends FrameSafeNotifier
       composer.failed(const WriteException(WriteFailure.unreachable));
       return;
     }
-    final credential = await _credentialForWrite(target.siteUrl);
+    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
     if (!lease.isCurrent) return;
     if (credential.failure case final failure?) {
       lease.commit(() => composer.failed(failure));
@@ -14474,15 +14711,17 @@ class ShellController extends FrameSafeNotifier
     if (target.editsTopicMetadata && composer.metadataChanged) {
       final TopicUpdate update;
       try {
-        update = await api.topicMutations.updateTopic(
-          siteUrl: target.siteUrl,
-          apiKey: apiKey,
-          topicId: target.topicId,
-          title: composer.title.text.trim(),
-          originalTitle: composer.originalTitle,
-          categoryId: composer.categoryId,
-          tags: composer.tags,
-          originalTags: composer.originalTags,
+        update = await credential.request!.run(
+          () => api.topicMutations.updateTopic(
+            siteUrl: target.siteUrl,
+            apiKey: apiKey,
+            topicId: target.topicId,
+            title: composer.title.text.trim(),
+            originalTitle: composer.originalTitle,
+            categoryId: composer.categoryId,
+            tags: composer.tags,
+            originalTags: composer.originalTags,
+          ),
         );
       } on WriteException catch (e) {
         lease.commit(() => composer.failed(e));
@@ -14536,12 +14775,14 @@ class ShellController extends FrameSafeNotifier
     if (!lease.isCurrent || !_ownsComposer(composer)) return;
     final Post updated;
     try {
-      updated = await api.composerPersistence.updatePost(
-        siteUrl: target.siteUrl,
-        apiKey: apiKey,
-        postId: target.editingPostId,
-        raw: raw,
-        originalText: composer.originalRaw,
+      updated = await credential.request!.run(
+        () => api.composerPersistence.updatePost(
+          siteUrl: target.siteUrl,
+          apiKey: apiKey,
+          postId: target.editingPostId,
+          raw: raw,
+          originalText: composer.originalRaw,
+        ),
       );
     } on WriteException catch (e) {
       lease.commit(() => composer.failed(e));
@@ -14593,18 +14834,20 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final lease = lifecycle.capture(target.siteUrl);
     composer.beginSubmit();
-    final credential = await _credentialForWrite(target.siteUrl);
+    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
     if (!lease.isCurrent) return;
     if (credential.failure case final failure?) {
       lease.commit(() => composer.failed(failure));
       return;
     }
     try {
-      await api.topicMutations.updateTopicTags(
-        siteUrl: target.siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: target.topicId,
-        tags: composer.tags,
+      await credential.request!.run(
+        () => api.topicMutations.updateTopicTags(
+          siteUrl: target.siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: target.topicId,
+          tags: composer.tags,
+        ),
       );
     } on WriteException catch (error) {
       lease.commit(() => composer.failed(error));
@@ -14643,22 +14886,24 @@ class ShellController extends FrameSafeNotifier
   ) async {
     final lease = lifecycle.capture(target.siteUrl);
     composer.beginSubmit();
-    final credential = await _credentialForWrite(target.siteUrl);
+    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
     if (!lease.isCurrent) return;
     if (credential.failure case final failure?) {
       lease.commit(() => composer.failed(failure));
       return;
     }
     try {
-      await api.topicMutations.updateTopic(
-        siteUrl: target.siteUrl,
-        apiKey: credential.apiKey!,
-        topicId: target.topicId,
-        title: target.topicTitle,
-        originalTitle: target.topicTitle,
-        categoryId: composer.categoryId,
-        tags: composer.tags,
-        originalTags: composer.originalTags,
+      await credential.request!.run(
+        () => api.topicMutations.updateTopic(
+          siteUrl: target.siteUrl,
+          apiKey: credential.apiKey!,
+          topicId: target.topicId,
+          title: target.topicTitle,
+          originalTitle: target.topicTitle,
+          categoryId: composer.categoryId,
+          tags: composer.tags,
+          originalTags: composer.originalTags,
+        ),
       );
     } on WriteException catch (error) {
       lease.commit(() => composer.failed(error));
@@ -14771,7 +15016,7 @@ class ShellController extends FrameSafeNotifier
   }) async {
     final session = lease ?? lifecycle.capture(target.siteUrl);
     if (!session.commit(composer.checking)) return;
-    final credential = await _credentialForWrite(target.siteUrl);
+    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
     if (!session.isCurrent || credential.failure != null) {
       session.commit(composer.unresolved);
       return;
@@ -14779,10 +15024,12 @@ class ShellController extends FrameSafeNotifier
     final apiKey = credential.apiKey!;
 
     try {
-      final retained = await api.composerPersistence.draft(
-        siteUrl: target.siteUrl,
-        apiKey: apiKey,
-        draftKey: target.draftKey,
+      final retained = await credential.request!.run(
+        () => api.composerPersistence.draft(
+          siteUrl: target.siteUrl,
+          apiKey: apiKey,
+          draftKey: target.draftKey,
+        ),
       );
       if (!session.isCurrent) return;
       final draft = retained.draft;
@@ -14804,10 +15051,12 @@ class ShellController extends FrameSafeNotifier
       final recentPath = target.isPrivateMessage
           ? '/topics/private-messages-sent/${Uri.encodeComponent(username)}.json'
           : '/topics/created-by/${Uri.encodeComponent(username)}.json';
-      final recent = await api.topicFeeds.topicList(
-        siteUrl: target.siteUrl,
-        path: recentPath,
-        apiKey: apiKey,
+      final recent = await credential.request!.run(
+        () => api.topicFeeds.topicList(
+          siteUrl: target.siteUrl,
+          path: recentPath,
+          apiKey: apiKey,
+        ),
       );
       final matches = <TopicPayload>[];
       final titleKey = _titleKey(sent.title);
@@ -14816,20 +15065,24 @@ class ShellController extends FrameSafeNotifier
           in recent.topics
               .where((topic) => _titleKey(topic.title) == titleKey)
               .take(_reconcileWindow)) {
-        final payload = await api.topicContent.topic(
-          siteUrl: target.siteUrl,
-          slug: row.slug,
-          id: row.id,
-          apiKey: apiKey,
+        final payload = await credential.request!.run(
+          () => api.topicContent.topic(
+            siteUrl: target.siteUrl,
+            slug: row.slug,
+            id: row.id,
+            apiKey: apiKey,
+          ),
         );
         final firstId = payload.detail.stream.firstOrNull;
         if (firstId == null) continue;
-        final posts = await api.topicContent.posts(
-          siteUrl: target.siteUrl,
-          topicId: row.id,
-          ids: [firstId],
-          includeRaw: true,
-          apiKey: apiKey,
+        final posts = await credential.request!.run(
+          () => api.topicContent.posts(
+            siteUrl: target.siteUrl,
+            topicId: row.id,
+            ids: [firstId],
+            includeRaw: true,
+            apiKey: apiKey,
+          ),
         );
         if (posts.firstOrNull?.raw case final landed?
             when _storedRaw(landed) == storedRaw) {
@@ -14881,7 +15134,7 @@ class ShellController extends FrameSafeNotifier
     if (!session.commit(composer.checking)) return;
 
     final username = _instanceAt(target.siteUrl)?.user?.username;
-    final credential = await _credentialForWrite(target.siteUrl);
+    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
     if (!session.isCurrent) return;
     if (credential.failure != null) {
       session.commit(() {
@@ -14896,11 +15149,13 @@ class ShellController extends FrameSafeNotifier
     late List<Post> posts;
     Post? landed;
     try {
-      topic = await api.topicContent.topic(
-        siteUrl: target.siteUrl,
-        slug: target.slug,
-        id: target.topicId,
-        apiKey: apiKey,
+      topic = await credential.request!.run(
+        () => api.topicContent.topic(
+          siteUrl: target.siteUrl,
+          slug: target.slug,
+          id: target.topicId,
+          apiKey: apiKey,
+        ),
       );
 
       // Ours would be at the end, and a topic answers with its first chunk of
@@ -14910,12 +15165,14 @@ class ShellController extends FrameSafeNotifier
           ? stream
           : stream.sublist(stream.length - _reconcileWindow);
 
-      posts = await api.topicContent.posts(
-        siteUrl: target.siteUrl,
-        topicId: target.topicId,
-        ids: tail,
-        includeRaw: true,
-        apiKey: apiKey,
+      posts = await credential.request!.run(
+        () => api.topicContent.posts(
+          siteUrl: target.siteUrl,
+          topicId: target.topicId,
+          ids: tail,
+          includeRaw: true,
+          apiKey: apiKey,
+        ),
       );
       final storedRaw = _storedRaw(raw);
       for (final post in posts) {
@@ -15226,17 +15483,19 @@ class ShellController extends FrameSafeNotifier
     String? failure;
 
     try {
-      final credential = await _readSessionValue(
+      final credential = await AccountRequestSession(
+        targetSite,
         lease,
-        () => credentials.apiKeyFor(targetSite),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final card = await api.site.userCard(
-        siteUrl: targetSite,
-        username: username,
-        // Read inside the guard, the way `loadLikers` does: storage that
-        // throws would otherwise strand the fetch in [userCardRequests].
-        apiKey: credential.value,
+      ).keyCredentials(credentials);
+      if (!lease.isCurrent) return;
+      final card = await credential.run(
+        () => api.site.userCard(
+          siteUrl: targetSite,
+          username: username,
+          // Read inside the guard, the way `loadLikers` does: storage that
+          // throws would otherwise strand the fetch in [userCardRequests].
+          apiKey: credential.apiKey,
+        ),
       );
       lease.commit(() => store.put(targetSite, card));
     } on SiteLookupException catch (e, stackTrace) {
@@ -15344,19 +15603,19 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     final List<FoundHashtag> found;
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return const [];
-      final identity = await _readClientIdFor(lease, credential.value);
-      if (identity == null || !lease.isCurrent) return const [];
-      found = await api.search.searchHashtags(
-        siteUrl: siteUrl,
-        term: term,
-        order: _composerHashtagTypes(),
-        apiKey: credential.value,
-        clientId: identity.value,
+      final session = AccountRequestSession(siteUrl, lease);
+      final credential = _instanceAt(siteUrl)?.isConnected == true
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
+      if (!lease.isCurrent) return const [];
+      found = await credential.run(
+        () => api.search.searchHashtags(
+          siteUrl: siteUrl,
+          term: term,
+          order: _composerHashtagTypes(),
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -15413,19 +15672,19 @@ class ShellController extends FrameSafeNotifier
 
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return;
-      final identity = await _readClientIdFor(lease, credential.value);
-      if (identity == null || !lease.isCurrent) return;
-      final found = await api.lookups.lookupHashtags(
-        siteUrl: siteUrl,
-        refs: ask,
-        order: _composerHashtagTypes(),
-        apiKey: credential.value,
-        clientId: identity.value,
+      final session = AccountRequestSession(siteUrl, lease);
+      final credential = _instanceAt(siteUrl)?.isConnected == true
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
+      if (!lease.isCurrent) return;
+      final found = await credential.run(
+        () => api.lookups.lookupHashtags(
+          siteUrl: siteUrl,
+          refs: ask,
+          order: _composerHashtagTypes(),
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       if (isDisposed) return;
       lease.commit(() {
@@ -15473,19 +15732,19 @@ class ShellController extends FrameSafeNotifier
 
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return;
-      final identity = await _readClientIdFor(lease, credential.value);
-      if (identity == null || !lease.isCurrent) return;
-      final real = await api.lookups.checkMentions(
-        siteUrl: siteUrl,
-        names: ask,
-        topicId: topicId,
-        apiKey: credential.value,
-        clientId: identity.value,
+      final session = AccountRequestSession(siteUrl, lease);
+      final credential = _instanceAt(siteUrl)?.isConnected == true
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
+      if (!lease.isCurrent) return;
+      final real = await credential.run(
+        () => api.lookups.checkMentions(
+          siteUrl: siteUrl,
+          names: ask,
+          topicId: topicId,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       if (isDisposed) return;
       lease.commit(() {
@@ -15517,21 +15776,22 @@ class ShellController extends FrameSafeNotifier
   }) async {
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return const FoundUsersAndGroups();
-      final identity = await _readClientIdFor(lease, credential.value);
-      if (identity == null || !lease.isCurrent) {
+      final session = AccountRequestSession(siteUrl, lease);
+      final credential = _instanceAt(siteUrl)?.isConnected == true
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
+      if (!lease.isCurrent) return const FoundUsersAndGroups();
+      if (!lease.isCurrent) {
         return const FoundUsersAndGroups();
       }
-      final found = await api.search.searchUsersAndGroups(
-        siteUrl: siteUrl,
-        term: term,
-        limit: 20,
-        apiKey: credential.value,
-        clientId: identity.value,
+      final found = await credential.run(
+        () => api.search.searchUsersAndGroups(
+          siteUrl: siteUrl,
+          term: term,
+          limit: 20,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       return lease.isCurrent ? found : const FoundUsersAndGroups();
     } catch (error, stackTrace) {
@@ -15555,21 +15815,22 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     final FoundUsersAndGroups found;
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return const FoundUsersAndGroups();
-      final identity = await _readClientIdFor(lease, credential.value);
-      if (identity == null || !lease.isCurrent) {
+      final session = AccountRequestSession(siteUrl, lease);
+      final credential = _instanceAt(siteUrl)?.isConnected == true
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
+      if (!lease.isCurrent) return const FoundUsersAndGroups();
+      if (!lease.isCurrent) {
         return const FoundUsersAndGroups();
       }
-      found = await api.search.searchMentions(
-        siteUrl: siteUrl,
-        term: term,
-        topicId: topicId,
-        apiKey: credential.value,
-        clientId: identity.value,
+      found = await credential.run(
+        () => api.search.searchMentions(
+          siteUrl: siteUrl,
+          term: term,
+          topicId: topicId,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -15612,19 +15873,19 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     final List<FoundUser> found;
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null) return const [];
-      final identity = await _readClientIdFor(lease, credential.value);
-      if (identity == null || !lease.isCurrent) return const [];
-      found = await api.lookups.searchUsers(
-        siteUrl: siteUrl,
-        term: term,
-        topicId: topicId,
-        apiKey: credential.value,
-        clientId: identity.value,
+      final session = AccountRequestSession(siteUrl, lease);
+      final credential = _instanceAt(siteUrl)?.isConnected == true
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
+      if (!lease.isCurrent) return const [];
+      found = await credential.run(
+        () => api.lookups.searchUsers(
+          siteUrl: siteUrl,
+          term: term,
+          topicId: topicId,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
     } catch (error, stackTrace) {
       if (!isDisposed && lease.isCurrent) {
@@ -15796,21 +16057,17 @@ class ShellController extends FrameSafeNotifier
     _tagDirectoryFeeds[siteUrl] = held.refreshing();
     _notify();
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null || !lease.isCurrent) return;
-      final identity = credential.value == null
-          ? null
-          : await _readSessionValue(lease, authenticator.clientId);
-      if (credential.value != null && (identity == null || !lease.isCurrent)) {
-        return;
-      }
-      final tags = await api.tags.tags(
-        siteUrl: siteUrl,
-        apiKey: credential.value,
-        clientId: identity?.value,
+      final session = AccountRequestSession(siteUrl, lease);
+      final credential = instance.isConnected
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
+      if (!lease.isCurrent) return;
+      final tags = await credential.run(
+        () => api.tags.tags(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       final visibleTags = instance.user == null
           ? tags.where((tag) => !tag.pmOnly)
@@ -15842,13 +16099,17 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _ensureCategoryIds(
     DiscourseInstance instance,
-    String? apiKey,
     Iterable<int> categoryIds,
   ) async {
     if (instance.loginRequired && !instance.isConnected) return;
     final lease = lifecycle.capture(instance.url);
-    String? clientId;
     try {
+      final requestSession = AccountRequestSession(instance.url, lease);
+      Future<AccountRequestCredentials>? credentialRead;
+      Future<AccountRequestCredentials> readCredentials() =>
+          credentialRead ??= instance.isConnected
+          ? requestSession.credentials(credentials)
+          : Future.value(requestSession.anonymousCredentials());
       var pending = categoryIds.toSet();
       final visited = <int>{};
       while (pending.isNotEmpty) {
@@ -15890,16 +16151,18 @@ class ShellController extends FrameSafeNotifier
           requests.add(result.future);
           unawaited(() async {
             try {
-              if (apiKey != null) clientId ??= await authenticator.clientId();
               if (isDisposed || !lease.isCurrent) {
                 result.complete(const []);
                 return;
               }
-              final found = await api.categories.findCategories(
-                siteUrl: instance.url,
-                ids: batch,
-                apiKey: apiKey,
-                clientId: clientId,
+              final credential = await readCredentials();
+              final found = await credential.run(
+                () => api.categories.findCategories(
+                  siteUrl: instance.url,
+                  ids: batch,
+                  apiKey: credential.apiKey,
+                  clientId: credential.clientId,
+                ),
               );
               if (!isDisposed) {
                 lease.commit(() {
@@ -15950,20 +16213,14 @@ class ShellController extends FrameSafeNotifier
 
     final lease = lifecycle.capture(instance.url);
     try {
-      final apiKey = instance.isConnected
-          ? await credentials.apiKeyFor(instance.url)
-          : null;
+      final requestSession = AccountRequestSession(instance.url, lease);
+      final credential = instance.isConnected
+          ? await requestSession.credentials(credentials)
+          : requestSession.anonymousCredentials();
       if (!lease.isCurrent) return;
-      final clientId = apiKey == null ? null : await authenticator.clientId();
-      if (!lease.isCurrent) return;
-      await _ensureCategories(
-        instance,
-        apiKey,
-        clientId: clientId,
-        lease: lease,
-      );
+      await _ensureCategories(instance, credential, lease: lease);
       if (lease.isCurrent && categoryId != null) {
-        await _ensureCategoryIds(instance, apiKey, [categoryId]);
+        await _ensureCategoryIds(instance, [categoryId]);
       }
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
@@ -15985,16 +16242,15 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _ensureCategories(
     DiscourseInstance instance,
-    String? apiKey, {
-    String? clientId,
+    AccountRequestCredentials credential, {
     SiteLease? lease,
   }) {
     final active = _categoryRequests[instance.url];
     if (active != null) return active.join();
     late final RequestIntentOperation<void> request;
     request = RequestIntentOperation(
-      () => _loadCategories(instance, apiKey, clientId: clientId, lease: lease)
-          .whenComplete(() {
+      () =>
+          _loadCategories(instance, credential, lease: lease).whenComplete(() {
             if (identical(_categoryRequests[instance.url], request)) {
               final _ = _categoryRequests.remove(instance.url);
             }
@@ -16006,8 +16262,7 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _loadCategories(
     DiscourseInstance instance,
-    String? apiKey, {
-    String? clientId,
+    AccountRequestCredentials credential, {
     SiteLease? lease,
   }) async {
     if (!_categorised.add(instance.url)) return;
@@ -16017,10 +16272,12 @@ class ShellController extends FrameSafeNotifier
     _notify();
 
     try {
-      final result = await api.categories.loadCategories(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        clientId: clientId,
+      final result = await credential.run(
+        () => api.categories.loadCategories(
+          siteUrl: instance.url,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+        ),
       );
       if (isDisposed || !session.isCurrent) return;
       // Category and tag navigation depend on these ordering and visibility
@@ -16113,24 +16370,19 @@ class ShellController extends FrameSafeNotifier
         identical(_categoryPageRequests[siteUrl], request);
 
     try {
-      final credential = await _readSessionValue(
-        lease,
-        () => credentials.apiKeyFor(siteUrl),
-      );
-      if (credential == null || !requestIsCurrent()) return;
-      final identity = credential.value == null
-          ? null
-          : await _readSessionValue(lease, authenticator.clientId);
-      if (credential.value != null &&
-          (identity == null || !requestIsCurrent())) {
-        return;
-      }
+      final session = AccountRequestSession(siteUrl, lease);
+      final credential = instance.isConnected
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
+      if (!requestIsCurrent()) return;
 
-      final result = await api.categories.loadCategories(
-        siteUrl: siteUrl,
-        apiKey: credential.value,
-        clientId: identity?.value,
-        page: page,
+      final result = await credential.run(
+        () => api.categories.loadCategories(
+          siteUrl: siteUrl,
+          apiKey: credential.apiKey,
+          clientId: credential.clientId,
+          page: page,
+        ),
       );
       if (!requestIsCurrent()) return;
 

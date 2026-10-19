@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_appearance_loader.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:flutter/material.dart';
@@ -12,8 +15,100 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
+  test(
+    'retired appearance metadata leaves the queue before HTTP dispatch',
+    () async {
+      final client = _Client((request) async => _response(request, '{}'));
+      final coordinator = DiscourseRequestCoordinator(
+        maxConcurrentPerOrigin: 1,
+      );
+      final loader = SiteAppearanceLoader(
+        client: client,
+        coordinator: coordinator,
+      );
+      final lifecycle = SiteLifecycle();
+      const site = 'https://forum.example';
+      final auth = AccountRequestSession(
+        site,
+        lifecycle.capture(site),
+      ).anonymousCredentials();
+      final release = Completer<http.Response>();
+      addTearDown(() {
+        if (!release.isCompleted) release.complete(http.Response('{}', 200));
+      });
+      final occupied = coordinator.run(Uri.parse(site), () => release.future);
+      final pending = auth.run(() => loader.load(siteUrl: site));
+      final rejected = expectLater(
+        pending,
+        throwsA(isA<SiteAppearanceLoadException>()),
+      );
+      await pumpEventQueue();
+      expect(client.requests, isEmpty);
+      lifecycle.invalidate(site);
+      await rejected.timeout(const Duration(seconds: 1));
+      release.complete(http.Response('{}', 200));
+      await occupied;
+      await pumpEventQueue();
+      expect(client.requests, isEmpty);
+    },
+  );
+
+  test(
+    'failed appearance metadata cancels its concurrent document before returning',
+    () async {
+      final documentStarted = Completer<void>();
+      final documentAborted = Completer<void>();
+      final cleanup = Completer<void>();
+      addTearDown(() {
+        if (!cleanup.isCompleted) cleanup.complete();
+      });
+      final client = _Client((request) async {
+        if (request.url.path == '/site.json') {
+          return _response(request, _siteJson(includeAlternate: false));
+        }
+        if (request.url.path.startsWith('/color-scheme-stylesheet/')) {
+          await documentStarted.future;
+          return _response(request, '{}');
+        }
+        if (request.url.path == '/') {
+          documentStarted.complete();
+          final aborted = await Future.any([
+            (request as http.Abortable).abortTrigger!.then((_) => true),
+            cleanup.future.then((_) => false),
+          ]);
+          if (aborted) {
+            documentAborted.complete();
+            throw http.RequestAbortedException(request.url);
+          }
+          return _response(request, _themeDocument());
+        }
+        throw StateError('Unexpected request: ${request.url}');
+      });
+      const site = 'https://forum.example';
+      final lifecycle = SiteLifecycle();
+      final auth = AccountRequestSession(
+        site,
+        lifecycle.capture(site),
+      ).anonymousCredentials();
+      await expectLater(
+        auth.run(
+          () => SiteAppearanceLoader(client: client).load(siteUrl: site),
+        ),
+        throwsA(
+          isA<SiteAppearanceLoadException>().having(
+            (error) => error.failure,
+            'failure',
+            SiteAppearanceLoadFailure.malformed,
+          ),
+        ),
+      );
+      await documentAborted.future.timeout(const Duration(seconds: 1));
+      lifecycle.invalidate(site);
+    },
+  );
+
   group('JSON resolution', () {
-    test('loads anonymous site defaults and credential-free CSS', () async {
+    test('loads scoped defaults and credential-free CSS', () async {
       final client = _Client((request) async {
         return switch ((request.url.host, request.url.path)) {
           ('forum.example', '/community/site.json') => _response(
@@ -52,9 +147,14 @@ void main() {
         };
       });
 
-      final appearance = await SiteAppearanceLoader(
-        client: client,
-      ).load(siteUrl: 'https://forum.example/community');
+      const siteUrl = 'https://forum.example/community';
+      final auth = AccountRequestSession(
+        siteUrl,
+        SiteLifecycle().capture(siteUrl),
+      ).anonymousCredentials();
+      final appearance = await auth.run(
+        () => SiteAppearanceLoader(client: client).load(siteUrl: siteUrl),
+      );
 
       expect(appearance?.mode, SiteAppearanceMode.followSystem);
       expect(appearance?.base?.brightness, Brightness.light);
@@ -494,10 +594,15 @@ void main() {
         };
       });
 
+      const site = 'https://forum.example';
+      final auth = AccountRequestSession(
+        site,
+        SiteLifecycle().capture(site),
+      ).anonymousCredentials();
       expect(
-        await SiteAppearanceLoader(
-          client: client,
-        ).load(siteUrl: 'https://forum.example'),
+        await auth.run(
+          () => SiteAppearanceLoader(client: client).load(siteUrl: site),
+        ),
         isNotNull,
       );
       expect(client.requests.map((request) => request.url.host), [

@@ -4,6 +4,8 @@ import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
 
+import '../../data/account_request_session.dart';
+import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../data/draft_store.dart';
 import '../../data/site_lifecycle.dart';
@@ -11,9 +13,10 @@ import '../../models/composer_draft.dart';
 import '../../models/user_draft.dart';
 import 'controller.dart';
 
-typedef ComposerDraftCredential = ({String? apiKey, WriteException? failure});
-typedef ComposerDraftCredentialReader =
-    Future<ComposerDraftCredential> Function(String siteUrl);
+typedef _DraftCredential = ({
+  AccountRequestCredentials? request,
+  WriteException? failure,
+});
 typedef ComposerDraftCacheReader =
     ComposerDraft? Function(ComposerTarget target);
 typedef ComposerDraftSequenceReader = int Function(ComposerTarget target);
@@ -41,7 +44,7 @@ final class ComposerDraftCoordinator {
     required ComposerPersistenceApi persistence,
     required DraftsApi draftsApi,
     required SiteLifecycle lifecycle,
-    required ComposerDraftCredentialReader readCredential,
+    required SiteApiKeyReader credentials,
     required Future<String> Function() readClientId,
     required bool Function() isDisposed,
     required bool Function(ComposerController composer) isCurrentComposer,
@@ -58,7 +61,7 @@ final class ComposerDraftCoordinator {
        _persistence = persistence,
        _draftsApi = draftsApi,
        _lifecycle = lifecycle,
-       _readCredential = readCredential,
+       _credentials = credentials,
        _readClientId = readClientId,
        _isDisposed = isDisposed,
        _isCurrentComposer = isCurrentComposer,
@@ -75,7 +78,7 @@ final class ComposerDraftCoordinator {
   final ComposerPersistenceApi _persistence;
   final DraftsApi _draftsApi;
   final SiteLifecycle _lifecycle;
-  final ComposerDraftCredentialReader _readCredential;
+  final SiteApiKeyReader _credentials;
   final Future<String> Function() _readClientId;
   final bool Function() _isDisposed;
   final bool Function(ComposerController composer) _isCurrentComposer;
@@ -183,7 +186,7 @@ final class ComposerDraftCoordinator {
       if (!isCurrent()) return;
       await _serialize<void>(key, () async {
         if (!isCurrent()) return;
-        final credential = await _readCredential(siteUrl);
+        final credential = await _readCredential(siteUrl, lease);
         if (!isCurrent()) return;
         if (credential.failure case final failure?) throw failure;
 
@@ -205,11 +208,13 @@ final class ComposerDraftCoordinator {
             (target != null && _readCachedSequence(target) > draft.sequence)) {
           throw const WriteException(WriteFailure.validation);
         }
-        await _draftsApi.deleteUserDraft(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          draftKey: draft.key,
-          sequence: draft.sequence,
+        await credential.request!.run(
+          () => _draftsApi.deleteUserDraft(
+            siteUrl: siteUrl,
+            apiKey: credential.request!.apiKey!,
+            draftKey: draft.key,
+            sequence: draft.sequence,
+          ),
         );
         if (!isCurrent()) return;
         final cleared = await _localStore.clearChecked(
@@ -579,7 +584,10 @@ final class ComposerDraftCoordinator {
       }
 
       if (overwritten) {
-        final credential = await _readCredential(target.siteUrl);
+        final credential = await _readCredential(
+          target.siteUrl,
+          session._lease,
+        );
         if (!isCurrent()) return null;
         if (credential.failure != null) return failAndResaveCurrentDraft();
         final clientId = await _readClientId();
@@ -598,11 +606,13 @@ final class ComposerDraftCoordinator {
           }
           final sequence = sequenceFor(target);
           if (composer.unappliedDraftWasLocal) {
-            await _draftsApi.deleteUserDraft(
-              siteUrl: target.siteUrl,
-              apiKey: credential.apiKey!,
-              draftKey: target.draftKey,
-              sequence: sequence,
+            await credential.request!.run(
+              () => _draftsApi.deleteUserDraft(
+                siteUrl: target.siteUrl,
+                apiKey: credential.request!.apiKey!,
+                draftKey: target.draftKey,
+                sequence: sequence,
+              ),
             );
             session._lease.commit(() {
               _knownServerDrafts.remove(key);
@@ -612,13 +622,15 @@ final class ComposerDraftCoordinator {
               return false;
             }
           } else {
-            final nextSequence = await _persistence.saveDraft(
-              siteUrl: target.siteUrl,
-              apiKey: credential.apiKey!,
-              draftKey: target.draftKey,
-              sequence: sequence,
-              data: preserved.encode(),
-              owner: clientId,
+            final nextSequence = await credential.request!.run(
+              () => _persistence.saveDraft(
+                siteUrl: target.siteUrl,
+                apiKey: credential.request!.apiKey!,
+                draftKey: target.draftKey,
+                sequence: sequence,
+                data: preserved.encode(),
+                owner: clientId,
+              ),
             );
             session._lease.commit(() {
               if (nextSequence != null) {
@@ -683,7 +695,7 @@ final class ComposerDraftCoordinator {
 
     try {
       if (composer.canSaveDraft) {
-        final credential = await _readCredential(target.siteUrl);
+        final credential = await _readCredential(target.siteUrl, lease);
         if (!isCurrent()) return null;
         if (credential.failure != null) return _discardFailure;
 
@@ -710,11 +722,13 @@ final class ComposerDraftCoordinator {
           final sequence = sequenceFor(target);
           final draftWasKnown =
               _knownServerDrafts.contains(key) || _isServerDraftKnown(target);
-          await _draftsApi.deleteUserDraft(
-            siteUrl: target.siteUrl,
-            apiKey: credential.apiKey!,
-            draftKey: target.draftKey,
-            sequence: sequence,
+          await credential.request!.run(
+            () => _draftsApi.deleteUserDraft(
+              siteUrl: target.siteUrl,
+              apiKey: credential.request!.apiKey!,
+              draftKey: target.draftKey,
+              sequence: sequence,
+            ),
           );
           final localCleared = await _localStore.clearChecked(
             target.siteUrl,
@@ -866,20 +880,22 @@ final class ComposerDraftCoordinator {
         }
 
         try {
-          final credential = await _readCredential(target.siteUrl);
+          final credential = await _readCredential(target.siteUrl, lease);
           if (!lease.isCurrent) return null;
           if (credential.failure case final failure?) throw failure;
-          final apiKey = credential.apiKey!;
+          final apiKey = credential.request!.apiKey!;
           if (save.draft.isEmpty) {
             final requestSequence = sequenceFor(target);
             final draftWasKnown =
                 _knownServerDrafts.contains(key) || _isServerDraftKnown(target);
             if (draftWasKnown) {
-              await _draftsApi.deleteUserDraft(
-                siteUrl: target.siteUrl,
-                apiKey: apiKey,
-                draftKey: target.draftKey,
-                sequence: requestSequence,
+              await credential.request!.run(
+                () => _draftsApi.deleteUserDraft(
+                  siteUrl: target.siteUrl,
+                  apiKey: apiKey,
+                  draftKey: target.draftKey,
+                  sequence: requestSequence,
+                ),
               );
             }
             lease.commit(() {
@@ -908,15 +924,17 @@ final class ComposerDraftCoordinator {
           if (!lease.isCurrent) return null;
 
           final requestSequence = sequenceFor(target);
-          final sequence = await _persistence.saveDraft(
-            siteUrl: target.siteUrl,
-            apiKey: apiKey,
-            draftKey: target.draftKey,
-            sequence: requestSequence,
-            data: save.draft.encode(),
-            // Discourse uses this to distinguish another writer from this
-            // client returning to its own draft.
-            owner: clientId,
+          final sequence = await credential.request!.run(
+            () => _persistence.saveDraft(
+              siteUrl: target.siteUrl,
+              apiKey: apiKey,
+              draftKey: target.draftKey,
+              sequence: requestSequence,
+              data: save.draft.encode(),
+              // Discourse uses this to distinguish another writer from this
+              // client returning to its own draft.
+              owner: clientId,
+            ),
           );
 
           var clearLocal = false;
@@ -1030,14 +1048,16 @@ final class ComposerDraftCoordinator {
       try {
         final credential = await _readCurrent(
           lease,
-          () => _readCredential(target.siteUrl),
+          () => _readCredential(target.siteUrl, lease),
         );
         if (credential == null || !isCurrent()) return true;
         if (credential.failure != null) return false;
-        final found = await _persistence.draft(
-          siteUrl: target.siteUrl,
-          apiKey: credential.apiKey!,
-          draftKey: target.draftKey,
+        final found = await credential.request!.run(
+          () => _persistence.draft(
+            siteUrl: target.siteUrl,
+            apiKey: credential.request!.apiKey!,
+            draftKey: target.draftKey,
+          ),
         );
         remote = found.draft;
         remoteSequence = found.sequence;
@@ -1114,6 +1134,33 @@ final class ComposerDraftCoordinator {
       composer.captureDraftSavepoint();
     });
     return true;
+  }
+
+  Future<_DraftCredential> _readCredential(
+    String siteUrl,
+    SiteLease lease,
+  ) async {
+    try {
+      final request = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(_credentials);
+      if (request.apiKey == null) {
+        return (
+          request: null,
+          failure: const WriteException(WriteFailure.forbidden),
+        );
+      }
+      return (request: request, failure: null);
+    } catch (error, stackTrace) {
+      if (!_isDisposed() && lease.isCurrent) {
+        _reportError(error, stackTrace, 'authentication.readWriteCredential');
+      }
+      return (
+        request: null,
+        failure: const WriteException(WriteFailure.unreachable),
+      );
+    }
   }
 
   Future<T?> _readCurrent<T>(SiteLease lease, Future<T> Function() read) async {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -113,7 +114,11 @@ final class DraftListController extends FrameSafeNotifier {
     if (!_isCurrentLoad(lease, siteUrl, request)) return;
 
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final auth = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!_isCurrentLoad(lease, siteUrl, request)) return;
       if (apiKey == null) {
         _commit(lease, siteUrl, request, () {
@@ -130,11 +135,13 @@ final class DraftListController extends FrameSafeNotifier {
           ? current.previousOffset(limit)
           : current.nextOffset;
       final requestLimit = loadPrevious ? current.firstOffset - offset : limit;
-      final page = await api.userDrafts(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        offset: offset,
-        limit: requestLimit,
+      final page = await auth.run(
+        () => api.userDrafts(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          offset: offset,
+          limit: requestLimit,
+        ),
       );
       // A next page must build on the feed as it stands now, not the [held]
       // snapshot: a delete that landed during the request already removed its
@@ -216,14 +223,20 @@ final class DraftListController extends FrameSafeNotifier {
           () => _isCurrentDeletion(lease, identity, request),
         );
       } else {
-        final apiKey = await credentials.apiKeyFor(instance.url);
+        final auth = await AccountRequestSession(
+          instance.url,
+          lease,
+        ).keyCredentials(credentials);
+        final apiKey = auth.apiKey;
         if (!_isCurrentDeletion(lease, identity, request)) return false;
         if (apiKey == null) return false;
-        await api.deleteUserDraft(
-          siteUrl: instance.url,
-          apiKey: apiKey,
-          draftKey: draft.key,
-          sequence: draft.sequence,
+        await auth.run(
+          () => api.deleteUserDraft(
+            siteUrl: instance.url,
+            apiKey: apiKey,
+            draftKey: draft.key,
+            sequence: draft.sequence,
+          ),
         );
       }
       if (!_isCurrentDeletion(lease, identity, request)) return false;

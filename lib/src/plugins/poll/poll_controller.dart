@@ -126,23 +126,27 @@ class PollController extends FrameSafeNotifier
       if (credential.failure case final failure?) {
         return PollVoteWriteResult.refused(failure.message);
       }
-      final apiKey = credential.apiKey!;
+      final apiKey = credential.credentials!.apiKey!;
 
       final PollVoteResponse answer;
       try {
         answer = options == null
-            ? await _api.removePollVote(
-                siteUrl: siteUrl,
-                apiKey: apiKey,
-                postId: post.id,
-                pollName: poll.name,
+            ? await credential.credentials!.run(
+                () => _api.removePollVote(
+                  siteUrl: siteUrl,
+                  apiKey: apiKey,
+                  postId: post.id,
+                  pollName: poll.name,
+                ),
               )
-            : await _api.votePoll(
-                siteUrl: siteUrl,
-                apiKey: apiKey,
-                postId: post.id,
-                pollName: poll.name,
-                options: options,
+            : await credential.credentials!.run(
+                () => _api.votePoll(
+                  siteUrl: siteUrl,
+                  apiKey: apiKey,
+                  postId: post.id,
+                  pollName: poll.name,
+                  options: options,
+                ),
               );
       } on WriteException catch (error) {
         if (error.failure != WriteFailure.unreachable) {

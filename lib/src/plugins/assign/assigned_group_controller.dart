@@ -143,12 +143,14 @@ final class AssignedGroupController extends FrameSafeNotifier {
         return;
       }
 
-      final page = await api.members(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: credentials.clientId,
-        groupName: key.groupName,
-        search: key.search,
+      final page = await credentials.run(
+        () => api.members(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: credentials.clientId,
+          groupName: key.groupName,
+          search: key.search,
+        ),
       );
       _commitMember(lease, key, request, () {
         _memberStates[key] = (_memberStates[key] ?? held).withPage(page);
@@ -205,13 +207,15 @@ final class AssignedGroupController extends FrameSafeNotifier {
         return;
       }
 
-      final page = await api.members(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: credentials.clientId,
-        groupName: key.groupName,
-        search: key.search,
-        offset: held.nextOffset,
+      final page = await credentials.run(
+        () => api.members(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: credentials.clientId,
+          groupName: key.groupName,
+          search: key.search,
+          offset: held.nextOffset,
+        ),
       );
       _commitMember(lease, key, request, () {
         _memberStates[key] = held.withPage(page);
@@ -274,13 +278,15 @@ final class AssignedGroupController extends FrameSafeNotifier {
         return;
       }
 
-      final list = await api.topics(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: credentials.clientId,
-        groupName: key.groupName,
-        filter: key.filter,
-        query: key.query,
+      final list = await credentials.run(
+        () => api.topics(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: credentials.clientId,
+          groupName: key.groupName,
+          filter: key.filter,
+          query: key.query,
+        ),
       );
       _commitTopicLoad(lease, key, revision, request, () {
         _topics.putAll(siteUrl, list.topics);
@@ -345,11 +351,13 @@ final class AssignedGroupController extends FrameSafeNotifier {
       }
 
       final requestedPath = held.nextPagePath!;
-      final next = await api.topicPage(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: credentials.clientId,
-        path: requestedPath,
+      final next = await credentials.run(
+        () => api.topicPage(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: credentials.clientId,
+          path: requestedPath,
+        ),
       );
       _commitTopicPage(lease, key, revision, request, () {
         _topics.putAll(siteUrl, next.topics);

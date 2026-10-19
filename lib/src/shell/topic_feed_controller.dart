@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -546,12 +547,14 @@ final class TopicFeedController extends FrameSafeNotifier {
         !isDisposed && lease.isCurrent && identical(_revisions[key], revision);
 
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!requestIsCurrent()) return;
-      final list = await api.topicList(
-        siteUrl: instance.url,
-        path: path,
-        apiKey: apiKey,
+      final list = await auth.run(
+        () => api.topicList(siteUrl: instance.url, path: path, apiKey: apiKey),
       );
       if (!requestIsCurrent()) return;
       await prepareFeed?.call(
@@ -694,14 +697,20 @@ final class TopicFeedController extends FrameSafeNotifier {
     notifySafely();
 
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!requestIsCurrent()) return;
       // The list's own query — its category, tags, subset or order — still
       // applies, as core's `loadBefore` sends the list's params along.
-      final list = await api.topicList(
-        siteUrl: instance.url,
-        path: _topicIdsPath(path, ids),
-        apiKey: apiKey,
+      final list = await auth.run(
+        () => api.topicList(
+          siteUrl: instance.url,
+          path: _topicIdsPath(path, ids),
+          apiKey: apiKey,
+        ),
       );
       if (!requestIsCurrent()) return;
       await prepareFeed?.call(
@@ -831,12 +840,18 @@ final class TopicFeedController extends FrameSafeNotifier {
     notifySafely();
 
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!requestIsCurrent()) return;
-      final next = await api.topicList(
-        siteUrl: instance.url,
-        path: feed.nextPagePath!,
-        apiKey: apiKey,
+      final next = await auth.run(
+        () => api.topicList(
+          siteUrl: instance.url,
+          path: feed.nextPagePath!,
+          apiKey: apiKey,
+        ),
       );
       if (!requestIsCurrent()) return;
       await prepareFeed?.call(
@@ -1002,12 +1017,18 @@ final class TopicFeedController extends FrameSafeNotifier {
         identical(_revisions[key], revision) &&
         identical(_topicRequests[key], request);
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!requestIsCurrent()) return;
-      final topic = await api.topicSummary(
-        siteUrl: instance.url,
-        id: request.topicId,
-        apiKey: apiKey,
+      final topic = await auth.run(
+        () => api.topicSummary(
+          siteUrl: instance.url,
+          id: request.topicId,
+          apiKey: apiKey,
+        ),
       );
       if (!requestIsCurrent()) return;
       await prepareFeed?.call(
@@ -1083,7 +1104,11 @@ final class TopicFeedController extends FrameSafeNotifier {
         await page.future;
       }
       if (!requestIsCurrent()) return;
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!requestIsCurrent()) return;
       while (request.pending.isNotEmpty) {
         final range = request.pending.removeAt(0);
@@ -1100,10 +1125,12 @@ final class TopicFeedController extends FrameSafeNotifier {
         if (missingIds.isNotEmpty) {
           final topics = <Topic>[];
           for (final id in missingIds) {
-            final topic = await api.topicSummary(
-              siteUrl: instance.url,
-              id: id,
-              apiKey: apiKey,
+            final topic = await auth.run(
+              () => api.topicSummary(
+                siteUrl: instance.url,
+                id: id,
+                apiKey: apiKey,
+              ),
             );
             if (!requestIsCurrent()) return;
             topics.add(topic);
@@ -1167,10 +1194,13 @@ final class TopicFeedController extends FrameSafeNotifier {
             if (visited.length > maximumCursorCheckpoints) {
               visited.remove(visited.first);
             }
-            final list = await api.topicList(
-              siteUrl: instance.url,
-              path: path,
-              apiKey: apiKey,
+            final requestPath = path;
+            final list = await auth.run(
+              () => api.topicList(
+                siteUrl: instance.url,
+                path: requestPath,
+                apiKey: apiKey,
+              ),
             );
             if (!requestIsCurrent()) return;
             await prepareFeed?.call(

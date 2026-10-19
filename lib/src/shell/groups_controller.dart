@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/groups_api.dart';
@@ -365,7 +366,6 @@ typedef _MemberListKey = ({
 });
 typedef _FilterListKey = ({String siteUrl, String groupName, String filter});
 typedef _ActivityKey = ({String siteUrl, String groupName, bool mentions});
-typedef _GroupCredentials = ({String? apiKey, String? clientId});
 
 final class _GroupRequest {
   _GroupRequest({
@@ -504,14 +504,16 @@ final class GroupsController extends FrameSafeNotifier {
     try {
       final auth = await _credentialsFor(instance, token);
       if (auth == null || !_current(token)) return;
-      final page = await api.directory(
-        siteUrl: instance.url,
-        apiKey: auth.apiKey,
-        clientId: auth.clientId,
-        page: more ? held.nextPage : 0,
-        filter: query.filter,
-        type: query.type,
-        username: query.username,
+      final page = await auth.run(
+        () => api.directory(
+          siteUrl: instance.url,
+          apiKey: auth.apiKey,
+          clientId: auth.apiKey == null ? null : auth.clientId,
+          page: more ? held.nextPage : 0,
+          filter: query.filter,
+          type: query.type,
+          username: query.username,
+        ),
       );
       _commit(token, () {
         // An entry absent here was dropped by a deletion; the page predates
@@ -572,12 +574,14 @@ final class GroupsController extends FrameSafeNotifier {
     try {
       final auth = await _credentialsFor(instance, token);
       if (auth == null || !_current(token)) return const [];
-      final page = await api.members(
-        siteUrl: instance.url,
-        groupName: group.name,
-        apiKey: auth.apiKey,
-        clientId: auth.clientId,
-        limit: 4,
+      final page = await auth.run(
+        () => api.members(
+          siteUrl: instance.url,
+          groupName: group.name,
+          apiKey: auth.apiKey,
+          clientId: auth.apiKey == null ? null : auth.clientId,
+          limit: 4,
+        ),
       );
       return _current(token)
           ? List.unmodifiable(page.members.take(4))
@@ -620,11 +624,13 @@ final class GroupsController extends FrameSafeNotifier {
     try {
       final auth = await _credentialsFor(instance, token);
       if (auth == null || !_current(token)) return;
-      final detail = await api.detail(
-        siteUrl: instance.url,
-        groupName: groupName,
-        apiKey: auth.apiKey,
-        clientId: auth.clientId,
+      final detail = await auth.run(
+        () => api.detail(
+          siteUrl: instance.url,
+          groupName: groupName,
+          apiKey: auth.apiKey,
+          clientId: auth.apiKey == null ? null : auth.clientId,
+        ),
       );
       _commit(token, () {
         _details[key] = GroupDetailState(detail: detail, loaded: true);
@@ -693,15 +699,17 @@ final class GroupsController extends FrameSafeNotifier {
       if (auth == null || !_current(token)) return;
       var base = held;
       while (_current(token)) {
-        final page = await api.members(
-          siteUrl: instance.url,
-          groupName: groupName,
-          apiKey: auth.apiKey,
-          clientId: auth.clientId,
-          offset: more ? base.nextOffset : 0,
-          order: order,
-          ascending: ascending,
-          filter: filter,
+        final page = await auth.run(
+          () => api.members(
+            siteUrl: instance.url,
+            groupName: groupName,
+            apiKey: auth.apiKey,
+            clientId: auth.apiKey == null ? null : auth.clientId,
+            offset: more ? base.nextOffset : 0,
+            order: order,
+            ascending: ascending,
+            filter: filter,
+          ),
         );
         // The server can apply a deletion before its write response arrives.
         // Settle its cache update before deciding whether this page is usable.
@@ -797,13 +805,15 @@ final class GroupsController extends FrameSafeNotifier {
       if (auth == null || !_current(token)) return;
       var base = held;
       while (_current(token)) {
-        final page = await api.requesters(
-          siteUrl: instance.url,
-          apiKey: auth.apiKey!,
-          clientId: auth.clientId,
-          groupName: groupName,
-          offset: more ? base.nextOffset : 0,
-          filter: filter,
+        final page = await auth.run(
+          () => api.requesters(
+            siteUrl: instance.url,
+            apiKey: auth.apiKey!,
+            clientId: auth.apiKey == null ? null : auth.clientId,
+            groupName: groupName,
+            offset: more ? base.nextOffset : 0,
+            filter: filter,
+          ),
         );
         final removal = _mutations[_groupKey(instance.url, groupName)]?.removal;
         if (removal != null) await removal.future;
@@ -894,19 +904,23 @@ final class GroupsController extends FrameSafeNotifier {
           ? held.posts.last.createdAt
           : null;
       final page = mentions
-          ? await api.mentions(
-              siteUrl: instance.url,
-              groupName: groupName,
-              apiKey: auth.apiKey,
-              clientId: auth.clientId,
-              before: before,
+          ? await auth.run(
+              () => api.mentions(
+                siteUrl: instance.url,
+                groupName: groupName,
+                apiKey: auth.apiKey,
+                clientId: auth.apiKey == null ? null : auth.clientId,
+                before: before,
+              ),
             )
-          : await api.posts(
-              siteUrl: instance.url,
-              groupName: groupName,
-              apiKey: auth.apiKey,
-              clientId: auth.clientId,
-              before: before,
+          : await auth.run(
+              () => api.posts(
+                siteUrl: instance.url,
+                groupName: groupName,
+                apiKey: auth.apiKey,
+                clientId: auth.apiKey == null ? null : auth.clientId,
+                before: before,
+              ),
             );
       _commit(token, () {
         final current = _activities[key];
@@ -969,11 +983,13 @@ final class GroupsController extends FrameSafeNotifier {
     try {
       final auth = await _credentialsFor(instance, token);
       if (auth == null || !_current(token)) return;
-      final rows = await api.permissions(
-        siteUrl: instance.url,
-        apiKey: auth.apiKey,
-        clientId: auth.clientId,
-        groupName: groupName,
+      final rows = await auth.run(
+        () => api.permissions(
+          siteUrl: instance.url,
+          apiKey: auth.apiKey,
+          clientId: auth.apiKey == null ? null : auth.clientId,
+          groupName: groupName,
+        ),
       );
       _commit(token, () {
         _permissions[key] = GroupPermissionsState(
@@ -1029,12 +1045,14 @@ final class GroupsController extends FrameSafeNotifier {
     try {
       final auth = await _requiredCredentials(instance, token);
       if (auth == null || !_current(token)) return;
-      final page = await api.logs(
-        siteUrl: instance.url,
-        apiKey: auth.apiKey!,
-        clientId: auth.clientId,
-        groupName: groupName,
-        offset: more ? held.nextPage : 0,
+      final page = await auth.run(
+        () => api.logs(
+          siteUrl: instance.url,
+          apiKey: auth.apiKey!,
+          clientId: auth.apiKey == null ? null : auth.clientId,
+          groupName: groupName,
+          offset: more ? held.nextPage : 0,
+        ),
       );
       _commit(token, () {
         final current = _logs[key];
@@ -1478,20 +1496,24 @@ final class GroupsController extends FrameSafeNotifier {
     notifySafely();
     var saved = false;
     try {
-      final apiKey = await credentials.apiKeyFor(instance.url);
+      final auth = await AccountRequestSession(
+        instance.url,
+        lease,
+      ).credentials(credentials);
+      final apiKey = auth.apiKey;
       if (apiKey == null ||
           isDisposed ||
           !lease.isCurrent ||
           !identical(_mutations[key], token)) {
         return false;
       }
-      final clientId = await credentials.clientId();
+      final clientId = auth.clientId;
       if (isDisposed ||
           !lease.isCurrent ||
           !identical(_mutations[key], token)) {
         return false;
       }
-      await write(apiKey, clientId);
+      await auth.run(() => write(apiKey, clientId));
       if (isDisposed ||
           !lease.isCurrent ||
           !identical(_mutations[key], token)) {
@@ -1591,21 +1613,19 @@ final class GroupsController extends FrameSafeNotifier {
       request.lease.isCurrent &&
       identical(_requests[request.key], request);
 
-  Future<_GroupCredentials?> _credentialsFor(
+  Future<AccountRequestCredentials?> _credentialsFor(
     DiscourseInstance instance,
     _GroupRequest request,
   ) async {
-    if (!instance.isConnected) {
-      return _current(request) ? (apiKey: null, clientId: null) : null;
-    }
-    final key = await credentials.apiKeyFor(instance.url);
     if (!_current(request)) return null;
-    if (key == null) return (apiKey: null, clientId: null);
-    final clientId = await credentials.clientId();
-    return _current(request) ? (apiKey: key, clientId: clientId) : null;
+    final session = AccountRequestSession(instance.url, request.lease);
+    final auth = instance.isConnected
+        ? await session.credentials(credentials)
+        : session.anonymousCredentials();
+    return _current(request) ? auth : null;
   }
 
-  Future<_GroupCredentials?> _requiredCredentials(
+  Future<AccountRequestCredentials?> _requiredCredentials(
     DiscourseInstance instance,
     _GroupRequest request,
   ) async {

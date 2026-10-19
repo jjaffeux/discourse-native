@@ -1,6 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/badges_api.dart';
 import '../data/site_lifecycle.dart';
@@ -124,32 +125,35 @@ final class BadgesController extends FrameSafeNotifier {
         !isDisposed && lease.isCurrent && identical(_requests[key], token);
     var fetchingRecipients = more;
     try {
-      final apiKey = instance.isConnected
-          ? await credentials.apiKeyFor(instance.url)
-          : null;
+      final session = AccountRequestSession(instance.url, lease);
+      final auth = instance.isConnected
+          ? await session.credentials(credentials)
+          : session.anonymousCredentials();
       if (!current()) return;
-      if (instance.isConnected && apiKey == null) {
+      if (instance.isConnected && auth.apiKey == null) {
         throw StateError('Missing account credentials');
       }
-      final clientId = instance.isConnected
-          ? await credentials.clientId()
-          : null;
-      if (!current()) return;
+      final apiKey = auth.apiKey;
+      final clientId = apiKey == null ? null : auth.clientId;
       if (route.isDirectory) {
-        final catalog = await api.catalog(
-          siteUrl: instance.url,
-          apiKey: apiKey,
-          clientId: clientId,
+        final catalog = await auth.run(
+          () => api.catalog(
+            siteUrl: instance.url,
+            apiKey: apiKey,
+            clientId: clientId,
+          ),
         );
         if (!current()) return;
         _states[key] = BadgesState(catalog: catalog, loaded: true);
       } else {
         if (!more) {
-          final badge = await api.badge(
-            siteUrl: instance.url,
-            id: route.badgeId!,
-            apiKey: apiKey,
-            clientId: clientId,
+          final badge = await auth.run(
+            () => api.badge(
+              siteUrl: instance.url,
+              id: route.badgeId!,
+              apiKey: apiKey,
+              clientId: clientId,
+            ),
           );
           if (!current()) return;
           _states[key] = BadgesState(badge: badge, loading: true, loaded: true);
@@ -157,12 +161,14 @@ final class BadgesController extends FrameSafeNotifier {
         }
         fetchingRecipients = true;
         final offset = more ? held.nextOffset : 0;
-        final page = await api.grants(
-          siteUrl: instance.url,
-          route: route,
-          offset: offset,
-          apiKey: apiKey,
-          clientId: clientId,
+        final page = await auth.run(
+          () => api.grants(
+            siteUrl: instance.url,
+            route: route,
+            offset: offset,
+            apiKey: apiKey,
+            clientId: clientId,
+          ),
         );
         if (!current()) return;
         final rows = more ? [...held.grants] : <BadgeGrant>[];

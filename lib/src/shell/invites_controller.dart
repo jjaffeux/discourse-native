@@ -1,4 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/invites_api.dart';
@@ -7,8 +8,6 @@ import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/invite.dart';
-
-typedef _InviteCredentials = ({String apiKey, String clientId});
 
 final class InvitesController extends FrameSafeNotifier {
   InvitesController({
@@ -41,14 +40,15 @@ final class InvitesController extends FrameSafeNotifier {
   bool get isCurrent => !isDisposed && _lease.isCurrent;
   bool get canInvite => isCurrent && instance.user?.canInviteToForum == true;
 
-  Future<_InviteCredentials?> _credentials() async {
+  Future<AccountRequestCredentials?> _credentials() async {
     if (!canInvite) return null;
-    final key = await credentials.apiKeyFor(instance.url);
+    final auth = await AccountRequestSession(
+      instance.url,
+      _lease,
+    ).credentials(credentials);
     if (!canInvite) return null;
-    if (key == null) throw const WriteException(WriteFailure.forbidden);
-    final clientId = await credentials.clientId();
-    if (!canInvite) return null;
-    return (apiKey: key, clientId: clientId);
+    if (auth.apiKey == null) throw const WriteException(WriteFailure.forbidden);
+    return auth;
   }
 
   Future<void> load({
@@ -75,14 +75,16 @@ final class InvitesController extends FrameSafeNotifier {
     try {
       final auth = await _credentials();
       if (!current() || auth == null) return;
-      final page = await api.list(
-        siteUrl: instance.url,
-        username: instance.user!.username,
-        apiKey: auth.apiKey,
-        clientId: auth.clientId,
-        filter: this.filter,
-        search: this.search,
-        offset: offset,
+      final page = await auth.run(
+        () => api.list(
+          siteUrl: instance.url,
+          username: instance.user!.username,
+          apiKey: auth.apiKey!,
+          clientId: auth.clientId,
+          filter: this.filter,
+          search: this.search,
+          offset: offset,
+        ),
       );
       if (!current()) return;
       counts = page.counts;
@@ -132,7 +134,7 @@ final class InvitesController extends FrameSafeNotifier {
       draft.sendEmail ? appL10n.invitationEmailSent : appL10n.inviteLinkCreated,
       (auth) => api.create(
         siteUrl: instance.url,
-        apiKey: auth.apiKey,
+        apiKey: auth.apiKey!,
         clientId: auth.clientId,
         draft: draft,
       ),
@@ -144,7 +146,7 @@ final class InvitesController extends FrameSafeNotifier {
     return _write('invites.remove', appL10n.inviteRemoved, (auth) async {
       await api.remove(
         siteUrl: instance.url,
-        apiKey: auth.apiKey,
+        apiKey: auth.apiKey!,
         clientId: auth.clientId,
         inviteId: invite.id,
       );
@@ -162,7 +164,7 @@ final class InvitesController extends FrameSafeNotifier {
     return _write('invites.resend', appL10n.invitationEmailSent, (auth) async {
       await api.resend(
         siteUrl: instance.url,
-        apiKey: auth.apiKey,
+        apiKey: auth.apiKey!,
         clientId: auth.clientId,
         email: invite.email!,
       );
@@ -173,7 +175,7 @@ final class InvitesController extends FrameSafeNotifier {
   Future<T?> _write<T>(
     String operation,
     String success,
-    Future<T> Function(_InviteCredentials auth) action,
+    Future<T> Function(AccountRequestCredentials auth) action,
   ) async {
     if (!canInvite || writing) return null;
     writing = true;
@@ -183,7 +185,7 @@ final class InvitesController extends FrameSafeNotifier {
     try {
       final auth = await _credentials();
       if (auth == null || !isCurrent) return null;
-      final result = await action(auth);
+      final result = await auth.run(() => action(auth));
       if (!isCurrent) return null;
       message = success;
       await load();

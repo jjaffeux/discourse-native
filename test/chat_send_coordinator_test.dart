@@ -689,8 +689,10 @@ final class _Requests implements PluginRequestHost {
   }
 
   @override
-  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async =>
-      (apiKey: 'key', failure: null);
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async => (
+    credentials: const PluginRequestCredentials(apiKey: 'key', clientId: ''),
+    failure: null,
+  );
 }
 
 final class _Lease implements PluginSiteLease {

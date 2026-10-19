@@ -1,6 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -67,7 +68,11 @@ final class UserSummaryController extends FrameSafeNotifier {
     if (!_isCurrent(lease, siteUrl, request)) return;
 
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final auth = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).keyCredentials(credentials);
+      final apiKey = auth.apiKey;
       if (!_isCurrent(lease, siteUrl, request)) return;
       if (apiKey == null) {
         _commit(lease, siteUrl, request, () {
@@ -78,10 +83,12 @@ final class UserSummaryController extends FrameSafeNotifier {
         return;
       }
 
-      final summary = await api.userSummary(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        username: user.username,
+      final summary = await auth.run(
+        () => api.userSummary(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          username: user.username,
+        ),
       );
       _commit(lease, siteUrl, request, () {
         _states[siteUrl] = stateFor(siteUrl).withSummary(summary);

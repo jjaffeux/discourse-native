@@ -159,7 +159,9 @@ final class EventController extends FrameSafeNotifier
       try {
         final credentials = await requests.credentialsFor(entry.site);
         if (!current()) continue;
-        final value = await api.get(entry.site, entry.id, credentials);
+        final value = await credentials.run(
+          () => api.get(entry.site, entry.id, credentials),
+        );
         if (!current()) continue;
         lease.commit(() {
           if (entry.topicId != value.topicId) {
@@ -226,36 +228,45 @@ final class EventController extends FrameSafeNotifier
       final credential = await requests.writeCredentialFor(entry.site);
       if (!_current(entry) || !lease.isCurrent) return false;
       if (credential.failure case final error?) throw error;
-      final key = credential.apiKey;
+      final key = credential.credentials!.apiKey;
       if (key == null) throw const WriteException(WriteFailure.forbidden);
       final credentials = await requests.credentialsFor(entry.site);
       if (!_current(entry) || !lease.isCurrent) return false;
+      if (credentials.apiKey == null) {
+        throw const WriteException(WriteFailure.forbidden);
+      }
       mayHaveChanged = true;
       if (invites != null) {
-        await api.invite(
-          entry.site,
-          entry.id,
-          invites,
-          apiKey: key,
-          clientId: credentials.clientId,
+        await credentials.run(
+          () => api.invite(
+            entry.site,
+            entry.id,
+            invites,
+            apiKey: credentials.apiKey!,
+            clientId: credentials.clientId,
+          ),
         );
       } else if (status == null) {
-        await api.withdraw(
-          entry.site,
-          entry.id,
-          event.watching!.id!,
-          apiKey: key,
-          clientId: credentials.clientId,
+        await credentials.run(
+          () => api.withdraw(
+            entry.site,
+            entry.id,
+            event.watching!.id!,
+            apiKey: credentials.apiKey!,
+            clientId: credentials.clientId,
+          ),
         );
       } else {
-        await api.respond(
-          entry.site,
-          entry.id,
-          apiKey: key,
-          clientId: credentials.clientId,
-          status: status,
-          recurring: status == 'going' && event.recurring && recurring,
-          inviteeId: event.watching?.id,
+        await credentials.run(
+          () => api.respond(
+            entry.site,
+            entry.id,
+            apiKey: credentials.apiKey!,
+            clientId: credentials.clientId,
+            status: status,
+            recurring: status == 'going' && event.recurring && recurring,
+            inviteeId: event.watching?.id,
+          ),
         );
       }
     } catch (error) {
@@ -307,12 +318,14 @@ final class EventController extends FrameSafeNotifier
     final lease = requests.capture(entry.site);
     final credentials = await requests.credentialsFor(entry.site);
     if (!lease.isCurrent) throw const WriteException(WriteFailure.forbidden);
-    final rows = await api.invitees(
-      entry.site,
-      entry.id,
-      credentials,
-      filter: filter,
-      type: type,
+    final rows = await credentials.run(
+      () => api.invitees(
+        entry.site,
+        entry.id,
+        credentials,
+        filter: filter,
+        type: type,
+      ),
     );
     if (!_current(entry) ||
         !lease.isCurrent ||
@@ -336,16 +349,18 @@ final class EventController extends FrameSafeNotifier
     }
     final credentials = await requests.credentialsFor(site);
     if (!lease.isCurrent) throw const WriteException(WriteFailure.forbidden);
-    final rows = await api.list(
-      site,
-      credentials,
-      attendingUser: username,
-      search: search,
-      upcoming: after == null,
-      after: after,
-      before: before,
-      includeDetails: after == null,
-      includeInterested: after == null,
+    final rows = await credentials.run(
+      () => api.list(
+        site,
+        credentials,
+        attendingUser: username,
+        search: search,
+        upcoming: after == null,
+        after: after,
+        before: before,
+        includeDetails: after == null,
+        includeInterested: after == null,
+      ),
     );
     if (!lease.isCurrent || isDisposed) {
       throw const WriteException(WriteFailure.forbidden);

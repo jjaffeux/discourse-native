@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -159,18 +160,24 @@ class ShellSearchController extends ChangeNotifier {
         _logSearchQueries;
     final lease = lifecycle.capture(siteUrl);
     try {
-      final apiKey = await credentials.apiKeyFor(siteUrl);
+      final auth = await AccountRequestSession(
+        siteUrl,
+        lease,
+      ).credentials(credentials);
+      final apiKey = auth.apiKey;
       if (!lease.isCurrent || !ownsRequest()) return;
       if (apiKey == null) {
         _recentSearchesLoadedFor = siteUrl;
         return;
       }
-      final clientId = await credentials.clientId();
+      final clientId = auth.clientId;
       if (!lease.isCurrent || !ownsRequest()) return;
-      final recent = await api.recentSearches(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
+      final recent = await auth.run(
+        () => api.recentSearches(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        ),
       );
       if (!lease.isCurrent || !ownsRequest()) return;
       _recentSearches = recent;

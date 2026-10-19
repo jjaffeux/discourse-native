@@ -254,7 +254,7 @@ class ReactionsController extends FrameSafeNotifier {
       final credential = await _requestHost.writeCredentialFor(siteUrl);
       if (isDisposed || !lease.isCurrent) return null;
       if (credential.failure case final failure?) return failure.message;
-      final apiKey = credential.apiKey!;
+      final apiKey = credential.credentials!.apiKey!;
       final current = _posts.readPost(siteUrl, post.id) ?? post;
       if (!current.canReact) return null;
       // Permission comes from the current post; an open picker retains the
@@ -292,11 +292,13 @@ class ReactionsController extends FrameSafeNotifier {
         if (api == null) {
           throw StateError('Reactions write API is unavailable.');
         }
-        final fresh = await api.toggleReaction(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          postId: post.id,
-          reaction: reaction,
+        final fresh = await credential.credentials!.run(
+          () => api.toggleReaction(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            postId: post.id,
+            reaction: reaction,
+          ),
         );
         if (fresh?.reactions case final answered?) {
           lease.commit(() {

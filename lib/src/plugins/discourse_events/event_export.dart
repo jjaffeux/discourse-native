@@ -52,17 +52,19 @@ Future<String> eventCalendar(
   if (mine && username == null) throw StateError('Connect your account first.');
   final credentials = await controller.requests.credentialsFor(site);
   if (!current()) throw StateError('Export cancelled.');
-  final calendar = await (transport as PluginTextTransport).pluginGetText(
-    siteUrl: site,
-    path: Uri(
-      path: '/discourse-post-event/events.ics',
-      queryParameters: {
-        'post_id': ?eventId?.toString(),
-        'attending_user': ?username,
-      },
-    ).toString(),
-    apiKey: credentials.apiKey,
-    clientId: credentials.clientId,
+  final calendar = await credentials.run(
+    () => (transport as PluginTextTransport).pluginGetText(
+      siteUrl: site,
+      path: Uri(
+        path: '/discourse-post-event/events.ics',
+        queryParameters: {
+          'post_id': ?eventId?.toString(),
+          'attending_user': ?username,
+        },
+      ).toString(),
+      apiKey: credentials.apiKey,
+      clientId: credentials.clientId,
+    ),
   );
   if (!current()) throw StateError('Export cancelled.');
   if (!calendar.trimLeft().startsWith('BEGIN:VCALENDAR') ||

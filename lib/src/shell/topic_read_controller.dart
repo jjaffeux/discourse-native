@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
@@ -219,7 +220,11 @@ final class TopicReadController {
       );
 
       try {
-        final apiKey = await credentials.apiKeyFor(receipt.siteUrl);
+        final auth = await AccountRequestSession(
+          receipt.siteUrl,
+          receipt.lease,
+        ).credentials(credentials);
+        final apiKey = auth.apiKey;
         if (!_canSend(key, run, receipt.lease)) continue;
         if (apiKey == null) {
           // Defer all admitted posts until another observation can retry with
@@ -231,15 +236,17 @@ final class TopicReadController {
           return;
         }
 
-        final clientId = await credentials.clientId();
+        final clientId = auth.clientId;
         if (!_canSend(key, run, receipt.lease)) continue;
 
-        await api.recordTopicReads(
-          siteUrl: receipt.siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          topicId: receipt.topicId,
-          postNumbers: receipt.postNumbers.toList(),
+        await auth.run(
+          () => api.recordTopicReads(
+            siteUrl: receipt.siteUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+            topicId: receipt.topicId,
+            postNumbers: receipt.postNumbers.toList(),
+          ),
         );
       } catch (error, stackTrace) {
         if (_canSend(key, run, receipt.lease)) {

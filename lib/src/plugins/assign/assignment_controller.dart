@@ -196,7 +196,7 @@ class AssignmentController extends FrameSafeNotifier
     target,
     (session) => api.suggestions(
       siteUrl: siteUrl,
-      apiKey: session.apiKey,
+      apiKey: session.apiKey!,
       clientId: session.clientId,
       target: target,
     ),
@@ -212,7 +212,7 @@ class AssignmentController extends FrameSafeNotifier
     target,
     (session) => api.searchAssignees(
       siteUrl: siteUrl,
-      apiKey: session.apiKey,
+      apiKey: session.apiKey!,
       clientId: session.clientId,
       term: term.trim(),
       suggestions: suggestions,
@@ -228,7 +228,7 @@ class AssignmentController extends FrameSafeNotifier
   }) => _mutate(siteUrl, target, (session) {
     return api.assign(
       siteUrl: siteUrl,
-      apiKey: session.apiKey,
+      apiKey: session.apiKey!,
       clientId: session.clientId,
       target: target,
       assignee: assignee,
@@ -241,7 +241,7 @@ class AssignmentController extends FrameSafeNotifier
       _mutate(siteUrl, target, (session) {
         return api.unassign(
           siteUrl: siteUrl,
-          apiKey: session.apiKey,
+          apiKey: session.apiKey!,
           clientId: session.clientId,
           target: target,
         );
@@ -260,7 +260,7 @@ class AssignmentController extends FrameSafeNotifier
       target,
       (session) => api.unassign(
         siteUrl: siteUrl,
-        apiKey: session.apiKey,
+        apiKey: session.apiKey!,
         clientId: session.clientId,
         target: target,
       ),
@@ -293,7 +293,7 @@ class AssignmentController extends FrameSafeNotifier
       permit.target,
       (session) => api.assign(
         siteUrl: permit.siteUrl,
-        apiKey: session.apiKey,
+        apiKey: session.apiKey!,
         clientId: session.clientId,
         target: permit.target,
         assignee: permit._assignment.assignee,
@@ -308,7 +308,7 @@ class AssignmentController extends FrameSafeNotifier
   Future<String?> _mutate(
     String siteUrl,
     AssignmentTarget target,
-    Future<void> Function(_AssignmentSession session) write, {
+    Future<void> Function(PluginRequestCredentials session) write, {
     bool permissionAlreadyEstablished = false,
     void Function()? afterWrite,
   }) async {
@@ -329,7 +329,7 @@ class AssignmentController extends FrameSafeNotifier
     try {
       final session = await _session(siteUrl, lease: lease);
       if (!current()) return null;
-      await write(session);
+      await session.run(() => write(session));
       if (!current()) return null;
       afterWrite?.call();
       if (!current()) return null;
@@ -375,7 +375,7 @@ class AssignmentController extends FrameSafeNotifier
   Future<T> _lookup<T>(
     String siteUrl,
     AssignmentTarget target,
-    Future<T> Function(_AssignmentSession session) read,
+    Future<T> Function(PluginRequestCredentials session) read,
   ) async {
     _requirePermission(siteUrl, target);
     final lease = _requests.capture(siteUrl);
@@ -384,7 +384,7 @@ class AssignmentController extends FrameSafeNotifier
       if (!_isCurrent(lease)) {
         throw const WriteException(WriteFailure.forbidden);
       }
-      final result = await read(session);
+      final result = await session.run(() => read(session));
       if (!_isCurrent(lease)) {
         throw const WriteException(WriteFailure.forbidden);
       }
@@ -418,7 +418,7 @@ class AssignmentController extends FrameSafeNotifier
     }
   }
 
-  Future<_AssignmentSession> _session(
+  Future<PluginRequestCredentials> _session(
     String siteUrl, {
     PluginSiteLease? lease,
   }) async {
@@ -431,7 +431,7 @@ class AssignmentController extends FrameSafeNotifier
       if (apiKey == null) {
         throw const WriteException(WriteFailure.forbidden);
       }
-      return (apiKey: apiKey, clientId: credentials.clientId);
+      return credentials;
     } on WriteException {
       rethrow;
     } catch (error, stackTrace) {
@@ -457,8 +457,6 @@ class AssignmentController extends FrameSafeNotifier
     super.dispose();
   }
 }
-
-typedef _AssignmentSession = ({String apiKey, String clientId});
 
 /// FrameSafe for the same reason the controller is, which keeps it headless.
 final class _PermissionChanges extends FrameSafeNotifier {
