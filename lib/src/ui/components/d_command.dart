@@ -322,7 +322,7 @@ class _DCommandState<T> extends State<DCommand<T>> {
     final entry = _controller._entries
         .where((entry) => entry.value == value)
         .firstOrNull;
-    if (entry == null || !entry.enabled) return;
+    if (entry == null) return;
     _changeValue(value);
     entry.onSelected?.call(value);
     widget.onSelected?.call(value);
@@ -412,7 +412,6 @@ class _DCommandState<T> extends State<DCommand<T>> {
         (inOverlay ? Colors.transparent : tokens.surface);
     return _DCommandScope<T>(
       controller: _controller,
-      filter: (_defaultCommandFilter),
       shouldFilter: widget.shouldFilter,
       loading: widget.loading,
 
@@ -453,29 +452,9 @@ class _DCommandState<T> extends State<DCommand<T>> {
   }
 }
 
-double _defaultCommandFilter(
-  String value,
-  String query,
-  List<String> keywords,
-) {
-  final needle = query.trim().toLowerCase();
-  if (needle.isEmpty) return 1;
-  if (value.toLowerCase() == needle) return 1;
-  final haystack = [
-    value,
-    ...keywords,
-  ].where((part) => part.isNotEmpty).join(' ').toLowerCase();
-  if (haystack == needle) return 1;
-  if (haystack.startsWith(needle)) return .9;
-  if (haystack.contains(needle)) return .7;
-  final tokens = needle.split(RegExp(r'\s+'));
-  return tokens.every(haystack.contains) ? .5 : 0;
-}
-
 class _DCommandScope<T> extends InheritedWidget {
   const _DCommandScope({
     required this.controller,
-    required this.filter,
     required this.shouldFilter,
     required this.loading,
 
@@ -484,7 +463,6 @@ class _DCommandScope<T> extends InheritedWidget {
   });
 
   final DCommandController<T> controller;
-  final DCommandFilter filter;
   final bool shouldFilter;
   final bool loading;
 
@@ -500,7 +478,6 @@ class _DCommandScope<T> extends InheritedWidget {
   @override
   bool updateShouldNotify(_DCommandScope<T> oldWidget) =>
       (controller != oldWidget.controller ||
-          filter != oldWidget.filter ||
           shouldFilter != oldWidget.shouldFilter ||
           loading != oldWidget.loading) ||
       backgroundColor != oldWidget.backgroundColor;
@@ -872,6 +849,7 @@ class DCommandList<T> extends StatefulWidget {
 class _DCommandListState<T> extends State<DCommandList<T>> {
   ScrollController? _owned;
   final Map<Object, GlobalKey> _itemKeys = {};
+  final Expando<_DCommandSearchData> _searchData = Expando();
   final Map<Object, int> _lazyIndices = {};
   int _revealGeneration = 0;
   ScrollController get _scroll => (_owned!);
@@ -957,7 +935,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
   ) {
     final rows = <_DCommandLazyRow>[
       for (var i = 0; i < loading.length; i++)
-        _DCommandLazyRow(ValueKey((#loading, i)), loading[i]),
+        _DCommandLazyRow(ValueKey((#loading, i)), (_) => loading[i]),
     ];
     for (var i = 0; i < nodes.length; i++) {
       final node = nodes[i];
@@ -966,7 +944,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
           rows.add(
             _DCommandLazyRow(
               ValueKey((#heading, i)),
-              Padding(
+              (context) => Padding(
                 padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
                 child: _commandGroupHeading(context, heading),
               ),
@@ -978,7 +956,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
           rows.add(
             _DCommandLazyRow(
               ValueKey((#item, item.identity)),
-              KeyedSubtree(
+              (context) => KeyedSubtree(
                 key: item.key,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
@@ -988,7 +966,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
                     j == node.scored.length - 1 ? 4 : 0,
                   ),
                   child: _DCommandItemSurface<T>(
-                    key: _itemKeys[item.identity],
+                    key: _itemKeys.putIfAbsent(item.identity, GlobalKey.new),
                     item: item,
                     scope: scope,
                   ),
@@ -1005,7 +983,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
         rows.add(
           _DCommandLazyRow(
             ValueKey((identity == null ? #separator : #item, identity ?? i)),
-            node.build(context, scope, _itemKeys),
+            (context) => node.build(context, scope, _itemKeys),
             identity: identity,
           ),
         );
@@ -1017,27 +995,27 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
   List<_DScoredItem<T>> _score(
     Iterable<DCommandItem<T>> items,
     _DCommandScope<T> scope,
+    _DCommandSearchQuery query,
   ) {
-    final query = scope.controller.query;
     final result = <_DScoredItem<T>>[];
     var order = 0;
     for (final item in items) {
-      final score =
-          !scope.shouldFilter || query.trim().isEmpty || item.forceMount
-          ? 1.0
-          : scope.filter(
-              item.effectiveSearchValue.trim(),
-              query,
-              item.keywords
-                  .map((keyword) => keyword.trim())
-                  .toList(growable: false),
-            );
+      var score = 1.0;
+      if (scope.shouldFilter && query.needle.isNotEmpty && !item.forceMount) {
+        final value = item.effectiveSearchValue;
+        var data = _searchData[item];
+        if (data == null || !data.matchesSource(value, item.keywords)) {
+          data = _DCommandSearchData(value, item.keywords);
+          _searchData[item] = data;
+        }
+        score = data.score(query);
+      }
       if (score > 0) {
         result.add(_DScoredItem(item, score, order));
       }
       order++;
     }
-    if (scope.shouldFilter && query.trim().isNotEmpty) {
+    if (scope.shouldFilter && query.needle.isNotEmpty) {
       result.sort((a, b) {
         final score = b.score.compareTo(a.score);
         return score == 0 ? a.order.compareTo(b.order) : score;
@@ -1052,17 +1030,18 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
     return AnimatedBuilder(
       animation: scope.controller._queryChanges,
       builder: (context, _) {
+        final query = _DCommandSearchQuery(scope.controller.query);
         final resultNodes = <_DResultNode<T>>[];
         final emptyNodes = <DCommandEmpty>[];
         final loadingNodes = <DCommandLoading>[];
         for (final child in widget.children) {
           if (child is DCommandGroup<T>) {
-            final items = _score(child.items, scope);
+            final items = _score(child.items, scope, query);
             if (items.isNotEmpty) {
               resultNodes.add(_DGroupNode(child, items));
             }
           } else if (child is DCommandItem<T>) {
-            final items = _score([child], scope);
+            final items = _score([child], scope, query);
             if (items.isNotEmpty) resultNodes.add(_DItemNode(items.single));
           } else if (child is DCommandSeparator<T>) {
             if ((scope.controller.query.isEmpty)) {
@@ -1093,27 +1072,24 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
             resultNodes.removeAt(index);
           }
         }
-        final entries = <_DCommandEntry<T>>[];
+        final enabledEntries = <_DCommandEntry<T>>[];
+        var resultCount = 0;
         for (final node in resultNodes) {
           final group = node is _DGroupNode<T> ? node.group : null;
           for (final scored in node.items) {
+            resultCount++;
+            if (!scored.item.enabled) continue;
             final identity = scored.item.identity;
-            final key = _itemKeys.putIfAbsent(identity, GlobalKey.new);
-            entries.add(
+            enabledEntries.add(
               _DCommandEntry(
                 value: scored.item.value,
-                enabled: scored.item.enabled,
                 onSelected: scored.item.onSelected,
-                key: key,
                 group: group,
                 reveal: () => unawaited(_revealItem(identity)),
               ),
             );
           }
         }
-        final enabledEntries = entries
-            .where((entry) => entry.enabled)
-            .toList(growable: false);
         scope.controller._setEntries(enabledEntries);
         if ((enabledEntries.isNotEmpty || scope.controller.value != null) &&
             !enabledEntries.any(
@@ -1129,9 +1105,9 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
         }
         final rendered = <Widget>[];
         if (scope.loading) rendered.addAll(loadingNodes);
-        if (entries.isEmpty && !scope.loading) rendered.addAll(emptyNodes);
-        final showsResults = !scope.loading || entries.isNotEmpty;
-        final lazy = entries.length > 64
+        if (resultCount == 0 && !scope.loading) rendered.addAll(emptyNodes);
+        final showsResults = !scope.loading || resultCount > 0;
+        final lazy = resultCount > 64
             ? _lazyRows(
                 resultNodes,
                 scope,
@@ -1171,7 +1147,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
                   findChildIndexCallback: (key) => rowIndices![key],
                   itemBuilder: (context, index) => KeyedSubtree(
                     key: lazy[index].key,
-                    child: lazy[index].child,
+                    child: lazy[index].builder(context),
                   ),
                 )
               : SingleChildScrollView(
@@ -1229,9 +1205,9 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
 }
 
 class _DCommandLazyRow {
-  const _DCommandLazyRow(this.key, this.child, {this.identity});
+  const _DCommandLazyRow(this.key, this.builder, {this.identity});
   final Key key;
-  final Widget child;
+  final WidgetBuilder builder;
   final Object? identity;
 }
 
@@ -1280,7 +1256,7 @@ class _DGroupNode<T> extends _DResultNode<T> {
           KeyedSubtree(
             key: item.item.key,
             child: _DCommandItemSurface<T>(
-              key: keys[item.item.identity],
+              key: keys.putIfAbsent(item.item.identity, GlobalKey.new),
               item: item.item,
               scope: scope,
             ),
@@ -1305,7 +1281,7 @@ class _DItemNode<T> extends _DResultNode<T> {
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
       child: _DCommandItemSurface<T>(
-        key: keys[scored.item.identity],
+        key: keys.putIfAbsent(scored.item.identity, GlobalKey.new),
         item: scored.item,
         scope: scope,
       ),
@@ -1333,19 +1309,57 @@ class _DScoredItem<T> {
   final int order;
 }
 
+class _DCommandSearchQuery {
+  _DCommandSearchQuery(String query) : needle = query.trim().toLowerCase();
+
+  static final _whitespace = RegExp(r'\s+');
+  final String needle;
+  late final List<String> tokens = needle.split(_whitespace);
+}
+
+class _DCommandSearchData {
+  _DCommandSearchData(String value, List<String> keywords)
+    : rawValue = value,
+      rawKeywords = List<String>.of(keywords, growable: false),
+      normalizedValue = value.trim().toLowerCase(),
+      haystack = [
+        value.trim(),
+        for (final keyword in keywords) keyword.trim(),
+      ].where((part) => part.isNotEmpty).join(' ').toLowerCase();
+
+  final String rawValue;
+  final List<String> rawKeywords;
+  final String normalizedValue;
+  final String haystack;
+
+  bool matchesSource(String value, List<String> keywords) {
+    if (rawValue != value || rawKeywords.length != keywords.length) {
+      return false;
+    }
+    for (var i = 0; i < keywords.length; i++) {
+      if (rawKeywords[i] != keywords[i]) return false;
+    }
+    return true;
+  }
+
+  double score(_DCommandSearchQuery query) {
+    final needle = query.needle;
+    if (normalizedValue == needle || haystack == needle) return 1;
+    if (haystack.startsWith(needle)) return .9;
+    if (haystack.contains(needle)) return .7;
+    return query.tokens.every(haystack.contains) ? .5 : 0;
+  }
+}
+
 class _DCommandEntry<T> {
   const _DCommandEntry({
     required this.value,
-    required this.enabled,
     required this.onSelected,
-    required this.key,
     required this.group,
     required this.reveal,
   });
   final T value;
-  final bool enabled;
   final ValueChanged<T>? onSelected;
-  final GlobalKey key;
   final Object? group;
   final VoidCallback reveal;
 }

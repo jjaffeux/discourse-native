@@ -17,6 +17,15 @@ Widget _host(Widget child, {TextDirection direction = TextDirection.ltr}) =>
       ),
     );
 
+class _MutableCommandValue {
+  _MutableCommandValue(this.label);
+
+  String label;
+
+  @override
+  String toString() => label;
+}
+
 Widget _command({
   DCommandController<String>? controller,
   String? query,
@@ -586,6 +595,335 @@ void main() {
     expect(find.text('Calendar'), findsNothing);
     expect(find.text('No results found.'), findsOneWidget);
     expect(find.text('Suggestions'), findsNothing);
+  });
+
+  testWidgets('search preserves score tiers, stable groups and whitespace', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>(initialQuery: '  CAL  ');
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          child: const DCommandList<String>(
+            children: [
+              DCommandGroup<String>(
+                heading: Text('First group'),
+                items: [
+                  DCommandItem(
+                    value: 'contains',
+                    searchValue: 'My calendar',
+                    child: Text('Contains'),
+                  ),
+                  DCommandItem(
+                    value: 'prefix-first',
+                    searchValue: '  Calendar  ',
+                    child: Text('First prefix'),
+                  ),
+                  DCommandItem(
+                    value: 'exact',
+                    searchValue: ' CAL ',
+                    keywords: ['  extra alias  ', '  '],
+                    child: Text('Exact with aliases'),
+                  ),
+                  DCommandItem(
+                    value: 'prefix-second',
+                    searchValue: 'Call',
+                    child: Text('Second prefix'),
+                  ),
+                  DCommandItem(
+                    value: 'forced',
+                    forceMount: true,
+                    child: Text('Forced'),
+                  ),
+                  DCommandItem(
+                    value: 'tokens',
+                    searchValue: '  red green  ',
+                    keywords: ['  Blue  ', '  '],
+                    child: Text('Separate tokens'),
+                  ),
+                  DCommandItem(
+                    value: 'token-exact',
+                    searchValue: 'BLUE   red',
+                    child: Text('Exact tokens'),
+                  ),
+                  DCommandItem(
+                    value: 'token-prefix',
+                    searchValue: 'blue   red extra',
+                    child: Text('Prefix tokens'),
+                  ),
+                  DCommandItem(
+                    value: 'token-contains',
+                    searchValue: 'extra blue   red extra',
+                    child: Text('Contained tokens'),
+                  ),
+                  DCommandItem(value: 'missing', child: Text('Missing')),
+                ],
+              ),
+              DCommandSeparator<String>(),
+              DCommandGroup<String>(
+                heading: Text('Second group'),
+                items: [
+                  DCommandItem(
+                    value: 'second-group',
+                    searchValue: 'cal',
+                    child: Text('Second group exact'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    List<String?> labels() => tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(DCommandList<String>),
+            matching: find.byType(Text),
+          ),
+        )
+        .map((text) => text.data)
+        .toList();
+    expect(labels(), [
+      'First group',
+      'Exact with aliases',
+      'Forced',
+      'First prefix',
+      'Second prefix',
+      'Contains',
+      'Second group',
+      'Second group exact',
+    ]);
+    expect(controller.value, 'exact');
+
+    controller.updateQuery(' blue   RED ');
+    await tester.pump();
+    expect(labels(), [
+      'First group',
+      'Forced',
+      'Exact tokens',
+      'Prefix tokens',
+      'Contained tokens',
+      'Separate tokens',
+    ]);
+
+    controller.updateQuery('');
+    await tester.pump();
+    final unfiltered = labels();
+    final separators = find.descendant(
+      of: find.byType(DCommandList<String>),
+      matching: find.byType(Divider),
+    );
+    expect(separators, findsOneWidget);
+    controller.updateQuery('   ');
+    await tester.pump();
+    expect(labels(), unfiltered);
+    expect(separators, findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('query changes observe keyword mutations on the same item', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>(initialQuery: 'old alias');
+    final keywords = ['old alias'];
+    final item = DCommandItem<String>(
+      value: 'action',
+      keywords: keywords,
+      child: const Text('Action'),
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<String>(
+          controller: controller,
+          child: DCommandList<String>(
+            children: [
+              const DCommandEmpty(child: Text('Empty')),
+              item,
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Action'), findsOneWidget);
+
+    keywords[0] = 'new alias';
+    controller.updateQuery('new alias');
+    await tester.pump();
+    expect(find.text('Action'), findsOneWidget);
+    controller.updateQuery('old alias');
+    await tester.pump();
+    expect(find.text('Empty'), findsOneWidget);
+
+    keywords.add('added alias');
+    controller.updateQuery('added alias');
+    await tester.pump();
+    expect(find.text('Action'), findsOneWidget);
+    keywords.clear();
+    controller.updateQuery('added');
+    await tester.pump();
+    expect(find.text('Empty'), findsOneWidget);
+  });
+
+  testWidgets('query changes observe mutable generic search values', (
+    tester,
+  ) async {
+    final controller = DCommandController<_MutableCommandValue>(
+      initialQuery: 'before',
+    );
+    final value = _MutableCommandValue('before');
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        DCommand<_MutableCommandValue>(
+          controller: controller,
+          child: DCommandList<_MutableCommandValue>(
+            children: [
+              const DCommandEmpty(child: Text('Empty')),
+              DCommandItem<_MutableCommandValue>(
+                value: value,
+                child: const Text('Mutable action'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Mutable action'), findsOneWidget);
+    value.label = 'after';
+    controller.updateQuery('after');
+    await tester.pump();
+    expect(find.text('Mutable action'), findsOneWidget);
+    controller.updateQuery('before');
+    await tester.pump();
+    expect(find.text('Empty'), findsOneWidget);
+    expect(controller.value, isNull);
+  });
+
+  testWidgets(
+    'replacing a keyed result updates search, content and selection',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final controller = DCommandController<String>(initialQuery: 'before');
+      final selected = <String>[];
+      var replacement = false;
+      late StateSetter rebuild;
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              final isReplacement = replacement;
+              return DCommand<String>(
+                controller: controller,
+                child: DCommandList<String>(
+                  children: [
+                    const DCommandEmpty(child: Text('Empty')),
+                    DCommandItem<String>(
+                      key: const ValueKey('same-result'),
+                      value: 'action',
+                      searchValue: isReplacement ? 'after' : 'before',
+                      semanticLabel: isReplacement
+                          ? 'New action'
+                          : 'Old action',
+                      onSelected: (_) =>
+                          selected.add(isReplacement ? 'new' : 'old'),
+                      child: Text(isReplacement ? 'After' : 'Before'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      controller.activate();
+      expect(selected, ['old']);
+
+      rebuild(() => replacement = true);
+      await tester.pump();
+      expect(find.text('Empty'), findsOneWidget);
+      controller.updateQuery('after');
+      await tester.pump();
+      expect(find.text('Before'), findsNothing);
+      expect(find.text('After'), findsOneWidget);
+      expect(find.bySemanticsLabel('New action'), findsOneWidget);
+      await tester.tap(find.text('After'));
+      expect(selected, ['old', 'new']);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('disabled-only results retain lazy rows and loading states', (
+    tester,
+  ) async {
+    final controller = DCommandController<String>(initialQuery: 'disabled');
+    var loading = false;
+    late StateSetter rebuild;
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(
+        StatefulBuilder(
+          builder: (context, setState) {
+            rebuild = setState;
+            return DCommand<String>(
+              controller: controller,
+              loading: loading,
+              child: DCommandList<String>(
+                children: [
+                  const DCommandLoading(child: Text('Loading')),
+                  const DCommandEmpty(child: Text('Empty')),
+                  DCommandGroup<String>(
+                    items: [
+                      for (var i = 0; i < 65; i++)
+                        DCommandItem<String>(
+                          value: 'Disabled $i',
+                          enabled: false,
+                          child: Text('Disabled $i'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    final list = find.byType(DCommandList<String>);
+    expect(
+      find.descendant(of: list, matching: find.byType(ListView)),
+      findsOneWidget,
+    );
+    expect(find.text('Disabled 0'), findsOneWidget);
+    expect(find.text('Empty'), findsNothing);
+    expect(controller.value, isNull);
+    controller.activate('Disabled 0');
+    expect(controller.value, isNull);
+
+    rebuild(() => loading = true);
+    await tester.pump();
+    expect(find.text('Loading'), findsOneWidget);
+    expect(find.text('Disabled 0'), findsOneWidget);
+    expect(find.text('Empty'), findsNothing);
+    controller.updateQuery('missing');
+    await tester.pump();
+    expect(find.text('Loading'), findsOneWidget);
+    expect(find.text('Disabled 0'), findsNothing);
+    rebuild(() => loading = false);
+    await tester.pump();
+    expect(find.text('Empty'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
