@@ -45,6 +45,71 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
+  testWidgets(
+    'recent terms keep exact identity, newest order and five entries',
+    (tester) async {
+      final search = _controller(_EngineApi());
+      addTearDown(search.dispose);
+      for (final term in [
+        'one',
+        'two',
+        'three',
+        'four',
+        'five',
+        'six',
+        'Six',
+      ]) {
+        search.setQuery(term);
+        search.rememberSearch();
+      }
+      expect(search.recentSearches, ['Six', 'six', 'five', 'four', 'three']);
+      search.removeRecentSearch('six');
+      expect(search.recentSearches, ['Six', 'five', 'four', 'three']);
+      search.setQuery('six');
+      search.rememberSearch();
+      expect(search.recentSearches, ['six', 'Six', 'five', 'four', 'three']);
+      await tester.pump(const Duration(seconds: 1));
+    },
+  );
+
+  for (final newerEdit in [false, true]) {
+    testWidgets(
+      'failed clear ${newerEdit ? 'keeps newer removal' : 'restores history'}',
+      (tester) async {
+        final api = _EngineApi()..clearGate = Completer<void>();
+        final search = _controller(api)..setQuery('remembered');
+        addTearDown(search.dispose);
+        search.rememberSearch();
+        final clearing = search.clearHistory();
+        expect(search.recentSearches, isEmpty);
+        await tester.pump();
+        if (newerEdit) search.removeRecentSearch('remembered');
+        api.clearGate!.completeError(StateError('offline'));
+        await clearing;
+        expect(search.recentSearches, newerEdit ? isEmpty : ['remembered']);
+        expect(search.error, newerEdit ? isNull : isNotNull);
+        await tester.pump(const Duration(seconds: 1));
+      },
+    );
+  }
+
+  testWidgets('logging disabled keeps history empty', (tester) async {
+    final search = _controller(_EngineApi());
+    addTearDown(search.dispose);
+    search.configure(
+      siteUrl: _site,
+      capabilities: const GlobalSearchCapabilities(
+        authenticated: true,
+        username: 'mira',
+        logSearchQueries: false,
+      ),
+    );
+    search.setQuery('private');
+    search.rememberSearch();
+    expect(search.recentSearches, isEmpty);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   for (final action in ['none', 'scope', 'recent', 'close']) {
     testWidgets(
       'late chat capabilities respect the opening context after $action',
@@ -1341,6 +1406,17 @@ GlobalSearchPage _page(String title, {bool hasMore = false}) =>
 
 class _EngineApi extends GlobalSearchApi {
   _EngineApi() : super(transport: FakeDiscourseApi());
+  Completer<void>? clearGate;
+
+  @override
+  Future<void> clearRecentSearches({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    await clearGate?.future;
+  }
+
   bool hold = false;
   List<GlobalSearchFilterChoice> lookupValues = const [];
   Completer<List<GlobalSearchFilterChoice>>? lookupGate;

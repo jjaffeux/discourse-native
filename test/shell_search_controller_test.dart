@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
+import 'package:discourse_native/src/shell/global_search_api.dart';
+import 'package:discourse_native/src/shell/recent_search_history.dart';
 import 'package:discourse_native/src/shell/shell_search_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,7 +17,7 @@ void main() {
     'tab retention keeps only reachable compound owners without notifying',
     () {
       const otherSite = 'https://other.example';
-      final search = ShellSearchController(
+      final search = _search(
         api: _SearchApi(),
         credentials: FakeApiCredentialReader(),
         lifecycle: SiteLifecycle(),
@@ -48,7 +50,7 @@ void main() {
   test(
     'Start queries stay isolated by forum and tab and clear on account removal',
     () {
-      final search = ShellSearchController(
+      final search = _search(
         api: _SearchApi(),
         credentials: FakeApiCredentialReader(),
         lifecycle: SiteLifecycle(),
@@ -73,7 +75,7 @@ void main() {
   test(
     'Users selection is one tab query with page-word adapters and retention',
     () {
-      final search = ShellSearchController(
+      final search = _search(
         api: _SearchApi(),
         credentials: FakeApiCredentialReader(),
         lifecycle: SiteLifecycle(),
@@ -122,7 +124,7 @@ void main() {
       (tester) async {
         final api = _SearchApi()..gateRecentSearches = true;
         final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
-        final search = ShellSearchController(
+        final search = _search(
           api: api,
           credentials: credentials,
           lifecycle: SiteLifecycle(),
@@ -150,7 +152,7 @@ void main() {
         (tester) async {
           final api = _SearchApi()..recent = const ['remembered'];
           final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
-          final search = ShellSearchController(
+          final search = _search(
             api: api,
             credentials: credentials,
             lifecycle: SiteLifecycle(),
@@ -178,7 +180,7 @@ void main() {
     ) async {
       final api = _SearchApi()..recent = const ['yellow', 'blue'];
       final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
-      final search = ShellSearchController(
+      final search = _search(
         api: api,
         credentials: credentials,
         lifecycle: SiteLifecycle(),
@@ -211,7 +213,7 @@ void main() {
       final credentials = FakeApiCredentialReader()
         ..keys[site] = 'first-secret'
         ..keys[otherSite] = 'other-secret';
-      final search = ShellSearchController(
+      final search = _search(
         api: api,
         credentials: credentials,
         lifecycle: SiteLifecycle(),
@@ -246,7 +248,7 @@ void main() {
     ) async {
       final api = _SearchApi()..recent = const ['private query'];
       final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
-      final search = ShellSearchController(
+      final search = _search(
         api: api,
         credentials: credentials,
         lifecycle: SiteLifecycle(),
@@ -271,7 +273,7 @@ void main() {
       // and the site ignores the id without a key.
       final api = _SearchApi()..recent = const ['keyed'];
       final credentials = _RecordingCredentials();
-      final search = ShellSearchController(
+      final search = _search(
         api: api,
         credentials: credentials,
         lifecycle: SiteLifecycle(),
@@ -302,7 +304,7 @@ void main() {
           final credentials = _GatedClientIdCredentials()
             ..keys[site] = 'secret'
             ..pendingClientId = clientId;
-          final search = ShellSearchController(
+          final search = _search(
             api: api,
             credentials: credentials,
             lifecycle: lifecycle,
@@ -331,7 +333,7 @@ void main() {
       final diagnostics = await _installDiagnostics('recent-search-failure');
       final api = _SearchApi()..recentFailure = StateError('offline');
       final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
-      final search = ShellSearchController(
+      final search = _search(
         api: api,
         credentials: credentials,
         lifecycle: SiteLifecycle(),
@@ -416,4 +418,19 @@ class _SearchApi extends FakeDiscourseApi {
   void completeRecent(int index, List<String> searches) {
     recentAnswers[index].complete(searches);
   }
+}
+
+ShellSearchController _search({
+  required _SearchApi api,
+  required FakeApiCredentialReader credentials,
+  required SiteLifecycle lifecycle,
+}) {
+  final history = RecentSearchHistory(
+    api: GlobalSearchApi(transport: api),
+    server: api,
+    credentials: credentials,
+    lifecycle: lifecycle,
+  );
+  addTearDown(history.dispose);
+  return ShellSearchController(history: history);
 }

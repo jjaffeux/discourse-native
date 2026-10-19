@@ -5,13 +5,12 @@ import 'package:flutter/foundation.dart';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/recent_search_store.dart';
 import '../data/site_lifecycle.dart';
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import 'global_search_api.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
-import 'shell_search_controller.dart';
+import 'recent_search_history.dart';
 
 /// Owns a search session independently of the editor and its presentation.
 /// Scope banks survive tab changes; requests only receive the active bank.
@@ -20,19 +19,25 @@ class GlobalSearchController extends ChangeNotifier {
     required this.api,
     required this.credentials,
     required this.lifecycle,
-    this.recentSource,
+    RecentSearchHistory? history,
     this.debounceDuration = const Duration(milliseconds: 350),
-    this.recentStore = const RecentSearchStore(),
-  }) {
-    recentSource?.addListener(_recentChanged);
+  }) : history =
+           history ??
+           RecentSearchHistory(
+             api: api,
+             credentials: credentials,
+             lifecycle: lifecycle,
+           ),
+       _ownsHistory = history == null {
+    this.history.addListener(_notify);
   }
 
   final GlobalSearchApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
-  final ShellSearchController? recentSource;
+  final RecentSearchHistory history;
+  final bool _ownsHistory;
   final Duration debounceDuration;
-  final RecentSearchStore recentStore;
   String? _siteUrl;
   SiteLease? _lease;
   String _baseFingerprint = '';
@@ -43,7 +48,6 @@ class GlobalSearchController extends ChangeNotifier {
   GlobalSearchScope? _preferredScope;
   int? _contextTopicId;
   String? _contextTopicTitle;
-  final Set<String> _removedRecent = {};
   final _banks = <GlobalSearchScope, List<GlobalSearchCondition>>{};
   final _orders = <GlobalSearchScope, String>{};
   final _ascending = <GlobalSearchScope, bool>{};
@@ -53,12 +57,8 @@ class GlobalSearchController extends ChangeNotifier {
     GlobalSearchDisplayProperty.replies,
   };
   List<GlobalSearchSection> _sections = const [];
-  List<String> _localRecent = const [];
-  final _recentStates = <String, GlobalSearchRequest>{};
   final _choiceLabels = <String, Map<String, GlobalSearchFilterChoice>>{};
   final _tagChoices = <String, GlobalSearchFilterChoice>{};
-  int _historyRevision = 0;
-  bool _historyCleared = false;
   GlobalSearchPhase _phase = GlobalSearchPhase.idle;
   String? _error;
   bool _hasMore = false, _loadingMore = false, _disposed = false;
@@ -272,19 +272,7 @@ class GlobalSearchController extends ChangeNotifier {
   String? get error => _error;
   bool get hasMore => _hasMore;
   bool get loadingMore => _loadingMore;
-  List<String> get recentSearches {
-    if (!capabilities.authenticated || !capabilities.logSearchQueries) {
-      return const [];
-    }
-    final source = recentSource;
-    return List.unmodifiable(
-      {
-        ..._localRecent,
-        if (!_historyCleared && source?.siteUrl == siteUrl)
-          ...source!.recentSearches,
-      }.where((term) => !_removedRecent.contains(term)).take(5),
-    );
-  }
+  List<String> get recentSearches => history.terms;
 
   void configure({
     String? siteUrl,
@@ -303,72 +291,32 @@ class GlobalSearchController extends ChangeNotifier {
     _siteUrl = siteUrl;
     _lease = lease;
     _capabilities = capabilities;
+    history.configure(
+      siteUrl: siteUrl,
+      username: capabilities.username,
+      authenticated: capabilities.authenticated,
+      logSearchQueries: capabilities.logSearchQueries,
+    );
     if (changedSite) {
       _query = '';
       _contextTopicId = null;
       _contextTopicTitle = null;
       _preferredScope = null;
-      _removedRecent.clear();
       _scope = GlobalSearchScope.all;
       _banks.clear();
       _orders.clear();
       _ascending.clear();
-      _localRecent = const [];
-      _recentStates.clear();
       _choiceLabels.clear();
       _context = null;
       _pendingContext = null;
-      _historyRevision++;
-      _historyCleared = false;
     }
     _sanitize();
     _schedule();
     if (siteUrl != null && lease != null) {
-      if (changedSite &&
-          capabilities.authenticated &&
-          capabilities.username != null) {
-        unawaited(
-          _restoreRemovedRecent(
-            siteUrl,
-            capabilities.username!,
-            lease,
-            _configuration,
-          ),
-        );
-      }
       unawaited(
         _loadCapabilities(siteUrl, lease, _configuration, capabilities),
       );
     }
-  }
-
-  Future<void> _restoreRemovedRecent(
-    String site,
-    String username,
-    SiteLease lease,
-    int configuration,
-  ) async {
-    try {
-      final saved = await recentStore.read(site, username);
-      if (_disposed || !lease.isCurrent || configuration != _configuration) {
-        return;
-      }
-      _removedRecent.addAll(
-        saved.where((term) => !_localRecent.contains(term)),
-      );
-      _notify();
-    } catch (_) {
-      /* History still works when local preferences are unavailable. */
-    }
-  }
-
-  void _saveRemovedRecent() {
-    final site = siteUrl, username = capabilities.username, lease = _lease;
-    if (site == null || username == null || lease?.isCurrent != true) return;
-    final terms = Set<String>.of(_removedRecent);
-    unawaited(
-      recentStore.write(site, username, terms).catchError((Object _) {}),
-    );
   }
 
   Future<void> _loadCapabilities(
@@ -697,7 +645,7 @@ class GlobalSearchController extends ChangeNotifier {
 
   void useRecentSearch(String value) {
     _pendingContext = null;
-    final saved = _recentStates[value];
+    final saved = history.savedRequest(value);
     if (saved != null && scopes.contains(saved.scope)) {
       _scope = saved.scope;
       _query = saved.query;
@@ -717,24 +665,12 @@ class GlobalSearchController extends ChangeNotifier {
     submit();
   }
 
-  void _remember() {
-    if (!capabilities.authenticated || !capabilities.logSearchQueries) return;
-    if (_request().query.trim().isEmpty) return;
-    final term = globalSearchTerm(_request()).trim();
-    if (term.isEmpty) return;
-    _removedRecent.remove(term);
-    _saveRemovedRecent();
-    _localRecent = List.unmodifiable({term, ...recentSearches}.take(5));
-    _recentStates[term] = _request();
-    _recentStates.removeWhere((key, _) => !_localRecent.contains(key));
-    _historyRevision++;
-    _notify();
-  }
+  void _remember() => history.remember(_request());
 
   void rememberSearch() => _remember();
 
   GlobalSearchExpression recentExpression(String term) {
-    final saved = _recentStates[term];
+    final saved = history.savedRequest(term);
     if (saved != null) {
       return GlobalSearchExpression(
         saved.query,
@@ -755,51 +691,20 @@ class GlobalSearchController extends ChangeNotifier {
     }
   }
 
-  void removeRecentSearch(String term) {
-    _removedRecent.add(term);
-    _saveRemovedRecent();
-    _localRecent = List.unmodifiable(
-      _localRecent.where((value) => value != term),
-    );
-    _recentStates.remove(term);
-    _historyRevision++;
-    _notify();
-  }
+  void removeRecentSearch(String term) => history.remove(term);
 
   Future<void> clearHistory() async {
-    final site = siteUrl, lease = _lease, epoch = _configuration;
-    final previous = _localRecent, wasCleared = _historyCleared;
-    final historyRevision = ++_historyRevision;
+    final epoch = _configuration;
     _error = null;
-    _localRecent = const [];
-    _historyCleared = true;
     _notify();
-    if (site == null || lease == null || !capabilities.authenticated) return;
-    bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
-    try {
-      final auth = await AccountRequestSession(
-        site,
-        lease,
-      ).credentials(credentials);
-      final key = auth.apiKey;
-      if (key == null || !current()) return;
-      final client = auth.clientId;
-      if (!current()) return;
-      await auth.run(
-        () => api.clearRecentSearches(
-          siteUrl: site,
-          apiKey: key,
-          clientId: client,
-        ),
-      );
-    } catch (_) {
-      if (!current()) return;
-      if (historyRevision != _historyRevision) return;
-      _localRecent = previous;
-      _historyCleared = wasCleared;
-      _error = appL10n.recentSearchesCouldNotBeClearedPleaseTryAgain;
-      _notify();
+    final outcome = await history.clear();
+    if (_disposed ||
+        epoch != _configuration ||
+        outcome != RecentSearchClearOutcome.failed) {
+      return;
     }
+    _error = appL10n.recentSearchesCouldNotBeClearedPleaseTryAgain;
+    _notify();
   }
 
   Future<void> recordSelection(GlobalSearchResult result) async {
@@ -1164,7 +1069,6 @@ class GlobalSearchController extends ChangeNotifier {
     }
   }
 
-  void _recentChanged() => _notify();
   void _notify() {
     if (!_disposed) notifyListeners();
   }
@@ -1177,7 +1081,8 @@ class GlobalSearchController extends ChangeNotifier {
     _debounce?.cancel();
     _queued = null;
     _cancelSearches();
-    recentSource?.removeListener(_recentChanged);
+    history.removeListener(_notify);
+    if (_ownsHistory) history.dispose();
     super.dispose();
   }
 }

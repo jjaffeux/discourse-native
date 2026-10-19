@@ -140,6 +140,7 @@ import 'post_checklist_write.dart';
 import 'post_quote.dart';
 import 'preferences_controller.dart';
 import 'preview_requests.dart';
+import 'recent_search_history.dart';
 import 'shell_search_controller.dart';
 import 'site_presentation_controller.dart';
 import 'site_url.dart';
@@ -1185,17 +1186,24 @@ class ShellController extends FrameSafeNotifier
     },
   );
 
-  late final ShellSearchController search = ShellSearchController(
-    api: api.search,
+  late final GlobalSearchApi _globalSearchApi = GlobalSearchApi(
+    transport: api.pluginTransport,
+  );
+  late final RecentSearchHistory _searchHistory = RecentSearchHistory(
+    api: _globalSearchApi,
+    server: api.search,
     credentials: credentials,
     lifecycle: lifecycle,
   );
+  late final ShellSearchController search = ShellSearchController(
+    history: _searchHistory,
+  );
 
   late final GlobalSearchController globalSearch = GlobalSearchController(
-    api: GlobalSearchApi(transport: api.pluginTransport),
+    api: _globalSearchApi,
     credentials: credentials,
     lifecycle: lifecycle,
-    recentSource: search,
+    history: _searchHistory,
   );
 
   SitePresentationController? _sitePresentation;
@@ -12562,7 +12570,12 @@ class ShellController extends FrameSafeNotifier
   Future<void> _persistSiteConfig(String siteUrl, SiteConfig config) async {
     cooking.service.invalidate();
     if (currentInstance?.url == siteUrl) {
-      search.selectSite(siteUrl, logSearchQueries: config.logSearchQueries);
+      search.selectSite(
+        siteUrl,
+        username: currentInstance?.user?.username,
+        authenticated: currentInstance?.isConnected == true,
+        logSearchQueries: config.logSearchQueries,
+      );
     }
     for (final composer in _composersForSite(siteUrl)) {
       if (!config.emojiEnabled) composer.closeEmojiAutocomplete();
@@ -12895,6 +12908,8 @@ class ShellController extends FrameSafeNotifier
     final canRead = !instance.loginRequired || instance.isConnected;
     search.selectSite(
       canRead ? instance.url : null,
+      username: instance.user?.username,
+      authenticated: instance.isConnected,
       logSearchQueries: instance.config.logSearchQueries,
     );
     if (refreshAppearance && canRead) {
@@ -13809,6 +13824,7 @@ class ShellController extends FrameSafeNotifier
     }
     globalSearch.dispose();
     search.dispose();
+    _searchHistory.dispose();
 
     for (final listenable in _pluginSiteConfigListenables.values) {
       listenable.dispose();
