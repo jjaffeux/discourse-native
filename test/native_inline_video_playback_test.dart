@@ -2,13 +2,18 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart'
     show DButton, DSlider, DSpinner;
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/shell/oneboxes/audio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
+
+import 'support/fakes.dart';
 
 void main() {
   late _VideoPlatform platform;
@@ -22,6 +27,56 @@ void main() {
       VideoPlayerPlatform.instance = previous;
     });
   });
+
+  for (final redirected in [false, true]) {
+    test(
+      'protected video ${redirected ? 'uses a credential-free native source' : 'refuses a native handle'}',
+      () async {
+        const siteUrl = 'https://forum.example';
+        const signedUrl = 'https://cdn.example/signed/demo.mp4?token=object';
+        final credentials = FakeApiCredentialReader()
+          ..keys[siteUrl] = 'forum-secret';
+        final probes = <http.Request>[];
+        final session = _nativeSession(
+          InlineVideoPlaybackRequest(
+            source: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+            title: 'Video',
+            posterUrl: null,
+            aspectRatio: 16 / 9,
+            siteUrl: siteUrl,
+            credentials: credentials,
+            lifecycle: SiteLifecycle(),
+          ),
+        );
+        addTearDown(session.dispose);
+        await http.runWithClient(
+          session.start,
+          () => MockClient((request) async {
+            probes.add(request);
+            if (redirected && request.url.origin == siteUrl) {
+              return http.Response('', 302, headers: {'location': signedUrl});
+            }
+            return http.Response('', 200);
+          }),
+        );
+
+        expect(probes.first.method, 'HEAD');
+        expect(probes.first.headers['User-Api-Key'], 'forum-secret');
+        if (redirected) {
+          expect(probes.last.headers, isNot(contains('User-Api-Key')));
+          expect(probes.last.headers, isNot(contains('User-Api-Client-Id')));
+          expect(session.state.phase, InlineVideoPlaybackPhase.ready);
+          expect(platform.sources, [signedUrl]);
+          expect(platform.sourceHeaders, [isEmpty]);
+          session.dispose();
+          await platform.disposed(0);
+        } else {
+          expect(session.state.phase, InlineVideoPlaybackPhase.failed);
+          expect(platform.sources, isEmpty);
+        }
+      },
+    );
+  }
 
   testWidgets('native audio plays and seeks without creating a video surface', (
     tester,
@@ -791,6 +846,7 @@ class _VideoPlatform extends VideoPlayerPlatform {
   final plays = <int>[];
   final pauses = <int>[];
   final sources = <String>[];
+  final sourceHeaders = <Map<String, String>>[];
   Completer<void>? nextInitialization;
   Completer<void>? nextPause;
   int positionReads = 0;
@@ -806,6 +862,7 @@ class _VideoPlatform extends VideoPlayerPlatform {
     final gate = nextInitialization;
     nextInitialization = null;
     sources.add(options.dataSource.uri!);
+    sourceHeaders.add(Map.of(options.dataSource.httpHeaders));
     final id = events.length;
     final stream = StreamController<VideoEvent>(
       sync: true,

@@ -13,6 +13,75 @@ void main() {
   const siteUrl = 'https://forum.example';
   const secureUrl = '$siteUrl/secure-uploads/original/image.png';
 
+  test(
+    'credentials follow the exact forum origin across redirect hops',
+    () async {
+      final hops = [
+        '$siteUrl/secure-uploads/first.png',
+        '$siteUrl:444/external.png',
+        '$siteUrl/secure-uploads/back.png',
+        'https://cdn.example/signed.png',
+      ];
+      final requests = <http.Request>[];
+      Future<http.Response> respond(http.Request request) async {
+        final index = requests.length;
+        requests.add(request);
+        return index == hops.length - 1
+            ? http.Response.bytes([1], 200)
+            : http.Response('', 302, headers: {'location': hops[index + 1]});
+      }
+
+      final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'secret';
+      final repository = SiteImageRepository(
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        client: MockClient(respond),
+      );
+      addTearDown(repository.dispose);
+      expect(
+        (await repository.load(siteUrl: siteUrl, url: hops.first))?.bytes,
+        [1],
+      );
+      expect(requests.map((r) => r.url.toString()), hops);
+      expect(requests.map((r) => r.headers['User-Api-Key']), [
+        'secret',
+        null,
+        'secret',
+        null,
+      ]);
+      expect(requests.map((r) => r.headers['User-Api-Client-Id']), [
+        'test-client',
+        null,
+        'test-client',
+        null,
+      ]);
+    },
+  );
+
+  test(
+    'anonymous images skip the client ID read and still fetch bytes',
+    () async {
+      final credentials = _HeldImageCredentials();
+      final requests = <http.Request>[];
+      final repository = SiteImageRepository(
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response.bytes([1], 200);
+        }),
+      );
+      addTearDown(repository.dispose);
+
+      expect((await repository.load(siteUrl: siteUrl, url: secureUrl))?.bytes, [
+        1,
+      ]);
+      expect(credentials.clientIdReads, 0);
+      expect(requests.single.headers, isNot(contains('User-Api-Key')));
+      expect(requests.single.headers, isNot(contains('User-Api-Client-Id')));
+    },
+  );
+
   for (final clientId in ['', 'test-client']) {
     test(
       'authenticates the forum hop but never a CDN redirect (client ID: $clientId)',

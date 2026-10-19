@@ -13,6 +13,53 @@ import 'support/manual_scheduler.dart';
 void main() {
   const siteUrl = 'https://meta.discourse.org';
 
+  test(
+    'credentials follow the exact forum origin across redirect hops',
+    () async {
+      final hops = [
+        '$siteUrl/secure-uploads/first.mp4',
+        '$siteUrl:444/external.mp4',
+        '$siteUrl/secure-uploads/back.mp4',
+        'https://cdn.example/signed.mp4',
+      ];
+      final requests = <http.Request>[];
+      Future<http.Response> respond(http.Request request) async {
+        final index = requests.length;
+        requests.add(request);
+        return index == hops.length - 1
+            ? http.Response.bytes([1], 200)
+            : http.Response('', 302, headers: {'location': hops[index + 1]});
+      }
+
+      final resolver = SiteVideoSourceResolver(
+        credentials: const _Credentials(apiKey: 'secret'),
+        lifecycle: SiteLifecycle(),
+        client: MockClient(respond),
+      );
+      addTearDown(resolver.close);
+      expect(
+        (await resolver.resolve(
+          siteUrl: siteUrl,
+          url: Uri.parse(hops.first),
+        )).url,
+        Uri.parse(hops.last),
+      );
+      expect(requests.map((r) => r.url.toString()), hops);
+      expect(requests.map((r) => r.headers['User-Api-Key']), [
+        'secret',
+        null,
+        'secret',
+        null,
+      ]);
+      expect(requests.map((r) => r.headers['User-Api-Client-Id']), [
+        'client',
+        null,
+        'client',
+        null,
+      ]);
+    },
+  );
+
   test('public and cross-origin URLs need no credential probe', () async {
     var requests = 0;
     final resolver = SiteVideoSourceResolver(
@@ -198,6 +245,112 @@ void main() {
     credentials.apiKey.complete('stale-secret');
 
     await expectLater(resolving, throwsStateError);
+  });
+
+  for (final stage in ['API key', 'client ID']) {
+    for (final fails in [false, true]) {
+      test(
+        'retirement preserves late $stage ${fails ? 'failure' : 'refusal'}',
+        () async {
+          final credentials = _HeldCredentials(stage);
+          final lifecycle = SiteLifecycle();
+          var requests = 0;
+          final resolver = SiteVideoSourceResolver(
+            credentials: credentials,
+            lifecycle: lifecycle,
+            client: MockClient((_) async {
+              requests++;
+              return http.Response('', 200);
+            }),
+          );
+          addTearDown(resolver.close);
+          final resolving = resolver.resolve(
+            siteUrl: siteUrl,
+            url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+          );
+          const error = FormatException('credential read failed');
+          final stopped = expectLater(
+            resolving,
+            fails ? throwsA(same(error)) : throwsStateError,
+          );
+          await credentials.started.future;
+          lifecycle.invalidate(siteUrl);
+          if (fails) {
+            credentials.held.completeError(error);
+          } else {
+            credentials.held.complete('stale');
+          }
+          await stopped;
+          expect(requests, 0);
+          expect(credentials.clientIdReads, stage == 'client ID' ? 1 : 0);
+        },
+      );
+    }
+
+    for (final timeout in [false, true]) {
+      test(
+        '${timeout ? 'deadline' : 'closure'} stops a held $stage read',
+        () async {
+          final credentials = _HeldCredentials(stage);
+          final scheduler = ManualScheduler();
+          var requests = 0;
+          final resolver = SiteVideoSourceResolver(
+            credentials: credentials,
+            lifecycle: SiteLifecycle(),
+            client: MockClient((_) async {
+              requests++;
+              return http.Response('', 200);
+            }),
+          );
+          addTearDown(resolver.close);
+          final resolving = runZoned(
+            () => resolver.resolve(
+              siteUrl: siteUrl,
+              url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
+            ),
+            zoneSpecification: ZoneSpecification(
+              createTimer: (_, _, zone, duration, callback) =>
+                  scheduler.createTimer(duration, zone.bindCallback(callback)),
+            ),
+          );
+          final stopped = expectLater(
+            resolving,
+            timeout ? throwsA(isA<TimeoutException>()) : throwsStateError,
+          );
+          await credentials.started.future;
+          if (timeout) {
+            scheduler.advance(resolver.requestTimeout);
+          } else {
+            resolver.close();
+          }
+          await stopped;
+          expect(scheduler.activeTimerCount, 0);
+          credentials.held.complete('late');
+          await pumpEventQueue();
+          expect(requests, 0);
+          expect(credentials.clientIdReads, stage == 'client ID' ? 1 : 0);
+        },
+      );
+    }
+  }
+
+  test('an anonymous secure URL skips client ID and HEAD probing', () async {
+    final credentials = _HeldCredentials('unused', anonymous: true);
+    var requests = 0;
+    final resolver = SiteVideoSourceResolver(
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      client: MockClient((_) async {
+        requests++;
+        return http.Response('', 500);
+      }),
+    );
+    addTearDown(resolver.close);
+    final url = Uri.parse('$siteUrl/secure-uploads/demo.mp4');
+
+    expect((await resolver.resolve(siteUrl: siteUrl, url: url)).url, url);
+    expect(credentials.clientIdReads, 0);
+    expect(requests, 0);
   });
 
   test('times out a stalled credential lookup', () async {
@@ -467,4 +620,33 @@ final class _DelayedCredentials implements ApiCredentialReader {
 
   @override
   Future<String> clientId() async => 'client';
+}
+
+final class _HeldCredentials implements ApiCredentialReader {
+  _HeldCredentials(this.stage, {this.anonymous = false});
+
+  final String stage;
+  final bool anonymous;
+  final started = Completer<void>();
+  final held = Completer<String>();
+  var clientIdReads = 0;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    if (stage == 'API key') {
+      started.complete();
+      return held.future;
+    }
+    return Future.value(anonymous ? null : 'secret');
+  }
+
+  @override
+  Future<String> clientId() {
+    clientIdReads++;
+    if (stage == 'client ID') {
+      started.complete();
+      return held.future;
+    }
+    return Future.value('client');
+  }
 }
