@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../models/forum_background.dart';
 import '../theme/app_theme.dart';
+import 'decorative_cadence.dart';
 import 'forum_texture.dart';
 
 Color _plainWindowColor(DTokens tokens) {
@@ -68,12 +69,8 @@ class ForumWindowBackground extends StatefulWidget {
   State<ForumWindowBackground> createState() => _ForumWindowBackgroundState();
 }
 
-class _ForumWindowBackgroundState extends State<ForumWindowBackground>
-    with SingleTickerProviderStateMixin {
-  late final _motion = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 24),
-  );
+class _ForumWindowBackgroundState extends State<ForumWindowBackground> {
+  final _motion = DecorativeCadence();
 
   @override
   void didChangeDependencies() {
@@ -87,11 +84,7 @@ class _ForumWindowBackgroundState extends State<ForumWindowBackground>
         background!.noiseIntensity > 0 &&
         !MediaQuery.disableAnimationsOf(context) &&
         TickerMode.valuesOf(context).enabled;
-    if (animate && !_motion.isAnimating) {
-      _motion.repeat();
-    } else if (!animate) {
-      _motion.stop();
-    }
+    _motion.setActive(animate);
   }
 
   String? _nativeMaterial;
@@ -231,13 +224,17 @@ class _GradientPainter extends CustomPainter {
     : super(repaint: motion);
   final Color accent;
   final double intensity;
-  final Animation<double> motion;
+  final DecorativeCadence motion;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.clipRect(Offset.zero & size);
-    final phase = motion.value * math.pi * 2;
+    final phase =
+        (motion.sampleElapsed().inMicroseconds % 24000000) /
+        24000000 *
+        math.pi *
+        2;
     final base = HSLColor.fromColor(accent);
     for (var i = 0; i < 4; i++) {
       final angle = phase + i * math.pi / 2;

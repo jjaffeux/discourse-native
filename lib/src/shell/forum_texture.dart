@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../models/forum_background.dart';
+import 'decorative_cadence.dart';
 
 /// The reference's single texture layer, composited over the whole workspace.
 /// Its animation repaints independently of the widgets underneath it.
@@ -22,17 +23,13 @@ class ForumTexture extends StatefulWidget {
   State<ForumTexture> createState() => _ForumTextureState();
 }
 
-class _ForumTextureState extends State<ForumTexture>
-    with SingleTickerProviderStateMixin {
+class _ForumTextureState extends State<ForumTexture> {
   static final _program = ui.FragmentProgram.fromAsset(
     'packages/discourse_native/src/shell/shaders/forum_texture.frag',
   );
   ui.FragmentShader? _shader;
   ui.Image? _permutation;
-  late final _motion = AnimationController(
-    vsync: this,
-    duration: const Duration(hours: 1),
-  );
+  final _motion = DecorativeCadence();
 
   @override
   void initState() {
@@ -71,6 +68,7 @@ class _ForumTextureState extends State<ForumTexture>
       () =>
           _shader = program.fragmentShader()..setImageSampler(0, _permutation!),
     );
+    _updateMotion();
   }
 
   @override
@@ -88,15 +86,12 @@ class _ForumTextureState extends State<ForumTexture>
 
   void _updateMotion() {
     final animate =
+        _shader != null &&
         widget.background.effect == ForumBackgroundEffect.lava &&
         widget.background.noiseIntensity > 0 &&
         !MediaQuery.disableAnimationsOf(context) &&
         TickerMode.valuesOf(context).enabled;
-    if (animate && !_motion.isAnimating) {
-      _motion.repeat();
-    } else if (!animate) {
-      _motion.stop();
-    }
+    _motion.setActive(animate);
   }
 
   @override
@@ -139,7 +134,7 @@ class _TexturePainter extends CustomPainter {
   _TexturePainter(this.shader, this.motion, this.background, this.accent)
     : super(repaint: motion);
   final ui.FragmentShader shader;
-  final AnimationController motion;
+  final DecorativeCadence motion;
   final ForumBackground background;
   final Color accent;
 
@@ -148,7 +143,7 @@ class _TexturePainter extends CustomPainter {
     shader
       ..setFloat(0, size.width)
       ..setFloat(1, size.height)
-      ..setFloat(2, (motion.lastElapsedDuration?.inMicroseconds ?? 0) / 1000000)
+      ..setFloat(2, motion.sampleElapsed().inMicroseconds / 1000000)
       ..setFloat(3, background.noiseIntensity)
       ..setFloat(4, background.effect == ForumBackgroundEffect.lava ? 1 : 0)
       ..setFloat(5, accent.r)

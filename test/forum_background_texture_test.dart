@@ -29,24 +29,19 @@ void main() {
               noiseIntensity: .7,
             ),
           );
-      // Keep the cached shader future outside a per-test fake-async zone.
-      await tester.runAsync(
-        () => tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.fromPalette(palette.resolve(Brightness.dark)),
-            home: MediaQuery(
-              data: const MediaQueryData(disableAnimations: false),
-              child: Center(
-                child: RepaintBoundary(
-                  key: const ValueKey('texture-capture'),
-                  child: SizedBox.square(
-                    dimension: 256,
-                    child: ForumWindowBackground(
-                      child: CustomPaint(
-                        painter: counter,
-                        child: const SizedBox.expand(),
-                      ),
-                    ),
+      Widget host({required bool reducedMotion}) => MaterialApp(
+        theme: AppTheme.fromPalette(palette.resolve(Brightness.dark)),
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: reducedMotion),
+          child: Center(
+            child: RepaintBoundary(
+              key: const ValueKey('texture-capture'),
+              child: SizedBox.square(
+                dimension: 256,
+                child: ForumWindowBackground(
+                  child: CustomPaint(
+                    painter: counter,
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
@@ -54,17 +49,39 @@ void main() {
           ),
         ),
       );
+      await tester.runAsync(() => tester.pumpWidget(host(reducedMotion: true)));
       await _waitForTexture(tester, effect);
-      final initial = await _capture(tester);
-      counter.paints = 0;
-      for (var frame = 0; frame < 5; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
+      await tester.pumpWidget(host(reducedMotion: false));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      final painter = tester
+          .widget<CustomPaint>(
+            find.byKey(
+              ValueKey(
+                effect == ForumBackgroundEffect.gradient
+                    ? 'forum-gradient-texture'
+                    : 'forum-reference-texture',
+              ),
+            ),
+          )
+          .painter!;
+      var repaints = 0;
+      void countRepaint() => repaints++;
+      painter.addListener(countRepaint);
+      try {
+        final initial = await _capture(tester);
+        counter.paints = 0;
+        for (var frame = 0; frame < 60; frame++) {
+          await tester.pump(const Duration(microseconds: 16667));
+        }
+        expect(repaints, inInclusiveRange(29, 31));
+        expect(await _capture(tester), isNot(orderedEquals(initial)));
+        expect(counter.paints, 0);
+        expect(tester.takeException(), isNull);
+      } finally {
+        painter.removeListener(countRepaint);
+        await tester.pumpWidget(const SizedBox.shrink());
       }
-      expect(tester.binding.hasScheduledFrame, isTrue);
-      expect(await _capture(tester), isNot(orderedEquals(initial)));
-      expect(counter.paints, 0);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
     });
   }
 
@@ -190,6 +207,56 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+
+  for (final (effect, intensity, reducedMotion, tickersEnabled) in [
+    (ForumBackgroundEffect.lava, 1.0, true, true),
+    (ForumBackgroundEffect.lava, 1.0, false, false),
+    (ForumBackgroundEffect.lava, 0.0, false, true),
+    (ForumBackgroundEffect.paper, 1.0, false, true),
+    (ForumBackgroundEffect.hatch, 1.0, false, true),
+    (ForumBackgroundEffect.normal, 1.0, false, true),
+  ]) {
+    testWidgets('$effect intensity=$intensity reducedMotion=$reducedMotion '
+        'TickerMode=$tickersEnabled does not schedule decorative frames', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(
+            data: MediaQueryData(disableAnimations: reducedMotion),
+            child: TickerMode(
+              enabled: tickersEnabled,
+              child: RepaintBoundary(
+                key: const ValueKey('texture-capture'),
+                child: SizedBox.square(
+                  dimension: 256,
+                  child: ForumTexture(
+                    background: ForumBackground.appearance(
+                      effect: effect,
+                      noiseIntensity: intensity,
+                    ),
+                    accent: const Color(0xff5078cc),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      if (intensity > 0 &&
+          (effect == ForumBackgroundEffect.lava ||
+              effect == ForumBackgroundEffect.paper)) {
+        await _waitForTexture(tester, effect);
+      }
+      await tester.pump();
+      final initial = await _capture(tester);
+      await tester.pump(const Duration(seconds: 2));
+      expect(await _capture(tester), orderedEquals(initial));
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
 
 Future<void> _waitForTexture(

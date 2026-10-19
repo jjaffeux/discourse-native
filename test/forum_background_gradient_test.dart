@@ -94,7 +94,7 @@ void main() {
     final initial = await _capture(tester);
     await tester.pump(const Duration(seconds: 4));
     expect(_difference(initial, await _capture(tester)), greaterThan(1));
-    expect(tester.binding.hasScheduledFrame, isTrue);
+    expect(tester.binding.hasScheduledFrame, isFalse);
 
     await _show(tester);
     final frozen = await _capture(tester);
@@ -106,6 +106,33 @@ void main() {
     expect(tester.binding.hasScheduledFrame, isFalse);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Gradient repeats its rendered phase every 24 active seconds', (
+    tester,
+  ) async {
+    await _show(tester, reducedMotion: false);
+    final initial = await _capture(tester);
+
+    await tester.pump(const Duration(seconds: 12));
+    expect(_difference(initial, await _capture(tester)), greaterThan(1));
+    await tester.pump(const Duration(seconds: 12));
+    expect(await _capture(tester), orderedEquals(initial));
+  });
+
+  testWidgets('Gradient stops scheduling when TickerMode disables motion', (
+    tester,
+  ) async {
+    await _show(tester, reducedMotion: false);
+    final initial = await _capture(tester);
+    await tester.pump(const Duration(seconds: 2));
+    expect(_difference(initial, await _capture(tester)), greaterThan(1));
+
+    await _show(tester, reducedMotion: false, tickersEnabled: false);
+    final frozen = await _capture(tester);
+    await tester.pump(const Duration(seconds: 2));
+    expect(await _capture(tester), orderedEquals(frozen));
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
 }
 
 Future<void> _show(
@@ -113,6 +140,7 @@ Future<void> _show(
   Brightness brightness = Brightness.dark,
   double intensity = 1,
   bool reducedMotion = true,
+  bool tickersEnabled = true,
   Widget? content,
 }) async {
   final palette = forumThemePresets
@@ -127,19 +155,22 @@ Future<void> _show(
   await tester.pumpWidget(
     MaterialApp(
       theme: AppTheme.fromPalette(palette.resolve(brightness)),
-      home: MediaQuery(
-        data: MediaQueryData(disableAnimations: reducedMotion),
-        child: Center(
-          child: RepaintBoundary(
-            key: const ValueKey('gradient-capture'),
-            child: SizedBox.square(
-              dimension: 256,
-              child: ForumWindowBackground(
+      home: TickerMode(
+        enabled: tickersEnabled,
+        child: MediaQuery(
+          data: MediaQueryData(disableAnimations: reducedMotion),
+          child: Center(
+            child: RepaintBoundary(
+              key: const ValueKey('gradient-capture'),
+              child: SizedBox.square(
+                dimension: 256,
                 child: ForumWindowBackground(
-                  child: DPageSurface(
-                    framed: true,
-                    backgroundColor: Colors.transparent,
-                    child: content ?? const SizedBox.expand(),
+                  child: ForumWindowBackground(
+                    child: DPageSurface(
+                      framed: true,
+                      backgroundColor: Colors.transparent,
+                      child: content ?? const SizedBox.expand(),
+                    ),
                   ),
                 ),
               ),

@@ -271,30 +271,38 @@ void main() {
           Color? panel;
           Color? footer;
           Color? nested;
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: AppTheme.fromPalette(custom.resolve(brightness)),
-              home: ForumWindowBackground(
-                child: Builder(
-                  builder: (context) {
-                    panel = ForumWindowBackground.panelColor(context);
-                    footer = ForumWindowBackground.footerColor(
-                      context,
-                      Colors.blue,
-                    );
-                    return ForumWindowBackground(
-                      child: Builder(
-                        builder: (context) {
-                          nested = ForumWindowBackground.panelColor(context);
-                          return const SizedBox.expand();
-                        },
-                      ),
-                    );
-                  },
+          await tester.runAsync(
+            () => tester.pumpWidget(
+              MaterialApp(
+                theme: AppTheme.fromPalette(custom.resolve(brightness)),
+                home: MediaQuery(
+                  data: const MediaQueryData(disableAnimations: true),
+                  child: ForumWindowBackground(
+                    child: Builder(
+                      builder: (context) {
+                        panel = ForumWindowBackground.panelColor(context);
+                        footer = ForumWindowBackground.footerColor(
+                          context,
+                          Colors.blue,
+                        );
+                        return ForumWindowBackground(
+                          child: Builder(
+                            builder: (context) {
+                              nested = ForumWindowBackground.panelColor(
+                                context,
+                              );
+                              return const SizedBox.expand();
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
           );
+          await _waitForTexture(tester);
           await tester.pumpAndSettle();
           expect(panel!.a, closeTo(panelOpacity, .001));
           expect(footer!.a, 1);
@@ -384,6 +392,7 @@ void main() {
       bool reduced = false,
       bool tickers = true,
       double intensity = .7,
+      bool loadOutsideFakeTime = false,
     }) async {
       final theme = forumThemePresets.first
           .forBrightness(Brightness.dark)
@@ -393,30 +402,56 @@ void main() {
               noiseIntensity: intensity,
             ),
           );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.fromPalette(theme.resolve(Brightness.dark)),
-          home: MediaQuery(
-            data: MediaQueryData(disableAnimations: reduced),
-            child: TickerMode(
-              enabled: tickers,
-              child: const ForumWindowBackground(
-                child: ForumWindowBackground(child: SizedBox.expand()),
-              ),
+      final host = MaterialApp(
+        theme: AppTheme.fromPalette(theme.resolve(Brightness.dark)),
+        home: MediaQuery(
+          data: MediaQueryData(disableAnimations: reduced),
+          child: TickerMode(
+            enabled: tickers,
+            child: const ForumWindowBackground(
+              child: ForumWindowBackground(child: SizedBox.expand()),
             ),
           ),
         ),
       );
+      if (loadOutsideFakeTime) {
+        await tester.runAsync(() => tester.pumpWidget(host));
+      } else {
+        await tester.pumpWidget(host);
+      }
       await tester.pump(const Duration(seconds: 1));
     }
 
+    Future<void> expectMovingCadence() async {
+      final painter = tester
+          .widget<CustomPaint>(
+            find.byKey(const ValueKey('forum-reference-texture')),
+          )
+          .painter!;
+      var repaints = 0;
+      void countRepaint() => repaints++;
+      painter.addListener(countRepaint);
+      for (var frame = 0; frame < 60; frame++) {
+        await tester.pump(const Duration(microseconds: 16667));
+      }
+      painter.removeListener(countRepaint);
+      expect(repaints, inInclusiveRange(29, 31));
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    }
+
+    await show(
+      ForumBackgroundEffect.lava,
+      reduced: true,
+      loadOutsideFakeTime: true,
+    );
+    await _waitForTexture(tester);
     await show(ForumBackgroundEffect.lava);
     expect(
       find.byType(ForumTexture),
       findsOneWidget,
       reason: 'Nested mobile shells must share one texture.',
     );
-    expect(tester.binding.hasScheduledFrame, isTrue);
+    await expectMovingCadence();
     await show(ForumBackgroundEffect.lava, reduced: true);
     await tester.pumpAndSettle();
     expect(tester.binding.hasScheduledFrame, isFalse);
@@ -424,7 +459,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.binding.hasScheduledFrame, isFalse);
     await show(ForumBackgroundEffect.lava);
-    expect(tester.binding.hasScheduledFrame, isTrue);
+    await expectMovingCadence();
     await show(ForumBackgroundEffect.paper);
     await tester.pumpAndSettle();
     await show(ForumBackgroundEffect.normal);
@@ -433,4 +468,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+}
+
+Future<void> _waitForTexture(WidgetTester tester) async {
+  final texture = find.byKey(const ValueKey('forum-reference-texture'));
+  for (var attempt = 0; attempt < 30 && texture.evaluate().isEmpty; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+  }
+  expect(texture, findsOneWidget);
 }
