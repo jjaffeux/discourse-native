@@ -132,7 +132,10 @@ Future<void> _pump(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         builder: nativeUiEvidenceBuilder,
-        theme: AppTheme.light.copyWith(platform: platform),
+        theme: AppTheme.forBrightness(
+          Brightness.light,
+          fontFamily: 'Roboto',
+        ).copyWith(platform: platform),
         home: Scaffold(
           body: MainContent(
             layout: touch ? ShellLayout.compact : ShellLayout.expanded,
