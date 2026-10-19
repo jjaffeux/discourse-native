@@ -83,7 +83,6 @@ class _MainContentState extends State<MainContent> {
   String? _refresherTabId;
   ShellController? _refresherController;
   (String?, String?, String)? _groupWordsIdentity;
-  (Object?, String?, String?, String)? _userWordsIdentity;
 
   void _bindRefresher(ShellController shell, String? tabId) {
     if (identical(shell, _refresherController) && tabId == _refresherTabId) {
@@ -111,6 +110,7 @@ class _MainContentState extends State<MainContent> {
         _bindRefresher(shell, state.activeTabId);
         final port = ShellGroupPagesPort(shell, tabId: state.activeTabId);
         final route = state.route;
+        final document = shell.tabContext(state.activeTabId);
         _groupPages.bind(
           port,
           GroupPagesRouteSnapshot(
@@ -136,32 +136,6 @@ class _MainContentState extends State<MainContent> {
                     state.activeTabId,
                     route.id,
                   );
-            if (route?.isUsers == true && state.siteUrl != null) {
-              final identity = (
-                state.groupSessionIdentity,
-                state.siteUrl,
-                state.activeTabId,
-                words,
-              );
-              if (_userWordsIdentity != identity) {
-                _userWordsIdentity = identity;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted || _userWordsIdentity != identity) return;
-                  final site = state.siteUrl!;
-                  if (shell.userDirectory.replaceQuery(
-                    site,
-                    shell.userDirectory.queryFor(site).copyWith(search: words),
-                  )) {
-                    final instance = shell.instanceFor(site);
-                    if (instance != null) {
-                      unawaited(
-                        shell.userDirectory.load(instance, refresh: true),
-                      );
-                    }
-                  }
-                });
-              }
-            }
             if (_groupPages.page.isOwned &&
                 route?.groupRoute?.isDirectory == true &&
                 _groupWordsIdentity !=
@@ -199,6 +173,13 @@ class _MainContentState extends State<MainContent> {
                           variant: DButtonVariant.ghost,
                           size: DButtonSize.small,
                           onPressed: () {
+                            if (route?.isUsers == true) {
+                              if (document.isCurrent &&
+                                  identical(document.currentContent, route)) {
+                                document.setUsersSearch('');
+                              }
+                              return;
+                            }
                             shell.search.setPageWords(
                               state.siteUrl!,
                               state.activeTabId,
@@ -206,25 +187,6 @@ class _MainContentState extends State<MainContent> {
                               '',
                             );
                             if (route.isTopicList) shell.clearSearchWords();
-                            if (route.isUsers) {
-                              shell.userDirectory.replaceQuery(
-                                state.siteUrl!,
-                                shell.userDirectory
-                                    .queryFor(state.siteUrl!)
-                                    .copyWith(search: ''),
-                              );
-                              final instance = shell.instanceFor(
-                                state.siteUrl!,
-                              );
-                              if (instance != null) {
-                                unawaited(
-                                  shell.userDirectory.load(
-                                    instance,
-                                    refresh: true,
-                                  ),
-                                );
-                              }
-                            }
                           },
                         ),
                       ),

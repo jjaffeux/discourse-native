@@ -683,16 +683,7 @@ class _ForumSearchState extends State<ForumSearch> {
     shell.pushContent(route);
     shell.search.setPageWords(site, shell.activeTabId, route.id, words);
     if (route.isMessages) unawaited(shell.loadFeed(route.id));
-    if (route.isUsers) {
-      shell.userDirectory.replaceQuery(
-        site,
-        shell.userDirectory.queryFor(site).copyWith(search: words),
-      );
-      final instance = shell.instanceFor(site);
-      if (instance != null) {
-        unawaited(shell.userDirectory.load(instance, refresh: true));
-      }
-    }
+    if (route.isUsers) unawaited(shell.focusedTabContext.loadUsers());
     _global.setQuery('');
     _global.clearAllConditions();
   }

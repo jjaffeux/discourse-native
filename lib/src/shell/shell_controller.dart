@@ -99,6 +99,7 @@ import '../models/topic_filter.dart';
 import '../models/topic_link.dart';
 import '../models/user_activity.dart';
 import '../models/user_card.dart';
+import '../models/user_directory.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_status.dart';
@@ -1924,7 +1925,7 @@ class ShellController extends FrameSafeNotifier
           case CorePage.tags:
             await loadTags(instance.url, force: true);
           case CorePage.users:
-            await userDirectory.load(instance, refresh: true);
+            await context.loadUsers(refresh: true);
           case CorePage.drafts:
             await draftList.load(instance, refresh: true);
           case CorePage.summary:
@@ -6873,7 +6874,7 @@ class ShellController extends FrameSafeNotifier
     }
     pushContent(route);
     if (route.isUsers) {
-      unawaited(userDirectory.load(_instances[index]));
+      unawaited(focusedTabContext.loadUsers());
     } else if (route.isPage(CorePage.categories)) {
       unawaited(loadCategories(destination.siteUrl));
     } else if (route.isPage(CorePage.tags)) {
@@ -14163,7 +14164,7 @@ class ShellController extends FrameSafeNotifier
         case PageDestination(page: CorePage.categories):
           unawaited(loadCategories(instance.url));
         case PageDestination(page: CorePage.users):
-          unawaited(userDirectory.load(instance));
+          unawaited(context.loadUsers());
         case FeedDestination() ||
             MessagesDestination() ||
             GroupDestination() ||
@@ -14202,7 +14203,7 @@ class ShellController extends FrameSafeNotifier
         switch (page) {
           case CorePage.users:
             if (!route.sameDestinationAs(root)) {
-              unawaited(userDirectory.load(instance));
+              unawaited(context.loadUsers());
             }
           case CorePage.start ||
               CorePage.categories ||
@@ -14348,7 +14349,7 @@ class ShellController extends FrameSafeNotifier
     } else if (destination.id == 'user-bookmarks') {
       unawaited(accountActivity.loadBookmarkList(instance, refresh: true));
     } else if (destination.id == 'users') {
-      unawaited(userDirectory.load(instance, refresh: refresh));
+      unawaited(tabContext(updated.id).loadUsers(refresh: refresh));
     } else if (destination.id == 'all-tags') {
       if (refresh) unawaited(loadTags(instance.url, force: true));
     } else if (!content.isNewTab &&

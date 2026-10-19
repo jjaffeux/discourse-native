@@ -29,6 +29,41 @@ final class ShellTabContext {
 
   ContentRoute? get currentContent => activeTab?.currentContent;
 
+  UserDirectoryQuery get usersQuery => siteUrl == null || !isCurrent
+      ? const UserDirectoryQuery()
+      : shell.search.usersQueryFor(siteUrl!, tabId);
+
+  void setUsersSearch(String search) =>
+      _replaceUsersQuery(usersQuery.copyWith(search: search));
+
+  void setUsersPeriod(UserDirectoryPeriod period) =>
+      _replaceUsersQuery(usersQuery.copyWith(period: period));
+
+  void setUsersGroup(String? group) =>
+      _replaceUsersQuery(usersQuery.copyWith(group: group));
+
+  void setUsersOrder(String order, bool ascending) => _replaceUsersQuery(
+    usersQuery.copyWith(order: order, ascending: ascending),
+  );
+
+  void _replaceUsersQuery(UserDirectoryQuery query) {
+    if (!isCurrent || currentContent?.isUsers != true) return;
+    if (shell.search.replaceUsersQuery(siteUrl!, tabId, query)) {
+      unawaited(loadUsers());
+    }
+  }
+
+  Future<void> loadUsers({bool refresh = false, bool more = false}) async {
+    final instance = _instance;
+    if (instance == null || !contentStack.any((route) => route.isUsers)) return;
+    await shell.userDirectory.load(
+      instance,
+      query: usersQuery,
+      refresh: refresh,
+      more: more,
+    );
+  }
+
   List<ContentRoute> get contentStack => activeTab?.contentStack ?? const [];
 
   ForumTab? get topicListTab => activeTab;

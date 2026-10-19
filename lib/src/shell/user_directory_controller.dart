@@ -11,53 +11,6 @@ import '../models/discourse_instance.dart';
 import '../models/user_directory.dart';
 
 @immutable
-final class UserDirectoryQuery {
-  const UserDirectoryQuery({
-    this.period = UserDirectoryPeriod.weekly,
-    this.search = '',
-    this.group,
-    this.order = 'likes_received',
-    this.ascending = false,
-  });
-
-  final UserDirectoryPeriod period;
-  final String search;
-  final String? group;
-  final String order;
-  final bool ascending;
-
-  UserDirectoryQuery copyWith({
-    UserDirectoryPeriod? period,
-    String? search,
-    Object? group = _absent,
-    String? order,
-    bool? ascending,
-  }) => UserDirectoryQuery(
-    period: period ?? this.period,
-    search: search ?? this.search,
-    group: identical(group, _absent) ? this.group : group as String?,
-    order: order ?? this.order,
-    ascending: ascending ?? this.ascending,
-  );
-
-  UserDirectoryQuery withoutGroup() => copyWith(group: null);
-
-  @override
-  bool operator ==(Object other) =>
-      other is UserDirectoryQuery &&
-      other.period == period &&
-      other.search == search &&
-      other.group == group &&
-      other.order == order &&
-      other.ascending == ascending;
-
-  @override
-  int get hashCode => Object.hash(period, search, group, order, ascending);
-}
-
-const Object _absent = Object();
-
-@immutable
 final class UserDirectoryState {
   factory UserDirectoryState({
     List<UserDirectoryItem> items = const [],
@@ -142,19 +95,14 @@ final class UserDirectoryController extends FrameSafeNotifier {
   final SiteLifecycle lifecycle;
 
   final Map<_DirectoryKey, UserDirectoryState> _states = {};
-  final Map<String, UserDirectoryQuery> _queries = {};
   final Map<String, UserDirectoryMetadata> _metadata = {};
   final Map<String, Future<UserDirectoryMetadata>> _metadataLoads = {};
   final Map<_DirectoryKey, Object> _requests = {};
   final Map<_DirectoryKey, SiteLease> _leases = {};
   final Map<String, Object> _columnUpdates = {};
 
-  UserDirectoryQuery queryFor(String siteUrl) =>
-      _queries[siteUrl] ?? const UserDirectoryQuery();
-
-  UserDirectoryState stateFor(String siteUrl, [UserDirectoryQuery? query]) {
-    final resolved = query ?? queryFor(siteUrl);
-    final held = _states[(siteUrl: siteUrl, query: resolved)];
+  UserDirectoryState stateFor(String siteUrl, UserDirectoryQuery query) {
+    final held = _states[(siteUrl: siteUrl, query: query)];
     if (held != null) return held;
     final metadata = _metadata[siteUrl];
     return metadata == null
@@ -169,20 +117,6 @@ final class UserDirectoryController extends FrameSafeNotifier {
 
   bool updatingColumnsFor(String siteUrl) =>
       _columnUpdates.containsKey(siteUrl);
-
-  bool replaceQuery(String siteUrl, UserDirectoryQuery query) {
-    if (isDisposed) return false;
-    final normalized = query.copyWith(
-      search: query.search.trim(),
-      group: query.group?.trim().isEmpty == true ? null : query.group?.trim(),
-      order: query.order.trim(),
-    );
-    if (queryFor(siteUrl) == normalized) return false;
-    _queries[siteUrl] = normalized;
-    _touchQuery((siteUrl: siteUrl, query: normalized));
-    notifySafely();
-    return true;
-  }
 
   void _touchQuery(_DirectoryKey key) {
     final held = _states.remove(key);
@@ -205,11 +139,11 @@ final class UserDirectoryController extends FrameSafeNotifier {
 
   Future<void> load(
     DiscourseInstance instance, {
+    required UserDirectoryQuery query,
     bool refresh = false,
     bool more = false,
   }) async {
     if (isDisposed) return;
-    final query = queryFor(instance.url);
     final key = (siteUrl: instance.url, query: query);
     final held = stateFor(instance.url, query);
     _touchQuery(key);
@@ -328,8 +262,9 @@ final class UserDirectoryController extends FrameSafeNotifier {
 
   Future<bool> updateColumns(
     DiscourseInstance instance,
-    List<UserDirectoryColumn> columns,
-  ) async {
+    List<UserDirectoryColumn> columns, {
+    required UserDirectoryQuery query,
+  }) async {
     if (isDisposed ||
         instance.user?.staff != true ||
         _columnUpdates.containsKey(instance.url)) {
@@ -365,16 +300,11 @@ final class UserDirectoryController extends FrameSafeNotifier {
 
       _metadata.remove(instance.url);
       _metadataLoads.remove(instance.url)?.ignore();
-      // Every query was decoded against the previous column configuration.
-      // Retain only the visible rows while refreshing them, so returning to
-      // another filter cannot revive its old columns or plugin field values.
-      final currentQuery = queryFor(instance.url);
-      _states.removeWhere(
-        (key, _) => key.siteUrl == instance.url && key.query != currentQuery,
-      );
+      _states.removeWhere((key, _) => key.siteUrl == instance.url);
       _requests.removeWhere((key, _) => key.siteUrl == instance.url);
       _leases.removeWhere((key, _) => key.siteUrl == instance.url);
-      await load(instance, refresh: true);
+      notifySafely();
+      await load(instance, query: query, refresh: true);
       return isCurrent();
     } catch (error, stackTrace) {
       if (isCurrent()) {
@@ -451,7 +381,6 @@ final class UserDirectoryController extends FrameSafeNotifier {
 
   void forget(String siteUrl) {
     _states.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _queries.remove(siteUrl);
     _metadata.remove(siteUrl);
     _metadataLoads.remove(siteUrl)?.ignore();
     _requests.removeWhere((key, _) => key.siteUrl == siteUrl);
@@ -463,7 +392,6 @@ final class UserDirectoryController extends FrameSafeNotifier {
   @override
   void dispose() {
     _states.clear();
-    _queries.clear();
     _metadata.clear();
     _metadataLoads.clear();
     _requests.clear();

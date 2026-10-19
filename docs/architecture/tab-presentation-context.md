@@ -45,3 +45,13 @@ Keyboard fallback and entry focus intentionally inspect the focused shell tab.
 Display ownership alone must never cause a background reader to request focus.
 The panel, scope, rebuild-isolation, list-restoration and reader lifecycle tests
 cover these boundaries, including delayed commands and retained editor identity.
+
+Users directory selection belongs to the displayed tab. `ShellTabContext` reads
+its complete `UserDirectoryQuery` from `ShellSearchController` and applies field
+changes to the latest value. Users page words adapt that same query, so search
+chrome and directory controls share one selection. Queries remain in session
+memory and follow the existing retention of live and reopenable tabs. Workspace
+serialization is unchanged. `UserDirectoryController` owns shared site metadata
+and the bounded `(site, query)` result cache. Its state and load methods require
+an explicit query. A current tab can reuse those results without choosing a
+query for any other tab. Host callbacks also capture their route and controller.

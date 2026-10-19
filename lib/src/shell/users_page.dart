@@ -19,7 +19,6 @@ import 'directory_skeleton.dart';
 import 'search_words.dart';
 import 'shell_scope.dart';
 import 'user_card.dart';
-import 'user_directory_controller.dart';
 
 const String _identityColumnWidthKey = 'identity';
 
@@ -67,60 +66,49 @@ class UsersDirectoryHost extends StatefulWidget {
 }
 
 class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
-  bool _loadScheduled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scheduleLoad();
-  }
-
-  @override
-  void didUpdateWidget(UsersDirectoryHost oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _scheduleLoad();
-  }
-
-  void _scheduleLoad() {
-    if (_loadScheduled) return;
-    _loadScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadScheduled = false;
-      if (!mounted) return;
-      final shell = ShellScope.read(context);
-      final instance = shell.instanceFor(widget.siteUrl);
-      if (instance != null) unawaited(shell.userDirectory.load(instance));
-    });
-  }
+  Object? _owner;
+  Object? _scheduledLoad;
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.read(context);
+    final shell = ShellScope.of(context);
+    final tab = ForumTabScope.tabOf(context);
+    final route = tab.currentContent;
+    final owner = (shell, tab.siteUrl, tab.tabId, tab.lease?.session, route);
+    _owner = owner;
+    bool owns() =>
+        mounted &&
+        _owner == owner &&
+        identical(ShellScope.read(context), shell) &&
+        tab.isCurrent &&
+        tab.siteUrl == widget.siteUrl &&
+        identical(tab.currentContent, route) &&
+        route?.isUsers == true;
     return ListenableBuilder(
-      listenable: shell.userDirectory,
+      listenable: Listenable.merge([shell.search, shell.userDirectory]),
       builder: (context, _) {
         final instance = shell.instanceFor(widget.siteUrl);
-        final query = shell.userDirectory.queryFor(widget.siteUrl);
+        final query = tab.usersQuery;
         final state = shell.userDirectory.stateFor(widget.siteUrl, query);
-
-        Future<void> reload({bool refresh = true, bool more = false}) async {
-          if (instance == null) return;
-          await shell.userDirectory.load(
-            instance,
-            refresh: refresh,
-            more: more,
-          );
-        }
-
-        void replaceQuery(UserDirectoryQuery next) {
-          if (instance == null ||
-              !shell.userDirectory.replaceQuery(widget.siteUrl, next)) {
-            return;
+        if (owns() && !state.loaded && !state.loading) {
+          final load = (owner, query);
+          if (_scheduledLoad != load) {
+            _scheduledLoad = load;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scheduledLoad != load) return;
+              _scheduledLoad = null;
+              if (owns() && tab.usersQuery == query) {
+                unawaited(tab.loadUsers());
+              }
+            });
           }
-          unawaited(shell.userDirectory.load(instance, refresh: true));
+        }
+        Future<void> reload({bool refresh = true, bool more = false}) async {
+          if (owns()) await tab.loadUsers(refresh: refresh, more: more);
         }
 
         return UsersPage(
+          key: ValueKey(owner),
           siteUrl: widget.siteUrl,
           data: UsersPageData(
             items: state.items,
@@ -136,22 +124,18 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
             error: state.error,
             pageError: state.pageError,
           ),
-          onPeriodChanged: (period) =>
-              replaceQuery(query.copyWith(period: period)),
-          onSearchChanged: (search) {
-            shell.search.setPageWords(
-              widget.siteUrl,
-              shell.activeTabId,
-              'users',
-              search,
-            );
-            replaceQuery(query.copyWith(search: search));
+          onPeriodChanged: (period) {
+            if (owns()) tab.setUsersPeriod(period);
           },
-          onGroupChanged: (group) => replaceQuery(
-            group == null ? query.withoutGroup() : query.copyWith(group: group),
-          ),
-          onSortChanged: (order, ascending) =>
-              replaceQuery(query.copyWith(order: order, ascending: ascending)),
+          onSearchChanged: (search) {
+            if (owns()) tab.setUsersSearch(search);
+          },
+          onGroupChanged: (group) {
+            if (owns()) tab.setUsersGroup(group);
+          },
+          onSortChanged: (order, ascending) {
+            if (owns()) tab.setUsersOrder(order, ascending);
+          },
           onRefresh: reload,
           onLoadMore: () => unawaited(reload(refresh: false, more: true)),
         );

@@ -6,7 +6,6 @@ import 'package:discourse_native/src/data/user_directory_column_width_store.dart
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
-import 'package:discourse_native/src/shell/user_directory_controller.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';

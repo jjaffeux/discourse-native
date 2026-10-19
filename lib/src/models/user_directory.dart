@@ -4,6 +4,57 @@ import 'package:flutter/foundation.dart';
 import 'discourse_instance.dart';
 import 'json.dart';
 
+@immutable
+final class UserDirectoryQuery {
+  const UserDirectoryQuery({
+    this.period = UserDirectoryPeriod.weekly,
+    this.search = '',
+    this.group,
+    this.order = 'likes_received',
+    this.ascending = false,
+  });
+
+  final UserDirectoryPeriod period;
+  final String search;
+  final String? group;
+  final String order;
+  final bool ascending;
+
+  UserDirectoryQuery copyWith({
+    UserDirectoryPeriod? period,
+    String? search,
+    Object? group = _absent,
+    String? order,
+    bool? ascending,
+  }) => UserDirectoryQuery(
+    period: period ?? this.period,
+    search: search ?? this.search,
+    group: identical(group, _absent) ? this.group : group as String?,
+    order: order ?? this.order,
+    ascending: ascending ?? this.ascending,
+  );
+
+  UserDirectoryQuery normalized() => copyWith(
+    search: search.trim(),
+    group: group?.trim().isEmpty == true ? null : group?.trim(),
+    order: order.trim(),
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      other is UserDirectoryQuery &&
+      other.period == period &&
+      other.search == search &&
+      other.group == group &&
+      other.order == order &&
+      other.ascending == ascending;
+
+  @override
+  int get hashCode => Object.hash(period, search, group, order, ascending);
+}
+
+const Object _absent = Object();
+
 enum UserDirectoryPeriod {
   all('all'),
   yearly('yearly'),

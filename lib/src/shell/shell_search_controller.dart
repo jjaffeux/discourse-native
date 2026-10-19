@@ -7,13 +7,12 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../diagnostics/diagnostics_controller.dart';
+import '../models/user_directory.dart';
 
 enum SearchFocusMode { global, contextual }
 
 typedef _RecentSearchRequest = ({String siteUrl, int revision});
 
-/// Owns which search field holds the open search surface and the account's
-/// server-side recent searches. Queries run in `GlobalSearchController`.
 class ShellSearchController extends ChangeNotifier {
   ShellSearchController({
     required this.api,
@@ -40,9 +39,31 @@ class ShellSearchController extends ChangeNotifier {
   final Map<({String siteUrl, String tabId, String routeId}), String>
   _pageWords = {};
 
+  final Map<({String siteUrl, String tabId}), UserDirectoryQuery>
+  _usersQueries = {};
+
+  UserDirectoryQuery usersQueryFor(String siteUrl, String? tabId) =>
+      _usersQueries[(siteUrl: siteUrl, tabId: tabId ?? '')] ??
+      const UserDirectoryQuery();
+
+  bool replaceUsersQuery(
+    String siteUrl,
+    String? tabId,
+    UserDirectoryQuery query,
+  ) {
+    if (_disposed) return false;
+    final normalized = query.normalized();
+    if (usersQueryFor(siteUrl, tabId) == normalized) return false;
+    _usersQueries[(siteUrl: siteUrl, tabId: tabId ?? '')] = normalized;
+    _notify();
+    return true;
+  }
+
   String wordsFor(String siteUrl, String? tabId, String routeId) =>
-      _pageWords[(siteUrl: siteUrl, tabId: tabId ?? '', routeId: routeId)] ??
-      '';
+      routeId == 'users'
+      ? usersQueryFor(siteUrl, tabId).search
+      : _pageWords[(siteUrl: siteUrl, tabId: tabId ?? '', routeId: routeId)] ??
+            '';
 
   void setPageWords(
     String siteUrl,
@@ -50,6 +71,14 @@ class ShellSearchController extends ChangeNotifier {
     String routeId,
     String query,
   ) {
+    if (routeId == 'users') {
+      replaceUsersQuery(
+        siteUrl,
+        tabId,
+        usersQueryFor(siteUrl, tabId).copyWith(search: query),
+      );
+      return;
+    }
     final key = (siteUrl: siteUrl, tabId: tabId ?? '', routeId: routeId);
     if (query.isEmpty) {
       _pageWords.remove(key);
@@ -84,6 +113,7 @@ class ShellSearchController extends ChangeNotifier {
           !retainedTabs.contains((siteUrl: key.siteUrl, tabId: key.tabId)),
     );
     _startPageQueries.removeWhere((key, _) => !retainedTabs.contains(key));
+    _usersQueries.removeWhere((key, _) => !retainedTabs.contains(key));
   }
 
   bool ownsPanel(Object field) => identical(_activeField, field);
@@ -121,6 +151,7 @@ class ShellSearchController extends ChangeNotifier {
 
   void forget(String siteUrl) {
     _pageWords.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _usersQueries.removeWhere((key, _) => key.siteUrl == siteUrl);
     _startPageQueries.removeWhere((key, _) => key.siteUrl == siteUrl);
     if (_siteUrl != siteUrl) return;
     _forgetRecentSearches();
@@ -242,6 +273,7 @@ class ShellSearchController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _usersQueries.clear();
     _forgetRecentSearches();
     _focusField = null;
     _focusRegistration = null;

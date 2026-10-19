@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/shell_search_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,6 +67,52 @@ void main() {
         'community',
       );
       expect(search.panelOpen, isFalse);
+    },
+  );
+
+  test(
+    'Users selection is one tab query with page-word adapters and retention',
+    () {
+      final search = ShellSearchController(
+        api: _SearchApi(),
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(search.dispose);
+      const query = UserDirectoryQuery(
+        period: UserDirectoryPeriod.monthly,
+        search: ' sam ',
+        group: ' design ',
+        order: ' username ',
+        ascending: true,
+      );
+      expect(search.replaceUsersQuery(site, 'main', query), isTrue);
+      expect(search.replaceUsersQuery(site, 'main', query), isFalse);
+      expect(search.wordsFor(site, 'main', 'users'), 'sam');
+      search.setPageWords(site, 'main', 'users', 'hawk');
+      expect(
+        search.usersQueryFor(site, 'main'),
+        query.normalized().copyWith(search: 'hawk'),
+      );
+      search.setPageWords(site, 'secondary', 'users', 'reader');
+      search.setPageWords('https://other.example', 'main', 'users', 'other');
+      search.retainTabs({(siteUrl: site, tabId: 'main')});
+      expect(search.usersQueryFor(site, 'main').search, 'hawk');
+      expect(
+        search.usersQueryFor(site, 'secondary'),
+        const UserDirectoryQuery(),
+      );
+      expect(
+        search.usersQueryFor('https://other.example', 'main'),
+        const UserDirectoryQuery(),
+      );
+      search.setPageWords(site, 'main', 'users', '');
+      expect(
+        search.usersQueryFor(site, 'main'),
+        query.normalized().copyWith(search: ''),
+      );
+      search.forget(site);
+      expect(search.usersQueryFor(site, 'main'), const UserDirectoryQuery());
     },
   );
 

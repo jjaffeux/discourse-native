@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/list_link.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/global_search_filters.dart';
 import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -86,6 +87,53 @@ void main() {
       },
     );
   }
+
+  test(
+    'Users tab restores its route with a fresh query after restart',
+    () async {
+      final persistence = MemoryForumTabPersistence();
+      final tabs = ForumTabStore(persistence: persistence);
+      ShellController create(ForumTabStore store) => ShellController(
+        instanceStore: FakeInstanceStore(forums),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        forumTabs: store,
+        trackers: FakeSiteTracker.reset(),
+      );
+      final first = create(tabs);
+      addTearDown(first.dispose);
+      await first.load();
+      first.pushContent(
+        const ContentRoute(
+          destination: PageDestination(CorePage.users),
+          title: 'Users',
+          icon: DIcons.users,
+        ),
+      );
+      first.search.replaceUsersQuery(
+        forums.first.url,
+        first.activeTabId,
+        const UserDirectoryQuery(
+          search: 'sam',
+          period: UserDirectoryPeriod.monthly,
+          group: 'design',
+          order: 'username',
+          ascending: true,
+        ),
+      );
+      final id = first.activeTabId;
+      await tabs.save([
+        first.currentWorkspace!,
+      ], selectedSiteUrl: forums.first.url);
+      final restored = create(ForumTabStore(persistence: persistence));
+      addTearDown(restored.dispose);
+      await restored.load();
+      expect(restored.activeTabId, id);
+      expect(restored.currentContent!.isUsers, isTrue);
+      expect(restored.focusedTabContext.usersQuery, const UserDirectoryQuery());
+    },
+  );
 
   group('ShellController tabs', () {
     setUp(() async {
@@ -1155,6 +1203,14 @@ void main() {
         controller.search.setPageWords(site, id, 'topic-101', 'first words');
         controller.search.setPageWords(site, id, 'topic-202', 'second words');
         controller.search.setStartPageQuery(site, id, 'start query');
+        const users = UserDirectoryQuery(
+          search: 'sam',
+          period: UserDirectoryPeriod.monthly,
+          group: 'design',
+          order: 'username',
+          ascending: true,
+        );
+        controller.search.replaceUsersQuery(site, id, users);
 
         controller.closeTab(id);
         expect(
@@ -1172,6 +1228,7 @@ void main() {
           'second words',
         );
         expect(controller.search.startPageQueryFor(site, id), 'start query');
+        expect(controller.search.usersQueryFor(site, id), users);
       });
 
       test('discarded Start tabs retire their search state', () {
