@@ -15,6 +15,7 @@ import '../models/group_route.dart';
 import '../models/search_results.dart';
 import '../theme/d_icons.dart';
 import 'content_navigation_controls.dart';
+import 'content_page_contract.dart';
 import 'global_search_controller.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
@@ -312,26 +313,17 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!_surfaceOpen || mode != null) {
       _openingExpression = _listExpression;
       final route = _document?.currentContent;
-      final preferred = route?.isMessages == true
-          ? GlobalSearchScope.messages
-          : route?.isTopic == true || route?.isTopicList == true
-          ? GlobalSearchScope.forum
-          : route?.isUsers == true
-          ? GlobalSearchScope.users
-          : route?.isGroups == true
-          ? GlobalSearchScope.groups
-          : route?.isPage(CorePage.categories) == true
-          ? GlobalSearchScope.categories
-          : route?.isPage(CorePage.tags) == true
-          ? GlobalSearchScope.tags
-          : _global.scopes
-                .where(
-                  (scope) =>
-                      route?.destination is ExtensionDestination &&
-                      !scope.isCore &&
-                      route?.id.startsWith(scope.owner) == true,
-                )
-                .firstOrNull;
+      final preferred = route == null
+          ? null
+          : ContentPageContract.resolve(route).searchScope ??
+                _global.scopes
+                    .where(
+                      (scope) =>
+                          route.destination is ExtensionDestination &&
+                          !scope.isCore &&
+                          route.id.startsWith(scope.owner),
+                    )
+                    .firstOrNull;
       _global.setPageContext(
         preferredScope: preferred,
         topicId: route?.topicId,

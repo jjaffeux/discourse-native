@@ -21,6 +21,42 @@ import 'support/fakes.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.linux]) {
+    for (final ownsChrome in [false, true]) {
+      testWidgets('plugin chrome owner $ownsChrome at $platform page size', (
+        tester,
+      ) async {
+        final shell = await _shellWith(
+          ownsChrome ? const _ChromeOwnerPlugin() : const _StandardPlugin(),
+        );
+        shell.pushContent(
+          ContentRoute(
+            destination: ExtensionDestination(
+              ownsChrome ? 'test-owned' : 'test-standard',
+            ),
+            title: 'Extension page',
+            icon: DIcons.comment,
+          ),
+        );
+        await _pump(tester, shell, platform: platform);
+        expect(
+          find.text('Extension page'),
+          ownsChrome ? findsNothing : findsOneWidget,
+        );
+        expect(
+          find.byKey(ValueKey(ownsChrome ? 'owned-body' : 'standard-body')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('content-header')),
+          ownsChrome ? findsNothing : findsOneWidget,
+        );
+        if (ownsChrome) expect(find.text('Plugin chrome'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(platform));
+    }
+  }
+
   testWidgets(
     'typed feeds keep their tab metadata despite a plugin key match',
     (tester) async {
@@ -267,18 +303,25 @@ final Finder _header = find.byKey(const ValueKey('content-header'));
 RenderParagraph _paragraph(WidgetTester tester, String text) =>
     tester.renderObject<RenderParagraph>(find.text(text));
 
-Future<void> _pump(WidgetTester tester, ShellController shell) async {
-  tester.view.physicalSize = const Size(1200, 800);
+Future<void> _pump(
+  WidgetTester tester,
+  ShellController shell, {
+  TargetPlatform? platform,
+}) async {
+  final phone = platform == TargetPlatform.iOS;
+  tester.view.physicalSize = phone
+      ? const Size(390, 844)
+      : const Size(1200, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ShellScope(
       controller: shell,
       child: MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.light.copyWith(platform: platform),
         home: Scaffold(
           body: MainContent(
-            layout: ShellLayout.expanded,
+            layout: phone ? ShellLayout.compact : ShellLayout.expanded,
             registry: shell.plugins.registry,
           ),
         ),

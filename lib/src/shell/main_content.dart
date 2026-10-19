@@ -22,6 +22,7 @@ import 'bookmark_list.dart';
 import 'categories_page.dart';
 import 'category_icon.dart';
 import 'category_notifications.dart';
+import 'content_page_contract.dart';
 import 'content_reading_lane.dart';
 import 'desktop_topic_page.dart';
 import 'draft_list.dart';
@@ -156,7 +157,8 @@ class _MainContentState extends State<MainContent> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (words.isNotEmpty &&
-                      route?.isPage(CorePage.categories) != true)
+                      (route == null ||
+                          ContentPageContract.resolve(route).showSearchWords))
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: Padding(
@@ -310,28 +312,19 @@ class _MainContentBody extends StatelessWidget {
         ),
       );
     }
-    final pageOwnsTitle =
-        state.siteUrl != null &&
-        (pluginContent != null
-            ? registry.ownsContentPageTitle(context, route)
-            : route.isForumAbout ||
-                  route.isPage(CorePage.categories) ||
-                  route.isPage(CorePage.tags) ||
-                  route.isAppearance ||
-                  route.isGroups ||
-                  route.isUsers ||
-                  route.isPage(CorePage.drafts) ||
-                  (route.isBadges && (route.badgeRoute?.isDirectory ?? true)) ||
-                  (route.isPage(CorePage.bookmarks) && state.isConnected));
-    final hideDirectoryHeader =
-        ((route.isAppearance ||
-                route.isUsers ||
-                route.isPage(CorePage.summary)) &&
-            !context.isTouch) ||
-        (pageOwnsTitle &&
-            !state.canPop &&
-            (ShellScope.read(context).mobileNavigationEnabled ||
-                (ShellTitleBar.isSupported && !layout.isCompact)));
+    final pageContract = ContentPageContract.resolve(route);
+    final pageHeader = pageContract.headerFor(
+      hasSite: state.siteUrl != null,
+      connected: state.isConnected,
+      touch: context.isTouch,
+      canPop: state.canPop,
+      mobileNavigation: ShellScope.read(context).mobileNavigationEnabled,
+      nativeTitleBar: ShellTitleBar.isSupported && !layout.isCompact,
+      pluginOwnsChrome: pluginOwnsChrome,
+      pluginPageTitle: pluginContent == null
+          ? null
+          : registry.ownsContentPageTitle(context, route),
+    );
     final usesTopicToolbar =
         !layout.isCompact &&
         !pluginOwnsChrome &&
@@ -396,17 +389,7 @@ class _MainContentBody extends StatelessWidget {
           limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
           tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
           header:
-              !pluginOwnsChrome &&
-                  !route.isTopic &&
-                  !route.isPreferences &&
-                  !route.isBadges &&
-                  !route.isGroups &&
-                  !route.isPage(CorePage.categories) &&
-                  !route.isPage(CorePage.tags) &&
-                  !route.isPage(CorePage.activity) &&
-                  !route.isPage(CorePage.drafts) &&
-                  !(route.isPage(CorePage.bookmarks) && state.isConnected) &&
-                  !hideDirectoryHeader &&
+              pageHeader != PageHeader.none &&
                   !(usesTopicToolbar && ShellTitleBar.isSupported)
               ? _ContentHeader(
                   layout: layout,
@@ -418,7 +401,8 @@ class _MainContentBody extends StatelessWidget {
                       pluginContent == null &&
                       !usesTopicToolbar &&
                       !ShellScope.read(context).mobileNavigationEnabled,
-                  searchOnly: usesTopicToolbar || pageOwnsTitle,
+                  searchOnly:
+                      usesTopicToolbar || pageHeader == PageHeader.searchOnly,
                   isConnected: state.isConnected,
                   registry: registry,
                   groupPages: groupPages,
@@ -1270,11 +1254,7 @@ class _ContentHeader extends StatelessWidget {
                   categoryId: route.categoryId!,
                   quiet: true,
                 ),
-              if (!route.isTopic &&
-                  !route.isPage(CorePage.activity) &&
-                  !route.isForumAbout &&
-                  !route.isUsers &&
-                  !route.isBadges &&
+              if (ContentPageContract.resolve(route).allowsTopicCreation &&
                   showCreateTopicAction)
                 _TopicCreateAction(controller: controller),
               if (!controller.mobileNavigationEnabled &&
