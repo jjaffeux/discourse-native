@@ -724,107 +724,28 @@ final class ShellTabContext {
   }
 
   Future<String?> dismissNewTopics() async {
-    final instance = _instance;
-    final route = topicListContent;
-    final mode = currentTopicListMode;
     final scope = _dismissNewScope;
-    if (instance == null ||
-        route == null ||
-        mode == null ||
-        scope == null ||
-        shell.dismissingNewTopics) {
-      return null;
-    }
-    final siteUrl = instance.url;
-    final lease = shell.lifecycle.capture(siteUrl);
-    final key = (siteUrl, lease.session);
-    shell._dismissingNew.add(key);
-    shell._notify();
-    final topics = mode != TopicListMode.newReplies;
-    final posts =
-        instance.user?.unifiedNewEnabled == true &&
-        mode != TopicListMode.newTopics;
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).credentials(shell.credentials);
-      if (credential.apiKey == null || !lease.isCurrent) {
-        return appL10n.reconnectToDismissNewTopics;
-      }
-      // Core accepts one tag. Resolve the full intersection before a bulk
-      // write when this app's list has multiple tags.
-      List<int>? topicIds;
-      if (route.tagNames.length > 1) {
-        topicIds = [];
-        String? path = route.feedPath;
-        final visited = <String>{};
-        while (path != null && visited.add(path)) {
-          final requestPath = path;
-          final page = await credential.run(
-            () => shell.api.topicFeeds.topicList(
-              siteUrl: siteUrl,
-              path: requestPath,
-              apiKey: credential.apiKey,
-              clientId: credential.clientId,
-            ),
-          );
-          if (!lease.isCurrent || shell._tabContextDisposed) return null;
-          topicIds.addAll(page.topics.map((topic) => topic.id));
-          path = page.nextPagePath;
-        }
-        if (path != null) {
-          throw StateError('Could not load all matching topics.');
-        }
-      }
-      if (!lease.isCurrent || shell._tabContextDisposed) return null;
-      final ids = await credential.run(
-        () => shell.api.topicFeeds.dismissNewTopics(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          clientId: credential.clientId,
-          dismissTopics: topics,
-          dismissPosts: posts,
-          categoryId: route.categoryId,
-          tagName: scope.tagName,
-          topicIds: topicIds,
-        ),
-      );
-      if (!lease.isCurrent || shell._tabContextDisposed) return null;
-      for (final type in [
-        if (topics) 'dismiss_new',
-        if (posts) 'dismiss_new_posts',
-      ]) {
-        shell._applyTopicTrackingMessage(siteUrl, {
-          'message_type': type,
-          'payload': {'topic_ids': ids},
-        });
-      }
-      await shell.topicFeeds.load(
-        instance: instance,
-        destinationId: route.id,
-        path: route.feedPath!,
-        incoming: shell._trackers[siteUrl]?.incoming,
-        force: true,
-      );
-      return null;
-    } catch (error, stackTrace) {
-      if (!lease.isCurrent || shell._tabContextDisposed) return null;
-      shell._reportOperationalError(error, stackTrace, 'topics.dismissNew');
-      return appL10n.couldNotDismissNewTopicsPleaseTryAgain;
-    } finally {
-      shell._dismissingNew.remove(key);
-      if (!shell._tabContextDisposed) shell._notify();
-    }
+    if (scope == null) return null;
+    return switch (await shell
+        ._newTopicDismissalsFor(scope.instance.url)
+        .dismiss(scope)) {
+      null => null,
+      _DismissNewTopicsFailure.reconnect => appL10n.reconnectToDismissNewTopics,
+      _DismissNewTopicsFailure.failed =>
+        appL10n.couldNotDismissNewTopicsPleaseTryAgain,
+    };
   }
 
   bool get canDismissNewTopics => _dismissNewScope != null;
 
-  ({String? tagName})? get _dismissNewScope {
+  _DismissNewTopicsScope? get _dismissNewScope {
     final instance = _instance;
+    final route = topicListContent;
     final mode = currentTopicListMode;
     final feed = currentFeed;
     if (instance == null ||
+        route == null ||
+        mode == null ||
         !instance.isConnected ||
         (mode != TopicListMode.newActivity &&
             mode != TopicListMode.newTopics &&
@@ -833,15 +754,30 @@ final class ShellTabContext {
         feed.topicIds.isEmpty) {
       return null;
     }
-    final requested = topicListContent?.tagNames.firstOrNull?.toLowerCase();
-    if (requested == null) return (tagName: null);
-    for (final id in feed.topicIds) {
-      final topic = shell.store.read<Topic>(instance.url, id);
-      for (final tag in topic?.tags ?? const <TopicTag>[]) {
-        if (tag.name.toLowerCase() == requested) return (tagName: tag.name);
+    // Core matches reset-new's tag_name case-sensitively and widens an
+    // unknown tag to the category or forum. Only a listed topic's exact
+    // spelling is safe, even though the list matched case-insensitively.
+    final requested = route.tagNames.firstOrNull?.toLowerCase();
+    String? tagName;
+    if (requested != null) {
+      for (final id in feed.topicIds) {
+        final topic = shell.store.read<Topic>(instance.url, id);
+        for (final tag in topic?.tags ?? const <TopicTag>[]) {
+          if (tag.name.toLowerCase() == requested) {
+            tagName = tag.name;
+            break;
+          }
+        }
+        if (tagName != null) break;
       }
+      if (tagName == null) return null;
     }
-    return null;
+    return _DismissNewTopicsScope(
+      instance: instance,
+      route: route,
+      mode: mode,
+      tagName: tagName,
+    );
   }
 
   TabOpenResult openTopicFromList(Topic topic, {bool revealInList = false}) {

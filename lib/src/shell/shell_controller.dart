@@ -6,7 +6,7 @@ import 'dart:ui' show Color, Rect;
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
-    show ChangeNotifier, Listenable, ValueListenable, listEquals;
+    show ChangeNotifier, Listenable, ValueListenable, immutable, listEquals;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show HardwareKeyboard;
 
@@ -157,6 +157,7 @@ import 'user_directory_controller.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
+part 'account_new_topic_dismissals.dart';
 part 'composer_submission.dart';
 part 'shell_tab_context.dart';
 part 'taxonomy_directory_controller.dart';
@@ -3683,20 +3684,21 @@ class ShellController extends FrameSafeNotifier
     unawaited(loadFeed(replacement.id));
   }
 
-  final Set<(String, Object)> _dismissingNew = {};
+  final Map<String, _AccountNewTopicDismissals> _newTopicDismissals = {};
 
-  bool get dismissingNewTopics => _dismissingNew.contains((
-    currentInstance?.url ?? '',
-    lifecycle.capture(currentInstance?.url ?? '').session,
-  ));
+  _AccountNewTopicDismissals _newTopicDismissalsFor(String siteUrl) {
+    final held = _newTopicDismissals[siteUrl];
+    if (held != null && held._session.lease.isCurrent) return held;
+    return _newTopicDismissals[siteUrl] = _AccountNewTopicDismissals(
+      this,
+      AccountRequestSession(siteUrl, lifecycle.capture(siteUrl)),
+    );
+  }
+
+  bool get dismissingNewTopics =>
+      _newTopicDismissals[currentInstance?.url]?.isBusy ?? false;
 
   bool get canDismissNewTopics => focusedTabContext.canDismissNewTopics;
-
-  // reset-new looks `tag_name` up case-sensitively and, finding nothing,
-  // drops the tag: the dismissal widens to every new topic in the category,
-  // or on the whole forum. The list matched its tags case-insensitively, so
-  // the only safe name is the exact one its own topics carry, and a list none
-  // of whose topics carries it offers no dismissal.
 
   Future<String?> dismissNewTopics() => focusedTabContext.dismissNewTopics();
 
@@ -12758,6 +12760,7 @@ class ShellController extends FrameSafeNotifier
     _topicData.clearPrefetch();
     cooking.forget(siteUrl);
     if (invalidateLifecycle) lifecycle.invalidate(siteUrl);
+    _newTopicDismissals.remove(siteUrl);
     _bookmarks.forget(siteUrl);
     _topicData.forget(siteUrl);
     siteImages.forget(siteUrl);
