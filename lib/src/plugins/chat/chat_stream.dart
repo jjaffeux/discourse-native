@@ -189,6 +189,74 @@ List<ChatStreamItem>? prependChatStream({
   ];
 }
 
+/// Rebuilds the retained prefix through its first non-deleted message.
+/// The remaining rows retain their original separators and unread divider.
+List<ChatStreamItem>? trimChatStreamStart({
+  required List<ChatStreamItem> existingItems,
+  required List<ChatMessage> retainedLeading,
+  int? lastReadMessageId,
+  int? newestMessageId,
+  int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+}) {
+  if (retainedLeading.isEmpty || retainedLeading.last.isDeleted) return null;
+
+  final boundary = retainedLeading.last;
+  final boundaryRow = existingItems.indexWhere(
+    (item) => item is ChatStreamMessage && item.id == boundary.id,
+  );
+  if (boundaryRow < 0) return null;
+
+  return [
+    ...buildChatStream(
+      retainedLeading,
+      lastReadMessageId: lastReadMessageId,
+      newestMessageId: newestMessageId,
+      showTimeGapDays: showTimeGapDays,
+    ),
+    ...existingItems.skip(boundaryRow + 1),
+  ];
+}
+
+/// Rebuilds the retained suffix from its last non-deleted message.
+/// The retained newest row can suppress a previously visible unread divider.
+List<ChatStreamItem>? trimChatStreamEnd({
+  required List<ChatStreamItem> existingItems,
+  required List<ChatMessage> retainedTrailing,
+  int? lastReadMessageId,
+  int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+}) {
+  if (retainedTrailing.isEmpty || retainedTrailing.first.isDeleted) return null;
+
+  final boundary = retainedTrailing.first;
+  final boundaryRow = existingItems.lastIndexWhere(
+    (item) => item is ChatStreamMessage && item.id == boundary.id,
+  );
+  if (boundaryRow < 0) return null;
+
+  final keptRowsHoldFirstUnread =
+      lastReadMessageId != null && boundary.id > lastReadMessageId;
+  final tail = buildChatStream(
+    retainedTrailing,
+    lastReadMessageId: keptRowsHoldFirstUnread ? null : lastReadMessageId,
+    newestMessageId: retainedTrailing.last.id,
+    showTimeGapDays: showTimeGapDays,
+  );
+  final tailBoundaryRow = tail.indexWhere(
+    (item) => item is ChatStreamMessage && item.id == boundary.id,
+  );
+  if (tailBoundaryRow < 0) return null;
+
+  final suppressDivider =
+      boundary.id == retainedTrailing.last.id &&
+      boundaryRow > 0 &&
+      existingItems[boundaryRow - 1] is ChatStreamNewDivider;
+  return [
+    for (var index = 0; index <= boundaryRow; index++)
+      if (!suppressDivider || index != boundaryRow - 1) existingItems[index],
+    ...tail.skip(tailBoundaryRow + 1),
+  ];
+}
+
 /// Reprojects only an appended run and the held window's trailing seam:
 /// [existingTrailing] is the last non-deleted held message followed by any
 /// deleted run after it. Null means the held rows would change as well and

@@ -128,6 +128,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   List<int>? _projectedLocalMessageIds;
   int? _projectedLastRead;
   int? _projectedRevision;
+  int? _projectedFetches;
   int? _projectedShowTimeGapDays;
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
@@ -538,6 +539,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
         _projectedRevision == stream.revision &&
+        _projectedFetches == stream.fetches &&
         _projectedShowTimeGapDays == widget.showTimeGapDays) {
       return;
     }
@@ -561,6 +563,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     _projectedLocalMessageIds = stream.localMessageIds;
     _projectedLastRead = stream.lastReadOnOpen;
     _projectedRevision = stream.revision;
+    _projectedFetches = stream.fetches;
     _projectedShowTimeGapDays = widget.showTimeGapDays;
   }
 
@@ -569,17 +572,29 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   bool _extendProjectionIntoPast(ChatStreamState stream) {
     final previous = _projectedMessageIds;
     if (previous == null || previous.isEmpty) return false;
-    if (!identical(_projectedLocalMessageIds, stream.localMessageIds) ||
+    if (stream.messageIds.isEmpty ||
+        stream.localMessageIds.isNotEmpty ||
+        !identical(_projectedLocalMessageIds, stream.localMessageIds) ||
         _projectedLastRead != stream.lastReadOnOpen ||
         _projectedRevision != stream.revision ||
+        _projectedFetches != stream.fetches ||
         _projectedShowTimeGapDays != widget.showTimeGapDays) {
       return false;
     }
 
-    final added = stream.messageIds.length - previous.length;
-    if (added <= 0 ||
-        stream.messageIds[added] != previous.first ||
-        stream.messageIds.last != previous.last) {
+    final added = stream.messageIds.indexOf(previous.first);
+    if (added <= 0) return false;
+    final retained = stream.messageIds.length - added;
+    if (retained > previous.length) return false;
+    if (retained < previous.length) {
+      if (!_messageIdsAscend(previous) ||
+          !_messageIdsAscend(stream.messageIds)) {
+        return false;
+      }
+      for (var index = 0; index < retained; index++) {
+        if (stream.messageIds[added + index] != previous[index]) return false;
+      }
+    } else if (stream.messageIds.last != previous.last) {
       return false;
     }
 
@@ -591,20 +606,38 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     }
 
     final existingLeading = <ChatMessage>[];
-    for (final id in previous) {
-      final message = _message(id);
+    for (var index = 0; index < retained; index++) {
+      final message = _message(previous[index]);
       if (message == null) return false;
       existingLeading.add(message);
       if (!message.isDeleted) break;
     }
 
+    var existingItems = _items;
+    if (retained < previous.length) {
+      final existingTrailing = <ChatMessage>[];
+      for (var index = retained - 1; index >= 0; index--) {
+        final message = _message(previous[index]);
+        if (message == null) return false;
+        existingTrailing.add(message);
+        if (!message.isDeleted) break;
+      }
+      final trimmed = trimChatStreamEnd(
+        existingItems: existingItems,
+        retainedTrailing: existingTrailing.reversed.toList(),
+        lastReadMessageId: stream.lastReadOnOpen,
+        showTimeGapDays: widget.showTimeGapDays,
+      );
+      if (trimmed == null) return false;
+      existingItems = trimmed;
+    }
+
     final projected = prependChatStream(
-      existingItems: _items,
+      existingItems: existingItems,
       prepended: prepended,
       existingLeading: existingLeading,
       lastReadMessageId: stream.lastReadOnOpen,
-      newestMessageId:
-          stream.localMessageIds.lastOrNull ?? stream.messageIds.lastOrNull,
+      newestMessageId: stream.messageIds.last,
       showTimeGapDays: widget.showTimeGapDays,
     );
     if (projected == null) return false;
@@ -613,55 +646,88 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   }
 
   /// Reprojects an appended run through the last held non-deleted seam;
-  /// other changes take the full fallback. Live arrivals are the common case,
-  /// and the held window is never scanned again for one.
+  /// other changes take the full fallback.
   bool _extendProjectionIntoFuture(ChatStreamState stream) {
     final previous = _projectedMessageIds;
     if (previous == null || previous.isEmpty) return false;
-    if (!identical(_projectedLocalMessageIds, stream.localMessageIds) ||
+    if (stream.messageIds.isEmpty ||
+        stream.localMessageIds.isNotEmpty ||
+        !identical(_projectedLocalMessageIds, stream.localMessageIds) ||
         _projectedLastRead != stream.lastReadOnOpen ||
         _projectedRevision != stream.revision ||
+        _projectedFetches != stream.fetches ||
         _projectedShowTimeGapDays != widget.showTimeGapDays) {
       return false;
     }
 
-    final added = stream.messageIds.length - previous.length;
-    if (added <= 0 ||
-        stream.messageIds.first != previous.first ||
-        stream.messageIds[previous.length - 1] != previous.last) {
+    final dropped = previous.indexOf(stream.messageIds.first);
+    if (dropped < 0) return false;
+    final retained = previous.length - dropped;
+    if (stream.messageIds.length <= retained) return false;
+    if (dropped > 0) {
+      if (!_messageIdsAscend(previous) ||
+          !_messageIdsAscend(stream.messageIds)) {
+        return false;
+      }
+      for (var index = 0; index < retained; index++) {
+        if (stream.messageIds[index] != previous[dropped + index]) return false;
+      }
+    } else if (stream.messageIds[retained - 1] != previous.last) {
       return false;
     }
 
     final appended = <ChatMessage>[];
-    for (
-      var index = previous.length;
-      index < stream.messageIds.length;
-      index++
-    ) {
+    for (var index = retained; index < stream.messageIds.length; index++) {
       final message = _message(stream.messageIds[index]);
       if (message == null) return false;
       appended.add(message);
     }
 
     final existingTrailing = <ChatMessage>[];
-    for (final id in previous.reversed) {
-      final message = _message(id);
+    for (var index = previous.length - 1; index >= dropped; index--) {
+      final message = _message(previous[index]);
       if (message == null) return false;
       existingTrailing.add(message);
       if (!message.isDeleted) break;
     }
 
+    var existingItems = _items;
+    if (dropped > 0) {
+      final existingLeading = <ChatMessage>[];
+      for (var index = dropped; index < previous.length; index++) {
+        final message = _message(previous[index]);
+        if (message == null) return false;
+        existingLeading.add(message);
+        if (!message.isDeleted) break;
+      }
+      final trimmed = trimChatStreamStart(
+        existingItems: existingItems,
+        retainedLeading: existingLeading,
+        lastReadMessageId: stream.lastReadOnOpen,
+        newestMessageId: stream.messageIds.last,
+        showTimeGapDays: widget.showTimeGapDays,
+      );
+      if (trimmed == null) return false;
+      existingItems = trimmed;
+    }
+
     final projected = appendChatStream(
-      existingItems: _items,
+      existingItems: existingItems,
       existingTrailing: existingTrailing.reversed.toList(),
       appended: appended,
       lastReadMessageId: stream.lastReadOnOpen,
-      newestMessageId:
-          stream.localMessageIds.lastOrNull ?? stream.messageIds.lastOrNull,
+      newestMessageId: stream.messageIds.last,
       showTimeGapDays: widget.showTimeGapDays,
     );
     if (projected == null) return false;
     _items = projected;
+    return true;
+  }
+
+  bool _messageIdsAscend(List<int> ids) {
+    for (var index = 1; index < ids.length; index++) {
+      if (ids[index] <= ids[index - 1]) return false;
+    }
     return true;
   }
 

@@ -1062,7 +1062,9 @@ void main() {
     ) async {
       // Admission legitimately reads the arriving record and the newest one it
       // is ordered against; anything proportional to the window is a rescan.
-      Future<int> liveArrivalReads(int window) async {
+      Future<({List<int> reads, int capacity})> liveArrivalReads(
+        int window,
+      ) async {
         const reader = DiscourseUser(id: 7, username: 'reader');
         final newestAt = DateTime.utc(2026, 1, 1, 0, window);
         final api = _ChatApi(
@@ -1076,7 +1078,7 @@ void main() {
                   kind: ChatChannelKind.category,
                   membership: ChatMembership(
                     following: true,
-                    lastReadMessageId: window,
+                    lastReadMessageId: window - 10,
                   ),
                   lastMessageId: window,
                   lastMessageAt: newestAt,
@@ -1106,33 +1108,71 @@ void main() {
           );
           // The count below is only meaningful from the store Chat reads.
           expect(reads.count, greaterThan(0));
-          reads.count = 0;
-
+          tester
+              .state<ScrollableState>(_verticalChatScroll())
+              .position
+              .jumpTo(600);
+          await tester.pumpAndSettle();
+          final anchored = _visibleMessageTops(tester);
+          expect(anchored, isNotEmpty);
           final tracker = FakeSiteTracker.built.singleWhere(
             (tracker) => tracker.siteUrl == firstSite,
           );
-          tracker.deliverPluginMessage('/chat/9/new-messages', {
-            'type': 'channel',
-            'channel_id': 9,
-            'message': {
-              'id': window + 1,
-              'chat_channel_id': 9,
-              'message': 'hello',
-              'cooked': '<p>hello</p>',
-              'created_at': newestAt
-                  .add(const Duration(minutes: 1))
-                  .toIso8601String(),
-              'user': {'id': 2, 'username': 'sam'},
-            },
-          });
-          await tester.pump();
+          final samples = <int>[];
+          for (var arrival = 1; arrival <= 8; arrival++) {
+            reads.count = 0;
+            tracker.deliverPluginMessage('/chat/9/new-messages', {
+              'type': 'channel',
+              'channel_id': 9,
+              'message': {
+                'id': window + arrival,
+                'chat_channel_id': 9,
+                'message': 'hello',
+                'cooked': '<p>hello</p>',
+                'created_at': newestAt
+                    .add(Duration(minutes: arrival))
+                    .toIso8601String(),
+                'user': {'id': 2, 'username': 'sam'},
+              },
+            });
+            await tester.pump();
+            await tester.pump();
+            samples.add(reads.count);
+            _expectSameTops(_visibleMessageTops(tester), anchored);
 
-          expect(
-            controller.chat.stream(firstSite, 9).messageIds.last,
-            window + 1,
+            final stream = controller.chat.stream(firstSite, 9);
+            expect(stream.messageIds.last, window + arrival);
+            expect(
+              stream.messageIds,
+              hasLength(
+                window ==
+                        controller
+                            .chat
+                            .canonicalMessageRetentionBudgetForTesting
+                    ? window
+                    : window + arrival,
+              ),
+            );
+            final items = tester
+                .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+                .items;
+            expect(
+              items.whereType<ChatStreamMessage>().map((item) => item.id),
+              stream.messageIds,
+            );
+            expect(
+              items,
+              buildChatStream(
+                controller.chat.messages(firstSite, 9),
+                lastReadMessageId: stream.lastReadOnOpen,
+              ),
+            );
+          }
+          return (
+            reads: samples,
+            capacity:
+                controller.chat.canonicalMessageRetentionBudgetForTesting!,
           );
-          expect(find.text('1 unread message'), findsOneWidget);
-          return reads.count;
         } finally {
           await tester.pumpWidget(const SizedBox.shrink());
           controller.dispose();
@@ -1141,11 +1181,377 @@ void main() {
 
       final small = await liveArrivalReads(50);
       final large = await liveArrivalReads(400);
+      final capacity = await liveArrivalReads(small.capacity);
+      if (const bool.fromEnvironment('CHAT_WINDOW_BENCHMARK')) {
+        debugPrint(
+          'CHAT_WINDOW_READS capacity=${small.capacity} '
+          'small=${small.reads} large=${large.reads} capacityReads=${capacity.reads}',
+        );
+      }
 
-      // The seam is resolved through the rows' stable refs; a live arrival
-      // never scans the window already projected, however long it has grown.
-      expect(large, small);
+      // Arrivals must not reread message records from the retained window.
+      expect(large.reads, small.reads);
+      expect(capacity.reads, small.reads);
     });
+
+    for (final intoPast in [false, true]) {
+      for (final deleted in [false, true]) {
+        testWidgets(
+          'a replacement fetch rebuilds retained grouping past $intoPast deleted $deleted',
+          (tester) async {
+            final api = _ChatApi(
+              openPages: {},
+              chatChannelsBySite: {
+                firstSite: ChatChannels(public: [_channel(lastRead: 0)]),
+              },
+            );
+            final controller = await _controller(api, sites: const [firstSite]);
+            final capacity =
+                controller.chat.canonicalMessageRetentionBudgetForTesting!;
+            final first = intoPast ? 101 : 1;
+            final replacementFirst = first + (intoPast ? -1 : 1);
+            api.openPages[firstSite] = [
+              _messagesPage(first, capacity),
+              (
+                messages: [
+                  for (
+                    var id = replacementFirst;
+                    id < replacementFirst + capacity;
+                    id++
+                  )
+                    if (id == 500)
+                      _message(
+                        id,
+                        authorId: deleted ? 2 : 3,
+                        deletedAt: deleted ? DateTime.utc(2026, 1, 2) : null,
+                      )
+                    else
+                      _message(id),
+                ],
+                canLoadMorePast: false,
+                canLoadMoreFuture: false,
+                targetMessageId: null,
+              ),
+            ];
+            await controller.chat.loadChannels(firstSite);
+            try {
+              await controller.chat.openChannel(firstSite, 9);
+              await tester.pumpWidget(_TestView(controller: controller));
+              await tester.pumpAndSettle();
+              final before = controller.chat.stream(firstSite, 9);
+              final oldItems = tester
+                  .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+                  .items;
+              final oldFollowing = oldItems
+                  .whereType<ChatStreamMessage>()
+                  .firstWhere((item) => item.id == 501);
+              expect(oldFollowing.chained, isTrue);
+              controller.chatRecords.put(
+                firstSite,
+                _channel(lastRead: before.lastReadOnOpen ?? 0),
+              );
+
+              await controller.chat.openChannel(firstSite, 9, force: true);
+              await tester.pump();
+
+              final stream = controller.chat.stream(firstSite, 9);
+              expect(stream.fetches, before.fetches + 1);
+              expect(stream.lastReadOnOpen, before.lastReadOnOpen);
+              expect(stream.messageIds, hasLength(capacity));
+              expect(stream.messageIds.first, replacementFirst);
+              final items = tester
+                  .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+                  .items;
+              expect(
+                items
+                    .whereType<ChatStreamMessage>()
+                    .firstWhere((item) => item.id == 501)
+                    .chained,
+                isFalse,
+              );
+              expect(
+                items,
+                buildChatStream(
+                  controller.chat.messages(firstSite, 9),
+                  lastReadMessageId: stream.lastReadOnOpen,
+                ),
+              );
+            } finally {
+              await tester.pumpWidget(const SizedBox.shrink());
+              controller.dispose();
+            }
+          },
+        );
+      }
+    }
+
+    for (final nonmonotone in [false, true]) {
+      testWidgets(
+        'a changed retained overlap falls back with nonmonotone $nonmonotone',
+        (tester) async {
+          final api = _ChatApi(
+            openPages: {},
+            chatChannelsBySite: {
+              firstSite: ChatChannels(public: [_channel(lastRead: 0)]),
+            },
+          );
+          final controller = await _controller(api, sites: const [firstSite]);
+          final capacity =
+              controller.chat.canonicalMessageRetentionBudgetForTesting!;
+          final ids = [
+            if (nonmonotone) ...[
+              1,
+              for (var id = 3; id <= capacity; id++) id,
+              2,
+            ] else ...[
+              for (var id = 1; id <= capacity; id++) id,
+            ],
+          ];
+          api.openPages[firstSite] = [
+            (
+              messages: [
+                for (var index = 0; index < ids.length; index++)
+                  _message(
+                    ids[index],
+                    createdAt: DateTime.utc(2026, 1, 1, 0, index + 1),
+                  ),
+              ],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: null,
+            ),
+            (
+              messages: [
+                for (var id = 2; id <= capacity + 2; id++)
+                  if (id != 500) _message(id),
+              ],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: null,
+            ),
+          ];
+          await controller.chat.loadChannels(firstSite);
+          controller.chatRecords.put(
+            firstSite,
+            _channel(lastRead: nonmonotone ? 2 : capacity - 10),
+          );
+          try {
+            await controller.chat.openChannel(firstSite, 9);
+            await tester.pumpWidget(_TestView(controller: controller));
+            await tester.pumpAndSettle();
+            if (nonmonotone) {
+              for (var arrival = 1; arrival <= 2; arrival++) {
+                FakeSiteTracker.built
+                    .singleWhere((tracker) => tracker.siteUrl == firstSite)
+                    .deliverPluginMessage('/chat/9/new-messages', {
+                      'type': 'channel',
+                      'channel_id': 9,
+                      'message': {
+                        'id': capacity + arrival,
+                        'chat_channel_id': 9,
+                        'cooked': '<p>Another arrival</p>',
+                        'created_at': DateTime.utc(
+                          2026,
+                          1,
+                          1,
+                          0,
+                          capacity + arrival,
+                        ).toIso8601String(),
+                        'user': {'id': 2, 'username': 'sam'},
+                      },
+                    });
+              }
+            } else {
+              await controller.chat.openChannel(firstSite, 9, force: true);
+            }
+            await tester.pump();
+
+            final stream = controller.chat.stream(firstSite, 9);
+            expect(stream.messageIds, hasLength(capacity));
+            expect(stream.messageIds.first, nonmonotone ? 4 : 2);
+            expect(stream.messageIds.last, capacity + 2);
+            expect(
+              tester
+                  .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+                  .items,
+              buildChatStream(
+                controller.chat.messages(firstSite, 9),
+                lastReadMessageId: stream.lastReadOnOpen,
+              ),
+            );
+          } finally {
+            await tester.pumpWidget(const SizedBox.shrink());
+            controller.dispose();
+          }
+        },
+      );
+    }
+
+    for (final atPresent in [false, true]) {
+      testWidgets(
+        'an older page slides the retained projection at present $atPresent',
+        (tester) async {
+          final api = _ChatApi(
+            openPages: {},
+            chatChannelsBySite: {
+              firstSite: ChatChannels(public: [_channel(lastRead: 0)]),
+            },
+          );
+          final reads = _MessageReads();
+          final controller = await _controller(
+            api,
+            sites: const [firstSite],
+            messageReads: reads,
+          );
+          final capacity =
+              controller.chat.canonicalMessageRetentionBudgetForTesting!;
+          api.openPages[firstSite] = [
+            _messagesPage(101, capacity, canLoadMorePast: true),
+          ];
+          await controller.chat.loadChannels(firstSite);
+          controller.chatRecords.put(
+            firstSite,
+            _channel(lastRead: capacity + 90),
+          );
+          try {
+            await controller.chat.openChannel(firstSite, 9);
+            await tester.pumpWidget(_TestView(controller: controller));
+            await tester.pumpAndSettle();
+            if (!atPresent) {
+              tester
+                  .state<ScrollableState>(_verticalChatScroll())
+                  .position
+                  .jumpTo(3000);
+              await tester.pumpAndSettle();
+            }
+            final middle = tester
+                .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+                .items
+                .whereType<ChatStreamMessage>()
+                .firstWhere((item) => item.id == 500);
+            expect(
+              controller.chat.stream(firstSite, 9).canLoadMorePast,
+              isTrue,
+            );
+            reads.count = 0;
+
+            await controller.chat.loadOlder(firstSite, 9);
+            expect(controller.chat.stream(firstSite, 9).messageIds.first, 100);
+            await tester.pump();
+            await tester.pump();
+
+            expect(api.olderSites, contains(firstSite));
+            expect(reads.count, lessThan(50));
+            final stream = controller.chat.stream(firstSite, 9);
+            expect(stream.messageIds, hasLength(capacity));
+            expect(api.newerSites, atPresent ? contains(firstSite) : isEmpty);
+            expect(stream.messageIds.first, atPresent ? 101 : 100);
+            expect(stream.messageIds.last, capacity + (atPresent ? 100 : 99));
+            final items = tester
+                .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+                .items;
+            expect(
+              items.whereType<ChatStreamMessage>().firstWhere(
+                (item) => item.id == 500,
+              ),
+              same(middle),
+            );
+            expect(
+              items,
+              buildChatStream(
+                controller.chat.messages(firstSite, 9),
+                lastReadMessageId: stream.lastReadOnOpen,
+              ),
+            );
+          } finally {
+            await tester.pumpWidget(const SizedBox.shrink());
+            controller.dispose();
+          }
+        },
+      );
+    }
+
+    for (final atCapacity in [false, true]) {
+      testWidgets(
+        'a live arrival keeps an optimistic tail at capacity $atCapacity',
+        (tester) async {
+          final api = _ChatApi(
+            openPages: {},
+            chatChannelsBySite: {
+              firstSite: ChatChannels(public: [_channel(lastRead: 0)]),
+            },
+          );
+          final gate = Completer<void>();
+          api.chatSendGate = gate;
+          final controller = await _controller(api, sites: const [firstSite]);
+          final window = atCapacity
+              ? controller.chat.canonicalMessageRetentionBudgetForTesting!
+              : 50;
+          api.openPages[firstSite] = [_messagesPage(1, window)];
+          await controller.chat.loadChannels(firstSite);
+          controller.chatRecords.put(firstSite, _channel(lastRead: window));
+          try {
+            await controller.chat.openChannel(firstSite, 9);
+            await tester.pumpWidget(_TestView(controller: controller));
+            await tester.pumpAndSettle();
+            final sending = controller.chat.sendMessage(
+              firstSite,
+              9,
+              OutgoingChatMessage.text('Still sending'),
+            )!;
+            await tester.pump();
+            final localIds = controller.chat
+                .stream(firstSite, 9)
+                .localMessageIds;
+            expect(localIds, [sending.localId]);
+
+            FakeSiteTracker.built
+                .singleWhere((tracker) => tracker.siteUrl == firstSite)
+                .deliverPluginMessage('/chat/9/new-messages', {
+                  'type': 'channel',
+                  'channel_id': 9,
+                  'message': {
+                    'id': window + 1,
+                    'chat_channel_id': 9,
+                    'cooked': '<p>Another arrival</p>',
+                    'created_at': DateTime.utc(
+                      2026,
+                      1,
+                      1,
+                      0,
+                      window + 1,
+                    ).toIso8601String(),
+                    'user': {'id': 2, 'username': 'sam'},
+                  },
+                });
+            await tester.pump();
+
+            final stream = controller.chat.stream(firstSite, 9);
+            expect(stream.messageIds.last, window + 1);
+            expect(stream.localMessageIds, same(localIds));
+            final items = tester
+                .widget<ChatMessageStream>(find.byType(ChatMessageStream))
+                .items;
+            expect(
+              items.whereType<ChatStreamMessage>().last.id,
+              sending.localId,
+            );
+            expect(
+              items,
+              buildChatStream(
+                controller.chat.messages(firstSite, 9),
+                lastReadMessageId: stream.lastReadOnOpen,
+              ),
+            );
+          } finally {
+            gate.complete();
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pump();
+            controller.dispose();
+          }
+        },
+      );
+    }
 
     testWidgets('message skeletons represent paging in either direction', (
       tester,

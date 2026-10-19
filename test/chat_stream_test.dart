@@ -522,4 +522,193 @@ void main() {
       expect(appended(held, [at(2, minute: 1)]), isNull);
     });
   });
+
+  group('sliding a retained window', () {
+    List<ChatMessage> leading(List<ChatMessage> retained) {
+      final seam = <ChatMessage>[];
+      for (final message in retained) {
+        seam.add(message);
+        if (!message.isDeleted) break;
+      }
+      return seam;
+    }
+
+    List<ChatMessage> trailing(List<ChatMessage> retained) =>
+        leading(retained.reversed.toList()).reversed.toList();
+
+    List<ChatStreamItem>? forward(
+      List<ChatMessage> held,
+      List<ChatMessage> next, {
+      int? lastRead,
+      List<ChatStreamItem>? existingItems,
+    }) {
+      final retained = held.sublist(
+        held.indexWhere((message) => message.id == next.first.id),
+      );
+      final trimmed = trimChatStreamStart(
+        existingItems:
+            existingItems ?? buildChatStream(held, lastReadMessageId: lastRead),
+        retainedLeading: leading(retained),
+        lastReadMessageId: lastRead,
+        newestMessageId: next.last.id,
+      );
+      if (trimmed == null) return null;
+      return appendChatStream(
+        existingItems: trimmed,
+        existingTrailing: trailing(retained),
+        appended: next.sublist(retained.length),
+        lastReadMessageId: lastRead,
+        newestMessageId: next.last.id,
+      );
+    }
+
+    List<ChatStreamItem>? backward(
+      List<ChatMessage> held,
+      List<ChatMessage> next, {
+      int? lastRead,
+      List<ChatStreamItem>? existingItems,
+    }) {
+      final retained = held.sublist(
+        0,
+        held.indexWhere((message) => message.id == next.last.id) + 1,
+      );
+      final trimmed = trimChatStreamEnd(
+        existingItems:
+            existingItems ?? buildChatStream(held, lastReadMessageId: lastRead),
+        retainedTrailing: trailing(retained),
+        lastReadMessageId: lastRead,
+      );
+      if (trimmed == null) return null;
+      return prependChatStream(
+        existingItems: trimmed,
+        prepended: next.sublist(0, next.length - retained.length),
+        existingLeading: leading(retained),
+        lastReadMessageId: lastRead,
+        newestMessageId: next.last.id,
+      );
+    }
+
+    final fixtures = <String, List<ChatMessage>>{
+      'chained authors': [for (var id = 1; id <= 9; id++) at(id, minute: id)],
+      'changing authors': [
+        for (var id = 1; id <= 9; id++) at(id, minute: id, author: id % 3),
+      ],
+      'day separators and long gaps': [
+        for (var id = 1; id <= 9; id++)
+          at(id, minute: id, day: id < 4 ? 1 : (id < 7 ? 10 : 20)),
+      ],
+      'deleted runs': [
+        for (var id = 1; id <= 9; id++)
+          at(id, minute: id, deleted: {2, 3, 6, 7}.contains(id)),
+      ],
+    };
+
+    for (final fixture in fixtures.entries) {
+      for (final lastRead in <int?>[null, 0, 2, 4, 6, 8]) {
+        test(
+          '${fixture.key} with last read $lastRead matches full projection',
+          () {
+            final source = fixture.value;
+            final held = source.sublist(1, 8);
+            for (final start in [2, 4]) {
+              final next = source.sublist(start);
+              final projected = forward(held, next, lastRead: lastRead);
+              expect(projected, isNotNull);
+              expect(
+                projected,
+                buildChatStream(next, lastReadMessageId: lastRead),
+                reason: 'Forward overlap beginning at ${next.first.id}',
+              );
+            }
+            for (final end in [5, 7]) {
+              final next = source.sublist(0, end);
+              final projected = backward(held, next, lastRead: lastRead);
+              expect(projected, isNotNull);
+              expect(
+                projected,
+                buildChatStream(next, lastReadMessageId: lastRead),
+                reason: 'Backward overlap ending at ${next.last.id}',
+              );
+            }
+          },
+        );
+      }
+    }
+
+    test('reuses the unchanged middle rows in either direction', () {
+      final source = fixtures['chained authors']!;
+      final held = source.sublist(1, 8);
+      final existing = buildChatStream(held);
+      final middle = messagesOf(existing).firstWhere((item) => item.id == 5);
+
+      for (final projected in [
+        forward(held, source.sublist(2), existingItems: existing),
+        backward(held, source.sublist(0, 7), existingItems: existing),
+      ]) {
+        expect(
+          messagesOf(projected!).firstWhere((item) => item.id == 5),
+          same(middle),
+        );
+      }
+    });
+
+    test('moves an unread divider past the discarded leading rows', () {
+      final held = [at(2), at(3, minute: 1), at(4, minute: 2)];
+      final next = [held[1], held[2], at(5, minute: 3)];
+      final projected = forward(held, next, lastRead: 1);
+
+      expect(projected, buildChatStream(next, lastReadMessageId: 1));
+      expect(projected![1], const ChatStreamNewDivider());
+      expect(projected[2], const ChatStreamMessage(id: 3, chained: false));
+    });
+
+    test('removes the divider above a retained sole newest unread row', () {
+      final held = [at(2), at(3, minute: 1), at(4, minute: 2)];
+      final next = [at(1), held[0], held[1]];
+      final projected = backward(held, next, lastRead: 2);
+
+      expect(projected, buildChatStream(next, lastReadMessageId: 2));
+      expect(projected, isNot(contains(const ChatStreamNewDivider())));
+    });
+
+    test('declines when an untouched sole unread row gains a divider', () {
+      final held = [at(1), at(2, minute: 1), at(3, minute: 2)];
+      final next = [held[1], held[2], at(4, minute: 3)];
+
+      expect(forward(held, next, lastRead: 2), isNull);
+      expect(
+        buildChatStream(next, lastReadMessageId: 2),
+        contains(const ChatStreamNewDivider()),
+      );
+    });
+
+    test('declines when the retained overlap has no non-deleted seam', () {
+      final held = [at(2, deleted: true), at(3, deleted: true)];
+
+      expect(forward(held, [held.last, at(4)]), isNull);
+      expect(backward(held, [at(1), held.first]), isNull);
+    });
+
+    test('declines a missing boundary row or an empty retained seam', () {
+      for (final retained in <List<ChatMessage>>[
+        [],
+        [at(2)],
+      ]) {
+        expect(
+          trimChatStreamStart(
+            existingItems: buildChatStream([at(1)]),
+            retainedLeading: retained,
+          ),
+          isNull,
+        );
+        expect(
+          trimChatStreamEnd(
+            existingItems: buildChatStream([at(1)]),
+            retainedTrailing: retained,
+          ),
+          isNull,
+        );
+      }
+    });
+  });
 }
