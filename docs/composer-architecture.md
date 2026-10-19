@@ -68,6 +68,38 @@ span cache identity, artwork retries, atomic deletion, gallery identity, and
 undo. Plugin tests pin permissions and stale picker behavior. The composer plugin
 boundary test also prevents built-in modules from importing bundled features.
 
+## Upload transactions
+
+`ComposerController` keeps the public upload commands and read-only upload views.
+Its private `_ComposerUploadTransactions` in `upload_transactions.dart` owns
+batches, rows, pending requests, prepared media, cancellation, retry, progress,
+placeholder lifetimes, insertion anchors and gallery upload targets. It is a
+part of the controller library, so consumers cannot import a second upload API.
+
+The owner uses `_ComposerUploadEditor` for current admission and target policy,
+gallery source queries, editor access, notices and notifications. The existing
+Markdown editor and history remain authoritative. The composer delivers source
+changes synchronously, advancing its source baseline before cancellation can
+re-enter the listener. The upload owner keeps exact insertion transforms beside
+anchor movement and amends history when undo restores a settled placeholder.
+
+Gallery authoring remains in the composer. An opaque upload-edit handle captures
+pending gallery destinations before a source edit and retargets them afterward.
+Removing or dissolving a gallery demotes its pending uploads to standalone
+insertion. Stale picker results resolve a surviving gallery or use the existing
+standalone fallback without recreating a removed gallery.
+
+One lazy owner survives document resets, retaining unique upload IDs and settled
+token registrations. Clear, plugin attachment restoration and disposal retire
+pending requests and prepared resources. A preparation that finishes after
+retirement releases its output without starting an upload. Embedded editors keep
+forwarding uploads to their canonical parent document. Plugin targets retain
+their existing insert-Markdown or retain-attachment policy.
+
+The upload controller, preparation, inline upload, panel, attachment, submission
+and media-editing tests pin these behaviors, including rendered controls,
+selection, undo, stale pickers and retry order.
+
 ## Target modes
 
 `composer/target.dart` owns the sealed `ComposerTarget` family. Importing

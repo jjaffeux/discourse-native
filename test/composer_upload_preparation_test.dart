@@ -59,6 +59,53 @@ void main() {
     expect(composer.raw, contains('upload://optimized'));
   });
 
+  testWidgets('clearing while preparing isolates the next document upload', (
+    tester,
+  ) async {
+    final preparations = <Completer<PreparedComposerUpload>>[];
+    final sent = <String>[];
+    final released = <String>[];
+    final composer = ComposerController(
+      _target,
+      prepareUpload: (file, {required abortTrigger}) {
+        final preparation = Completer<PreparedComposerUpload>();
+        preparations.add(preparation);
+        return preparation.future;
+      },
+      imageUploader:
+          (file, {required onProgress, required abortTrigger}) async {
+            sent.add(file.name);
+            return _result;
+          },
+    );
+    addTearDown(composer.dispose);
+    composer.addImages([_file('old.png')], 0);
+    composer.clearDocument();
+    composer.addImages([_file('new.png')], 0);
+    preparations.first.complete(
+      PreparedComposerUpload(
+        _file('old.webp'),
+        release: () async => released.add('old'),
+      ),
+    );
+    await tester.pump();
+    expect(sent, isEmpty);
+    expect(released, ['old']);
+    expect(composer.uploads.single.file.name, 'new.png');
+    expect(composer.uploads.single.status, ComposerUploadStatus.processing);
+    preparations.last.complete(
+      PreparedComposerUpload(
+        _file('new.webp'),
+        release: () async => released.add('new'),
+      ),
+    );
+    await tester.pump();
+    expect(sent, ['new.webp']);
+    expect(released, ['old', 'new']);
+    expect(composer.uploads, isEmpty);
+    expect(composer.raw, contains('upload://optimized'));
+  });
+
   for (final dispose in [false, true]) {
     testWidgets(
       '${dispose ? 'disposing' : 'cancelling'} while preparing prevents upload and releases late output',

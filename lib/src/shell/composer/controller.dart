@@ -37,6 +37,8 @@ import 'triggers.dart';
 
 export 'target.dart';
 
+part 'upload_transactions.dart';
+
 @immutable
 class ComposerDraftSave {
   const ComposerDraftSave({
@@ -220,11 +222,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   void updateEnableAutoGridImages(bool value) {
     _enableAutoGridImages = value;
     if (value) return;
-    for (final pending in _pendingUploads.values) {
-      if (pending.destination == _ComposerUploadDestination.newGallery) {
-        pending.destination = _ComposerUploadDestination.standalone;
-      }
-    }
+    _uploadTransactions.disableAutomaticGalleries();
   }
 
   void updateMarkdownLinkify({
@@ -810,649 +808,41 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _tagRemovalNotice = null;
   }
 
-  final List<ComposerUploadItem> _uploads = [];
-  final Map<int, _PendingComposerUpload> _pendingUploads = {};
-  int _nextUploadId = 0;
-  int _nextUploadBatch = 0;
-  late final _uploadPlaceholders = ComposerUploadPlaceholders(this);
-  bool _updatingUploadPlaceholders = false;
-
-  ComposerUploadPlaceholders get uploadPlaceholders => _uploadPlaceholders;
-
-  void _replaceUploadPlaceholder(
-    int id,
-    String replacement, {
-    bool removeLine = false,
-  }) {
-    final marker = _uploadPlaceholders[id];
-    if (marker == null) return;
-    final start = text.text.indexOf(marker);
-    if (start < 0) return;
-    var end = start + marker.length;
-    if (removeLine && end < text.text.length && text.text[end] == '\n') end++;
-    final old = text.value;
-    int move(int offset) => offset <= start
-        ? offset
-        : offset < end
-        ? start + replacement.length
-        : offset + replacement.length - (end - start);
-    _updatingUploadPlaceholders = true;
-    try {
-      text.value = old.copyWith(
-        text: old.text.replaceRange(start, end, replacement),
-        selection: old.selection.isValid
-            ? TextSelection(
-                baseOffset: move(old.selection.baseOffset),
-                extentOffset: move(old.selection.extentOffset),
-              )
-            : old.selection,
-        composing: TextRange.empty,
-      );
-    } finally {
-      _updatingUploadPlaceholders = false;
-    }
-  }
-
-  List<ComposerUploadItem> get uploads => List.unmodifiable(_uploads);
-  List<ComposerUploadResult> get completedUploads => List.unmodifiable(
-    _uploads
-        .where((upload) => upload.status == ComposerUploadStatus.completed)
-        .map((upload) => upload.result)
-        .nonNulls,
-  );
-  bool get hasActiveUploads => _uploads.any(
-    (upload) =>
-        upload.status == ComposerUploadStatus.processing ||
-        upload.status == ComposerUploadStatus.uploading ||
-        upload.status == ComposerUploadStatus.retrying,
+  late final _uploadTransactions = _ComposerUploadTransactions(
+    editor: _ComposerUploadEditor(this),
+    uploader: imageUploader,
+    prepare: prepareUpload,
+    acceptsImage: canUploadImage,
+    acceptsFile: canUploadFile,
+    simultaneousLimit: simultaneousUploads,
   );
 
-  // Admission only: uploads already owned by this draft must still settle or
-  // be cancelled while a close/discard is in progress.
-  bool get canUpload => isEditing && imageUploader != null;
+  ComposerUploadPlaceholders get uploadPlaceholders =>
+      _uploadTransactions.uploadPlaceholders;
+
+  List<ComposerUploadItem> get uploads => _uploadTransactions.uploads;
+  List<ComposerUploadResult> get completedUploads =>
+      _uploadTransactions.completedUploads;
+  bool get hasActiveUploads => _uploadTransactions.hasActiveUploads;
+  bool get canUpload => _uploadTransactions.canUpload;
 
   void addFiles(
     Iterable<ComposerUploadFile> files,
     int offset, {
     ComposerImageGalleryBlock? gallery,
-  }) {
-    gallery = gallery == null
-        ? _galleryAtContentOffset(offset)
-        : _resolveGalleryIdentity(gallery);
-    _addUploads(
-      files,
-      offset,
-      gallery: gallery,
-      imagesOnly: false,
-      forceStandalone:
-          gallery == null && _isInsideUnprojectedGridLikeBlock(offset),
-    );
-  }
+  }) => _uploadTransactions.addFiles(files, offset, gallery: gallery);
 
-  void addImages(Iterable<ComposerUploadFile> files, int offset) {
-    final gallery = _galleryAtContentOffset(offset);
-    _addUploads(
-      files,
-      offset,
-      gallery: gallery,
-      forceStandalone:
-          gallery == null && _isInsideUnprojectedGridLikeBlock(offset),
-    );
-  }
+  void addImages(Iterable<ComposerUploadFile> files, int offset) =>
+      _uploadTransactions.addImages(files, offset);
 
   void addImagesToGallery(
     Iterable<ComposerUploadFile> files,
     ComposerImageGalleryBlock gallery,
-  ) {
-    if (!canUpload) return;
-    final queued = files.toList();
-    if (queued.isEmpty) return;
-    final current = _resolveGalleryIdentity(gallery);
-    if (current != null) {
-      _addUploads(queued, current.contentEnd, gallery: current);
-      return;
-    }
+  ) => _uploadTransactions.addImagesToGallery(files, gallery);
 
-    // A picker can outlive the projection which opened it. The files have
-    // already been chosen at this point, so a stale widget must not turn that
-    // choice into a no-op. Keep the upload, but do not silently create a new
-    // gallery in place of one the author changed or removed.
-    showNotice(appL10n.thatGalleryChangedSoTheImagesWillBeAddedOutsideIt);
-    _addUploads(
-      queued,
-      _formerGalleryMemberSequenceEnd(gallery) ??
-          gallery.start.clamp(0, text.text.length),
-      forceStandalone: true,
-    );
-  }
-
-  void _addUploads(
-    Iterable<ComposerUploadFile> files,
-    int offset, {
-    ComposerImageGalleryBlock? gallery,
-    bool forceStandalone = false,
-    bool imagesOnly = true,
-  }) {
-    if (!canUpload) return;
-    final all = files.toList();
-    final validator = imagesOnly ? canUploadImage : canUploadFile;
-    final valid = all
-        .where((file) => validator?.call(file.name) ?? true)
-        .toList();
-    final rejected = all.length - valid.length;
-    if (rejected > 0) {
-      final purpose = imagesOnly ? appL10n.forImages : '';
-      showNotice(
-        rejected == 1
-            ? appL10n.thatFileTypeIsNotAllowedOnThisSite((purpose).toString())
-            : appL10n.fileTypesAreNotAllowedOnThisSite(
-                (rejected).toString(),
-                (purpose).toString(),
-              ),
-      );
-    }
-    if (valid.isEmpty) return;
-    if (simultaneousUploads > 0 && valid.length > simultaneousUploads) {
-      final kind = imagesOnly ? 'image' : 'file';
-      final limit = simultaneousUploads == 1
-          ? appL10n.one((kind).toString())
-          : '$simultaneousUploads ${kind}s';
-      showNotice(appL10n.uploadAtMostAtATime((limit).toString()));
-      return;
-    }
-
-    if (valid.any((file) => !SiteConfig.isImageFilename(file.name))) {
-      // Mixed drops stay together, outside image-only galleries.
-      // The native caret can also land inside a projected gallery's tags.
-      gallery ??= _target.isPlugin
-          ? null
-          : text.galleryBlocks
-                .where((block) => offset > block.start && offset < block.end)
-                .firstOrNull;
-      offset = gallery?.end ?? offset;
-      gallery = null;
-      forceStandalone = true;
-    }
-
-    final batch = _nextUploadBatch++;
-    final insertsMarkdown =
-        _pluginTarget?.policy.uploadDisposition !=
-        ComposerUploadDisposition.retainAttachment;
-    final galleryTarget = gallery == null
-        ? null
-        : _galleryUploadTargetFor(gallery);
-    final destination = gallery != null
-        ? _ComposerUploadDestination.gallery
-        : !forceStandalone &&
-              insertsMarkdown &&
-              !_target.isPlugin &&
-              enableAutoGridImages &&
-              valid.length >= 3
-        ? _ComposerUploadDestination.newGallery
-        : _ComposerUploadDestination.standalone;
-    final anchor = (gallery?.contentEnd ?? offset).clamp(0, text.text.length);
-    final added = <int>[];
-    for (var order = 0; order < valid.length; order++) {
-      final id = _nextUploadId++;
-      final file = valid[order];
-      _pendingUploads[id] = _PendingComposerUpload(
-        batch: batch,
-        order: order,
-        anchor: anchor,
-        launchAnchor: anchor,
-        destination: destination,
-        launchDestination: destination,
-        galleryTarget: galleryTarget,
-      );
-      _uploads.add(
-        ComposerUploadItem(
-          id: id,
-          file: file,
-          progress: 0,
-          status: ComposerUploadStatus.uploading,
-        ),
-      );
-      added.add(id);
-      if (!_target.isPlugin) _uploadPlaceholders.add(id);
-    }
-    if (!_target.isPlugin) {
-      final at = gallery?.end ?? anchor;
-      final markers = added.map((id) => _uploadPlaceholders[id]!).join('\n');
-      _updatingUploadPlaceholders = true;
-      try {
-        _insertAt(at, _imageBlockInsertion(text.text, at, markers));
-      } finally {
-        _updatingUploadPlaceholders = false;
-      }
-      for (final id in added) {
-        if (gallery == null) {
-          _pendingUploads[id]!.anchor = text.text.indexOf(
-            _uploadPlaceholders[id]!,
-          );
-        }
-      }
-    }
-    for (final id in added) {
-      _startUpload(id);
-    }
-    _recomputeCanSubmit();
-    _notify();
-  }
-
-  void retryUpload(int id) {
-    if (!canUpload) return;
-    final index = _uploadIndex(id);
-    final pending = _pendingUploads[id];
-    if (index < 0 || pending == null) return;
-    // A retry is a transition out of the terminal failed state. Starting one
-    // for an already active row loses its abort trigger and lets two requests
-    // race to decide which result is inserted.
-    if (_uploads[index].status != ComposerUploadStatus.failed ||
-        !_uploads[index].retryable ||
-        !pending.failed) {
-      return;
-    }
-    pending.abort = Completer<void>();
-    pending.result = null;
-    pending.failed = false;
-    _uploads[index] = _uploads[index].copyWith(
-      progress: 0,
-      status: ComposerUploadStatus.retrying,
-      clearError: true,
-      clearResult: true,
-    );
-    _startUpload(id);
-    _recomputeCanSubmit();
-    _notify();
-  }
-
-  void cancelUpload(int id) => _cancelUploads([id]);
-
-  void _cancelUploads(Iterable<int> ids) {
-    final cancelled = ids.toList();
-    final batches = <int>{};
-    // Retire the whole selection before flushing peers. A later completed
-    // upload must not be inserted while its own deleted slot is still waiting
-    // to be cancelled.
-    for (final id in cancelled) {
-      final pending = _pendingUploads.remove(id);
-      if (pending != null) {
-        batches.add(pending.batch);
-        if (!pending.abort.isCompleted) pending.abort.complete();
-        pending.releasePreparation();
-      }
-      _uploads.removeWhere((upload) => upload.id == id);
-    }
-    for (final id in cancelled) {
-      _replaceUploadPlaceholder(id, '', removeLine: true);
-    }
-    for (final batch in batches) {
-      _flushReadyUploads(batch);
-    }
-    _recomputeCanSubmit();
-    _notify();
-  }
-
+  void retryUpload(int id) => _uploadTransactions.retryUpload(id);
+  void cancelUpload(int id) => _uploadTransactions.cancelUpload(id);
   void removeUpload(int id) => cancelUpload(id);
-
-  void _startUpload(int id) {
-    final uploader = imageUploader;
-    final pending = _pendingUploads[id];
-    final index = _uploadIndex(id);
-    if (uploader == null || pending == null || index < 0) return;
-    final file = _uploads[index].file;
-    unawaited(
-      Future<ComposerUploadResult>.sync(() async {
-        final prepare = prepareUpload;
-        if (prepare != null && pending.prepared == null) {
-          _uploads[index] = _uploads[index].copyWith(
-            status: ComposerUploadStatus.processing,
-          );
-          _notify();
-          final prepared = await prepare(
-            file,
-            abortTrigger: pending.abort.future,
-          );
-          if (_disposed ||
-              _pendingUploads[id] != pending ||
-              pending.abort.isCompleted) {
-            await prepared.dispose();
-            throw ComposerUploadException(appL10n.uploadCancelled);
-          }
-          pending.prepared = prepared;
-          final current = _uploadIndex(id);
-          _uploads[current] = _uploads[current].copyWith(
-            file: prepared.file,
-            status: ComposerUploadStatus.uploading,
-          );
-          _notify();
-        }
-        if (_disposed ||
-            _pendingUploads[id] != pending ||
-            pending.abort.isCompleted) {
-          throw ComposerUploadException(appL10n.uploadCancelled);
-        }
-        return uploader(
-          pending.prepared?.file ?? file,
-          abortTrigger: pending.abort.future,
-          onProgress: (progress) {
-            if (_disposed || !_pendingUploads.containsKey(id)) return;
-            final current = _uploadIndex(id);
-            if (current < 0) return;
-            final previous = _uploads[current].progress;
-            _uploads[current] = _uploads[current].copyWith(
-              progress: progress.clamp(previous, 1),
-            );
-            _notify();
-          },
-        );
-      }).then(
-        (result) {
-          if (_disposed || !_pendingUploads.containsKey(id)) return;
-          pending.releasePreparation();
-          pending.result = result;
-          if (SiteConfig.isImageFilename(result.originalFilename)) {
-            text.cacheImageUrl(result.shortUrl, result.previewUrl);
-          }
-          if (isComposerVideoFilename(result.originalFilename) ||
-              isPdfAttachment(result.originalFilename, result.shortUrl)) {
-            text.cacheImageUrl(result.shortUrl, result.url);
-          }
-          _flushReadyUploads(pending.batch);
-        },
-        onError: (Object error) {
-          if (_disposed || !_pendingUploads.containsKey(id)) return;
-          pending.failed = true;
-          final current = _uploadIndex(id);
-          if (current < 0) return;
-          _uploads[current] = _uploads[current].copyWith(
-            status: ComposerUploadStatus.failed,
-            error: switch (error) {
-              ComposerUploadException(:final displayMessage) => displayMessage,
-              _ => appL10n.couldnTUpload((file.name).toString()),
-            },
-            retryable: switch (error) {
-              ComposerUploadException(:final retryable) => retryable,
-              _ => true,
-            },
-          );
-          _flushReadyUploads(pending.batch);
-          _recomputeCanSubmit();
-          _notify();
-        },
-      ),
-    );
-  }
-
-  void _flushReadyUploads(int batch) {
-    while (true) {
-      final waiting =
-          _pendingUploads.entries
-              .where((entry) => entry.value.batch == batch)
-              .toList()
-            ..sort((a, b) => a.value.order.compareTo(b.value.order));
-      if (waiting.isEmpty) break;
-      final first = waiting.where((entry) => !entry.value.failed).firstOrNull;
-      if (first == null) break;
-      final result = first.value.result;
-      if (result == null) break;
-
-      if (_pluginTarget?.policy.uploadDisposition ==
-          ComposerUploadDisposition.retainAttachment) {
-        _pendingUploads.remove(first.key);
-        final uploadIndex = _uploadIndex(first.key);
-        if (uploadIndex >= 0) {
-          _uploads[uploadIndex] = _uploads[uploadIndex].copyWith(
-            progress: 1,
-            status: ComposerUploadStatus.completed,
-            result: result,
-            clearError: true,
-          );
-        }
-        continue;
-      }
-
-      final markdown = uploadFileMarkdown(result);
-      final markerSelection = text.selection;
-      final marker = _uploadPlaceholders[first.key];
-      final markerStart = marker == null ? -1 : text.text.indexOf(marker);
-      final markerSelected =
-          text.keyboardSelectedSyntax?.start == markerStart &&
-          markerSelection.start == markerStart &&
-          !markerSelection.isCollapsed;
-      if (markerStart >= 0) {
-        if (first.value.destination == _ComposerUploadDestination.standalone) {
-          // The slot itself owns ordering and both selection boundaries.
-          // Replacing it atomically keeps a caret before the upload before
-          // the finished image, even when completion races with typing.
-          _pendingUploads.remove(first.key);
-          _uploads.removeWhere((upload) => upload.id == first.key);
-          _replaceUploadPlaceholder(first.key, markdown);
-          continue;
-        }
-        final newGallery =
-            first.value.destination == _ComposerUploadDestination.newGallery;
-        _replaceUploadPlaceholder(first.key, '', removeLine: !newGallery);
-        if (newGallery) first.value.anchor = markerStart;
-      }
-      final earlierFailed = waiting
-          .where(
-            (entry) =>
-                entry.value.failed && entry.value.order < first.value.order,
-          )
-          .map((entry) => entry.value)
-          .toList();
-      var insertionOffset = first.value.anchor;
-      var destination = first.value.destination;
-      if (destination == _ComposerUploadDestination.newGallery &&
-          _isInsideUnprojectedGridLikeBlock(insertionOffset)) {
-        // The source can change while the picker/upload is open. Once the
-        // anchor is surrounded by any grid-like raw block, creating another
-        // wrapper would produce nested BBCode which neither composer can edit
-        // losslessly.
-        destination = _ComposerUploadDestination.standalone;
-        for (final entry in waiting) {
-          entry.value.destination = destination;
-        }
-      } else if (destination == _ComposerUploadDestination.gallery) {
-        final currentGallery = _resolvePendingUploadGallery(first.value);
-        if (currentGallery == null) {
-          // The gallery may have been explicitly unwrapped, dissolved, or
-          // changed into mixed raw content while an upload was in flight. Do
-          // not recreate it behind the author's back.
-          final target = first.value.galleryTarget;
-          if (target == null) {
-            for (final entry in waiting) {
-              entry.value.destination = _ComposerUploadDestination.standalone;
-            }
-          } else {
-            _demoteGalleryUploadTarget(
-              target,
-              fallbackAnchor: first.value.anchor,
-            );
-          }
-          destination = _ComposerUploadDestination.standalone;
-          insertionOffset = first.value.anchor;
-        } else {
-          insertionOffset = _galleryInsertionOffset(
-            first.value,
-            currentGallery,
-          );
-        }
-      }
-
-      final insertion = switch (destination) {
-        _ComposerUploadDestination.newGallery => _galleryBlockInsertion(
-          text.text,
-          insertionOffset,
-          markdown,
-        ),
-        _ComposerUploadDestination.gallery => _imageBlockInsertion(
-          text.text,
-          insertionOffset,
-          markdown,
-        ),
-        _ComposerUploadDestination.standalone => _imageBlockInsertion(
-          text.text,
-          insertionOffset,
-          markdown,
-        ),
-      };
-      final earlierLaneUploads = _pendingUploads.values
-          .where(
-            (pending) =>
-                pending.batch < first.value.batch &&
-                _sameUploadLane(pending, first.value),
-          )
-          .toList();
-      _pendingUploads.remove(first.key);
-      _uploads.removeWhere((upload) => upload.id == first.key);
-      _insertAt(insertionOffset, insertion);
-      if (markerStart >= 0 &&
-          markerStart == insertionOffset &&
-          markerSelection.isValid) {
-        final current = text.selection;
-        text.clearKeyboardPillSelection();
-        text.selection = markerSelected
-            ? TextSelection.collapsed(offset: insertionOffset)
-            : current.copyWith(
-                baseOffset: markerSelection.baseOffset == markerStart
-                    ? insertionOffset
-                    : current.baseOffset,
-                extentOffset: markerSelection.extentOffset == markerStart
-                    ? insertionOffset
-                    : current.extentOffset,
-              );
-      }
-
-      // A later request is allowed to finish first, but it must not steal the
-      // document slot reserved by an older request. Generic anchor movement
-      // shifts those older slots after this insertion; restore the boundary
-      // so an active upload or a retry still lands before the later result.
-      for (final pending in earlierLaneUploads) {
-        if (pending.anchor > insertionOffset) {
-          pending.anchor = insertionOffset;
-        }
-      }
-
-      if (destination == _ComposerUploadDestination.newGallery) {
-        final beforeLength =
-            insertionOffset > 0 && text.text[insertionOffset - 1] != '\n'
-            ? 1
-            : 0;
-        final contentStart = insertionOffset + beforeLength + '[grid]\n'.length;
-        final contentEnd = contentStart + markdown.length + 1;
-        final created = _galleryAtContentOffset(contentStart);
-        final target = created == null
-            ? null
-            : _PendingGalleryUploadTarget(created);
-        for (final entry in _pendingUploads.entries.where(
-          (entry) => entry.value.batch == batch,
-        )) {
-          entry.value.destination = _ComposerUploadDestination.gallery;
-          entry.value.galleryTarget = target;
-          entry.value.anchor = entry.value.order < first.value.order
-              ? contentStart
-              : contentEnd;
-        }
-      } else if (destination == _ComposerUploadDestination.gallery) {
-        final target = first.value.galleryTarget;
-        if (target != null) {
-          final updated = _galleryAtContentOffset(insertionOffset);
-          if (updated != null) target.gallery = updated;
-        }
-      }
-      // A failed earlier item still owns the slot before what just landed. Its
-      // anchor moved with the text insertion like every other pending upload;
-      // put it back at the boundary so a later retry restores drop order.
-      for (final pending in earlierFailed) {
-        if (destination != _ComposerUploadDestination.newGallery) {
-          // A failed slot in a newly-created gallery may already be anchored
-          // before members inserted by an earlier flush. Never move it later
-          // merely because another later result just arrived.
-          if (pending.anchor > insertionOffset) {
-            pending.anchor = insertionOffset;
-          }
-        }
-      }
-    }
-    _recomputeCanSubmit();
-    _notify();
-  }
-
-  static bool _sameUploadLane(
-    _PendingComposerUpload left,
-    _PendingComposerUpload right,
-  ) {
-    if (left.galleryTarget != null &&
-        identical(left.galleryTarget, right.galleryTarget)) {
-      return true;
-    }
-    if (left.launchDestination != right.launchDestination) return false;
-    if (left.launchDestination == _ComposerUploadDestination.gallery) {
-      return false;
-    }
-    return left.launchAnchor == right.launchAnchor ||
-        left.anchor == right.anchor;
-  }
-
-  int _uploadIndex(int id) => _uploads.indexWhere((upload) => upload.id == id);
-
-  void _insertAt(int offset, String insertion) {
-    final old = text.value;
-    final at = offset.clamp(0, old.text.length);
-    final uploadAnchors = [
-      for (final pending in _pendingUploads.values) (pending, pending.anchor),
-    ];
-    int move(int value) => value < at ? value : value + insertion.length;
-
-    // A reused separator is outside the insertion, but typing should resume
-    // after it. Keep pending upload anchors at the insertion boundary so later
-    // results still land before that text, in upload order.
-    final reusesLineBreak =
-        !insertion.endsWith('\n') &&
-        at < old.text.length &&
-        old.text[at] == '\n';
-    final caretAfter = at + insertion.length + (reusesLineBreak ? 1 : 0);
-    text.value = old.copyWith(
-      text: old.text.replaceRange(at, at, insertion),
-      selection:
-          !old.selection.isValid ||
-              (old.selection.isCollapsed && old.selection.extentOffset == at)
-          ? TextSelection.collapsed(offset: caretAfter)
-          : TextSelection(
-              baseOffset: move(old.selection.baseOffset),
-              extentOffset: move(old.selection.extentOffset),
-            ),
-      composing: TextRange.empty,
-    );
-    // [_onTextChanged] has to infer an arbitrary edit from a before/after
-    // diff. When an insertion starts with the same newline already at [at],
-    // that inference can place the common prefix beyond the true boundary and
-    // leave peer uploads behind. This call knows the exact edit, so restore
-    // the unambiguous transform after the listener has run.
-    for (final (pending, anchor) in uploadAnchors) {
-      pending.anchor = move(anchor);
-    }
-  }
-
-  static String _imageBlockInsertion(
-    String source,
-    int offset,
-    String markdown,
-  ) {
-    final at = offset.clamp(0, source.length);
-    final before = at > 0 && source[at - 1] != '\n' ? '\n' : '';
-    final after = at == source.length || source[at] != '\n' ? '\n' : '';
-    final indent = composerListContinuationAt(source, at);
-    return '$before$markdown$after'.replaceAll('\n', '\n$indent');
-  }
-
-  static String _galleryBlockInsertion(
-    String source,
-    int offset,
-    String markdown,
-  ) => _imageBlockInsertion(source, offset, '[grid]\n$markdown\n[/grid]');
 
   Timer? _wait;
   bool _rateLimited = false;
@@ -1839,7 +1229,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           )) {
         return;
       }
-      final affectedUploads = _pendingUploadsForGallery(current);
+      final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
       final replacement = remaining.isEmpty
           ? ''
           : _galleryMarkdown(current.mode, remaining);
@@ -1870,8 +1260,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
           : text.galleryBlocks
                 .where((block) => block.start == galleryStart)
                 .firstOrNull;
-      _retargetPendingGalleryUploads(
-        affectedUploads,
+      uploadEdit.complete(
         updated,
         fallbackAnchor: destination + insertion.length,
       );
@@ -1938,7 +1327,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     selected.sort((a, b) => a.start.compareTo(b.start));
 
-    final affectedUploads = _pendingUploadsForGallery(current);
+    final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
     final members = current.images.toList();
     members.insertAll(
       (insertionIndex ?? members.length).clamp(0, members.length),
@@ -1975,11 +1364,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     final updated = parseComposerImageGalleries(
       text.text,
     ).where((candidate) => candidate.start == galleryStart).firstOrNull;
-    _retargetPendingGalleryUploads(
-      affectedUploads,
-      updated,
-      fallbackAnchor: galleryEnd,
-    );
+    uploadEdit.complete(updated, fallbackAnchor: galleryEnd);
   }
 
   void removeImage(ComposerImageBlock image) {
@@ -2078,25 +1463,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
             )
             .firstOrNull;
 
-  _PendingGalleryUploadTarget _galleryUploadTargetFor(
-    ComposerImageGalleryBlock gallery,
-  ) {
-    final seen = <_PendingGalleryUploadTarget>{};
-    for (final pending in _pendingUploads.values) {
-      final target = pending.galleryTarget;
-      if (target == null || target.demoted || !seen.add(target)) continue;
-      final current = _resolveGalleryIdentity(
-        target.gallery,
-        anchor: pending.anchor,
-      );
-      if (current != null) {
-        target.gallery = current;
-        if (_sameGallery(current, gallery)) return target;
-      }
-    }
-    return _PendingGalleryUploadTarget(gallery);
-  }
-
   ComposerImageGalleryBlock? _resolveGalleryIdentity(
     ComposerImageGalleryBlock captured, {
     int? anchor,
@@ -2104,7 +1470,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (_disposed || _target.isPlugin) return null;
     final galleries = parseComposerImageGalleries(text.text);
     final exact = galleries
-        .where((candidate) => _sameGallery(candidate, captured))
+        .where((candidate) => _sameComposerGallery(candidate, captured))
         .firstOrNull;
     if (exact != null) return exact;
 
@@ -2157,193 +1523,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     return null;
   }
 
-  int? _formerGalleryMemberSequenceEnd(ComposerImageGalleryBlock captured) {
-    if (captured.images.isEmpty) return null;
-    final current = text.imageBlocks;
-    final matches = <int>[];
-    for (
-      var start = 0;
-      start + captured.images.length <= current.length;
-      start++
-    ) {
-      var matchesSequence = true;
-      for (var index = 0; index < captured.images.length; index++) {
-        final candidate = current[start + index];
-        if (candidate.source != captured.images[index].source ||
-            (index > 0 &&
-                text.text
-                    .substring(current[start + index - 1].end, candidate.start)
-                    .trim()
-                    .isNotEmpty)) {
-          matchesSequence = false;
-          break;
-        }
-      }
-      if (matchesSequence) {
-        matches.add(current[start + captured.images.length - 1].end);
-      }
-    }
-    return matches.length == 1 ? matches.single : null;
-  }
-
-  ComposerImageGalleryBlock? _resolvePendingUploadGallery(
-    _PendingComposerUpload pending,
-  ) {
-    final target = pending.galleryTarget;
-    if (target == null) return _galleryAtContentOffset(pending.anchor);
-    if (target.demoted) return null;
-    final current = _resolveGalleryIdentity(
-      target.gallery,
-      anchor: pending.anchor,
-    );
-    if (current != null) target.gallery = current;
-    return current;
-  }
-
-  static bool _sameGallery(
-    ComposerImageGalleryBlock left,
-    ComposerImageGalleryBlock right,
-  ) =>
-      left.start == right.start &&
-      left.end == right.end &&
-      left.source == right.source;
-
-  int _galleryInsertionOffset(
-    _PendingComposerUpload pending,
-    ComposerImageGalleryBlock gallery,
-  ) {
-    final anchor = pending.anchor;
-    if (anchor >= gallery.contentStart &&
-        anchor <= gallery.contentEnd &&
-        !gallery.images.any(
-          (image) => anchor > image.start && anchor < image.end,
-        )) {
-      return anchor;
-    }
-    return gallery.contentEnd;
-  }
-
-  List<_PendingComposerUpload> _pendingUploadsForGallery(
-    ComposerImageGalleryBlock gallery,
-  ) {
-    final affected = <_PendingComposerUpload>[];
-    for (final pending in _pendingUploads.values) {
-      if (pending.destination != _ComposerUploadDestination.gallery) continue;
-      final current = _resolvePendingUploadGallery(pending);
-      if (current != null && _sameGallery(current, gallery)) {
-        affected.add(pending);
-      }
-    }
-    return affected;
-  }
-
-  void _retargetPendingGalleryUploads(
-    Iterable<_PendingComposerUpload> affected,
-    ComposerImageGalleryBlock? updated, {
-    required int fallbackAnchor,
-  }) {
-    final direct = affected.toSet();
-    if (direct.isEmpty) return;
-    final targets = <_PendingGalleryUploadTarget>{};
-    for (final pending in direct) {
-      final target = pending.galleryTarget;
-      if (target != null) targets.add(target);
-    }
-    final anchor = (updated?.contentEnd ?? fallbackAnchor).clamp(
-      0,
-      text.text.length,
-    );
-    for (final target in targets) {
-      if (updated == null) {
-        target.demoted = true;
-      } else {
-        target.gallery = updated;
-      }
-    }
-    for (final pending in _pendingUploads.values) {
-      if (!direct.contains(pending) &&
-          (pending.galleryTarget == null ||
-              !targets.contains(pending.galleryTarget))) {
-        continue;
-      }
-      pending.anchor = anchor;
-      pending.destination = updated == null
-          ? _ComposerUploadDestination.standalone
-          : _ComposerUploadDestination.gallery;
-    }
-  }
-
-  void _demoteGalleryUploadTarget(
-    _PendingGalleryUploadTarget target, {
-    required int fallbackAnchor,
-  }) {
-    target.demoted = true;
-    final anchor = fallbackAnchor.clamp(0, text.text.length);
-    for (final pending in _pendingUploads.values) {
-      if (!identical(pending.galleryTarget, target)) continue;
-      pending.destination = _ComposerUploadDestination.standalone;
-      pending.anchor = anchor;
-    }
-  }
-
-  bool _isInsideUnprojectedGridLikeBlock(int offset) {
-    if (_target.isPlugin) return false;
-    final source = text.text;
-    if (source.isEmpty || !source.toLowerCase().contains('[grid')) {
-      return false;
-    }
-    final at = offset.clamp(0, source.length);
-    final code = markdownCodeRanges(source);
-    final images = parseComposerImages(source, codeRanges: code);
-    final openings = <int>[];
-    final marker = RegExp(r'\[(/?)grid\b', caseSensitive: false);
-    var imageIndex = 0;
-
-    bool isEscaped(int start) {
-      var backslashes = 0;
-      for (
-        var index = start - 1;
-        index >= 0 && source[index] == r'\';
-        index--
-      ) {
-        backslashes++;
-      }
-      return backslashes.isOdd;
-    }
-
-    bool rangeContains(int start, int end, {required bool closed}) =>
-        at > start && (closed ? at < end : at <= end);
-
-    for (final match in marker.allMatches(source)) {
-      while (imageIndex < images.length &&
-          images[imageIndex].end <= match.start) {
-        imageIndex++;
-      }
-      final insideImage =
-          imageIndex < images.length &&
-          images[imageIndex].start <= match.start &&
-          match.start < images[imageIndex].end;
-      if (code.contains(match.start) || insideImage || isEscaped(match.start)) {
-        continue;
-      }
-      final newline = source.indexOf('\n', match.end);
-      final bracket = source.indexOf(']', match.end);
-      final complete = bracket >= 0 && (newline < 0 || bracket < newline);
-      final closing = match.group(1) == '/';
-      if (!closing) {
-        openings.add(match.start);
-        continue;
-      }
-      if (!complete || openings.isEmpty) continue;
-      final start = openings.removeLast();
-      if (rangeContains(start, bracket + 1, closed: true)) return true;
-    }
-    for (final start in openings) {
-      if (rangeContains(start, source.length, closed: false)) return true;
-    }
-    return false;
-  }
-
   void _replaceGallery(
     ComposerImageGalleryBlock gallery,
     String replacement, {
@@ -2352,7 +1531,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!isEditing) return;
     final current = _currentGallery(gallery);
     if (current == null) return;
-    final affectedUploads = _pendingUploadsForGallery(current);
+    final uploadEdit = _uploadTransactions.captureGalleryEdit(current);
     final old = text.value;
     text.value = old.copyWith(
       text: old.text.replaceRange(current.start, current.end, replacement),
@@ -2366,8 +1545,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
             text.text,
           ).where((candidate) => candidate.start == current.start).firstOrNull
         : null;
-    _retargetPendingGalleryUploads(
-      affectedUploads,
+    uploadEdit.complete(
       updated,
       fallbackAnchor: current.start + replacement.length,
     );
@@ -2465,11 +1643,13 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   Duration get openDuration => _now().difference(_openedAt);
 
   /// New posts keep leading Markdown indentation, as PostCreator does.
-  String get raw => _uploadPlaceholders.strip(text.text).trimRight();
+  String get raw =>
+      _uploadTransactions.uploadPlaceholders.strip(text.text).trimRight();
 
   /// The body an edit sends. The site stores a revision right-stripped but
   /// keeps its start, so trimming it would unindent a leading code block.
-  String get editRaw => _uploadPlaceholders.strip(text.text).trimRight();
+  String get editRaw =>
+      _uploadTransactions.uploadPlaceholders.strip(text.text).trimRight();
 
   /// Whether saving the edit would change the body the site stores.
   bool get _bodyEdited => editRaw != _originalRaw?.trimRight();
@@ -2513,7 +1693,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   bool get draftPersistencePending => draftPending || _draftSaveTask != null;
 
   ComposerDraft get draft => ComposerDraft(
-    reply: _uploadPlaceholders.strip(text.text),
+    reply: _uploadTransactions.uploadPlaceholders.strip(text.text),
     action: _target.isPrivateMessage
         ? ComposerDraft.privateMessageAction
         : _target.isNewTopic
@@ -2908,7 +2088,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _replaceDocument(
       const TextEditingValue(selection: TextSelection.collapsed(offset: 0)),
     );
-    _clearUploads();
+    _uploadTransactions.clear();
     _recomputeCanSubmit();
     _typing.reset();
     _openedAt = _now();
@@ -2925,22 +2105,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _state = ComposerState.editing;
     _error = null;
     _notice = null;
-    _clearUploads();
-    for (final upload in uploads) {
-      _uploads.add(
-        ComposerUploadItem(
-          id: _nextUploadId++,
-          file: ComposerUploadFile(
-            name: upload.originalFilename,
-            length: () async => 0,
-            openRead: () => const Stream<List<int>>.empty(),
-          ),
-          progress: 1,
-          status: ComposerUploadStatus.completed,
-          result: upload,
-        ),
-      );
-    }
+    _uploadTransactions.replaceCompleted(uploads);
     _replaceDocument(
       TextEditingValue(
         text: raw,
@@ -2993,36 +2158,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     if (!_replacingDocument) autocomplete.update(text.value);
 
     if (text.text == _lastText) return;
-    // Let EditableText finish applying its exact undo value before removing
-    // slots whose requests have already settled. No stale token is saved.
-    // Stripping amends the restored value: as an edit of its own it would
-    // discard redo and be the step the next undo restores, slot and all.
-    if (!_updatingUploadPlaceholders && !_target.isPlugin) {
-      scheduleMicrotask(() {
-        if (_disposed) return;
-        final settled = [
-          for (final slot in _uploadPlaceholders.find(text.text))
-            if (!_pendingUploads.containsKey(slot.id)) slot.id,
-        ];
-        if (settled.isEmpty) return;
-        history.amend(() {
-          for (final id in settled) {
-            _replaceUploadPlaceholder(id, '', removeLine: true);
-          }
-        });
-      });
-    }
     final wasDraftPending = draftPending;
     final couldSubmit = _canSubmit;
-    _moveUploadAnchors(_lastText, text.text);
+    final before = _lastText;
     _lastText = text.text;
-    if (!_updatingUploadPlaceholders) {
-      final removed = _pendingUploads.keys.where((id) {
-        final marker = _uploadPlaceholders[id];
-        return marker != null && !text.text.contains(marker);
-      }).toList();
-      if (removed.isNotEmpty) _cancelUploads(removed);
-    }
+    _uploadTransactions.documentChanged(before, text.text);
     _draftRevision++;
     if (_discardPreview != null && !_replacingDocument) clearDiscardPreview();
 
@@ -3036,14 +2176,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _recomputeCanSubmit();
     if (_canSubmit == couldSubmit && draftPending != wasDraftPending) {
       _notify();
-    }
-  }
-
-  void _moveUploadAnchors(String before, String after) {
-    if (_pendingUploads.isEmpty || before == after) return;
-    final edit = _TextEdit.between(before, after);
-    for (final pending in _pendingUploads.values) {
-      pending.anchor = edit.move(pending.anchor);
     }
   }
 
@@ -3100,15 +2232,6 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   bool _disposed = false;
 
-  void _clearUploads() {
-    for (final pending in _pendingUploads.values) {
-      if (!pending.abort.isCompleted) pending.abort.complete();
-      pending.releasePreparation();
-    }
-    _pendingUploads.clear();
-    _uploads.clear();
-  }
-
   void _notify() {
     if (_disposed) return;
     notifyListeners();
@@ -3118,7 +2241,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   void dispose() {
     _disposed = true;
     _clearTagRemovalNotice();
-    _clearUploads();
+    _uploadTransactions.dispose();
     _wait?.cancel();
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
@@ -3135,44 +2258,44 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 }
 
-class _PendingComposerUpload {
-  _PendingComposerUpload({
-    required this.batch,
-    required this.order,
-    required this.anchor,
-    required this.launchAnchor,
-    required this.destination,
-    required this.launchDestination,
-    required this.galleryTarget,
-  });
+final class _ComposerUploadEditor {
+  _ComposerUploadEditor(this._composer);
 
-  final int batch;
-  final int order;
-  int anchor;
-  final int launchAnchor;
-  _ComposerUploadDestination destination;
-  final _ComposerUploadDestination launchDestination;
-  _PendingGalleryUploadTarget? galleryTarget;
-  Completer<void> abort = Completer<void>();
-  ComposerUploadResult? result;
-  bool failed = false;
-  PreparedComposerUpload? prepared;
+  final ComposerController _composer;
 
-  void releasePreparation() {
-    final owned = prepared;
-    prepared = null;
-    if (owned != null) unawaited(owned.dispose());
+  MarkdownEditingController get text => _composer.text;
+  bool get isEditing => _composer.isEditing;
+  bool get isDisposed => _composer._disposed;
+  bool get usesInlineSlots => !_composer.isPluginTarget;
+  bool get autoGridEnabled => _composer.enableAutoGridImages;
+  ComposerUploadDisposition get disposition =>
+      _composer._pluginTarget?.policy.uploadDisposition ??
+      ComposerUploadDisposition.insertMarkdown;
+
+  ComposerImageGalleryBlock? galleryAt(int offset) =>
+      _composer._galleryAtContentOffset(offset);
+
+  ComposerImageGalleryBlock? resolveGallery(
+    ComposerImageGalleryBlock captured, {
+    int? anchor,
+  }) => _composer._resolveGalleryIdentity(captured, anchor: anchor);
+
+  void amendHistory(VoidCallback change) => _composer.history.amend(change);
+  void showNotice(String message) => _composer.showNotice(message);
+
+  void changed({bool affectsSubmission = false}) {
+    if (affectsSubmission) _composer._recomputeCanSubmit();
+    _composer._notify();
   }
 }
 
-class _PendingGalleryUploadTarget {
-  _PendingGalleryUploadTarget(this.gallery);
-
-  ComposerImageGalleryBlock gallery;
-  bool demoted = false;
-}
-
-enum _ComposerUploadDestination { standalone, newGallery, gallery }
+bool _sameComposerGallery(
+  ComposerImageGalleryBlock left,
+  ComposerImageGalleryBlock right,
+) =>
+    left.start == right.start &&
+    left.end == right.end &&
+    left.source == right.source;
 
 /// The one span two texts differ in, bounded by their common prefix and
 /// suffix. An offset before the span stays, one after it shifts by the length
