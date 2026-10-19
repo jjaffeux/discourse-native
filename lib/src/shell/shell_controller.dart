@@ -18,6 +18,7 @@ import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
 import '../data/badges_api.dart';
 import '../data/composer_media_optimizer.dart';
+import '../data/current_user_reconciler.dart';
 import '../data/destination_bookmarks_store.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/discover_sites.dart';
@@ -159,11 +160,6 @@ enum ShellRootMode { forum }
 enum InstanceLoadStatus { loading, ready, failed }
 
 enum TabOpenResult { opened, unsupported, limitReached }
-
-typedef _PluginUserOptionUpdate = ({
-  int revision,
-  PluginData Function(PluginData) update,
-});
 
 typedef TopicMoveDestination = ({int id, String title, String slug});
 
@@ -745,13 +741,9 @@ class ShellController extends FrameSafeNotifier
             final instance = _instanceAt(siteUrl);
             final user = instance?.user;
             if (instance == null || user == null) return;
-            final revision = (_pluginUserOptionVersions[siteUrl] ?? 0) + 1;
-            _pluginUserOptionVersions[siteUrl] = revision;
-            (_pluginUserOptionUpdates[siteUrl] ??= {})[field] = (
-              revision: revision,
-              update: update,
-            );
-            final updated = user.withPlugins(update(user.plugins));
+            final updated = _currentUserReconcilerFor(
+              siteUrl,
+            ).updatePluginOption(field, previous: user, update: update);
             if (updated == user) return;
             _replaceInstance(instance, instance.copyWith(user: updated));
             unawaited(_persistPreferencesMirror(List.of(_instances)));
@@ -1144,8 +1136,7 @@ class ShellController extends FrameSafeNotifier
         lifecycle: lifecycle,
         onTotalsLoaded: _onTotalsLoaded,
         onTotalsChanged: _onTotalsChanged,
-        onGroupedUnreadAuthorityAdvanced:
-            _advanceGroupedUnreadNotificationVersion,
+        onGroupedUnreadAuthorityAdvanced: _onGroupedUnreadAuthorityAdvanced,
       );
 
   late final DoNotDisturbController doNotDisturb = DoNotDisturbController(
@@ -3103,12 +3094,8 @@ class ShellController extends FrameSafeNotifier
     instanceStore.save(List.of(_instances)).ignore();
   }
 
-  void _advanceGroupedUnreadNotificationVersion(String siteUrl) {
-    _groupedUnreadNotificationVersions.update(
-      siteUrl,
-      (version) => version + 1,
-      ifAbsent: () => 1,
-    );
+  void _onGroupedUnreadAuthorityAdvanced(String siteUrl) {
+    _currentUserReconcilerFor(siteUrl).groupedUnreadChanged();
   }
 
   void _onPreferencesSaved(
@@ -4488,9 +4475,18 @@ class ShellController extends FrameSafeNotifier
   final Map<String, bool> _optimisticHidePresence = {};
   final Map<String, Object> _hidePresenceWrites = {};
   final Map<String, String> _hidePresenceErrors = {};
-  final Map<String, int> _hidePresenceVersions = {};
-  final Map<String, int> _groupedUnreadNotificationVersions = {};
-  final Map<String, int> _draftCountVersions = {};
+  final Map<String, CurrentUserReconciler> _currentUserReconcilers = {};
+
+  CurrentUserReconciler _currentUserReconcilerFor(String siteUrl) {
+    final current = _currentUserReconcilers[siteUrl];
+    if (current != null && current.isCurrent) return current;
+    current?.retire();
+    return _currentUserReconcilers[siteUrl] = CurrentUserReconciler(
+      lease: lifecycle.capture(siteUrl),
+      models: plugins.models,
+    );
+  }
+
   final Map<String, Timer> _pluginNotificationFeedRefreshTimers = {};
 
   final Set<String> _sessionUsersRefreshed = {};
@@ -5032,7 +5028,7 @@ class ShellController extends FrameSafeNotifier
         ? NotificationTypeCounts.fromWire(data['grouped_unread_notifications'])
         : NotificationTypeCounts.unavailable;
     if (groupedCounts.isAvailable) {
-      _advanceGroupedUnreadNotificationVersion(siteUrl);
+      _onGroupedUnreadAuthorityAdvanced(siteUrl);
     }
     accountActivity.applyLiveNotificationState(siteUrl, data);
     if (!accountActivity.hasTrackedPluginNotifications(siteUrl)) return;
@@ -5098,13 +5094,8 @@ class ShellController extends FrameSafeNotifier
 
     if (isDisposed || !lease.isCurrent) return;
 
-    final hidePresenceVersion = _hidePresenceVersions[siteUrl] ?? 0;
-    final groupedUnreadNotificationVersion =
-        _groupedUnreadNotificationVersions[siteUrl] ?? 0;
-    final draftCountVersion = _draftCountVersions[siteUrl] ?? 0;
-    final categoryPreferenceVersion =
-        _categoryNotificationPreferenceVersions[siteUrl] ?? 0;
-    final pluginUserOptionVersion = _pluginUserOptionVersions[siteUrl] ?? 0;
+    final currentUserOwner = _currentUserReconcilerFor(siteUrl);
+    final userSnapshot = currentUserOwner.beginSnapshot();
     final bootstrapTrackingOwner = apiKey == null || clientId == null
         ? null
         : _trackingFor(siteUrl);
@@ -5123,11 +5114,7 @@ class ShellController extends FrameSafeNotifier
             siteUrl,
             bootstrapUser,
             lease,
-            hidePresenceVersion,
-            groupedUnreadNotificationVersion,
-            draftCountVersion,
-            categoryPreferenceVersion,
-            pluginUserOptionVersion,
+            userSnapshot,
           );
 
     final userId = apiKey == null
@@ -5184,8 +5171,7 @@ class ShellController extends FrameSafeNotifier
           userId != null &&
           bootstrapTracking != null &&
           currentBootstrapTicket != null &&
-          (_categoryNotificationPreferenceVersions[siteUrl] ?? 0) ==
-              categoryPreferenceVersion &&
+          currentUserOwner.categoryPreferencesAreCurrent(userSnapshot) &&
           bootstrap!.hasCompleteTopicTrackingSnapshot(userId) &&
           tracking.completeBootstrap(
             currentBootstrapTicket,
@@ -5696,25 +5682,11 @@ class ShellController extends FrameSafeNotifier
       }();
     }
 
-    final hidePresenceVersion = _hidePresenceVersions[siteUrl] ?? 0;
-    final groupedUnreadNotificationVersion =
-        _groupedUnreadNotificationVersions[siteUrl] ?? 0;
-    final draftCountVersion = _draftCountVersions[siteUrl] ?? 0;
-    final categoryPreferenceVersion =
-        _categoryNotificationPreferenceVersions[siteUrl] ?? 0;
-    final pluginUserOptionVersion = _pluginUserOptionVersions[siteUrl] ?? 0;
+    final currentUserOwner = _currentUserReconcilerFor(siteUrl);
+    final userSnapshot = currentUserOwner.beginSnapshot();
     late final Future<DiscourseUser?> request;
-    request =
-        _readSessionUser(
-          siteUrl,
-          apiKey,
-          session,
-          hidePresenceVersion,
-          groupedUnreadNotificationVersion,
-          draftCountVersion,
-          categoryPreferenceVersion,
-          pluginUserOptionVersion,
-        ).whenComplete(() {
+    request = _readSessionUser(siteUrl, apiKey, session, userSnapshot)
+        .whenComplete(() {
           if (identical(_sessionUserRequests[siteUrl], request)) {
             final removed = _sessionUserRequests.remove(siteUrl);
             assert(identical(removed, request));
@@ -5728,11 +5700,7 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     String apiKey,
     SiteLease lease,
-    int hidePresenceVersion,
-    int groupedUnreadNotificationVersion,
-    int draftCountVersion,
-    int categoryPreferenceVersion,
-    int pluginUserOptionVersion,
+    CurrentUserSnapshot userSnapshot,
   ) async {
     if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
 
@@ -5773,11 +5741,7 @@ class ShellController extends FrameSafeNotifier
       siteUrl,
       responseUser,
       lease,
-      hidePresenceVersion,
-      groupedUnreadNotificationVersion,
-      draftCountVersion,
-      categoryPreferenceVersion,
-      pluginUserOptionVersion,
+      userSnapshot,
     );
   }
 
@@ -5837,11 +5801,7 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     DiscourseUser responseUser,
     SiteLease lease,
-    int hidePresenceVersion,
-    int groupedUnreadNotificationVersion,
-    int draftCountVersion,
-    int categoryPreferenceVersion,
-    int pluginUserOptionVersion,
+    CurrentUserSnapshot userSnapshot,
   ) {
     if (isDisposed || !lease.isCurrent || _connectingSiteUrl == siteUrl) {
       return null;
@@ -5854,68 +5814,18 @@ class ShellController extends FrameSafeNotifier
       final fresh = _instanceAt(siteUrl);
       if (fresh == null) return;
       final previousUser = fresh.user;
-      final accountChanged =
-          previousUser != null &&
-          !plugins.models.sameCurrentUserAccount(previousUser, user);
-      final withPreservedPlugins = plugins.models.preserveUnknownCurrentUser(
-        previousUser,
-        user,
-      );
-      final preserveConfirmedPresence =
-          !accountChanged &&
-          (_hidePresenceWrites.containsKey(siteUrl) ||
-              (_hidePresenceVersions[siteUrl] ?? 0) != hidePresenceVersion);
-      final groupedCountsAreCurrent =
-          (_groupedUnreadNotificationVersions[siteUrl] ?? 0) ==
-          groupedUnreadNotificationVersion;
-      final draftCountIsCurrent =
-          (_draftCountVersions[siteUrl] ?? 0) == draftCountVersion;
-      var reconciledUser = preserveConfirmedPresence
-          ? withPreservedPlugins.withHidePresence(previousUser?.hidePresence)
-          : withPreservedPlugins;
-      if (!accountChanged && !groupedCountsAreCurrent && previousUser != null) {
-        // The response predates a live snapshot or a local read/dismiss write.
-        // Keep accepting its unrelated current-user fields, but do not expose
-        // its stale grouped map through the menu's user fallback.
-        reconciledUser = reconciledUser.withGroupedUnreadNotifications(
-          previousUser.groupedUnreadNotifications,
-        );
-      }
-      if (!accountChanged && !draftCountIsCurrent && previousUser != null) {
-        reconciledUser = reconciledUser.withDraftCount(previousUser.draftCount);
-      }
-      if (!accountChanged &&
-          previousUser != null &&
-          (_categoryNotificationPreferenceVersions[siteUrl] ?? 0) !=
-              categoryPreferenceVersion) {
-        reconciledUser = reconciledUser.withCategoryNotificationPreferences(
-          trackedCategoryIds: previousUser.trackedCategoryIds,
-          watchedCategoryIds: previousUser.watchedCategoryIds,
-          watchedFirstPostCategoryIds: previousUser.watchedFirstPostCategoryIds,
-          mutedCategoryIds: previousUser.mutedCategoryIds,
-          indirectlyMutedCategoryIds: previousUser.indirectlyMutedCategoryIds,
-        );
-      }
-      if (!accountChanged) {
-        var data = reconciledUser.plugins;
-        for (final write
-            in (_pluginUserOptionUpdates[siteUrl]?.values ??
-                const <_PluginUserOptionUpdate>[])) {
-          if (write.revision > pluginUserOptionVersion) {
-            data = write.update(data);
-          }
-        }
-        reconciledUser = reconciledUser.withPlugins(data);
-      }
+      final reconciliation = _currentUserReconcilerFor(
+        siteUrl,
+      ).reconcile(userSnapshot, previous: previousUser, incoming: user);
+      if (reconciliation == null) return;
+      final accountChanged = reconciliation.accountChanged;
+      final reconciledUser = reconciliation.user;
       committedUser = reconciledUser;
       _sessionUsersRefreshed.add(siteUrl);
       _hidePresenceErrors.remove(siteUrl);
       if (previousUser != committedUser || accountChanged) {
         changed = true;
         if (accountChanged) {
-          _pluginUserOptionUpdates.remove(siteUrl);
-          // Other in-flight reads can still carry the previous account's
-          // revision, so the counter stays monotonic until site retirement.
           accountActivity.forget(siteUrl);
           groups.forget(siteUrl);
           userDirectory.forget(siteUrl);
@@ -5931,7 +5841,7 @@ class ShellController extends FrameSafeNotifier
           ),
         );
       }
-      if (accountChanged || groupedCountsAreCurrent) {
+      if (reconciliation.seedGroupedUnreadCounts) {
         _seedGroupedUnreadNotifications(siteUrl, committedUser!);
       }
       _notify();
@@ -5960,11 +5870,7 @@ class ShellController extends FrameSafeNotifier
     final user = instance?.user;
     if (instance == null || user == null) return;
 
-    _draftCountVersions.update(
-      siteUrl,
-      (version) => version + 1,
-      ifAbsent: () => 1,
-    );
+    _currentUserReconcilerFor(siteUrl).draftCountChanged();
 
     var current = instance;
     if (user.draftCount != count) {
@@ -6116,7 +6022,7 @@ class ShellController extends FrameSafeNotifier
     _hidePresenceWrites[siteUrl] = request;
     _optimisticHidePresence[siteUrl] = desired;
     _hidePresenceErrors.remove(siteUrl);
-    _bumpHidePresenceVersion(siteUrl);
+    _currentUserReconcilerFor(siteUrl).presenceWriteStarted();
     _notify();
 
     bool isCurrent() =>
@@ -6187,7 +6093,7 @@ class ShellController extends FrameSafeNotifier
     lease.commit(() {
       _hidePresenceWrites.remove(siteUrl);
       _optimisticHidePresence.remove(siteUrl);
-      _bumpHidePresenceVersion(siteUrl);
+      _currentUserReconcilerFor(siteUrl).presenceWriteSettled();
 
       if (error != null) {
         _hidePresenceErrors[siteUrl] = error;
@@ -6205,10 +6111,6 @@ class ShellController extends FrameSafeNotifier
       }
       _notify();
     });
-  }
-
-  void _bumpHidePresenceVersion(String siteUrl) {
-    _hidePresenceVersions[siteUrl] = (_hidePresenceVersions[siteUrl] ?? 0) + 1;
   }
 
   String _hidePresenceError(WriteException error) {
@@ -6481,10 +6383,6 @@ class ShellController extends FrameSafeNotifier
       {};
   final Map<String, Future<void>> _categoryNotificationTails = {};
   final Map<String, Future<void>> _categoryNotificationSiteTails = {};
-  final Map<String, int> _categoryNotificationPreferenceVersions = {};
-  final Map<String, int> _pluginUserOptionVersions = {};
-  final Map<String, Map<String, _PluginUserOptionUpdate>>
-  _pluginUserOptionUpdates = {};
   final Map<String, CategoryNotificationLevel> _categoryNotificationConfirmed =
       {};
   final Set<String> _topicPinWrites = {};
@@ -8862,9 +8760,8 @@ class ShellController extends FrameSafeNotifier
       return;
     }
     _categoryNotificationConfirmed[key] = write.level;
-    final version =
-        (_categoryNotificationPreferenceVersions[write.siteUrl] ?? 0) + 1;
-    _categoryNotificationPreferenceVersions[write.siteUrl] = version;
+    final currentUserOwner = _currentUserReconcilerFor(write.siteUrl);
+    final categoryTicket = currentUserOwner.categoryPreferencesChanged();
     final user = _instanceAt(write.siteUrl)?.user;
     if (user != null) {
       List<int>? membership(List<int>? ids, CategoryNotificationLevel level) =>
@@ -8930,15 +8827,13 @@ class ShellController extends FrameSafeNotifier
                     clientId: clientId,
                   ),
                 );
-                if (!write.lease.isCurrent ||
-                    isDisposed ||
-                    _categoryNotificationPreferenceVersions[write.siteUrl] !=
-                        version) {
-                  return;
-                }
+                if (!write.lease.isCurrent || isDisposed) return;
                 final held = _instanceAt(write.siteUrl)?.user;
-                if (held == null ||
-                    !plugins.models.sameCurrentUserAccount(held, response)) {
+                if (!currentUserOwner.acceptsCategoryPreferences(
+                  categoryTicket,
+                  previous: held,
+                  incoming: response,
+                )) {
                   return;
                 }
                 _commitCategoryNotificationPreferences(write.siteUrl, response);
@@ -16645,9 +16540,7 @@ class ShellController extends FrameSafeNotifier
       (key, _) => key.startsWith('$siteUrl^'),
     );
     final _ = _categoryNotificationSiteTails.remove(siteUrl);
-    _categoryNotificationPreferenceVersions.remove(siteUrl);
-    _pluginUserOptionVersions.remove(siteUrl);
-    _pluginUserOptionUpdates.remove(siteUrl);
+    _currentUserReconcilers.remove(siteUrl)?.retire();
     _categoryNotificationConfirmed.removeWhere(
       (key, _) => key.startsWith('$siteUrl^'),
     );
@@ -16723,9 +16616,6 @@ class ShellController extends FrameSafeNotifier
     _optimisticHidePresence.remove(siteUrl);
     _hidePresenceWrites.remove(siteUrl);
     _hidePresenceErrors.remove(siteUrl);
-    _hidePresenceVersions.remove(siteUrl);
-    _groupedUnreadNotificationVersions.remove(siteUrl);
-    _draftCountVersions.remove(siteUrl);
     _pluginNotificationFeedRefreshTimers.remove(siteUrl)?.cancel();
     _disposeTracking(siteUrl);
     _notify();
@@ -17713,9 +17603,10 @@ class ShellController extends FrameSafeNotifier
     _categoryNotificationTails.clear();
     _categoryNotificationConfirmed.clear();
     _categoryNotificationSiteTails.clear();
-    _categoryNotificationPreferenceVersions.clear();
-    _pluginUserOptionVersions.clear();
-    _pluginUserOptionUpdates.clear();
+    for (final owner in _currentUserReconcilers.values) {
+      owner.retire();
+    }
+    _currentUserReconcilers.clear();
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
     _messageArchiveWrites.clear();
@@ -17724,9 +17615,6 @@ class ShellController extends FrameSafeNotifier
     _optimisticHidePresence.clear();
     _hidePresenceWrites.clear();
     _hidePresenceErrors.clear();
-    _hidePresenceVersions.clear();
-    _groupedUnreadNotificationVersions.clear();
-    _draftCountVersions.clear();
     for (final timer in _pluginNotificationFeedRefreshTimers.values) {
       timer.cancel();
     }
