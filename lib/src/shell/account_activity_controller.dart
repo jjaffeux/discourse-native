@@ -18,6 +18,7 @@ import '../models/notification_type_counts.dart';
 import '../models/user_activity_feed.dart';
 import '../plugin_api/notification_counters.dart';
 import '../plugin_api/notification_feed_host.dart';
+import 'notification_reconciliation.dart';
 
 typedef TotalsLoaded =
     void Function(DiscourseInstance instance, NotificationTotals totals);
@@ -26,16 +27,6 @@ typedef TotalsChanged =
 typedef GroupedUnreadAuthorityAdvanced = void Function(String siteUrl);
 typedef OtherNotificationTypes =
     Future<List<NotificationTypeName>> Function(String apiKey);
-
-typedef _GroupedUnreadAuthorityToken = ({
-  int snapshotRevision,
-  Map<NotificationTypeId, int> typeRevisions,
-});
-
-typedef _TotalsAuthorityToken = ({
-  Map<NotificationTotalsField, int> fields,
-  Map<PluginNotificationCounterId, int> pluginCounters,
-});
 
 final class AccountActivityController extends FrameSafeNotifier {
   AccountActivityController({
@@ -94,12 +85,22 @@ final class AccountActivityController extends FrameSafeNotifier {
   Listenable get bookmarkListListenable => _bookmarkListChanges;
   Listenable get userActivityListenable => _userActivityChanges;
 
-  final Map<String, NotificationTotals> _totals = {};
-  final Map<String, NotificationFeed> _notifications = {};
-  final Map<String, NotificationFeed> _replyNotifications = {};
-  final Map<String, NotificationFeed> _likeNotifications = {};
-  final Map<String, NotificationFeed> _otherNotifications = {};
-  final Map<String, BookmarkFeed> _bookmarks = {};
+  final Map<String, NotificationReconciliation> _reconciliations = {};
+  late final _notifications = NotificationFeedSlot.notifications(
+    _notificationChanges.changed,
+  );
+  late final _replyNotifications = NotificationFeedSlot.notifications(
+    _replyNotificationChanges.changed,
+  );
+  late final _likeNotifications = NotificationFeedSlot.notifications(
+    _likeNotificationChanges.changed,
+  );
+  late final _otherNotifications = NotificationFeedSlot.notifications(
+    _otherNotificationChanges.changed,
+  );
+  late final _bookmarks = NotificationFeedSlot.reminders(
+    _bookmarkChanges.changed,
+  );
   final Map<String, BookmarkListFeed> _bookmarkLists = {};
   final Map<String, UserActivityFeed> _userActivity = {};
   final Map<String, Object> _totalsRequests = {};
@@ -128,40 +129,56 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Object> _bookmarkListRequests = {};
   final Map<String, Object> _userActivityRequests = {};
   final Map<(String, int), Object> _notificationReadRequests = {};
-  final Map<String, Set<int>> _locallyReadNotificationIds = {};
-  final Map<(String, int), int> _notificationRowAuthorityRevisions = {};
   final Map<(String, PluginNotificationFeedId), Future<void>>
   _pluginNotificationDismissTasks = {};
-  final Map<String, int> _groupedUnreadSnapshotRevisions = {};
-  final Map<(String, NotificationTypeId), int> _groupedUnreadTypeRevisions = {};
-  // Accepted confirmations can leave values unchanged or return to the
-  // request's original counts. Authority advances independently of publishing.
-  final Map<(String, NotificationTotalsField), int> _totalsFieldRevisions = {};
-  final Map<(String, PluginNotificationCounterId), int>
-  _pluginCounterRevisions = {};
-
-  NotificationTotals? totalsFor(String siteUrl) => _totals[siteUrl];
-
-  void restoreTotals(String siteUrl, NotificationTotals totals) {
-    if (isDisposed) return;
-    _totals[siteUrl] = totals;
+  NotificationReconciliation? _existingReconciliation(String siteUrl) {
+    final owner = _reconciliations[siteUrl];
+    if (owner == null || owner.isCurrent) return owner;
+    owner.retire();
+    _reconciliations.remove(siteUrl);
+    return null;
   }
 
-  NotificationFeed notificationsFor(String? siteUrl) => siteUrl == null
-      ? const NotificationFeed()
-      : _notifications[siteUrl] ?? const NotificationFeed();
+  NotificationReconciliation _reconciliationFor(
+    String siteUrl, {
+    SiteLease? lease,
+  }) {
+    final currentLease = lease ?? lifecycle.capture(siteUrl);
+    final held = _existingReconciliation(siteUrl);
+    if (held != null && identical(held.lease.session, currentLease.session)) {
+      return held;
+    }
+    held?.retire();
+    return _reconciliations[siteUrl] = NotificationReconciliation(
+      lease: currentLease,
+      totalsChanged: (totals) => onTotalsChanged?.call(siteUrl, totals),
+      totalsAspectChanged: _totalsChanges.changed,
+      changed: notifySafely,
+      groupedUnreadAuthorityAdvanced: () =>
+          onGroupedUnreadAuthorityAdvanced?.call(siteUrl),
+    );
+  }
 
-  NotificationFeed replyNotificationsFor(String? siteUrl) => siteUrl == null
-      ? const NotificationFeed()
-      : _replyNotifications[siteUrl] ?? const NotificationFeed();
+  NotificationTotals? totalsFor(String siteUrl) =>
+      _existingReconciliation(siteUrl)?.totals;
 
-  NotificationFeed likeNotificationsFor(String? siteUrl) => siteUrl == null
-      ? const NotificationFeed()
-      : _likeNotifications[siteUrl] ?? const NotificationFeed();
+  void restoreTotals(String siteUrl, NotificationTotals totals) {
+    if (!isDisposed) _reconciliationFor(siteUrl).restoreTotals(totals);
+  }
 
-  NotificationFeed otherNotificationsFor(String? siteUrl) => siteUrl == null
-      ? const NotificationFeed()
-      : _otherNotifications[siteUrl] ?? const NotificationFeed();
+  T _feedFor<T>(String? siteUrl, NotificationFeedSlot<T> slot) =>
+      siteUrl == null
+      ? slot.empty
+      : _existingReconciliation(siteUrl)?.feed(slot) ?? slot.empty;
+
+  NotificationFeed notificationsFor(String? siteUrl) =>
+      _feedFor(siteUrl, _notifications);
+  NotificationFeed replyNotificationsFor(String? siteUrl) =>
+      _feedFor(siteUrl, _replyNotifications);
+  NotificationFeed likeNotificationsFor(String? siteUrl) =>
+      _feedFor(siteUrl, _likeNotifications);
+  NotificationFeed otherNotificationsFor(String? siteUrl) =>
+      _feedFor(siteUrl, _otherNotifications);
 
   Listenable pluginNotificationsListenable(PluginNotificationFeedId id) =>
       _pluginNotificationState(id).changes;
@@ -169,20 +186,17 @@ final class AccountActivityController extends FrameSafeNotifier {
   NotificationFeed pluginNotificationsFor(
     PluginNotificationFeedId id,
     String? siteUrl,
-  ) => siteUrl == null
-      ? const NotificationFeed()
-      : _pluginNotificationState(id).feeds[siteUrl] ?? const NotificationFeed();
+  ) => _feedFor(siteUrl, _pluginNotificationState(id).slot);
 
   bool hasTrackedPluginNotifications(String siteUrl) =>
       _pluginNotifications.values.any(
         (state) =>
-            state.feeds.containsKey(siteUrl) ||
+            _existingReconciliation(siteUrl)?.hasPublished(state.slot) ==
+                true ||
             state.tasks.containsKey(siteUrl),
       );
 
-  BookmarkFeed bookmarksFor(String? siteUrl) => siteUrl == null
-      ? const BookmarkFeed()
-      : _bookmarks[siteUrl] ?? const BookmarkFeed();
+  BookmarkFeed bookmarksFor(String? siteUrl) => _feedFor(siteUrl, _bookmarks);
 
   BookmarkListFeed bookmarkListFor(String? siteUrl) => siteUrl == null
       ? const BookmarkListFeed()
@@ -211,7 +225,7 @@ final class AccountActivityController extends FrameSafeNotifier {
           .future;
     }
     if (!force && _recentlyAttempted(instance.url)) {
-      return _totals[instance.url];
+      return totalsFor(instance.url);
     }
     return _startTotalsRefresh(instance);
   }
@@ -239,8 +253,8 @@ final class AccountActivityController extends FrameSafeNotifier {
     final lease = lifecycle.capture(instance.url);
     final request = Object();
     _totalsRequests[instance.url] = request;
-    final before = _totals[instance.url] ?? const NotificationTotals();
-    final authority = _captureTotalsAuthority(instance.url);
+    final owner = _reconciliationFor(instance.url, lease: lease);
+    final ticket = owner.beginTotalsRefresh();
     try {
       final auth = await AccountRequestSession(
         instance.url,
@@ -257,45 +271,9 @@ final class AccountActivityController extends FrameSafeNotifier {
       NotificationTotals? applied;
       final accepted = _commit(lease, () {
         if (!identical(_totalsRequests[instance.url], request)) return;
-        final current = _totals[instance.url];
-        final updatedFields = {
-          for (final field in NotificationTotalsField.values)
-            if ((_totalsFieldRevisions[(instance.url, field)] ?? 0) !=
-                authority.fields[field])
-              field,
-        };
-        final resolved = current != null
-            ? NotificationTotals.mergeRefresh(
-                response: totals,
-                before: before,
-                live: current,
-                updatedFields: updatedFields,
-                updatedPluginCounters: {
-                  for (final entry in _pluginCounterRevisions.entries)
-                    if (entry.key.$1 == instance.url &&
-                        entry.value !=
-                            (authority.pluginCounters[entry.key.$2] ?? 0))
-                      entry.key.$2,
-                },
-              )
-            : totals;
+        final resolved = owner.acceptTotalsRefresh(ticket, totals);
+        if (resolved == null) return;
         applied = resolved;
-        if (totals.groupedUnreadNotifications.isAvailable &&
-            !updatedFields.contains(
-              NotificationTotalsField.groupedUnreadNotifications,
-            ) &&
-            (current == null ||
-                current.groupedUnreadNotifications ==
-                    before.groupedUnreadNotifications)) {
-          // An accepted response also supersedes older typed writes when its
-          // grouped count is equal. A retained live count grants no authority
-          // to the response which lost reconciliation.
-          _advanceGroupedUnreadSnapshotAuthority(instance.url);
-        }
-        if (current != resolved) {
-          _totals[instance.url] = resolved;
-          _notifyTotals(instance.url, resolved);
-        }
         // Publishing can synchronously retire this account through a listener.
         // Its post-load hook must retain the same request and account owner.
         if (_ownsRequest(lease, _totalsRequests[instance.url], request)) {
@@ -358,7 +336,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         tasks: _notificationTasks,
         start: () => _loadNotificationFeed(
           instance,
-          feeds: _notifications,
+          slot: _notifications,
           requests: _notificationRequests,
           fetch: (apiKey, _) =>
               api.notifications(siteUrl: instance.url, apiKey: apiKey),
@@ -369,7 +347,6 @@ final class AccountActivityController extends FrameSafeNotifier {
             (instance.host).toString(),
           ),
           operation: 'account.loadNotifications',
-          notify: _notifyNotifications,
         ),
       );
 
@@ -379,7 +356,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         tasks: _replyNotificationTasks,
         start: () => _loadNotificationFeed(
           instance,
-          feeds: _replyNotifications,
+          slot: _replyNotifications,
           requests: _replyNotificationRequests,
           fetch: (apiKey, _) => api.notifications(
             siteUrl: instance.url,
@@ -393,7 +370,6 @@ final class AccountActivityController extends FrameSafeNotifier {
             (instance.host).toString(),
           ),
           operation: 'account.loadReplyNotifications',
-          notify: _notifyReplyNotifications,
         ),
       );
 
@@ -403,7 +379,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         tasks: _likeNotificationTasks,
         start: () => _loadNotificationFeed(
           instance,
-          feeds: _likeNotifications,
+          slot: _likeNotifications,
           requests: _likeNotificationRequests,
           fetch: (apiKey, _) => api.notifications(
             siteUrl: instance.url,
@@ -417,7 +393,6 @@ final class AccountActivityController extends FrameSafeNotifier {
             (instance.host).toString(),
           ),
           operation: 'account.loadLikeNotifications',
-          notify: _notifyLikeNotifications,
         ),
       );
 
@@ -429,7 +404,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     tasks: _otherNotificationTasks,
     start: () => _loadNotificationFeed(
       instance,
-      feeds: _otherNotifications,
+      slot: _otherNotifications,
       requests: _otherNotificationRequests,
       fetch: (apiKey, ownsRequest) async {
         final types = await resolveTypes(apiKey);
@@ -448,7 +423,6 @@ final class AccountActivityController extends FrameSafeNotifier {
         (instance.host).toString(),
       ),
       operation: 'account.loadOtherNotifications',
-      notify: _notifyOtherNotifications,
     ),
   );
 
@@ -469,7 +443,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       tasks: state.tasks,
       start: () => _loadNotificationFeed(
         instance,
-        feeds: state.feeds,
+        slot: state.slot,
         requests: state.requests,
         fetch: (apiKey, _) async => source.arrange(
           await api.notifications(
@@ -481,7 +455,6 @@ final class AccountActivityController extends FrameSafeNotifier {
         reconnectMessage: source.reconnectMessage,
         failureMessage: source.failureMessage,
         operation: 'account.loadPluginNotifications.${source.id.id}',
-        notify: state.notify,
       ),
     );
   }
@@ -500,9 +473,10 @@ final class AccountActivityController extends FrameSafeNotifier {
     );
     await Future.wait([
       for (final source in sources)
-        if (_pluginNotificationState(
-              source.id,
-            ).feeds.containsKey(instance.url) ||
+        if (_existingReconciliation(
+                  instance.url,
+                )?.hasPublished(_pluginNotificationState(source.id).slot) ==
+                true ||
             _pluginNotificationState(source.id).tasks.containsKey(instance.url))
           _refreshLoadedPluginNotifications(instance, source, lease),
     ]);
@@ -576,23 +550,16 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (isDisposed || !instance.isConnected) return;
     final siteUrl = instance.url;
     final lease = lifecycle.capture(siteUrl);
-    // A current-user snapshot which started before this write cannot be allowed
-    // to restore its pre-write grouped counts. Publish another boundary after a
-    // successful response so snapshots started while the write was in flight
-    // are stale as well, including when the local bucket is absent or zero.
-    onGroupedUnreadAuthorityAdvanced?.call(siteUrl);
-    final dismissedTypeNames = List<NotificationTypeName>.unmodifiable(
-      source?.filterByTypes ??
-          [for (final type in types) NotificationTypeName(type.wireName)],
+    final owner = _reconciliationFor(siteUrl, lease: lease);
+    final attempt = owner.beginDismiss(
+      types: types,
+      names: source?.filterByTypes,
+      source: source == null ? null : _pluginNotificationState(source.id).slot,
     );
-    final dismissedTypeIds = <NotificationTypeId>{
-      for (final type in types) NotificationTypeId(type.wireId),
-    };
-    final authority = _captureGroupedUnreadAuthority(siteUrl, dismissedTypeIds);
-    final cachedNotificationIds = _cachedPluginDismissNotificationIds(
-      siteUrl,
-      source,
-    );
+    if (attempt == null || isDisposed || !lease.isCurrent) return;
+    final dismissedTypeNames =
+        source?.filterByTypes ??
+        [for (final type in types) NotificationTypeName(type.wireName)];
 
     try {
       final auth = await AccountRequestSession(
@@ -615,20 +582,8 @@ final class AccountActivityController extends FrameSafeNotifier {
       );
       if (isDisposed || !lease.isCurrent) return;
 
-      onGroupedUnreadAuthorityAdvanced?.call(siteUrl);
-      final newerAuthorityAccepted = !_groupedUnreadAuthorityIsCurrent(
-        siteUrl,
-        authority,
-      );
-      // A successful bulk write is an authoritative boundary for older
-      // optimistic per-row reads. Advance it even when a newer MessageBus
-      // count means this write must not clear the local grouped snapshot.
-      _advanceGroupedUnreadTypeAuthorities(siteUrl, dismissedTypeIds);
-      _advanceNotificationRowAuthorities(siteUrl, cachedNotificationIds);
-      _markCachedNotificationIdsRead(siteUrl, cachedNotificationIds);
-      if (!newerAuthorityAccepted) {
-        _clearGroupedUnreadTypes(siteUrl, dismissedTypeIds);
-      }
+      owner.confirmDismiss(attempt);
+      if (isDisposed || !lease.isCurrent) return;
 
       // Mirror Discourse's user-menu dismiss action: reconcile the filtered
       // list authoritatively after the write. Only the pre-write cache snapshot
@@ -661,10 +616,7 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   _PluginNotificationState _pluginNotificationState(
     PluginNotificationFeedId id,
-  ) => _pluginNotifications.putIfAbsent(
-    id,
-    () => _PluginNotificationState(notifySafely),
-  );
+  ) => _pluginNotifications.putIfAbsent(id, _PluginNotificationState.new);
 
   Future<void> _coalescedActivityLoad(
     String siteUrl, {
@@ -710,7 +662,7 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   Future<void> _loadNotificationFeed(
     DiscourseInstance instance, {
-    required Map<String, NotificationFeed> feeds,
+    required NotificationFeedSlot<NotificationFeed> slot,
     required Map<String, Object> requests,
     required Future<List<DiscourseNotification>> Function(
       String apiKey,
@@ -720,27 +672,29 @@ final class AccountActivityController extends FrameSafeNotifier {
     required String reconnectMessage,
     required String failureMessage,
     required String operation,
-    required VoidCallback notify,
   }) async {
     if (isDisposed || !instance.isConnected) return;
     final lease = lifecycle.capture(instance.url);
     if (requests.containsKey(instance.url)) return;
     final request = Object();
     requests[instance.url] = request;
-    final held = feeds[instance.url];
+    final owner = _reconciliationFor(instance.url, lease: lease);
+    final held = owner.hasPublished(slot) ? owner.feed(slot) : null;
 
     bool ownsRequest() => _ownsRequest(lease, requests[instance.url], request);
 
     if (held == null || held.error != null) {
-      feeds[instance.url] = const NotificationFeed.loading();
-      notify();
+      owner.publish(slot, const NotificationFeed.loading());
     }
 
     void fail(String message) {
       // Rows that arrived while the request was out stay on screen.
-      final current = feeds[instance.url];
-      if (current != null && current.notifications.isNotEmpty) return;
-      feeds[instance.url] = NotificationFeed.failed(message);
+      final current = owner.feed(slot);
+      if (current.notifications.isNotEmpty) {
+        owner.publish(slot, current);
+        return;
+      }
+      owner.publish(slot, NotificationFeed.failed(message));
     }
 
     try {
@@ -756,17 +710,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         _commit(lease, () {
           if (!identical(requests[instance.url], request)) return;
           fail(reconnectMessage);
-          notify();
         });
         return;
       }
       final notifications = await auth.run(() => fetch(apiKey, ownsRequest));
       _commit(lease, () {
         if (!identical(requests[instance.url], request)) return;
-        feeds[instance.url] = NotificationFeed.of(
-          _preservingLocalReads(instance.url, notifications),
-        );
-        notify();
+        owner.publish(slot, NotificationFeed.of(notifications));
       });
     } on SiteLookupException catch (error, stackTrace) {
       if (isDisposed ||
@@ -782,7 +732,6 @@ final class AccountActivityController extends FrameSafeNotifier {
               ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
               : appL10n.couldnTReach((instance.host).toString()),
         );
-        notify();
       });
     } catch (error, stackTrace) {
       if (isDisposed ||
@@ -794,7 +743,6 @@ final class AccountActivityController extends FrameSafeNotifier {
       _commit(lease, () {
         if (!identical(requests[instance.url], request)) return;
         fail(failureMessage);
-        notify();
       });
     } finally {
       _commit(lease, () {
@@ -889,18 +837,21 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (_bookmarkRequests.containsKey(instance.url)) return;
     final request = Object();
     _bookmarkRequests[instance.url] = request;
-    final held = _bookmarks[instance.url];
+    final owner = _reconciliationFor(instance.url, lease: lease);
+    final held = owner.hasPublished(_bookmarks) ? owner.feed(_bookmarks) : null;
 
     if (held == null || held.error != null) {
-      _bookmarks[instance.url] = const BookmarkFeed.loading();
-      _notifyBookmarks();
+      owner.publish(_bookmarks, const BookmarkFeed.loading());
     }
 
     void fail(String message) {
       // Rows that arrived while the request was out stay on screen.
-      final current = _bookmarks[instance.url];
-      if (current != null && current.hasRows) return;
-      _bookmarks[instance.url] = BookmarkFeed.failed(message);
+      final current = owner.feed(_bookmarks);
+      if (current.hasRows) {
+        owner.publish(_bookmarks, current);
+        return;
+      }
+      owner.publish(_bookmarks, BookmarkFeed.failed(message));
     }
 
     try {
@@ -918,7 +869,6 @@ final class AccountActivityController extends FrameSafeNotifier {
           fail(
             appL10n.reconnectToToSeeYourBookmarks((instance.host).toString()),
           );
-          _notifyBookmarks();
         });
         return;
       }
@@ -931,11 +881,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       );
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
-        _bookmarks[instance.url] = BookmarkFeed.of((
-          reminders: _preservingLocalReads(instance.url, bookmarks.reminders),
-          bookmarks: bookmarks.bookmarks,
-        ));
-        _notifyBookmarks();
+        owner.publish(_bookmarks, BookmarkFeed.of(bookmarks));
       });
     } on SiteLookupException catch (error, stackTrace) {
       if (isDisposed ||
@@ -951,7 +897,6 @@ final class AccountActivityController extends FrameSafeNotifier {
               ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
               : appL10n.couldnTReach((instance.host).toString()),
         );
-        _notifyBookmarks();
       });
     } catch (error, stackTrace) {
       if (isDisposed ||
@@ -963,7 +908,6 @@ final class AccountActivityController extends FrameSafeNotifier {
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
         fail(appL10n.couldnTLoadBookmarksFrom((instance.host).toString()));
-        _notifyBookmarks();
       });
     } finally {
       _commit(lease, () {
@@ -1370,41 +1314,12 @@ final class AccountActivityController extends FrameSafeNotifier {
     Object request,
   ) async {
     final lease = lifecycle.capture(instance.url);
-    final notificationKey = (instance.url, notification.id);
-    final rowAuthorityRevision =
-        _notificationRowAuthorityRevisions[notificationKey] ?? 0;
-    final hadLocalRead =
-        _locallyReadNotificationIds[instance.url]?.contains(notification.id) ==
-        true;
-    // Invalidate current-user snapshots on both sides of the write. This is
-    // deliberately independent of the numeric optimistic decrement: a stale
-    // snapshot must not resurrect a bucket which was absent or already zero.
-    onGroupedUnreadAuthorityAdvanced?.call(instance.url);
-    final groupedAuthority = _captureGroupedUnreadAuthority(instance.url, {
-      notification.typeId,
-    });
-    final groupedCountDecremented = _adjustGroupedUnreadCount(
-      instance.url,
-      notification.typeId,
-      -1,
-    );
-    _markCachedNotificationIdsRead(instance.url, {notification.id});
-
-    void abandonOptimisticRead() {
-      // Grouped snapshots and type-wide revisions say nothing about whether
-      // this particular row was covered. Only a successful write whose
-      // pre-write snapshot contained this ID supersedes its rollback.
-      if (!hadLocalRead &&
-          (_notificationRowAuthorityRevisions[notificationKey] ?? 0) ==
-              rowAuthorityRevision) {
-        _discardLocalRead(instance.url, notification.id);
-        _markCachedNotificationIdsUnread(instance.url, {notification.id});
-      }
-
-      if (groupedCountDecremented &&
-          _groupedUnreadAuthorityIsCurrent(instance.url, groupedAuthority)) {
-        _adjustGroupedUnreadCount(instance.url, notification.typeId, 1);
-      }
+    final key = (instance.url, notification.id);
+    final owner = _reconciliationFor(instance.url, lease: lease);
+    final attempt = owner.beginRead(notification);
+    if (attempt == null ||
+        !_ownsRequest(lease, _notificationReadRequests[key], request)) {
+      return;
     }
 
     try {
@@ -1413,12 +1328,11 @@ final class AccountActivityController extends FrameSafeNotifier {
         lease,
       ).keyCredentials(credentials);
       final apiKey = auth.apiKey;
-      final key = (instance.url, notification.id);
       if (!_ownsRequest(lease, _notificationReadRequests[key], request)) {
         return;
       }
       if (apiKey == null) {
-        abandonOptimisticRead();
+        owner.failRead(attempt);
         return;
       }
       await auth.run(
@@ -1429,406 +1343,62 @@ final class AccountActivityController extends FrameSafeNotifier {
         ),
       );
     } catch (error, stackTrace) {
-      final key = (instance.url, notification.id);
       if (!_ownsRequest(lease, _notificationReadRequests[key], request)) {
         return;
       }
-      abandonOptimisticRead();
+      owner.failRead(attempt);
       _report(error, stackTrace, 'account.markNotificationRead');
       return;
     }
 
-    final key = (instance.url, notification.id);
     if (!_ownsRequest(lease, _notificationReadRequests[key], request)) return;
-    onGroupedUnreadAuthorityAdvanced?.call(instance.url);
+    owner.confirmRead(attempt);
+    if (!_ownsRequest(lease, _notificationReadRequests[key], request)) return;
     await refresh(instance, force: true);
-  }
-
-  Set<int> _cachedPluginDismissNotificationIds(
-    String siteUrl,
-    PluginNotificationFeedSource? source,
-  ) {
-    final names = source?.filterByTypes.toSet() ?? <NotificationTypeName>{};
-    final typeIds = <NotificationTypeId>{
-      for (final type
-          in source?.dismissal?.notificationTypes ??
-              const <NotificationWireType>[])
-        NotificationTypeId(type.wireId),
-    };
-    final notificationIds = <int>{};
-
-    void collect(
-      Iterable<DiscourseNotification> notifications, {
-      bool trustedServerFilter = false,
-    }) {
-      for (final notification in notifications) {
-        if (source != null &&
-            !trustedServerFilter &&
-            !names.contains(notification.typeName) &&
-            !typeIds.contains(notification.typeId)) {
-          continue;
-        }
-        // Include matching rows already shown as read. One may be carrying an
-        // optimistic per-row read which can still fail before this bulk write
-        // succeeds; the successful bulk response must then re-pin that row.
-        // The snapshot still excludes rows first received during the write.
-        notificationIds.add(notification.id);
-      }
-    }
-
-    if (source != null) {
-      if (_pluginNotificationState(source.id).feeds[siteUrl] case final feed?) {
-        // This feed was fetched with exactly [source.filterByTypes], so its rows
-        // remain useful even on servers which omit `notification_type_name`.
-        collect(feed.notifications, trustedServerFilter: true);
-      }
-    }
-    if (_notifications[siteUrl] case final feed?) {
-      collect(feed.notifications);
-    }
-    if (_replyNotifications[siteUrl] case final feed?) {
-      collect(feed.notifications);
-    }
-    if (_likeNotifications[siteUrl] case final feed?) {
-      collect(feed.notifications);
-    }
-    if (_otherNotifications[siteUrl] case final feed?) {
-      collect(feed.notifications);
-    }
-    for (final state in _pluginNotifications.values) {
-      if (state.feeds[siteUrl] case final feed?) {
-        collect(feed.notifications);
-      }
-    }
-    if (_bookmarks[siteUrl] case final feed?) collect(feed.reminders);
-    return notificationIds;
-  }
-
-  void _markCachedNotificationIdsRead(String siteUrl, Set<int> ids) {
-    if (ids.isEmpty) return;
-    _locallyReadNotificationIds.putIfAbsent(siteUrl, () => <int>{}).addAll(ids);
-    _markCachedNotificationIds(
-      siteUrl,
-      ids,
-      markNotification: (feed, id) => feed.withRead(id),
-      markBookmark: (feed, id) => feed.withRead(id),
-    );
-  }
-
-  void _markCachedNotificationIdsUnread(String siteUrl, Set<int> ids) {
-    if (ids.isEmpty) return;
-    _markCachedNotificationIds(
-      siteUrl,
-      ids,
-      markNotification: (feed, id) => feed.withUnread(id),
-      markBookmark: (feed, id) => feed.withUnread(id),
-    );
-  }
-
-  /// Walks every cached feed holding [siteUrl]'s rows, applies [markNotification]
-  /// and [markBookmark] per id, and notifies exactly the aspects that changed.
-  void _markCachedNotificationIds(
-    String siteUrl,
-    Set<int> ids, {
-    required NotificationFeed Function(NotificationFeed feed, int id)
-    markNotification,
-    required BookmarkFeed Function(BookmarkFeed feed, int id) markBookmark,
-  }) {
-    NotificationFeed markFeed(NotificationFeed feed) {
-      var updated = feed;
-      for (final id in ids) {
-        updated = markNotification(updated, id);
-      }
-      return updated;
-    }
-
-    var notificationChanged = false;
-    var replyNotificationChanged = false;
-    var likeNotificationChanged = false;
-    var otherNotificationChanged = false;
-    final pluginNotificationChanges = <_PluginNotificationState>[];
-    var bookmarkChanged = false;
-    if (_notifications[siteUrl] case final feed?) {
-      final updated = markFeed(feed);
-      if (!identical(updated, feed)) {
-        _notifications[siteUrl] = updated;
-        notificationChanged = true;
-      }
-    }
-    if (_replyNotifications[siteUrl] case final feed?) {
-      final updated = markFeed(feed);
-      if (!identical(updated, feed)) {
-        _replyNotifications[siteUrl] = updated;
-        replyNotificationChanged = true;
-      }
-    }
-    if (_likeNotifications[siteUrl] case final feed?) {
-      final updated = markFeed(feed);
-      if (!identical(updated, feed)) {
-        _likeNotifications[siteUrl] = updated;
-        likeNotificationChanged = true;
-      }
-    }
-    if (_otherNotifications[siteUrl] case final feed?) {
-      final updated = markFeed(feed);
-      if (!identical(updated, feed)) {
-        _otherNotifications[siteUrl] = updated;
-        otherNotificationChanged = true;
-      }
-    }
-    for (final state in _pluginNotifications.values) {
-      if (state.feeds[siteUrl] case final feed?) {
-        final updated = markFeed(feed);
-        if (!identical(updated, feed)) {
-          state.feeds[siteUrl] = updated;
-          pluginNotificationChanges.add(state);
-        }
-      }
-    }
-    if (_bookmarks[siteUrl] case final feed?) {
-      var updated = feed;
-      for (final id in ids) {
-        updated = markBookmark(updated, id);
-      }
-      if (!identical(updated, feed)) {
-        _bookmarks[siteUrl] = updated;
-        bookmarkChanged = true;
-      }
-    }
-    if (notificationChanged) _notificationChanges.changed();
-    if (replyNotificationChanged) _replyNotificationChanges.changed();
-    if (likeNotificationChanged) _likeNotificationChanges.changed();
-    if (otherNotificationChanged) _otherNotificationChanges.changed();
-    for (final state in pluginNotificationChanges) {
-      state.changes.changed();
-    }
-    if (bookmarkChanged) _bookmarkChanges.changed();
-    if (notificationChanged ||
-        replyNotificationChanged ||
-        likeNotificationChanged ||
-        otherNotificationChanged ||
-        pluginNotificationChanges.isNotEmpty ||
-        bookmarkChanged) {
-      notifySafely();
-    }
-  }
-
-  bool _adjustGroupedUnreadCount(
-    String siteUrl,
-    NotificationTypeId typeId,
-    int delta,
-  ) {
-    final held = _totals[siteUrl];
-    final counts = held?.groupedUnreadNotifications;
-    final wire = counts?.toJson();
-    if (held == null || wire == null) return false;
-
-    final key = '${typeId.value}';
-    final current = wire[key] ?? 0;
-    final next = (current + delta).clamp(0, 0x7fffffff);
-    if (next == current) return false;
-    final updatedWire = Map<String, int>.of(wire);
-    if (next == 0) {
-      updatedWire.remove(key);
-    } else {
-      updatedWire[key] = next;
-    }
-    final updated = held.copyWith(
-      groupedUnreadNotifications: NotificationTypeCounts.fromWire(updatedWire),
-    );
-    // Local decrements and rollbacks supersede older totals reads without
-    // invalidating the separate authority token used to decide a rollback.
-    _advanceTotalsField(
-      siteUrl,
-      NotificationTotalsField.groupedUnreadNotifications,
-    );
-    _totals[siteUrl] = updated;
-    _notifyTotals(siteUrl, updated);
-    return true;
-  }
-
-  void _clearGroupedUnreadTypes(
-    String siteUrl,
-    Set<NotificationTypeId> typeIds,
-  ) {
-    final held = _totals[siteUrl];
-    final wire = held?.groupedUnreadNotifications.toJson();
-    if (held == null || wire == null || wire.isEmpty) return;
-
-    final updatedWire = Map<String, int>.of(wire);
-    for (final typeId in typeIds) {
-      updatedWire.remove('${typeId.value}');
-    }
-    if (mapEquals(updatedWire, wire)) return;
-    final updated = held.copyWith(
-      groupedUnreadNotifications: NotificationTypeCounts.fromWire(updatedWire),
-    );
-    _totals[siteUrl] = updated;
-    _notifyTotals(siteUrl, updated);
-  }
-
-  void _advanceGroupedUnreadSnapshotAuthority(String siteUrl) {
-    _advanceTotalsField(
-      siteUrl,
-      NotificationTotalsField.groupedUnreadNotifications,
-    );
-    _groupedUnreadSnapshotRevisions.update(
-      siteUrl,
-      (revision) => revision + 1,
-      ifAbsent: () => 1,
-    );
-  }
-
-  _GroupedUnreadAuthorityToken _captureGroupedUnreadAuthority(
-    String siteUrl,
-    Set<NotificationTypeId> typeIds,
-  ) => (
-    snapshotRevision: _groupedUnreadSnapshotRevisions[siteUrl] ?? 0,
-    typeRevisions: Map.unmodifiable({
-      for (final typeId in typeIds)
-        typeId: _groupedUnreadTypeRevisions[(siteUrl, typeId)] ?? 0,
-    }),
-  );
-
-  bool _groupedUnreadAuthorityIsCurrent(
-    String siteUrl,
-    _GroupedUnreadAuthorityToken authority,
-  ) =>
-      (_groupedUnreadSnapshotRevisions[siteUrl] ?? 0) ==
-          authority.snapshotRevision &&
-      _groupedUnreadTypeAuthoritiesAreCurrent(siteUrl, authority);
-
-  bool _groupedUnreadTypeAuthoritiesAreCurrent(
-    String siteUrl,
-    _GroupedUnreadAuthorityToken authority,
-  ) => authority.typeRevisions.entries.every(
-    (entry) =>
-        (_groupedUnreadTypeRevisions[(siteUrl, entry.key)] ?? 0) == entry.value,
-  );
-
-  void _advanceGroupedUnreadTypeAuthorities(
-    String siteUrl,
-    Set<NotificationTypeId> typeIds,
-  ) {
-    if (_totals[siteUrl]?.groupedUnreadNotifications.isAvailable == true) {
-      _advanceTotalsField(
-        siteUrl,
-        NotificationTotalsField.groupedUnreadNotifications,
-      );
-    }
-    for (final typeId in typeIds) {
-      _groupedUnreadTypeRevisions.update(
-        (siteUrl, typeId),
-        (revision) => revision + 1,
-        ifAbsent: () => 1,
-      );
-    }
-  }
-
-  void _advanceNotificationRowAuthorities(String siteUrl, Set<int> ids) {
-    for (final id in ids) {
-      _notificationRowAuthorityRevisions.update(
-        (siteUrl, id),
-        (revision) => revision + 1,
-        ifAbsent: () => 1,
-      );
-    }
   }
 
   void applyCounts(
     String siteUrl,
     NotificationTotals Function(NotificationTotals held) fold,
   ) {
-    if (isDisposed) return;
-    final held = _totals[siteUrl] ?? const NotificationTotals();
-    final updated = fold(held);
-    if (updated == held) return;
-    if (updated.unreadNotifications != held.unreadNotifications) {
-      _advanceTotalsField(siteUrl, NotificationTotalsField.unreadNotifications);
-    }
-    if (updated.unreadPersonalMessages != held.unreadPersonalMessages) {
-      _advanceTotalsField(
-        siteUrl,
-        NotificationTotalsField.unreadPersonalMessages,
-      );
-    }
-    if (updated.unseenReviewables != held.unseenReviewables) {
-      _advanceTotalsField(siteUrl, NotificationTotalsField.unseenReviewables);
-    }
-    for (final id in {
-      ...held.pluginCounters.ids,
-      ...updated.pluginCounters.ids,
-    }) {
-      if (updated.pluginCounter(id) != held.pluginCounter(id)) {
-        _advancePluginCounter(siteUrl, id);
-      }
-    }
-    if (updated.groupedUnreadNotifications != held.groupedUnreadNotifications) {
-      _advanceGroupedUnreadSnapshotAuthority(siteUrl);
-    }
-    _totals[siteUrl] = updated;
-    _notifyTotals(siteUrl, updated);
+    if (!isDisposed) _reconciliationFor(siteUrl).applyCounts(fold);
   }
 
   void applyGroupedUnreadSnapshot(
     String siteUrl,
     NotificationTypeCounts counts,
   ) {
-    if (isDisposed || !counts.isAvailable) return;
-    // A complete current-user snapshot supersedes every older typed local
-    // write, even when its numeric values happen to be identical.
-    _advanceGroupedUnreadSnapshotAuthority(siteUrl);
-    final held = _totals[siteUrl] ?? const NotificationTotals();
-    final updated = held.withGroupedUnreadNotifications(counts);
-    if (updated == held) return;
-    _totals[siteUrl] = updated;
-    _notifyTotals(siteUrl, updated);
+    if (!isDisposed) _reconciliationFor(siteUrl).applyGroupedSnapshot(counts);
   }
 
   void applyLiveNotificationState(String siteUrl, Object? data) {
     if (isDisposed || data is! Map) return;
-    final hasUnread =
-        jsonIntOrNull(data['all_unread_notifications_count']) != null;
-    final hasPersonal =
-        jsonIntOrNull(data['new_personal_messages_notifications_count']) !=
-        null;
-    final hasGrouped = NotificationTypeCounts.fromWire(
-      data['grouped_unread_notifications'],
-    ).isAvailable;
-    if (!hasUnread && !hasPersonal && !hasGrouped) return;
-    if (hasUnread) {
-      _advanceTotalsField(siteUrl, NotificationTotalsField.unreadNotifications);
-    }
-    if (hasPersonal) {
-      _advanceTotalsField(
-        siteUrl,
-        NotificationTotalsField.unreadPersonalMessages,
-      );
-    }
-    if (hasGrouped) {
-      // Every grouped snapshot is a new authority boundary, even when it has
-      // the same numeric values. An older local write must not clear or roll
-      // back counts after a newer live snapshot has been accepted.
-      _advanceGroupedUnreadSnapshotAuthority(siteUrl);
-    }
-    final held = _totals[siteUrl] ?? const NotificationTotals();
-    final updated = held.withNotification(data);
-    _totals[siteUrl] = updated;
-    if (updated == held) return;
-    _notifyTotals(siteUrl, updated);
+    _reconciliationFor(siteUrl).applyLiveCounts(
+      LiveNotificationCounts(
+        allUnread: _notificationCount(data['all_unread_notifications_count']),
+        personal: _notificationCount(
+          data['new_personal_messages_notifications_count'],
+        ),
+        grouped: NotificationTypeCounts.fromWire(
+          data['grouped_unread_notifications'],
+        ),
+      ),
+    );
   }
 
   void applyReviewableCounts(String siteUrl, Object? data) {
-    if (isDisposed ||
-        data is! Map ||
-        jsonIntOrNull(data['unseen_reviewable_count']) == null) {
-      return;
-    }
-    _advanceTotalsField(siteUrl, NotificationTotalsField.unseenReviewables);
-    final held = _totals[siteUrl] ?? const NotificationTotals();
-    final updated = held.withReviewableCounts(data);
-    _totals[siteUrl] = updated;
-    if (updated != held) _notifyTotals(siteUrl, updated);
+    if (isDisposed || data is! Map) return;
+    final count = _notificationCount(data['unseen_reviewable_count']);
+    if (count != null) _reconciliationFor(siteUrl).applyReviewables(count);
+  }
+
+  static int? _notificationCount(Object? value) {
+    final count = jsonIntOrNull(value);
+    return count == null
+        ? null
+        : count < 0
+        ? 0
+        : count;
   }
 
   void applyPluginCounter(
@@ -1836,57 +1406,18 @@ final class AccountActivityController extends FrameSafeNotifier {
     PluginNotificationCounter counter,
     int Function(int current) reduce,
   ) {
-    if (isDisposed) return;
-    final held = _totals[siteUrl] ?? const NotificationTotals();
-    final updated = held.updatePluginCounter(counter, reduce);
-    _advancePluginCounter(siteUrl, counter.id);
-    _totals[siteUrl] = updated;
-    if (updated != held) _notifyTotals(siteUrl, updated);
-  }
-
-  _TotalsAuthorityToken _captureTotalsAuthority(String siteUrl) => (
-    fields: {
-      for (final field in NotificationTotalsField.values)
-        field: _totalsFieldRevisions[(siteUrl, field)] ?? 0,
-    },
-    pluginCounters: {
-      for (final entry in _pluginCounterRevisions.entries)
-        if (entry.key.$1 == siteUrl) entry.key.$2: entry.value,
-    },
-  );
-
-  void _advanceTotalsField(String siteUrl, NotificationTotalsField field) {
-    _totalsFieldRevisions.update(
-      (siteUrl, field),
-      (revision) => revision + 1,
-      ifAbsent: () => 1,
-    );
-  }
-
-  void _advancePluginCounter(String siteUrl, PluginNotificationCounterId id) {
-    _pluginCounterRevisions.update(
-      (siteUrl, id),
-      (revision) => revision + 1,
-      ifAbsent: () => 1,
-    );
+    if (!isDisposed) {
+      _reconciliationFor(siteUrl).applyPluginCounter(counter, reduce);
+    }
   }
 
   void forget(String siteUrl) {
     if (isDisposed) return;
-    final hadTotals = _totals.remove(siteUrl) != null;
-    final hadNotifications = _notifications.remove(siteUrl) != null;
-    final hadReplyNotifications = _replyNotifications.remove(siteUrl) != null;
-    final hadLikeNotifications = _likeNotifications.remove(siteUrl) != null;
-    final hadOtherNotifications = _otherNotifications.remove(siteUrl) != null;
-    var hadPluginNotifications = false;
+    final owner = _reconciliations.remove(siteUrl);
     for (final state in _pluginNotifications.values) {
-      final changed = state.feeds.remove(siteUrl) != null;
-      hadPluginNotifications |= changed;
       state.tasks.remove(siteUrl)?.ignore();
       state.requests.remove(siteUrl);
-      if (changed) state.changes.changed();
     }
-    final hadBookmarks = _bookmarks.remove(siteUrl) != null;
     final hadBookmarkList = _bookmarkLists.remove(siteUrl) != null;
     final hadUserActivity = _userActivity.remove(siteUrl) != null;
     _totalsRequests.remove(siteUrl);
@@ -1921,70 +1452,16 @@ final class AccountActivityController extends FrameSafeNotifier {
     _bookmarkListRequests.remove(siteUrl);
     _userActivityRequests.remove(siteUrl);
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
-    _locallyReadNotificationIds.remove(siteUrl);
-    _notificationRowAuthorityRevisions.removeWhere(
-      (key, _) => key.$1 == siteUrl,
-    );
     _pluginNotificationDismissTasks.removeWhere((key, task) {
       if (key.$1 != siteUrl) return false;
       task.ignore();
       return true;
     });
-    _groupedUnreadSnapshotRevisions.remove(siteUrl);
-    _groupedUnreadTypeRevisions.removeWhere((key, _) => key.$1 == siteUrl);
-    _totalsFieldRevisions.removeWhere((key, _) => key.$1 == siteUrl);
-    _pluginCounterRevisions.removeWhere((key, _) => key.$1 == siteUrl);
-    final changed =
-        hadTotals ||
-        hadNotifications ||
-        hadReplyNotifications ||
-        hadLikeNotifications ||
-        hadOtherNotifications ||
-        hadPluginNotifications ||
-        hadBookmarks ||
-        hadBookmarkList ||
-        hadUserActivity;
-    if (hadTotals) _totalsChanges.changed();
-    if (hadNotifications) _notificationChanges.changed();
-    if (hadReplyNotifications) _replyNotificationChanges.changed();
-    if (hadLikeNotifications) _likeNotificationChanges.changed();
-    if (hadOtherNotifications) _otherNotificationChanges.changed();
-    if (hadBookmarks) _bookmarkChanges.changed();
+    final changed = hadBookmarkList || hadUserActivity;
+    final hadNotifications = owner?.retire(notify: true) ?? false;
     if (hadBookmarkList) _bookmarkListChanges.changed();
     if (hadUserActivity) _userActivityChanges.changed();
-    if (changed) notifySafely();
-  }
-
-  void _notifyTotals(String siteUrl, NotificationTotals totals) {
-    onTotalsChanged?.call(siteUrl, totals);
-    if (isDisposed) return;
-    _totalsChanges.changed();
-    notifySafely();
-  }
-
-  void _notifyNotifications() {
-    _notificationChanges.changed();
-    notifySafely();
-  }
-
-  void _notifyReplyNotifications() {
-    _replyNotificationChanges.changed();
-    notifySafely();
-  }
-
-  void _notifyLikeNotifications() {
-    _likeNotificationChanges.changed();
-    notifySafely();
-  }
-
-  void _notifyOtherNotifications() {
-    _otherNotificationChanges.changed();
-    notifySafely();
-  }
-
-  void _notifyBookmarks() {
-    _bookmarkChanges.changed();
-    notifySafely();
+    if (changed || hadNotifications) notifySafely();
   }
 
   void _notifyBookmarkList() {
@@ -2004,31 +1481,6 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   bool _ownsRequest(SiteLease lease, Object? held, Object request) =>
       !isDisposed && lease.isCurrent && identical(held, request);
-
-  List<DiscourseNotification> _preservingLocalReads(
-    String siteUrl,
-    List<DiscourseNotification> notifications,
-  ) {
-    final readIds = _locallyReadNotificationIds[siteUrl];
-    if (readIds == null || readIds.isEmpty) return notifications;
-
-    List<DiscourseNotification>? updated;
-    for (var index = 0; index < notifications.length; index++) {
-      final notification = notifications[index];
-      if (notification.isUnread && readIds.contains(notification.id)) {
-        updated ??= List<DiscourseNotification>.of(notifications);
-        updated[index] = notification.asRead();
-      }
-    }
-    return updated ?? notifications;
-  }
-
-  void _discardLocalRead(String siteUrl, int notificationId) {
-    final readIds = _locallyReadNotificationIds[siteUrl];
-    if (readIds == null) return;
-    readIds.remove(notificationId);
-    if (readIds.isEmpty) _locallyReadNotificationIds.remove(siteUrl);
-  }
 
   @override
   void dispose() {
@@ -2075,13 +1527,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     _bookmarkListRequests.clear();
     _userActivityRequests.clear();
     _notificationReadRequests.clear();
-    _locallyReadNotificationIds.clear();
-    _notificationRowAuthorityRevisions.clear();
+    for (final owner in _reconciliations.values) {
+      owner.retire();
+    }
+    _reconciliations.clear();
     _pluginNotificationDismissTasks.clear();
-    _groupedUnreadSnapshotRevisions.clear();
-    _groupedUnreadTypeRevisions.clear();
-    _totalsFieldRevisions.clear();
-    _pluginCounterRevisions.clear();
     _totalsChanges.dispose();
     _notificationChanges.dispose();
     _replyNotificationChanges.dispose();
@@ -2099,18 +1549,10 @@ final class _ActivityAspect extends FrameSafeNotifier {
 }
 
 final class _PluginNotificationState {
-  _PluginNotificationState(this._notifyOwner);
-
-  final VoidCallback _notifyOwner;
   final _ActivityAspect changes = _ActivityAspect();
-  final Map<String, NotificationFeed> feeds = {};
+  late final slot = NotificationFeedSlot.notifications(changes.changed);
   final Map<String, Future<void>> tasks = {};
   final Map<String, Object> requests = {};
-
-  void notify() {
-    changes.changed();
-    _notifyOwner();
-  }
 
   void dispose() => changes.dispose();
 }
