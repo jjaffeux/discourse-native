@@ -196,6 +196,45 @@ void main() {
     expect(api.postFetchIncludesRaw, [true]);
   });
 
+  test('a body retry keeps already accepted topic metadata settled', () async {
+    const original = '    Original first post body';
+    api.heldRawById[1] = original;
+    final post = controller.store.read<Post>(_siteUrl, 1)!.withRaw(original);
+    controller.store.put(_siteUrl, post);
+    controller.openEdit(post);
+    final composer = controller.visibleComposer!;
+    composer.title.text = 'Accepted topic title';
+    composer.text.text = '    Updated first post body';
+    api.beforePostReply = () async {
+      throw const WriteException(WriteFailure.validation);
+    };
+
+    await controller.submitComposer();
+
+    expect(controller.visibleComposer, same(composer));
+    expect(composer.metadataChanged, isFalse);
+    expect(composer.originalTitle, 'Accepted topic title');
+    expect(composer.originalRaw, original);
+    expect(composer.error?.failure, WriteFailure.validation);
+    expect(
+      controller.store.read<TopicDetail>(_siteUrl, 7)!.title,
+      'Accepted topic title',
+    );
+    expect(api.topicsUpdated, hasLength(1));
+
+    api.beforePostReply = null;
+    await controller.submitComposer();
+
+    expect(api.topicsUpdated, hasLength(1));
+    expect(api.updated, hasLength(2));
+    expect(api.updated.last['originalText'], original);
+    expect(
+      controller.store.read<Post>(_siteUrl, 1)!.raw,
+      '    Updated first post body',
+    );
+    expect(controller.visibleComposer, isNull);
+  });
+
   test('a post edit whose body never loaded cannot replace the post', () async {
     controller.openEdit(controller.store.read<Post>(_siteUrl, 2)!);
     await pumpEventQueue();
