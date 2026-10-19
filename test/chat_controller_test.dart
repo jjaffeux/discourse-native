@@ -400,6 +400,50 @@ const DiscourseUser currentUser = DiscourseUser(
   avatarUrl: 'https://meta.discourse.org/avatar.png',
 );
 
+enum _MessageAction {
+  edit,
+  delete,
+  restore,
+  bulkDelete,
+  move,
+  pin,
+  flag,
+  rebake,
+}
+
+const _messageFlag = PostFlagType(
+  id: 7,
+  nameKey: 'spam',
+  name: 'Spam',
+  description: 'Spam',
+  appliesTo: ['Chat::Message'],
+);
+
+ChatMessage _actionMessage(_MessageAction action, int id) => message(
+  id,
+  raw: 'before',
+  authorId: action == _MessageAction.flag ? 2 : 7,
+  deletedAt: action == _MessageAction.restore ? DateTime.utc(2026) : null,
+  deletedById: action == _MessageAction.restore ? 7 : null,
+  availableFlags: const ['spam'],
+);
+
+Future<String?> _writeMessageAction(
+  ChatController chat,
+  _MessageAction action, {
+  int id = 12,
+  String raw = 'after',
+}) async => switch (action) {
+  _MessageAction.edit => chat.editMessage(site, id, raw),
+  _MessageAction.delete => chat.deleteMessage(site, id),
+  _MessageAction.restore => chat.restoreMessage(site, id),
+  _MessageAction.bulkDelete => chat.deleteMessages(site, 9, [id, 14]),
+  _MessageAction.move => (await chat.moveMessages(site, 9, 10, [id, 14])).error,
+  _MessageAction.pin => chat.setMessagePinned(site, id, pinned: true),
+  _MessageAction.flag => chat.flagMessage(site, id, _messageFlag),
+  _MessageAction.rebake => chat.rebakeMessage(site, id),
+};
+
 FakeSiteTracker attachTracker(ChatController chat) {
   final tracker = FakeSiteTracker(
     siteUrl: site,
@@ -6057,6 +6101,357 @@ void main() {
         sendGate.complete();
         expect(await sending.settled, ChatSendResult.sent);
         expect(subject.chat.messages(site, 9), [canonical]);
+      },
+    );
+  });
+
+  group('exclusive message writes', () {
+    const staff = DiscourseUser(id: 7, username: 'reader', staff: true);
+    final source = channel(
+      9,
+      canModerate: true,
+      canDeleteSelf: true,
+      canDeleteOthers: true,
+      canManagePins: true,
+      canFlag: true,
+    );
+    final destinations = ChatChannels(
+      public: [source, channel(10)],
+      direct: const [],
+    );
+
+    for (final first in _MessageAction.values) {
+      test(
+        '${first.name} releases every selected message after a credential refusal',
+        () async {
+          final credentials = FakeApiCredentialReader();
+          final subject = build(
+            currentUser: staff,
+            credentialReader: credentials,
+            channels: {site: destinations},
+          );
+          addTearDown(subject.chat.dispose);
+          await subject.chat.loadChannels(site);
+          subject.store
+            ..put(site, _actionMessage(first, 12))
+            ..put(site, message(14, authorId: 7));
+          credentials.keys.remove(site);
+          expect(
+            await _writeMessageAction(subject.chat, first),
+            contains("can't post that here"),
+          );
+          credentials.keys[site] = 'key';
+          for (final id in [12, 14]) {
+            expect(await subject.chat.rebakeMessage(site, id), isNull);
+          }
+          expect(
+            subject.api.chatMessagesRebaked.map((write) => write.messageId),
+            [12, 14],
+          );
+        },
+      );
+      for (final dispose in [false, true]) {
+        test(
+          '${first.name} waiting for credentials is retired by ${dispose ? 'dispose' : 'forget'}',
+          () async {
+            final credentials = _ControllableCredentials();
+            final subject = build(
+              currentUser: staff,
+              credentialReader: credentials,
+              channels: {site: destinations},
+            );
+            if (!dispose) addTearDown(subject.chat.dispose);
+            await subject.chat.loadChannels(site);
+            subject.store
+              ..put(site, _actionMessage(first, 12))
+              ..put(site, message(14, authorId: 7));
+            final started = credentials.blockApiKey();
+            final writing = _writeMessageAction(subject.chat, first);
+            await started;
+            if (dispose) {
+              subject.chat.dispose();
+            } else {
+              subject.chat.forget(site);
+              subject.store.put(site, message(12, raw: 'replacement'));
+            }
+            final retained = subject.chat.message(site, 12);
+            credentials.releaseApiKey();
+            expect(await writing, isNull);
+            expect(subject.chat.message(site, 12), same(retained));
+            expect(subject.api.chatMessagesEdited, isEmpty);
+            expect(subject.api.chatMessagesDeleted, isEmpty);
+            expect(subject.api.chatMessagesRestored, isEmpty);
+            expect(subject.api.chatMessageBatchesDeleted, isEmpty);
+            expect(subject.api.chatMessageMoves, isEmpty);
+            expect(subject.api.chatMessagePinsUpdated, isEmpty);
+            expect(subject.api.chatMessagesFlagged, isEmpty);
+            expect(subject.api.chatMessagesRebaked, isEmpty);
+            expect(subject.chat.messageEditWriteInFlight(site, 12), isFalse);
+            expect(subject.chat.messageRebakeWriteInFlight(site, 12), isFalse);
+          },
+        );
+      }
+      for (final second in _MessageAction.values) {
+        test(
+          '${first.name} excludes ${second.name} on the same message',
+          () async {
+            final credentials = _ControllableCredentials();
+            final subject = build(
+              currentUser: staff,
+              credentialReader: credentials,
+              channels: {site: destinations},
+            );
+            addTearDown(subject.chat.dispose);
+            await subject.chat.loadChannels(site);
+            subject.store
+              ..put(site, _actionMessage(first, 12))
+              ..put(site, message(14, authorId: 7));
+            final started = credentials.blockApiKey();
+            final writing = _writeMessageAction(subject.chat, first);
+            await started;
+            final projected = subject.chat.message(site, 12)!;
+            final calls = credentials.apiKeyCalls;
+
+            subject.store.put(site, _actionMessage(second, 12));
+            expect(
+              await _writeMessageAction(subject.chat, second),
+              second == _MessageAction.edit
+                  ? 'Another edit is still finishing.'
+                  : 'Another message change is still finishing.',
+            );
+            expect(credentials.apiKeyCalls, calls);
+
+            subject.store.put(site, projected);
+            credentials.releaseApiKey();
+            expect(await writing, isNull);
+            subject.store
+              ..put(site, _actionMessage(second, 12))
+              ..put(site, message(14, authorId: 7));
+            expect(await _writeMessageAction(subject.chat, second), isNull);
+            expect(credentials.apiKeyCalls, calls + 1);
+          },
+        );
+      }
+
+      if (first == _MessageAction.move) continue;
+      for (final fail in [false, true]) {
+        test(
+          '${first.name} old ${fail ? 'failure' : 'success'} cannot release a replacement write',
+          () async {
+            final oldGate = Completer<void>();
+            const failure = WriteException(WriteFailure.forbidden);
+            final credentials = _ControllableCredentials();
+            final lifecycle = SiteLifecycle();
+            final subject = build(
+              currentUser: staff,
+              credentialReader: credentials,
+              lifecycle: lifecycle,
+              channels: {site: destinations},
+              editGate: oldGate,
+              messageMutationGate: oldGate,
+              pinGate: oldGate,
+              flagGate: oldGate,
+              rebakeGate: oldGate,
+              editFailure: fail ? failure : null,
+              messageMutationFailure: fail ? failure : null,
+              pinFailure: fail ? failure : null,
+              flagFailure: fail ? failure : null,
+              rebakeFailure: fail ? failure : null,
+            );
+            addTearDown(subject.chat.dispose);
+            await subject.chat.loadChannels(site);
+            subject.store
+              ..put(site, _actionMessage(first, 12))
+              ..put(site, message(14, authorId: 7));
+            final old = _writeMessageAction(subject.chat, first);
+            await Future<void>.delayed(Duration.zero);
+            lifecycle.invalidate(site);
+            subject.chat.forget(site);
+            await subject.chat.loadChannels(site);
+            final fresh = message(12, raw: 'replacement', authorId: 7);
+            subject.store.put(site, fresh);
+            final started = credentials.blockApiKey();
+            final replacement = subject.chat.rebakeMessage(site, 12);
+            await started;
+
+            oldGate.complete();
+            expect(await old, fail ? isNotNull : isNull);
+            expect(subject.chat.message(site, 12), same(fresh));
+            expect(subject.chat.messageRebakeWriteInFlight(site, 12), isTrue);
+            expect(
+              await subject.chat.deleteMessage(site, 12),
+              'Another message change is still finishing.',
+            );
+
+            credentials.releaseApiKey();
+            expect(await replacement, fail ? isNotNull : isNull);
+            expect(subject.chat.messageRebakeWriteInFlight(site, 12), isFalse);
+          },
+        );
+      }
+      test(
+        '${first.name} permits independent reaction emojis, quotes and sends',
+        () async {
+          final writeGate = Completer<void>();
+          final reactionGate = Completer<void>();
+          final subject = build(
+            currentUser: staff,
+            editGate: writeGate,
+            messageMutationGate: writeGate,
+            pinGate: writeGate,
+            flagGate: writeGate,
+            rebakeGate: writeGate,
+            reactionGate: reactionGate,
+          );
+          addTearDown(subject.chat.dispose);
+          subject.store
+            ..put(site, source)
+            ..put(site, _actionMessage(first, 12))
+            ..put(site, message(14, authorId: 7));
+          final writing = _writeMessageAction(subject.chat, first);
+          await Future<void>.delayed(Duration.zero);
+          if (first == _MessageAction.restore) {
+            subject.store.put(site, message(12, authorId: 7));
+          }
+          final clap = subject.chat.addMessageReaction(site, 12, 'clap');
+          final heart = subject.chat.addMessageReaction(site, 12, 'heart');
+          final quote = subject.chat.generateMessageQuote(site, 9, [12]);
+          final send = subject.chat.sendMessage(
+            site,
+            9,
+            OutgoingChatMessage.text('new message'),
+          )!;
+          await Future<void>.delayed(Duration.zero);
+          expect(subject.api.chatReactionsSet.map((write) => write.emoji), [
+            'clap',
+            'heart',
+          ]);
+          expect(subject.api.chatQuotesGenerated, hasLength(1));
+          expect(subject.api.chatMessagesSent, hasLength(1));
+          expect(await send.settled, ChatSendResult.sent);
+          reactionGate.complete();
+          expect(await clap, isNull);
+          expect(await heart, isNull);
+          expect((await quote).error, isNull);
+          writeGate.complete();
+          expect(await writing, isNull);
+        },
+      );
+    }
+
+    for (final batch in [_MessageAction.bulkDelete, _MessageAction.move]) {
+      test(
+        '${batch.name} rejects an overlapping selection without reserving its other message',
+        () async {
+          final gate = Completer<void>();
+          final subject = build(
+            currentUser: staff,
+            rebakeGate: gate,
+            channels: {site: destinations},
+          );
+          addTearDown(subject.chat.dispose);
+          await subject.chat.loadChannels(site);
+          subject.store
+            ..put(site, message(12, authorId: 7))
+            ..put(site, message(14, authorId: 7));
+          final first = subject.chat.rebakeMessage(site, 14);
+          await Future<void>.delayed(Duration.zero);
+          expect(
+            await _writeMessageAction(subject.chat, batch),
+            'Another message change is still finishing.',
+          );
+          final independent = subject.chat.rebakeMessage(site, 12);
+          await Future<void>.delayed(Duration.zero);
+          expect(
+            subject.api.chatMessagesRebaked.map((write) => write.messageId),
+            [14, 12],
+          );
+          gate.complete();
+          expect(await first, isNull);
+          expect(await independent, isNull);
+        },
+      );
+    }
+
+    test(
+      'message identity and site each have independent write lanes',
+      () async {
+        final gate = Completer<void>();
+        final credentials = FakeApiCredentialReader()
+          ..keys[other] = 'other-key';
+        final subject = build(
+          currentUser: staff,
+          rebakeGate: gate,
+          credentialReader: credentials,
+        );
+        addTearDown(subject.chat.dispose);
+        for (final origin in [site, other]) {
+          subject.store
+            ..put(origin, source)
+            ..put(origin, message(12, authorId: 7))
+            ..put(origin, message(14, authorId: 7));
+        }
+        final first = subject.chat.rebakeMessage(site, 12);
+        final anotherMessage = subject.chat.rebakeMessage(site, 14);
+        final anotherSite = subject.chat.rebakeMessage(other, 12);
+        await Future<void>.delayed(Duration.zero);
+        expect(subject.api.chatMessagesRebaked, hasLength(3));
+        gate.complete();
+        expect(await first, isNull);
+        expect(await anotherMessage, isNull);
+        expect(await anotherSite, isNull);
+      },
+    );
+
+    test(
+      'a pending reaction permits an exclusive write on the same message',
+      () async {
+        final gate = Completer<void>();
+        final subject = build(currentUser: staff, reactionGate: gate);
+        addTearDown(subject.chat.dispose);
+        subject.store
+          ..put(site, source)
+          ..put(site, message(12));
+        final reaction = subject.chat.addMessageReaction(site, 12, 'clap');
+        await Future<void>.delayed(Duration.zero);
+        expect(subject.api.chatReactionsSet, hasLength(1));
+        expect(await subject.chat.rebakeMessage(site, 12), isNull);
+        expect(subject.api.chatMessagesRebaked, hasLength(1));
+        gate.complete();
+        expect(await reaction, isNull);
+      },
+    );
+
+    test(
+      'permission, validation and no-op results precede conflicts',
+      () async {
+        final gate = Completer<void>();
+        final credentials = _GatedCredentials(gate);
+        final subject = build(
+          currentUser: staff,
+          credentialReader: credentials,
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store
+          ..put(site, source)
+          ..put(site, message(12, raw: 'before', authorId: 7));
+        final writing = subject.chat.rebakeMessage(site, 12);
+        await credentials.started.future;
+        expect(
+          await subject.chat.editMessage(site, 12, ''),
+          'A message cannot be empty.',
+        );
+        expect(await subject.chat.editMessage(site, 12, 'before'), isNull);
+        expect(
+          await subject.chat.setMessagePinned(site, 12, pinned: false),
+          isNull,
+        );
+        expect(
+          await subject.chat.flagMessage(site, 12, _messageFlag),
+          'This message can no longer be flagged.',
+        );
+        gate.complete();
+        expect(await writing, isNull);
       },
     );
   });
