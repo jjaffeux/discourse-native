@@ -135,8 +135,8 @@ final class ShellTabContext {
     final tagIds = <int>{};
     for (final name in tagNames) {
       final normalized = name.toLowerCase();
-      final tag = shell
-          ._knownTagsFor(instance.url)
+      final tag = shell._taxonomy
+          .knownTagsFor(instance.url)
           .where(
             (tag) =>
                 tag.name.toLowerCase() == normalized ||

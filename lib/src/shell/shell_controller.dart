@@ -153,6 +153,7 @@ import 'user_summary_controller.dart';
 
 part 'shell_tab_context.dart';
 part 'workspace_controller.dart';
+part 'taxonomy_directory_controller.dart';
 
 enum MobilePane { sidebar, content }
 
@@ -182,29 +183,6 @@ typedef _ShellWriteCredential = ({
   String? apiKey,
   AccountRequestCredentials? request,
   WriteException? failure,
-});
-typedef _CategorySidebarCache = ({
-  List<TopicCategory> categories,
-  DiscourseUser? user,
-  SiteConfig config,
-  SidebarSection section,
-});
-typedef _TagSidebarCache = ({
-  List<SidebarTag> tags,
-  bool display,
-  String? username,
-  SidebarSection section,
-});
-typedef _TopicListFilterTagSources = ({
-  (int?, String?) account,
-  List<SidebarTag> personal,
-  List<SidebarTag> siteTop,
-  List<SidebarTag> anonymousDefaults,
-  List<SidebarTag> directory,
-});
-typedef _TopicListFilterTagsCache = ({
-  _TopicListFilterTagSources sources,
-  List<SidebarTag> tags,
 });
 typedef _PluginPaneKey = ({String siteUrl, String tabId, PluginId owner});
 typedef _PluginPaneStateKey = ({String siteUrl, String tabId});
@@ -1217,14 +1195,16 @@ class ShellController extends FrameSafeNotifier
       prepareFeed: (instance, apiKey, categories, categoryIds) async {
         final lease = lifecycle.capture(instance.url);
         if (categories.isNotEmpty) {
-          _mergeCategories(instance.url, categories);
+          _taxonomy.mergeCategories(instance.url, categories);
           _notify();
         }
         if (isDisposed || !lease.isCurrent) return;
         unawaited(
-          RequestIntent.background().run(() => _ensureCategoriesFor(instance)),
+          RequestIntent.background().run(
+            () => _taxonomy.ensureCategoriesFor(instance),
+          ),
         );
-        await _ensureCategoryIds(instance, categoryIds);
+        await _taxonomy.ensureCategoryIds(instance, categoryIds);
       },
       readPersonalizationVersion: _siteBookmarkVersion,
       prepareTopicForStore: _prepareTopicForStore,
@@ -1597,6 +1577,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   late final _workspace = _WorkspaceController(this);
+  late final _taxonomy = _TaxonomyDirectoryController(this);
 
   /// The workspace an account-session operation rotated away, until that
   /// operation settles. Only a rollback to the account that owned it may put
@@ -1871,7 +1852,7 @@ class ShellController extends FrameSafeNotifier
     return tracking
         .categoryBadge(
           categoryId: categoryId,
-          categories: _categoriesBySite[siteUrl] ?? const [],
+          categories: _taxonomy.categoriesFor(siteUrl),
           unifiedNew: user.unifiedNewEnabled,
           showCount: true,
         )
@@ -2137,6 +2118,7 @@ class ShellController extends FrameSafeNotifier
       ..clear()
       ..addAll(stored);
     for (final instance in stored) {
+      _taxonomy.bind(instance.url);
       var totals = instance.notificationTotals;
       final storedGroupedCounts = instance.user?.groupedUnreadNotifications;
       if (totals?.groupedUnreadNotifications.isAvailable != true &&
@@ -2243,6 +2225,7 @@ class ShellController extends FrameSafeNotifier
     final previousRootMode = _rootMode;
 
     _instances.add(instance);
+    _taxonomy.bind(instance.url);
     _rootMode = ShellRootMode.forum;
     _instanceIndex = _instances.length - 1;
     // The lookup that described this forum has just read its basic info.
@@ -2514,6 +2497,7 @@ class ShellController extends FrameSafeNotifier
 
       final restoredIndex = index.clamp(0, _instances.length);
       _instances.insert(restoredIndex, signedOut);
+      _taxonomy.bind(signedOut.url);
       if (removingSelected) {
         _instanceIndex = restoredIndex;
         _mobilePane = MobilePane.sidebar;
@@ -2619,18 +2603,13 @@ class ShellController extends FrameSafeNotifier
     if (_destinationNumericId(destinationId, 'category-') case final id?) {
       return tracking.categoryBadge(
         categoryId: id,
-        categories: _categoriesBySite[instance.url] ?? const [],
+        categories: _taxonomy.categoriesFor(instance.url),
         unifiedNew: unifiedNew,
         showCount: showCount,
       );
     }
     if (_destinationNumericId(destinationId, 'tag-') case final id?) {
-      final tags = <SidebarTag>[
-        ...user.sidebarTags,
-        ...?_siteTopTagsBySite[instance.url],
-        ...?_anonymousDefaultTagsBySite[instance.url],
-      ];
-      if (tags.any((tag) => tag.id == id && tag.pmOnly)) {
+      if (_taxonomy.isPrivateSidebarTag(instance.url, id)) {
         return SidebarBadge.none;
       }
       return tracking.tagBadge(
@@ -3281,9 +3260,6 @@ class ShellController extends FrameSafeNotifier
     if (instance != null) await accountActivity.loadUserActivity(instance);
   }
 
-  final Set<String> _categorised = {};
-  final Map<String, RequestIntentOperation<void>> _categoryRequests = {};
-  final Map<String, List<TopicCategory>> _categoriesBySite = {};
   final Map<String, TopicTrackingReconciler> _topicTrackingBySite = {};
   final Map<
     String,
@@ -3304,16 +3280,6 @@ class ShellController extends FrameSafeNotifier
           clock: _clock,
         );
       });
-  final Map<String, CategoryFeed> _categoryFeeds = {};
-  final Map<(String, int), Future<List<TopicCategory>>> _categoryIdRequests =
-      {};
-  final Map<String, _CategorySidebarCache> _categorySidebarCache = {};
-  final Map<String, List<SidebarTag>> _siteTopTagsBySite = {};
-  final Map<String, List<SidebarTag>> _anonymousDefaultTagsBySite = {};
-  final Map<String, _TagSidebarCache> _tagSidebarCache = {};
-  final Map<String, _TopicListFilterTagsCache> _topicListFilterTagsCache = {};
-  final Map<String, TagDirectoryFeed> _tagDirectoryFeeds = {};
-  final Map<String, Object> _tagDirectoryRequests = {};
   final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
   final Map<String, SitePostActionCatalog> _postActionCatalogs = {};
 
@@ -3477,7 +3443,7 @@ class ShellController extends FrameSafeNotifier
       currentInstance?.user?.canCreateTopic == true;
 
   CategoryFeed categoryFeedFor(String siteUrl) =>
-      _categoryFeeds[siteUrl] ?? const CategoryFeed();
+      _taxonomy.categoryFeedFor(siteUrl);
 
   /// Per-category unread topic counts from the loaded account snapshot.
   /// Null means tracking is not ready; sparse live arrivals are not a total.
@@ -3502,7 +3468,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   List<TopicCategory> topicComposerCategories(String siteUrl) =>
-      _categoriesBySite[siteUrl] ?? const [];
+      _taxonomy.categoriesFor(siteUrl);
 
   bool sidebarNavigationLoadingFor(String siteUrl) {
     final instance = _instanceAt(siteUrl);
@@ -3593,161 +3559,14 @@ class ShellController extends FrameSafeNotifier
     return false;
   }
 
-  final _scopedSidebarTags = <(String, int), List<TopicFilterLookupValue>>{};
-  final _scopedSidebarTagRequests = <(String, int), Object>{};
+  SidebarSection? categorySidebarSectionFor(String siteUrl) =>
+      _taxonomy.categorySidebarSectionFor(siteUrl);
 
-  Future<void> _ensureScopedSidebarTags(String siteUrl, int? categoryId) async {
-    if (categoryId == null || !siteConfigFor(siteUrl).taggingEnabled) return;
-    final key = (siteUrl, categoryId);
-    if (_scopedSidebarTags.containsKey(key) ||
-        _scopedSidebarTagRequests.containsKey(key)) {
-      return;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    final request = Object();
-    _scopedSidebarTagRequests[key] = request;
-    try {
-      final tags = await searchFilterTags(
-        siteUrl: siteUrl,
-        term: '',
-        categoryId: categoryId,
-      );
-      if (!lease.isCurrent || isDisposed) return;
-      _scopedSidebarTags[key] = tags;
-      _notify();
-    } finally {
-      if (identical(_scopedSidebarTagRequests[key], request)) {
-        _scopedSidebarTagRequests.remove(key);
-      }
-    }
-  }
-
-  SidebarSection? categorySidebarSectionFor(String siteUrl) {
-    if (!_categoriesBySite.containsKey(siteUrl)) return null;
-    final categories = _categoriesBySite[siteUrl]!;
-    final user = _instanceAt(siteUrl)?.user;
-    final config = siteConfigFor(siteUrl);
-    if (sidebarFilterRoute?.categoryId case final id?) {
-      return buildCategorySidebarSection(
-        categories: categories,
-        connected: user != null,
-        levelNavigation: true,
-        scopeCategoryId: id,
-        allowUncategorizedTopics: config.allowUncategorizedTopics,
-      );
-    }
-    final held = _categorySidebarCache[siteUrl];
-    if (held != null &&
-        identical(held.categories, categories) &&
-        identical(held.user, user) &&
-        held.config == config) {
-      return held.section;
-    }
-
-    final section = buildCategorySidebarSection(
-      categories: categories,
-      connected: user != null,
-      preferredCategoryIds: user?.sidebarCategoryIds ?? const [],
-      defaultCategoryIds: config.defaultNavigationMenuCategoryIds,
-      fixedCategoryPositions: config.fixedCategoryPositions,
-      allowUncategorizedTopics: config.allowUncategorizedTopics,
-      levelNavigation: true,
-    );
-    _categorySidebarCache[siteUrl] = (
-      categories: categories,
-      user: user,
-      config: config,
-      section: section,
-    );
-    return section;
-  }
-
-  SidebarSection? tagSidebarSectionFor(String siteUrl) {
-    final instance = _instanceAt(siteUrl);
-    if (instance == null || !siteConfigFor(siteUrl).taggingEnabled) return null;
-
-    final user = instance.user;
-    final selectedTag = sidebarTagName;
-    if (sidebarFilterRoute?.categoryId case final id?) {
-      if (user != null && !user.displaySidebarTags && selectedTag == null) {
-        return null;
-      }
-      final tags = _scopedSidebarTags[(siteUrl, id)];
-      return SidebarSection(
-        id: 'tags',
-        title: appL10n.tags,
-        loading: tags == null && selectedTag == null,
-        collapsible: selectedTag == null,
-        destinations: [
-          if (user == null || user.displaySidebarTags)
-            for (final tag in tags ?? const <TopicFilterLookupValue>[])
-              ?buildTopicTagDestination(TopicTag(name: tag.name)),
-          if (selectedTag != null &&
-              (user?.displaySidebarTags == false ||
-                  !(tags?.any(
-                        (tag) =>
-                            tag.name.toLowerCase() == selectedTag.toLowerCase(),
-                      ) ??
-                      false)))
-            ?buildTopicTagDestination(TopicTag(name: selectedTag)),
-          allTagsDestination,
-        ],
-      );
-    }
-    final siteTop = _siteTopTagsBySite[siteUrl] ?? const <SidebarTag>[];
-    final anonymousDefaults =
-        _anonymousDefaultTagsBySite[siteUrl] ?? const <SidebarTag>[];
-    final tags = user == null
-        ? (anonymousDefaults.isNotEmpty ? anonymousDefaults : siteTop)
-        : (user.sidebarTags.isNotEmpty ? user.sidebarTags : siteTop);
-    final display = user == null ? tags.isNotEmpty : user.displaySidebarTags;
-
-    if (selectedTag != null) {
-      return SidebarSection(
-        id: 'tags',
-        title: appL10n.tags,
-        collapsible: false,
-        destinations: [
-          if (display)
-            for (final tag in tags)
-              ?buildTagDestination(tag, username: user?.username),
-          if (!display ||
-              !tags.any(
-                (tag) => tag.name.toLowerCase() == selectedTag.toLowerCase(),
-              ))
-            ?buildTopicTagDestination(TopicTag(name: selectedTag)),
-          allTagsDestination,
-        ],
-      );
-    }
-    final held = _tagSidebarCache[siteUrl];
-    if (held != null &&
-        identical(held.tags, tags) &&
-        held.display == display &&
-        held.username == user?.username) {
-      return held.section;
-    }
-
-    final section = buildTagSidebarSection(
-      tags: tags,
-      display: display,
-      username: user?.username,
-    );
-    if (section == null) {
-      _tagSidebarCache.remove(siteUrl);
-      return null;
-    }
-    _tagSidebarCache[siteUrl] = (
-      tags: tags,
-      display: display,
-      username: user?.username,
-      section: section,
-    );
-    return section;
-  }
+  SidebarSection? tagSidebarSectionFor(String siteUrl) =>
+      _taxonomy.tagSidebarSectionFor(siteUrl);
 
   TagDirectoryFeed tagDirectoryFeedFor(String siteUrl) =>
-      _tagDirectoryFeeds[siteUrl] ?? const TagDirectoryFeed();
+      _taxonomy.tagDirectoryFeedFor(siteUrl);
 
   TopicComposerCapabilities topicComposerCapabilities(String siteUrl) =>
       _topicComposerCapabilities[siteUrl] ?? const TopicComposerCapabilities();
@@ -3891,7 +3710,7 @@ class ShellController extends FrameSafeNotifier
     final path = _feedPath(destinationId, instance, context: context);
     if (path == null) return;
     unawaited(
-      _ensureScopedSidebarTags(
+      _taxonomy.ensureScopedSidebarTags(
         instance.url,
         (context ?? focusedTabContext).sidebarFilterRoute?.categoryId,
       ),
@@ -3956,115 +3775,25 @@ class ShellController extends FrameSafeNotifier
   }
 
   List<TopicCategory> filterCategoriesFor(String siteUrl) =>
-      _categoriesBySite[siteUrl] ?? const [];
+      _taxonomy.categoriesFor(siteUrl);
 
-  List<SidebarTag> topicListFilterTagsFor(String siteUrl) {
-    final instance = _instanceAt(siteUrl);
-    if (instance == null) return const [];
-    final user = instance.user;
-    final sources = (
-      account: (user?.id, user?.username),
-      personal: user?.sidebarTags ?? const <SidebarTag>[],
-      siteTop: _siteTopTagsBySite[siteUrl] ?? const <SidebarTag>[],
-      anonymousDefaults:
-          _anonymousDefaultTagsBySite[siteUrl] ?? const <SidebarTag>[],
-      directory: tagDirectoryFeedFor(siteUrl).tags,
-    );
-    final held = _topicListFilterTagsCache[siteUrl];
-    // Taxonomy sources are replaced when loaded. Record equality checks their
-    // list identities, so shell selectors do not scan the directory on every
-    // unrelated notification (including current-user counter updates).
-    if (held != null && held.sources == sources) return held.tags;
-
-    final byName = <String, SidebarTag>{};
-    for (final tag in _knownTagsFor(siteUrl)) {
-      if (tag.pmOnly) continue;
-      byName.putIfAbsent(tag.name.toLowerCase(), () => tag);
-    }
-    final tags = List<SidebarTag>.unmodifiable(byName.values);
-    final snapshot =
-        held != null &&
-            held.sources.account == sources.account &&
-            listEquals(held.tags, tags)
-        ? held.tags
-        : tags;
-    _topicListFilterTagsCache[siteUrl] = (sources: sources, tags: snapshot);
-    return snapshot;
-  }
+  List<SidebarTag> topicListFilterTagsFor(String siteUrl) =>
+      _taxonomy.topicListFilterTagsFor(siteUrl);
 
   Future<List<TopicCategory>> searchFilterCategories({
     required String siteUrl,
     required String term,
-  }) async {
-    final lease = lifecycle.capture(siteUrl);
-    final categories = await _filterLookup(
-      siteUrl,
-      'topics.filter.categories',
-      (apiKey, clientId) => apiKey == null
-          ? Future.value(const <TopicCategory>[])
-          : api.categories.searchCategories(
-              siteUrl: siteUrl,
-              term: term,
-              apiKey: apiKey,
-              includeAncestors: true,
-              clientId: clientId,
-            ),
-    );
-    if (isDisposed || !lease.isCurrent) return const [];
-    if (categories.isNotEmpty) {
-      final previous = filterCategoriesFor(siteUrl);
-      _mergeCategories(siteUrl, categories);
-      if (!listEquals(previous, filterCategoriesFor(siteUrl))) _notify();
-    }
-    return categories;
-  }
+  }) => _taxonomy.searchFilterCategories(siteUrl: siteUrl, term: term);
 
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
     int? categoryId,
-  }) async {
-    final lease = lifecycle.capture(siteUrl);
-    final remote = await _filterLookup(
-      siteUrl,
-      'topics.filter.tags',
-      (apiKey, clientId) => api.lookups.searchFilterTags(
-        siteUrl: siteUrl,
-        term: term,
-        categoryId: categoryId,
-        limit: siteConfigFor(
-          siteUrl,
-        ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
-        apiKey: apiKey,
-        clientId: clientId,
-      ),
-    );
-    if (isDisposed || !lease.isCurrent) return const [];
-    final byName = <String, TopicFilterLookupValue>{
-      for (final tag in remote) tag.name.toLowerCase(): tag,
-    };
-    if (categoryId == null) {
-      for (final tag in topicListFilterTagsFor(siteUrl)) {
-        if (tag.name.toLowerCase().contains(term.toLowerCase())) {
-          byName.putIfAbsent(
-            tag.name.toLowerCase(),
-            () => TopicFilterLookupValue(
-              name: tag.name,
-              description: '${tag.count}',
-            ),
-          );
-        }
-      }
-    }
-    return byName.values.toList()..sort((a, b) {
-      final count = (int.tryParse(b.description ?? '') ?? 0).compareTo(
-        int.tryParse(a.description ?? '') ?? 0,
-      );
-      return count != 0
-          ? count
-          : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    });
-  }
+  }) => _taxonomy.searchFilterTags(
+    siteUrl: siteUrl,
+    term: term,
+    categoryId: categoryId,
+  );
 
   Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
     required String siteUrl,
@@ -6363,7 +6092,7 @@ class ShellController extends FrameSafeNotifier
     if (currentInstance?.url != targetSiteUrl) return;
 
     store.put(targetSiteUrl, category);
-    final categories = _categoriesBySite[targetSiteUrl] ?? const [];
+    final categories = _taxonomy.categoriesFor(targetSiteUrl);
     final byId = <int, TopicCategory>{
       for (final item in categories) item.id: item,
       category.id: category,
@@ -6493,7 +6222,7 @@ class ShellController extends FrameSafeNotifier
 
   TopicTag _topicTagWithKnownIdentity(String siteUrl, TopicTag topicTag) {
     if (topicTag.id case final id? when id > 0) return topicTag;
-    final known = _knownTopicTag(siteUrl, topicTag);
+    final known = _taxonomy.knownTopicTag(siteUrl, topicTag);
     if (known == null) return topicTag;
     return _topicTagWithIdentity(
       topicTag,
@@ -6518,28 +6247,8 @@ class ShellController extends FrameSafeNotifier
     disabledReason: tag.disabledReason,
   );
 
-  SidebarTag? _knownTopicTag(String siteUrl, TopicTag topicTag) {
-    final topicTagId = topicTag.id;
-    final topicTagName = topicTag.name.trim().toLowerCase();
-    for (final tag in _knownTagsFor(siteUrl)) {
-      if ((topicTagId != null && topicTagId > 0 && tag.id == topicTagId) ||
-          tag.name.trim().toLowerCase() == topicTagName) {
-        return tag;
-      }
-    }
-    return null;
-  }
-
-  Iterable<SidebarTag> _knownTagsFor(String siteUrl) sync* {
-    yield* _instanceAt(siteUrl)?.user?.sidebarTags ?? const [];
-    yield* _siteTopTagsBySite[siteUrl] ?? const [];
-    yield* _anonymousDefaultTagsBySite[siteUrl] ?? const [];
-    yield* tagDirectoryFeedFor(siteUrl).tags;
-  }
-
-  bool _isKnownPrivateMessageOnlyTag(String siteUrl, TopicTag topicTag) {
-    return _knownTopicTag(siteUrl, topicTag)?.pmOnly == true;
-  }
+  bool _isKnownPrivateMessageOnlyTag(String siteUrl, TopicTag topicTag) =>
+      _taxonomy.knownTopicTag(siteUrl, topicTag)?.pmOnly == true;
 
   void openSearchResult(SearchPostHit hit, {String words = ''}) {
     search.clear();
@@ -7645,7 +7354,7 @@ class ShellController extends FrameSafeNotifier
     // the topic without first loading a feed.
     unawaited(
       RequestIntent.background().run(
-        () => _ensureCategoriesFor(
+        () => _taxonomy.ensureCategoriesFor(
           instance,
           categoryId: store
               .read<TopicDetail>(instance.url, topicId)
@@ -7766,7 +7475,7 @@ class ShellController extends FrameSafeNotifier
       SurfaceOpeningTrace.mark('topic.response');
       try {
         await _awaitTopicLoadStage(
-          _ensureCategoryIds(instance, [
+          _taxonomy.ensureCategoryIds(instance, [
             ?fetched.detail.categoryId,
             for (final source
                 in fetched.detail.recommendations?.sources ??
@@ -8621,7 +8330,7 @@ class ShellController extends FrameSafeNotifier
           user.indirectlyMutedCategoryIds,
     );
     _replaceInstance(instance, instance.copyWith(user: updated));
-    _categorySidebarCache.remove(siteUrl);
+    _taxonomy.invalidateCategorySidebar(siteUrl);
     instanceStore.save(List.of(_instances)).ignore();
   }
 
@@ -8640,22 +8349,12 @@ class ShellController extends FrameSafeNotifier
     CategoryNotificationLevel level,
   ) {
     if (!_isLatestCategoryNotification(key, write)) return;
-    final siteUrl = write.siteUrl;
-    final held = store.read<TopicCategory>(siteUrl, write.categoryId);
-    if (held == null || held.notificationLevel == level) return;
-    final category = held.withNotificationLevel(level);
-    // Stage the cache before Store Ref listeners can select another level or
-    // clear the account. No stale category snapshot may be merged afterwards.
-    final byId = <int, TopicCategory>{
-      for (final category
-          in _categoriesBySite[siteUrl] ?? const <TopicCategory>[])
-        category.id: category,
-      category.id: category,
-    };
-    _categoriesBySite[siteUrl] = List.unmodifiable(byId.values);
-    _categorySidebarCache.remove(siteUrl);
-    store.put(siteUrl, category);
-    if (write.lease.isCurrent && !isDisposed) _notify();
+    _taxonomy.projectNotificationLevel(
+      write.siteUrl,
+      write.categoryId,
+      level,
+      write.lease,
+    );
   }
 
   bool topicPinWriteInFlight(String siteUrl, int topicId) =>
@@ -10112,7 +9811,7 @@ class ShellController extends FrameSafeNotifier
       );
     }
     if (categoryNeedsLookup && selectedCategory != null) {
-      _mergeCategories(instance.url, [selectedCategory]);
+      _taxonomy.mergeCategories(instance.url, [selectedCategory]);
     }
     if (!_replaceComposer()) return;
     final target = NewTopicComposerTarget(
@@ -10165,7 +9864,7 @@ class ShellController extends FrameSafeNotifier
     await Future.wait<void>([
       if (!_topicComposerCapabilities.containsKey(siteUrl))
         _ensureTopicComposerCapabilities(siteUrl),
-      if (!_categorised.contains(siteUrl)) loadCategories(siteUrl),
+      if (_taxonomy.needsCategoryLoad(siteUrl)) loadCategories(siteUrl),
     ]);
     if (!isCurrent()) return;
 
@@ -10197,7 +9896,7 @@ class ShellController extends FrameSafeNotifier
           );
           if (!isCurrent()) return;
           if (found.isNotEmpty) {
-            _mergeCategories(siteUrl, found);
+            _taxonomy.mergeCategories(siteUrl, found);
             _notify();
           }
         } catch (error, stackTrace) {
@@ -10542,27 +10241,7 @@ class ShellController extends FrameSafeNotifier
   Future<List<TopicCategory>> searchTopicCategoriesForEditor({
     required String siteUrl,
     required String term,
-  }) async {
-    final lease = lifecycle.capture(siteUrl);
-    final held = await _credentialForWrite(siteUrl, lease: lease);
-    if (!lease.isCurrent) return const [];
-    if (held.failure case final failure?) throw failure;
-
-    final categories = await held.request!.run(
-      () => api.categories.searchCategories(
-        siteUrl: siteUrl,
-        apiKey: held.apiKey!,
-        term: term,
-        includeUncategorized: siteConfigFor(siteUrl).allowUncategorizedTopics,
-      ),
-    );
-    if (!lease.isCurrent) return const [];
-    lease.commit(() {
-      _mergeCategories(siteUrl, categories);
-      _notify();
-    });
-    return categories;
-  }
+  }) => _taxonomy.searchTopicCategoriesForEditor(siteUrl: siteUrl, term: term);
 
   Future<void> changeComposerCategory(
     ComposerController composer,
@@ -15677,397 +15356,14 @@ class ShellController extends FrameSafeNotifier
     await instanceStore.save(List.of(_instances));
   }
 
-  Future<void> loadCategories(String siteUrl, {bool force = false}) async {
-    final instance = _instanceAt(siteUrl);
-    if (force && !categoryFeedFor(siteUrl).loading) {
-      _categorised.remove(siteUrl);
-    }
-    if (instance != null) await _ensureCategoriesFor(instance);
-  }
+  Future<void> loadCategories(String siteUrl, {bool force = false}) =>
+      _taxonomy.loadCategories(siteUrl, force: force);
 
-  Future<void> loadTags(String siteUrl, {bool force = false}) async {
-    final instance = _instanceAt(siteUrl);
-    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
-      return;
-    }
-    if (!siteConfigFor(siteUrl).taggingEnabled) {
-      final held = tagDirectoryFeedFor(siteUrl);
-      if (!held.loaded || held.tags.isNotEmpty || held.error != null) {
-        _tagDirectoryFeeds[siteUrl] = const TagDirectoryFeed(loaded: true);
-        _notify();
-      }
-      return;
-    }
-    final held = tagDirectoryFeedFor(siteUrl);
-    if (!force && held.loaded) return;
-    if (_tagDirectoryRequests.containsKey(siteUrl)) return;
-    final request = Object();
-    _tagDirectoryRequests[siteUrl] = request;
+  Future<void> loadTags(String siteUrl, {bool force = false}) =>
+      _taxonomy.loadTags(siteUrl, force: force);
 
-    final lease = lifecycle.capture(siteUrl);
-    _tagDirectoryFeeds[siteUrl] = held.refreshing();
-    _notify();
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final credential = instance.isConnected
-          ? await session.credentials(credentials)
-          : session.anonymousCredentials();
-      if (!lease.isCurrent) return;
-      final tags = await credential.run(
-        () => api.tags.tags(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      final visibleTags = instance.user == null
-          ? tags.where((tag) => !tag.pmOnly)
-          : tags;
-      lease.commit(() {
-        _tagDirectoryFeeds[siteUrl] = held.withTags(visibleTags);
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'tags.load',
-        severity: DiagnosticSeverity.warning,
-      );
-      lease.commit(() {
-        _tagDirectoryFeeds[siteUrl] = held.withError(
-          appL10n.couldnTLoadTagsFrom((instance.host).toString()),
-        );
-        _notify();
-      });
-    } finally {
-      if (identical(_tagDirectoryRequests[siteUrl], request)) {
-        _tagDirectoryRequests.remove(siteUrl);
-      }
-    }
-  }
-
-  Future<void> _ensureCategoryIds(
-    DiscourseInstance instance,
-    Iterable<int> categoryIds,
-  ) async {
-    if (instance.loginRequired && !instance.isConnected) return;
-    final lease = lifecycle.capture(instance.url);
-    try {
-      final requestSession = AccountRequestSession(instance.url, lease);
-      Future<AccountRequestCredentials>? credentialRead;
-      Future<AccountRequestCredentials> readCredentials() =>
-          credentialRead ??= instance.isConnected
-          ? requestSession.credentials(credentials)
-          : Future.value(requestSession.anonymousCredentials());
-      var pending = categoryIds.toSet();
-      final visited = <int>{};
-      while (pending.isNotEmpty) {
-        final cached = [
-          for (final id in pending)
-            ?store.read<TopicCategory>(instance.url, id),
-        ];
-        if (cached.isNotEmpty) {
-          pending.removeAll(cached.map((category) => category.id));
-          visited.addAll(cached.map((category) => category.id));
-          pending.addAll([
-            for (final category in cached)
-              if (category.parentCategoryId case final parentId?
-                  when !visited.contains(parentId))
-                parentId,
-          ]);
-          continue;
-        }
-        final batch = <int>[];
-        final requested = <int>{};
-        final requests = <Future<List<TopicCategory>>>{};
-        for (final id in pending) {
-          if (batch.length == 100) break;
-          requested.add(id);
-          final active = _categoryIdRequests[(instance.url, id)];
-          if (active == null) {
-            batch.add(id);
-          } else {
-            requests.add(active);
-          }
-        }
-        if (batch.isNotEmpty) {
-          // Register ownership before yielding for credentials so another
-          // topic can join this lookup instead of publishing without labels.
-          final result = Completer<List<TopicCategory>>();
-          for (final id in batch) {
-            _categoryIdRequests[(instance.url, id)] = result.future;
-          }
-          requests.add(result.future);
-          unawaited(() async {
-            try {
-              if (isDisposed || !lease.isCurrent) {
-                result.complete(const []);
-                return;
-              }
-              final credential = await readCredentials();
-              final found = await credential.run(
-                () => api.categories.findCategories(
-                  siteUrl: instance.url,
-                  ids: batch,
-                  apiKey: credential.apiKey,
-                  clientId: credential.clientId,
-                ),
-              );
-              if (!isDisposed) {
-                lease.commit(() {
-                  _mergeCategories(instance.url, found);
-                  _notify();
-                });
-              }
-              result.complete(found);
-            } catch (error, stackTrace) {
-              result.completeError(error, stackTrace);
-            } finally {
-              for (final id in batch) {
-                final key = (instance.url, id);
-                if (identical(_categoryIdRequests[key], result.future)) {
-                  final _ = _categoryIdRequests.remove(key);
-                }
-              }
-            }
-          }());
-        }
-        final found = (await Future.wait(requests)).expand((batch) => batch);
-        if (isDisposed || !lease.isCurrent) return;
-        pending.removeAll(requested);
-        visited.addAll(requested);
-        pending.addAll([
-          for (final category in found)
-            if (category.parentCategoryId case final parentId?
-                when !visited.contains(parentId))
-              parentId,
-        ]);
-      }
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'categories.find',
-        severity: DiagnosticSeverity.warning,
-      );
-    }
-  }
-
-  Future<void> _ensureCategoriesFor(
-    DiscourseInstance instance, {
-    int? categoryId,
-  }) async {
-    if (instance.loginRequired && !instance.isConnected) return;
-
-    final lease = lifecycle.capture(instance.url);
-    try {
-      final requestSession = AccountRequestSession(instance.url, lease);
-      final credential = instance.isConnected
-          ? await requestSession.credentials(credentials)
-          : requestSession.anonymousCredentials();
-      if (!lease.isCurrent) return;
-      await _ensureCategories(instance, credential, lease: lease);
-      if (lease.isCurrent && categoryId != null) {
-        await _ensureCategoryIds(instance, [categoryId]);
-      }
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'categories.readCredentials',
-        severity: DiagnosticSeverity.warning,
-      );
-      lease.commit(() {
-        final held = categoryFeedFor(instance.url);
-        _categoryFeeds[instance.url] = held.withError(
-          appL10n.couldnTLoadCategoriesFrom((instance.host).toString()),
-        );
-        _notify();
-      });
-    }
-  }
-
-  Future<void> _ensureCategories(
-    DiscourseInstance instance,
-    AccountRequestCredentials credential, {
-    SiteLease? lease,
-  }) {
-    final active = _categoryRequests[instance.url];
-    if (active != null) return active.join();
-    late final RequestIntentOperation<void> request;
-    request = RequestIntentOperation(
-      () =>
-          _loadCategories(instance, credential, lease: lease).whenComplete(() {
-            if (identical(_categoryRequests[instance.url], request)) {
-              final _ = _categoryRequests.remove(instance.url);
-            }
-          }),
-    );
-    _categoryRequests[instance.url] = request;
-    return request.future;
-  }
-
-  Future<void> _loadCategories(
-    DiscourseInstance instance,
-    AccountRequestCredentials credential, {
-    SiteLease? lease,
-  }) async {
-    if (!_categorised.add(instance.url)) return;
-    final session = lease ?? lifecycle.capture(instance.url);
-    final existingFeed = categoryFeedFor(instance.url);
-    _categoryFeeds[instance.url] = existingFeed.refreshing();
-    _notify();
-
-    try {
-      final result = await credential.run(
-        () => api.categories.loadCategories(
-          siteUrl: instance.url,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      if (isDisposed || !session.isCurrent) return;
-      // Category and tag navigation depend on these ordering and visibility
-      // settings. Publish their first snapshot together.
-      await _presentation.ensureConfig(instance.url);
-      if (isDisposed || !session.isCurrent) return;
-      session.commit(() {
-        _mergeCategories(instance.url, result.categories);
-
-        final held = categoryFeedFor(instance.url);
-        final roots = <int>{...result.rootCategoryIds, ...held.categoryIds};
-        final nextPage = existingFeed.loaded && existingFeed.error == null
-            ? held.nextPage
-            : result.rootCategoryIds.isNotEmpty
-            ? 2
-            : null;
-        _categoryFeeds[instance.url] = CategoryFeed(
-          categoryIds: List.unmodifiable(roots),
-          loaded: true,
-          nextPage: nextPage,
-          canCreateTopic: result.canCreateTopic,
-        );
-        if (result.postActionCatalog case final catalog?) {
-          _postActionCatalogs[instance.url] = catalog;
-        }
-        if (result.siteTopTags case final tags?) {
-          _siteTopTagsBySite[instance.url] = tags;
-          _tagSidebarCache.remove(instance.url);
-        }
-        if (result.anonymousDefaultTags case final tags?) {
-          _anonymousDefaultTagsBySite[instance.url] = tags;
-          _tagSidebarCache.remove(instance.url);
-        }
-        if (!result.complete) _categorised.remove(instance.url);
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      if (isDisposed || !session.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'categories.load',
-        severity: DiagnosticSeverity.warning,
-      );
-      session.commit(() {
-        _categorised.remove(instance.url);
-        final held = categoryFeedFor(instance.url);
-        _categoryFeeds[instance.url] = held.withError(
-          appL10n.couldnTLoadCategoriesFrom((instance.host).toString()),
-        );
-        _notify();
-      });
-    }
-  }
-
-  void _mergeCategories(String siteUrl, Iterable<TopicCategory> incoming) {
-    final stored = store.putAll(siteUrl, incoming);
-    final byId = <int, TopicCategory>{
-      for (final category
-          in _categoriesBySite[siteUrl] ?? const <TopicCategory>[])
-        category.id: category,
-      for (final category in stored) category.id: category,
-    };
-    _categoriesBySite[siteUrl] = List.unmodifiable(byId.values);
-    _categorySidebarCache.remove(siteUrl);
-    _rewriteContentRoutes(
-      siteUrl,
-      (route) => route.resolveCategoryLink(byId.values),
-    );
-  }
-
-  final Map<String, Object> _categoryPageRequests = {};
-
-  Future<void> loadMoreCategories(String siteUrl) async {
-    final instance = _instanceAt(siteUrl);
-    final feed = categoryFeedFor(siteUrl);
-    final page = feed.nextPage;
-    if (instance == null || page == null || feed.loadingMore) return;
-    if (_categoryPageRequests.containsKey(siteUrl)) return;
-
-    final lease = lifecycle.capture(siteUrl);
-    final request = Object();
-    _categoryPageRequests[siteUrl] = request;
-    _categoryFeeds[siteUrl] = feed.loadingNextPage();
-    _notify();
-
-    bool requestIsCurrent() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_categoryPageRequests[siteUrl], request);
-
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final credential = instance.isConnected
-          ? await session.credentials(credentials)
-          : session.anonymousCredentials();
-      if (!requestIsCurrent()) return;
-
-      final result = await credential.run(
-        () => api.categories.loadCategories(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-          page: page,
-        ),
-      );
-      if (!requestIsCurrent()) return;
-
-      lease.commit(() {
-        if (!identical(_categoryPageRequests[siteUrl], request)) return;
-        _categoryPageRequests.remove(siteUrl);
-        _mergeCategories(siteUrl, result.categories);
-        final held = categoryFeedFor(siteUrl);
-        _categoryFeeds[siteUrl] = held.withPage(
-          result.rootCategoryIds,
-          hasMore: result.rootCategoryIds.isNotEmpty,
-        );
-        _notify();
-      });
-    } catch (error, stackTrace) {
-      if (!requestIsCurrent()) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'categories.loadMore',
-        severity: DiagnosticSeverity.warning,
-      );
-      lease.commit(() {
-        if (!identical(_categoryPageRequests[siteUrl], request)) return;
-        _categoryPageRequests.remove(siteUrl);
-        final held = categoryFeedFor(siteUrl);
-        _categoryFeeds[siteUrl] = held.withError(
-          appL10n.couldnTLoadMoreCategoriesFrom((instance.host).toString()),
-          page: true,
-        );
-        _notify();
-      });
-    }
-  }
+  Future<void> loadMoreCategories(String siteUrl) =>
+      _taxonomy.loadMoreCategories(siteUrl);
 
   Future<void> connectCurrentInstance() async {
     final instance = currentInstance;
@@ -16191,6 +15487,7 @@ class ShellController extends FrameSafeNotifier
     if (restoredWorkspace != null) _workspace.put(restoredWorkspace);
 
     _replaceInstance(held, applied);
+    _taxonomy.bind(replacement.url);
     if (currentInstance?.url == replacement.url) {
       switch (phase) {
         case AccountSessionPhase.connecting:
@@ -16316,23 +15613,9 @@ class ShellController extends FrameSafeNotifier
     _topicReads.forget(siteUrl);
     _topicUnreadWrites.removeWhere((key, _) => key.startsWith("$siteUrl#"));
 
-    _categorised.remove(siteUrl);
-    final _ = _categoryRequests.remove(siteUrl);
-    _categoriesBySite.remove(siteUrl);
+    _taxonomy.forget(siteUrl);
     _topicTrackingBySite.remove(siteUrl)?.retire();
     _topicTrackingRetries.remove(siteUrl);
-    _categoryFeeds.remove(siteUrl);
-    _categoryIdRequests.removeWhere((key, _) => key.$1 == siteUrl);
-    _categoryPageRequests.remove(siteUrl);
-    _categorySidebarCache.remove(siteUrl);
-    _siteTopTagsBySite.remove(siteUrl);
-    _anonymousDefaultTagsBySite.remove(siteUrl);
-    _tagSidebarCache.remove(siteUrl);
-    _topicListFilterTagsCache.remove(siteUrl);
-    _scopedSidebarTags.removeWhere((key, _) => key.$1 == siteUrl);
-    _scopedSidebarTagRequests.removeWhere((key, _) => key.$1 == siteUrl);
-    _tagDirectoryFeeds.remove(siteUrl);
-    _tagDirectoryRequests.remove(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
     _postActionCatalogs.remove(siteUrl);
     _customSidebar.forget(siteUrl);
@@ -16446,7 +15729,9 @@ class ShellController extends FrameSafeNotifier
       // Warm the emoji catalog with the first feed to avoid a second title frame.
       unawaited(_presentation.warmEmojiCatalog(instance.url));
       unawaited(
-        RequestIntent.background().run(() => _ensureCategoriesFor(instance)),
+        RequestIntent.background().run(
+          () => _taxonomy.ensureCategoriesFor(instance),
+        ),
       );
     }
     for (final activator
@@ -16840,7 +16125,7 @@ class ShellController extends FrameSafeNotifier
         if (tag.id == id) return tag.name;
       }
     }
-    for (final tag in _knownTagsFor(siteUrl)) {
+    for (final tag in _taxonomy.knownTagsFor(siteUrl)) {
       if (tag.id == id) return tag.name;
     }
     return null;
@@ -17380,10 +16665,10 @@ class ShellController extends FrameSafeNotifier
     _topicJumpRuns.clear();
     _topicReads.dispose();
     _customSidebar.dispose();
-    _topicListFilterTagsCache.clear();
     for (final instance in _instances) {
       lifecycle.invalidate(instance.url);
     }
+    _taxonomy.dispose();
     for (final tracking in _topicTrackingBySite.values) {
       tracking.retire();
     }
