@@ -12,7 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: _site,
   topicId: 7,
   slug: 'topic',

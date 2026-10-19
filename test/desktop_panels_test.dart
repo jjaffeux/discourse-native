@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -1064,7 +1065,7 @@ void main() {
       final focused = shell.activeTabId;
       source.openReply(replyToPostNumber: 1, replyToUsername: 'reader');
       final composer = shell.visibleComposer!;
-      expect(composer.target.topicId, 42);
+      expect((composer.target as ExistingTopicComposerTarget?)?.topicId, 42);
       expect(composer.target.tabId, sourceId);
       await source.openQuote(
         const Post(

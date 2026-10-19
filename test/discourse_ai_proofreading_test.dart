@@ -69,31 +69,26 @@ DiscourseUser _userWith({bool canProofread = true}) => DiscourseUser(
 
 final _allowedUser = _userWith();
 
-const _replyTarget = ComposerTarget(
+const _replyTarget = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: _siteUrl,
   topicId: 7,
   slug: 'native-writing',
   topicTitle: 'Native writing',
 );
 
-const _newTopicTarget = ComposerTarget(
+const _newTopicTarget = NewTopicComposerTarget(
   siteUrl: _siteUrl,
-  topicId: 0,
-  slug: '',
   topicTitle: 'New topic',
-  mode: ComposerMode.newTopic,
 );
 
-const _messageTarget = ComposerTarget(
+const _messageTarget = PrivateMessageComposerTarget(
   siteUrl: _siteUrl,
-  topicId: 0,
-  slug: '',
   topicTitle: 'New message',
-  mode: ComposerMode.privateMessage,
   targetRecipients: 'sam',
 );
 
-const _messageReplyTarget = ComposerTarget(
+const _messageReplyTarget = ReplyComposerTarget(
   siteUrl: _siteUrl,
   topicId: 8,
   slug: 'a-message',
@@ -819,7 +814,8 @@ void main() {
     final message = ComposerController(_messageTarget);
     final messageReply = ComposerController(_messageReplyTarget);
     final edit = ComposerController(
-      const ComposerTarget(
+      const PostEditComposerTarget(
+        privateMessageTopic: false,
         siteUrl: _siteUrl,
         topicId: 7,
         slug: 'native-writing',

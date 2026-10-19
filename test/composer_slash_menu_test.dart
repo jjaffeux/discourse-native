@@ -80,7 +80,8 @@ void main() {
     List<ComposerSlashAction> Function(ComposerController)? actions,
   }) async {
     final composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://example.test',
         topicId: 1,
         slug: 'test',

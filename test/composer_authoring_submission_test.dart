@@ -263,7 +263,8 @@ void main() {
 
 const _site = 'https://meta.discourse.org';
 const _body = 'A post ready to submit';
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: _site,
   topicId: 7,
   slug: 'topic',

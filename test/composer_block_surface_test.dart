@@ -19,7 +19,8 @@ void main() {
   late ShellController shell;
   setUp(() async {
     composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.example',
         topicId: 7,
         slug: 'topic',

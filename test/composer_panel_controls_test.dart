@@ -1418,7 +1418,8 @@ void main() {
       ('whisper', _replyTarget, true, 'Whisper', DIcons.farEyeSlash),
       (
         'edit',
-        const ComposerTarget(
+        const PostEditComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://meta.discourse.org',
           topicId: 7,
           slug: 'a-topic',
@@ -1613,7 +1614,8 @@ void main() {
         'edit topic context is passive and distinct at ${scale}x text',
         (tester) async {
           final composer = ComposerController(
-            const ComposerTarget(
+            const PostEditComposerTarget(
+              privateMessageTopic: false,
               siteUrl: 'https://meta.discourse.org',
               topicId: 7,
               slug: 'a-topic',
@@ -2134,26 +2136,21 @@ final class _InteractionTrackingShellController extends ShellController {
   }) async => submitCalls++;
 }
 
-const _replyTarget = ComposerTarget(
+const _replyTarget = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://meta.discourse.org',
   topicId: 7,
   slug: 'a-topic',
   topicTitle: 'A topic',
 );
 
-const _newTopicTarget = ComposerTarget(
+const _newTopicTarget = NewTopicComposerTarget(
   siteUrl: 'https://meta.discourse.org',
-  topicId: 0,
-  slug: '',
   topicTitle: '',
-  mode: ComposerMode.newTopic,
 );
 
-const _privateMessageTarget = ComposerTarget(
+const _privateMessageTarget = PrivateMessageComposerTarget(
   siteUrl: 'https://meta.discourse.org',
-  topicId: 0,
-  slug: '',
   topicTitle: 'New message',
-  mode: ComposerMode.privateMessage,
   targetRecipients: 'tech-leads',
 );

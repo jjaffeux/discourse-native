@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_presentation.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -794,7 +795,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.shell.currentContent?.topicId, 12);
     expect(h.shell.visibleComposer, same(composer));
-    expect(composer.target.topicId, 1);
+    expect((composer.target as ExistingTopicComposerTarget?)?.topicId, 1);
     expect(composer.raw, 'My reply to the first topic');
     expect(tester.state(find.byType(ComposerEditor)), same(editorState));
     await tester.tap(find.byKey(const ValueKey('composer-return-to-topic')));

@@ -269,16 +269,21 @@ void main() {
     () {
       for (final mode in [ComposerMode.reply, ComposerMode.privateMessage]) {
         final c = ComposerController(
-          ComposerTarget(
-            siteUrl: _site,
-            topicId: 7,
-            slug: 'topic',
-            topicTitle: 'Topic',
-            mode: mode,
-            targetRecipients: mode == ComposerMode.privateMessage ? '' : null,
-            replyToPostNumber: 2,
-            replyToUsername: 'original',
-          ),
+          mode == ComposerMode.privateMessage
+              ? const PrivateMessageComposerTarget(
+                  siteUrl: _site,
+                  topicTitle: 'Message',
+                  targetRecipients: '',
+                )
+              : const ReplyComposerTarget(
+                  siteUrl: _site,
+                  topicId: 7,
+                  slug: 'topic',
+                  topicTitle: 'Topic',
+                  privateMessageTopic: false,
+                  replyToPostNumber: 2,
+                  replyToUsername: 'original',
+                ),
         );
         addTearDown(c.dispose);
         c.restore(

@@ -114,7 +114,8 @@ void main() {
 
   test('an edit compares changes with the body loaded from the site', () {
     final composer = ComposerController(
-      const ComposerTarget(
+      const PostEditComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.discourse.org',
         topicId: 7,
         slug: 'a-topic',
@@ -137,12 +138,9 @@ void main() {
 
   test('new-topic dirty state matches core title and body semantics', () {
     final composer = ComposerController(
-      const ComposerTarget(
+      const NewTopicComposerTarget(
         siteUrl: 'https://meta.discourse.org',
-        topicId: 0,
-        slug: '',
         topicTitle: 'New topic',
-        mode: ComposerMode.newTopic,
       ),
     );
     addTearDown(composer.dispose);
@@ -253,6 +251,124 @@ void main() {
     expect(saves.single.draft.replyToPostNumber, 9);
   });
 
+  test('retarget keeps a restored reply identity and privacy', () {
+    final composer = ComposerController(
+      const ReplyComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        tabId: 'source-tab',
+        topicId: 7,
+        slug: 'private-topic',
+        topicTitle: 'Private topic',
+        privateMessageTopic: true,
+        draftKey: 'topic_7_restored',
+      ),
+    );
+    addTearDown(composer.dispose);
+    composer.restore(const ComposerDraft(reply: 'Saved reply', whisper: true));
+
+    composer.retarget(
+      replyToPostNumber: 3,
+      replyToUsername: 'sam',
+      replyingToWhisper: true,
+    );
+    composer.setWhisper(false);
+
+    expect(composer.target.draftKey, 'topic_7_restored');
+    expect(composer.target.siteUrl, 'https://meta.discourse.org');
+    expect(composer.target.tabId, 'source-tab');
+    expect(composer.isPrivateMessage, isTrue);
+    expect(composer.whisper, isTrue);
+    expect(composer.draft.replyToPostNumber, 3);
+    expect(composer.draft.replyToUsername, 'sam');
+    expect(composer.draft.reply, 'Saved reply');
+  });
+
+  test('restoring and changing recipients keeps message draft provenance', () {
+    final composer = ComposerController(
+      const PrivateMessageComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        tabId: 'source-tab',
+        topicTitle: 'New message',
+        originFeedId: 'messages',
+        originTopicId: 7,
+        draftKey: 'new_private_message_123',
+        targetRecipients: '',
+      ),
+    );
+    addTearDown(composer.dispose);
+    expect(
+      composer.restore(
+        const ComposerDraft(
+          reply: 'Saved message',
+          title: 'Saved title',
+          archetypeId: ComposerDraft.privateMessageArchetype,
+          recipients: 'sam',
+        ),
+      ),
+      isTrue,
+    );
+
+    composer.setRecipients([' sam ', 'alex']);
+
+    expect(composer.target.draftKey, 'new_private_message_123');
+    expect(composer.target.tabId, 'source-tab');
+    expect(composer.target.originFeedId, 'messages');
+    expect(composer.target.originTopicId, 7);
+    expect(composer.draft.recipients, 'sam,alex');
+    expect(composer.draft.reply, 'Saved message');
+    expect(composer.canSubmit, isTrue);
+  });
+
+  test('retarget cannot change a non-reply operation or its privacy', () {
+    final targets = <ComposerTarget>[
+      _newTopicTarget,
+      const PrivateMessageComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicTitle: 'Message',
+        targetRecipients: 'sam',
+      ),
+      const PostEditComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'topic',
+        topicTitle: 'Topic',
+        privateMessageTopic: true,
+        editingPostId: 11,
+        editingPostNumber: 2,
+      ),
+      const TopicEditComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'topic',
+        topicTitle: 'Topic',
+        privateMessageTopic: false,
+        editingPostId: 10,
+      ),
+      const TagsEditComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'topic',
+        topicTitle: 'Topic',
+        privateMessageTopic: false,
+      ),
+      const CategoryEditComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 7,
+        slug: 'topic',
+        topicTitle: 'Topic',
+        privateMessageTopic: false,
+      ),
+      _attachmentTarget,
+    ];
+    for (final target in targets) {
+      final composer = ComposerController(target);
+      addTearDown(composer.dispose);
+      composer.retarget(replyToPostNumber: 3, replyingToWhisper: true);
+      expect(composer.target, same(target));
+      expect(composer.whisper, isFalse);
+    }
+  });
+
   test('a reply is not retargeted while its submit is out', () {
     final composer = ComposerController(_target);
     addTearDown(composer.dispose);
@@ -267,17 +383,14 @@ void main() {
   test('a reply in a message topic tells plugins it is private', () {
     final public = ComposerController(_target);
     final message = ComposerController(
-      const ComposerTarget(
+      const PrivateMessageComposerTarget(
         siteUrl: 'https://meta.discourse.org',
-        topicId: 0,
-        slug: '',
         topicTitle: 'New message',
-        mode: ComposerMode.privateMessage,
         targetRecipients: 'sam',
       ),
     );
     final reply = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
         siteUrl: 'https://meta.discourse.org',
         topicId: 8,
         slug: 'a-message',
@@ -341,7 +454,8 @@ void main() {
 
   test('a reply to a whisper cannot be made public', () {
     final composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.discourse.org',
         topicId: 7,
         slug: 'a-topic',
@@ -713,14 +827,14 @@ void main() {
       );
 
       final editor = ComposerController(
-        const ComposerTarget(
+        const PostEditComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://meta.discourse.org',
           topicId: 7,
           slug: 'a-topic',
           topicTitle: 'A topic',
           editingPostId: 11,
           editingPostNumber: 2,
-          mode: ComposerMode.postEdit,
         ),
       );
       addTearDown(editor.dispose);
@@ -858,12 +972,9 @@ void main() {
   group('new topic drafts', () {
     testWidgets('track taxonomy in the new_topic draft', (tester) async {
       final composer = ComposerController(
-        const ComposerTarget(
+        const NewTopicComposerTarget(
           siteUrl: 'https://meta.discourse.org',
-          topicId: 0,
-          slug: '',
           topicTitle: 'New topic',
-          mode: ComposerMode.newTopic,
           originFeedId: 'latest',
           initialCategoryId: 4,
         ),
@@ -884,12 +995,9 @@ void main() {
 
     testWidgets('restores all new topic draft fields', (tester) async {
       final composer = ComposerController(
-        const ComposerTarget(
+        const NewTopicComposerTarget(
           siteUrl: 'https://meta.discourse.org',
-          topicId: 0,
-          slug: '',
           topicTitle: 'New topic',
-          mode: ComposerMode.newTopic,
         ),
       );
       addTearDown(composer.dispose);
@@ -912,12 +1020,9 @@ void main() {
 
     test('notify taxonomy changes before a new topic can submit', () {
       final composer = ComposerController(
-        const ComposerTarget(
+        const NewTopicComposerTarget(
           siteUrl: 'https://meta.discourse.org',
-          topicId: 0,
-          slug: '',
           topicTitle: 'New topic',
-          mode: ComposerMode.newTopic,
         ),
       );
       addTearDown(composer.dispose);
@@ -933,12 +1038,9 @@ void main() {
 
     test('late route tags become the untouched composer baseline', () {
       final composer = ComposerController(
-        const ComposerTarget(
+        const NewTopicComposerTarget(
           siteUrl: 'https://meta.discourse.org',
-          topicId: 0,
-          slug: '',
           topicTitle: 'New topic',
-          mode: ComposerMode.newTopic,
         ),
       );
       addTearDown(composer.dispose);
@@ -954,12 +1056,9 @@ void main() {
 
     test('late route tags do not replace a restored draft', () {
       final composer = ComposerController(
-        const ComposerTarget(
+        const NewTopicComposerTarget(
           siteUrl: 'https://meta.discourse.org',
-          topicId: 0,
-          slug: '',
           topicTitle: 'New topic',
-          mode: ComposerMode.newTopic,
         ),
       );
       addTearDown(composer.dispose);
@@ -1090,22 +1189,18 @@ void main() {
     test('replies, messages and edits never take a template', () {
       final targets = [
         _target,
-        const ComposerTarget(
+        const PrivateMessageComposerTarget(
           siteUrl: 'https://meta.discourse.org',
-          topicId: 0,
-          slug: '',
           topicTitle: 'New message',
-          mode: ComposerMode.privateMessage,
           targetRecipients: 'sam',
         ),
-        const ComposerTarget(
+        const TopicEditComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://meta.discourse.org',
           topicId: 7,
           slug: 'a-topic',
           topicTitle: 'A topic',
-          mode: ComposerMode.topicEdit,
           editingPostId: 11,
-          editingPostNumber: 1,
         ),
       ];
       for (final target in targets) {
@@ -1125,12 +1220,9 @@ void main() {
       'recipients can be chosen after opening and restored from a draft',
       () {
         final composer = ComposerController(
-          const ComposerTarget(
+          const PrivateMessageComposerTarget(
             siteUrl: 'https://meta.discourse.org',
-            topicId: 0,
-            slug: '',
             topicTitle: 'New message',
-            mode: ComposerMode.privateMessage,
             targetRecipients: '',
           ),
         );
@@ -1167,12 +1259,9 @@ void main() {
 
     testWidgets('retain their recipient in a portable draft', (tester) async {
       final composer = ComposerController(
-        const ComposerTarget(
+        const PrivateMessageComposerTarget(
           siteUrl: 'https://meta.discourse.org',
-          topicId: 0,
-          slug: '',
           topicTitle: 'New message',
-          mode: ComposerMode.privateMessage,
           originFeedId: 'groups',
           targetRecipients: 'tech-leads',
         ),
@@ -1194,12 +1283,9 @@ void main() {
 
     test('cannot be restored for another recipient', () {
       final composer = ComposerController(
-        const ComposerTarget(
+        const PrivateMessageComposerTarget(
           siteUrl: 'https://meta.discourse.org',
-          topicId: 0,
-          slug: '',
           topicTitle: 'New message',
-          mode: ComposerMode.privateMessage,
           targetRecipients: 'tech-leads',
         ),
       );
@@ -1223,14 +1309,13 @@ void main() {
   group('editing existing posts and topics', () {
     testWidgets('distinguishes metadata and body baselines', (tester) async {
       final composer = ComposerController(
-        const ComposerTarget(
+        const TopicEditComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://meta.discourse.org',
           topicId: 7,
           slug: 'a-topic',
           topicTitle: 'Original',
           editingPostId: 11,
-          editingPostNumber: 1,
-          mode: ComposerMode.topicEdit,
           initialCategoryId: 2,
           initialTags: [TopicTag(id: 4, name: 'old')],
         ),
@@ -1252,14 +1337,13 @@ void main() {
 
     test('settled metadata takes the title and tags the site stored', () {
       final composer = ComposerController(
-        const ComposerTarget(
+        const TopicEditComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://meta.discourse.org',
           topicId: 7,
           slug: 'a-topic',
           topicTitle: 'Original',
           editingPostId: 11,
-          editingPostNumber: 1,
-          mode: ComposerMode.topicEdit,
           initialTags: [TopicTag(id: 4, name: 'old')],
         ),
       );
@@ -1289,7 +1373,8 @@ void main() {
     test('a failed edit body load keeps sending disabled until the body '
         'arrives', () {
       final composer = ComposerController(
-        const ComposerTarget(
+        const PostEditComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://meta.discourse.org',
           topicId: 7,
           slug: 'a-topic',
@@ -1321,14 +1406,13 @@ void main() {
     test('a failed body load blocks a topic edit even when only metadata '
         'changed', () {
       final composer = ComposerController(
-        const ComposerTarget(
+        const TopicEditComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://meta.discourse.org',
           topicId: 7,
           slug: 'a-topic',
           topicTitle: 'Original',
           editingPostId: 11,
-          editingPostNumber: 1,
-          mode: ComposerMode.topicEdit,
         ),
       );
       addTearDown(composer.dispose);
@@ -2919,19 +3003,17 @@ void main() {
   });
 }
 
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://meta.discourse.org',
   topicId: 7,
   slug: 'a-topic',
   topicTitle: 'A topic',
 );
 
-const _newTopicTarget = ComposerTarget(
+const _newTopicTarget = NewTopicComposerTarget(
   siteUrl: 'https://meta.discourse.org',
-  topicId: 0,
-  slug: '',
   topicTitle: 'New topic',
-  mode: ComposerMode.newTopic,
 );
 
 const _tokenSyntaxKind = ComposerSyntaxKind(
@@ -3023,7 +3105,7 @@ const _attachmentTargetKind = ComposerTargetKind(
   name: 'message',
 );
 
-final _attachmentTarget = ComposerTarget.plugin(
+final _attachmentTarget = PluginComposerTarget(
   siteUrl: 'https://meta.discourse.org',
   topicTitle: 'Attachment message',
   policy: ComposerTargetPolicy(
@@ -3042,7 +3124,7 @@ final _attachmentTarget = ComposerTarget.plugin(
   ),
 );
 
-final _markdownPluginTarget = ComposerTarget.plugin(
+final _markdownPluginTarget = PluginComposerTarget(
   siteUrl: 'https://meta.discourse.org',
   topicTitle: 'Markdown plugin message',
   policy: ComposerTargetPolicy(

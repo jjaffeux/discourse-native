@@ -15,7 +15,8 @@ void main() {
     tester,
   ) async {
     final composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.example',
         topicId: 7,
         slug: 'topic',

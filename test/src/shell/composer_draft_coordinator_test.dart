@@ -12,30 +12,25 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
-const _replyTarget = ComposerTarget(
+const _replyTarget = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: _siteUrl,
   topicId: 7,
   slug: 'a-topic',
   topicTitle: 'A topic',
 );
-const _newTopicTarget = ComposerTarget(
+const _newTopicTarget = NewTopicComposerTarget(
   siteUrl: _siteUrl,
-  topicId: 0,
-  slug: '',
   topicTitle: 'New topic',
-  mode: ComposerMode.newTopic,
 );
 const _listedDraft = UserDraft(
   key: 'topic_7',
   sequence: 4,
   data: ComposerDraft(reply: 'Listed reply'),
 );
-const _listedTopicTarget = ComposerTarget(
+const _listedTopicTarget = NewTopicComposerTarget(
   siteUrl: _siteUrl,
-  topicId: 0,
-  slug: '',
   topicTitle: 'New topic',
-  mode: ComposerMode.newTopic,
   draftKey: 'new_topic_1789070000000',
 );
 const _listedTopicDraft = UserDraft(
@@ -558,7 +553,8 @@ void main() {
         harness.composers.remove(replaced);
         final other = harness
             .open(
-              const ComposerTarget(
+              const ReplyComposerTarget(
+                privateMessageTopic: false,
                 siteUrl: _siteUrl,
                 topicId: 8,
                 slug: 'another-topic',

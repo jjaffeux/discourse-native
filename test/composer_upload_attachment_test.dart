@@ -32,7 +32,8 @@ void main() {
         openRead: () => Stream.value([1]),
       );
       final composer = ComposerController(
-        const ComposerTarget(
+        const ReplyComposerTarget(
+          privateMessageTopic: false,
           siteUrl: _siteUrl,
           topicId: 1,
           slug: 'test',
@@ -102,7 +103,8 @@ void main() {
       openRead: () => Stream.value([1]),
     );
     final composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: _siteUrl,
         topicId: 1,
         slug: 'test',
@@ -162,7 +164,8 @@ void main() {
     );
     addTearDown(shell.dispose);
     final composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: _siteUrl,
         topicId: 1,
         slug: 'test',

@@ -191,7 +191,8 @@ final class ComposerDraftCoordinator {
             ? int.tryParse(draft.key.substring('topic_'.length))
             : null;
         final target = topicId != null && draft.key == 'topic_$topicId'
-            ? ComposerTarget(
+            ? ReplyComposerTarget(
+                privateMessageTopic: false,
                 siteUrl: siteUrl,
                 topicId: topicId,
                 slug: '',

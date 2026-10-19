@@ -22,7 +22,8 @@ const _middle =
 const _last =
     'Maybe even an "Add/remove to/from my sidebar..." entry in the board menu?';
 const _image = '![pasted-image|340x500](upload://image.png)';
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://example.test',
   topicId: 7,
   slug: 'image-spacing',

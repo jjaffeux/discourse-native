@@ -8,6 +8,7 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/post_footer.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -101,7 +102,11 @@ void main() {
     expect(find.widgetWithText(DDropdownMenuItem, 'Bookmark'), findsOneWidget);
     await tester.tap(find.widgetWithText(DDropdownMenuItem, 'Edit'));
     await tester.pumpAndSettle();
-    expect(controller.visibleComposer?.target.editingPostId, 1);
+    expect(
+      (controller.visibleComposer?.target as PostEditingComposerTarget?)
+          ?.editingPostId,
+      1,
+    );
     expect(tester.takeException(), isNull);
   });
 

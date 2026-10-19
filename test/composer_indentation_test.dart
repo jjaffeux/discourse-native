@@ -119,7 +119,8 @@ void main() {
       await shell.load();
       addTearDown(shell.dispose);
       final root = ComposerController(
-        const ComposerTarget(
+        const ReplyComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://example.test',
           topicId: 1,
           slug: 'topic',

@@ -153,12 +153,9 @@ Future<ComposerController> _pump(
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final composer = ComposerController(
-    ComposerTarget(
+    PrivateMessageComposerTarget(
       siteUrl: _site,
-      topicId: 0,
-      slug: '',
       topicTitle: 'New message',
-      mode: ComposerMode.privateMessage,
       targetRecipients: recipients,
     ),
   );

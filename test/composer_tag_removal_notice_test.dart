@@ -8,7 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   ComposerController composer() {
     final result = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.discourse.org',
         topicId: 7,
         slug: 'a-topic',
@@ -59,7 +60,8 @@ void main() {
     tester,
   ) async {
     final controller = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.discourse.org',
         topicId: 7,
         slug: 'a-topic',

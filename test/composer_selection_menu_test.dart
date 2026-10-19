@@ -34,7 +34,8 @@ Future<ComposerController> pumpEditor(
   bool supportsColors = false,
 }) async {
   final composer = ComposerController(
-    const ComposerTarget(
+    const ReplyComposerTarget(
+      privateMessageTopic: false,
       siteUrl: 'https://example.com',
       topicId: 7,
       slug: 'topic',

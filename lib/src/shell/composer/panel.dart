@@ -453,7 +453,7 @@ class ComposerPanel extends StatelessWidget {
                         child: LayoutBuilder(
                           builder: (context, constraints) {
                             final fields = <Widget>[
-                              if (target.mode == ComposerMode.reply &&
+                              if (target is ReplyComposerTarget &&
                                   constraints.maxHeight >= 80)
                                 ConstrainedBox(
                                   constraints: BoxConstraints(

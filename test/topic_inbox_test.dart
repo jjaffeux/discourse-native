@@ -20,6 +20,7 @@ import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/presentation.dart';
 import 'package:discourse_native/src/shell/composer/presentation_controller.dart';
@@ -2783,7 +2784,11 @@ void main() {
     expect(reply.hitTestable(), findsOneWidget);
     await tester.tap(reply);
     await tester.pumpAndSettle();
-    expect(setup.controller.visibleComposer?.target.topicId, 1);
+    expect(
+      (setup.controller.visibleComposer?.target as ExistingTopicComposerTarget?)
+          ?.topicId,
+      1,
+    );
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -3409,7 +3414,10 @@ void main() {
 
     await tester.tap(reply);
     await tester.pumpAndSettle();
-    expect(shell.visibleComposer?.target.topicId, 1);
+    expect(
+      (shell.visibleComposer?.target as ExistingTopicComposerTarget?)?.topicId,
+      1,
+    );
     expect(shell.visibleComposer?.target.replyToPostNumber, 2);
     expect(shell.visibleComposer?.target.replyToUsername, 'sam');
     expect(shell.currentContent?.topicId, 1);

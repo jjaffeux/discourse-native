@@ -3,7 +3,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -18,7 +17,6 @@ import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../models/topic_tag.dart';
 import '../../plugin_api/composer_syntax.dart';
-import '../../plugin_api/emoji_usage.dart';
 import '../../plugin_api/hashtag_kind.dart';
 import '../../plugin_api/plugin_data.dart';
 import 'autocomplete.dart';
@@ -34,243 +32,10 @@ import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 import 'marks.dart';
 import 'pills.dart';
+import 'target.dart';
 import 'triggers.dart';
 
-enum ComposerMode {
-  reply,
-  newTopic,
-  privateMessage,
-  postEdit,
-  topicEdit,
-  categoryEdit,
-  tagsEdit,
-  plugin,
-}
-
-@immutable
-final class ComposerTargetKind {
-  const ComposerTargetKind({required this.owner, required this.name});
-
-  final PluginId owner;
-  final String name;
-
-  String get id => '${owner.value}/$name';
-
-  @override
-  bool operator ==(Object other) =>
-      other is ComposerTargetKind && other.owner == owner && other.name == name;
-
-  @override
-  int get hashCode => Object.hash(owner, name);
-
-  @override
-  String toString() => id;
-}
-
-enum ComposerUploadDisposition { insertMarkdown, retainAttachment }
-
-@immutable
-final class ComposerValidationContext {
-  const ComposerValidationContext({
-    required this.raw,
-    required this.completedUploadCount,
-  });
-
-  final String raw;
-  final int completedUploadCount;
-}
-
-typedef ComposerTargetValidator =
-    bool Function(ComposerValidationContext context);
-
-@immutable
-final class ComposerTargetPolicy {
-  const ComposerTargetPolicy({
-    required this.kind,
-    required this.draftKey,
-    required this.uploadType,
-    required this.uploadDisposition,
-    required this.uploadsEnabled,
-    required this.supportsEditing,
-    required this.validate,
-    required this.emojiUsageContext,
-    this.mentionTopicId,
-  });
-
-  final ComposerTargetKind kind;
-  final String draftKey;
-  final ComposerUploadType uploadType;
-  final ComposerUploadDisposition uploadDisposition;
-  final bool uploadsEnabled;
-  final bool supportsEditing;
-  final EmojiUsageContext emojiUsageContext;
-  final int? mentionTopicId;
-  final ComposerTargetValidator validate;
-}
-
-@immutable
-final class ComposerTargetRequest {
-  const ComposerTargetRequest({
-    required this.kind,
-    required this.siteUrl,
-    required this.title,
-    this.data = const {},
-  });
-
-  final ComposerTargetKind kind;
-  final String siteUrl;
-  final String title;
-  final Map<String, Object?> data;
-}
-
-@immutable
-class ComposerTarget {
-  const ComposerTarget({
-    required this.siteUrl,
-    required this.topicId,
-    required this.slug,
-    required this.topicTitle,
-    this.tabId,
-    this.replyToPostNumber,
-    this.replyToUsername,
-    this.replyingToWhisper = false,
-    this.editingPostId,
-    this.editingPostNumber,
-    ComposerMode? mode,
-    this.originFeedId,
-    this.originTopicId,
-    this.initialCategoryId,
-    this.initialTags = const [],
-    this.targetRecipients,
-    this.privateMessageTopic = false,
-    String? draftKey,
-  }) : policy = null,
-       data = const {},
-       _draftKey = draftKey,
-       mode =
-           mode ??
-           (editingPostId == null ? ComposerMode.reply : ComposerMode.postEdit),
-       assert(mode != ComposerMode.plugin),
-       assert(mode != ComposerMode.privateMessage || targetRecipients != null);
-
-  const ComposerTarget.plugin({
-    required this.siteUrl,
-    required this.topicTitle,
-    required this.policy,
-    this.data = const {},
-  }) : tabId = null,
-       topicId = 0,
-       slug = '',
-       mode = ComposerMode.plugin,
-       originFeedId = null,
-       originTopicId = null,
-       initialCategoryId = null,
-       initialTags = const [],
-       targetRecipients = null,
-       privateMessageTopic = false,
-       replyToPostNumber = null,
-       replyToUsername = null,
-       replyingToWhisper = false,
-       editingPostId = null,
-       editingPostNumber = null,
-       _draftKey = null;
-
-  final String siteUrl;
-
-  /// The initiating tab, retained as source metadata rather than ownership.
-  final String? tabId;
-  final int topicId;
-  final String slug;
-  final String topicTitle;
-  final ComposerMode mode;
-  final ComposerTargetPolicy? policy;
-  final Map<String, Object?> data;
-  final String? originFeedId;
-  final int? originTopicId;
-  final int? initialCategoryId;
-  final List<TopicTag> initialTags;
-  final String? targetRecipients;
-
-  /// Whether [topicId] is a message topic, which makes a reply to or edit of
-  /// a post in it private. [isPrivateMessage] only describes a new message.
-  final bool privateMessageTopic;
-  final String? _draftKey;
-
-  final int? replyToPostNumber;
-
-  final String? replyToUsername;
-
-  final bool replyingToWhisper;
-
-  final int? editingPostId;
-
-  final int? editingPostNumber;
-
-  bool get isEdit => switch (mode) {
-    ComposerMode.postEdit ||
-    ComposerMode.topicEdit ||
-    ComposerMode.categoryEdit ||
-    ComposerMode.tagsEdit => true,
-    _ => false,
-  };
-  bool get isNewTopic => mode == ComposerMode.newTopic;
-  bool get isPrivateMessage => mode == ComposerMode.privateMessage;
-  bool get createsTopic => isNewTopic || isPrivateMessage;
-  bool get editsTopicMetadata => mode == ComposerMode.topicEdit;
-  bool get isCategoryEdit => mode == ComposerMode.categoryEdit;
-  bool get isTagsEdit => mode == ComposerMode.tagsEdit;
-  bool get isTaxonomyEdit => isCategoryEdit || isTagsEdit;
-  bool get isPlugin => mode == ComposerMode.plugin;
-
-  String get draftKey =>
-      _draftKey ??
-      switch (mode) {
-        ComposerMode.newTopic => ComposerDraft.newTopicDraftKey,
-        ComposerMode.privateMessage => ComposerDraft.newPrivateMessageDraftKey,
-        ComposerMode.plugin => policy!.draftKey,
-        _ => 'topic_$topicId',
-      };
-
-  ComposerTarget replyingTo(
-    int? postNumber,
-    String? username, {
-    bool replyingToWhisper = false,
-  }) {
-    if (isPlugin) return this;
-    return ComposerTarget(
-      siteUrl: siteUrl,
-      tabId: tabId,
-      topicId: topicId,
-      slug: slug,
-      topicTitle: topicTitle,
-      replyToPostNumber: postNumber,
-      replyToUsername: username,
-      replyingToWhisper: replyingToWhisper,
-      mode: mode,
-      originFeedId: originFeedId,
-      originTopicId: originTopicId,
-      initialCategoryId: initialCategoryId,
-      initialTags: initialTags,
-      targetRecipients: targetRecipients,
-      privateMessageTopic: privateMessageTopic,
-      draftKey: _draftKey,
-    );
-  }
-
-  ComposerTarget withRecipients(String recipients) => ComposerTarget(
-    siteUrl: siteUrl,
-    tabId: tabId,
-    topicId: topicId,
-    slug: slug,
-    topicTitle: topicTitle,
-    mode: mode,
-    originFeedId: originFeedId,
-    originTopicId: originTopicId,
-    targetRecipients: recipients,
-    privateMessageTopic: privateMessageTopic,
-    draftKey: _draftKey,
-  );
-}
+export 'target.dart';
 
 @immutable
 class ComposerDraftSave {
@@ -906,16 +671,23 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   ComposerTarget _target;
   ComposerTarget get target => _target;
+  PluginComposerTarget? get _pluginTarget => switch (_target) {
+    final PluginComposerTarget target => target,
+    _ => null,
+  };
 
   void setRecipients(Iterable<String> values) {
-    if (_disposed || !_target.isPrivateMessage || !isEditing) return;
+    final target = _target;
+    if (_disposed || target is! PrivateMessageComposerTarget || !isEditing) {
+      return;
+    }
     final recipients = values
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty)
         .toSet()
         .join(',');
     if (recipients == _target.targetRecipients) return;
-    _target = _target.withRecipients(recipients);
+    _target = target.withRecipients(recipients);
     _onMetadataChanged();
   }
 
@@ -1204,7 +976,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
     final batch = _nextUploadBatch++;
     final insertsMarkdown =
-        _target.policy?.uploadDisposition !=
+        _pluginTarget?.policy.uploadDisposition !=
         ComposerUploadDisposition.retainAttachment;
     final galleryTarget = gallery == null
         ? null
@@ -1425,7 +1197,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
       final result = first.value.result;
       if (result == null) break;
 
-      if (_target.policy?.uploadDisposition ==
+      if (_pluginTarget?.policy.uploadDisposition ==
           ComposerUploadDisposition.retainAttachment) {
         _pendingUploads.remove(first.key);
         final uploadIndex = _uploadIndex(first.key);
@@ -2767,10 +2539,12 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     if (!canRestoreDraft(draft)) return false;
     _restoredDraft = true;
-    if (_target.isPrivateMessage &&
-        _target.targetRecipients?.isEmpty == true &&
-        draft.recipients != null) {
-      _target = _target.withRecipients(draft.recipients!);
+    final target = _target;
+    final recipients = draft.recipients;
+    if (target is PrivateMessageComposerTarget &&
+        target.targetRecipients.isEmpty &&
+        recipients != null) {
+      _target = target.withRecipients(recipients);
     }
     _replaceDocument(
       TextEditingValue(
@@ -3015,7 +2789,9 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     // A submit already out was built from the target as it stood; the reply
     // it will create must not change underneath it.
     if (_disposed || _discarding || _state == ComposerState.submitting) return;
-    final next = _target.replyingTo(
+    final target = _target;
+    if (target is! ReplyComposerTarget) return;
+    final next = target.replyingTo(
       replyToPostNumber,
       replyToUsername,
       replyingToWhisper: replyingToWhisper,
@@ -3143,7 +2919,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     required String raw,
     required Iterable<ComposerUploadResult> uploads,
   }) {
-    if (_disposed || _target.policy?.supportsEditing != true) return;
+    if (_disposed || _pluginTarget?.policy.supportsEditing != true) return;
     _clearTagRemovalNotice();
     draftSettled();
     _state = ComposerState.editing;
@@ -3291,26 +3067,26 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }
 
   void _recomputeCanSubmit() {
-    final next = switch (_target.mode) {
-      ComposerMode.reply => raw.isNotEmpty,
-      ComposerMode.newTopic =>
+    final next = switch (_target) {
+      ReplyComposerTarget() => raw.isNotEmpty,
+      NewTopicComposerTarget() =>
         raw.isNotEmpty &&
             title.text.trim().isNotEmpty &&
             taxonomyValidationMessage == null,
-      ComposerMode.privateMessage =>
+      PrivateMessageComposerTarget(:final targetRecipients) =>
         raw.isNotEmpty &&
             title.text.trim().isNotEmpty &&
-            (_target.targetRecipients?.trim().isNotEmpty ?? false),
-      ComposerMode.postEdit => raw.isNotEmpty && _bodyEdited,
-      ComposerMode.topicEdit =>
+            targetRecipients.trim().isNotEmpty,
+      PostEditComposerTarget() => raw.isNotEmpty && _bodyEdited,
+      TopicEditComposerTarget() =>
         title.text.trim().isNotEmpty &&
             taxonomyValidationMessage == null &&
             (metadataChanged || (raw.isNotEmpty && _bodyEdited)),
-      ComposerMode.categoryEdit =>
+      CategoryEditComposerTarget() =>
         taxonomyValidationMessage == null && metadataChanged,
-      ComposerMode.tagsEdit =>
+      TagsEditComposerTarget() =>
         taxonomyValidationMessage == null && !listEquals(_tags, _originalTags),
-      ComposerMode.plugin => _target.policy!.validate(
+      PluginComposerTarget(:final policy) => policy.validate(
         ComposerValidationContext(
           raw: raw,
           completedUploadCount: completedUploads.length,

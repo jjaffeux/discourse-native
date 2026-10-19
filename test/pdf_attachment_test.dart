@@ -227,7 +227,8 @@ void main() {
   });
 }
 
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: _site,
   topicId: 1,
   slug: 'test',

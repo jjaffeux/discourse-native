@@ -12,6 +12,7 @@ import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_lin
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_tables.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/prometheus_alert_receiver_plugin.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -191,7 +192,7 @@ void main() {
       await tester.tap(quoteButton);
       await tester.pumpAndSettle();
       final composer = shell.visibleComposer!;
-      expect(composer.target.topicId, 7);
+      expect((composer.target as ExistingTopicComposerTarget?)?.topicId, 7);
       expect(composer.raw, contains('[quote="system, post:1, topic:7"]'));
       expect(composer.raw, contains('**myalert** - sjc1 - [date=2020-07-27'));
       expect(composer.raw, contains('High latency'));

@@ -29,7 +29,8 @@ void main() {
             label: 'alice',
           );
           final composer = ComposerController(
-            const ComposerTarget(
+            const ReplyComposerTarget(
+              privateMessageTopic: false,
               siteUrl: 'https://meta.discourse.org',
               topicId: 1,
               slug: 'topic',
@@ -125,7 +126,8 @@ void main() {
       action: ComposerSuggestionAction.openEmojiPicker,
     );
     final composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.discourse.org',
         topicId: 1,
         slug: 'topic',
@@ -444,7 +446,8 @@ void main() {
     tester,
   ) async {
     final composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.discourse.org',
         topicId: 1,
         slug: 'topic',
@@ -506,7 +509,8 @@ void main() {
 }
 
 ComposerController _composer(String label) => ComposerController(
-  const ComposerTarget(
+  const ReplyComposerTarget(
+    privateMessageTopic: false,
     siteUrl: 'https://meta.discourse.org',
     topicId: 1,
     slug: 'topic',
@@ -516,7 +520,8 @@ ComposerController _composer(String label) => ComposerController(
 );
 
 ComposerController _composerWith(List<String> labels) => ComposerController(
-  const ComposerTarget(
+  const ReplyComposerTarget(
+    privateMessageTopic: false,
     siteUrl: 'https://meta.discourse.org',
     topicId: 1,
     slug: 'topic',

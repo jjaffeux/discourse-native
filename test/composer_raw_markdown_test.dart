@@ -14,7 +14,8 @@ import 'support/fakes.dart';
 
 const _table = '| One | Two |\n| --- | --- |\n| A | B |';
 const _source = '**Bold** :smile: @sam\n\n> Quote\n\n$_table';
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://meta.discourse.org',
   topicId: 7,
   slug: 'a-topic',

@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -180,7 +181,11 @@ void main() {
           );
           await tester.tap(reply);
           await tester.pumpAndSettle();
-          expect(shell.visibleComposer?.target.topicId, _topic.id);
+          expect(
+            (shell.visibleComposer?.target as ExistingTopicComposerTarget?)
+                ?.topicId,
+            _topic.id,
+          );
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.macOS),

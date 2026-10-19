@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -901,7 +902,11 @@ void main() {
       expect(setup.shell.activeTab?.panel, ForumPanel.secondary);
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.keyR), isTrue);
       await tester.pumpAndSettle();
-      expect(setup.shell.visibleComposer?.target.topicId, 5);
+      expect(
+        (setup.shell.visibleComposer?.target as ExistingTopicComposerTarget?)
+            ?.topicId,
+        5,
+      );
       expect(setup.shell.visibleComposer?.target.replyToPostNumber, 3);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.linux),

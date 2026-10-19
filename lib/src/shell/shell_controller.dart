@@ -695,7 +695,11 @@ class ShellController extends FrameSafeNotifier
               return false;
             }
             openEdit(post, focusText: focusText);
-            return _composer?.target.editingPostId == postId;
+            return switch (_composer?.target) {
+              PostEditingComposerTarget(:final editingPostId) =>
+                editingPostId == postId,
+              _ => false,
+            };
           },
         ),
       ),
@@ -9892,16 +9896,17 @@ class ShellController extends FrameSafeNotifier
         readClientId: authenticator.clientId,
         isDisposed: () => isDisposed,
         isCurrentComposer: _ownsComposer,
-        readCachedDraft: (target) => target.createsTopic
-            ? null
-            : store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft,
-        readCachedSequence: (target) => target.createsTopic
-            ? 0
-            : store
+        readCachedDraft: (target) => target is ExistingTopicComposerTarget
+            ? store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft
+            : null,
+        readCachedSequence: (target) => target is ExistingTopicComposerTarget
+            ? store
                       .read<TopicDetail>(target.siteUrl, target.topicId)
                       ?.draftSequence ??
-                  0,
+                  0
+            : 0,
         writeCachedDraft: (target, draft, sequence) {
+          if (target is! ExistingTopicComposerTarget) return;
           store.update<TopicDetail>(
             target.siteUrl,
             target.topicId,
@@ -9919,7 +9924,7 @@ class ShellController extends FrameSafeNotifier
                 .feedFor(target.siteUrl)
                 .drafts
                 .any((draft) => draft.key == target.draftKey) ||
-            (!target.createsTopic &&
+            (target is ExistingTopicComposerTarget &&
                 store
                         .read<TopicDetail>(target.siteUrl, target.topicId)
                         ?.draft !=
@@ -9960,13 +9965,24 @@ class ShellController extends FrameSafeNotifier
   }) {
     SurfaceOpeningTrace.mark('composer.create');
     final config = siteConfigFor(target.siteUrl);
+    final pluginPolicy = target is PluginComposerTarget ? target.policy : null;
     final draftSession = persistsDraft
         ? _composerDrafts.openSession(target)
         : null;
     ComposerPluginState readPluginState() {
       final currentUser = currentUserFor(target.siteUrl);
       final freshCurrentUser = freshCurrentUserFor(target.siteUrl);
-      final editingPostId = target.editingPostId;
+      final editingPostId = switch (target) {
+        PostEditingComposerTarget(:final editingPostId) => editingPostId,
+        TaxonomyEditComposerTarget(:final firstPostId) => firstPostId,
+        _ => null,
+      };
+      final editingPostNumber = switch (target) {
+        PostEditingComposerTarget(:final editingPostNumber) =>
+          editingPostNumber,
+        TaxonomyEditComposerTarget() => 1,
+        _ => null,
+      };
       final editingPost = editingPostId == null
           ? null
           : store.read<Post>(target.siteUrl, editingPostId);
@@ -9978,7 +9994,7 @@ class ShellController extends FrameSafeNotifier
         accountTimezone: currentUser?.timezone,
         freshCurrentUserIsStaff: freshCurrentUser?.staff == true,
         createsTopic: target.createsTopic,
-        editingPostNumber: target.editingPostNumber ?? editingPost?.postNumber,
+        editingPostNumber: editingPostNumber ?? editingPost?.postNumber,
       );
     }
 
@@ -9993,7 +10009,7 @@ class ShellController extends FrameSafeNotifier
         emojiPickerStore.trackEmoji(
           siteUrl: target.siteUrl,
           context:
-              target.policy?.emojiUsageContext ?? CoreEmojiUsageContexts.topic,
+              pluginPolicy?.emojiUsageContext ?? CoreEmojiUsageContexts.topic,
           emoji: code,
         ),
       ),
@@ -10017,7 +10033,7 @@ class ShellController extends FrameSafeNotifier
       // are registered in the shell's per-tab map.
       isCurrentComposer: () =>
           !isDisposed && (target.isPlugin || _ownsComposer(composer)),
-      imageUploader: !(target.policy?.uploadsEnabled ?? true)
+      imageUploader: !(pluginPolicy?.uploadsEnabled ?? true)
           ? null
           : (file, {required onProgress, required abortTrigger}) =>
                 _uploadComposerImage(
@@ -10086,7 +10102,7 @@ class ShellController extends FrameSafeNotifier
     );
     if (policy == null) return null;
     return _buildTextComposer(
-      ComposerTarget.plugin(
+      PluginComposerTarget(
         siteUrl: request.siteUrl,
         topicTitle: request.title,
         policy: policy,
@@ -10160,13 +10176,10 @@ class ShellController extends FrameSafeNotifier
       selectComposer(heldMessage);
     }
     if (!_replaceComposer()) return;
-    final target = ComposerTarget(
+    final target = PrivateMessageComposerTarget(
       siteUrl: siteUrl,
       tabId: tabId,
-      topicId: 0,
-      slug: '',
       topicTitle: appL10n.newMessage,
-      mode: ComposerMode.privateMessage,
       originFeedId: feedId,
       targetRecipients: recipients,
     );
@@ -10294,13 +10307,10 @@ class ShellController extends FrameSafeNotifier
       _mergeCategories(instance.url, [selectedCategory]);
     }
     if (!_replaceComposer()) return;
-    final target = ComposerTarget(
+    final target = NewTopicComposerTarget(
       siteUrl: instance.url,
       tabId: tabId,
-      topicId: 0,
-      slug: '',
       topicTitle: appL10n.newTopic,
-      mode: ComposerMode.newTopic,
       draftKey:
           listedDraft?.key ?? _newDraftKey(ComposerDraft.newTopicDraftKey),
       originFeedId: originFeedId,
@@ -10513,13 +10523,10 @@ class ShellController extends FrameSafeNotifier
           if (name.toLowerCase() != username) name,
         ...source.allowedMessageGroups,
       ];
-      target = ComposerTarget(
+      target = PrivateMessageComposerTarget(
         siteUrl: siteUrl,
         tabId: tabId,
-        topicId: 0,
-        slug: '',
         topicTitle: appL10n.newMessage,
-        mode: ComposerMode.privateMessage,
         originTopicId: sourceTopicId,
         draftKey: _newDraftKey(ComposerDraft.newPrivateMessageDraftKey),
         targetRecipients: (others.isEmpty ? source.allowedMessageUsers : others)
@@ -10530,13 +10537,10 @@ class ShellController extends FrameSafeNotifier
           .where((item) => item.id == detail.categoryId && item.canCreateTopic)
           .firstOrNull;
       minimumRequiredTags = category?.minimumRequiredTags ?? 0;
-      target = ComposerTarget(
+      target = NewTopicComposerTarget(
         siteUrl: siteUrl,
         tabId: tabId,
-        topicId: 0,
-        slug: '',
         topicTitle: appL10n.newTopic,
-        mode: ComposerMode.newTopic,
         originTopicId: sourceTopicId,
         draftKey: _newDraftKey(ComposerDraft.newTopicDraftKey),
         initialCategoryId: category?.id,
@@ -10627,13 +10631,10 @@ class ShellController extends FrameSafeNotifier
         return OpenComposerResult.sourceChanged;
       }
       if (!_replaceComposer()) return OpenComposerResult.unavailable;
-      final target = ComposerTarget(
+      final target = NewTopicComposerTarget(
         siteUrl: siteUrl,
         tabId: tabId,
-        topicId: 0,
-        slug: '',
         topicTitle: appL10n.newTopic,
-        mode: ComposerMode.newTopic,
         originFeedId: feedId,
         draftKey: _newDraftKey(ComposerDraft.newTopicDraftKey),
         initialCategoryId: category?.id,
@@ -10819,20 +10820,18 @@ class ShellController extends FrameSafeNotifier
         _replyTargetsWhisper(replyToPostNumber, topic: document.currentTopic);
 
     final existing =
-        _composersForSite(instance.url)
-            .where(
-              (composer) =>
-                  composer.target.mode == ComposerMode.reply &&
-                  composer.target.topicId == topicId,
-            )
-            .firstOrNull ??
+        _composersForSite(instance.url).where((composer) {
+          final target = composer.target;
+          return target is ReplyComposerTarget && target.topicId == topicId;
+        }).firstOrNull ??
         _composer;
     if (existing?.discarding == true) return;
+    final existingTarget = existing?.target;
     if (existing != null &&
         !existing.closing &&
-        !existing.target.isEdit &&
-        existing.target.topicId == topicId &&
-        existing.target.siteUrl == instance.url) {
+        existingTarget is ReplyComposerTarget &&
+        existingTarget.topicId == topicId &&
+        existingTarget.siteUrl == instance.url) {
       selectComposer(existing);
       existing.retarget(
         replyToPostNumber: replyToPostNumber,
@@ -10844,7 +10843,7 @@ class ShellController extends FrameSafeNotifier
     }
 
     if (!_replaceComposer()) return;
-    final target = ComposerTarget(
+    final target = ReplyComposerTarget(
       siteUrl: instance.url,
       tabId: document.tabId,
       topicId: topicId,
@@ -10892,13 +10891,11 @@ class ShellController extends FrameSafeNotifier
     }
 
     var composer = _composer;
+    final target = composer?.target;
     final reusesOpenReply =
-        composer != null &&
-        !composer.target.isEdit &&
-        !composer.target.createsTopic &&
-        !composer.target.isPlugin &&
-        composer.target.topicId == topicId &&
-        composer.target.siteUrl == instance.url;
+        target is ReplyComposerTarget &&
+        target.topicId == topicId &&
+        target.siteUrl == instance.url;
 
     if (!reusesOpenReply) {
       openReply(
@@ -10945,22 +10942,30 @@ class ShellController extends FrameSafeNotifier
     if (!_replaceComposer()) return;
     final detail = document.currentTopic;
     final editsTopic = post.postNumber == 1 && detail?.canEdit == true;
-    final target = ComposerTarget(
-      siteUrl: instance.url,
-      tabId: document.tabId,
-      topicId: topicId,
-      slug: route?.slug ?? '',
-      // The site rejects a topic edit whose `original_title` is not the title
-      // it holds, which is the stored topic's; a route can still carry the
-      // title a link spelled from its slug until a read replaces it.
-      topicTitle: detail?.title ?? route?.title ?? '',
-      editingPostId: post.id,
-      editingPostNumber: post.postNumber,
-      mode: editsTopic ? ComposerMode.topicEdit : ComposerMode.postEdit,
-      initialCategoryId: editsTopic ? detail?.categoryId : null,
-      initialTags: editsTopic ? detail?.tags ?? const [] : const [],
-      privateMessageTopic: detail?.privateMessage ?? false,
-    );
+    // The site's original_title must use its stored title, before route text.
+    final title = detail?.title ?? route?.title ?? '';
+    final target = editsTopic
+        ? TopicEditComposerTarget(
+            siteUrl: instance.url,
+            tabId: document.tabId,
+            topicId: topicId,
+            slug: route?.slug ?? '',
+            topicTitle: title,
+            editingPostId: post.id,
+            initialCategoryId: detail?.categoryId,
+            initialTags: detail?.tags ?? const [],
+            privateMessageTopic: detail?.privateMessage ?? false,
+          )
+        : PostEditComposerTarget(
+            siteUrl: instance.url,
+            tabId: document.tabId,
+            topicId: topicId,
+            slug: route?.slug ?? '',
+            topicTitle: title,
+            editingPostId: post.id,
+            editingPostNumber: post.postNumber,
+            privateMessageTopic: detail?.privateMessage ?? false,
+          );
     // No `onSaveDraft`: Discourse files a topic's drafts under one key, so
     // saving here would overwrite an unfinished reply with the text of a post
     // that is already published.
@@ -11265,15 +11270,13 @@ class ShellController extends FrameSafeNotifier
         !detail.isMegaTopic ||
         (firstId != null &&
             store.read<Post>(instance.url, firstId)?.postNumber == 1);
-    final target = ComposerTarget(
+    final target = TagsEditComposerTarget(
       siteUrl: instance.url,
       tabId: document.tabId,
       topicId: route!.topicId!,
       slug: route.slug ?? '',
       topicTitle: detail.title,
-      editingPostId: heldFirstPost ? firstId : null,
-      editingPostNumber: 1,
-      mode: ComposerMode.tagsEdit,
+      firstPostId: heldFirstPost ? firstId : null,
       initialCategoryId: detail.categoryId,
       initialTags: detail.tags,
       privateMessageTopic: detail.privateMessage,
@@ -11366,9 +11369,7 @@ class ShellController extends FrameSafeNotifier
       unawaited(ensureEmojiCatalog(target.siteUrl));
     }
 
-    final mentionTopicId = target.isPlugin
-        ? target.policy!.mentionTopicId
-        : target.topicId;
+    final mentionTopicId = target.mentionTopicId;
     return (
       users: (term) async {
         final found = await _searchMentions(
@@ -11458,13 +11459,14 @@ class ShellController extends FrameSafeNotifier
     Post post, {
     String? focusText,
   }) async {
+    final target = composer.target;
+    if (target is! PostEditingComposerTarget) return;
     if (post.raw case final raw?) {
       composer.loadedBody(raw, caretOffset: _editCaretOffset(raw, focusText));
       return;
     }
 
     composer.beginLoadingBody();
-    final target = composer.target;
     final lease = lifecycle.capture(target.siteUrl);
     try {
       final credential = await _readSessionValue(
@@ -12056,9 +12058,15 @@ class ShellController extends FrameSafeNotifier
         _postWritesInFlight.containsKey(_postKey(siteUrl, post.id))) {
       return null;
     }
-    final editing = _composer?.target.editingPostId == post.id
-        ? _composer
-        : null;
+    final editing = switch (_composer?.target) {
+      PostEditingComposerTarget(:final editingPostId)
+          when editingPostId == post.id =>
+        _composer,
+      TaxonomyEditComposerTarget(:final firstPostId)
+          when firstPostId == post.id =>
+        _composer,
+      _ => null,
+    };
 
     final error = await _mutatePost(
       post,
@@ -14161,7 +14169,9 @@ class ShellController extends FrameSafeNotifier
       file: file,
       onProgress: onProgress,
       abortTrigger: abortTrigger,
-      uploadType: target.policy?.uploadType ?? ComposerUploadType.composer,
+      uploadType: target is PluginComposerTarget
+          ? target.policy.uploadType
+          : ComposerUploadType.composer,
       forPrivateMessage: forPrivateMessage,
       sizeLimit: siteConfigFor(target.siteUrl).uploadSizeLimit(
         file.name,
@@ -14229,15 +14239,17 @@ class ShellController extends FrameSafeNotifier
     // is out would otherwise post what was written in public as a whisper.
     final whisper = composer.whisper;
     final lease = lifecycle.capture(target.siteUrl);
-    if (target.createsTopic) {
+    if (target is TopicCreationComposerTarget) {
       _composerSubmissionTabs[composer] = _workspace
           .forSite(target.siteUrl)
           ?.activeTabId;
     }
 
-    if (target.isEdit) {
+    if (target is EditComposerTarget) {
       return _submitEdit(composer, target, composer.editRaw, lease);
     }
+
+    if (target is PluginComposerTarget) return;
 
     // Before any await: the credential round trip below is a gap a second tap
     // can pass through, and a create sent twice posts twice — unlike an edit,
@@ -14297,30 +14309,35 @@ class ShellController extends FrameSafeNotifier
     final apiKey = credential.apiKey!;
     final PostCreation creation;
     try {
-      creation = target.createsTopic
-          ? await api.composerPersistence.createTopic(
-              siteUrl: target.siteUrl,
-              apiKey: apiKey,
-              title: sent.title,
-              raw: raw,
-              categoryId: composer.categoryId,
-              tags: composer.tags,
-              typingDuration: composer.typingDuration,
-              composerOpenDuration: composer.openDuration,
-              targetRecipients: target.targetRecipients,
-              draftKey: target.draftKey,
-            )
-          : await api.composerPersistence.createPost(
-              siteUrl: target.siteUrl,
-              apiKey: apiKey,
-              topicId: target.topicId,
-              raw: raw,
-              replyToPostNumber: target.replyToPostNumber,
-              whisper: whisper,
-              typingDuration: composer.typingDuration,
-              composerOpenDuration: composer.openDuration,
-              draftKey: target.draftKey,
-            );
+      creation = switch (target) {
+        TopicCreationComposerTarget() =>
+          await api.composerPersistence.createTopic(
+            siteUrl: target.siteUrl,
+            apiKey: apiKey,
+            title: sent.title,
+            raw: raw,
+            categoryId: composer.categoryId,
+            tags: composer.tags,
+            typingDuration: composer.typingDuration,
+            composerOpenDuration: composer.openDuration,
+            targetRecipients: target.targetRecipients,
+            draftKey: target.draftKey,
+          ),
+        ReplyComposerTarget() => await api.composerPersistence.createPost(
+          siteUrl: target.siteUrl,
+          apiKey: apiKey,
+          topicId: target.topicId,
+          raw: raw,
+          replyToPostNumber: target.replyToPostNumber,
+          whisper: whisper,
+          typingDuration: composer.typingDuration,
+          composerOpenDuration: composer.openDuration,
+          draftKey: target.draftKey,
+        ),
+        EditComposerTarget() || PluginComposerTarget() => throw StateError(
+          'Unsupported forum submission target',
+        ),
+      };
     } on WriteException catch (e) {
       // A refusal is certain — the site answered and said no. Not reaching it
       // is not: the post may well have been created and only the answer lost.
@@ -14337,9 +14354,9 @@ class ShellController extends FrameSafeNotifier
           ),
         );
       } else if (e.failure == WriteFailure.unreachable) {
-        if (target.createsTopic) {
+        if (target is TopicCreationComposerTarget) {
           await _reconcileNewTopic(target, sent, composer, e, lease: lease);
-        } else {
+        } else if (target is ReplyComposerTarget) {
           await _reconcile(target, raw, composer, e, lease: lease);
         }
       } else {
@@ -14350,7 +14367,7 @@ class ShellController extends FrameSafeNotifier
       if (lease.isCurrent) {
         _reportOperationalError(error, stackTrace, 'composer.submit');
       }
-      if (target.createsTopic) {
+      if (target is TopicCreationComposerTarget) {
         await _reconcileNewTopic(
           target,
           sent,
@@ -14358,7 +14375,7 @@ class ShellController extends FrameSafeNotifier
           const WriteException(WriteFailure.unreachable),
           lease: lease,
         );
-      } else {
+      } else if (target is ReplyComposerTarget) {
         await _reconcile(
           target,
           raw,
@@ -14370,11 +14387,11 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
-    if (target.createsTopic) {
+    if (target is TopicCreationComposerTarget) {
       lease.commit(
         () => _applyTopicCreation(target, creation, composer, lease),
       );
-    } else {
+    } else if (target is ReplyComposerTarget) {
       lease.commit(() => _applyCreation(target, creation, composer, lease));
     }
   }
@@ -14402,36 +14419,39 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _submitEdit(
     ComposerController composer,
-    ComposerTarget target,
+    EditComposerTarget target,
     String raw,
     SiteLease lease,
   ) async {
-    if (target.isCategoryEdit) {
-      return _submitCategoryEdit(composer, target);
-    }
-    if (target.isTagsEdit) {
-      return _submitTagsEdit(composer, target);
-    }
-    final key = _postKey(target.siteUrl, target.editingPostId!);
-    if (!_beginPostWrite(key)) {
-      composer.failed(
-        WriteException(
-          WriteFailure.conflict,
-          errors: [appL10n.anotherActionOnThisPostIsStillBeingSaved],
-        ),
-      );
-      return;
-    }
-    try {
-      await _submitEditNow(composer, target, raw, lease);
-    } finally {
-      lease.commit(() => _endPostWrite(target.siteUrl, target.editingPostId!));
+    switch (target) {
+      case CategoryEditComposerTarget():
+        return _submitCategoryEdit(composer, target);
+      case TagsEditComposerTarget():
+        return _submitTagsEdit(composer, target);
+      case PostEditingComposerTarget():
+        final key = _postKey(target.siteUrl, target.editingPostId);
+        if (!_beginPostWrite(key)) {
+          composer.failed(
+            WriteException(
+              WriteFailure.conflict,
+              errors: [appL10n.anotherActionOnThisPostIsStillBeingSaved],
+            ),
+          );
+          return;
+        }
+        try {
+          await _submitEditNow(composer, target, raw, lease);
+        } finally {
+          lease.commit(
+            () => _endPostWrite(target.siteUrl, target.editingPostId),
+          );
+        }
     }
   }
 
   Future<void> _submitEditNow(
     ComposerController composer,
-    ComposerTarget target,
+    PostEditingComposerTarget target,
     String raw,
     SiteLease lease,
   ) async {
@@ -14519,7 +14539,7 @@ class ShellController extends FrameSafeNotifier
       updated = await api.composerPersistence.updatePost(
         siteUrl: target.siteUrl,
         apiKey: apiKey,
-        postId: target.editingPostId!,
+        postId: target.editingPostId,
         raw: raw,
         originalText: composer.originalRaw,
       );
@@ -14569,7 +14589,7 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _submitTagsEdit(
     ComposerController composer,
-    ComposerTarget target,
+    TagsEditComposerTarget target,
   ) async {
     final lease = lifecycle.capture(target.siteUrl);
     composer.beginSubmit();
@@ -14619,7 +14639,7 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _submitCategoryEdit(
     ComposerController composer,
-    ComposerTarget target,
+    CategoryEditComposerTarget target,
   ) async {
     final lease = lifecycle.capture(target.siteUrl);
     composer.beginSubmit();
@@ -14698,16 +14718,17 @@ class ShellController extends FrameSafeNotifier
     if (composer == null || !composer.canRecheck) return;
     final sent = composer.submission;
     if (sent == null) return;
-    if (composer.target.createsTopic) {
+    final target = composer.target;
+    if (target is TopicCreationComposerTarget) {
       await _reconcileNewTopic(
-        composer.target,
+        target,
         sent,
         composer,
         const WriteException(WriteFailure.unreachable),
       );
-    } else {
+    } else if (target is ReplyComposerTarget) {
       await _reconcile(
-        composer.target,
+        target,
         sent.raw,
         composer,
         const WriteException(WriteFailure.unreachable),
@@ -14742,7 +14763,7 @@ class ShellController extends FrameSafeNotifier
       .trim();
 
   Future<void> _reconcileNewTopic(
-    ComposerTarget target,
+    TopicCreationComposerTarget target,
     ComposerSubmission sent,
     ComposerController composer,
     WriteException failure, {
@@ -14850,7 +14871,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> _reconcile(
-    ComposerTarget target,
+    ReplyComposerTarget target,
     String raw,
     ComposerController composer,
     WriteException failure, {
@@ -14962,7 +14983,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _applyCreation(
-    ComposerTarget target,
+    ReplyComposerTarget target,
     PostCreation creation,
     ComposerController composer,
     SiteLease lease,
@@ -15009,7 +15030,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _applyTopicCreation(
-    ComposerTarget target,
+    TopicCreationComposerTarget target,
     PostCreation creation,
     ComposerController composer,
     SiteLease lease,
@@ -15041,7 +15062,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _finishCreatedTopic(
-    ComposerTarget target,
+    TopicCreationComposerTarget target,
     ComposerController composer,
     SiteLease lease,
     int topicId,
@@ -15372,13 +15393,7 @@ class ShellController extends FrameSafeNotifier
       mention: (username) => _mentioned[siteUrl]?.read(username),
       resolve: (refs, usernames) {
         unawaited(_resolveHashtags(siteUrl, refs));
-        unawaited(
-          _resolveMentions(
-            siteUrl,
-            target.isPlugin ? target.policy!.mentionTopicId : target.topicId,
-            usernames,
-          ),
-        );
+        unawaited(_resolveMentions(siteUrl, target.mentionTopicId, usernames));
       },
     );
   }

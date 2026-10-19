@@ -16,7 +16,8 @@ import 'support/fakes.dart';
 
 const _source =
     'Before\n\n| Name | Cost |\n| :--- | ---: |\n| Tea | 12 |\n| Cake | 30 |\n\nAfter';
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://example.test',
   topicId: 1,
   slug: 'topic',

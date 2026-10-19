@@ -71,7 +71,8 @@ Future<({ComposerController root, List<_Upload> uploads})> _pump(
 }) async {
   final uploads = <_Upload>[];
   final root = ComposerController(
-    const ComposerTarget(
+    const ReplyComposerTarget(
+      privateMessageTopic: false,
       siteUrl: 'https://example.test',
       topicId: 1,
       slug: 'topic',

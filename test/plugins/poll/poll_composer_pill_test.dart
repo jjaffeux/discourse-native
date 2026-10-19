@@ -130,7 +130,8 @@ void main() {
     test('fail closed until the session permission is fresh', () {
       PollCurrentUser? freshUser;
       final controller = ComposerController(
-        const ComposerTarget(
+        const ReplyComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://example.com',
           topicId: 1,
           slug: 'topic',
@@ -170,7 +171,8 @@ void main() {
           freshUserReader: () => const PollCurrentUser(canCreatePoll: true),
         );
         final controller = ComposerController(
-          const ComposerTarget(
+          const ReplyComposerTarget(
+            privateMessageTopic: false,
             siteUrl: 'https://example.com',
             topicId: 1,
             slug: 'topic',

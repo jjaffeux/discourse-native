@@ -2847,7 +2847,8 @@ EditableText _composerEditable(WidgetTester tester) =>
       ),
     );
 
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://meta.discourse.org',
   topicId: 7,
   slug: 'a-topic',

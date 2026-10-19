@@ -507,7 +507,8 @@ http.StreamedResponse _emptyObject() =>
     http.StreamedResponse(Stream.value(utf8.encode('{}')), 200);
 
 ComposerController _composer(DiscourseApi api) => ComposerController(
-  const ComposerTarget(
+  const ReplyComposerTarget(
+    privateMessageTopic: false,
     siteUrl: 'https://example.com',
     topicId: 1,
     slug: 'topic',

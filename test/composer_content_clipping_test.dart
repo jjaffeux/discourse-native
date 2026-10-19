@@ -16,7 +16,8 @@ const _formerMember = r'\* - Former team member';
 const _lastParagraph =
     'And for those taking the train to Seville, here are the groups/departure '
     'times at Atocha station:';
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://example.test',
   topicId: 1,
   slug: 'clipping',
@@ -124,21 +125,19 @@ void main() {
   });
 
   for (final target in [
-    const ComposerTarget(
+    const NewTopicComposerTarget(
       siteUrl: 'https://example.test',
-      topicId: 0,
-      slug: '',
       topicTitle: '',
-      mode: ComposerMode.newTopic,
     ),
-    const ComposerTarget(
+    const PostEditComposerTarget(
+      privateMessageTopic: false,
       siteUrl: 'https://example.test',
       topicId: 1,
       slug: 'clipping',
       topicTitle:
           'A long topic title that may wrap when editing in a narrow composer',
-      mode: ComposerMode.postEdit,
       editingPostId: 1,
+      editingPostNumber: 2,
     ),
   ]) {
     testWidgets(

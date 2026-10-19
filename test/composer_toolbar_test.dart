@@ -12,7 +12,8 @@ void main() {
 
   ComposerController open(String raw) {
     composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://meta.discourse.org',
         topicId: 7,
         slug: 'a-real-topic',

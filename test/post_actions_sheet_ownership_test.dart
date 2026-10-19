@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -121,7 +122,12 @@ void main() {
             if (action == 'Reply') {
               expect(shell.visibleComposer, valid ? isNotNull : isNull);
               if (valid) {
-                expect(shell.visibleComposer!.target.topicId, 7);
+                expect(
+                  (shell.visibleComposer!.target
+                          as ExistingTopicComposerTarget?)
+                      ?.topicId,
+                  7,
+                );
                 expect(shell.visibleComposer!.target.replyToPostNumber, 2);
               }
               expect(fixture.api.writes, isEmpty);

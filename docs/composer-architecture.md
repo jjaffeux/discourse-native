@@ -67,3 +67,56 @@ The existing rendered-editor tests pin source length, caret geometry, compositio
 span cache identity, artwork retries, atomic deletion, gallery identity, and
 undo. Plugin tests pin permissions and stale picker behavior. The composer plugin
 boundary test also prevents built-in modules from importing bundled features.
+
+## Target modes
+
+`composer/target.dart` owns the sealed `ComposerTarget` family. Importing
+`composer/controller.dart` also exposes these internal types. The public plugin
+SDK continues exposing only its existing controller, target request, kind and
+policy contracts.
+
+Construct a concrete target for the operation. `ComposerMode` is a derived read
+value, never a constructor argument.
+
+- `ReplyComposerTarget` requires existing topic identity and privacy. Its
+  `replyingTo` operation changes reply selection while retaining the exact
+  draft key, site, topic and source tab metadata.
+- `PostEditComposerTarget` requires a post ID and post number.
+  `TopicEditComposerTarget` requires the first-post ID and derives post number 1.
+  Both belong to `PostEditingComposerTarget`, the type body-edit helpers accept.
+- `CategoryEditComposerTarget` and `TagsEditComposerTarget` carry existing
+  topic identity and taxonomy seeds. Their optional `firstPostId` is cached
+  plugin context, not a post write destination. Mega-topic windows may omit it.
+- `NewTopicComposerTarget` and `PrivateMessageComposerTarget` belong to
+  `TopicCreationComposerTarget`. They carry origin metadata and an optional
+  exact draft-key override. A private message requires a recipient string,
+  which may be empty while recipients are being chosen. Only that target has
+  `withRecipients`.
+- `PluginComposerTarget` requires its registry-provided policy and retains the
+  host's unmodifiable opaque request payload. Its namespaced kind and draft
+  key come from that policy. It has no existing topic ID or slug.
+
+`ExistingTopicComposerTarget` is the shared type for real existing-topic
+identity. Body-edit, taxonomy, reply and creation helpers accept the family
+that supplies their required write data. Common presentation and draft reads
+have neutral projections for inapplicable fields; they do not grant a write
+destination or an operation-specific copy method. Validation switches over the
+concrete target family, including non-null plugin policy and PM recipients.
+
+Persistence identity remains `(siteUrl, draftKey)`, scoped to the current
+account session by the draft coordinator. The existing `topic_<id>`,
+`new_topic`, `new_private_message`, allocated creation keys, listed keys and
+plugin policy keys retain their exact spelling. Compatibility parsing remains
+in `ComposerDraft` and `UserDraft`; targets do not re-encode stored drafts.
+
+`tabId` records the initiating reader tab. Shell controller membership owns a
+forum composer, and creation routing uses the separately captured submission
+tab. Plugin surfaces retain their own composer lifetime. A new PM and a reply
+or edit in an existing private topic both use private upload policy. Whisper
+selection remains a separate reply constraint, and retargeting a non-reply is
+ignored. Original edit text remains controller state and retains its exact
+whitespace for conflict detection.
+
+The concrete hierarchy keeps current callers direct. An envelope with nested
+intent, draft identity and provenance wrappers was considered and rejected
+because those wrappers add caller coordination without changing ownership.

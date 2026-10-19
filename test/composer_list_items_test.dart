@@ -37,7 +37,8 @@ Future<ComposerController> pumpEditor(
   ComposerImageUploader? imageUploader,
 }) async {
   final composer = ComposerController(
-    const ComposerTarget(
+    const ReplyComposerTarget(
+      privateMessageTopic: false,
       siteUrl: 'https://example.test',
       topicId: 1,
       slug: 'topic',
@@ -854,7 +855,8 @@ void main() {
   test('uploads remain indented inside their task after completion', () async {
     final upload = Completer<ComposerUploadResult>();
     final root = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://example.test',
         topicId: 1,
         slug: 'topic',

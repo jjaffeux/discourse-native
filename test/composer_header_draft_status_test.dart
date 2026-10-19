@@ -207,7 +207,8 @@ void main() {
     final composers = [
       ComposerController(_replyTarget),
       ComposerController(
-        const ComposerTarget(
+        const PostEditComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://meta.discourse.org',
           topicId: 7,
           slug: 'a-topic',
@@ -289,7 +290,8 @@ Future<ShellController> _shell() async {
   return shell;
 }
 
-const _replyTarget = ComposerTarget(
+const _replyTarget = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://meta.discourse.org',
   topicId: 7,
   slug: 'a-topic',

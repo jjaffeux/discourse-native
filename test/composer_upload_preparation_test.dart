@@ -135,7 +135,8 @@ void main() {
   }
 }
 
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://example.com',
   topicId: 1,
   slug: 'topic',

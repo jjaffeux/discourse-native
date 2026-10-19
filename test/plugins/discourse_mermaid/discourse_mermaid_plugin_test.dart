@@ -87,7 +87,8 @@ void main() {
     testWidgets('composer action respects $state admission', (tester) async {
       var current = true;
       final editor = ComposerController(
-        const ComposerTarget(
+        const ReplyComposerTarget(
+          privateMessageTopic: false,
           siteUrl: 'https://example.com',
           topicId: 1,
           slug: 'topic',

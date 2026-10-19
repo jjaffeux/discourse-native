@@ -971,7 +971,8 @@ Future<void> _pumpPanel(
   ),
 );
 
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://meta.discourse.org',
   topicId: 650,
   slug: 'quote-support',

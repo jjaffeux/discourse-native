@@ -182,7 +182,8 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
   }) async {
     final composer = ComposerController(
-      const ComposerTarget(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
         siteUrl: 'https://example.com',
         topicId: 1,
         slug: 'test',

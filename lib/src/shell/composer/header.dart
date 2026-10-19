@@ -55,9 +55,12 @@ class ComposerHeader extends StatelessWidget {
   Widget build(BuildContext context) =>
       ShellSelector<({bool whisperer, int pluginState, bool atDestination})>(
         select: (shell) => (
-          atDestination:
-              shell.currentInstance?.url == composer.target.siteUrl &&
-              shell.currentContent?.topicId == composer.target.topicId,
+          atDestination: switch (composer.target) {
+            ExistingTopicComposerTarget(:final siteUrl, :final topicId) =>
+              shell.currentInstance?.url == siteUrl &&
+                  shell.currentContent?.topicId == topicId,
+            _ => false,
+          },
           whisperer:
               shell.currentUserFor(composer.target.siteUrl)?.whisperer == true,
           pluginState: Object.hash(
@@ -76,17 +79,17 @@ class ComposerHeader extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     final target = composer.target;
-    final modeLabel = switch (target.mode) {
-      ComposerMode.newTopic => context.l10n.newTopic,
-      ComposerMode.privateMessage => context.l10n.newMessage,
-      ComposerMode.categoryEdit => context.l10n.editCategory,
-      ComposerMode.tagsEdit => context.l10n.editTags,
-      ComposerMode.topicEdit => context.l10n.editTopic,
-      ComposerMode.postEdit => context.l10n.editPost(
-        target.editingPostNumber.toString(),
+    final modeLabel = switch (target) {
+      NewTopicComposerTarget() => context.l10n.newTopic,
+      PrivateMessageComposerTarget() => context.l10n.newMessage,
+      CategoryEditComposerTarget() => context.l10n.editCategory,
+      TagsEditComposerTarget() => context.l10n.editTags,
+      TopicEditComposerTarget() => context.l10n.editTopic,
+      PostEditComposerTarget(:final editingPostNumber) => context.l10n.editPost(
+        editingPostNumber.toString(),
       ),
-      ComposerMode.plugin => target.topicTitle,
-      ComposerMode.reply =>
+      PluginComposerTarget() => target.topicTitle,
+      ReplyComposerTarget() =>
         composer.whisper ? context.l10n.whisper : context.l10n.reply,
     };
     final destination = target.createsTopic
@@ -310,7 +313,7 @@ class ComposerHeader extends StatelessWidget {
     }
 
     final controls = [
-      if (!atDestination && !target.createsTopic && target.topicId > 0)
+      if (!atDestination && target is ExistingTopicComposerTarget)
         DButton.iconOnly(
           key: const ValueKey('composer-return-to-topic'),
           tooltip: context.l10n.returnTo(target.topicTitle.toString()),
@@ -319,8 +322,13 @@ class ComposerHeader extends StatelessWidget {
           onPressed: () => ShellScope.read(context).openTopicPost(
             siteUrl: target.siteUrl,
             topicId: target.topicId,
-            postNumber:
-                target.replyToPostNumber ?? target.editingPostNumber ?? 1,
+            postNumber: switch (target) {
+              ReplyComposerTarget(:final replyToPostNumber) =>
+                replyToPostNumber ?? 1,
+              PostEditingComposerTarget(:final editingPostNumber) =>
+                editingPostNumber,
+              TaxonomyEditComposerTarget() => 1,
+            },
           ),
         ),
       if (canToggleWhisper) heading,

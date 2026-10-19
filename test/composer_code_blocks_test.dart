@@ -13,7 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 
-const _target = ComposerTarget(
+const _target = ReplyComposerTarget(
+  privateMessageTopic: false,
   siteUrl: 'https://example.test',
   topicId: 1,
   slug: 'topic',

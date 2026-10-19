@@ -522,7 +522,7 @@ void main() {
         final activeComposer = composer!;
         addTearDown(activeComposer.dispose);
         expect(
-          activeComposer.target.policy?.kind,
+          (activeComposer.target as PluginComposerTarget).policy.kind,
           ChatPlugin.messageComposerTarget,
         );
         expect(activeComposer.target.draftKey, 'chat_9');

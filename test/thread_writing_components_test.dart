@@ -129,7 +129,8 @@ void main() {
         await tester.binding.setSurfaceSize(const Size(800, 700));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         final composer = ComposerController(
-          const ComposerTarget(
+          const ReplyComposerTarget(
+            privateMessageTopic: false,
             siteUrl: 'https://example.test',
             topicId: 1,
             slug: 'topic',

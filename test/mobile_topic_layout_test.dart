@@ -3,6 +3,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/material.dart';
@@ -369,7 +370,11 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('mobile-topic-reply')));
       await tester.pumpAndSettle();
-      expect(shell.visibleComposer?.target.topicId, 7);
+      expect(
+        (shell.visibleComposer?.target as ExistingTopicComposerTarget?)
+            ?.topicId,
+        7,
+      );
       shell.closeComposer();
       await tester.pumpAndSettle();
       shell.closeTopicListReader();

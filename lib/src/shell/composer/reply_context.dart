@@ -18,7 +18,7 @@ import 'controller.dart';
 class ComposerReplyContext extends StatefulWidget {
   const ComposerReplyContext({super.key, required this.target});
 
-  final ComposerTarget target;
+  final ReplyComposerTarget target;
 
   @override
   State<ComposerReplyContext> createState() => _ComposerReplyContextState();

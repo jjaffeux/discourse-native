@@ -21,6 +21,7 @@ import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_panel_width_store.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -1665,9 +1666,20 @@ void _expectThreadBodyTargets(WidgetTester tester) {
   final editor = tester.widget<ComposerEditor>(editorFinder);
   expect(editor.enableDropTarget, isFalse);
   expect(editor.composer.target.siteUrl, _siteUrl);
-  expect(editor.composer.target.policy?.kind, ChatPlugin.messageComposerTarget);
-  expect(editor.composer.target.data[ChatPlugin.composerChannelId], _channelId);
-  expect(editor.composer.target.data[ChatPlugin.composerThreadId], _threadId);
+  expect(
+    (editor.composer.target as PluginComposerTarget).policy.kind,
+    ChatPlugin.messageComposerTarget,
+  );
+  expect(
+    (editor.composer.target as PluginComposerTarget).data[ChatPlugin
+        .composerChannelId],
+    _channelId,
+  );
+  expect(
+    (editor.composer.target as PluginComposerTarget).data[ChatPlugin
+        .composerThreadId],
+    _threadId,
+  );
   expect(editor.composer.target.draftKey, 'chat_9_thread_3');
   final dropRegion = tester.widget<ChatUploadDropRegion>(
     find.descendant(
