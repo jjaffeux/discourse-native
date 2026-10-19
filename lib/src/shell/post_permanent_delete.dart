@@ -5,6 +5,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
+import 'post_mutation_feedback.dart';
 import 'shell_controller.dart';
 
 String get _confirmationPhrase => appL10n.permanentlyDeletePostpermanentdelete;
@@ -16,6 +18,7 @@ Future<void> showPostPermanentDelete({
   required int topicId,
   required Post post,
 }) async {
+  final current = capturePostMutationPresentation(context, controller, siteUrl);
   final target = controller.capturePostPermanentDeleteTarget(
     siteUrl: siteUrl,
     topicId: topicId,
@@ -53,16 +56,19 @@ Future<void> showPostPermanentDelete({
     return;
   }
 
-  await showDDialog<void>(
+  final outcome = await showDDialog<PostMutationOutcome>(
     context: context,
     useRootNavigator: true,
     dismissOnBarrier: false,
     builder: (context, dialog) => _PermanentDeleteDialog(
       controller: controller,
       target: target,
-      onClose: dialog.close,
+      onClose: (outcome) => dialog.close(outcome),
     ),
   );
+  if (outcome != null && context.mounted) {
+    showPostMutationFeedback(context, outcome, isCurrent: current);
+  }
 }
 
 class _PermanentDeleteDialog extends StatefulWidget {
@@ -74,7 +80,7 @@ class _PermanentDeleteDialog extends StatefulWidget {
 
   final ShellController controller;
   final PostPermanentDeleteTarget target;
-  final VoidCallback onClose;
+  final ValueChanged<PostMutationOutcome?> onClose;
 
   @override
   State<_PermanentDeleteDialog> createState() => _PermanentDeleteDialogState();
@@ -84,6 +90,8 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
   final _confirmation = TextEditingController();
   bool _saving = false;
   String? _error;
+  bool _uncertain = false;
+  PostMutationRecovery? _recovery;
 
   bool get _matches =>
       _confirmation.text.trim().toLowerCase() == _confirmationPhrase;
@@ -95,21 +103,33 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
   }
 
   Future<void> _delete() async {
-    if (_saving || !_matches) return;
+    if (_saving || _uncertain || !_matches) return;
     setState(() {
       _saving = true;
       _error = null;
     });
-    final error = await widget.controller.permanentlyDeletePost(widget.target);
+    final outcome = await widget.controller.permanentlyDeletePost(
+      widget.target,
+    );
     if (!mounted) return;
-    if (error != null) {
-      setState(() {
-        _saving = false;
-        _error = error;
-      });
+    if (outcome is PostMutationAccepted &&
+            outcome.projection != PostProjectionFreshness.retired ||
+        outcome is PostMutationNoChange) {
+      _saving = false;
+      widget.onClose(outcome);
       return;
     }
-    widget.onClose();
+    setState(() {
+      _saving = false;
+      _uncertain = postMutationRequiresNewIntent(outcome);
+      _recovery = postMutationRecoveryOf(outcome);
+      _error = postMutationMessage(
+        context,
+        outcome,
+        retiredMessage:
+            context.l10n.yourConnectionChangedReopenTheActionAndTryAgain,
+      );
+    });
   }
 
   @override
@@ -170,12 +190,25 @@ class _PermanentDeleteDialogState extends State<_PermanentDeleteDialog> {
           children: [
             DButton(
               label: Text(context.l10n.cancel),
-              onPressed: _saving ? null : () => widget.onClose(),
+              onPressed: _saving ? null : () => widget.onClose(null),
             ),
+            if (_recovery case final recovery?)
+              PostMutationRecoveryButton(
+                recovery: recovery,
+                onRefreshed: (projection) => setState(
+                  () => _error = postMutationRefreshMessage(
+                    context,
+                    projection,
+                    retiredMessage: context
+                        .l10n
+                        .yourConnectionChangedReopenTheActionAndTryAgain,
+                  ),
+                ),
+              ),
             DButton(
               key: const ValueKey('post-permanent-delete-submit'),
               label: Text(context.l10n.permanentlyDelete),
-              onPressed: !_saving && _matches
+              onPressed: !_saving && !_uncertain && _matches
                   ? () => unawaited(_delete())
                   : null,
               variant: DButtonVariant.destructive,

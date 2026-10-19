@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 
 import '../models/found_user.dart';
 import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'post_mutation_feedback.dart';
 import 'shell_controller.dart';
 
 Future<void> showTopicChangeOwner({
@@ -17,26 +19,30 @@ Future<void> showTopicChangeOwner({
   required int topicId,
   required List<Post> selectedPosts,
   bool usesTopicSelection = true,
-}) {
+}) async {
+  final current = capturePostMutationPresentation(context, controller, siteUrl);
   final target = controller.captureTopicPostOwnerTarget(
     siteUrl: siteUrl,
     topicId: topicId,
     postId: usesTopicSelection ? null : selectedPosts.single.id,
   );
   final dialogKey = GlobalKey<_TopicChangeOwnerDialogState>();
-  return showDDialog<void>(
+  final outcome = await showDDialog<PostMutationOutcome>(
     context: context,
     dismissOnBarrier: false,
     canDismiss: () => !(dialogKey.currentState?._saving ?? false),
     builder: (context, dialog) => _TopicChangeOwnerDialog(
       key: dialogKey,
       controller: controller,
-      onClose: dialog.close,
+      onClose: (outcome) => dialog.close(outcome),
       target: target,
       selectedPosts: selectedPosts,
       usesTopicSelection: usesTopicSelection,
     ),
   );
+  if (outcome != null && context.mounted) {
+    showPostMutationFeedback(context, outcome, isCurrent: current);
+  }
 }
 
 class _TopicChangeOwnerDialog extends StatefulWidget {
@@ -50,7 +56,7 @@ class _TopicChangeOwnerDialog extends StatefulWidget {
   });
 
   final ShellController controller;
-  final VoidCallback onClose;
+  final ValueChanged<PostMutationOutcome?> onClose;
   final TopicPostOwnerTarget target;
   final List<Post> selectedPosts;
   final bool usesTopicSelection;
@@ -69,6 +75,8 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
   bool _searching = false;
   bool _saving = false;
   String? _error;
+  bool _uncertain = false;
+  PostMutationRecovery? _recovery;
 
   String get _oldUsername => widget.selectedPosts.first.username;
 
@@ -112,12 +120,12 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
 
   Future<void> _changeOwner() async {
     final selected = _selected;
-    if (_saving || _searching || selected == null) return;
+    if (_saving || _uncertain || _searching || selected == null) return;
     setState(() {
       _saving = true;
       _error = null;
     });
-    final error = widget.usesTopicSelection
+    final outcome = widget.usesTopicSelection
         ? await widget.controller.changeSelectedTopicPostOwner(
             widget.target,
             selected.username,
@@ -127,16 +135,24 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
             selected.username,
           );
     if (!mounted) return;
-    if (error != null) {
-      setState(() {
-        _saving = false;
-        _error = error;
-      });
+    if (outcome is PostMutationAccepted &&
+            outcome.projection != PostProjectionFreshness.retired ||
+        outcome is PostMutationNoChange) {
+      _saving = false;
+      widget.onClose(outcome);
       return;
     }
-    // The save has settled, so the Native dialog's dismissal guard can close.
-    _saving = false;
-    widget.onClose();
+    setState(() {
+      _saving = false;
+      _uncertain = postMutationRequiresNewIntent(outcome);
+      _recovery = postMutationRecoveryOf(outcome);
+      _error = postMutationMessage(
+        context,
+        outcome,
+        retiredMessage:
+            context.l10n.yourConnectionChangedReopenChangeOwnerAndTryAgain,
+      );
+    });
   }
 
   @override
@@ -245,13 +261,27 @@ class _TopicChangeOwnerDialogState extends State<_TopicChangeOwnerDialog> {
           children: [
             DButton(
               label: Text(context.l10n.cancel),
-              onPressed: _saving ? null : widget.onClose,
+              onPressed: _saving ? null : () => widget.onClose(null),
               variant: DButtonVariant.outline,
             ),
+            if (_recovery case final recovery?)
+              PostMutationRecoveryButton(
+                recovery: recovery,
+                onRefreshed: (projection) => setState(
+                  () => _error = postMutationRefreshMessage(
+                    context,
+                    projection,
+                    retiredMessage: context
+                        .l10n
+                        .yourConnectionChangedReopenChangeOwnerAndTryAgain,
+                  ),
+                ),
+              ),
             DButton(
               key: const ValueKey('topic-change-owner-submit'),
               label: Text(context.l10n.changeOwner),
-              onPressed: !_saving && !_searching && _selected != null
+              onPressed:
+                  !_saving && !_uncertain && !_searching && _selected != null
                   ? () => unawaited(_changeOwner())
                   : null,
               variant: DButtonVariant.primary,

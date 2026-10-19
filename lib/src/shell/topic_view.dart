@@ -38,6 +38,7 @@ import 'platform.dart';
 import 'post_action_owner.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
+import 'post_mutation_feedback.dart';
 import 'post_news_card.dart';
 import 'post_notice_editor.dart';
 import 'post_revision_history.dart';
@@ -2782,9 +2783,23 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
       destructive: true,
     );
     if (!confirmed || !context.mounted || !lease.isCurrent) return;
-    final error = await controller.deleteSelectedTopicPosts(siteUrl, topic.id);
-    if (error != null && context.mounted) {
-      DToast.show(context, error, type: DToastType.error);
+    final tab = ForumTabScope.tabOf(context);
+    final destination = tab.currentContent?.destination.identity;
+    final outcome = await controller.deleteSelectedTopicPosts(
+      siteUrl,
+      topic.id,
+    );
+    if (context.mounted) {
+      showPostMutationFeedback(
+        context,
+        outcome,
+        isCurrent: () =>
+            lease.isCurrent &&
+            tab.isCurrent &&
+            tab.siteUrl == siteUrl &&
+            tab.currentContent?.destination.identity == destination &&
+            ForumTabScope.tabOf(context).tabId == tab.tabId,
+      );
     }
   }
 
@@ -2801,9 +2816,20 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
       action: appL10n.merge,
     );
     if (!confirmed || !context.mounted || !lease.isCurrent) return;
-    final error = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
-    if (error != null && context.mounted) {
-      DToast.show(context, error, type: DToastType.error);
+    final tab = ForumTabScope.tabOf(context);
+    final destination = tab.currentContent?.destination.identity;
+    final outcome = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
+    if (context.mounted) {
+      showPostMutationFeedback(
+        context,
+        outcome,
+        isCurrent: () =>
+            lease.isCurrent &&
+            tab.isCurrent &&
+            tab.siteUrl == siteUrl &&
+            tab.currentContent?.destination.identity == destination &&
+            ForumTabScope.tabOf(context).tabId == tab.tabId,
+      );
     }
   }
 

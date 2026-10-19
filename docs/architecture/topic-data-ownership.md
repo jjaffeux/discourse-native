@@ -31,7 +31,7 @@ another copy of canonical entities.
 | `ShellTabContext` and shell navigation | Route targets, ordinary-topic loaded windows, saved scroll anchors, highlights and originating-tab presentation. |
 | `TopicReadController` | Read observations, timing requests and read-position lifecycle. |
 | `TopicTrackingReconciler` | Tracking snapshots, unread/read precedence and row projection. |
-| Feature mutation adapters | Request validation, mutation endpoints, localized outcomes, title/category/tag/status projections, folder policy and route changes. |
+| Feature mutation adapters | Request validation, mutation endpoints, typed write outcomes, title/category/tag/status projections, folder policy and route changes. |
 | Composer and draft owners | Editing invariants, submission state, draft sequence proof, settlement and composer lifetime. |
 
 `TopicOpening` supplies presentation hooks for the originating tab's message-list
@@ -81,7 +81,8 @@ use semantic topic session methods.
 [BookmarkTransactions](bookmark-transactions.md) owns bookmark operations,
 revisions and field projections. The topic session supplies nonpublishing
 bookmark metadata reads and shared post holds through `BookmarkTopicData`.
-A repair after an accepted mutation uses the original lease and captured key. Selected-post repair collects every batch
+Post moderation uses [typed outcomes](post-mutation-outcomes.md) and read-only
+uncertainty recovery. Presentation consumers own its localization. A repair after an accepted mutation uses the original lease and captured key. Selected-post repair collects every batch
 before publishing any result. A failed later batch therefore cannot expose a
 partial repair.
 

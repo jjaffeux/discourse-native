@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 
 import '../models/bookmark.dart';
 import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
 import '../theme/d_icons.dart';
 import 'bookmark_ui.dart';
 import 'post_action_owner.dart';
+import 'post_mutation_feedback.dart';
 import 'shell_scope.dart';
 
 /// The post remains the unit of reading; its status belongs to that same card.
@@ -143,11 +145,11 @@ class PostNewsHeader extends StatelessWidget {
     );
     bool current() =>
         owner.isCurrent(context, siteUrl: siteUrl, postId: post.id);
-    Future<void> report(Future<String?> Function() action) async {
+    Future<void> report(Future<PostMutationOutcome> Function() action) async {
       if (!current()) return;
-      final error = await action();
-      if (context.mounted && error != null && current()) {
-        DToast.show(context, error, type: DToastType.error);
+      final outcome = await action();
+      if (context.mounted) {
+        showPostMutationFeedback(context, outcome, isCurrent: current);
       }
     }
 

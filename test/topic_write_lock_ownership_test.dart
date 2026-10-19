@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -227,10 +228,17 @@ void main() {
         _expectState(shell, _Action.recover, false);
 
         _complete(api.writes.single.result, completion);
-        expect(await undeleting, _result(completion));
+        expect(await undeleting, switch (completion) {
+          _Completion.success => isA<PostMutationAccepted>(),
+          _Completion.refusal => isA<PostMutationRefused>(),
+          _Completion.failure => isA<PostMutationUncertain>(),
+        });
         final succeeded = completion == _Completion.success;
         _expectState(shell, _Action.recover, succeeded);
-        expect(shell.store.read<Post>(_siteUrl, 1)!.isDeleted, !succeeded);
+        expect(
+          shell.store.read<Post>(_siteUrl, 1)!.isDeleted,
+          completion == _Completion.refusal,
+        );
       });
     }
 
@@ -257,7 +265,14 @@ void main() {
       final replacementPost = shell.store.read<Post>(_siteUrl, 1);
 
       api.writes.single.result.complete();
-      expect(await oldUndelete, isNull);
+      expect(
+        await oldUndelete,
+        isA<PostMutationAccepted>().having(
+          (r) => r.projection,
+          'projection',
+          PostProjectionFreshness.retired,
+        ),
+      );
       expect(
         shell.store.read<TopicDetail>(_siteUrl, _topicId),
         same(replacementTopic),
@@ -278,7 +293,7 @@ void main() {
       await api.waitForWrites(1);
       api.writes.single.result.complete();
 
-      expect(await undeleting, isNull);
+      expect(await undeleting, isA<PostMutationAccepted>());
       expect(api.recovered, [2]);
       expect(shell.store.read<Post>(_siteUrl, 2)!.isDeleted, isFalse);
       _expectState(shell, _Action.recover, false);
@@ -318,7 +333,10 @@ void main() {
           final recovering = _recover(shell, firstPost);
           await api.waitForWrites(1);
           api.writes.single.result.complete();
-          expect(await recovering, isNull);
+          expect(
+            await recovering,
+            firstPost ? isA<PostMutationAccepted>() : isNull,
+          );
 
           final topic = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
           expect(topic.closed, isFalse);
@@ -364,7 +382,10 @@ void main() {
           final recovering = _recover(shell, firstPost);
           await api.waitForWrites(1);
           api.writes.single.result.complete();
-          expect(await recovering, isNull);
+          expect(
+            await recovering,
+            firstPost ? isA<PostMutationAccepted>() : isNull,
+          );
 
           final topic = shell.store.read<TopicDetail>(_siteUrl, _topicId)!;
           expect(topic.deletedAt, isNull);
@@ -473,7 +494,7 @@ void main() {
   });
 }
 
-Future<String?> _recover(ShellController shell, bool firstPost) => firstPost
+Future<Object?> _recover(ShellController shell, bool firstPost) => firstPost
     ? shell.recoverPost(shell.store.read<Post>(_siteUrl, 1)!)
     : shell.setTopicDeleted(_siteUrl, _topicId, false);
 

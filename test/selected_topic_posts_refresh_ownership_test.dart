@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -86,7 +88,14 @@ void main() {
             _expectLocks(controller, true);
 
             replacementGate.complete();
-            expect(await replacementWrite, isNull);
+            expect(
+              await replacementWrite,
+              isA<PostMutationAccepted>().having(
+                (r) => r.projection,
+                'projection',
+                PostProjectionFreshness.fresh,
+              ),
+            );
             expect(api.refreshes, hasLength(pendingBatch + 3));
             expect(
               api.refreshes.skip(pendingBatch).map((request) => request.apiKey),
@@ -154,7 +163,14 @@ void main() {
             );
           }
 
-          expect(await writing, isNull);
+          expect(
+            await writing,
+            isA<PostMutationAccepted>().having(
+              (r) => r.projection,
+              'projection',
+              PostProjectionFreshness.fresh,
+            ),
+          );
           expect(api.refreshes.map((request) => request.ids), [
             _selectedIds.sublist(0, 20),
             _selectedIds.sublist(20, 40),
@@ -220,7 +236,16 @@ void main() {
 
       response.completeError(StateError('Refresh failed'));
 
-      expect(await writing, isNull);
+      expect(
+        await writing,
+        isA<PostMutationAccepted>().having(
+          (r) => r.projection,
+          'projection',
+          obsolete
+              ? PostProjectionFreshness.retired
+              : PostProjectionFreshness.stale,
+        ),
+      );
       expect(api.bulkDeleted, [_selectedIds]);
       expect(api.refreshes, hasLength(2));
       expect(controller.store.generationOf<Post>(_siteUrl), postGeneration);
@@ -244,9 +269,79 @@ void main() {
       }
     });
   }
+  for (final notSent in [false, true]) {
+    test(
+      'bulk ${notSent ? 'not-sent' : 'refused'} preserves selection without a repair',
+      () async {
+        final (:controller, :api, authenticator: _) = await _fixture();
+        api.deleteFailure = WriteException(
+          notSent ? WriteFailure.unreachable : WriteFailure.validation,
+          notSent: notSent,
+        );
+        final outcome = await controller.deleteSelectedTopicPosts(
+          _siteUrl,
+          _topicId,
+        );
+        expect(
+          outcome,
+          notSent ? isA<PostMutationNotSent>() : isA<PostMutationRefused>(),
+        );
+        expect(api.bulkDeleted, hasLength(1));
+        expect(api.refreshes, isEmpty);
+        expect(
+          controller.selectedTopicPostIds(_siteUrl, _topicId),
+          _selectedIds.toSet(),
+        );
+        _expectLocks(controller, false);
+      },
+    );
+  }
+
+  test(
+    'unknown bulk write retains admission after a failed later batch and recovers without replay',
+    () async {
+      final (:controller, :api, authenticator: _) = await _fixture();
+      api.deleteFailure = const WriteException(WriteFailure.unreachable);
+      final failed = api.holdRefresh(2);
+      final writing = controller.deleteSelectedTopicPosts(_siteUrl, _topicId);
+      await api.waitForRefreshes(2);
+      failed.completeError(StateError('Second batch unavailable'));
+      final outcome = await writing as PostMutationUncertain;
+      expect(outcome.projection, PostProjectionFreshness.stale);
+      _expectPosts(controller, 'initial');
+      _expectLocks(controller, false);
+      expect(controller.topicPostSelectionEnabled(_siteUrl, _topicId), isFalse);
+      _selectPosts(controller);
+      expect(
+        await controller.deleteSelectedTopicPosts(_siteUrl, _topicId),
+        isA<PostMutationNotSent>().having(
+          (r) => r.problem.kind,
+          'problem',
+          PostMutationProblemKind.recoveryRequired,
+        ),
+      );
+      expect(api.bulkDeleted, hasLength(1));
+      expect(await outcome.recovery.refresh(), PostProjectionFreshness.fresh);
+      expect(api.refreshes.skip(2).map((r) => r.ids), [
+        _selectedIds.sublist(0, 20),
+        _selectedIds.sublist(20, 40),
+        [41],
+      ]);
+      expect(api.bulkDeleted, hasLength(1));
+      api.deleteFailure = null;
+      expect(
+        await controller.deleteSelectedTopicPosts(_siteUrl, _topicId),
+        isA<PostMutationAccepted>(),
+      );
+      expect(api.bulkDeleted, hasLength(2));
+    },
+  );
 }
 
-Future<String?> _write(ShellController controller, _BulkAction action) async {
+Future<PostMutationOutcome> _write(
+  ShellController controller,
+  _BulkAction action,
+) async {
   return switch (action) {
     _BulkAction.delete => controller.deleteSelectedTopicPosts(
       _siteUrl,
@@ -257,11 +352,11 @@ Future<String?> _write(ShellController controller, _BulkAction action) async {
       (await controller.moveSelectedTopicPostsToExisting(
         controller.captureTopicPostMoveTarget(_siteUrl, _topicId),
         99,
-      )).error,
+      )).outcome,
     _BulkAction.moveNew => (await controller.moveSelectedTopicPostsToNew(
       controller.captureTopicPostMoveTarget(_siteUrl, _topicId),
       title: 'Moved posts',
-    )).error,
+    )).outcome,
     _BulkAction.changeOwner => controller.changeSelectedTopicPostOwner(
       controller.captureTopicPostOwnerTarget(
         siteUrl: _siteUrl,
@@ -362,6 +457,7 @@ class _RefreshApi extends FakeDiscourseApi {
       <({String siteUrl, int topicId, List<int> ids, String? apiKey})>[];
   final _responses = <int, Completer<List<Post>>>{};
   Completer<void> _refreshesChanged = Completer<void>();
+  WriteException? deleteFailure;
   Completer<void>? deleteGate;
   final deleteStarted = Completer<void>();
 
@@ -428,6 +524,7 @@ class _RefreshApi extends FakeDiscourseApi {
       postIds: postIds,
       clientId: clientId,
     );
+    if (deleteFailure case final failure?) throw failure;
     if (deleteGate case final gate?) {
       deleteStarted.complete();
       await gate.future;

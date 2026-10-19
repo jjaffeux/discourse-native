@@ -8,6 +8,7 @@ import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -103,7 +104,11 @@ void main() {
         );
         expect(
           await controller.deletePost(post),
-          const WriteException(WriteFailure.unreachable).message,
+          isA<PostMutationNotSent>().having(
+            (r) => r.problem.kind,
+            'problem',
+            PostMutationProblemKind.unavailable,
+          ),
         );
 
         expect(api.liked, isEmpty);

@@ -5,9 +5,12 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
 import '../models/topic.dart';
 import 'category_icon.dart';
+import 'post_mutation_feedback.dart';
 import 'shell_controller.dart';
+import 'shell_scope.dart';
 
 Future<void> showTopicMovePosts({
   required BuildContext context,
@@ -17,6 +20,10 @@ Future<void> showTopicMovePosts({
   required List<Post> selectedPosts,
 }) async {
   final target = controller.captureTopicPostMoveTarget(siteUrl, topic.id);
+  final current = capturePostMutationPresentation(context, controller, siteUrl);
+  final openingTabId = identical(ShellScope.maybeRead(context), controller)
+      ? ForumTabScope.tabOf(context).tabId
+      : controller.activeTabId;
   final categories = controller
       .topicComposerCategories(siteUrl)
       .where(
@@ -24,25 +31,34 @@ Future<void> showTopicMovePosts({
       )
       .toList();
   final dialogKey = GlobalKey<_TopicMovePostsDialogState>();
-  final destinationUrl = await showDDialog<String>(
+  final result = await showDDialog<PostMoveOutcome>(
     context: context,
     dismissOnBarrier: false,
     canDismiss: () => !(dialogKey.currentState?._saving ?? false),
     builder: (context, dialog) => _TopicMovePostsDialog(
       key: dialogKey,
       controller: controller,
-      onClose: dialog.close,
+      onClose: (result) => dialog.close(result),
       target: target,
       topic: topic,
       selectedPosts: selectedPosts,
       categories: categories,
     ),
   );
-  if (destinationUrl == null ||
-      !context.mounted ||
-      !controller.isTopicPostMoveTargetCurrent(target)) {
+  if (!context.mounted ||
+      result == null ||
+      !controller.isTopicPostMoveTargetCurrent(target) ||
+      openingTabId == null ||
+      controller.workspaceFor(siteUrl)?.tabById(openingTabId) == null ||
+      controller.workspaceFor(siteUrl)?.activeTabId != openingTabId) {
     return;
   }
+  final destinationUrl = result.destinationUrl;
+  if (destinationUrl == null) {
+    showPostMutationFeedback(context, result.outcome, isCurrent: current);
+    return;
+  }
+  if (!context.mounted) return;
   final absoluteDestination = controller.absoluteUrl(
     destinationUrl,
     siteUrl: target.siteUrl,
@@ -70,7 +86,7 @@ class _TopicMovePostsDialog extends StatefulWidget {
   });
 
   final ShellController controller;
-  final ValueChanged<String?> onClose;
+  final ValueChanged<PostMoveOutcome?> onClose;
   final TopicPostMoveTarget target;
   final TopicDetail topic;
   final List<Post> selectedPosts;
@@ -92,6 +108,8 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
   bool _searching = false;
   bool _saving = false;
   String? _error;
+  bool _uncertain = false;
+  PostMutationRecovery? _recovery;
 
   // A message's posts stay in messages: its destinations are other messages,
   // never a topic anyone can read.
@@ -168,19 +186,29 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
         ),
     };
     if (!mounted) return;
-    if (result.error case final error?) {
-      setState(() {
-        _saving = false;
-        _error = error;
-      });
+    final outcome = result.outcome;
+    if (outcome is PostMutationAccepted &&
+        outcome.projection != PostProjectionFreshness.retired) {
+      _saving = false;
+      widget.onClose(result);
       return;
     }
-    _saving = false;
-    widget.onClose(result.destinationUrl);
+    setState(() {
+      _saving = false;
+      _uncertain = postMutationRequiresNewIntent(outcome);
+      _recovery = postMutationRecoveryOf(outcome);
+      _error = postMutationMessage(
+        context,
+        outcome,
+        retiredMessage:
+            context.l10n.yourConnectionChangedReopenMovePostsAndTryAgain,
+      );
+    });
   }
 
   bool get _canSubmit =>
       !_saving &&
+      !_uncertain &&
       switch (_mode) {
         _MoveMode.newTopic => _title.text.trim().isNotEmpty,
         _MoveMode.existingTopic =>
@@ -264,6 +292,19 @@ class _TopicMovePostsDialogState extends State<_TopicMovePostsDialog> {
               onPressed: _saving ? null : () => widget.onClose(null),
               variant: DButtonVariant.outline,
             ),
+            if (_recovery case final recovery?)
+              PostMutationRecoveryButton(
+                recovery: recovery,
+                onRefreshed: (projection) => setState(
+                  () => _error = postMutationRefreshMessage(
+                    context,
+                    projection,
+                    retiredMessage: context
+                        .l10n
+                        .yourConnectionChangedReopenMovePostsAndTryAgain,
+                  ),
+                ),
+              ),
             DButton(
               key: const ValueKey('topic-move-posts-submit'),
               label: Text(

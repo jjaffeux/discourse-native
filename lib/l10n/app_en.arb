@@ -19659,5 +19659,29 @@
   "userCardMoreBadges": "+{count} more",
   "@userCardMoreBadges": {"placeholders": {"count": {"type": "int"}}},
   "userCardReadTime": "Read time",
-  "@userCardReadTime": {"description": "Reading duration in the profile card."}
+  "@userCardReadTime": {"description": "Reading duration in the profile card."},
+  "postMutationSavedRefreshNeeded": "The change was saved, but this view could not be refreshed. Refresh to see the latest state.",
+  "@postMutationSavedRefreshNeeded": {
+    "description": "Feedback for a typed post moderation outcome or its read-only recovery."
+  },
+  "postMutationUncertainRefreshed": "Couldn''t confirm whether the change was saved. The view was refreshed. Review it before taking another action.",
+  "@postMutationUncertainRefreshed": {
+    "description": "Feedback for a typed post moderation outcome or its read-only recovery."
+  },
+  "postMutationUncertainRefreshNeeded": "Couldn''t confirm whether the change was saved. Refresh to check before taking another action.",
+  "@postMutationUncertainRefreshNeeded": {
+    "description": "Feedback for a typed post moderation outcome or its read-only recovery."
+  },
+  "postMutationRecoveryRequired": "An earlier change is still unconfirmed. Refresh before taking another action.",
+  "@postMutationRecoveryRequired": {
+    "description": "Feedback for a typed post moderation outcome or its read-only recovery."
+  },
+  "postMutationViewRefreshed": "The view was refreshed. Review it before taking another action.",
+  "@postMutationViewRefreshed": {
+    "description": "Feedback for a typed post moderation outcome or its read-only recovery."
+  },
+  "postMutationRefreshFailed": "Couldn''t refresh the view. Refresh again to check its saved state.",
+  "@postMutationRefreshFailed": {
+    "description": "Feedback for a typed post moderation outcome or its read-only recovery."
+  }
 }

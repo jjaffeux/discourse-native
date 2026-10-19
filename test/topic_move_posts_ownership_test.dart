@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -399,7 +400,14 @@ void main() {
       response.complete('/t/destination/99');
       final result = await pending;
       expect(result.destinationUrl, isNull);
-      expect(result.error, _obsolete);
+      expect(
+        result.outcome,
+        isA<PostMutationAccepted>().having(
+          (r) => r.projection,
+          'projection',
+          PostProjectionFreshness.retired,
+        ),
+      );
       expect(api.refreshes, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
@@ -541,7 +549,7 @@ void main() {
       shell.captureTopicPostMoveTarget(_siteA, 7),
       99,
     );
-    expect(result.error, isNull);
+    expect(result.outcome, isA<PostMutationAccepted>());
     // That read reached the server before the move and answers without it.
     destinationRead.complete();
     await tester.pumpAndSettle();
@@ -631,8 +639,14 @@ void main() {
       await shell.moveSelectedTopicPostsToExisting(offeredAsTopic, 99),
     ];
     expect(
-      [for (final result in asTopic) result.error],
-      [forbidden, forbidden, forbidden],
+      [for (final result in asTopic) result.outcome],
+      everyElement(
+        isA<PostMutationNotSent>().having(
+          (r) => r.problem.kind,
+          'problem',
+          PostMutationProblemKind.forbidden,
+        ),
+      ),
     );
     expect(
       (await shell.searchTopicMoveDestinations(offeredAsTopic, 'Public')).error,
@@ -646,7 +660,14 @@ void main() {
       title: 'Still public',
       categoryId: 10,
     );
-    expect(categorized.error, forbidden);
+    expect(
+      categorized.outcome,
+      isA<PostMutationNotSent>().having(
+        (r) => r.problem.kind,
+        'problem',
+        PostMutationProblemKind.forbidden,
+      ),
+    );
     expect(api.searches, isEmpty);
     expect(api.writes, isEmpty);
 
@@ -654,7 +675,7 @@ void main() {
       message,
       title: 'A new message',
     );
-    expect(moved.error, isNull);
+    expect(moved.outcome, isA<PostMutationAccepted>());
     expect(api.movedTopicPosts.single.categoryId, isNull);
     expect(api.movedTopicPosts.single.privateMessage, isTrue);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -672,12 +693,46 @@ void main() {
         title: 'A new message',
       );
       expect(
-        result.error,
-        admin ? isNull : const WriteException(WriteFailure.forbidden).message,
+        result.outcome,
+        admin
+            ? isA<PostMutationAccepted>()
+            : isA<PostMutationNotSent>().having(
+                (r) => r.problem.kind,
+                'problem',
+                PostMutationProblemKind.forbidden,
+              ),
       );
       expect(api.writes, hasLength(admin ? 1 : 0));
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
+  testWidgets(
+    'accepted move with stale source navigates without a dead refresh toast and reloads its source',
+    (tester) async {
+      final api = _MoveApi();
+      final shell = await _openDialog(tester, api);
+      await _prepare(tester, newTopic: true);
+      final repair = api.refreshResponse = Completer<List<Post>>();
+      await _pressSubmit(tester);
+      expect(api.writes, hasLength(1));
+      repair.completeError(StateError('Source repair unavailable'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(_dialog), findsNothing);
+      expect(shell.currentTopic?.id, 99);
+      expect(
+        find.text(
+          'The change was saved, but this view could not be refreshed. Refresh to see the latest state.',
+        ),
+        findsNothing,
+      );
+      final before = api.topicsOpened.where((id) => id == 7).length;
+      api.refreshResponse = null;
+      await shell.loadTopic(7, 'source');
+      expect(api.topicsOpened.where((id) => id == 7), hasLength(before + 1));
+      expect(api.writes, hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
 }
 
 Future<ShellController> _openDialog(

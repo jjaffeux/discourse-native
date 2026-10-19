@@ -11,6 +11,7 @@ import '../data/store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/surface_opening_trace.dart';
 import '../models/post.dart';
+import '../models/post_mutation_outcome.dart';
 import '../models/topic.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'bookmark_transactions.dart';
@@ -169,6 +170,7 @@ final class TopicDataSession implements BookmarkTopicData {
   final Map<int, _TopicState> _topics = {};
   final Map<int, _PostState> _posts = {};
   final Map<int, void Function()> _pluginWrites = {};
+  final Set<_ModerationRecovery> _moderationRecoveries = {};
   void Function()? _detach;
   bool _retired = false;
 
@@ -208,6 +210,7 @@ final class TopicDataSession implements BookmarkTopicData {
     _topics.clear();
     _posts.clear();
     _pluginWrites.clear();
+    _moderationRecoveries.clear();
   }
 
   void _changed() {
@@ -469,6 +472,8 @@ final class TopicDataSession implements BookmarkTopicData {
     required TopicOpening opening,
   }) async {
     if (!isCurrent) return;
+    if (force) await _recoverPendingModeration(topicId);
+    if (!isCurrent) return;
     final state = _topic(topicId);
     if (postNumber != null) {
       state.positions++;
@@ -666,6 +671,8 @@ final class TopicDataSession implements BookmarkTopicData {
   }
 
   Future<void> refresh(int topicId, {String slug = '', int? postNumber}) async {
+    if (!isCurrent) return;
+    await _recoverPendingModeration(topicId);
     if (!isCurrent) return;
     final state = _topic(topicId);
     if (postNumber != null) {
@@ -1019,7 +1026,9 @@ final class TopicDataSession implements BookmarkTopicData {
   }
 
   void Function()? beginPostWrite(int postId) {
-    if (!isCurrent || postWriting(postId)) return null;
+    if (!isCurrent || postWriting(postId) || _unresolvedPost(postId)) {
+      return null;
+    }
     final release = holdPostWrite(postId);
     _changed();
     return release;
@@ -1227,14 +1236,178 @@ final class TopicDataSession implements BookmarkTopicData {
       original.isCurrent &&
       identical(original.session, lease.session);
 
-  Future<void> repairPost(
+  bool _unresolvedPost(int postId) => _moderationRecoveries.any(
+    (recovery) =>
+        recovery.postIds.contains(postId) ||
+        (recovery.wholeTopic &&
+            (_store
+                    .read<TopicDetail>(siteUrl, recovery.topicId)
+                    ?.stream
+                    .contains(postId) ??
+                false)),
+  );
+
+  PostMutationRecovery? moderationRecoveryFor(
+    int topicId,
+    Iterable<int> postIds, {
+    bool wholeTopic = false,
+  }) {
+    if (!isCurrent) return null;
+    for (final recovery in _moderationRecoveries) {
+      if (recovery.topicId == topicId &&
+          (wholeTopic ||
+              recovery.wholeTopic ||
+              postIds.any(recovery.postIds.contains))) {
+        return recovery;
+      }
+    }
+    return null;
+  }
+
+  PostMutationRecovery postMutationRecovery(
+    int topicId,
+    List<int> postIds,
+    String? apiKey, {
+    bool wholeTopic = false,
+  }) => _ModerationRecovery(
+    this,
+    topicId,
+    List.unmodifiable(postIds),
+    apiKey,
+    wholeTopic,
+  );
+
+  Future<PostMutationUncertain> reconcileUncertainMutation(
+    int topicId,
+    List<int> postIds,
+    String? apiKey, {
+    bool wholeTopic = false,
+    bool alreadyHeld = true,
+  }) async {
+    final recovery = _ModerationRecovery(
+      this,
+      topicId,
+      List.unmodifiable(postIds),
+      apiKey,
+      wholeTopic,
+    );
+    if (isCurrent) {
+      _moderationRecoveries.add(recovery);
+      _changed();
+    }
+    final projection = alreadyHeld
+        ? await _readModerationRecovery(recovery)
+        : await recovery.refresh();
+    return PostMutationUncertain(projection, recovery);
+  }
+
+  Future<void> _recoverPendingModeration(int topicId) async {
+    for (final recovery
+        in _moderationRecoveries.where((r) => r.topicId == topicId).toList()) {
+      if (!isCurrent) return;
+      await recovery.refresh();
+    }
+  }
+
+  Future<PostProjectionFreshness> _recoverModeration(
+    _ModerationRecovery recovery,
+  ) async {
+    if (!isCurrent) return PostProjectionFreshness.retired;
+    final ids = <int>{
+      ...recovery.postIds,
+      if (recovery.wholeTopic)
+        ...?_store.read<TopicDetail>(siteUrl, recovery.topicId)?.stream,
+    };
+    if (ids.any(postWriting)) return PostProjectionFreshness.stale;
+    final releases = [
+      for (final id in ids) holdPostWrite(id, notifyOnRelease: false),
+    ];
+    _changed();
+    try {
+      return await _readModerationRecovery(recovery, heldPostIds: ids);
+    } finally {
+      for (final release in releases) {
+        release();
+      }
+      _changed();
+    }
+  }
+
+  Future<PostProjectionFreshness> _readModerationRecovery(
+    _ModerationRecovery recovery, {
+    Set<int>? heldPostIds,
+  }) async {
+    if (!isCurrent) return PostProjectionFreshness.retired;
+    TopicPayload? payload;
+    final stamp = _stamp(recovery.topicId);
+    final additionalReleases = <void Function()>[];
+    try {
+      if (recovery.wholeTopic) {
+        try {
+          final credential = await _requests.keyCredentials(
+            _CapturedKey(recovery.apiKey),
+          );
+          payload = await credential.run(
+            () => _owner.content.topic(
+              siteUrl: siteUrl,
+              slug: '',
+              id: recovery.topicId,
+              apiKey: credential.apiKey,
+            ),
+          );
+          if (!isCurrent) return PostProjectionFreshness.retired;
+        } catch (error, stackTrace) {
+          _report(error, stackTrace, 'topic.reconcileUncertainMutation');
+          return isCurrent
+              ? PostProjectionFreshness.stale
+              : PostProjectionFreshness.retired;
+        }
+      }
+      final ids = <int>{
+        ...recovery.postIds,
+        if (recovery.wholeTopic)
+          ...?_store.read<TopicDetail>(siteUrl, recovery.topicId)?.stream,
+        if (payload != null) ...payload.detail.stream,
+      };
+      final held = heldPostIds ?? recovery.postIds.toSet();
+      final additional = ids.difference(held);
+      if (additional.any(postWriting)) return PostProjectionFreshness.stale;
+      for (final id in additional) {
+        additionalReleases.add(holdPostWrite(id, notifyOnRelease: false));
+      }
+      final projection = await _repair(
+        recovery.topicId,
+        ids.toList(),
+        recovery.apiKey,
+        lease,
+        'post.reconcileMutation',
+      );
+      if (projection != PostProjectionFreshness.fresh) return projection;
+      if (payload != null &&
+          _publishTopic((detail: payload.detail, posts: const []), stamp) ==
+              null) {
+        return PostProjectionFreshness.retired;
+      }
+      _moderationRecoveries.remove(recovery);
+      _changed();
+      return isCurrent
+          ? PostProjectionFreshness.fresh
+          : PostProjectionFreshness.retired;
+    } finally {
+      for (final release in additionalReleases) {
+        release();
+      }
+    }
+  }
+
+  Future<PostProjectionFreshness> repairPost(
     int topicId,
     int postId,
     String? apiKey,
     SiteLease original,
   ) => _repair(topicId, [postId], apiKey, original, 'post.refreshAfterWrite');
 
-  Future<void> repairSelectedPosts(
+  Future<PostProjectionFreshness> repairSelectedPosts(
     int topicId,
     List<int> postIds,
     String? apiKey,
@@ -1247,14 +1420,14 @@ final class TopicDataSession implements BookmarkTopicData {
     'topic.selectedPosts.refreshAfterWrite',
   );
 
-  Future<void> _repair(
+  Future<PostProjectionFreshness> _repair(
     int topicId,
     List<int> postIds,
     String? apiKey,
     SiteLease original,
     String operation,
   ) async {
-    if (!_ownsLease(original)) return;
+    if (!_ownsLease(original)) return PostProjectionFreshness.retired;
     final removals = _topic(topicId).removals;
     final fresh = <int, Post>{};
     try {
@@ -1264,7 +1437,7 @@ final class TopicDataSession implements BookmarkTopicData {
         start < postIds.length;
         start += TopicDetail.maximumInitialPosts
       ) {
-        if (!_ownsLease(original)) return;
+        if (!_ownsLease(original)) return PostProjectionFreshness.retired;
         final end = math.min(
           start + TopicDetail.maximumInitialPosts,
           postIds.length,
@@ -1277,17 +1450,20 @@ final class TopicDataSession implements BookmarkTopicData {
             apiKey: credential.apiKey,
           ),
         );
-        if (!_ownsLease(original)) return;
+        if (!_ownsLease(original)) return PostProjectionFreshness.retired;
         for (final post in posts) {
           if (postIds.contains(post.id)) fresh[post.id] = post;
         }
       }
     } catch (error, stackTrace) {
+      if (isCurrent) _topic(topicId).stale = true;
       _report(error, stackTrace, operation);
-      return;
+      return isCurrent
+          ? PostProjectionFreshness.stale
+          : PostProjectionFreshness.retired;
     }
     for (final id in postIds) {
-      if (!_ownsLease(original)) return;
+      if (!_ownsLease(original)) return PostProjectionFreshness.retired;
       if (_removedAfter(topicId, id, removals)) continue;
       final post = fresh[id];
       if (post == null) {
@@ -1300,6 +1476,9 @@ final class TopicDataSession implements BookmarkTopicData {
       }
     }
     _changed();
+    return isCurrent
+        ? PostProjectionFreshness.fresh
+        : PostProjectionFreshness.retired;
   }
 
   void acceptEditedPost(Post updated, {required String raw}) {
@@ -1584,4 +1763,30 @@ final class TopicDataSession implements BookmarkTopicData {
       }
     }
   }
+}
+
+final class _ModerationRecovery implements PostMutationRecovery {
+  _ModerationRecovery(
+    this.session,
+    this.topicId,
+    this.postIds,
+    this.apiKey,
+    this.wholeTopic,
+  );
+
+  final TopicDataSession session;
+  final int topicId;
+  final List<int> postIds;
+  final String? apiKey;
+  final bool wholeTopic;
+  Future<PostProjectionFreshness>? _pending;
+
+  @override
+  bool get isCurrent => session.isCurrent;
+
+  @override
+  Future<PostProjectionFreshness> refresh() =>
+      _pending ??= Future<PostProjectionFreshness>(
+        () => session._recoverModeration(this),
+      ).whenComplete(() => _pending = null);
 }

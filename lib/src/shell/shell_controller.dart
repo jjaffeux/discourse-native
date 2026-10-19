@@ -83,6 +83,7 @@ import '../models/post_checklist.dart';
 import '../models/post_creation.dart';
 import '../models/post_flag.dart';
 import '../models/post_likers.dart';
+import '../models/post_mutation_outcome.dart';
 import '../models/post_revision.dart';
 import '../models/search_results.dart';
 import '../models/sidebar.dart';
@@ -155,10 +156,10 @@ import 'user_directory_controller.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
-part 'shell_tab_context.dart';
-part 'workspace_controller.dart';
-part 'taxonomy_directory_controller.dart';
 part 'composer_submission.dart';
+part 'shell_tab_context.dart';
+part 'taxonomy_directory_controller.dart';
+part 'workspace_controller.dart';
 
 enum MobilePane { sidebar, content }
 
@@ -183,7 +184,6 @@ typedef TopicMoveDestinationSearchResult = ({
   List<TopicMoveDestination> destinations,
   String? error,
 });
-typedef TopicPostMoveResult = ({String? destinationUrl, String? error});
 typedef _ShellWriteCredential = ({
   String? apiKey,
   AccountRequestCredentials? request,
@@ -7980,6 +7980,12 @@ class ShellController extends FrameSafeNotifier
           ? appL10n.thisTopicCannotBeDeleted
           : appL10n.thisTopicCannotBeRecovered;
     }
+    if (_topicData
+            .forSite(siteUrl)
+            .moderationRecoveryFor(topicId, const [], wholeTopic: true) !=
+        null) {
+      return appL10n.postMutationRecoveryRequired;
+    }
     final key = _topicKey(siteUrl, topicId);
     if (!_topicDeletionWrites.add(key)) {
       return appL10n.anotherTopicActionIsStillFinishing;
@@ -10050,14 +10056,21 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  Future<String?> deleteSelectedTopicPosts(String siteUrl, int topicId) {
+  Future<PostMutationOutcome> deleteSelectedTopicPosts(
+    String siteUrl,
+    int topicId,
+  ) {
     final posts = selectedTopicPosts(siteUrl, topicId);
     final topic = store.read<TopicDetail>(siteUrl, topicId);
     if (topic == null ||
         !topic.canSelectPosts ||
         posts.isEmpty ||
         posts.any((post) => !post.canDelete)) {
-      return Future.value();
+      return Future.value(
+        const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.invalidTarget),
+        ),
+      );
     }
     return _mutateSelectedTopicPosts(
       siteUrl,
@@ -10071,7 +10084,10 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  Future<String?> mergeSelectedTopicPosts(String siteUrl, int topicId) {
+  Future<PostMutationOutcome> mergeSelectedTopicPosts(
+    String siteUrl,
+    int topicId,
+  ) {
     final posts = selectedTopicPosts(siteUrl, topicId);
     final topic = store.read<TopicDetail>(siteUrl, topicId);
     if (topic == null ||
@@ -10079,7 +10095,11 @@ class ShellController extends FrameSafeNotifier
         posts.length < 2 ||
         posts.any((post) => !post.canDelete) ||
         posts.map((post) => post.username).toSet().length != 1) {
-      return Future.value();
+      return Future.value(
+        const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.invalidTarget),
+        ),
+      );
     }
     return _mutateSelectedTopicPosts(
       siteUrl,
@@ -10113,14 +10133,18 @@ class ShellController extends FrameSafeNotifier
   bool canMoveTopicPostsToNewMessage(TopicPostMoveTarget target) =>
       currentUserFor(target.siteUrl)?.admin == true;
 
-  String? _topicPostMoveRefusal(
+  PostMutationOutcome? _topicPostMoveBlock(
     TopicPostMoveTarget target, {
     List<int>? postIds,
     bool newTopic = false,
   }) {
-    if (!isTopicPostMoveTargetCurrent(target)) return _obsoleteTopicPostMove;
+    if (!isTopicPostMoveTargetCurrent(target)) {
+      return const PostMutationRetired();
+    }
     final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
-    final forbidden = const WriteException(WriteFailure.forbidden).message;
+    const forbidden = PostMutationNotSent(
+      PostMutationProblem(PostMutationProblemKind.forbidden),
+    );
     if (topic == null || !topic.canMovePosts) return forbidden;
     // A move is sent with the archetype it was offered in, and one sent as a
     // topic publishes a message's posts in a new public topic.
@@ -10144,6 +10168,20 @@ class ShellController extends FrameSafeNotifier
     }
     return null;
   }
+
+  String? _topicPostMoveRefusal(
+    TopicPostMoveTarget target, {
+    List<int>? postIds,
+    bool newTopic = false,
+  }) => switch (_topicPostMoveBlock(
+    target,
+    postIds: postIds,
+    newTopic: newTopic,
+  )) {
+    null => null,
+    PostMutationRetired() => _obsoleteTopicPostMove,
+    _ => const WriteException(WriteFailure.forbidden).message,
+  };
 
   Future<TopicMoveDestinationSearchResult> searchTopicMoveDestinations(
     TopicPostMoveTarget target,
@@ -10221,7 +10259,7 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<TopicPostMoveResult> moveSelectedTopicPostsToExisting(
+  Future<PostMoveOutcome> moveSelectedTopicPostsToExisting(
     TopicPostMoveTarget target,
     int destinationTopicId, {
     bool chronologicalOrder = false,
@@ -10229,52 +10267,61 @@ class ShellController extends FrameSafeNotifier
     final siteUrl = target.siteUrl;
     final topicId = target.topicId;
     final posts = selectedTopicPosts(siteUrl, topicId);
-    if (_topicPostMoveRefusal(
-          target,
-          postIds: [for (final post in posts) post.id],
-        )
-        case final error?) {
-      return (destinationUrl: null, error: error);
-    }
+    final ids = [for (final post in posts) post.id];
+    final refusal = _topicPostMoveBlock(target, postIds: ids);
+    if (refusal != null) return PostMoveOutcome(refusal, targetCurrent: false);
     if (destinationTopicId <= 0 || destinationTopicId == topicId) {
-      return (
-        destinationUrl: null,
-        error: const WriteException(WriteFailure.forbidden).message,
+      return PostMoveOutcome(
+        const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.forbidden),
+        ),
+        targetCurrent: true,
       );
     }
+    void invalidateDestination() => target._lease.commit(
+      () => _topicData
+          .forLease(siteUrl, target._lease)
+          ?.refreshWhenOpened(destinationTopicId),
+    );
     String? destinationUrl;
-    final error = await _mutateSelectedTopicPosts(siteUrl, topicId, posts, (
-      apiKey,
-      ids,
-    ) async {
-      if (_topicPostMoveRefusal(target, postIds: ids) case final error?) {
-        throw WriteException(WriteFailure.forbidden, errors: [error]);
-      }
-      destinationUrl = await api.postMutations.movePosts(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        topicId: topicId,
-        postIds: ids,
-        destinationTopicId: destinationTopicId,
-        chronologicalOrder: chronologicalOrder,
-        privateMessage: target.privateMessage,
-      );
-      // PostMover publishes nothing to the destination's readers, so a copy
-      // held from an earlier visit would open without the arrived posts.
-      target._lease.commit(
-        () => _topicData.forSite(siteUrl).refreshWhenOpened(destinationTopicId),
-      );
-    });
-    if (!isTopicPostMoveTargetCurrent(target)) {
-      return (destinationUrl: null, error: _obsoleteTopicPostMove);
-    }
-    return (
-      destinationUrl: error == null ? destinationUrl : null,
-      error: error,
+    final outcome = await _mutateSelectedTopicPosts(
+      siteUrl,
+      topicId,
+      posts,
+      (apiKey, ids) async {
+        try {
+          destinationUrl = await api.postMutations.movePosts(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            topicId: topicId,
+            postIds: ids,
+            destinationTopicId: destinationTopicId,
+            chronologicalOrder: chronologicalOrder,
+            privateMessage: target.privateMessage,
+          );
+        } on WriteException catch (error) {
+          if (error.failure == WriteFailure.unreachable && !error.notSent) {
+            invalidateDestination();
+          }
+          rethrow;
+        } catch (_) {
+          invalidateDestination();
+          rethrow;
+        }
+        invalidateDestination();
+      },
+      lease: target._lease,
+      validate: () => _topicPostMoveBlock(target, postIds: ids),
+    );
+    final current = isTopicPostMoveTargetCurrent(target);
+    return PostMoveOutcome(
+      current ? outcome : _retiredPostMutation(outcome),
+      destinationUrl: destinationUrl,
+      targetCurrent: current,
     );
   }
 
-  Future<TopicPostMoveResult> moveSelectedTopicPostsToNew(
+  Future<PostMoveOutcome> moveSelectedTopicPostsToNew(
     TopicPostMoveTarget target, {
     required String title,
     int? categoryId,
@@ -10283,46 +10330,42 @@ class ShellController extends FrameSafeNotifier
     final siteUrl = target.siteUrl;
     final topicId = target.topicId;
     final posts = selectedTopicPosts(siteUrl, topicId);
-    if (_topicPostMoveRefusal(
-          target,
-          postIds: [for (final post in posts) post.id],
-          newTopic: true,
-        )
-        case final error?) {
-      return (destinationUrl: null, error: error);
-    }
+    final ids = [for (final post in posts) post.id];
+    final refusal = _topicPostMoveBlock(target, postIds: ids, newTopic: true);
+    if (refusal != null) return PostMoveOutcome(refusal, targetCurrent: false);
     if (title.trim().isEmpty || (target.privateMessage && categoryId != null)) {
-      return (
-        destinationUrl: null,
-        error: const WriteException(WriteFailure.forbidden).message,
+      return PostMoveOutcome(
+        const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.forbidden),
+        ),
+        targetCurrent: true,
       );
     }
     String? destinationUrl;
-    final error = await _mutateSelectedTopicPosts(siteUrl, topicId, posts, (
-      apiKey,
-      ids,
-    ) async {
-      if (_topicPostMoveRefusal(target, postIds: ids, newTopic: true)
-          case final error?) {
-        throw WriteException(WriteFailure.forbidden, errors: [error]);
-      }
-      destinationUrl = await api.postMutations.movePosts(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        topicId: topicId,
-        postIds: ids,
-        title: title,
-        categoryId: categoryId,
-        tagIds: tagIds,
-        privateMessage: target.privateMessage,
-      );
-    });
-    if (!isTopicPostMoveTargetCurrent(target)) {
-      return (destinationUrl: null, error: _obsoleteTopicPostMove);
-    }
-    return (
-      destinationUrl: error == null ? destinationUrl : null,
-      error: error,
+    final outcome = await _mutateSelectedTopicPosts(
+      siteUrl,
+      topicId,
+      posts,
+      (apiKey, ids) async {
+        destinationUrl = await api.postMutations.movePosts(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          topicId: topicId,
+          postIds: ids,
+          title: title,
+          categoryId: categoryId,
+          tagIds: tagIds,
+          privateMessage: target.privateMessage,
+        );
+      },
+      lease: target._lease,
+      validate: () => _topicPostMoveBlock(target, postIds: ids, newTopic: true),
+    );
+    final current = isTopicPostMoveTargetCurrent(target);
+    return PostMoveOutcome(
+      current ? outcome : _retiredPostMutation(outcome),
+      destinationUrl: destinationUrl,
+      targetCurrent: current,
     );
   }
 
@@ -10336,39 +10379,38 @@ class ShellController extends FrameSafeNotifier
         posts.map((post) => post.username).toSet().length == 1;
   }
 
-  Future<String?> changeSelectedTopicPostOwner(
+  Future<PostMutationOutcome> changeSelectedTopicPostOwner(
     TopicPostOwnerTarget target,
     String username,
   ) async {
-    final siteUrl = target.siteUrl;
-    final topicId = target.topicId;
-    final posts = selectedTopicPosts(siteUrl, topicId);
-    final postIds = [for (final post in posts) post.id];
-    final trimmedUsername = username.trim();
+    final posts = selectedTopicPosts(target.siteUrl, target.topicId);
+    final ids = [for (final post in posts) post.id];
+    final trimmed = username.trim();
     if (target.postId != null) {
-      return const WriteException(WriteFailure.forbidden).message;
-    }
-    if (_topicPostOwnerRefusal(target, postIds, trimmedUsername)
-        case final error?) {
-      return error;
-    }
-    final error = await _mutateSelectedTopicPosts(siteUrl, topicId, posts, (
-      apiKey,
-      ids,
-    ) async {
-      if (_topicPostOwnerRefusal(target, ids, trimmedUsername)
-          case final error?) {
-        throw WriteException(WriteFailure.forbidden, errors: [error]);
-      }
-      await api.postMutations.changePostOwners(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        topicId: topicId,
-        postIds: ids,
-        username: trimmedUsername,
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.forbidden),
       );
-    });
-    return _ownsTopicPostOwnerTarget(target) ? error : _obsoleteTopicPostOwner;
+    }
+    if (_topicPostOwnerRefusal(target, ids, trimmed) case final refusal?) {
+      return refusal;
+    }
+    final outcome = await _mutateSelectedTopicPosts(
+      target.siteUrl,
+      target.topicId,
+      posts,
+      (apiKey, ids) => api.postMutations.changePostOwners(
+        siteUrl: target.siteUrl,
+        apiKey: apiKey,
+        topicId: target.topicId,
+        postIds: ids,
+        username: trimmed,
+      ),
+      lease: target._lease,
+      validate: () => _topicPostOwnerRefusal(target, ids, trimmed),
+    );
+    return _ownsTopicPostOwnerTarget(target)
+        ? outcome
+        : _retiredPostMutation(outcome);
   }
 
   bool canChangeTopicPostOwner(Post post) {
@@ -10392,18 +10434,15 @@ class ShellController extends FrameSafeNotifier
     lease: lifecycle.capture(siteUrl),
   );
 
-  static String get _obsoleteTopicPostOwner =>
-      appL10n.yourConnectionChangedReopenChangeOwnerAndTryAgain;
-
   bool _ownsTopicPostOwnerTarget(TopicPostOwnerTarget target) =>
       !isDisposed && target._lease.isCurrent;
 
-  String? _topicPostOwnerRefusal(
+  PostMutationOutcome? _topicPostOwnerRefusal(
     TopicPostOwnerTarget target,
     List<int> postIds,
     String username,
   ) {
-    if (!_ownsTopicPostOwnerTarget(target)) return _obsoleteTopicPostOwner;
+    if (!_ownsTopicPostOwnerTarget(target)) return const PostMutationRetired();
     final instance = _instanceAt(target.siteUrl);
     final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
     final posts = [
@@ -10421,7 +10460,9 @@ class ShellController extends FrameSafeNotifier
         posts.map((post) => post.username).toSet().length != 1 ||
         username.isEmpty ||
         posts.first.username == username) {
-      return const WriteException(WriteFailure.forbidden).message;
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.forbidden),
+      );
     }
     return null;
   }
@@ -10439,67 +10480,46 @@ class ShellController extends FrameSafeNotifier
     return _ownsTopicPostOwnerTarget(target) ? users : const [];
   }
 
-  Future<String?> changeTopicPostOwner(
+  Future<PostMutationOutcome> changeTopicPostOwner(
     TopicPostOwnerTarget target,
     String username,
   ) async {
     final postId = target.postId;
     if (postId == null) {
-      return const WriteException(WriteFailure.forbidden).message;
-    }
-    final siteUrl = target.siteUrl;
-    final lease = target._lease;
-    final trimmedUsername = username.trim();
-    String? refusal() =>
-        _topicPostOwnerRefusal(target, [postId], trimmedUsername);
-    if (refusal() case final error?) return error;
-    final releasePost = _topicData
-        .forLease(siteUrl, lease)
-        ?.beginPostWrite(postId);
-    if (releasePost == null) {
-      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
-    }
-
-    try {
-      // The write guard notifies listeners. Recheck the opening account and
-      // current target records both there and after acquiring credentials.
-      if (refusal() case final error?) return error;
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (refusal() case final error?) return error;
-      if (credential.failure case final failure?) return failure.message;
-      await credential.request!.run(
-        () => api.postMutations.changePostOwners(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: target.topicId,
-          postIds: [postId],
-          username: trimmedUsername,
-        ),
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.forbidden),
       );
-      if (!_ownsTopicPostOwnerTarget(target)) return _obsoleteTopicPostOwner;
-      await _topicData
-          .forLease(siteUrl, lease)
-          ?.repairPost(target.topicId, postId, credential.apiKey, lease);
-      return _ownsTopicPostOwnerTarget(target) ? null : _obsoleteTopicPostOwner;
-    } on WriteException catch (error) {
-      return _ownsTopicPostOwnerTarget(target)
-          ? error.message
-          : _obsoleteTopicPostOwner;
-    } catch (error, stackTrace) {
-      if (!_ownsTopicPostOwnerTarget(target)) return _obsoleteTopicPostOwner;
-      _reportOperationalError(error, stackTrace, 'post.changeOwner');
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      lease.commit(releasePost);
     }
+    final trimmed = username.trim();
+    PostMutationOutcome? validate() =>
+        _topicPostOwnerRefusal(target, [postId], trimmed);
+    if (validate() case final refusal?) return refusal;
+    return _mutatePost(
+      store.read<Post>(target.siteUrl, postId)!,
+      (siteUrl, apiKey) => api.postMutations.changePostOwners(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        topicId: target.topicId,
+        postIds: [postId],
+        username: trimmed,
+      ),
+      target: (
+        siteUrl: target.siteUrl,
+        topicId: target.topicId,
+        lease: target._lease,
+      ),
+      validate: validate,
+    );
   }
 
-  Future<String?> deletePost(Post post) async {
-    if (!post.canDelete) return null;
-    final siteUrl = currentInstance?.url;
-    if (siteUrl != null && _topicData.forSite(siteUrl).postWriting(post.id)) {
-      return null;
+  Future<PostMutationOutcome> deletePost(Post post) async {
+    if (!post.canDelete) {
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.invalidTarget),
+      );
     }
+    final siteUrl = currentInstance?.url;
+    final lease = siteUrl == null ? null : lifecycle.capture(siteUrl);
     final editing = switch (_composer?.target) {
       PostEditingComposerTarget(:final editingPostId)
           when editingPostId == post.id =>
@@ -10510,7 +10530,7 @@ class ShellController extends FrameSafeNotifier
       _ => null,
     };
 
-    final error = await _mutatePost(
+    final outcome = await _mutatePost(
       post,
       (siteUrl, apiKey) => api.postMutations.deletePost(
         siteUrl: siteUrl,
@@ -10519,10 +10539,12 @@ class ShellController extends FrameSafeNotifier
       ),
     );
 
-    if (error == null && _ownsComposer(editing)) {
+    if (outcome is PostMutationAccepted &&
+        lease?.isCurrent == true &&
+        _ownsComposer(editing)) {
       closeComposer(composer: editing);
     }
-    return error;
+    return lease?.isCurrent == false ? _retiredPostMutation(outcome) : outcome;
   }
 
   bool canPermanentlyDeletePost(Post post) {
@@ -10552,9 +10574,11 @@ class ShellController extends FrameSafeNotifier
   static String get _obsoletePermanentPostDeletion =>
       appL10n.yourConnectionChangedReopenTheActionAndTryAgain;
 
-  String? _permanentPostDeletionRefusal(PostPermanentDeleteTarget target) {
+  PostMutationOutcome? _permanentPostDeletionBlock(
+    PostPermanentDeleteTarget target,
+  ) {
     if (isDisposed || !target._lease.isCurrent) {
-      return _obsoletePermanentPostDeletion;
+      return const PostMutationRetired();
     }
     final topic = store.read<TopicDetail>(target.siteUrl, target.topicId);
     final post = store.read<Post>(target.siteUrl, target.postId);
@@ -10563,10 +10587,21 @@ class ShellController extends FrameSafeNotifier
         post == null ||
         post.postNumber != target.postNumber ||
         !_canPermanentlyDeletePost(topic, post)) {
-      return appL10n.thisPostCannotBePermanentlyDeleted;
+      return const PostMutationNotSent(
+        PostMutationProblem(
+          PostMutationProblemKind.permanentDeletionUnavailable,
+        ),
+      );
     }
     return null;
   }
+
+  String? _permanentPostDeletionRefusal(PostPermanentDeleteTarget target) =>
+      switch (_permanentPostDeletionBlock(target)) {
+        null => null,
+        PostMutationRetired() => _obsoletePermanentPostDeletion,
+        _ => appL10n.thisPostCannotBePermanentlyDeleted,
+      };
 
   Future<String?> checkPermanentPostDeletion(
     PostPermanentDeleteTarget target,
@@ -10609,117 +10644,112 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<String?> permanentlyDeletePost(
+  Future<PostMutationOutcome> permanentlyDeletePost(
     PostPermanentDeleteTarget target,
   ) async {
-    if (_permanentPostDeletionRefusal(target) case final error?) return error;
+    if (_permanentPostDeletionBlock(target) case final refusal?) return refusal;
     final siteUrl = target.siteUrl;
     final topicId = target.topicId;
     final postId = target.postId;
     final lease = target._lease;
-    final topicKey = _topicKey(siteUrl, topicId);
-    void Function()? releasePost;
-    if (target.deletesTopic) {
-      if (!_topicDeletionWrites.add(topicKey)) {
-        return appL10n.anotherTopicActionIsStillFinishing;
-      }
-      _notify();
-    } else if ((releasePost = _topicData
-            .forLease(siteUrl, lease)
-            ?.beginPostWrite(postId)) ==
-        null) {
-      return appL10n.anotherActionOnThisPostIsStillBeingSaved;
+    final data = _topicData.forLease(siteUrl, lease);
+    if (data == null) return const PostMutationRetired();
+    final unresolved = data.moderationRecoveryFor(topicId, [
+      postId,
+    ], wholeTopic: target.deletesTopic);
+    if (unresolved != null) {
+      return PostMutationNotSent.recoveryRequired(unresolved);
     }
-
+    if (!target.deletesTopic) {
+      return _mutatePost(
+        store.read<Post>(siteUrl, postId)!,
+        (siteUrl, apiKey) => api.postMutations.permanentlyDeletePost(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          topicId: topicId,
+          postId: postId,
+        ),
+        target: (siteUrl: siteUrl, topicId: topicId, lease: lease),
+        validate: () => _permanentPostDeletionBlock(target),
+      );
+    }
+    final topicKey = _topicKey(siteUrl, topicId);
+    if (!_topicDeletionWrites.add(topicKey)) {
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.busyTopic),
+      );
+    }
+    final ids = List<int>.unmodifiable(
+      store.read<TopicDetail>(siteUrl, topicId)?.stream ?? [postId],
+    );
+    _notify();
     try {
-      // The write guard notifies listeners. Retain the opening account even
-      // if a listener replaces it before credentials are read.
-      if (_permanentPostDeletionRefusal(target) case final error?) return error;
+      if (_permanentPostDeletionBlock(target) case final refusal?) {
+        return refusal;
+      }
       final credential = await _credentialForWrite(
         siteUrl,
         lease: lease,
-        withClientId: target.deletesTopic,
+        withClientId: true,
       );
-      if (_permanentPostDeletionRefusal(target) case final error?) return error;
-      if (credential.failure case final failure?) return failure.message;
-      if (!target.deletesTopic) {
-        await credential.request!.run(
-          () => api.postMutations.permanentlyDeletePost(
+      if (_permanentPostDeletionBlock(target) case final refusal?) {
+        return refusal;
+      }
+      if (credential.failure case final failure?) {
+        return PostMutationNotSent(_postMutationProblem(failure));
+      }
+      var sent = false;
+      try {
+        await credential.request!.run(() {
+          sent = true;
+          return api.topicMutations.permanentlyDeleteTopic(
             siteUrl: siteUrl,
             apiKey: credential.apiKey!,
             topicId: topicId,
-            postId: postId,
-          ),
+            clientId: credential.request!.clientId,
+          );
+        });
+      } catch (error, stackTrace) {
+        return await _failedPostMutation(
+          data,
+          topicId,
+          ids,
+          credential.apiKey,
+          error,
+          stackTrace,
+          sent: sent,
+          wholeTopic: true,
+          alreadyHeld: false,
         );
-        if (!lease.isCurrent || isDisposed) {
-          return _obsoletePermanentPostDeletion;
-        }
-        await _topicData
-            .forLease(siteUrl, lease)
-            ?.repairPost(topicId, postId, credential.apiKey, lease);
-        return lease.isCurrent && !isDisposed
-            ? null
-            : _obsoletePermanentPostDeletion;
       }
-
-      final clientId = credential.request!.clientId;
-      if (_permanentPostDeletionRefusal(target) case final error?) return error;
-      await credential.request!.run(
-        () => api.topicMutations.permanentlyDeleteTopic(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          clientId: clientId,
-        ),
-      );
-      if (!lease.isCurrent || isDisposed) {
-        return _obsoletePermanentPostDeletion;
+      if (!data.isCurrent || isDisposed) {
+        return const PostMutationAccepted.retired();
       }
-      lease.commit(() {
-        _topicData.forLease(siteUrl, lease)?.removeTopicPermanently(topicId);
-        _notify();
-      });
-      if (!lease.isCurrent || isDisposed) {
-        return _obsoletePermanentPostDeletion;
+      data.removeTopicPermanently(topicId);
+      _notify();
+      if (!data.isCurrent || isDisposed) {
+        return const PostMutationAccepted.retired();
       }
       if (currentInstance?.url == siteUrl &&
           currentContent?.topicId == topicId) {
         handleBack(canReturnToSidebar: false);
       }
-      return null;
-    } on WriteException catch (error) {
-      return lease.isCurrent && !isDisposed
-          ? error.message
-          : _obsoletePermanentPostDeletion;
-    } catch (error, stackTrace) {
-      if (!lease.isCurrent || isDisposed) {
-        return _obsoletePermanentPostDeletion;
-      }
-      _reportOperationalError(
-        error,
-        stackTrace,
-        target.deletesTopic
-            ? 'topic.permanentlyDelete'
-            : 'post.permanentlyDelete',
-      );
-      return const WriteException(WriteFailure.unreachable).message;
+      return data.isCurrent && !isDisposed
+          ? const PostMutationAccepted.fresh()
+          : const PostMutationAccepted.retired();
     } finally {
       lease.commit(() {
-        if (target.deletesTopic) {
-          _topicDeletionWrites.remove(topicKey);
-          _notify();
-        } else {
-          releasePost?.call();
-        }
+        _topicDeletionWrites.remove(topicKey);
+        _notify();
       });
     }
   }
 
-  Future<String?> recoverPost(Post post) async {
-    if (!post.canRecover) return null;
-    final siteUrl = currentInstance?.url;
-    if (siteUrl != null && _topicData.forSite(siteUrl).postWriting(post.id)) {
-      return null;
+  Future<PostMutationOutcome> recoverPost(Post post) async {
+    if (!post.canRecover) {
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.invalidTarget),
+      );
     }
     return _mutatePost(
       post,
@@ -10738,8 +10768,15 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  Future<String?> setPostWiki(Post post, bool wiki) {
-    if (!post.canWiki || post.wiki == wiki) return Future.value();
+  Future<PostMutationOutcome> setPostWiki(Post post, bool wiki) {
+    if (!post.canWiki) {
+      return Future.value(
+        const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.invalidTarget),
+        ),
+      );
+    }
+    if (post.wiki == wiki) return Future.value(const PostMutationNoChange());
     return _mutatePost(
       post,
       (siteUrl, apiKey) => api.postMutations.updatePostWiki(
@@ -10754,8 +10791,17 @@ class ShellController extends FrameSafeNotifier
   bool canLockPost(Post post) =>
       currentInstance?.user?.staff == true && post.userId != null;
 
-  Future<String?> setPostLocked(Post post, bool locked) {
-    if (!canLockPost(post) || post.locked == locked) return Future.value();
+  Future<PostMutationOutcome> setPostLocked(Post post, bool locked) {
+    if (!canLockPost(post)) {
+      return Future.value(
+        const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.invalidTarget),
+        ),
+      );
+    }
+    if (post.locked == locked) {
+      return Future.value(const PostMutationNoChange());
+    }
     return _mutatePost(
       post,
       (siteUrl, apiKey) => api.postMutations.updatePostLocked(
@@ -10770,8 +10816,14 @@ class ShellController extends FrameSafeNotifier
   bool canUnhidePost(Post post) =>
       currentInstance?.user?.staff == true && post.hidden;
 
-  Future<String?> unhidePost(Post post) {
-    if (!canUnhidePost(post)) return Future.value();
+  Future<PostMutationOutcome> unhidePost(Post post) {
+    if (!canUnhidePost(post)) {
+      return Future.value(
+        const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.invalidTarget),
+        ),
+      );
+    }
     return _mutatePost(
       post,
       (siteUrl, apiKey) => api.postMutations.unhidePost(
@@ -10785,8 +10837,14 @@ class ShellController extends FrameSafeNotifier
   bool canTogglePostType(Post post) =>
       currentInstance?.user?.staff == true && !post.isWhisper;
 
-  Future<String?> togglePostType(Post post) {
-    if (!canTogglePostType(post)) return Future.value();
+  Future<PostMutationOutcome> togglePostType(Post post) {
+    if (!canTogglePostType(post)) {
+      return Future.value(
+        const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.invalidTarget),
+        ),
+      );
+    }
     final nextType = post.isModeratorAction
         ? Post.regularPostType
         : Post.moderatorPostType;
@@ -11427,109 +11485,237 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  /// [accepted] applies what the server's acceptance of [write] changes beyond
-  /// the post itself. It runs under the write's lease, before the re-read,
-  /// which may fail without taking back what the server already did.
-  Future<String?> _mutatePost(
+  PostMutationProblem _postMutationProblem(WriteException error) =>
+      PostMutationProblem(
+        switch (error.failure) {
+          WriteFailure.validation => PostMutationProblemKind.validation,
+          WriteFailure.rateLimited => PostMutationProblemKind.rateLimited,
+          WriteFailure.forbidden => PostMutationProblemKind.forbidden,
+          WriteFailure.conflict => PostMutationProblemKind.conflict,
+          WriteFailure.unreachable => PostMutationProblemKind.unavailable,
+        },
+        serverMessages: List.unmodifiable(error.errors),
+        retryAfter: error.retryAfter,
+      );
+
+  PostMutationOutcome _retiredPostMutation(PostMutationOutcome outcome) =>
+      switch (outcome) {
+        PostMutationAccepted() => const PostMutationAccepted.retired(),
+        PostMutationUncertain(:final recovery) => PostMutationUncertain(
+          PostProjectionFreshness.retired,
+          recovery,
+        ),
+        _ => const PostMutationRetired(),
+      };
+
+  PostMutationAccepted _acceptedPostMutation(
+    PostProjectionFreshness projection,
+    PostMutationRecovery recovery,
+  ) => switch (projection) {
+    PostProjectionFreshness.fresh => const PostMutationAccepted.fresh(),
+    PostProjectionFreshness.stale => PostMutationAccepted.stale(recovery),
+    PostProjectionFreshness.retired => const PostMutationAccepted.retired(),
+  };
+
+  Future<PostMutationOutcome> _failedPostMutation(
+    TopicDataSession data,
+    int topicId,
+    List<int> ids,
+    String? apiKey,
+    Object error,
+    StackTrace stackTrace, {
+    required bool sent,
+    bool wholeTopic = false,
+    bool alreadyHeld = true,
+  }) async {
+    if (!sent) {
+      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
+      return PostMutationNotSent(
+        error is WriteException
+            ? _postMutationProblem(error)
+            : const PostMutationProblem(PostMutationProblemKind.unavailable),
+      );
+    }
+    if (error is WriteException &&
+        (error.failure != WriteFailure.unreachable || error.notSent)) {
+      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
+      final problem = _postMutationProblem(error);
+      return error.notSent
+          ? PostMutationNotSent(problem)
+          : PostMutationRefused(problem);
+    }
+    if (error is! WriteException && data.isCurrent && !isDisposed) {
+      _reportOperationalError(error, stackTrace, 'post.mutate');
+    }
+    return data.reconcileUncertainMutation(
+      topicId,
+      ids,
+      apiKey,
+      wholeTopic: wholeTopic,
+      alreadyHeld: alreadyHeld,
+    );
+  }
+
+  Future<PostMutationOutcome> _mutatePost(
     Post post,
     Future<void> Function(String siteUrl, String apiKey) write, {
+    ({String siteUrl, int topicId, SiteLease lease})? target,
+    PostMutationOutcome? Function()? validate,
     void Function(String siteUrl, int topicId, SiteLease lease)? accepted,
   }) async {
-    final instance = currentInstance;
-    final topicId = currentContent?.topicId;
-    if (instance == null || topicId == null) return null;
-
-    final siteUrl = instance.url;
-    final lease = lifecycle.capture(siteUrl);
-    final releasePost = _topicData
-        .forLease(siteUrl, lease)
-        ?.beginPostWrite(post.id);
-    if (releasePost == null) return null;
-
-    try {
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!lease.isCurrent) return null;
-      if (credential.failure case final failure?) return failure.message;
-      final apiKey = credential.apiKey!;
-
-      try {
-        await credential.request!.run(() => write(siteUrl, apiKey));
-      } on WriteException catch (e) {
-        return e.message;
-      } catch (error, stackTrace) {
-        if (lease.isCurrent) {
-          _reportOperationalError(error, stackTrace, 'post.mutate');
-        }
-        return const WriteException(WriteFailure.unreachable).message;
+    if (target == null) {
+      final siteUrl = currentInstance?.url;
+      final topicId = currentContent?.topicId;
+      if (siteUrl == null || topicId == null) {
+        return const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.invalidTarget),
+        );
       }
-
-      if (!lease.isCurrent) return null;
+      target = (
+        siteUrl: siteUrl,
+        topicId: topicId,
+        lease: lifecycle.capture(siteUrl),
+      );
+    }
+    final (:siteUrl, :topicId, :lease) = target;
+    final data = _topicData.forLease(siteUrl, lease);
+    if (data == null || isDisposed) return const PostMutationRetired();
+    if (validate?.call() case final refusal?) return refusal;
+    final unresolved = data.moderationRecoveryFor(topicId, [post.id]);
+    if (unresolved != null) {
+      return PostMutationNotSent.recoveryRequired(unresolved);
+    }
+    final release = data.beginPostWrite(post.id);
+    if (release == null) {
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.busyPost),
+      );
+    }
+    try {
+      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
+      if (validate?.call() case final refusal?) return refusal;
+      final credential = await _credentialForWrite(siteUrl, lease: lease);
+      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
+      if (validate?.call() case final refusal?) return refusal;
+      if (credential.failure case final failure?) {
+        return PostMutationNotSent(_postMutationProblem(failure));
+      }
+      var sent = false;
+      try {
+        await credential.request!.run(() {
+          sent = true;
+          return write(siteUrl, credential.apiKey!);
+        });
+      } catch (error, stackTrace) {
+        return await _failedPostMutation(
+          data,
+          topicId,
+          [post.id],
+          credential.apiKey,
+          error,
+          stackTrace,
+          sent: sent,
+        );
+      }
+      if (!data.isCurrent || isDisposed) {
+        return const PostMutationAccepted.retired();
+      }
       if (accepted != null) {
         lease.commit(() {
           accepted(siteUrl, topicId, lease);
           _notify();
         });
       }
-      await _topicData
-          .forLease(siteUrl, lease)
-          ?.repairPost(topicId, post.id, apiKey, lease);
-      return null;
+      final projection = await data.repairPost(
+        topicId,
+        post.id,
+        credential.apiKey,
+        lease,
+      );
+      return _acceptedPostMutation(
+        projection,
+        data.postMutationRecovery(topicId, [post.id], credential.apiKey),
+      );
     } finally {
-      lease.commit(releasePost);
+      lease.commit(release);
     }
   }
 
-  Future<String?> _mutateSelectedTopicPosts(
+  Future<PostMutationOutcome> _mutateSelectedTopicPosts(
     String siteUrl,
     int topicId,
     List<Post> posts,
-    Future<void> Function(String apiKey, List<int> ids) write,
-  ) async {
-    final topicKey = _topicKey(siteUrl, topicId);
-    final idsToHold = [for (final post in posts) post.id];
-    final data = _topicData.forSite(siteUrl);
-    if (_topicPostSelectionWrites.contains(topicKey) ||
-        idsToHold.any(data.postWriting)) {
-      return null;
+    Future<void> Function(String apiKey, List<int> ids) write, {
+    SiteLease? lease,
+    PostMutationOutcome? Function()? validate,
+  }) async {
+    lease ??= lifecycle.capture(siteUrl);
+    final data = _topicData.forLease(siteUrl, lease);
+    if (data == null || isDisposed) return const PostMutationRetired();
+    if (validate?.call() case final refusal?) return refusal;
+    final ids = List<int>.unmodifiable(posts.map((post) => post.id));
+    final unresolved = data.moderationRecoveryFor(topicId, ids);
+    if (unresolved != null) {
+      return PostMutationNotSent.recoveryRequired(unresolved);
     }
-    final lease = data.lease;
-    _topicPostSelectionWrites.add(topicKey);
+    final key = _topicKey(siteUrl, topicId);
+    if (_topicPostSelectionWrites.contains(key) || ids.any(data.postWriting)) {
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.busyPost),
+      );
+    }
+    _topicPostSelectionWrites.add(key);
     final releases = [
-      for (final id in idsToHold)
-        data.holdPostWrite(id, notifyOnRelease: false),
+      for (final id in ids) data.holdPostWrite(id, notifyOnRelease: false),
     ];
     _notify();
-
-    var succeeded = false;
+    var clearSelection = false;
     try {
+      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
+      if (validate?.call() case final refusal?) return refusal;
       final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!lease.isCurrent) return null;
-      if (credential.failure case final failure?) return failure.message;
-      final ids = List<int>.unmodifiable(posts.map((post) => post.id));
-      try {
-        await credential.request!.run(() => write(credential.apiKey!, ids));
-      } on WriteException catch (error) {
-        return error.message;
-      } catch (error, stackTrace) {
-        if (lease.isCurrent) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'topic.selectedPosts.mutate',
-          );
-        }
-        return const WriteException(WriteFailure.unreachable).message;
+      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
+      if (validate?.call() case final refusal?) return refusal;
+      if (credential.failure case final failure?) {
+        return PostMutationNotSent(_postMutationProblem(failure));
       }
-      if (!lease.isCurrent) return null;
-      await _topicData
-          .forLease(siteUrl, lease)
-          ?.repairSelectedPosts(topicId, ids, credential.apiKey, lease);
-      succeeded = true;
-      return null;
+      var sent = false;
+      try {
+        await credential.request!.run(() {
+          sent = true;
+          return write(credential.apiKey!, ids);
+        });
+      } catch (error, stackTrace) {
+        final outcome = await _failedPostMutation(
+          data,
+          topicId,
+          ids,
+          credential.apiKey,
+          error,
+          stackTrace,
+          sent: sent,
+        );
+        clearSelection = outcome is PostMutationUncertain;
+        return outcome;
+      }
+      clearSelection = true;
+      if (!data.isCurrent || isDisposed) {
+        return const PostMutationAccepted.retired();
+      }
+      final projection = await data.repairSelectedPosts(
+        topicId,
+        ids,
+        credential.apiKey,
+        lease,
+      );
+      return _acceptedPostMutation(
+        projection,
+        data.postMutationRecovery(topicId, ids, credential.apiKey),
+      );
     } finally {
       lease.commit(() {
-        _topicPostSelectionWrites.remove(topicKey);
-        if (succeeded) _topicPostSelections.remove(topicKey);
+        _topicPostSelectionWrites.remove(key);
+        if (clearSelection) _topicPostSelections.remove(key);
         for (final release in releases) {
           release();
         }

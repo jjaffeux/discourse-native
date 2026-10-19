@@ -23198,6 +23198,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Read time'**
   String get userCardReadTime;
+
+  /// Feedback for a typed post moderation outcome or its read-only recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'The change was saved, but this view could not be refreshed. Refresh to see the latest state.'**
+  String get postMutationSavedRefreshNeeded;
+
+  /// Feedback for a typed post moderation outcome or its read-only recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t confirm whether the change was saved. The view was refreshed. Review it before taking another action.'**
+  String get postMutationUncertainRefreshed;
+
+  /// Feedback for a typed post moderation outcome or its read-only recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t confirm whether the change was saved. Refresh to check before taking another action.'**
+  String get postMutationUncertainRefreshNeeded;
+
+  /// Feedback for a typed post moderation outcome or its read-only recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'An earlier change is still unconfirmed. Refresh before taking another action.'**
+  String get postMutationRecoveryRequired;
+
+  /// Feedback for a typed post moderation outcome or its read-only recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'The view was refreshed. Review it before taking another action.'**
+  String get postMutationViewRefreshed;
+
+  /// Feedback for a typed post moderation outcome or its read-only recovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t refresh the view. Refresh again to check its saved state.'**
+  String get postMutationRefreshFailed;
 }
 
 class _AppLocalizationsDelegate

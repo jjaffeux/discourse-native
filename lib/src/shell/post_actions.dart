@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../models/bookmark.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
+import '../models/post_mutation_outcome.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
@@ -20,6 +21,7 @@ import 'platform.dart';
 import 'post_action.dart';
 import 'post_action_owner.dart';
 import 'post_flag_editor.dart';
+import 'post_mutation_feedback.dart';
 import 'post_notice_editor.dart';
 import 'post_permanent_delete.dart';
 import 'post_quote.dart';
@@ -249,7 +251,8 @@ class _PostActionsState extends State<PostActions> {
               label: appL10n.delete,
               tooltip: appL10n.deleteThisTopicAction,
               destructive: true,
-              onInvoke: () => _report(controller, controller.deletePost(post)),
+              onInvoke: () =>
+                  _reportModeration(() => controller.deletePost(post)),
             ),
         ],
         rebuildOn: null,
@@ -483,7 +486,8 @@ class _PostActionsState extends State<PostActions> {
             group: PostActionGroup.staff,
             label: appL10n.unhidePost,
             tooltip: appL10n.restoreThisHiddenPost,
-            onInvoke: () => _report(controller, controller.unhidePost(post)),
+            onInvoke: () =>
+                _reportModeration(() => controller.unhidePost(post)),
           ),
         if (post.canWiki)
           PostAction(
@@ -494,8 +498,9 @@ class _PostActionsState extends State<PostActions> {
             tooltip: post.wiki
                 ? appL10n.returnThisToOrdinaryPostEditing
                 : appL10n.allowCommunityMembersToEditThisPost,
-            onInvoke: () =>
-                _report(controller, controller.setPostWiki(post, !post.wiki)),
+            onInvoke: () => _reportModeration(
+              () => controller.setPostWiki(post, !post.wiki),
+            ),
           ),
         if (availableFlags.isNotEmpty)
           PostAction(
@@ -561,9 +566,8 @@ class _PostActionsState extends State<PostActions> {
             tooltip: post.locked
                 ? appL10n.allowThisPostToBeEditedAgain
                 : appL10n.preventFurtherEditsToThisPost,
-            onInvoke: () => _report(
-              controller,
-              controller.setPostLocked(post, !post.locked),
+            onInvoke: () => _reportModeration(
+              () => controller.setPostLocked(post, !post.locked),
             ),
           ),
         if (controller.canChangeTopicPostOwner(post))
@@ -600,7 +604,7 @@ class _PostActionsState extends State<PostActions> {
                 ? appL10n.removeTheModeratorStylingFromThisPost
                 : appL10n.markThisAsAnOfficialModeratorPost,
             onInvoke: () =>
-                _report(controller, controller.togglePostType(post)),
+                _reportModeration(() => controller.togglePostType(post)),
           ),
         if (post.postNumber == 1 &&
             topic?.canEdit != true &&
@@ -639,7 +643,8 @@ class _PostActionsState extends State<PostActions> {
                 ? appL10n.recoverTopic
                 : appL10n.undelete,
             tooltip: appL10n.putThisPostBack,
-            onInvoke: () => _report(controller, controller.recoverPost(post)),
+            onInvoke: () =>
+                _reportModeration(() => controller.recoverPost(post)),
           )
         else if (post.canDelete)
           PostAction(
@@ -653,7 +658,8 @@ class _PostActionsState extends State<PostActions> {
                 ? appL10n.deleteThisTopicAction
                 : appL10n.deleteThisPost,
             destructive: true,
-            onInvoke: () => _report(controller, controller.deletePost(post)),
+            onInvoke: () =>
+                _reportModeration(() => controller.deletePost(post)),
           ),
       ],
       rebuildOn: contribution.rebuildOn,
@@ -763,6 +769,29 @@ class _PostActionsState extends State<PostActions> {
       type: message.startsWith("Couldn't")
           ? DToastType.error
           : DToastType.success,
+    );
+  }
+
+  Future<void> _reportModeration(
+    Future<PostMutationOutcome> Function() action,
+  ) async {
+    final siteUrl = widget.siteUrl;
+    final postId = widget.post.id;
+    final owner = PostActionOwner.capture(
+      context,
+      siteUrl: siteUrl,
+      postId: postId,
+    );
+    final outcome = await action();
+    if (!mounted) return;
+    showPostMutationFeedback(
+      context,
+      outcome,
+      isCurrent: () => owner.isCurrent(
+        context,
+        siteUrl: widget.siteUrl,
+        postId: widget.post.id,
+      ),
     );
   }
 
