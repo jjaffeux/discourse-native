@@ -20,7 +20,6 @@ import 'src/plugins/voice/voice_diagnostics_view.dart';
 import 'src/plugins/voice/voice_report_exporter.dart';
 import 'src/shell/code_block.dart';
 import 'src/shell/diagnostics_panel.dart';
-import 'src/shell/syntax.dart';
 import 'src/styleguide/styleguide_page.dart';
 import 'src/theme/app_theme.dart';
 

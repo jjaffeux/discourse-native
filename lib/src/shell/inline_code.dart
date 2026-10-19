@@ -4,7 +4,6 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
-import 'code_block.dart';
 import 'search_words.dart';
 
 class InlineCode extends StatelessWidget {

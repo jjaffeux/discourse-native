@@ -1,10 +1,7 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/src/plugins/assign/assignment_write_result.dart';
-
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';

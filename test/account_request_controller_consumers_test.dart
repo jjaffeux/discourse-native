@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:discourse_native/src/models/invite.dart';
+import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/shell/account_activity_controller.dart';
 import 'package:discourse_native/src/shell/do_not_disturb_controller.dart';
@@ -164,7 +165,10 @@ void main() {
             lifecycle: lifecycle,
           );
           addTearDown(controller.dispose);
-          operation = controller.load(_instance);
+          operation = controller.load(
+            _instance,
+            query: const UserDirectoryQuery(),
+          );
         case 'group directory':
           final controller = GroupsController(
             api: GroupsApi(api, const DiscourseModelCodec.core()),

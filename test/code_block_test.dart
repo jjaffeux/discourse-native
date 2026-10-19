@@ -3,7 +3,6 @@ import 'dart:collection';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
-import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -593,8 +592,11 @@ void main() {
       );
 
       final line = tester.widget<Text>(find.text('def hello').first);
-      expect(line.style?.fontFamily, monospaceFontFamily);
-      expect(line.style?.fontFamilyFallback, monospaceFallback);
+      expect(line.style?.fontFamily, monospaceTextStyle.fontFamily);
+      expect(
+        line.style?.fontFamilyFallback,
+        monospaceTextStyle.fontFamilyFallback,
+      );
       expect(line.style?.fontSize, DiscourseTypography.sm);
       expect(line.style?.height, DiscourseTypography.codeLineHeight);
       expect(line.style?.color, DiscourseColors.light.primaryVeryHigh);
