@@ -163,3 +163,41 @@ whitespace for conflict detection.
 The concrete hierarchy keeps current callers direct. An envelope with nested
 intent, draft identity and provenance wrappers was considered and rejected
 because those wrappers add caller coordination without changing ownership.
+
+## Submission transactions
+
+`ShellController.submitComposer` and `recheckComposer` adapt results from the
+private `_ComposerSubmissionOwner` in `shell/composer_submission.dart`. The owner
+admits Send synchronously, runs preparers, drains active and retired draft saves,
+executes account-bound requests, and decides accepted, refused, unresolved or
+inactive outcomes. Check again only reads and settles the original attempt.
+
+One immutable attempt captures the editor, concrete target, whisper selection,
+account lease, author and active tab before asynchronous work. Create content,
+metadata, durations and draft sequence are frozen after preparation and the two
+draft barriers. Edits freeze outgoing content and exact conflict baselines at
+admission. Accepted metadata advances its own baseline before body writing;
+body refusal does not erase that success. Unknown edit failures retain the
+existing retryable edit presentation.
+
+The editor retains one opaque `ComposerSubmission` for an uncertain create. Its
+attempt identity authorizes editor transitions without another submission phase
+machine. Refusal, positive absence, enqueue, document reset and disposal retire
+that identity and retained value. Editing or retargeting while unresolved does
+not rewrite the sent facts. Upload and authoring admission still follow the
+editor's existing state.
+
+Account authority and editor authority are checked separately. Retiring an
+editor prevents further writes and editor mutation, but an already accepted
+write can still publish canonical data for the original current account.
+`TopicDataSession` owns accepted posts, reconciliation reads and publication.
+Submission keeps feature metadata and draft projections, and delegates draft
+ordering and cleanup to `ComposerDraftCoordinator`. Typed retargeting preserves
+the coordinator's site and draft identity.
+
+The shell consumes completed results for retained-editor registration, route
+metadata, topic navigation, message folders and origin-feed refresh. It checks
+the captured lease after synchronous notifications before continuing. Topic
+creation routes to the tab active at Send, with the existing active-tab fallback
+when that tab no longer exists. Selecting a different composer never changes the
+attempt's editor identity.

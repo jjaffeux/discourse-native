@@ -328,6 +328,43 @@ void main() {
     },
   );
 
+  for (final privateMessage in [false, true]) {
+    test(
+      'accepted ${privateMessage ? 'message' : 'topic'} cannot navigate or refresh a successor account after editor closure',
+      () async {
+        if (privateMessage) {
+          shell.openPrivateMessage(
+            siteUrl: _firstSite,
+            targetRecipients: 'reader',
+          );
+        }
+        final composer = shell.visibleComposer!;
+        await shell.finishComposerDraftRestore(composer);
+        composer.title.text = 'Accepted under the original account';
+        composer.text.text =
+            'The completion must retain its original authority';
+        final tab = shell.activeTabId;
+        final route = shell.currentContent;
+        var replaced = false;
+        shell.addListener(() {
+          if (replaced || !composer.isDisposed) return;
+          replaced = true;
+          shell.lifecycle.invalidate(_firstSite);
+        });
+        api.feedPaths.clear();
+
+        await shell.submitComposer(composer: composer);
+        await pumpEventQueue();
+
+        expect(replaced, isTrue);
+        expect(api.topicsCreated, hasLength(1));
+        expect(shell.activeTabId, tab);
+        expect(shell.currentContent, route);
+        expect(api.feedPaths, isEmpty);
+      },
+    );
+  }
+
   test('a new topic submission navigates only its original tab', () async {
     final firstTab = shell.activeTabId!;
     final first = shell.visibleComposer!;

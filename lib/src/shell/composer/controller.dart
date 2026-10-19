@@ -101,7 +101,10 @@ enum ComposerDiscardPreview { changes, all }
 
 enum DraftStatus { clean, saving, saved, failing }
 
-typedef ComposerSubmission = ({String raw, String title, int draftSequence});
+/// Immutable sent facts retained for the submission owner's read-only recheck.
+abstract interface class ComposerSubmission {
+  Object get attempt;
+}
 
 class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   ComposerController(
@@ -637,12 +640,17 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   /// The site's [title] and [tags], when its answer carried them, replace the
   /// typed values too: a baseline left at the typed title fails the next
   /// write's `original_title` check, and fields left at it read as a change.
-  void metadataSettled({String? title, List<TopicTag>? tags}) {
+  void metadataSettled({
+    required int? categoryId,
+    String? title,
+    List<TopicTag>? tags,
+  }) {
     if (_disposed) return;
+    _categoryId = categoryId;
     if (title != null && title != this.title.text.trim()) {
       _replaceMetadata(
         titleValue: title,
-        categoryId: _categoryId,
+        categoryId: categoryId,
         tags: tags ?? _tags,
       );
     } else if (tags != null) {
@@ -1656,20 +1664,22 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   int draftSequence = 0;
 
+  Object? _submissionAttempt;
   ComposerSubmission? _submission;
 
-  /// The last create sent, as it was sent. The field stays editable and keeps
-  /// saving drafts while its answer is unknown, so whether it landed is
-  /// decided against this, never against the text or draft as they are now.
   ComposerSubmission? get submission => _submission;
 
-  /// Records what is about to be sent; call it after the last draft save has
-  /// settled, so [draftSequence] is the sequence the create will advance.
-  ComposerSubmission recordSubmission() => _submission = (
-    raw: raw,
-    title: title.text.trim(),
-    draftSequence: draftSequence,
-  );
+  bool ownsSubmission(Object attempt) =>
+      !_disposed && identical(_submissionAttempt, attempt);
+
+  void retainSubmission(ComposerSubmission submission) {
+    if (ownsSubmission(submission.attempt)) _submission = submission;
+  }
+
+  void _retireSubmission() {
+    _submissionAttempt = null;
+    _submission = null;
+  }
 
   Timer? _draftTimer;
   DateTime? _lastDraftSaveAt;
@@ -1996,8 +2006,10 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _notify();
   }
 
-  void beginSubmit() {
+  void beginSubmit({Object? attempt}) {
     if (_disposed) return;
+    _submissionAttempt = attempt ?? Object();
+    _submission = null;
     _clearTagRemovalNotice();
     _state = ComposerState.submitting;
     _error = null;
@@ -2007,6 +2019,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void failed(WriteException error) {
     if (_disposed) return;
+    _retireSubmission();
     _state = ComposerState.editing;
     _error = error;
     if (error.failure == WriteFailure.rateLimited) _holdFor(error.retryAfter);
@@ -2023,6 +2036,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void checkedNotPosted(WriteException error) {
     if (_disposed) return;
+    _retireSubmission();
     _state = ComposerState.editing;
     _notice = null;
     _error = error;
@@ -2053,6 +2067,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   void enqueued(String? message) {
     if (_disposed) return;
+    _retireSubmission();
     _clearTagRemovalNotice();
     draftSettled();
     _state = ComposerState.editing;
@@ -2078,6 +2093,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   /// in [history], which the replacement resets.
   void clearDocument() {
     if (_disposed) return;
+    _retireSubmission();
     _clearTagRemovalNotice();
     draftSettled();
     _state = ComposerState.editing;
@@ -2239,6 +2255,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
 
   @override
   void dispose() {
+    _retireSubmission();
     _disposed = true;
     _clearTagRemovalNotice();
     _uploadTransactions.dispose();

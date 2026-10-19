@@ -165,6 +165,48 @@ void main() {
     },
   );
 
+  test(
+    'an edit retains its sent metadata and exact body baseline between writes',
+    () async {
+      final started = Completer<void>();
+      final response = Completer<void>();
+      api.beforeTopicReply = () {
+        started.complete();
+        return response.future;
+      };
+      const original = '  Original first post body\n\n';
+      final post = controller.store.read<Post>(_siteUrl, 1)!.withRaw(original);
+      controller.store.put(_siteUrl, post);
+      controller.openEdit(post);
+      final composer = controller.visibleComposer!;
+      composer.title.text = 'Sent title';
+      composer.text.text = 'Sent body';
+      composer.setCategory(21);
+      final saving = controller.submitComposer(composer: composer);
+      addTearDown(() async {
+        if (!response.isCompleted) response.complete();
+        await saving;
+      });
+      await started.future;
+      composer.loadedBody('A later loaded baseline');
+      composer.setCategory(22);
+      api.beforePostReply = () async {
+        throw const WriteException(WriteFailure.validation);
+      };
+      response.complete();
+      await saving;
+
+      expect(api.topicsUpdated.single['categoryId'], 21);
+      expect(api.updated.single['originalText'], original);
+      expect(api.updated.single['raw'], 'Sent body');
+      expect(controller.store.read<TopicDetail>(_siteUrl, 7)?.categoryId, 21);
+      expect(composer.categoryId, 21);
+      expect(composer.originalTitle, 'Sent title');
+      expect(composer.metadataChanged, isFalse);
+      expect(composer.isDisposed, isFalse);
+    },
+  );
+
   test('an edit opened after a newer revision arrived loads that revision\'s '
       'markdown', () async {
     final held = controller.store.read<Post>(_siteUrl, 2)!;

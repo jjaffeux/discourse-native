@@ -76,6 +76,108 @@ void main() {
     },
   );
 
+  for (final retirement in ['editor', 'account', 'document']) {
+    test(
+      'a held preparer cannot dispatch after $retirement retirement',
+      () async {
+        final gate = Completer<PluginComposerSubmitPreparation>();
+        final api = _SubmissionApi();
+        final fixture = await _openShell(
+          api,
+          preparers: [_Preparer((_) => gate.future)],
+        );
+        final shell = fixture.shell;
+        final composer = await _openReply(shell, 7);
+        composer.text.text = _body;
+        final sending = shell.submitComposer(composer: composer);
+        addTearDown(() async {
+          if (!gate.isCompleted) {
+            gate.complete(const PluginComposerSubmitPreparation.proceed());
+          }
+          await sending;
+        });
+        switch (retirement) {
+          case 'editor':
+            shell.closeComposer(composer: composer);
+          case 'account':
+            shell.lifecycle.invalidate(_site);
+          case 'document':
+            composer.clearDocument();
+            composer.text.text = _editedBody;
+        }
+        gate.complete(const PluginComposerSubmitPreparation.proceed());
+        await sending;
+        expect(api.created, isEmpty);
+        if (retirement == 'document') {
+          expect(composer.raw, _editedBody);
+          expect(composer.isEditing, isTrue);
+        }
+      },
+    );
+  }
+
+  test('accepted reply publishes after its editor is removed', () async {
+    final gate = Completer<void>();
+    final api = _SubmissionApi(createPostGate: gate);
+    final fixture = await _openShell(api);
+    final shell = fixture.shell;
+    final composer = await _openReply(shell, 7);
+    composer.text.text = _body;
+    final sending = shell.submitComposer(composer: composer);
+    addTearDown(() async {
+      if (!gate.isCompleted) gate.complete();
+      await sending;
+    });
+    await pumpEventQueue();
+    expect(api.created, hasLength(1));
+    shell.closeComposer(composer: composer);
+    final selected = await _openReply(shell, 8);
+    selected.text.text = _editedBody;
+    gate.complete();
+    await sending;
+    expect(shell.store.read<Post>(_site, 9001)?.cooked, '<p>$_body</p>');
+    expect(shell.visibleComposer, same(selected));
+    expect(selected.raw, _editedBody);
+  });
+
+  test('create fields stay frozen while credentials are pending', () async {
+    final authenticator = _HeldAuthenticator()..keys[_site] = 'api-key';
+    final api = _SubmissionApi();
+    final fixture = await _openShell(api, authenticator: authenticator);
+    final shell = fixture.shell;
+    await shell.loadFeed('latest');
+    await shell.openNewTopic();
+    final composer = shell.visibleComposer!;
+    await shell.finishComposerDraftRestore(composer);
+    composer.title.text = 'Title at Send';
+    composer.text.text = _body;
+    composer.setCategory(21);
+    composer.setTags(const [TopicTag(id: 1, name: 'sent')]);
+    await composer.flushDraft();
+    await pumpEventQueue();
+    final gate = authenticator.hold = Completer<void>();
+    final sending = shell.submitComposer(composer: composer);
+    addTearDown(() async {
+      if (!gate.isCompleted) gate.complete();
+      await sending;
+    });
+    await authenticator.started.future;
+    expect(composer.submitting, isTrue);
+    expect(api.topicsCreated, isEmpty);
+    composer.title.text = 'Later title';
+    composer.text.text = _editedBody;
+    composer.setCategory(22);
+    composer.setTags(const [TopicTag(id: 2, name: 'later')]);
+    gate.complete();
+    await sending;
+    expect(api.topicsCreated.single['title'], 'Title at Send');
+    expect(api.topicsCreated.single['raw'], _body);
+    expect(api.topicsCreated.single['categoryId'], 21);
+    expect(api.topicsCreated.single['tags'], const [
+      TopicTag(id: 1, name: 'sent'),
+    ]);
+  });
+
   for (final refusal in _PreparationRefusal.values) {
     test(
       'prepared text remains durable when a later preparer ${refusal.name}',
@@ -90,7 +192,7 @@ void main() {
               expect(
                 composer.commit(
                   expectedValue: before,
-                  value: TextEditingValue(
+                  value: const TextEditingValue(
                     text: _preparedBody,
                     selection: TextSelection.collapsed(
                       offset: _preparedBody.length,
@@ -225,6 +327,7 @@ void main() {
 Future<({ShellController shell, FakeDraftStore drafts})> _openShell(
   _SubmissionApi api, {
   List<PluginComposerSubmitPreparer> preparers = const [],
+  FakeAuthenticator? authenticator,
 }) async {
   final plugins = PluginInstaller.install(
     PluginManifest([_PreparerModule(preparers)]),
@@ -238,7 +341,8 @@ Future<({ShellController shell, FakeDraftStore drafts})> _openShell(
       ).copyWith(user: const DiscourseUser(id: 7, username: 'author')),
     ]),
     api: api,
-    authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+    authenticator:
+        authenticator ?? (FakeAuthenticator()..keys[_site] = 'api-key'),
     drafts: drafts,
     forumTabs: FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
@@ -311,13 +415,13 @@ final class _Preparer implements PluginComposerSubmitPreparer {
 }
 
 final class _SubmissionApi extends FakeDiscourseApi {
-  _SubmissionApi({WriteException? writeFailure})
+  _SubmissionApi({super.writeFailure, super.createPostGate})
     : super(
         feeds: const {'/latest.json': []},
+        creatableFeedPaths: const {'/latest.json'},
         user: const DiscourseUser(id: 7, username: 'author'),
         topics: {},
         postsById: {},
-        writeFailure: writeFailure,
         siteConfigs: const {
           _site: SiteConfig(authorizedExtensions: ['png', 'txt']),
         },
@@ -363,3 +467,17 @@ const _preparationFailure = WriteException(
   WriteFailure.validation,
   errors: ['The later preparer refused this post.'],
 );
+
+final class _HeldAuthenticator extends FakeAuthenticator {
+  Completer<void>? hold;
+  final started = Completer<void>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    if (hold case final gate?) {
+      if (!started.isCompleted) started.complete();
+      await gate.future;
+    }
+    return super.apiKeyFor(siteUrl);
+  }
+}

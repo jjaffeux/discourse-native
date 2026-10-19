@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_creation.dart';
@@ -35,6 +36,7 @@ final class _TopicSiteApi extends FakeDiscourseApi {
   final draftReads = <String>[];
   final topicListReads = <String>[];
   bool createLands = true;
+  bool missingTopicId = false;
   WriteException createFailure = const WriteException(WriteFailure.unreachable);
   bool createdByReachable = true;
   bool draftSavesReachable = true;
@@ -131,6 +133,7 @@ final class _TopicSiteApi extends FakeDiscourseApi {
         raw: raw.replaceAll(_unicodeSpace, ' ').trimRight(),
       );
     }
+    if (missingTopicId) return const PostCreation(outcome: PostOutcome.created);
     throw createFailure;
   }
 }
@@ -193,6 +196,109 @@ void main() {
     expect(composer.isDisposed, isTrue);
     expect(api.topicCreates, hasLength(1));
   });
+
+  test(
+    'Check again uses the original topic and Send tab after editing and navigation',
+    () async {
+      final composer = await compose(
+        'Original sent title',
+        'Original sent body',
+      );
+      final openingTab = shell.activeTabId!;
+      shell.createTab();
+      final sendingTab = shell.activeTabId!;
+      api.createdByReachable = false;
+      await shell.submitComposer(composer: composer);
+      expect(composer.canRecheck, isTrue);
+      composer.title.text = 'Changed title after uncertainty';
+      composer.text.text = 'Changed body after uncertainty';
+      await composer.flushDraft();
+      shell.createTab();
+      final selectedTab = shell.activeTabId!;
+      shell.pushContent(
+        ContentRoute.topic(topicId: 8, slug: 'other', title: 'Other'),
+      );
+      shell.store.put(
+        _siteUrl,
+        const TopicDetail(
+          id: 8,
+          title: 'Other',
+          stream: [],
+          canCreatePost: true,
+        ),
+      );
+      shell.openReply();
+      final selected = shell.visibleComposer!;
+      await shell.finishComposerDraftRestore(selected);
+      selected.text.text = 'Keep this selected reply';
+      api.createdByReachable = true;
+
+      await shell.recheckComposer(composer: composer);
+
+      expect(api.topicCreates, ['Original sent body']);
+      expect(composer.isDisposed, isTrue);
+      expect(shell.activeTabId, selectedTab);
+      expect(shell.currentContent?.topicId, 8);
+      expect(shell.visibleComposer, same(selected));
+      expect(selected.raw, 'Keep this selected reply');
+      shell.selectTab(sendingTab);
+      expect(shell.currentContent?.topicId, 901);
+      shell.selectTab(openingTab);
+      expect(shell.currentContent?.topicId, isNot(901));
+    },
+  );
+
+  test(
+    'Check again cannot adopt a successor account at the same URL',
+    () async {
+      final composer = await compose(
+        'Original sent title',
+        'Original sent body',
+      );
+      api.createdByReachable = false;
+      await shell.submitComposer(composer: composer);
+      expect(composer.canRecheck, isTrue);
+      final draftReads = api.draftReads.length;
+      final topicReads = api.topicListReads.length;
+      shell.lifecycle.invalidate(_siteUrl);
+      api.createdByReachable = true;
+
+      await shell.recheckComposer(composer: composer);
+
+      expect(api.topicCreates, hasLength(1));
+      expect(api.draftReads, hasLength(draftReads));
+      expect(api.topicListReads, hasLength(topicReads));
+      expect(composer.canRecheck, isTrue);
+      expect(composer.isDisposed, isFalse);
+      expect(shell.currentContent?.topicId, isNot(901));
+    },
+  );
+
+  test(
+    'a created response without topic identity keeps the original attempt for recheck',
+    () async {
+      api.missingTopicId = true;
+      final composer = await compose(
+        'Original sent title',
+        'Original sent body',
+      );
+      await shell.submitComposer(composer: composer);
+      expect(composer.canRecheck, isTrue);
+      expect(composer.canSubmit, isFalse);
+      composer.title.text = 'Later title';
+      composer.text.text = 'Later body';
+      await composer.flushDraft();
+
+      await shell.submitComposer(composer: composer);
+      expect(api.topicCreates, ['Original sent body']);
+      expect(composer.canRecheck, isTrue);
+      await shell.recheckComposer(composer: composer);
+
+      expect(api.topicCreates, ['Original sent body']);
+      expect(composer.isDisposed, isTrue);
+      expect(shell.currentContent?.topicId, 901);
+    },
+  );
 
   test('a topic whose title the site prettified is found posted', () async {
     api.storedTitle = (title) =>

@@ -1328,7 +1328,7 @@ void main() {
       expect(composer.metadataChanged, isTrue);
       expect(composer.canSubmit, isTrue);
 
-      composer.metadataSettled();
+      composer.metadataSettled(categoryId: composer.categoryId);
       expect(composer.metadataChanged, isFalse);
       expect(composer.canSubmit, isFalse);
       composer.text.text = 'Changed body';
@@ -1356,6 +1356,7 @@ void main() {
       final revision = composer.draftRevision;
 
       composer.metadataSettled(
+        categoryId: composer.categoryId,
         title: 'Changed title!',
         tags: const [TopicTag(id: 5, name: 'new', slug: 'new')],
       );

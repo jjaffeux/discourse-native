@@ -158,6 +158,7 @@ import 'user_summary_controller.dart';
 part 'shell_tab_context.dart';
 part 'workspace_controller.dart';
 part 'taxonomy_directory_controller.dart';
+part 'composer_submission.dart';
 
 enum MobilePane { sidebar, content }
 
@@ -7824,6 +7825,7 @@ class ShellController extends FrameSafeNotifier
   /// are cached apart. A folder not yet loaded is left to load when opened.
   void _refreshMessageFolders(
     String siteUrl, {
+    SiteLease? lease,
     required Iterable<MessageListMode> personal,
     required Iterable<MessageListMode> group,
     required Iterable<String> groupNames,
@@ -7832,6 +7834,7 @@ class ShellController extends FrameSafeNotifier
     final username = instance?.user?.username;
     if (instance == null || username == null) return;
     void refresh(String destinationId, String path) {
+      if (isDisposed || (lease != null && !lease.isCurrent)) return;
       if (topicFeeds.feedFor(siteUrl, destinationId) == null) return;
       unawaited(
         topicFeeds.load(
@@ -8244,9 +8247,8 @@ class ShellController extends FrameSafeNotifier
 
   /// Explicit draft selections reveal even an already selected minimized editor.
   int get composerRevealRevision => _composerRevealRevision;
-  // Creation results belong to the submitting tab, even if navigation changes
-  // while the request or its reconciliation is in flight.
-  final Expando<String> _composerSubmissionTabs = Expando();
+  late final _ComposerSubmissionOwner _composerSubmissions =
+      _ComposerSubmissionOwner(this);
 
   // Commands target the selected forum; async continuations keep the exact
   // composer that started them even if the user changes forums or drafts.
@@ -11696,401 +11698,95 @@ class ShellController extends FrameSafeNotifier
   Future<void> submitComposer({
     ComposerController? composer,
     void Function(String)? onPreparationNotice,
-  }) => _submitComposer(composer ?? _composer, onPreparationNotice);
-
-  Future<void> _submitComposer(
-    ComposerController? composer,
-    void Function(String)? onPreparationNotice,
-  ) async {
-    if (composer == null ||
-        !_ownsComposer(composer) ||
-        composer.discarding ||
-        composer.submitting ||
-        !composer.canSubmit) {
-      return;
-    }
-
-    final target = composer.target;
-    if (target.isNewTopic) {
-      if (_newTopicRefusal(composer) case final refusal?) {
-        composer.failed(
-          WriteException(WriteFailure.validation, errors: [refusal]),
-        );
-        return;
-      }
-    }
-    // Read before the awaits: a reply retargeted at a whisper while this one
-    // is out would otherwise post what was written in public as a whisper.
-    final whisper = composer.whisper;
-    final lease = lifecycle.capture(target.siteUrl);
-    if (target is TopicCreationComposerTarget) {
-      _composerSubmissionTabs[composer] = _workspace
-          .forSite(target.siteUrl)
-          ?.activeTabId;
-    }
-
-    if (target is EditComposerTarget) {
-      return _submitEdit(composer, target, composer.editRaw, lease);
-    }
-
-    if (target is PluginComposerTarget) return;
-
-    // Before any await: the credential round trip below is a gap a second tap
-    // can pass through, and a create sent twice posts twice — unlike an edit,
-    // nothing undoes that.
-    composer.beginSubmit();
-    var preparationChanged = false;
-    for (final preparer
-        in _pluginSession.capabilities<PluginComposerSubmitPreparer>()) {
-      final PluginComposerSubmitPreparation result;
-      try {
-        result = await preparer.prepareComposerSubmit(composer);
-      } catch (error, stackTrace) {
-        _pluginDiagnosticsReporter.reportError(
-          error,
-          stackTrace,
-          operation: 'composer.prepareSubmit',
-          source: 'plugin',
-          handled: true,
-          degraded: true,
-        );
-        if (!lease.isCurrent) return;
-        if (preparationChanged) await composer.flushDraft();
-        composer.failed(
-          WriteException(
-            WriteFailure.unreachable,
-            errors: [appL10n.couldnTPrepareThisPostNothingWasPosted],
-          ),
-        );
-        return;
-      }
-      if (!lease.isCurrent) return;
-      if (result.failure case final failure?) {
-        if (preparationChanged) await composer.flushDraft();
-        composer.failed(failure);
-        return;
-      }
-      preparationChanged |= result.changed;
-      if (result.notice case final notice?) onPreparationNotice?.call(notice);
-    }
-    if (preparationChanged) await composer.flushDraft();
-    await composer.finishDraftSaves();
-    // Accepting the post deletes its draft. A replaced composer's save of the
-    // same key that lands after that would write the posted text back into
-    // the cached draft, and its conflict retry would recreate it on the site.
-    await _composerDrafts.finishRetiredSaves(composer);
-    if (!lease.isCurrent) return;
-
-    final sent = composer.recordSubmission();
-    final raw = sent.raw;
-
-    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
-    if (!lease.isCurrent) return;
-    if (credential.failure case final failure?) {
-      lease.commit(() => composer.failed(failure));
-      return;
-    }
-    final apiKey = credential.apiKey!;
-    final PostCreation creation;
-    try {
-      creation = await credential.request!.run(
-        () async => switch (target) {
-          TopicCreationComposerTarget() =>
-            await api.composerPersistence.createTopic(
-              siteUrl: target.siteUrl,
-              apiKey: apiKey,
-              title: sent.title,
-              raw: raw,
-              categoryId: composer.categoryId,
-              tags: composer.tags,
-              typingDuration: composer.typingDuration,
-              composerOpenDuration: composer.openDuration,
-              targetRecipients: target.targetRecipients,
-              draftKey: target.draftKey,
-            ),
-          ReplyComposerTarget() => await api.composerPersistence.createPost(
-            siteUrl: target.siteUrl,
-            apiKey: apiKey,
-            topicId: target.topicId,
-            raw: raw,
-            replyToPostNumber: target.replyToPostNumber,
-            whisper: whisper,
-            typingDuration: composer.typingDuration,
-            composerOpenDuration: composer.openDuration,
-            draftKey: target.draftKey,
-          ),
-          EditComposerTarget() || PluginComposerTarget() => throw StateError(
-            'Unsupported forum submission target',
-          ),
-        },
-      );
-    } on WriteException catch (e) {
-      // A refusal is certain — the site answered and said no. Not reaching it
-      // is not: the post may well have been created and only the answer lost.
-      // A request that never left has nothing to look for, and offline the
-      // look would fail too, stranding the post on "may have posted".
-      if (e.notSent) {
-        lease.commit(
-          () => composer.failed(
-            WriteException(
-              WriteFailure.unreachable,
-              errors: [appL10n.couldnTReachTheSiteNothingWasPosted],
-              notSent: true,
-            ),
-          ),
-        );
-      } else if (e.failure == WriteFailure.unreachable) {
-        if (target is TopicCreationComposerTarget) {
-          await _reconcileNewTopic(target, sent, composer, e, lease: lease);
-        } else if (target is ReplyComposerTarget) {
-          await _reconcile(target, raw, composer, e, lease: lease);
-        }
-      } else {
-        lease.commit(() => composer.failed(e));
-      }
-      return;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, 'composer.submit');
-      }
-      if (target is TopicCreationComposerTarget) {
-        await _reconcileNewTopic(
-          target,
-          sent,
-          composer,
-          const WriteException(WriteFailure.unreachable),
-          lease: lease,
-        );
-      } else if (target is ReplyComposerTarget) {
-        await _reconcile(
-          target,
-          raw,
-          composer,
-          const WriteException(WriteFailure.unreachable),
-          lease: lease,
-        );
-      }
-      return;
-    }
-
-    if (target is TopicCreationComposerTarget) {
-      lease.commit(
-        () => _applyTopicCreation(target, creation, composer, lease),
-      );
-    } else if (target is ReplyComposerTarget) {
-      lease.commit(() => _applyCreation(target, creation, composer, lease));
-    }
+  }) async {
+    final result = await _composerSubmissions.submit(
+      composer ?? _composer,
+      onPreparationNotice,
+    );
+    _presentComposerSubmission(result);
   }
 
-  /// What core's composer refuses to send for a new topic before asking the
-  /// site: a body that, trimmed, is still its category's template, and, on a
-  /// site that has templates but no uncategorized topics, a topic with no
-  /// category.
-  String? _newTopicRefusal(ComposerController composer) {
-    final siteUrl = composer.target.siteUrl;
-    final categoryId = composer.categoryId;
-    final template = categoryFor(categoryId, siteUrl: siteUrl)?.topicTemplate;
-    if (template != null && composer.raw.trim() == template.trim()) {
-      return appL10n.pleaseAddDetailsAndSpecificsToYourTopicByEditingThe;
-    }
-    if (categoryId == null &&
-        !siteConfigFor(siteUrl).allowUncategorizedTopics &&
-        topicComposerCategories(
-          siteUrl,
-        ).any((category) => category.topicTemplate != null)) {
-      return appL10n.youMustChooseACategory;
-    }
-    return null;
+  Future<void> recheckComposer({ComposerController? composer}) async {
+    final result = await _composerSubmissions.recheck(composer ?? _composer);
+    _presentComposerSubmission(result);
   }
 
-  Future<void> _submitEdit(
-    ComposerController composer,
-    EditComposerTarget target,
-    String raw,
-    SiteLease lease,
-  ) async {
-    switch (target) {
-      case CategoryEditComposerTarget():
-        return _submitCategoryEdit(composer, target);
-      case TagsEditComposerTarget():
-        return _submitTagsEdit(composer, target);
-      case PostEditingComposerTarget():
-        final releasePost = _topicData
-            .forLease(target.siteUrl, lease)
-            ?.beginPostWrite(target.editingPostId);
-        if (releasePost == null) {
-          composer.failed(
-            WriteException(
-              WriteFailure.conflict,
-              errors: [appL10n.anotherActionOnThisPostIsStillBeingSaved],
-            ),
-          );
-          return;
-        }
-        try {
-          await _submitEditNow(composer, target, raw, lease);
-        } finally {
-          lease.commit(releasePost);
-        }
-    }
-  }
-
-  Future<void> _submitEditNow(
-    ComposerController composer,
-    PostEditingComposerTarget target,
-    String raw,
-    SiteLease lease,
-  ) async {
-    if (!lease.isCurrent || !_ownsComposer(composer)) return;
-    composer.beginSubmit();
-    // A missing baseline means the body fetch failed. Never build a destructive
-    // edit without the original text used for conflict detection.
-    if (composer.originalRaw == null) {
-      composer.failed(const WriteException(WriteFailure.unreachable));
-      return;
-    }
-    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
-    if (!lease.isCurrent) return;
-    if (credential.failure case final failure?) {
-      lease.commit(() => composer.failed(failure));
-      return;
-    }
-    final apiKey = credential.apiKey!;
-
-    if (target.editsTopicMetadata && composer.metadataChanged) {
-      final TopicUpdate update;
-      try {
-        update = await credential.request!.run(
-          () => api.topicMutations.updateTopic(
-            siteUrl: target.siteUrl,
-            apiKey: apiKey,
-            topicId: target.topicId,
-            title: composer.title.text.trim(),
-            originalTitle: composer.originalTitle,
-            categoryId: composer.categoryId,
-            tags: composer.tags,
-            originalTags: composer.originalTags,
-          ),
-        );
-      } on WriteException catch (e) {
-        lease.commit(() => composer.failed(e));
-        return;
-      } catch (error, stackTrace) {
-        if (lease.isCurrent) {
-          _reportOperationalError(error, stackTrace, 'composer.editTopic');
-        }
-        lease.commit(
-          () => composer.failed(const WriteException(WriteFailure.unreachable)),
-        );
-        return;
-      }
-      lease.commit(() {
-        final title = update.title ?? composer.title.text.trim();
-        final tags = update.tags ?? composer.tags;
-        store.update<TopicDetail>(
-          target.siteUrl,
-          target.topicId,
-          (detail) => detail.copyWith(
-            title: title,
-            categoryId: composer.categoryId,
-            clearCategory: composer.categoryId == null,
-            tags: tags,
-          ),
-        );
-        store.update<Topic>(
-          target.siteUrl,
-          target.topicId,
-          (topic) => topic.copyWith(
-            title: title,
-            categoryId: composer.categoryId,
-            clearCategory: composer.categoryId == null,
-            tags: tags,
-          ),
-        );
+  void _presentComposerSubmission(_SubmissionResult result) {
+    if (result is! _CompletedSubmission) return;
+    final attempt = result.attempt;
+    final target = attempt.target;
+    final lease = attempt.lease;
+    if (isDisposed || !lease.isCurrent) return;
+    if (result.metadata case final metadata?) {
+      if (target case ExistingTopicComposerTarget(:final topicId)) {
         _updateTopicRouteMetadata(
           target.siteUrl,
-          target.topicId,
-          title,
-          composer.categoryId,
+          topicId,
+          metadata.title,
+          metadata.categoryId,
         );
-        composer.metadataSettled(title: update.title, tags: update.tags);
-      });
-      if (raw == composer.originalRaw?.trimRight()) {
-        lease.commit(() => _closeSubmittedComposer(composer));
-        return;
       }
     }
-
-    if (!lease.isCurrent || !_ownsComposer(composer)) return;
-    final Post updated;
-    try {
-      updated = await credential.request!.run(
-        () => api.composerPersistence.updatePost(
-          siteUrl: target.siteUrl,
-          apiKey: apiKey,
-          postId: target.editingPostId,
-          raw: raw,
-          originalText: composer.originalRaw,
-        ),
-      );
-    } on WriteException catch (e) {
-      lease.commit(() => composer.failed(e));
-      return;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, 'composer.edit');
-      }
-      lease.commit(
-        () => composer.failed(const WriteException(WriteFailure.unreachable)),
-      );
-      return;
-    }
-
-    lease.commit(() {
-      _topicData
-          .forLease(target.siteUrl, lease)
-          ?.acceptEditedPost(updated, raw: raw);
+    if (isDisposed || !lease.isCurrent) return;
+    if (result is! _SubmissionAccepted) return;
+    final composer = attempt.editor;
+    final retained =
+        _ownsComposer(composer) && composer.ownsSubmission(attempt);
+    if (result.acceptance is! _SubmissionEnqueued && retained) {
       _closeSubmittedComposer(composer);
-    });
-  }
-
-  Future<void> _submitTagsEdit(
-    ComposerController composer,
-    TagsEditComposerTarget target,
-  ) async {
-    final lease = lifecycle.capture(target.siteUrl);
-    composer.beginSubmit();
-    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
-    if (!lease.isCurrent) return;
-    if (credential.failure case final failure?) {
-      lease.commit(() => composer.failed(failure));
-      return;
+    } else {
+      _notify();
     }
-    try {
-      await credential.request!.run(
-        () => api.topicMutations.updateTopicTags(
-          siteUrl: target.siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: target.topicId,
-          tags: composer.tags,
-        ),
-      );
-    } on WriteException catch (error) {
-      lease.commit(() => composer.failed(error));
-      return;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, 'composer.editTopicTags');
-      }
-      lease.commit(
-        () => composer.failed(const WriteException(WriteFailure.unreachable)),
-      );
-      return;
+    if (isDisposed || !lease.isCurrent) return;
+    switch (result.acceptance) {
+      case _SubmissionTopic(:final topicId, :final slug, :final title):
+        if (target is! TopicCreationComposerTarget) return;
+        if (target.isPrivateMessage) {
+          _refreshMessageFolders(
+            target.siteUrl,
+            lease: lease,
+            personal: const [MessageListMode.sent],
+            group: const [MessageListMode.inbox],
+            groupNames: {
+              for (final name in (target.targetRecipients ?? '').split(','))
+                if (name.trim().isNotEmpty) name.trim(),
+            },
+          );
+        }
+        if (!retained || isDisposed || !lease.isCurrent) return;
+        final workspace = _workspace.forSite(target.siteUrl);
+        final tabId =
+            workspace?.tabById(attempt.sourceTabId ?? '')?.id ??
+            workspace?.activeTabId;
+        if (currentInstance?.url == target.siteUrl && activeTabId == tabId) {
+          _openTopic(topicId, slug, title);
+          if (!lease.isCurrent || isDisposed) return;
+          if (target.originFeedId case final origin? when target.isNewTopic) {
+            unawaited(loadFeed(origin, force: true));
+          }
+        } else if (tabId != null) {
+          final tab = workspace?.tabById(tabId);
+          if (tab != null) {
+            _workspace.replaceTab(
+              target.siteUrl,
+              tab.push(
+                ContentRoute.topic(topicId: topicId, slug: slug, title: title),
+              ),
+            );
+            _notify();
+          }
+        }
+      case _SubmissionReply(:final refresh):
+        if (refresh && target is ReplyComposerTarget) {
+          unawaited(
+            _topicData
+                .forLease(target.siteUrl, lease)
+                ?.refresh(target.topicId, slug: target.slug),
+          );
+        }
+      case _SubmissionEnqueued() || _SubmissionEdited():
+        break;
     }
-    lease.commit(() {
-      _applyTopicTags(target.siteUrl, target.topicId, composer.tags);
-      _closeSubmittedComposer(composer);
-    });
   }
 
   void _applyTopicTags(String siteUrl, int topicId, List<TopicTag> tags) {
@@ -12106,76 +11802,6 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  Future<void> _submitCategoryEdit(
-    ComposerController composer,
-    CategoryEditComposerTarget target,
-  ) async {
-    final lease = lifecycle.capture(target.siteUrl);
-    composer.beginSubmit();
-    final credential = await _credentialForWrite(target.siteUrl, lease: lease);
-    if (!lease.isCurrent) return;
-    if (credential.failure case final failure?) {
-      lease.commit(() => composer.failed(failure));
-      return;
-    }
-    try {
-      await credential.request!.run(
-        () => api.topicMutations.updateTopic(
-          siteUrl: target.siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: target.topicId,
-          title: target.topicTitle,
-          originalTitle: target.topicTitle,
-          categoryId: composer.categoryId,
-          tags: composer.tags,
-          originalTags: composer.originalTags,
-        ),
-      );
-    } on WriteException catch (error) {
-      lease.commit(() => composer.failed(error));
-      return;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'composer.editTopicCategory',
-        );
-      }
-      lease.commit(
-        () => composer.failed(const WriteException(WriteFailure.unreachable)),
-      );
-      return;
-    }
-    lease.commit(() {
-      store.update<TopicDetail>(
-        target.siteUrl,
-        target.topicId,
-        (detail) => detail.copyWith(
-          categoryId: composer.categoryId,
-          clearCategory: composer.categoryId == null,
-          tags: composer.tags,
-        ),
-      );
-      store.update<Topic>(
-        target.siteUrl,
-        target.topicId,
-        (topic) => topic.copyWith(
-          categoryId: composer.categoryId,
-          clearCategory: composer.categoryId == null,
-          tags: composer.tags,
-        ),
-      );
-      _updateTopicRouteMetadata(
-        target.siteUrl,
-        target.topicId,
-        target.topicTitle,
-        composer.categoryId,
-      );
-      _closeSubmittedComposer(composer);
-    });
-  }
-
   void _closeSubmittedComposer(ComposerController composer) {
     if (_ownsComposer(composer)) {
       composer.dispose();
@@ -12184,315 +11810,11 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  Future<void> recheckComposer({ComposerController? composer}) async {
-    composer ??= _composer;
-    if (composer == null || !composer.canRecheck) return;
-    final sent = composer.submission;
-    if (sent == null) return;
-    final target = composer.target;
-    if (target is TopicCreationComposerTarget) {
-      await _reconcileNewTopic(
-        target,
-        sent,
-        composer,
-        const WriteException(WriteFailure.unreachable),
-      );
-    } else if (target is ReplyComposerTarget) {
-      await _reconcile(
-        target,
-        sent.raw,
-        composer,
-        const WriteException(WriteFailure.unreachable),
-      );
-    }
-  }
-
-  Future<void> _reconcileNewTopic(
-    TopicCreationComposerTarget target,
-    ComposerSubmission sent,
-    ComposerController composer,
-    WriteException failure, {
-    SiteLease? lease,
-  }) async {
-    final session = lease ?? lifecycle.capture(target.siteUrl);
-    if (!session.commit(composer.checking)) return;
-    final data = _topicData.forLease(target.siteUrl, session);
-    if (data == null) return;
-    final credential = await _credentialForWrite(
-      target.siteUrl,
-      lease: session,
-    );
-    if (!session.isCurrent || credential.failure != null) {
-      session.commit(composer.unresolved);
-      return;
-    }
-    final apiKey = credential.apiKey!;
-
-    try {
-      final retained = await credential.request!.run(
-        () => api.composerPersistence.draft(
-          siteUrl: target.siteUrl,
-          apiKey: apiKey,
-          draftKey: target.draftKey,
-        ),
-      );
-      if (!session.isCurrent) return;
-      final draft = retained.draft;
-      // Creating the topic advances the draft sequence, and so does every save
-      // after it, including one that recreates the draft the create removed.
-      // A draft still at the sequence the create was sent at therefore shows
-      // the create never ran, whatever it holds: the last save before sending
-      // may not have reached the site.
-      if (draft != null && retained.sequence == sent.draftSequence) {
-        session.commit(() => composer.checkedNotPosted(failure));
-        return;
-      }
-
-      final username = _instanceAt(target.siteUrl)?.user?.username;
-      if (username == null) {
-        session.commit(composer.unresolved);
-        return;
-      }
-
-      final match = await data.findCreatedTopic(
-        username: username,
-        title: sent.title,
-        raw: sent.raw,
-        privateMessage: target.isPrivateMessage,
-        credential: credential.request!,
-      );
-      session.commit(() {
-        if (match == null) {
-          composer.unresolved();
-        } else {
-          _finishCreatedTopic(
-            target,
-            composer,
-            session,
-            match.topicId,
-            match.slug,
-            match.title,
-          );
-        }
-      });
-    } catch (error, stackTrace) {
-      if (session.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'composer.reconcileTopic',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-      session.commit(composer.unresolved);
-    }
-  }
-
-  Future<void> _reconcile(
-    ReplyComposerTarget target,
-    String raw,
-    ComposerController composer,
-    WriteException failure, {
-    SiteLease? lease,
-  }) async {
-    final session = lease ?? lifecycle.capture(target.siteUrl);
-    if (!session.commit(composer.checking)) return;
-    final data = _topicData.forLease(target.siteUrl, session);
-    if (data == null) return;
-    final username = _instanceAt(target.siteUrl)?.user?.username;
-    final credential = await _credentialForWrite(
-      target.siteUrl,
-      lease: session,
-    );
-    if (!session.isCurrent) return;
-    if (credential.failure != null) {
-      session.commit(() {
-        composer.unresolved();
-        _notify();
-      });
-      return;
-    }
-    Post? landed;
-    try {
-      landed = await data.findReply(
-        topicId: target.topicId,
-        slug: target.slug,
-        username: username,
-        raw: raw,
-        credential: credential.request!,
-      );
-    } catch (error, stackTrace) {
-      if (session.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'composer.reconcile',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-      session.commit(() {
-        composer.unresolved();
-        _notify();
-      });
-      return;
-    }
-    session.commit(() {
-      if (landed == null) {
-        composer.checkedNotPosted(failure);
-        _notify();
-        return;
-      }
-      _composerDrafts.settleAfterSubmission(composer, session);
-      store.update<TopicDetail>(
-        target.siteUrl,
-        target.topicId,
-        (detail) => detail.withDraft(null, _composerDrafts.sequenceFor(target)),
-      );
-      if (_ownsComposer(composer)) {
-        composer.dispose();
-        _removeComposer(composer);
-      }
-      _notify();
-    });
-  }
-
   DiscourseInstance? _instanceAt(String url) {
     for (final instance in _instances) {
       if (instance.url == url) return instance;
     }
     return null;
-  }
-
-  void _applyCreation(
-    ReplyComposerTarget target,
-    PostCreation creation,
-    ComposerController composer,
-    SiteLease lease,
-  ) {
-    final post = creation.post;
-    if (post != null) {
-      _topicData
-          .forLease(target.siteUrl, lease)
-          ?.acceptReply(target.topicId, post);
-      if (!lease.isCurrent) return;
-    }
-
-    // Accepting a post deletes its draft and advances the sequence server side,
-    // so the local copy goes too and the next save uses the number it sent back
-    // — keeping the old one earns a conflict on the very next keystroke.
-    _composerDrafts.settleAfterSubmission(
-      composer,
-      lease,
-      sequence: creation.draftSequence,
-    );
-    store.update<TopicDetail>(
-      target.siteUrl,
-      target.topicId,
-      (detail) => detail.withDraft(null, _composerDrafts.sequenceFor(target)),
-    );
-
-    if (creation.isEnqueued) {
-      composer.enqueued(creation.message);
-      _notify();
-      return;
-    }
-
-    if (_ownsComposer(composer)) {
-      composer.dispose();
-      _removeComposer(composer);
-    }
-    _notify();
-
-    unawaited(
-      _topicData
-          .forLease(target.siteUrl, lease)
-          ?.refresh(target.topicId, slug: target.slug),
-    );
-  }
-
-  void _applyTopicCreation(
-    TopicCreationComposerTarget target,
-    PostCreation creation,
-    ComposerController composer,
-    SiteLease lease,
-  ) {
-    _composerDrafts.settleAfterSubmission(
-      composer,
-      lease,
-      sequence: creation.draftSequence,
-    );
-    if (creation.isEnqueued) {
-      composer.enqueued(creation.message);
-      _notify();
-      return;
-    }
-    final topicId = creation.topicId;
-    if (topicId == null) {
-      composer.failed(const WriteException(WriteFailure.unreachable));
-      return;
-    }
-    if (creation.post case final post?) {
-      _topicData.forLease(target.siteUrl, lease)?.acceptNewTopicPost(post);
-      if (!lease.isCurrent) return;
-    }
-    _finishCreatedTopic(
-      target,
-      composer,
-      lease,
-      topicId,
-      creation.topicSlug ?? '',
-      creation.topicTitle ?? composer.title.text.trim(),
-    );
-  }
-
-  void _finishCreatedTopic(
-    TopicCreationComposerTarget target,
-    ComposerController composer,
-    SiteLease lease,
-    int topicId,
-    String slug,
-    String title,
-  ) {
-    _composerDrafts.settleAfterSubmission(composer, lease);
-    final wasRetained = _ownsComposer(composer);
-    _closeSubmittedComposer(composer);
-    if (target.isPrivateMessage) {
-      // Core lists a new message under its author's Sent and each recipient
-      // group's inbox, but not their own Inbox until someone else posts. The
-      // site holds it whether or not this composer is still the one shown.
-      _refreshMessageFolders(
-        target.siteUrl,
-        personal: const [MessageListMode.sent],
-        group: const [MessageListMode.inbox],
-        groupNames: {
-          for (final name in (target.targetRecipients ?? '').split(','))
-            if (name.trim().isNotEmpty) name.trim(),
-        },
-      );
-    }
-    if (!wasRetained) return;
-    final origin = target.originFeedId;
-    final workspace = _workspace.forSite(target.siteUrl);
-    final submittedTabId = _composerSubmissionTabs[composer];
-    final tabId =
-        workspace?.tabById(submittedTabId ?? '')?.id ?? workspace?.activeTabId;
-    if (currentInstance?.url == target.siteUrl && activeTabId == tabId) {
-      _openTopic(topicId, slug, title);
-      if (origin != null && target.isNewTopic) {
-        unawaited(loadFeed(origin, force: true));
-      }
-    } else if (tabId != null) {
-      final tab = _workspace.forSite(target.siteUrl)?.tabById(tabId);
-      if (tab != null) {
-        _workspace.replaceTab(
-          target.siteUrl,
-          tab.push(
-            ContentRoute.topic(topicId: topicId, slug: slug, title: title),
-          ),
-        );
-        _notify();
-      }
-    }
   }
 
   UserCard? userCard(String username, {String? siteUrl}) {

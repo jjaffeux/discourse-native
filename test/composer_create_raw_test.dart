@@ -123,7 +123,6 @@ void main() {
       addTearDown(composer.dispose);
       composer.text.text = '\n    code\n\nText  \n';
       expect(composer.raw, '\n    code\n\nText');
-      expect(composer.recordSubmission().raw, '\n    code\n\nText');
       for (final blank in ['', '  ', '\n\t \r\n']) {
         composer.text.text = blank;
         expect(composer.raw, isEmpty);

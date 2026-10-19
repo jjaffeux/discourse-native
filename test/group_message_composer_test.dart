@@ -130,6 +130,77 @@ void main() {
     expect(api.feedPaths.sublist(reads), [inbox]);
   });
 
+  test(
+    'retirement during Sent refresh stops the remaining message folders',
+    () async {
+      const user = DiscourseUser(
+        id: 1,
+        username: 'reader',
+        canSendPrivateMessages: true,
+      );
+      final sent = ContentRoute.messages(mode: MessageListMode.sent);
+      final inbox = ContentRoute.messages(
+        groupName: 'tech-leads',
+        mode: MessageListMode.inbox,
+      );
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: const {'/latest.json': []},
+      );
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(user: user),
+        ]),
+        api: api,
+        authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      for (final (route, path) in [
+        (sent, MessageListMode.sent.feedPathFor('reader')),
+        (
+          inbox,
+          MessageListMode.inbox.feedPathFor('reader', groupName: 'tech-leads'),
+        ),
+      ]) {
+        await shell.topicFeeds.load(
+          instance: shell.currentInstance!,
+          destinationId: route.id,
+          path: path,
+          incoming: null,
+        );
+      }
+      shell.openPrivateMessage(
+        siteUrl: _siteUrl,
+        targetRecipients: 'tech-leads',
+      );
+      final composer = shell.visibleComposer!;
+      await shell.finishComposerDraftRestore(composer);
+      composer.title.text = 'Original account message';
+      composer.text.text = 'Do not refresh a successor account';
+      var retired = false;
+      shell.topicFeeds.addListener(() {
+        if (retired ||
+            shell.topicFeeds.feedFor(_siteUrl, sent.id)?.loading != true) {
+          return;
+        }
+        retired = true;
+        shell.lifecycle.invalidate(_siteUrl);
+      });
+      api.feedPaths.clear();
+
+      await shell.submitComposer(composer: composer);
+      await pumpEventQueue();
+
+      expect(retired, isTrue);
+      expect(api.topicsCreated, hasLength(1));
+      expect(api.feedPaths, isEmpty);
+      expect(shell.currentContent?.topicId, isNot(901));
+    },
+  );
+
   group('without general private-message permission', () {
     Future<ShellController> loadShell() async {
       final shell = ShellController(
