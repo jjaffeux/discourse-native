@@ -450,6 +450,45 @@ void main() {
       },
     );
 
+    test(
+      'dismissal freezes its server filter before credential lookup',
+      () async {
+        final api = _GatedDisjointBulkDismissApi()
+          ..replyGate.complete()
+          ..quoteGate.complete();
+        final credentials = _GatedCredentialReader();
+        final controller = _controller(api, credentials);
+        addTearDown(controller.dispose);
+        final filters = [const NotificationTypeName('replied')];
+        final source = PluginNotificationFeedSource(
+          id: _dismissibleReplyFeed.id,
+          filterByTypes: filters,
+          reconnectMessage: _dismissibleReplyFeed.reconnectMessage,
+          failureMessage: _dismissibleReplyFeed.failureMessage,
+          emptyMessage: _dismissibleReplyFeed.emptyMessage,
+          dismissal: _dismissibleReplyFeed.dismissal,
+        );
+
+        final dismissing = controller.dismissPluginNotifications(
+          _connectedInstance(),
+          source,
+        );
+        await credentials.started.future;
+        filters[0] = const NotificationTypeName('quoted');
+        credentials.result.complete('key');
+        await dismissing;
+
+        expect(
+          api.markedTypesRead.map(
+            (types) => types.map((type) => type.value).toList(),
+          ),
+          const [
+            ['replied'],
+          ],
+        );
+      },
+    );
+
     test('conflicting plugin feed definitions cannot share state', () async {
       final api = _AccountApi(chatNotificationList: const [_chatNotification]);
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';

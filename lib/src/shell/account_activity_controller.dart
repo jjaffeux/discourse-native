@@ -557,9 +557,10 @@ final class AccountActivityController extends FrameSafeNotifier {
       source: source == null ? null : _pluginNotificationState(source.id).slot,
     );
     if (attempt == null || isDisposed || !lease.isCurrent) return;
-    final dismissedTypeNames =
-        source?.filterByTypes ??
-        [for (final type in types) NotificationTypeName(type.wireName)];
+    final dismissedTypeNames = List<NotificationTypeName>.unmodifiable(
+      source?.filterByTypes ??
+          [for (final type in types) NotificationTypeName(type.wireName)],
+    );
 
     try {
       final auth = await AccountRequestSession(
