@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -8,7 +9,11 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/shell/post_fast_edit.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -316,6 +321,97 @@ void main() {
 
     expect(shell.visibleComposer?.text.selection.baseOffset, 0);
   });
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets(
+      'fast editor keeps its draft through dismissal attempts while saving '
+      'on $platform, then closes after success',
+      (tester) async {
+        const post = Post(
+          id: 22,
+          postNumber: 2,
+          username: 'author',
+          cooked: '<p>selected</p>',
+          raw: 'selected',
+          canEdit: true,
+        );
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          postsById: const {22: post},
+          updatePostGate: gate,
+        );
+        final shell = await _shell(api, post);
+        addTearDown(shell.dispose);
+        final trigger = FocusNode();
+        addTearDown(trigger.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: Center(
+                child: Builder(
+                  builder: (context) => DButton(
+                    focusNode: trigger,
+                    label: const Text('Open editor'),
+                    onPressed: () => showPostFastEditor(
+                      context: context,
+                      controller: shell,
+                      siteUrl: _siteUrl,
+                      topicId: 7,
+                      post: post,
+                      selectedMarkdown: 'selected',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        trigger.requestFocus();
+        await tester.pump();
+        await tester.tap(find.text('Open editor'));
+        await tester.pumpAndSettle();
+        final editor = find.byKey(const ValueKey('fast-edit-input'));
+        final field = find.descendant(
+          of: editor,
+          matching: find.byType(EditableText),
+        );
+        await tester.enterText(field, 'changed');
+        await tester.pump();
+        if (platform == TargetPlatform.iOS) {
+          final surface = find.byType(DSheetContent);
+          final bounds = tester.getRect(surface);
+          await tester.drag(find.byTooltip('Close'), const Offset(0, 400));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(surface), bounds);
+          expect(find.byKey(const ValueKey('sheet-drag-handle')), findsNothing);
+        }
+        await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(api.updated, hasLength(1));
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        expect(editor, findsOneWidget);
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pump();
+        expect(editor, findsOneWidget);
+        await tester.tapAt(const Offset(4, 4));
+        await tester.pump();
+        expect(editor, findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        expect(editor, findsOneWidget);
+        expect(tester.widget<EditableText>(field).controller.text, 'changed');
+        expect(api.updated, hasLength(1));
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(editor, findsNothing);
+        expect(api.updated.single['raw'], 'changed');
+        expect(trigger.hasPrimaryFocus, isTrue);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
 }
 
 Future<ShellController> _shell(FakeDiscourseApi api, Post post) async {

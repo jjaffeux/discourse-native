@@ -104,44 +104,55 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
               ?when,
             ].join(' · '),
           );
-          return ListTile(
+          return DItem(
             key: ValueKey('chat-pin-${pin.id}'),
-            minTileHeight: 56,
-            leading: Semantics(
-              label: appL10n.messageBy(
-                (pin.message.author.displayName).toString(),
-              ),
-              child: ChatUserAvatar(
-                siteUrl: widget.siteUrl,
-                userId: pin.message.author.id,
-                url: pin.message.author.avatarUrl,
-                flair: pin.message.author.flair,
-                size: 32,
-                fallback: const DIcon(DIcons.user, size: 20),
-              ),
-            ),
-            title: SiteEmojiText.plain(
-              pin.excerpt.isEmpty ? pin.message.raw : pin.excerpt,
-              siteUrl: widget.siteUrl,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: switch (pin.pinnedAt) {
-              final at? => RelativeTimeBuilder(
-                when: at,
-                builder: (context, when) => metadata(when),
-              ),
-              null when by.isNotEmpty => metadata(null),
-              null => null,
-            },
-            onTap: () {
-              Navigator.of(sheetContext).pop();
+            onPressed: () {
+              DDialogClose.close<void>(sheetContext);
               // The sheet outlives a bar rebuilt under a new key while it is
               // open; a pin tapped then must not reach the old bar.
               if (!mounted) return;
               widget.onJumpToMessage(pin.messageId);
               setState(() => _activeMessageId = pin.messageId);
             },
+            children: [
+              DItemMedia(
+                child: Semantics(
+                  label: appL10n.messageBy(
+                    (pin.message.author.displayName).toString(),
+                  ),
+                  child: ChatUserAvatar(
+                    siteUrl: widget.siteUrl,
+                    userId: pin.message.author.id,
+                    url: pin.message.author.avatarUrl,
+                    flair: pin.message.author.flair,
+                    size: 32,
+                    fallback: const DIcon(DIcons.user, size: 20),
+                  ),
+                ),
+              ),
+              DItemContent(
+                children: [
+                  DItemTitle(
+                    child: SiteEmojiText.plain(
+                      pin.excerpt.isEmpty ? pin.message.raw : pin.excerpt,
+                      siteUrl: widget.siteUrl,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (switch (pin.pinnedAt) {
+                        final at? => RelativeTimeBuilder(
+                          when: at,
+                          builder: (context, when) => metadata(when),
+                        ),
+                        null when by.isNotEmpty => metadata(null),
+                        null => null,
+                      }
+                      case final subtitle?)
+                    DItemDescription(child: subtitle),
+                ],
+              ),
+            ],
           );
         },
       ),
@@ -162,15 +173,22 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
           if (state.error != null) {
             return Material(
               color: Theme.of(context).colorScheme.surfaceContainerLow,
-              child: ListTile(
-                minTileHeight: 48,
-                leading: const DIcon(DIcons.thumbtack, size: 16),
-                title: Text(state.error!),
-                trailing: DButton(
-                  label: Text(context.l10n.retry),
-                  onPressed: () => _load(force: true),
-                  variant: DButtonVariant.link,
-                ),
+              child: DItem(
+                children: [
+                  const DItemMedia(child: DIcon(DIcons.thumbtack, size: 16)),
+                  DItemContent(
+                    children: [DItemTitle(child: Text(state.error!))],
+                  ),
+                  DItemActions(
+                    children: [
+                      DButton(
+                        label: Text(context.l10n.retry),
+                        onPressed: () => _load(force: true),
+                        variant: DButtonVariant.link,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             );
           }
@@ -189,76 +207,84 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
             : current.excerpt;
         return Material(
           color: theme.colorScheme.surfaceContainerLow,
-          child: InkWell(
+          child: DItem(
+            size: DItemSize.sm,
             key: const ValueKey('chat-pinned-message-bar'),
-            onTap: () => _jump(ordered, current),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 50),
-              child: Padding(
-                padding: const EdgeInsetsDirectional.only(
-                  start: 16,
-                  end: 4,
-                  top: 6,
-                  bottom: 6,
-                ),
-                child: Row(
-                  children: [
-                    DIcon(
-                      DIcons.thumbtack,
-                      size: 16,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+            onPressed: () => _jump(ordered, current),
+            children: [
+              DItemContent(
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 50),
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        start: 16,
+                        end: 4,
+                        top: 6,
+                        bottom: 6,
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            context.l10n.pinnedMessage,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w700,
+                          DIcon(
+                            DIcons.thumbtack,
+                            size: 16,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  context.l10n.pinnedMessage,
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                SiteEmojiText.plain(
+                                  excerpt,
+                                  siteUrl: widget.siteUrl,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.discourse.primaryHigh,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          SiteEmojiText.plain(
-                            excerpt,
-                            siteUrl: widget.siteUrl,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.discourse.primaryHigh,
+                          if (ordered.length > 1)
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                DButton.iconOnly(
+                                  onPressed: () => unawaited(_showAll(ordered)),
+                                  variant: DButtonVariant.ghost,
+                                  tooltip: context.l10n.pinnedMessages,
+                                  icon: const DIcon(DIcons.list),
+                                ),
+                                if (widget.channel.membership.hasUnseenPins)
+                                  PositionedDirectional(
+                                    top: 8,
+                                    end: 8,
+                                    child: DNotificationDot(
+                                      semanticLabel:
+                                          context.l10n.unseenPinnedMessages,
+                                      color:
+                                          theme.discourse.notificationIndicator,
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
                         ],
                       ),
                     ),
-                    if (ordered.length > 1)
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          DButton.iconOnly(
-                            onPressed: () => unawaited(_showAll(ordered)),
-                            variant: DButtonVariant.ghost,
-                            tooltip: context.l10n.pinnedMessages,
-                            icon: const DIcon(DIcons.list),
-                          ),
-                          if (widget.channel.membership.hasUnseenPins)
-                            PositionedDirectional(
-                              top: 8,
-                              end: 8,
-                              child: DNotificationDot(
-                                semanticLabel:
-                                    context.l10n.unseenPinnedMessages,
-                                color: theme.discourse.notificationIndicator,
-                              ),
-                            ),
-                        ],
-                      ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
+            ],
           ),
         );
       },

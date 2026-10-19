@@ -97,14 +97,6 @@ bool handleTabOpenResult(BuildContext context, TabOpenResult result) {
   return result == TabOpenResult.opened;
 }
 
-final ValueNotifier<bool> _shiftHeldForLinks = ValueNotifier(false);
-int _shiftWatcherUsers = 0;
-
-bool _updateLinkShift(KeyEvent _) {
-  _shiftHeldForLinks.value = HardwareKeyboard.instance.isShiftPressed;
-  return false;
-}
-
 /// Keeps one link context menu open at a time across link surfaces.
 final class LinkContextMenuSession {
   static LinkContextMenuSession? _active;
@@ -126,20 +118,6 @@ final class LinkContextMenuSession {
   void dispose() {
     if (identical(_active, this)) _active = null;
     controller.dispose();
-  }
-}
-
-void _watchLinkShift() {
-  if (_shiftWatcherUsers++ == 0) {
-    HardwareKeyboard.instance.addHandler(_updateLinkShift);
-    _shiftHeldForLinks.value = HardwareKeyboard.instance.isShiftPressed;
-  }
-}
-
-void _unwatchLinkShift() {
-  if (--_shiftWatcherUsers == 0) {
-    HardwareKeyboard.instance.removeHandler(_updateLinkShift);
-    _shiftHeldForLinks.value = false;
   }
 }
 
@@ -278,14 +256,7 @@ class _LinkTargetState extends State<LinkTarget> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _watchLinkShift();
-  }
-
-  @override
   void dispose() {
-    _unwatchLinkShift();
     _menu.dispose();
     super.dispose();
   }
@@ -383,82 +354,70 @@ class _LinkTargetState extends State<LinkTarget> {
       }
     }
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: _shiftHeldForLinks,
-      builder: (context, shiftHeld, _) {
-        final shifted =
-            shiftHeld &&
-            ShellScope.maybeRead(context)?.desktopPanelsEnabled == true;
-        return DContextMenu(
-          controller: _menu.controller,
-          onOpenChange: _onOpenChange,
-          content: DContextMenuContent(
-            semanticLabel: context.l10n.openLinkOpenlink,
-            children: [
-              DContextMenuItem(
-                onPressed: () =>
-                    activate(newTab: false, panel: ForumPanel.main),
-                child: Text(context.l10n.openInMainPanel),
-              ),
-              DContextMenuItem(
-                onPressed: () =>
-                    activate(newTab: false, panel: ForumPanel.secondary),
-                child: Text(context.l10n.openInSecondaryPanel),
-              ),
-              DContextMenuItem(
-                onPressed: () => activate(newTab: true, panel: ForumPanel.main),
-                child: Text(context.l10n.openInNewMainTab),
-              ),
-              DContextMenuItem(
-                onPressed: () =>
-                    activate(newTab: true, panel: ForumPanel.secondary),
-                child: Text(context.l10n.openInNewSecondaryTab),
-              ),
-              if (localRoute != null &&
-                  DestinationBookmark.fromRoute(localRoute) != null) ...[
-                const DContextMenuSeparator(),
-                DestinationBookmarkMenuItem(
-                  route: localRoute,
-                  siteUrl: ownerSite,
-                ),
-              ] else if (_bookmarkAction case final action?) ...[
-                const DContextMenuSeparator(),
-                DContextMenuItem(
-                  onPressed: () => unawaited(_invokeBookmark(action)),
-                  child: Text(
-                    action.resolution != null
-                        ? context.l10n.bookmarks
-                        : action.bookmark == null
-                        ? context.l10n.bookmark
-                        : context.l10n.removeBookmark,
-                  ),
-                ),
-              ],
-              if (widget.contextMenuItems.isNotEmpty) ...[
-                const DContextMenuSeparator(),
-                ...widget.contextMenuItems,
-              ],
-            ],
+    return DContextMenu(
+      controller: _menu.controller,
+      onOpenChange: _onOpenChange,
+      content: DContextMenuContent(
+        semanticLabel: context.l10n.openLinkOpenlink,
+        children: [
+          DContextMenuItem(
+            onPressed: () => activate(newTab: false, panel: ForumPanel.main),
+            child: Text(context.l10n.openInMainPanel),
           ),
-          child: DContextMenuTrigger(
-            focusable: false,
-            captureSecondaryTap: true,
-            longPressEnabled: widget.longPressEnabled,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onTap: shifted
-                  ? () => activate(newTab: false, panel: ForumPanel.secondary)
-                  : null,
-              onTertiaryTapUp: (_) => activate(
-                newTab: true,
-                panel: shifted ? ForumPanel.secondary : null,
+          DContextMenuItem(
+            onPressed: () =>
+                activate(newTab: false, panel: ForumPanel.secondary),
+            child: Text(context.l10n.openInSecondaryPanel),
+          ),
+          DContextMenuItem(
+            onPressed: () => activate(newTab: true, panel: ForumPanel.main),
+            child: Text(context.l10n.openInNewMainTab),
+          ),
+          DContextMenuItem(
+            onPressed: () =>
+                activate(newTab: true, panel: ForumPanel.secondary),
+            child: Text(context.l10n.openInNewSecondaryTab),
+          ),
+          if (localRoute != null &&
+              DestinationBookmark.fromRoute(localRoute) != null) ...[
+            const DContextMenuSeparator(),
+            DestinationBookmarkMenuItem(route: localRoute, siteUrl: ownerSite),
+          ] else if (_bookmarkAction case final action?) ...[
+            const DContextMenuSeparator(),
+            DContextMenuItem(
+              onPressed: () => unawaited(_invokeBookmark(action)),
+              child: Text(
+                action.resolution != null
+                    ? context.l10n.bookmarks
+                    : action.bookmark == null
+                    ? context.l10n.bookmark
+                    : context.l10n.removeBookmark,
               ),
-              child: IgnorePointer(ignoring: shifted, child: widget.child),
             ),
+          ],
+          if (widget.contextMenuItems.isNotEmpty) ...[
+            const DContextMenuSeparator(),
+            ...widget.contextMenuItems,
+          ],
+        ],
+      ),
+      child: DContextMenuTrigger(
+        focusable: false,
+        captureSecondaryTap: true,
+        longPressEnabled: widget.longPressEnabled,
+        child: DLinkInteraction(
+          shiftPrimaryEnabled: shell?.desktopPanelsEnabled == true,
+          onActivate: (activation) => activate(
+            newTab: activation != DLinkActivation.shiftedPrimary,
+            panel:
+                shell?.desktopPanelsEnabled == true &&
+                    activation != DLinkActivation.middle
+                ? ForumPanel.secondary
+                : null,
           ),
-        );
-      },
+          child: widget.child,
+        ),
+      ),
     );
   }
 }

@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/native_ui_evidence.dart';
 import 'support/page_scrollbar.dart';
 
 const _group = Group(
@@ -464,7 +465,7 @@ void main() {
       ),
     );
 
-    final tile = find.widgetWithText(ListTile, 'General');
+    final tile = find.widgetWithText(DItem, 'General');
     expect(tile, findsOneWidget);
     expect(
       find.descendant(
@@ -942,67 +943,99 @@ void main() {
     },
   );
 
-  testWidgets('admin deletion requires an exact group-name confirmation', (
-    tester,
-  ) async {
-    var deleted = false;
-    await _pump(
-      tester,
-      GroupPage(
-        siteUrl: 'https://meta.discourse.org',
-        route: GroupRoute.detail('support'),
-        registry: PluginRegistry.empty,
-        data: const GroupPageData(
-          detail: _detail,
-          members: GroupMembersPage(members: [_member], total: 1),
-          isAdmin: true,
-        ),
-        onDeleteGroup: () async {
-          deleted = true;
-          return true;
-        },
-        onOpenMember: _ignoreMember,
+  for (final config in [
+    (
+      name: 'desktop-light',
+      size: const Size(1000, 820),
+      scale: 1.0,
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+    ),
+    (
+      name: 'mobile-dark-glass-200',
+      size: const Size(390, 844),
+      scale: 2.0,
+      theme: DMaterialTheme.apply(
+        AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+        DAppearanceMaterial.liquidGlass,
       ),
-    );
+    ),
+  ]) {
+    testWidgets(
+      'admin deletion requires an exact group-name confirmation on ${config.name}',
+      (tester) async {
+        var deleted = false;
+        await _pump(
+          tester,
+          GroupPage(
+            siteUrl: 'https://meta.discourse.org',
+            route: GroupRoute.detail('support'),
+            registry: PluginRegistry.empty,
+            data: const GroupPageData(
+              detail: _detail,
+              members: GroupMembersPage(members: [_member], total: 1),
+              isAdmin: true,
+            ),
+            onDeleteGroup: () async {
+              deleted = true;
+              return true;
+            },
+            onOpenMember: _ignoreMember,
+          ),
+          size: config.size,
+          theme: config.theme,
+          scale: config.scale,
+        );
 
-    expect(find.text('More'), findsNothing);
-    expect(find.text('Group settings'), findsNothing);
-    expect(find.text('Copy group link'), findsNothing);
-    expect(find.text('Delete group'), findsNothing);
-    final trigger = find.byKey(const ValueKey('group-actions'));
-    final triggerFocus = tester.widget<DButton>(trigger).focusNode!;
-    triggerFocus.requestFocus();
-    await tester.pump();
-    await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    await tester.pumpAndSettle();
-    expect(find.byType(DDropdownMenuContent), findsOneWidget);
-    expect(tester.widget<DButton>(trigger).expanded, isTrue);
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(find.byType(DDropdownMenuContent), findsNothing);
-    expect(triggerFocus.hasFocus, isTrue);
-    expect(deleted, isFalse);
-    await tester.sendKeyEvent(LogicalKeyboardKey.space);
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<DButton>(find.byKey(const ValueKey('confirm-delete-group')))
-          .onPressed,
-      isNull,
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('group-delete-confirmation')),
-      'support',
-    );
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('confirm-delete-group')));
-    await tester.pumpAndSettle();
+        expect(find.text('More'), findsNothing);
+        expect(find.text('Group settings'), findsNothing);
+        expect(find.text('Copy group link'), findsNothing);
+        expect(find.text('Delete group'), findsNothing);
+        final trigger = find.byKey(const ValueKey('group-actions'));
+        final triggerFocus = tester.widget<DButton>(trigger).focusNode!;
+        triggerFocus.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsOneWidget);
+        expect(tester.widget<DButton>(trigger).expanded, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuContent), findsNothing);
+        expect(triggerFocus.hasFocus, isTrue);
+        expect(deleted, isFalse);
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DButton>(
+                find.byKey(const ValueKey('confirm-delete-group')),
+              )
+              .onPressed,
+          isNull,
+        );
+        await captureNativeUi(
+          tester,
+          'group-confirmation-${config.name}-disabled',
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('group-delete-confirmation')),
+          'support',
+        );
+        await tester.pump();
+        await captureNativeUi(
+          tester,
+          'group-confirmation-${config.name}-enabled',
+        );
+        await tester.tap(find.byKey(const ValueKey('confirm-delete-group')));
+        await tester.pumpAndSettle();
 
-    expect(deleted, isTrue);
-    expect(tester.takeException(), isNull);
-  });
+        expect(deleted, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('all manage subtabs are present and tag changes are submitted', (
     tester,
@@ -1357,13 +1390,25 @@ Future<void> _pump(
   WidgetTester tester,
   Widget child, {
   Size size = const Size(1000, 820),
+  ThemeData? theme,
+  double scale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  await prepareNativeUiEvidence(tester);
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
+      builder: (context, child) => nativeUiEvidenceBuilder(
+        context,
+        MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
+      ),
       home: Scaffold(body: child),
     ),
   );

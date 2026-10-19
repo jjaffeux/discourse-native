@@ -567,9 +567,6 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
       final initial = widget.initialFocusNode;
       if (initial?.canRequestFocus ?? false) {
         initial!.requestFocus();
-      } else {
-        _focusScope.requestFocus();
-        _focusScope.nextFocus();
       }
     });
   }
@@ -595,7 +592,11 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
     final animate = !MediaQuery.disableAnimationsOf(context);
     final focusedContent = FocusTraversalGroup(
       policy: ReadingOrderTraversalPolicy(),
-      child: FocusScope(node: _focusScope, child: widget.content),
+      child: FocusScope(
+        node: _focusScope,
+        autofocus: true,
+        child: widget.content,
+      ),
     );
     final presentation = DDialogPresentation(
       content: focusedContent,
@@ -619,8 +620,17 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
             DSpacing.lg,
             DSpacing.lg + insets.bottom,
           ),
-          child: Center(
-            child: SingleChildScrollView(primary: false, child: focusedContent),
+          child: LayoutBuilder(
+            builder: (context, viewport) => _DDialogContentScope(
+              close: _DDialogContentScope.of(context).close,
+              availableHeight: viewport.maxHeight,
+              child: Center(
+                child: SingleChildScrollView(
+                  primary: false,
+                  child: focusedContent,
+                ),
+              ),
+            ),
           ),
         ),
       );
@@ -666,9 +676,18 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
 }
 
 class _DDialogContentScope extends InheritedWidget {
-  const _DDialogContentScope({required this.close, required super.child});
+  const _DDialogContentScope({
+    required this.close,
+    required super.child,
+    this.availableHeight,
+  });
 
   final ValueChanged<Object?> close;
+  final double? availableHeight;
+
+  static double? availableHeightOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_DDialogContentScope>()
+      ?.availableHeight;
 
   static _DDialogContentScope of(BuildContext context) {
     final result = context
@@ -679,7 +698,7 @@ class _DDialogContentScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(_DDialogContentScope oldWidget) =>
-      close != oldWidget.close;
+      close != oldWidget.close || availableHeight != oldWidget.availableHeight;
 }
 
 /// The base-nova popup surface.
@@ -691,11 +710,13 @@ class DDialogContent extends StatelessWidget {
     this.closeButton,
     this._closeSemanticLabel,
     this.maxWidth = 384,
+    this.maxHeight,
     this.semanticLabel,
     this.contentPadding = const EdgeInsets.symmetric(horizontal: DSpacing.lg),
     this.verticalPadding = DSpacing.lg,
     this.spacing = DSpacing.lg,
-  }) : assert(maxWidth > 0);
+  }) : assert(maxWidth > 0),
+       assert(maxHeight == null || maxHeight > 0);
 
   final List<Widget> children;
   final bool showCloseButton;
@@ -703,6 +724,13 @@ class DDialogContent extends StatelessWidget {
   final String? _closeSemanticLabel;
   String get closeSemanticLabel => _closeSemanticLabel ?? appL10n.close;
   final double maxWidth;
+
+  /// Caps a bounded composition within the default Dialog viewport.
+  ///
+  /// The Native presentation reserves safe-area and keyboard clearance once.
+  /// Flexible children can keep a header and footer visible around a scroller.
+  /// Null retains the default natural-height and outer-scroll behavior.
+  final double? maxHeight;
   final String? semanticLabel;
   final EdgeInsetsGeometry contentPadding;
   final double verticalPadding;
@@ -712,6 +740,13 @@ class DDialogContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final radius = BorderRadius.circular(DRadius.panel);
+    final maxHeight = this.maxHeight;
+    final availableHeight = maxHeight == null
+        ? double.infinity
+        : (_DDialogContentScope.availableHeightOf(context) ??
+                  MediaQuery.sizeOf(context).height)
+              .clamp(0.0, maxHeight)
+              .toDouble();
     final body = Material(
       animationDuration: Duration.zero,
       color: DMaterialSurface.fill(context, tokens.surface),
@@ -735,6 +770,12 @@ class DDialogContent extends StatelessWidget {
                 if (index > 0) SizedBox(height: spacing),
                 if (children[index] is DDialogFooter)
                   children[index]
+                else if (children[index] case final Flexible child)
+                  Flexible(
+                    flex: child.flex,
+                    fit: child.fit,
+                    child: Padding(padding: contentPadding, child: child.child),
+                  )
                 else
                   Padding(padding: contentPadding, child: children[index]),
               ],
@@ -768,7 +809,10 @@ class DDialogContent extends StatelessWidget {
       scopesRoute: true,
       label: semanticLabel,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: availableHeight,
+        ),
         child: SizedBox(
           width: double.infinity,
           child: DecoratedBox(
@@ -934,6 +978,10 @@ typedef DDialogCloseBuilder =
 class DDialogClose<T> extends StatelessWidget {
   const DDialogClose({super.key, required this.builder, this.result});
 
+  /// Requests typed closure of the Native dialog or sheet containing [context].
+  static void close<R>(BuildContext context, [R? result]) =>
+      _DDialogContentScope.of(context).close(result);
+
   final DDialogCloseBuilder builder;
   final T? result;
 
@@ -997,6 +1045,7 @@ Future<T?> showDDialog<T>({
   RouteSettings? routeSettings,
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
+  bool restoreFocus = true,
   DDialogPresentationBuilder? presentationBuilder,
   Duration? transitionDuration,
   Duration? reverseTransitionDuration,
@@ -1062,7 +1111,7 @@ Future<T?> showDDialog<T>({
     controller.dispose();
     environment.dispose();
     configuration.dispose();
-    if (route.shouldRestoreFocus) {
+    if (restoreFocus && route.shouldRestoreFocus) {
       final target = finalFocusNode ?? previousFocus;
       if (target?.canRequestFocus ?? false) target!.requestFocus();
     }

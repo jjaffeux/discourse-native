@@ -84,7 +84,7 @@ class _ChatThreadSettingsEditorState extends State<_ChatThreadSettingsEditor> {
     );
     if (!mounted) return;
     if (saved) {
-      Navigator.of(context).pop();
+      DDialogClose.close<void>(context);
       return;
     }
     setState(() {

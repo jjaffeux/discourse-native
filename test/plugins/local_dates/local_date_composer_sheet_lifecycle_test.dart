@@ -13,10 +13,7 @@ void main() {
     LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC');
   });
 
-  Future<void> removeSheetWhilePickerIsOpen(
-    WidgetTester tester, {
-    required String pickerTooltip,
-  }) async {
+  Future<void> removeSheetWhilePickerIsOpen(WidgetTester tester) async {
     final hostKey = GlobalKey<_PickerHostState>();
     await tester.pumpWidget(
       MaterialApp(
@@ -25,15 +22,19 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byTooltip(pickerTooltip));
+    final time = find.byType(DTimeInput).first;
+    await tester.ensureVisible(time);
+    await tester.tap(
+      find.descendant(of: time, matching: find.byType(TextField)),
+    );
     await tester.pumpAndSettle();
-    expect(find.text('OK'), findsOneWidget);
+    expect(find.byType(DSheetContent), findsOneWidget);
 
     hostKey.currentState!.removeSheet();
     await tester.pump();
     expect(find.byType(LocalDateComposerSheet), findsNothing);
 
-    await tester.tap(find.text('OK'));
+    await tester.tap(find.widgetWithText(DButton, 'Apply'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   }
@@ -61,10 +62,7 @@ void main() {
   testWidgets('time picker completion ignores a disposed sheet', (
     tester,
   ) async {
-    await removeSheetWhilePickerIsOpen(
-      tester,
-      pickerTooltip: 'Choose Start time',
-    );
+    await removeSheetWhilePickerIsOpen(tester);
   });
 
   testWidgets('invalid date is announced from the keyboard action', (
@@ -78,6 +76,7 @@ void main() {
           home: Scaffold(
             body: SingleChildScrollView(
               child: LocalDateComposerSheet(
+                onClose: (_) {},
                 draft: LocalDateComposerDraft.newDate(
                   now: DateTime(2026, 8, 12),
                   timezone: 'Etc/UTC',
@@ -157,6 +156,7 @@ class _PickerHostState extends State<_PickerHost> {
     body: _showSheet
         ? SingleChildScrollView(
             child: LocalDateComposerSheet(
+              onClose: (_) {},
               draft: LocalDateComposerDraft.newDate(
                 now: DateTime(2026, 8, 12),
                 timezone: 'Etc/UTC',

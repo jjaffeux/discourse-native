@@ -212,17 +212,13 @@ final inputGroupExamples = ComponentExamples(
       builder: (_) => const _TextareaFooterExample(),
     ),
     StyleguideExample(
-      title: 'Custom input',
+      title: 'Growing input',
       description:
-          'A custom content-growing editor attaches the focus node supplied by the group adapter.',
+          'The Native textarea grows with content while the input group owns its addons.',
       states: const ['Custom editor', 'Content growth', 'Focus', 'Submit'],
       code: '''DInputGroup(children: [
-  DInputGroupControl(multiline: true,
-    builder: (context, focusNode) => TextField(
-      controller: controller, focusNode: focusNode,
-      minLines: 1, maxLines: 5,
-      decoration: const InputDecoration.collapsed(
-        hintText: 'Custom resizable textarea'))),
+  DInputGroupTextarea(controller: controller,
+    minLines: 1, maxLines: 5, hintText: 'Custom resizable textarea'),
   DInputGroupAddon(alignment: DInputGroupAddonAlignment.blockEnd,
     child: DInputGroupButton(label: Text('Submit'), onPressed: submit)),
 ])''',
@@ -649,17 +645,11 @@ class _CustomInputExampleState extends State<_CustomInputExample> {
     children: [
       DInputGroup(
         children: [
-          DInputGroupControl(
-            multiline: true,
-            builder: (context, focusNode) => TextField(
-              controller: _controller,
-              focusNode: focusNode,
-              minLines: 1,
-              maxLines: 5,
-              decoration: const InputDecoration.collapsed(
-                hintText: 'Custom resizable textarea',
-              ),
-            ),
+          DInputGroupTextarea(
+            controller: _controller,
+            minLines: 1,
+            maxLines: 5,
+            hintText: 'Custom resizable textarea',
           ),
           DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.blockEnd,

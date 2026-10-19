@@ -1,11 +1,10 @@
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../../../theme/app_theme.dart';
 import '../../../avatar_image.dart';
 import '../../../cooked_dom.dart';
-import '../../../inline_action.dart';
 import '../../../open_link.dart';
 import '../../../site_url.dart';
 import '../../markup.dart';
@@ -62,20 +61,27 @@ class DiscourseUserOnebox extends StatelessWidget {
                       LinkTarget(
                         url: data.websiteUrl,
                         siteUrl: siteUrl,
-                        child: InlineAction.link(
-                          onTap: () => openLink(
+                        child: DItem(
+                          fitContent: true,
+                          size: DItemSize.artwork,
+                          highlightOnInteraction: false,
+                          link: true,
+                          onPressed: () => openLink(
                             context,
                             data.websiteUrl!,
                             siteUrl: siteUrl,
                           ),
                           semanticLabel: data.websiteName!,
-                          excludeChildSemantics: true,
-                          child: Text(
-                            data.websiteName!,
-                            style: _mutedStyle(
-                              theme,
-                            )?.copyWith(color: theme.colorScheme.primary),
-                          ),
+                          children: [
+                            ExcludeSemantics(
+                              child: Text(
+                                data.websiteName!,
+                                style: _mutedStyle(
+                                  theme,
+                                )?.copyWith(color: theme.colorScheme.primary),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                   ],

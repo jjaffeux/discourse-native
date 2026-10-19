@@ -210,34 +210,15 @@ Future<void> showPostBookmarkMenu({
           dialogOnDesktop: true,
           builder: contents,
         )
-      : await showGeneralDialog<_QuickMenuResult>(
+      : await showDDropdownMenu<_QuickMenuResult>(
           context: context,
-          barrierColor: Colors.transparent,
-          transitionDuration: Duration.zero,
-          pageBuilder: (routeContext, _, _) => Stack(
-            children: [
-              Positioned.fromRect(
-                rect: anchor,
-                child: DDropdownMenu(
-                  defaultOpen: true,
-                  restoreFocus: false,
-                  onOpenChange: (open, _) {
-                    if (!open) Navigator.of(routeContext).pop();
-                  },
-                  content: DDropdownMenuContent(
-                    semanticLabel: title,
-                    width: 300,
-                    constraints: const BoxConstraints(maxHeight: 500),
-                    children: [
-                      Builder(
-                        builder: (context) => contents(context, menu: true),
-                      ),
-                    ],
-                  ),
-                  child: const DPopoverAnchor(child: SizedBox.expand()),
-                ),
-              ),
-            ],
+          anchorRect: anchor,
+          restoreFocus: false,
+          builder: (context) => DDropdownMenuContent(
+            semanticLabel: title,
+            width: 300,
+            constraints: const BoxConstraints(maxHeight: 500),
+            children: [contents(context, menu: true)],
           ),
         );
   if (result == null || !context.mounted || !_canAct(context, session)) return;
@@ -537,7 +518,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     setState(() => _busy = false);
     if (!_canUseSession) return;
     if (result.saved) {
-      Navigator.of(context).pop();
+      DDialogClose.close<void>(context);
       return;
     }
     setState(() {
@@ -558,7 +539,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     setState(() => _busy = false);
     if (!_canUseSession) return;
     if (result.saved) {
-      Navigator.of(context).pop();
+      DDialogClose.close<void>(context);
       return;
     }
     setState(() {
@@ -589,7 +570,7 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
     setState(() => _busy = false);
     if (!_canUseSession) return;
     if (result.saved) {
-      Navigator.of(context).pop();
+      DDialogClose.close<void>(context);
       return;
     }
     setState(() {
@@ -599,7 +580,10 @@ class _BookmarkQuickSheetState extends State<_BookmarkQuickSheet> {
 
   void _edit(Bookmark bookmark) {
     if (!_canUseSession) return;
-    Navigator.of(context).pop(_QuickMenuResult.edit(bookmark));
+    DDialogClose.close<_QuickMenuResult>(
+      context,
+      _QuickMenuResult.edit(bookmark),
+    );
   }
 
   @override
@@ -911,7 +895,7 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
     setState(() => _busy = false);
     if (!_canUseSession) return;
     if (result.saved) {
-      Navigator.of(context).pop();
+      DDialogClose.close<void>(context);
       return;
     }
     setState(() {
@@ -1131,7 +1115,9 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
             children: [
               DButton(
                 label: Text(context.l10n.cancel),
-                onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                onPressed: _busy
+                    ? null
+                    : () => DDialogClose.close<void>(context),
               ),
               DButton(
                 label: Text(context.l10n.save),
@@ -1191,7 +1177,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
 
   void _choose(BuildContext context, _TopicBookmarksAction action) {
     if (!context.mounted || !_canAct(context, session)) return;
-    Navigator.of(context).pop(action);
+    DDialogClose.close<_TopicBookmarksAction>(context, action);
   }
 
   @override
@@ -1240,23 +1226,8 @@ class _TopicBookmarksSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: DIcon(
-              topic.topicBookmark == null
-                  ? DIcons.farBookmark
-                  : topic.topicBookmark!.reminderAt == null
-                  ? DIcons.bookmark
-                  : DIcons.discourseBookmarkClock,
-            ),
-            title: Text(
-              topic.topicBookmark == null
-                  ? context.l10n.bookmarkTopic
-                  : context.l10n.topicBookmark,
-            ),
-            subtitle: _bookmarkContext(context, topic.topicBookmark, zoneName),
-            enabled: !topicBusy,
-            onTap: topicBusy
+          DItem(
+            onPressed: topicBusy
                 ? null
                 : () => _choose(
                     context,
@@ -1264,26 +1235,38 @@ class _TopicBookmarksSheet extends StatelessWidget {
                       _TopicBookmarksActionKind.topic,
                     ),
                   ),
+            enabled: !topicBusy,
+            padding: EdgeInsets.zero,
+            children: [
+              DItemMedia(
+                child: DIcon(
+                  topic.topicBookmark == null
+                      ? DIcons.farBookmark
+                      : topic.topicBookmark!.reminderAt == null
+                      ? DIcons.bookmark
+                      : DIcons.discourseBookmarkClock,
+                ),
+              ),
+              DItemContent(
+                children: [
+                  DItemTitle(
+                    child: Text(
+                      topic.topicBookmark == null
+                          ? context.l10n.bookmarkTopic
+                          : context.l10n.topicBookmark,
+                    ),
+                  ),
+                  if (_bookmarkContext(context, topic.topicBookmark, zoneName)
+                      case final subtitle?)
+                    DItemDescription(child: subtitle),
+                ],
+              ),
+            ],
           ),
           const DSeparator(),
           for (final bookmark in topic.postBookmarks)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: DIcon(
-                bookmark.reminderAt == null
-                    ? DIcons.bookmark
-                    : DIcons.discourseBookmarkClock,
-              ),
-              title: Text(
-                context.l10n.postBookmarkui(
-                  (bookmark.postNumber ?? '?').toString(),
-                ),
-              ),
-              subtitle: _bookmarkContext(context, bookmark, zoneName),
-              enabled: !snapshot.busyTargets
-                  .split(',')
-                  .contains('${bookmark.bookmarkableId}'),
-              onTap:
+            DItem(
+              onPressed:
                   bookmark.postNumber == null ||
                       snapshot.busyTargets
                           .split(',')
@@ -1296,65 +1279,103 @@ class _TopicBookmarksSheet extends StatelessWidget {
                         postNumber: bookmark.postNumber,
                       ),
                     ),
-              trailing: Builder(
-                builder: (menuContext) {
-                  void onSelect(_TopicBookmarksActionKind kind) => _choose(
-                    context,
-                    _TopicBookmarksAction(
-                      kind,
-                      bookmark: bookmark,
-                      postNumber: kind == _TopicBookmarksActionKind.jump
-                          ? bookmark.postNumber
-                          : null,
-                    ),
-                  );
-                  return Semantics(
-                    container: true,
-                    explicitChildNodes: true,
-                    child: DDropdownMenu(
-                      content: DDropdownMenuContent(
-                        semanticLabel: context.l10n.postBookmarkActions,
-                        width: 280,
-                        children: [
-                          if (bookmark.postNumber != null)
-                            DDropdownMenuItem(
-                              onPressed: () =>
-                                  onSelect(_TopicBookmarksActionKind.jump),
-                              child: Text(context.l10n.jump),
-                            ),
-                          DDropdownMenuItem(
-                            onPressed: () =>
-                                onSelect(_TopicBookmarksActionKind.edit),
-                            child: Text(context.l10n.edit),
-                          ),
-                          DDropdownMenuItem(
-                            onPressed: () =>
-                                onSelect(_TopicBookmarksActionKind.delete),
-                            variant: DDropdownMenuItemVariant.destructive,
-                            child: Text(context.l10n.delete),
-                          ),
-                        ],
-                      ),
-                      child: DDropdownMenuTrigger(
-                        builder: (triggerContext, state) => DButton.iconOnly(
-                          tooltip: context.l10n.postBookmarkActions,
-                          variant: DButtonVariant.ghost,
-                          icon: const Icon(Icons.more_vert),
-                          focusNode: state.focusNode,
-                          hasPopup: true,
-                          expanded: state.open,
-                          onPressed:
-                              !snapshot.busyTargets
-                                  .split(',')
-                                  .contains('${bookmark.bookmarkableId}')
-                              ? state.toggle
-                              : null,
+              enabled: !snapshot.busyTargets
+                  .split(',')
+                  .contains('${bookmark.bookmarkableId}'),
+              padding: EdgeInsets.zero,
+              children: [
+                DItemMedia(
+                  child: DIcon(
+                    bookmark.reminderAt == null
+                        ? DIcons.bookmark
+                        : DIcons.discourseBookmarkClock,
+                  ),
+                ),
+                DItemContent(
+                  children: [
+                    DItemTitle(
+                      child: Text(
+                        context.l10n.postBookmarkui(
+                          (bookmark.postNumber ?? '?').toString(),
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                    if (_bookmarkContext(context, bookmark, zoneName)
+                        case final subtitle?)
+                      DItemDescription(child: subtitle),
+                  ],
+                ),
+                DItemActions(
+                  children: [
+                    Builder(
+                      builder: (menuContext) {
+                        void onSelect(_TopicBookmarksActionKind kind) =>
+                            _choose(
+                              context,
+                              _TopicBookmarksAction(
+                                kind,
+                                bookmark: bookmark,
+                                postNumber:
+                                    kind == _TopicBookmarksActionKind.jump
+                                    ? bookmark.postNumber
+                                    : null,
+                              ),
+                            );
+                        return Semantics(
+                          container: true,
+                          explicitChildNodes: true,
+                          child: DDropdownMenu(
+                            content: DDropdownMenuContent(
+                              semanticLabel: context.l10n.postBookmarkActions,
+                              width: 280,
+                              children: [
+                                if (bookmark.postNumber != null)
+                                  DDropdownMenuItem(
+                                    onPressed: () => onSelect(
+                                      _TopicBookmarksActionKind.jump,
+                                    ),
+                                    child: Text(context.l10n.jump),
+                                  ),
+                                DDropdownMenuItem(
+                                  onPressed: () =>
+                                      onSelect(_TopicBookmarksActionKind.edit),
+                                  child: Text(context.l10n.edit),
+                                ),
+                                DDropdownMenuItem(
+                                  onPressed: () => onSelect(
+                                    _TopicBookmarksActionKind.delete,
+                                  ),
+                                  variant: DDropdownMenuItemVariant.destructive,
+                                  child: Text(context.l10n.delete),
+                                ),
+                              ],
+                            ),
+                            child: DDropdownMenuTrigger(
+                              builder: (triggerContext, state) =>
+                                  DButton.iconOnly(
+                                    tooltip: context.l10n.postBookmarkActions,
+                                    variant: DButtonVariant.ghost,
+                                    icon: const Icon(Icons.more_vert),
+                                    focusNode: state.focusNode,
+                                    hasPopup: true,
+                                    expanded: state.open,
+                                    onPressed:
+                                        !snapshot.busyTargets
+                                            .split(',')
+                                            .contains(
+                                              '${bookmark.bookmarkableId}',
+                                            )
+                                        ? state.toggle
+                                        : null,
+                                  ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           if (topic.bookmarks.length > 1) ...[
             const DSeparator(),

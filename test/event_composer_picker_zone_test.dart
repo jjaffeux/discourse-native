@@ -171,7 +171,10 @@ void main() {
     await tester.enterText(find.byKey(_time), '11:00');
     await tester.tap(
       find.descendant(
-        of: find.byType(DDialogContent),
+        of: find.ancestor(
+          of: find.byKey(_apply),
+          matching: find.byType(DDialogContent),
+        ),
         matching: find.widgetWithText(DButton, 'Cancel'),
       ),
     );
@@ -262,7 +265,7 @@ Future<void> _choose(WidgetTester tester, {String label = 'Starts'}) async {
   await tester.pumpAndSettle();
   await tester.tap(find.descendant(of: field, matching: find.byType(DButton)));
   await tester.pumpAndSettle();
-  expect(find.byType(DDialogContent), findsOneWidget);
+  expect(find.byKey(_apply), findsOneWidget);
   expect(find.byType(CalendarDatePicker), findsNothing);
   expect(find.byType(TimePickerDialog), findsNothing);
 }
@@ -299,6 +302,7 @@ Future<EventTestPorts> _open(
           Directionality(textDirection: direction, child: child!),
       home: Scaffold(
         body: EventComposerSheet(
+          onClose: (_) {},
           block: start.isEmpty
               ? null
               : parseEventBlocks(

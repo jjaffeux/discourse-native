@@ -476,9 +476,11 @@ Future<void> showEventInvitations(
   if (event == null || !event.canManage || !source.authoritative) return;
   final handle = source.controller.acquire(source.site, event);
   try {
-    await showDiscourseDialog<void>(
+    await showDDialog<void>(
       context: context,
-      builder: (_) => _Invitations(handle: handle),
+      useRootNavigator: true,
+      builder: (_, dialog) =>
+          _Invitations(handle: handle, onClose: dialog.close),
     );
   } finally {
     handle.dispose();
@@ -486,8 +488,9 @@ Future<void> showEventInvitations(
 }
 
 class _Invitations extends StatefulWidget {
-  const _Invitations({required this.handle});
+  const _Invitations({required this.handle, required this.onClose});
   final EventHandle handle;
+  final VoidCallback onClose;
   @override
   State<_Invitations> createState() => _InvitationsState();
 }
@@ -518,7 +521,7 @@ class _InvitationsState extends State<_Invitations> {
     final sent = await widget.handle.invite(names);
     if (!mounted) return;
     if (sent) {
-      Navigator.pop(context);
+      widget.onClose();
     } else {
       setState(() {
         _sending = false;
@@ -534,41 +537,47 @@ class _InvitationsState extends State<_Invitations> {
   }
 
   @override
-  Widget build(BuildContext context) => DiscourseAlertDialog(
-    title: Text(context.l10n.invitePeople),
-    content: SizedBox(
-      width: 400,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            context
-                .l10n
-                .sendEventNotificationsToTheseUsernamesForPrivateEventsAccessIs,
-          ),
-          TextField(
-            style: Theme.of(context).textTheme.bodyMedium,
-            controller: _names,
-            autofocus: true,
-            decoration: InputDecoration(
+  Widget build(BuildContext context) => DDialogContent(
+    showCloseButton: false,
+    maxWidth: 520,
+    children: [
+      DDialogHeader(
+        children: [DDialogTitle(child: Text(context.l10n.invitePeople))],
+      ),
+      SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              context
+                  .l10n
+                  .sendEventNotificationsToTheseUsernamesForPrivateEventsAccessIs,
+            ),
+            DInput(
+              style: Theme.of(context).textTheme.bodyMedium,
+              controller: _names,
+              autofocus: true,
+              onSubmitted: (_) => _send(),
               labelText: context.l10n.usernamesSeparatedByCommas,
             ),
-            onSubmitted: (_) => _send(),
+            if (_error != null) Text(_error!),
+          ],
+        ),
+      ),
+      DDialogFooter(
+        children: [
+          DButton(
+            label: Text(context.l10n.sendInvitations),
+            loading: _sending,
+            onPressed: _sending ? null : _send,
+            variant: DButtonVariant.primary,
           ),
-          if (_error != null) Text(_error!),
+          DButton(
+            label: Text(context.l10n.cancel),
+            onPressed: _sending ? null : () => widget.onClose(),
+          ),
         ],
-      ),
-    ),
-    actions: [
-      DButton(
-        label: Text(context.l10n.sendInvitations),
-        loading: _sending,
-        onPressed: _sending ? null : _send,
-        variant: DButtonVariant.primary,
-      ),
-      DButton(
-        label: Text(context.l10n.cancel),
-        onPressed: _sending ? null : () => Navigator.pop(context),
       ),
     ],
   );

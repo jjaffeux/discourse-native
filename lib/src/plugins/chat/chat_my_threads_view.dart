@@ -443,23 +443,17 @@ class ChatThreadListRow extends StatelessWidget {
     }
 
     if (nestedPreview) {
-      return Semantics(
-        button: true,
-        label: semantics.toString(),
-        child: Material(
-          type: MaterialType.transparency,
-          child: _NestedThreadListRow(
-            rowKey: ValueKey<String>('$keyPrefix-${thread.id}'),
-            siteUrl: siteUrl,
-            thread: thread,
-            channelTitle: channel?.title ?? context.l10n.chat,
-            title: title,
-            unread: unread,
-            showChannel: showChannel,
-            keyPrefix: keyPrefix,
-            onTap: () => unawaited(_open(context, chat)),
-          ),
-        ),
+      return _NestedThreadListRow(
+        semanticLabel: semantics.toString(),
+        rowKey: ValueKey<String>('$keyPrefix-${thread.id}'),
+        siteUrl: siteUrl,
+        thread: thread,
+        channelTitle: channel?.title ?? context.l10n.chat,
+        title: title,
+        unread: unread,
+        showChannel: showChannel,
+        keyPrefix: keyPrefix,
+        onTap: () => unawaited(_open(context, chat)),
       );
     }
     return DItem(
@@ -585,9 +579,10 @@ Future<void> _openThreadRow(
   }
 }
 
-class _NestedThreadListRow extends StatefulWidget {
+class _NestedThreadListRow extends StatelessWidget {
   const _NestedThreadListRow({
     required this.rowKey,
+    required this.semanticLabel,
     required this.siteUrl,
     required this.thread,
     required this.channelTitle,
@@ -599,6 +594,7 @@ class _NestedThreadListRow extends StatefulWidget {
   });
 
   final Key rowKey;
+  final String semanticLabel;
   final String siteUrl;
   final ChatThread thread;
   final String channelTitle;
@@ -611,134 +607,83 @@ class _NestedThreadListRow extends StatefulWidget {
   static const double _compactBreakpoint = 560;
 
   @override
-  State<_NestedThreadListRow> createState() => _NestedThreadListRowState();
-}
-
-class _NestedThreadListRowState extends State<_NestedThreadListRow> {
-  bool _hovered = false;
-  bool _focused = false;
-  bool _pressed = false;
-
-  void _updateHovered(bool value) {
-    if (_hovered == value) return;
-    setState(() => _hovered = value);
-  }
-
-  void _updateFocused(bool value) {
-    if (_focused == value) return;
-    setState(() => _focused = value);
-  }
-
-  void _updatePressed(bool value) {
-    if (_pressed == value) return;
-    setState(() => _pressed = value);
-  }
-
-  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final rowKey = widget.rowKey;
-    final siteUrl = widget.siteUrl;
-    final thread = widget.thread;
-    final channelTitle = widget.channelTitle;
-    final title = widget.title;
-    final unread = widget.unread;
-    final showChannel = widget.showChannel;
-    final keyPrefix = widget.keyPrefix;
-    return InkWell(
+    return DItem.preview(
       key: rowKey,
-      excludeFromSemantics: true,
-      mouseCursor: SystemMouseCursors.click,
-      hoverColor: Colors.transparent,
-      focusColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      splashColor: Colors.transparent,
-      onHover: _updateHovered,
-      onFocusChange: _updateFocused,
-      onHighlightChanged: _updatePressed,
-      onTap: widget.onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 20, 12, 22),
-        child: ExcludeSemantics(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final width = ContentReadingLane.breakpointWidthOf(
-                context,
-                constraints.maxWidth,
-              );
-              final compact = width < _NestedThreadListRow._compactBreakpoint;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (showChannel) ...[
-                    Row(
-                      children: [
-                        DIcon(
-                          DIcons.comment,
-                          size: 16,
+      semanticLabel: semanticLabel,
+      onPressed: onTap,
+      previewKey: ValueKey<String>('$keyPrefix-preview-surface-${thread.id}'),
+      builder: (context, constraints) {
+        final width = ContentReadingLane.breakpointWidthOf(
+          context,
+          constraints.maxWidth,
+        );
+        final compact = width < _compactBreakpoint;
+        return (
+          header: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (showChannel) ...[
+                Row(
+                  children: [
+                    DIcon(
+                      DIcons.comment,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        channelTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: Text(
-                            channelTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                  ],
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: compact ? 2 : 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: theme.colorScheme.onSurface,
-                            fontWeight: unread
-                                ? FontWeight.w700
-                                : FontWeight.w400,
-                          ),
-                        ),
                       ),
-                      if (unread) ...[
-                        const SizedBox(width: 12),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: _ThreadUnreadBadge(
-                            thread: thread,
-                            key: ValueKey<String>(
-                              '$keyPrefix-unread-${thread.id}',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+              ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: compact ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: unread ? FontWeight.w700 : FontWeight.w400,
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 13),
-                  _LatestReplyCard(
-                    key: ValueKey<String>('$keyPrefix-preview-${thread.id}'),
-                    siteUrl: siteUrl,
-                    thread: thread,
-                    compact: compact,
-                    keyPrefix: keyPrefix,
-                    emphasized: _hovered || _focused || _pressed,
-                    focused: _focused,
-                  ),
+                  if (unread) ...[
+                    const SizedBox(width: 12),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: _ThreadUnreadBadge(
+                        thread: thread,
+                        key: ValueKey<String>('$keyPrefix-unread-${thread.id}'),
+                      ),
+                    ),
+                  ],
                 ],
-              );
-            },
+              ),
+            ],
           ),
-        ),
-      ),
+          preview: _LatestReplyCard(
+            key: ValueKey<String>('$keyPrefix-preview-${thread.id}'),
+            siteUrl: siteUrl,
+            thread: thread,
+            compact: compact,
+            keyPrefix: keyPrefix,
+          ),
+        );
+      },
     );
   }
 }
@@ -750,22 +695,17 @@ class _LatestReplyCard extends StatelessWidget {
     required this.thread,
     required this.compact,
     required this.keyPrefix,
-    required this.emphasized,
-    required this.focused,
   });
 
   final String siteUrl;
   final ChatThread thread;
   final bool compact;
   final String keyPrefix;
-  final bool emphasized;
-  final bool focused;
 
   static const double _avatarSize = 40;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final original = thread.originalMessage;
     final originalAuthor = original?.author;
     final preview = thread.preview;
@@ -788,20 +728,6 @@ class _LatestReplyCard extends StatelessWidget {
         preview?.lastReplyAvatarUrl ??
         fallbackAuthor?.avatarUrl;
     final latestStatus = replyUser?.status ?? fallbackAuthor?.status;
-    final baseCardColor = theme.colorScheme.surfaceContainerHighest;
-    final cardColor = emphasized
-        ? Color.alphaBlend(
-            theme.colorScheme.onSurface.withValues(
-              alpha: theme.brightness == Brightness.dark ? 0.055 : 0.035,
-            ),
-            baseCardColor,
-          )
-        : baseCardColor;
-    final borderColor = focused
-        ? theme.colorScheme.primary.withValues(alpha: 0.7)
-        : emphasized
-        ? theme.colorScheme.onSurface.withValues(alpha: 0.1)
-        : Colors.transparent;
     final avatar = ChatUserAvatar(
       siteUrl: siteUrl,
       userId: displayedUser?.id ?? 0,
@@ -827,53 +753,37 @@ class _LatestReplyCard extends StatelessWidget {
       siteUrl: siteUrl,
       thread: thread,
       keyPrefix: keyPrefix,
-      background: cardColor,
     );
 
-    return AnimatedContainer(
-      key: ValueKey<String>('$keyPrefix-preview-surface-${thread.id}'),
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 120),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: cardColor,
-        border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: compact
-            ? Column(
+    return compact
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      avatar,
-                      const SizedBox(width: 11),
-                      Expanded(child: copy),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.only(left: _avatarSize + 11),
-                    child: activity,
-                  ),
-                ],
-              )
-            : Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   avatar,
                   const SizedBox(width: 11),
                   Expanded(child: copy),
-                  const SizedBox(width: 16),
-                  activity,
                 ],
               ),
-      ),
-    );
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.only(left: _avatarSize + 11),
+                child: activity,
+              ),
+            ],
+          )
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              avatar,
+              const SizedBox(width: 11),
+              Expanded(child: copy),
+              const SizedBox(width: 16),
+              activity,
+            ],
+          );
   }
 }
 
@@ -956,13 +866,11 @@ class _ThreadActivity extends StatelessWidget {
     required this.siteUrl,
     required this.thread,
     required this.keyPrefix,
-    required this.background,
   });
 
   final String siteUrl;
   final ChatThread thread;
   final String keyPrefix;
-  final Color background;
 
   @override
   Widget build(BuildContext context) {
@@ -988,7 +896,7 @@ class _ThreadActivity extends StatelessWidget {
             key: ValueKey<String>('$keyPrefix-participants-${thread.id}'),
             siteUrl: siteUrl,
             preview: preview,
-            background: background,
+            background: DCard.surfaceColorOf(context),
           ),
       ],
     );

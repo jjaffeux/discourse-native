@@ -13,7 +13,6 @@ import '../plugin_api/emoji_usage.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
-import 'curved_animation_builder.dart';
 import 'emoji.dart';
 import 'emoji_picker_controller.dart';
 import 'platform.dart';
@@ -93,46 +92,35 @@ Future<String?> showEmojiPicker({
     }
 
     final resolvedAnchor = anchor ?? _anchorRect(resolvedAnchorContext);
-    return await showGeneralDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: appL10n.dismissEmojiPicker,
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 140),
-      pageBuilder: (dialogContext, _, _) => _LiveAnchoredPickerDialog(
-        initialAnchor: resolvedAnchor,
+    final popup = DPopoverController();
+    final searchFocus = FocusNode(debugLabel: 'emoji picker search');
+    String? picked;
+    try {
+      await showDPopover(
+        context: context,
+        useRootNavigator: true,
+        controller: popup,
+        initialFocusNode: searchFocus,
+        anchorRect: resolvedAnchor,
+        anchorMode: DPopoverAnchorMode.rectangle,
         anchorPresence: anchorPresence,
-        child: CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.escape): () =>
-                Navigator.of(dialogContext).pop(),
+        transitionDuration: const Duration(milliseconds: 140),
+        builder: (context) => _desktopPickerContent(
+          context,
+          controller: controller,
+          searchFocus: searchFocus,
+          centered: resolvedAnchor == null || !(anchorPresence?.value ?? true),
+          onPicked: (code) {
+            picked = code;
+            popup.close();
           },
-          child: _DesktopPickerCard(
-            controller: controller,
-            onPicked: (code) {
-              Navigator.of(dialogContext).pop(code);
-            },
-            onDismiss: () => Navigator.of(dialogContext).pop(),
-          ),
+          onDismiss: popup.close,
         ),
-      ),
-      transitionBuilder: (context, animation, secondary, child) =>
-          CurvedAnimationBuilder(
-            parent: animation,
-            curve: Curves.easeOut,
-            reverseCurve: Curves.easeIn,
-            builder: (context, curved) => FadeTransition(
-              opacity: DMaterialTheme.glassOf(context)
-                  ? kAlwaysCompleteAnimation
-                  : curved,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
-                alignment: Alignment.bottomLeft,
-                child: child,
-              ),
-            ),
-          ),
-    );
+      );
+      return picked;
+    } finally {
+      popup.dispose();
+    }
   } finally {
     controller.dispose();
   }
@@ -181,38 +169,6 @@ class _EmojiPickerAnchorPresence extends InheritedWidget {
       oldWidget.presence != presence;
 }
 
-class _LiveAnchoredPickerDialog extends StatelessWidget {
-  const _LiveAnchoredPickerDialog({
-    required this.initialAnchor,
-    required this.anchorPresence,
-    required this.child,
-  });
-
-  final Rect? initialAnchor;
-  final ValueListenable<bool>? anchorPresence;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final presence = anchorPresence;
-    if (presence == null) return _layout(anchor: initialAnchor);
-    return ValueListenableBuilder<bool>(
-      valueListenable: presence,
-      builder: (context, present, _) =>
-          _layout(anchor: present ? initialAnchor : null),
-    );
-  }
-
-  Widget _layout({required Rect? anchor}) => CustomSingleChildLayout(
-    delegate: AnchoredLayout(
-      anchor: anchor,
-      maxWidth: _desktopPickerWidth,
-      preferAbove: true,
-    ),
-    child: child,
-  );
-}
-
 const double _desktopPickerWidth = 405;
 const double _desktopPickerHeight = 360;
 const double _cellExtent = 44;
@@ -229,75 +185,76 @@ Rect? _anchorRect(BuildContext context) => anchorRect(
           as RenderBox?,
 );
 
-class _DesktopPickerCard extends StatelessWidget {
-  const _DesktopPickerCard({
-    required this.controller,
-    required this.onPicked,
-    required this.onDismiss,
-  });
-
-  final EmojiPickerController controller;
-  final ValueChanged<String> onPicked;
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DPopoverContent(
-      key: const ValueKey('emoji-picker-desktop-popover'),
-      width: _desktopPickerWidth,
-      padding: EdgeInsets.zero,
-      scrollable: false,
-      child: Material(
-        type: MaterialType.transparency,
-        child: SizedBox(
-          height: _desktopPickerHeight,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                height: 44,
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.only(start: 16, end: 4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          context.l10n.emoji,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+DPopoverContent _desktopPickerContent(
+  BuildContext context, {
+  required EmojiPickerController controller,
+  required FocusNode searchFocus,
+  required ValueChanged<String> onPicked,
+  required VoidCallback onDismiss,
+  required bool centered,
+}) {
+  final theme = Theme.of(context);
+  return DPopoverContent(
+    key: const ValueKey('emoji-picker-desktop-popover'),
+    width: _desktopPickerWidth,
+    side: DPopoverSide.top,
+    align: DPopoverAlign.start,
+    sideOffset: 8,
+    collisionPadding: 12,
+    motion: DPopoverMotion.picker,
+    centered: centered,
+    padding: EdgeInsets.zero,
+    scrollable: false,
+    child: SizedBox(
+      height: _desktopPickerHeight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 44,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(start: 16, end: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.emoji,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
-                      DButton.iconOnly(
-                        key: const ValueKey('emoji-picker-close'),
-                        onPressed: onDismiss,
-                        variant: DButtonVariant.ghost,
-                        tooltip: context.l10n.close,
-                        icon: const DIcon(DIcons.xmark),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              DSeparator(space: 1, color: theme.shell.divider),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-                  child: EmojiPicker(
-                    controller: controller,
-                    touch: false,
-                    onPicked: onPicked,
-                    onDismiss: onDismiss,
+                  DButton.iconOnly(
+                    key: const ValueKey('emoji-picker-close'),
+                    onPressed: onDismiss,
+                    variant: DButtonVariant.ghost,
+                    tooltip: context.l10n.close,
+                    icon: const DIcon(DIcons.xmark),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+          DSeparator(space: 1, color: theme.shell.divider),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+              child: _EmojiPickerFocusOwner(
+                focusNode: searchFocus,
+                child: EmojiPicker(
+                  controller: controller,
+                  searchFocusNode: searchFocus,
+                  touch: false,
+                  onPicked: onPicked,
+                  onDismiss: onDismiss,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _EmojiPickerFocusOwner extends StatefulWidget {
@@ -707,15 +664,6 @@ class _EmojiPickerState extends State<EmojiPicker> {
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.escape) {
       widget.onDismiss();
-      return KeyEventResult.handled;
-    }
-    if (key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.numpadEnter ||
-        key == LogicalKeyboardKey.space) {
-      final nodeKey = _navigationKeys.elementAtOrNull(index);
-      final context = nodeKey == null ? null : _cellFocus[nodeKey]?.context;
-      final cell = context?.findAncestorWidgetOfExactType<_EmojiCell>();
-      if (cell != null) widget.onPicked(cell.choice.code);
       return KeyEventResult.handled;
     }
 
@@ -1135,43 +1083,33 @@ class _EmojiCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Focus(
-      focusNode: focusNode,
+      canRequestFocus: false,
       onKeyEvent: (node, event) => onKey(event),
-      child: Builder(
-        builder: (context) {
-          final focused = Focus.of(context).hasFocus;
-          return Semantics(
-            button: true,
-            label: context.l10n.insertEmojipicker(choice.code.toString()),
-            child: DTooltip(
-              message: ':${choice.code}:',
-              child: InkWell(
-                canRequestFocus: false,
-                onTap: () => onPicked(choice.code),
-                borderRadius: BorderRadius.circular(8),
+      child: DTooltip(
+        message: ':${choice.code}:',
+        child: DItem(
+          focusNode: focusNode,
+          variant: DItemVariant.picker,
+          size: DItemSize.artwork,
+          shape: DItemShape.menu,
+          semanticLabel: context.l10n.insertEmojipicker(choice.code.toString()),
+          onPressed: () => onPicked(choice.code),
+          children: [
+            SizedBox.square(
+              dimension: _cellExtent,
+              child: Center(
                 child: ExcludeSemantics(
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 80),
-                    width: _cellExtent,
-                    height: _cellExtent,
-                    decoration: BoxDecoration(
-                      color: focused ? theme.shell.selected : null,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: EmojiImage(
-                        url: choice.url,
-                        size: 25,
-                        alt: ':${choice.code}:',
-                        style: theme.textTheme.labelSmall,
-                      ),
-                    ),
+                  child: EmojiImage(
+                    url: choice.url,
+                    size: 25,
+                    alt: ':${choice.code}:',
+                    style: theme.textTheme.labelSmall,
                   ),
                 ),
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }

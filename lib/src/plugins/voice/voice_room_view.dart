@@ -2316,9 +2316,20 @@ class _VoiceChatSheetState extends State<_VoiceChatSheet> {
           );
         }
         final message = chat.messages[index - (chat.canLoadMorePast ? 1 : 0)];
-        return ListTile(
-          title: Text(message.author.displayName),
-          subtitle: CookedHtml(html: message.cooked, siteUrl: widget.siteUrl),
+        return DItem(
+          children: [
+            DItemContent(
+              children: [
+                DItemTitle(child: Text(message.author.displayName)),
+                DItemDescription(
+                  child: CookedHtml(
+                    html: message.cooked,
+                    siteUrl: widget.siteUrl,
+                  ),
+                ),
+              ],
+            ),
+          ],
         );
       },
     );

@@ -27,19 +27,15 @@ Future<void> showDoNotDisturbDialog(
       !shell.accountSessionDisposed &&
       lease.isCurrent &&
       identical(ShellScope.maybeRead(navigatorContext), scope);
-  return showDialog<void>(
+  return showDDialog<void>(
     context: context,
-    // The user menu hands focus back to its trigger, on the route below, once
-    // this dialog is already pushed. The dialog claims focus after that so Tab
-    // and Escape act on it rather than behind its barrier.
-    builder: (context) => FocusScope(
-      autofocus: true,
-      child: _DoNotDisturbDialog(
-        siteUrl: siteUrl,
-        username: user.username,
-        controller: shell,
-        ownsAccount: ownsAccount,
-      ),
+    useRootNavigator: true,
+    builder: (context, dialog) => _DoNotDisturbDialog(
+      siteUrl: siteUrl,
+      username: user.username,
+      controller: shell,
+      ownsAccount: ownsAccount,
+      onClose: dialog.close,
     ),
   );
 }
@@ -50,12 +46,14 @@ class _DoNotDisturbDialog extends StatefulWidget {
     required this.username,
     required this.controller,
     required this.ownsAccount,
+    required this.onClose,
   });
 
   final String siteUrl;
   final String username;
   final ShellController controller;
   final bool Function() ownsAccount;
+  final VoidCallback onClose;
 
   @override
   State<_DoNotDisturbDialog> createState() => _DoNotDisturbDialogState();
@@ -90,7 +88,7 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
     if (!mounted || !_isCurrent) return;
     if (error == null) {
       if (ModalRoute.of(context)?.isCurrent == true) {
-        Navigator.of(context).pop();
+        widget.onClose();
       }
     } else {
       setState(() {
@@ -105,7 +103,7 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
     _openingSchedule = true;
     final toast = DToast.maybeOf(context);
     final ownsAccount = widget.ownsAccount;
-    Navigator.of(context).pop();
+    widget.onClose();
     final username = Uri.encodeComponent(widget.username);
     final opened = await openExternalLink(
       '${widget.siteUrl}/u/$username/preferences/notifications',
@@ -123,55 +121,65 @@ class _DoNotDisturbDialogState extends State<_DoNotDisturbDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AlertDialog(
-      title: Text(context.l10n.pauseNotificationsFor),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return DDialogContent(
+      showCloseButton: false,
+      maxWidth: 520,
+      children: [
+        DDialogHeader(
           children: [
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final option in DoNotDisturbOption.values)
-                  SizedBox(
-                    width: 190,
-                    child: DButton(
-                      key: ValueKey('do-not-disturb-${option.name}'),
-                      onPressed: _saving == null
-                          ? () => unawaited(_save(option))
-                          : null,
-                      variant: DButtonVariant.outline,
-                      size: DButtonSize.large,
-                      loading: _saving == option,
-                      label: Text(option.label),
-                    ),
-                  ),
-              ],
-            ),
-            if (_error case final error?) ...[
-              const SizedBox(height: 12),
-              Semantics(
-                liveRegion: true,
-                child: Text(
-                  error,
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-              ),
-            ],
+            DDialogTitle(child: Text(context.l10n.pauseNotificationsFor)),
           ],
         ),
-      ),
-      actions: [
-        DButton(
-          label: Text(context.l10n.setANotificationSchedule),
-          onPressed: _saving == null ? _openSchedule : null,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final option in DoNotDisturbOption.values)
+                    SizedBox(
+                      width: 190,
+                      child: DButton(
+                        key: ValueKey('do-not-disturb-${option.name}'),
+                        onPressed: _saving == null
+                            ? () => unawaited(_save(option))
+                            : null,
+                        variant: DButtonVariant.outline,
+                        size: DButtonSize.large,
+                        loading: _saving == option,
+                        label: Text(option.label),
+                      ),
+                    ),
+                ],
+              ),
+              if (_error case final error?) ...[
+                const SizedBox(height: 12),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    error,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
-        DButton(
-          label: Text(context.l10n.cancel),
-          onPressed: _saving == null ? () => Navigator.of(context).pop() : null,
+        DDialogFooter(
+          children: [
+            DButton(
+              label: Text(context.l10n.setANotificationSchedule),
+              onPressed: _saving == null ? _openSchedule : null,
+            ),
+            DButton(
+              label: Text(context.l10n.cancel),
+              onPressed: _saving == null ? () => widget.onClose() : null,
+            ),
+          ],
         ),
       ],
     );

@@ -47,6 +47,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     try {
+      double? normalHeight;
       for (final scale in [1.0, 2.0]) {
         await tester.pumpWidget(
           MaterialApp(
@@ -63,10 +64,12 @@ void main() {
 
         expect(tester.takeException(), isNull);
         final row = find.byKey(const ValueKey('diagnostic-event-request-42'));
-        expect(
-          tester.getSize(row).height,
-          scale == 1 ? equals(70) : greaterThan(70),
-        );
+        final height = tester.getSize(row).height;
+        if (scale == 1) {
+          normalHeight = height;
+        } else {
+          expect(height, greaterThan(normalHeight!));
+        }
         expect(find.text('200'), findsOneWidget);
         expect(find.text('120 ms'), findsOneWidget);
         expect(tester.getSize(find.text('GET')).height, lessThan(40));

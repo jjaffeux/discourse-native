@@ -20,6 +20,41 @@ import 'd_separator.dart';
 
 part 'd_calendar_schedule.dart';
 
+/// Event-lane activation with visible cell bounds and Native focus treatment.
+class DCalendarEventAction extends StatelessWidget {
+  const DCalendarEventAction({
+    super.key,
+    required this.onPressed,
+    required this.child,
+    this.backgroundColor = Colors.transparent,
+    this.semanticLabel,
+    this.focusNode,
+  });
+
+  final VoidCallback onPressed;
+  final Widget child;
+  final Color backgroundColor;
+  final String? semanticLabel;
+  final FocusNode? focusNode;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(3),
+      color: backgroundColor,
+    ),
+    child: DItem(
+      size: DItemSize.artwork,
+      shape: DItemShape.calendarEvent,
+      semanticLabel: semanticLabel,
+      focusNode: focusNode,
+      onPressed: onPressed,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      children: [child],
+    ),
+  );
+}
+
 /// A localized event-calendar weekday label that fits narrow, scaled columns.
 class DCalendarWeekdayHeader extends StatelessWidget {
   const DCalendarWeekdayHeader({super.key, required this.date});

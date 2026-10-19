@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -18,15 +19,85 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/native_ui_evidence.dart';
 
 const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'Native sort changes requests and cancels without changing selection on $platform',
+      (tester) async {
+        final mobile = platform == TargetPlatform.iOS;
+        tester.view.physicalSize = mobile
+            ? const Size(390, 844)
+            : const Size(1000, 820);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await prepareNativeUiEvidence(tester);
+        final api = FakeDiscourseApi(
+          user: _user,
+          chatSearchPagesByKey: {
+            FakeDiscourseApi.chatSearchKey('deploy'): ChatSearchPage(
+              hits: [_hit(1)],
+            ),
+            FakeDiscourseApi.chatSearchKey(
+              'deploy',
+              sort: ChatSearchSort.latest,
+            ): ChatSearchPage(
+              hits: [_hit(2)],
+            ),
+          },
+        );
+        final controller = await _createController(api);
+        await tester.pumpWidget(
+          _searchWidget(
+            controller,
+            theme: (mobile ? AppTheme.dark : AppTheme.light).copyWith(
+              platform: platform,
+            ),
+            scale: mobile ? 2 : 1,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-search-field')),
+          'deploy',
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        final sort = find.byKey(const ValueKey('chat-search-sort'));
+        await tester.tap(sort);
+        await tester.pumpAndSettle();
+        expect(find.byType(DSheetContent), findsNothing);
+        await captureNativeUi(tester, 'chat-sort-${platform.name}');
+        await tester.tap(find.text('Latest'));
+        await tester.pumpAndSettle();
+        expect(api.chatSearchesRequested.last.sort, ChatSearchSort.latest);
+        expect(
+          tester.widget<DSelect<ChatSearchSort>>(sort).value,
+          ChatSearchSort.latest,
+        );
+        final count = api.chatSearchesRequested.length;
+        await tester.tap(sort);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(api.chatSearchesRequested, hasLength(count));
+        expect(
+          tester.widget<DSelect<ChatSearchSort>>(sort).value,
+          ChatSearchSort.latest,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets('chat markers follow the query typed on their page', (
     tester,
   ) async {
@@ -373,12 +444,25 @@ Future<ShellController> _createController(
   return controller;
 }
 
-Widget _searchWidget(ShellController controller) => ShellScope(
+Widget _searchWidget(
+  ShellController controller, {
+  ThemeData? theme,
+  double scale = 1,
+}) => ShellScope(
   controller: controller,
   child: PluginUiScope.own(
     chatPluginId,
     MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
+      builder: (context, child) => nativeUiEvidenceBuilder(
+        context,
+        MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(scale)),
+          child: child!,
+        ),
+      ),
       home: const Scaffold(body: ChatSearchView(siteUrl: _site)),
     ),
   ),

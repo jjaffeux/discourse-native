@@ -73,12 +73,12 @@ void main() {
           );
           expect(find.byType(DSkeleton), findsWidgets);
           expect(tester.takeException(), isNull);
-          if (find.widgetWithText(ChoiceChip, 'Ready').evaluate().isNotEmpty) {
-            await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
+          if (find.widgetWithText(DToggle, 'Ready').evaluate().isNotEmpty) {
+            await tester.tap(find.widgetWithText(DToggle, 'Ready'));
             await tester.pumpAndSettle();
             expect(find.byType(DSkeleton), findsNothing);
             expect(tester.takeException(), isNull);
-            await tester.tap(find.widgetWithText(ChoiceChip, 'Error'));
+            await tester.tap(find.widgetWithText(DToggle, 'Error'));
             await tester.pumpAndSettle();
             expect(find.text('Could not load this sample.'), findsOneWidget);
             await tester.ensureVisible(find.text('Retry'));
@@ -108,8 +108,8 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
     expect(tester.widget<DSlider>(width).value, greaterThan(before));
-    await tester.ensureVisible(find.widgetWithText(ChoiceChip, 'Circle'));
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Circle'));
+    await tester.ensureVisible(find.widgetWithText(DToggle, 'Circle'));
+    await tester.tap(find.widgetWithText(DToggle, 'Circle'));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -119,7 +119,7 @@ void main() {
           .shape,
       BoxShape.circle,
     );
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Pill'));
+    await tester.tap(find.widgetWithText(DToggle, 'Pill'));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -223,9 +223,9 @@ void main() {
     final theme = ValueNotifier(AppTheme.light);
     addTearDown(theme.dispose);
     await _pump(tester, skeletonExamples.examples[4], liveTheme: theme);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
+    await tester.tap(find.widgetWithText(DToggle, 'Ready'));
     await tester.pumpAndSettle();
-    final name = find.byType(TextFormField).first;
+    final name = find.byType(DInput).first;
     await tester.enterText(name, '');
     await tester.tap(find.widgetWithText(DButton, 'Save'));
     await tester.pumpAndSettle();
@@ -250,7 +250,7 @@ void main() {
     tester,
   ) async {
     await _pump(tester, skeletonExamples.examples[2]);
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
+    await tester.tap(find.widgetWithText(DToggle, 'Ready'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Follow'));
     await tester.tap(find.text('Follow'));
@@ -268,7 +268,7 @@ void main() {
     await tester.drag(scroll, const Offset(-140, 0));
     await tester.pumpAndSettle();
     expect(state.position.pixels, greaterThan(0));
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Ready'));
+    await tester.tap(find.widgetWithText(DToggle, 'Ready'));
     await tester.pumpAndSettle();
     expect(find.text('Ken'), findsOneWidget);
     expect(state.position.pixels, greaterThan(0));

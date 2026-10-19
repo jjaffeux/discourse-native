@@ -137,21 +137,21 @@ class _MobileSubsectionPicker extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final option in options)
-            ListTile(
+            DItem(
               key: ValueKey('$sheetOptionKeyPrefix-${option.value}'),
-              minTileHeight: 48,
-              leading: DIcon(iconFor(option.value), size: 18),
-              title: Text(option.label),
-              trailing: selected == option.value
-                  ? const DIcon(DIcons.check, size: 16)
-                  : null,
+              onPressed: () =>
+                  DDialogClose.close<String>(sheetContext, option.value),
               selected: selected == option.value,
-              selectedColor: Theme.of(sheetContext).shell.selectedForeground,
-              selectedTileColor: Theme.of(sheetContext).shell.selected,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(7),
-              ),
-              onTap: () => Navigator.of(sheetContext).pop(option.value),
+              children: [
+                DItemMedia(child: DIcon(iconFor(option.value), size: 18)),
+                DItemContent(children: [DItemTitle(child: Text(option.label))]),
+                DItemActions(
+                  children: [
+                    if (selected == option.value)
+                      const DIcon(DIcons.check, size: 16),
+                  ],
+                ),
+              ],
             ),
         ],
       ),
@@ -173,34 +173,37 @@ class _MobileSubsectionPicker extends StatelessWidget {
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(7),
-          onTap: () => unawaited(_showPicker(context)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-            child: Row(
+        child: DItem(
+          size: DItemSize.sm,
+          onPressed: () => unawaited(_showPicker(context)),
+          children: [
+            DItemContent(
               children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ),
-                  ),
+                    Text(
+                      label,
+                      key: ValueKey(currentSectionKey),
+                      style: TextStyle(
+                        color: Theme.of(context).shell.selectedForeground,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const DIcon(DIcons.chevronDown, size: 14),
+                  ],
                 ),
-                Text(
-                  label,
-                  key: ValueKey(currentSectionKey),
-                  style: TextStyle(
-                    color: Theme.of(context).shell.selectedForeground,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const DIcon(DIcons.chevronDown, size: 14),
               ],
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -227,36 +230,40 @@ class _SubsectionNavigationItem extends StatelessWidget {
     child: Material(
       color: selected ? Theme.of(context).shell.selected : Colors.transparent,
       borderRadius: BorderRadius.circular(7),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(7),
-        mouseCursor: SystemMouseCursors.click,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: Row(
+      child: DItem(
+        size: DItemSize.sm,
+        onPressed: onTap,
+        children: [
+          DItemContent(
             children: [
-              DIcon(
-                icon,
-                size: 16,
-                color: selected
-                    ? Theme.of(context).shell.selectedForeground
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  option.label,
-                  style: TextStyle(
+              Row(
+                children: [
+                  DIcon(
+                    icon,
+                    size: 16,
                     color: selected
                         ? Theme.of(context).shell.selectedForeground
                         : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      option.label,
+                      style: TextStyle(
+                        color: selected
+                            ? Theme.of(context).shell.selectedForeground
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ),
+        ],
       ),
     ),
   );

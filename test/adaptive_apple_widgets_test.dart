@@ -1,128 +1,64 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/adaptive_dialog_action.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final platform in const [TargetPlatform.iOS, TargetPlatform.macOS]) {
-    testWidgets('uses Cupertino dialog actions on ${platform.name}', (
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+    testWidgets('application confirmation uses Native actions on $platform', (
       tester,
     ) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      bool? result;
       await tester.pumpWidget(
-        _app(
-          platform,
-          const AdaptiveDialogAction(
-            onPressed: null,
-            kind: AdaptiveDialogActionKind.destructive,
-            child: Text('Remove'),
-          ),
-        ),
-      );
-
-      final action = tester.widget<CupertinoDialogAction>(
-        find.byType(CupertinoDialogAction),
-      );
-      expect(action.isDestructiveAction, isTrue);
-      expect(find.byType(FilledButton), findsNothing);
-    });
-  }
-
-  testWidgets('keeps Material dialog actions on non-Apple platforms', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _app(
-        TargetPlatform.linux,
-        const Column(
-          children: [
-            AdaptiveDialogAction(
-              onPressed: null,
-              kind: AdaptiveDialogActionKind.destructive,
-              child: Text('Remove'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    expect(find.byType(FilledButton), findsOneWidget);
-    expect(find.byType(CupertinoActivityIndicator), findsNothing);
-    expect(find.byType(CupertinoDialogAction), findsNothing);
-  });
-
-  testWidgets('uses the Discourse modal theme for app-owned Apple dialogs', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _app(
-        TargetPlatform.macOS,
-        Builder(
-          builder: (context) => FilledButton(
-            onPressed: () => showDiscourseDialog<void>(
-              context: context,
-              builder: (dialogContext) => DiscourseAlertDialog(
-                title: const Text('Remove site?'),
-                actions: [
-                  AdaptiveDialogAction(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  AdaptiveDialogAction(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    kind: AdaptiveDialogActionKind.destructive,
-                    child: const Text('Remove'),
-                  ),
-                ],
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => DButton(
+                focusNode: focus,
+                label: const Text('Open'),
+                onPressed: () async {
+                  result = await showDiscourseAlertDialog<bool>(
+                    context: context,
+                    title: const Text('Remove site?'),
+                    description: const Text('This removes the local account.'),
+                    cancelLabel: const Text('Cancel'),
+                    actionLabel: const Text('Remove'),
+                    cancelResult: false,
+                    actionResult: true,
+                    actionVariant: DButtonVariant.destructive,
+                  );
+                },
               ),
             ),
-            child: const Text('Open'),
           ),
         ),
-      ),
-    );
-
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(Dialog), findsOneWidget);
-    final alert = tester.widget<AlertDialog>(find.byType(AlertDialog));
-    expect(alert.actionsAlignment, MainAxisAlignment.start);
-    expect(alert.actionsOverflowAlignment, OverflowBarAlignment.start);
-    expect(alert.actionsOverflowButtonSpacing, 8);
-    expect(find.widgetWithText(FilledButton, 'Cancel'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Remove'), findsOneWidget);
-    expect(find.byType(DButton), findsNWidgets(2));
-    expect(
-      tester.widget<DButton>(find.widgetWithText(DButton, 'Cancel')).variant,
-      DButtonVariant.outline,
-    );
-    expect(
-      tester.widget<DButton>(find.widgetWithText(DButton, 'Remove')).variant,
-      DButtonVariant.destructive,
-    );
-    expect(
-      tester.getSize(find.widgetWithText(DButton, 'Cancel')).height,
-      moreOrLessEquals(DControlStyle.regularHeight, epsilon: 0.5),
-    );
-    final cancel = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Cancel'),
-    );
-    final tokens = DTokens.of(
-      tester.element(find.widgetWithText(DButton, 'Cancel')),
-    );
-    expect(cancel.style?.backgroundColor?.resolve({}), Colors.transparent);
-    expect(
-      cancel.style?.foregroundColor?.resolve({}),
-      tokens.buttonTheme.accent.foreground,
-    );
-    expect(find.byType(CupertinoAlertDialog), findsNothing);
-    expect(find.byType(CupertinoDialogAction), findsNothing);
-  });
+      );
+      focus.requestFocus();
+      await tester.pump();
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DAlertDialogContent), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(result, isFalse);
+      expect(focus.hasFocus, isTrue);
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DAlertDialogContent), findsNothing);
+      expect(result, isNull);
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Remove'));
+      await tester.pumpAndSettle();
+      expect(result, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }
-
-Widget _app(TargetPlatform platform, Widget child) => MaterialApp(
-  theme: AppTheme.light.copyWith(platform: platform),
-  home: Scaffold(body: Center(child: child)),
-);

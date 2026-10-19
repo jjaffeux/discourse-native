@@ -592,15 +592,22 @@ class _ChannelSummary extends StatelessWidget {
                   variant: DTextVariant.muted,
                 ),
                 const SizedBox(height: 4),
-                InkWell(
+                DItem(
+                  size: DItemSize.sm,
                   key: const ValueKey('chat-channel-settings-channel-link'),
-                  onTap: onOpenChannel,
-                  child: Text(
-                    '/chat/c/${channel.slug ?? '-'}/${channel.id}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.primary,
+                  onPressed: onOpenChannel,
+                  children: [
+                    DItemContent(
+                      children: [
+                        Text(
+                          '/chat/c/${channel.slug ?? '-'}/${channel.id}',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
                 ),
               ],
             ],
@@ -897,18 +904,14 @@ class _ChannelMembersState extends State<_ChannelMembers> {
               child: ConstrainedBox(
                 key: const ValueKey('chat-channel-member-filter-lane-content'),
                 constraints: const BoxConstraints(maxWidth: 760),
-                child: TextField(
+                child: DInput(
                   style: Theme.of(context).textTheme.bodyMedium,
                   key: const ValueKey('chat-channel-member-filter'),
                   autofocus: true,
                   onChanged: _filterChanged,
                   textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: context.l10n.filterMembers,
-                    prefixIcon: const DIcon(DIcons.magnifyingGlass),
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                  hintText: context.l10n.filterMembers,
+                  prefix: const DIcon(DIcons.magnifyingGlass),
                 ),
               ),
             ),
@@ -992,29 +995,43 @@ class _ChannelMembersState extends State<_ChannelMembers> {
             child: UserCardTarget(
               username: member.username,
               siteUrl: widget.siteUrl,
-              child: ListTile(
+              child: DItem(
                 key: ValueKey('chat-channel-member-${member.id}'),
-                contentPadding: EdgeInsets.zero,
-                leading: ChatUserAvatar(
-                  siteUrl: widget.siteUrl,
-                  userId: member.id,
-                  url: member.avatarUrl,
-                  size: 36,
-                  fallback: const DIcon(DIcons.user),
-                ),
-                title: Text(member.displayName),
-                subtitle: member.name == null
-                    ? null
-                    : Text('@${member.username}'),
-                trailing: UserStatusMessage(
-                  siteUrl: widget.siteUrl,
-                  userId: member.id,
-                  status: member.status,
-                  showDescription: true,
-                  size: 16,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  descriptionMaxWidth: 120,
-                ),
+                padding: EdgeInsets.zero,
+                children: [
+                  DItemMedia(
+                    child: ChatUserAvatar(
+                      siteUrl: widget.siteUrl,
+                      userId: member.id,
+                      url: member.avatarUrl,
+                      size: 36,
+                      fallback: const DIcon(DIcons.user),
+                    ),
+                  ),
+                  DItemContent(
+                    children: [
+                      DItemTitle(child: Text(member.displayName)),
+                      if (member.name == null
+                              ? null
+                              : Text('@${member.username}')
+                          case final subtitle?)
+                        DItemDescription(child: subtitle),
+                    ],
+                  ),
+                  DItemActions(
+                    children: [
+                      UserStatusMessage(
+                        siteUrl: widget.siteUrl,
+                        userId: member.id,
+                        status: member.status,
+                        showDescription: true,
+                        size: 16,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        descriptionMaxWidth: 120,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),

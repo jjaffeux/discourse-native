@@ -30,7 +30,6 @@ import 'avatar_image.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'forum_theme_surfaces.dart';
-import 'inline_action.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
 import 'message_archive_button.dart';
@@ -4241,40 +4240,25 @@ class _PostGapState extends State<_PostGap> {
     final theme = Theme.of(context);
     final label = _loading ? context.l10n.loading : _label;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final left =
-            ContentReadingLane.breakpointWidthOf(
-                  context,
-                  constraints.maxWidth,
-                ) <
-                600
-            ? 16.0
-            : 58.0;
-        return Semantics(
-          button: true,
-          label: label,
-          onTap: _loading ? null : _expand,
-          child: ExcludeSemantics(
-            child: Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: _loading ? null : _expand,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(left, 8, 16, 12),
-                  child: Text(
-                    label.toUpperCase(),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+    return DItem(
+      size: DItemSize.sm,
+      semanticLabel: label,
+      onPressed: _loading ? null : _expand,
+      children: [
+        DItemContent(
+          children: [
+            ExcludeSemantics(
+              child: Text(
+                label.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ],
     );
   }
 }
@@ -4943,11 +4927,12 @@ class _PostInboundLinks extends StatelessWidget {
               url: link.url,
               title: link.title,
               siteUrl: siteUrl,
-              child: InlineAction.link(
-                semanticLabel: link.title,
-                excludeChildSemantics: true,
-                borderRadius: BorderRadius.circular(4),
-                onTap: () => unawaited(
+              child: DItem(
+                fitContent: true,
+                size: DItemSize.artwork,
+                highlightOnInteraction: false,
+                link: true,
+                onPressed: () => unawaited(
                   openLink(
                     context,
                     link.url,
@@ -4955,30 +4940,35 @@ class _PostInboundLinks extends StatelessWidget {
                     siteUrl: siteUrl,
                   ),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
-                    children: [
-                      DIcon(
-                        DIcons.link,
-                        size: 14,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: SiteEmojiText.plain(
-                          link.title,
-                          siteUrl: siteUrl,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyMedium?.copyWith(
+                semanticLabel: link.title,
+                children: [
+                  ExcludeSemantics(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(
+                        children: [
+                          DIcon(
+                            DIcons.link,
+                            size: 14,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SiteEmojiText.plain(
+                              link.title,
+                              siteUrl: siteUrl,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           if (remaining > 0)

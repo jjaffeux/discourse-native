@@ -6,6 +6,7 @@ import 'package:discourse_native/src/plugins/discourse_events/topic_calendar.dar
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar_plugin.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html;
 import 'package:kalender/kalender.dart' as kalender;
@@ -24,11 +25,13 @@ void main() {
     double width = 800,
     double scale = 1,
     Brightness brightness = Brightness.light,
+    TargetPlatform? platform,
     ValueChanged<int>? openReply,
     TopicCalendarSettings settings = const TopicCalendarSettings(),
     DateTime? now,
   }) => MaterialApp(
-    theme: brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+    theme: (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
+        .copyWith(platform: platform),
     home: Scaffold(
       body: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -200,6 +203,111 @@ void main() {
       expect(ports.zones.readerTimezone(), 'Etc/UTC');
     },
   );
+
+  testWidgets('topic event lanes support Enter and Space after pointer focus', (
+    tester,
+  ) async {
+    final opened = <int>[];
+    await tester.pumpWidget(calendar(openReply: opened.add));
+    await tester.pumpAndSettle();
+    final event = find.text('Team availability');
+    await tester.ensureVisible(event);
+    await tester.tap(event);
+    await tester.pump();
+    expect(opened, [80]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(opened, [80, 80]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(opened, [80, 80, 80]);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('$platform timezone search stays inside its centered dialog', (
+      tester,
+    ) async {
+      final size = platform == TargetPlatform.iOS
+          ? const Size(390, 844)
+          : const Size(1300, 900);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = size;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        calendar(
+          width: size.width,
+          platform: platform,
+          options: '',
+          details: [
+            calendarDetail(
+              overrides: {
+                'from': '2026-09-08T01:00:00Z',
+                'to': '2026-09-08T02:00:00Z',
+              },
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Etc/UTC'));
+      await tester.pumpAndSettle();
+      final dialog = find.byType(DDialogContent);
+      final bounds = tester.getRect(dialog);
+      expect(bounds.center.dx, closeTo(size.width / 2, .01));
+      expect(bounds.center.dy, closeTo(size.height / 2, .01));
+      expect(bounds.left, greaterThan(0));
+      expect(bounds.right, lessThan(size.width));
+      expect(
+        find.descendant(of: dialog, matching: find.byType(DPopover)),
+        findsNothing,
+      );
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        isEmpty,
+      );
+      await tester.enterText(find.byType(TextField), 'los angeles');
+      await tester.pumpAndSettle();
+      expect(find.text('America/Los Angeles'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(dialog, findsNothing);
+      expect(find.text('6:00 PM Team availability'), findsOneWidget);
+      expect(find.text('America/Los Angeles'), findsOneWidget);
+      expect(ports.zones.readerTimezone(), 'Etc/UTC');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('timezone Cancel, Escape and barrier preserve selection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(calendar());
+    await tester.pumpAndSettle();
+    for (final dismiss in ['cancel', 'escape', 'barrier']) {
+      await tester.tap(find.text('Etc/UTC'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Tokyo');
+      await tester.pumpAndSettle();
+      expect(find.text('Asia/Tokyo'), findsOneWidget);
+      switch (dismiss) {
+        case 'cancel':
+          await tester.tap(find.text('Cancel'));
+        case 'escape':
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        case 'barrier':
+          await tester.tapAt(const Offset(2, 2));
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(DDialogContent), findsNothing, reason: dismiss);
+      expect(find.text('Etc/UTC'), findsOneWidget, reason: dismiss);
+      expect(ports.zones.readerTimezone(), 'Etc/UTC');
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets('Kalender clips a range into adjoining week rows', (
     tester,

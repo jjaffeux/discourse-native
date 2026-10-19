@@ -467,7 +467,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
             TopicTaxonomyPickerMessage(message, error: true),
           for (final tag in _visibleResults)
             GestureDetector(
-              behavior: HitTestBehavior.opaque,
+              behavior: HitTestBehavior.deferToChild,
               excludeFromSemantics: true,
               onTertiaryTapUp: widget.onTagNavigate == null
                   ? null

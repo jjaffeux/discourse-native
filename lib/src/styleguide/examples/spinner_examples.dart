@@ -343,10 +343,11 @@ class _SpinnerAppearanceState extends State<_SpinnerAppearance> {
         runSpacing: DSpacing.xs,
         children: [
           for (final size in [12.0, 16.0, 24.0, 32.0])
-            ChoiceChip(
-              label: Text('Size ${size.toInt()}'),
-              selected: _size == size,
-              onSelected: (_) => setState(() => _size = size),
+            DToggle(
+              size: DToggleSize.small,
+              pressed: _size == size,
+              onPressedChanged: (_) => setState(() => _size = size),
+              child: Text('Size ${size.toInt()}'),
             ),
         ],
       ),

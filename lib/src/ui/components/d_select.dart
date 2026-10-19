@@ -79,11 +79,15 @@ class DSelectItem<T> extends DSelectEntry<T> {
     required this.textValue,
     this.enabled = true,
     this.semanticLabel,
+    this.description,
   });
 
   final T? value;
   final Widget child;
   final String textValue;
+
+  /// Supporting text below the title in a Native two-line option layout.
+  final String? description;
   final bool enabled;
   final String? semanticLabel;
 }
@@ -95,6 +99,7 @@ class DSelectOption<T> extends DSelectItem<T> {
     required super.child,
     required String label,
     super.enabled,
+    super.description,
   }) : super(textValue: label);
 }
 
@@ -1250,9 +1255,16 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     final scaledLineHeight =
         scaler.scale(DControlStyle.labelFontSize) *
         DiscourseTypography.lineHeightSmall;
+    final described = _items.any((item) => item.description != null);
+    final descriptionHeight = described
+        ? 2 +
+              scaler.scale(DiscourseTypography.xs) *
+                  DiscourseTypography.lineHeightCaption *
+                  2
+        : 0.0;
     final itemHeight = math.max(
       DControlStyle.rowHeight,
-      scaledLineHeight + DInsets.menuItem.vertical,
+      scaledLineHeight + DInsets.menuItem.vertical + descriptionHeight,
     );
     final labelHeight = math.max(
       24.0,
@@ -1567,7 +1579,14 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           focusContentOnOpen: false,
           onOpenChange: _openChanged,
           onOpenChangeComplete: widget.onOpenChangeComplete,
-          content: _popup(math.max(144, popupWidth).toDouble()),
+          content: _popup(
+            math
+                .max(
+                  _items.any((item) => item.description != null) ? 320 : 144,
+                  popupWidth,
+                )
+                .toDouble(),
+          ),
           child: DPopoverTrigger(
             focusNode: _focus,
             builder: (context, trigger) =>
@@ -1733,7 +1752,26 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
                     DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
                 fontWeight: FontWeight.w400,
               ),
-              child: widget.item.child,
+              child: widget.item.description == null
+                  ? widget.item.child
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        widget.item.child,
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.item.description!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: tokens.mutedForeground,
+                            fontSize: DiscourseTypography.xs,
+                            height: DiscourseTypography.lineHeightCaption,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
           const SizedBox(width: 8),
@@ -1761,7 +1799,11 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
       inMutuallyExclusiveGroup: widget.multiple ? null : true,
       enabled: enabled,
       readOnly: widget.readOnly ? true : null,
-      label: widget.item.semanticLabel ?? widget.item.textValue,
+      label:
+          widget.item.semanticLabel ??
+          (widget.item.description == null
+              ? widget.item.textValue
+              : '${widget.item.textValue}, ${widget.item.description}'),
       onTap: enabled && !widget.readOnly
           ? () => widget.onChoose(widget.item, DSelectChangeReason.itemPress)
           : null,

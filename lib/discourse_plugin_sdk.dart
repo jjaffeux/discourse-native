@@ -3,6 +3,25 @@ library;
 
 export 'package:discourse_cooking/discourse_cooking.dart';
 
+export 'discourse_ui.dart'
+    show
+        DSelectSize,
+        DSelectChangeReason,
+        DSelectValueChanged,
+        DMultiSelectValueChanged,
+        DSelectValueBuilder,
+        DMultiSelectValueBuilder,
+        DSelectTriggerBuilder,
+        DSelectTriggerState,
+        DSelectEntry,
+        DSelectItem,
+        DSelectOption,
+        DSelectGroup,
+        DSelectSeparator,
+        DSelect,
+        DSelectField,
+        DMultiSelect;
+export 'discourse_ui.dart' show monospaceTextStyle;
 export 'src/app_shortcuts.dart' show primaryShortcutForPlatform;
 export 'src/data/app_release.dart';
 export 'src/data/discourse_api_contracts.dart'
@@ -120,7 +139,6 @@ export 'src/shell/adaptive_shell.dart' show ShellLayout;
 export 'src/shell/anchored_layout.dart' show AnchoredLayout;
 export 'src/shell/avatar_image.dart';
 export 'src/shell/bookmark_ui.dart' show showPluginBookmarkMenu;
-export 'src/shell/choice_menu.dart' show ChoiceMenuAnchor, ChoiceMenuOption;
 export 'src/shell/code_block.dart' show CodeBlock, CodeBlockData, CodeLine;
 export 'src/shell/composer/autocomplete.dart' show ComposerSuggestionAction;
 export 'src/shell/composer/block_selection.dart' show ComposerBlockSelection;
@@ -187,7 +205,6 @@ export 'src/shell/header_notification_button.dart'
 export 'src/shell/hover_action_toolbar.dart' show HoverActionButton;
 export 'src/shell/hover_panel.dart' show HoverPanel, HoverPanelState;
 export 'src/shell/image_decode.dart' show imageForCover, imagePhysicalPixels;
-export 'src/shell/inline_action.dart' show InlineAction;
 export 'src/shell/inline_code.dart' show InlineCode;
 export 'src/shell/inline_video.dart' show InlineVideo, InlineVideoData;
 export 'src/shell/lightbox.dart'
@@ -203,7 +220,6 @@ export 'src/shell/oneboxes/embedded.dart' show embeddedOneboxWidgetBuilder;
 export 'src/shell/oneboxes/markup.dart' show digitsIn, oneLineText;
 export 'src/shell/oneboxes/onebox.dart' show OneboxCard, OneboxData;
 export 'src/shell/open_link.dart' show LinkTarget, openLink;
-export 'src/shell/pill.dart' show Pill;
 export 'src/shell/platform.dart'
     show TouchPlatform, forumTabsEnabledForCurrentPlatform;
 export 'src/shell/post_action.dart' show PostAction, PostActionPlacement;
@@ -241,6 +257,4 @@ export 'src/theme/d_icon.dart';
 export 'src/theme/d_icons.dart';
 export 'src/theme/d_native_icons.dart' show DNativeIcons;
 export 'src/theme/discourse_typography.dart' show DiscourseTypography;
-export 'src/ui/components/d_select.dart';
-export 'src/ui/foundation/code_typography.dart' show monospaceTextStyle;
 export 'src/utils/pagination.dart' show paginationPrefetchDistance;

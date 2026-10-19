@@ -1,15 +1,15 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../theme/discourse_typography.dart';
-import '../ui/foundation/app_text_scaler.dart';
 import 'app_settings_controller.dart';
 import 'platform.dart';
 
-export '../ui/foundation/app_text_scaler.dart' show AppTextScaler;
+export 'package:discourse_native/discourse_ui.dart' show AppTextScaler;
 
 /// Applies the mobile baseline and app text-size preference while preserving
 /// the platform's accessibility text scaler.

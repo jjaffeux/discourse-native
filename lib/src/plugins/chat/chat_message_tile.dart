@@ -623,7 +623,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           }
           return chat.flagMessage(siteUrl, messageId, type, message: message);
         },
-        onComplete: () => Navigator.of(sheetContext).pop(),
+        onComplete: () => DDialogClose.close<void>(sheetContext),
         submitLabel: appL10n.flagMessage,
         targetNoun: 'message',
       ),

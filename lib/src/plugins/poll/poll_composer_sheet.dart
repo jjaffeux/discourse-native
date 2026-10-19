@@ -36,7 +36,11 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
   bool Function()? isCurrent,
 }) {
   final title = draft.isNew ? appL10n.addPoll : appL10n.editPoll;
-  Widget editor(BuildContext context) => PollComposerSheet(
+  Widget editor(
+    BuildContext context,
+    ValueChanged<PollComposerSheetAction?> close,
+  ) => PollComposerSheet(
+    onClose: close,
     mobileLayout: context.isTouch,
     draft: draft,
     maximumOptions: maximumOptions,
@@ -57,48 +61,24 @@ Future<PollComposerSheetAction?> showPollComposerSheet({
         showCloseButton: false,
         topBottomMaxHeightFactor: 1,
         scrollWholeSheet: false,
-        children: [Expanded(child: editor(context))],
+        children: [Expanded(child: editor(context, sheet.close))],
       ),
     );
   }
 
-  return showDialog<PollComposerSheetAction>(
+  return showDDialog<PollComposerSheetAction>(
     context: context,
-    builder: (dialogContext) => Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 720),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: DText(
-                      title,
-                      variant: DTextVariant.h4,
-                      headingLevel: 1,
-                    ),
-                  ),
-                  DButton.iconOnly(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    variant: DButtonVariant.ghost,
-                    tooltip: appL10n.close,
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            DSeparator(color: Theme.of(dialogContext).shell.divider, space: 1),
-            Flexible(
-              child: SingleChildScrollView(child: editor(dialogContext)),
-            ),
-          ],
+    useRootNavigator: true,
+    builder: (dialogContext, dialog) => DDialogContent(
+      maxWidth: 640,
+      semanticLabel: title,
+      children: [
+        DDialogHeader(children: [DDialogTitle(child: Text(title))]),
+        DDialogScrollArea(
+          maxHeightFactor: 0.7,
+          child: editor(dialogContext, dialog.close),
         ),
-      ),
+      ],
     ),
   );
 }
@@ -129,6 +109,7 @@ class PollComposerSheet extends StatefulWidget {
   const PollComposerSheet({
     super.key,
     required this.draft,
+    required this.onClose,
     required this.maximumOptions,
     required this.isStaff,
     required this.isPublished,
@@ -138,6 +119,7 @@ class PollComposerSheet extends StatefulWidget {
   });
 
   final PollComposerDraft draft;
+  final ValueChanged<PollComposerSheetAction?> onClose;
   final int maximumOptions;
   final bool isStaff;
   final bool isPublished;
@@ -474,7 +456,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
       ],
       DButton(
         label: Text(appL10n.cancel),
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () => widget.onClose(null),
       ),
       DButton(
         label: Text(appL10n.apply),
@@ -543,7 +525,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
       setState(() => _error = validation.firstError);
       return;
     }
-    Navigator.of(context).pop(PollComposerSheetAction.apply(draft));
+    widget.onClose(PollComposerSheetAction.apply(draft));
   }
 
   bool _checkCurrent() {
@@ -565,6 +547,6 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
       if (!confirmed || !mounted || !_checkCurrent()) return;
     }
     if (!mounted) return;
-    Navigator.of(context).pop(const PollComposerSheetAction.remove());
+    widget.onClose(const PollComposerSheetAction.remove());
   }
 }

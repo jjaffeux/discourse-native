@@ -49,7 +49,7 @@ Widget sample(DItemSize size) => DItem(
         dimension: switch (size) {
           DItemSize.standard => 40,
           DItemSize.sm => 32,
-          DItemSize.xs => 24,
+          DItemSize.xs || DItemSize.artwork => 24,
         },
         child: const ColoredBox(color: Colors.blue),
       ),
@@ -884,7 +884,9 @@ void main() {
           (surface(0).decoration! as BoxDecoration).borderRadius,
           BorderRadius.circular(switch (shape) {
             DItemShape.card => DRadius.panel,
+            DItemShape.pill => DRadius.pill,
             DItemShape.fullWidth => 0,
+            DItemShape.calendarEvent => 3,
             DItemShape.menu => 8,
             DItemShape.standard => 10,
           }),

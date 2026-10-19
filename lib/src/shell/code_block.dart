@@ -8,13 +8,10 @@ import 'package:html/dom.dart' as dom;
 
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
-import '../ui/foundation/code_source.dart';
-import '../ui/foundation/code_typography.dart';
 import 'cooked_dom.dart';
 import 'search_words.dart';
-import 'syntax.dart';
 
-export '../ui/foundation/code_typography.dart';
+export 'package:discourse_native/discourse_ui.dart' show monospaceTextStyle;
 
 class CodeBlockData {
   const CodeBlockData({

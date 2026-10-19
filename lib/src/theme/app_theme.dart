@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -6,11 +7,6 @@ import '../models/forum_background.dart';
 import '../models/forum_font.dart';
 import '../models/forum_theme.dart';
 import '../models/site_appearance.dart';
-import '../ui/components/d_button.dart';
-import '../ui/components/d_scroll_area.dart';
-import '../ui/components/d_tooltip.dart';
-import '../ui/foundation/control_theme.dart';
-import '../ui/foundation/tokens.dart';
 import 'color_contrast.dart';
 import 'discourse_typography.dart';
 

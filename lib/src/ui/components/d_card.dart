@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/material_surface.dart';
 import '../foundation/tokens.dart';
+import 'd_item.dart';
 
 enum DCardSize { normal, small }
 
@@ -11,6 +12,9 @@ enum DCardVariant {
   standard,
   capsule,
   well,
+
+  /// Latest-reply artwork that follows its containing Item's interaction.
+  itemPreview,
 
   /// Title-bar writing actions: accent glass raised above the window ground.
   /// This artwork applies in both material modes. Reduced transparency keeps
@@ -48,6 +52,10 @@ class DCard extends ImplicitlyAnimatedWidget {
 
   /// Full-surface composition, useful for an InkWell with caller-owned padding.
   final Widget? child;
+
+  /// Resolved fill for passive artwork such as overlapping avatar rings.
+  static Color surfaceColorOf(BuildContext context) =>
+      _CardScope.of(context)?.surfaceColor ?? DTokens.of(context).background;
   final List<Widget> children;
   final DCardSize size;
 
@@ -102,6 +110,42 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.variant == DCardVariant.itemPreview) {
+      final theme = Theme.of(context);
+      final interaction = DItemInteraction.of(context);
+      final base = theme.colorScheme.surfaceContainerHighest;
+      final fill = interaction.emphasized
+          ? Color.alphaBlend(
+              theme.colorScheme.onSurface.withValues(
+                alpha: theme.brightness == Brightness.dark ? .055 : .035,
+              ),
+              base,
+            )
+          : base;
+      final outline = interaction.focused
+          ? theme.colorScheme.primary.withValues(alpha: .7)
+          : interaction.emphasized
+          ? theme.colorScheme.onSurface.withValues(alpha: .1)
+          : Colors.transparent;
+      return _CardScope(
+        spacing: 12,
+        size: DCardSize.small,
+        surfaceColor: fill,
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 120),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: fill,
+            border: Border.all(color: outline),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: widget.child,
+        ),
+      );
+    }
     final child = widget.child;
     final children = widget.children;
     final size = widget.size;
@@ -161,6 +205,7 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
     return _CardScope(
       spacing: inset,
       size: size,
+      surfaceColor: surfaceColor,
       child: Semantics(
         container: true,
         child: DMaterialSurface(
@@ -256,15 +301,19 @@ class _CardScope extends InheritedWidget {
   const _CardScope({
     required this.spacing,
     required this.size,
+    required this.surfaceColor,
     required super.child,
   });
   final double spacing;
   final DCardSize size;
+  final Color surfaceColor;
   static _CardScope? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_CardScope>();
   @override
   bool updateShouldNotify(_CardScope oldWidget) =>
-      spacing != oldWidget.spacing || size != oldWidget.size;
+      spacing != oldWidget.spacing ||
+      size != oldWidget.size ||
+      surfaceColor != oldWidget.surfaceColor;
 }
 
 double _spacing(BuildContext context) =>

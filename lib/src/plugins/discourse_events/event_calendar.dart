@@ -897,81 +897,66 @@ final class _EventCalendarState extends State<EventCalendar> {
         '${event.title}, ${DateFormat.yMMMd(_locale).format(event.localStart)}, ${_timeLabel(event)}';
     return DTooltip(
       message: label,
-      child: Semantics(
-        button: true,
-        label: label,
-        excludeSemantics: true,
-        child: Material(
-          color: block ? background : Colors.transparent,
-          borderRadius: BorderRadius.circular(3),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => widget.onOpen(event),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 100;
-                final text = Text.rich(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 100;
+          final text = Text.rich(
+            TextSpan(
+              children: [
+                if (!event.isAllDay && !compact)
                   TextSpan(
-                    children: [
-                      if (!event.isAllDay && !compact)
-                        TextSpan(
-                          text: context.l10n.messageEventcalendarValue(
-                            (timeline).toString(),
-                            ((timeline) ? (_timeLabel(event)) : '').toString(),
-                            ((!(timeline)) ? (_time(event.localStart)) : '')
-                                .toString(),
-                          ),
-                          style: const TextStyle(fontWeight: FontWeight.normal),
-                        ),
-                      if (event.event.recurring && !compact)
-                        WidgetSpan(
-                          alignment: PlaceholderAlignment.middle,
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(end: 2),
-                            child: Icon(
-                              Icons.repeat,
-                              size: 13,
-                              color: foreground,
-                            ),
-                          ),
-                        ),
-                      TextSpan(text: event.title),
-                    ],
+                    text: context.l10n.messageEventcalendarValue(
+                      (timeline).toString(),
+                      ((timeline) ? (_timeLabel(event)) : '').toString(),
+                      ((!(timeline)) ? (_time(event.localStart)) : '')
+                          .toString(),
+                    ),
+                    style: const TextStyle(fontWeight: FontWeight.normal),
                   ),
-                  maxLines: timeline ? null : 1,
-                  overflow: timeline
-                      ? TextOverflow.clip
-                      : TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: foreground,
-                    fontWeight: block ? FontWeight.normal : FontWeight.w600,
+                if (event.event.recurring && !compact)
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 2),
+                      child: Icon(Icons.repeat, size: 13, color: foreground),
+                    ),
                   ),
-                );
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Row(
-                    crossAxisAlignment: timeline
-                        ? CrossAxisAlignment.start
-                        : CrossAxisAlignment.center,
-                    children: [
-                      if (!block) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: Icon(
-                            Icons.circle,
-                            size: 8,
-                            color: event.color ?? colors.outline,
-                          ),
-                        ),
-                      ],
-                      Expanded(child: text),
-                    ],
-                  ),
-                );
-              },
+                TextSpan(text: event.title),
+              ],
             ),
-          ),
-        ),
+            maxLines: timeline ? null : 1,
+            overflow: timeline ? TextOverflow.clip : TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: foreground,
+              fontWeight: block ? FontWeight.normal : FontWeight.w600,
+            ),
+          );
+          return DCalendarEventAction(
+            backgroundColor: block ? background : Colors.transparent,
+            semanticLabel: label,
+            onPressed: () => widget.onOpen(event),
+            child: ExcludeSemantics(
+              child: Row(
+                crossAxisAlignment: timeline
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.center,
+                children: [
+                  if (!block) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(
+                        Icons.circle,
+                        size: 8,
+                        color: event.color ?? colors.outline,
+                      ),
+                    ),
+                  ],
+                  Expanded(child: text),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -573,6 +573,28 @@ class _DInputState extends FormFieldState<String> {
   }
 }
 
+/// Makes the visible canvas of an editor focus its borrowed editable node.
+///
+/// Adds no layout space or semantics node. The child defines the full target.
+class DInputFocusRegion extends StatelessWidget {
+  const DInputFocusRegion({
+    super.key,
+    required this.focusNode,
+    required this.child,
+    this.enabled = true,
+  });
+
+  final FocusNode focusNode;
+  final Widget child;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => _InputHitTarget(
+    onTap: enabled ? focusNode.requestFocus : null,
+    child: child,
+  );
+}
+
 class _InputHitTarget extends StatelessWidget {
   const _InputHitTarget({required this.child, this.onTap});
   final Widget child;

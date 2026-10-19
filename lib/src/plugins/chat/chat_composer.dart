@@ -1267,10 +1267,8 @@ class _ChatComposerState extends State<ChatComposer> {
                 DInputGroupControl(
                   focusNode: composer.focus,
                   multiline: true,
-                  builder: (context, focusNode) => GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    excludeFromSemantics: true,
-                    onTap: focusNode.requestFocus,
+                  builder: (context, focusNode) => DInputFocusRegion(
+                    focusNode: focusNode,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         minHeight: mobile ? lineExtent : 40,

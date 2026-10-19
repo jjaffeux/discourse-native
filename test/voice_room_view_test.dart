@@ -4371,8 +4371,8 @@ void _meshPrivacyTests() {
       await tester.pump();
       await tester.tap(
         find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.widgetWithText(FilledButton, 'Join room'),
+          of: find.byType(DDialogContent),
+          matching: find.widgetWithText(DButton, 'Join room'),
         ),
       );
       await tester.pumpAndSettle();

@@ -303,7 +303,7 @@ class _ReadOnlyTagsState extends State<_ReadOnlyTags> {
             action: ({required newTab, panel}) =>
                 widget.onTagNavigate(tag, newTab: newTab, panel: panel),
             child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+              behavior: HitTestBehavior.deferToChild,
               excludeFromSemantics: true,
               onTertiaryTapUp: (_) => widget.onTagNavigate(tag, newTab: true),
               child: Padding(

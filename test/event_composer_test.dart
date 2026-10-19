@@ -257,9 +257,10 @@ void main() {
           body: Builder(
             builder: (context) => TextButton(
               onPressed: () async {
-                result = await showDialog<String>(
+                result = await showDDialog<String>(
                   context: context,
-                  builder: (_) => EventComposerSheet(
+                  builder: (_, dialog) => EventComposerSheet(
+                    onClose: dialog.close,
                     block: parseEventBlocks(original).single,
                     settings: const EventSettings(enabled: true),
                     timezone: 'Europe/Paris',
@@ -341,6 +342,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: EventComposerSheet(
+              onClose: (_) {},
               block: parseEventBlocks(original).single,
               settings: const EventSettings(enabled: true),
               timezone: 'Europe/Paris',
@@ -372,9 +374,10 @@ Future<String?> _applySheet(
         body: Builder(
           builder: (context) => TextButton(
             onPressed: () async {
-              result = await showDialog<String>(
+              result = await showDDialog<String>(
                 context: context,
-                builder: (_) => EventComposerSheet(
+                builder: (_, dialog) => EventComposerSheet(
+                  onClose: dialog.close,
                   block: block,
                   settings: settings,
                   timezone: 'Europe/Paris',

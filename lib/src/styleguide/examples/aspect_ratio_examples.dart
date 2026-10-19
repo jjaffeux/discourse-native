@@ -374,10 +374,7 @@ class _InteractiveContentState extends State<_InteractiveContent> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(labelText: 'Local note'),
-                  ),
+                  DInput(controller: _controller, labelText: 'Local note'),
                   const SizedBox(height: DSpacing.lg),
                   DButton(
                     key: const ValueKey('aspect-ratio-increment'),

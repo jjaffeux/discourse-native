@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -852,7 +853,10 @@ final class _FailingBookmarkPreferences extends InMemorySharedPreferencesStore {
 
   @override
   Future<bool> setValue(String valueType, String key, Object value) async {
-    if (key != 'flutter.$_lastCustomKey') {
+    final ownedKey = BookmarkReminderStore.preferences.keyFor(
+      const SitePreferenceIdentity.account(_site, 'reader'),
+    );
+    if (key != 'flutter.$ownedKey') {
       return super.setValue(valueType, key, value);
     }
     writes++;

@@ -82,7 +82,11 @@ void main() {
 
         expect(find.byType(PostFlagEditor), findsOneWidget);
         final focused = FocusManager.instance.primaryFocus!.context!;
-        expect(ModalRoute.of(focused), isA<DialogRoute<void>>());
+        expect(
+          ModalRoute.of(focused),
+          same(ModalRoute.of(tester.element(find.byType(PostFlagEditor)))),
+        );
+        expect(find.byType(DDialogContent), findsOneWidget);
 
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();

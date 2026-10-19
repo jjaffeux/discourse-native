@@ -279,18 +279,27 @@ class _AlertTableState extends State<_AlertTable> {
                   siteUrl: widget.siteUrl,
                   child: Semantics(
                     link: true,
-                    child: InkWell(
-                      onTap: () => unawaited(
+                    child: DItem(
+                      size: DItemSize.sm,
+                      onPressed: () => unawaited(
                         openLink(
                           context,
                           graph.toString(),
                           siteUrl: widget.siteUrl,
                         ),
                       ),
-                      child: DefaultTextStyle.merge(
-                        style: TextStyle(color: theme.colorScheme.primary),
-                        child: identifier,
-                      ),
+                      children: [
+                        DItemContent(
+                          children: [
+                            DefaultTextStyle.merge(
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                              ),
+                              child: identifier,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),

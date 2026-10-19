@@ -2,7 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/foundation.dart' show precisionErrorTolerance;
+import 'package:flutter/foundation.dart'
+    show precisionErrorTolerance, ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -30,6 +31,12 @@ enum DPopoverShadow { none, large }
 /// Standard uses the host menu tokens; timeline uses the reference panel
 /// and border mixes. Both retain Native placement, focus and material effects.
 enum DPopoverVariant { standard, timeline }
+
+/// Imperative rich-content links retain the historical starting-corner anchor.
+/// Rectangle mode supplies both top and bottom edges for picker placement.
+enum DPopoverAnchorMode { corner, rectangle }
+
+enum DPopoverMotion { standard, picker, fade }
 
 enum DPopoverChangeReason {
   triggerPress,
@@ -133,6 +140,128 @@ class DPopoverController extends ChangeNotifier {
   }
 }
 
+/// Opens an existing Popover from an overlay-local anchor rectangle.
+/// The bottom starting corner anchors the popup, including when a rich-content
+/// caller supplies a rectangle much larger than its visible link.
+/// The returned future completes when this popup's hosting route is removed.
+Future<void> showDPopover({
+  required BuildContext context,
+  required DPopoverContent Function(BuildContext context) builder,
+  Rect? anchorRect,
+  DPopoverController? controller,
+  FocusNode? initialFocusNode,
+  bool useRootNavigator = false,
+  DPopoverAnchorMode anchorMode = DPopoverAnchorMode.corner,
+  ValueListenable<bool>? anchorPresence,
+  Duration transitionDuration = const Duration(milliseconds: 100),
+  Curve transitionCurve = Curves.easeOut,
+  Curve reverseTransitionCurve = Curves.easeIn,
+}) => showGeneralDialog<void>(
+  context: context,
+  useRootNavigator: useRootNavigator,
+  barrierColor: Colors.transparent,
+  transitionDuration: Duration.zero,
+  pageBuilder: (context, animation, secondaryAnimation) => _DPopoverHost(
+    anchorRect: anchorRect,
+    controller: controller,
+    initialFocusNode: initialFocusNode,
+    builder: builder,
+    anchorMode: anchorMode,
+    anchorPresence: anchorPresence,
+    transitionDuration: transitionDuration,
+    transitionCurve: transitionCurve,
+    reverseTransitionCurve: reverseTransitionCurve,
+  ),
+);
+
+class _DPopoverHost extends StatelessWidget {
+  const _DPopoverHost({
+    required this.anchorRect,
+    required this.controller,
+    required this.initialFocusNode,
+    required this.builder,
+    required this.anchorMode,
+    required this.anchorPresence,
+    required this.transitionDuration,
+    required this.transitionCurve,
+    required this.reverseTransitionCurve,
+  });
+
+  final Rect? anchorRect;
+  final DPopoverController? controller;
+  final FocusNode? initialFocusNode;
+  final DPopoverContent Function(BuildContext context) builder;
+  final DPopoverAnchorMode anchorMode;
+  final ValueListenable<bool>? anchorPresence;
+  final Duration transitionDuration;
+  final Curve transitionCurve;
+  final Curve reverseTransitionCurve;
+
+  @override
+  Widget build(BuildContext context) {
+    final presence = anchorPresence;
+    if (presence == null) return _buildPopover(context, true);
+    return ValueListenableBuilder<bool>(
+      valueListenable: presence,
+      builder: (context, present, _) => _buildPopover(context, present),
+    );
+  }
+
+  Widget _buildPopover(BuildContext context, bool present) {
+    final route = ModalRoute.of(context)!;
+    final target = present ? anchorRect : null;
+    return DPopover(
+      defaultOpen: true,
+      controller: controller,
+      initialFocusNode: initialFocusNode,
+      transitionDuration: transitionDuration,
+      reverseTransitionDuration: transitionDuration,
+      transitionCurve: transitionCurve,
+      reverseTransitionCurve: reverseTransitionCurve,
+      onOpenChangeComplete: (open) {
+        if (!open && route.isActive) route.navigator?.removeRoute(route);
+      },
+      content: builder(context),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final point =
+              switch (Directionality.of(context)) {
+                TextDirection.ltr => target?.bottomLeft,
+                TextDirection.rtl => target?.bottomRight,
+              } ??
+              constraints.biggest.center(Offset.zero);
+          final padding = MediaQuery.paddingOf(context);
+          final useRectangle =
+              anchorMode == DPopoverAnchorMode.rectangle && target != null;
+          return Stack(
+            children: [
+              Positioned(
+                left: (useRectangle ? target.left : point.dx).clamp(
+                  padding.left,
+                  math.max(
+                    padding.left,
+                    constraints.maxWidth - padding.right - 1,
+                  ),
+                ),
+                top: (useRectangle ? target.top : point.dy - 1).clamp(
+                  padding.top,
+                  math.max(
+                    padding.top,
+                    constraints.maxHeight - padding.bottom - 1,
+                  ),
+                ),
+                width: useRectangle ? math.max(1, target.width) : 1,
+                height: useRectangle ? math.max(1, target.height) : 1,
+                child: const DPopoverAnchor(child: SizedBox.expand()),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// A shadcn/Base UI-style rich floating surface.
 ///
 /// [open] selects controlled mode. Otherwise [defaultOpen] seeds local state.
@@ -161,6 +290,7 @@ class DPopover extends StatefulWidget {
     this.transitionDuration = const Duration(milliseconds: 100),
     this.reverseTransitionDuration = const Duration(milliseconds: 100),
     this.transitionCurve = Curves.easeOut,
+    this.reverseTransitionCurve = Curves.easeIn,
   });
 
   final Widget child;
@@ -198,7 +328,7 @@ class DPopover extends StatefulWidget {
   /// Desktop retains the anchored popup.
   final bool fullScreenOnMobile;
 
-  /// Preferred initial focus for a mobile sheet. The caller owns this node.
+  /// Preferred initial focus for the popup or mobile sheet. The caller owns it.
   final FocusNode? initialFocusNode;
 
   /// Whether opening moves focus into the floating surface.
@@ -210,6 +340,7 @@ class DPopover extends StatefulWidget {
   final Duration transitionDuration;
   final Duration reverseTransitionDuration;
   final Curve transitionCurve;
+  final Curve reverseTransitionCurve;
 
   @override
   State<DPopover> createState() => _DPopoverState();
@@ -244,7 +375,7 @@ class _DPopoverState extends State<DPopover>
   late final _curve = CurvedAnimation(
     parent: _animation,
     curve: widget.transitionCurve,
-    reverseCurve: Curves.easeIn,
+    reverseCurve: widget.reverseTransitionCurve,
   );
   BuildContext? _triggerContext;
   BuildContext? _anchorContext;
@@ -313,7 +444,7 @@ class _DPopoverState extends State<DPopover>
       ..reverseDuration = widget.reverseTransitionDuration;
     _curve
       ..curve = widget.transitionCurve
-      ..reverseCurve = Curves.easeIn;
+      ..reverseCurve = widget.reverseTransitionCurve;
     _scheduleSync();
   }
 
@@ -389,7 +520,11 @@ class _DPopoverState extends State<DPopover>
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_open || _sheet || !widget.focusContentOnOpen) return;
-        if (_interaction == DPopoverInteraction.touch) {
+        final initial = widget.initialFocusNode;
+        if (initial?.canRequestFocus ?? false) {
+          initial!.requestFocus();
+        } else if (_surfaceFocus.focusedChild != null ||
+            _interaction == DPopoverInteraction.touch) {
           _surfaceFocus.requestFocus();
         } else {
           _surfaceFocus.requestFocus();
@@ -1024,6 +1159,8 @@ class DPopoverContent extends StatelessWidget {
     this.scrollable = true,
     this.shadow = DPopoverShadow.none,
     this.variant = DPopoverVariant.standard,
+    this.motion = DPopoverMotion.standard,
+    this.centered = false,
     this.cornerRadius,
     this.placementResolver,
     this.sizeAnimationDuration,
@@ -1051,6 +1188,10 @@ class DPopoverContent extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final DPopoverShadow shadow;
   final DPopoverVariant variant;
+  final DPopoverMotion motion;
+
+  /// Centers an unanchored picker within the safe collision boundary.
+  final bool centered;
 
   /// Uniform popup corner radius. Null keeps the Native popover default.
   final double? cornerRadius;
@@ -1134,7 +1275,11 @@ class DPopoverContent extends StatelessWidget {
                 ? const []
                 : shadows,
           ),
-          child: content,
+          child: Material(
+            type: MaterialType.transparency,
+            textStyle: style,
+            child: content,
+          ),
         ),
       ),
     );
@@ -1418,7 +1563,7 @@ class _RenderPopover extends RenderShiftedBox {
     final config = c.content;
     final boundary = c.boundary.deflate(config.collisionPadding);
     _side = _physical(config.side);
-    final customPlacement = config.placementResolver != null;
+    final customPlacement = config.placementResolver != null || config.centered;
     final boundaryConstraints = BoxConstraints(
       maxWidth: math.max(0, boundary.width),
       maxHeight: math.max(0, boundary.height),
@@ -1594,7 +1739,9 @@ class _RenderPopover extends RenderShiftedBox {
         );
       }
     }
-    offset = Offset(dx, dy);
+    offset = config.centered
+        ? boundary.center - Offset(childSize.width / 2, childSize.height / 2)
+        : Offset(dx, dy);
     (child!.parentData! as BoxParentData).offset = offset;
     final anchor = c.target.center - offset;
     _transformOrigin = switch (_side) {
@@ -1614,19 +1761,27 @@ class _RenderPopover extends RenderShiftedBox {
   Matrix4 get _contentTransform {
     final value = _configuration.animation.value;
     final origin = (child!.parentData! as BoxParentData).offset;
-    final slide = (1 - value) * 8;
+    final motion = _configuration.content.motion;
+    if (motion == DPopoverMotion.fade) {
+      return Matrix4.translationValues(origin.dx, origin.dy, 0);
+    }
+    final picker = motion == DPopoverMotion.picker;
+    final slide = picker ? 0.0 : (1 - value) * 8;
     final delta = switch (_side) {
       DPopoverSide.top => Offset(0, slide),
       DPopoverSide.bottom => Offset(0, -slide),
       DPopoverSide.left => Offset(slide, 0),
       _ => Offset(-slide, 0),
     };
-    final scale = 0.95 + value * 0.05;
-    final pivot = origin + _transformOrigin;
+    final scale = picker ? .97 + value * .03 : .95 + value * .05;
+    final transformOrigin = picker
+        ? Offset(0, child!.size.height)
+        : _transformOrigin;
+    final pivot = origin + transformOrigin;
     return Matrix4.identity()
       ..translateByDouble(pivot.dx + delta.dx, pivot.dy + delta.dy, 0, 1)
       ..scaleByDouble(scale, scale, 1, 1)
-      ..translateByDouble(-_transformOrigin.dx, -_transformOrigin.dy, 0, 1);
+      ..translateByDouble(-transformOrigin.dx, -transformOrigin.dy, 0, 1);
   }
 
   @override

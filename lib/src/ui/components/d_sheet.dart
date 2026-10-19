@@ -384,6 +384,7 @@ Widget _sheetPresentation(
   DSheetVariant variant = DSheetVariant.standard,
   bool sizeToContent = true,
   bool contentLoading = false,
+  double? topBottomMaxWidth,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
@@ -424,6 +425,7 @@ Widget _sheetPresentation(
           extendBehindKeyboard,
           dismissOnSwipe,
           variant: variant,
+          topBottomMaxWidth: topBottomMaxWidth,
           retainKeyboardInsets: retainKeyboardInsets,
           onRetainedDismiss: onRetainedDismiss,
           onRetainedSwipeDismissRequested: onRetainedSwipeDismissRequested,
@@ -448,6 +450,7 @@ Widget _sheetLayout(
   bool extendBehindKeyboard,
   bool dismissOnSwipe, {
   DSheetVariant variant = DSheetVariant.standard,
+  double? topBottomMaxWidth,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
@@ -635,17 +638,25 @@ Widget _sheetLayout(
                 : (availableWidth * .75).clamp(0, maxWidth).toDouble()
           : width.clamp(0, maxWidth).clamp(0, availableWidth).toDouble();
       final horizontal = side.isHorizontal;
+      final topBottomWidth = !horizontal && topBottomMaxWidth != null
+          ? topBottomMaxWidth.clamp(0.0, availableWidth).toDouble()
+          : null;
       final positioned = AnimatedPositioned(
         duration: animateSize
             ? DMotion.duration(context, DMotion.change)
             : Duration.zero,
         curve: Curves.easeOutCubic,
-        left: side == DSheetSide.center
+        left: topBottomWidth != null
+            ? (bounds.maxWidth - topBottomWidth) / 2
+            : side == DSheetSide.center
             ? (bounds.maxWidth - panelWidth) / 2
             : side == DSheetSide.right
             ? null
             : margin,
-        right: side == DSheetSide.left || side == DSheetSide.center
+        right:
+            topBottomWidth != null ||
+                side == DSheetSide.left ||
+                side == DSheetSide.center
             ? null
             : margin,
         top: extendBehindKeyboard
@@ -666,7 +677,7 @@ Widget _sheetLayout(
             : side == DSheetSide.top
             ? null
             : margin + safeBottom,
-        width: horizontal ? panelWidth : null,
+        width: horizontal ? panelWidth : topBottomWidth,
         child: variant == DSheetVariant.menu && side == DSheetSide.bottom
             ? ConstrainedBox(
                 constraints: BoxConstraints(
@@ -1870,12 +1881,18 @@ Future<T?> showDSheet<T>({
   bool fillAvailableHeight = false,
 
   bool useRootNavigator = false,
+  bool dismissOnSwipe = true,
+  bool Function()? canDismiss,
+
+  /// Caps and centers fixed-edge top and bottom surfaces.
+  double? topBottomMaxWidth,
 
   String? barrierLabel,
 
   FocusNode? initialFocusNode,
   FocusNode? finalFocusNode,
 }) {
+  assert(topBottomMaxWidth == null || topBottomMaxWidth > 0);
   return showDDialog<T>(
     context: context,
     builder: builder,
@@ -1883,6 +1900,7 @@ Future<T?> showDSheet<T>({
     modal: true,
     dismissOnBarrier: true,
     dismissOnEscape: true,
+    canDismiss: canDismiss,
     barrierLabel: barrierLabel ?? appL10n.dismissSheet,
     routeSettings: null,
     initialFocusNode: initialFocusNode,
@@ -1897,10 +1915,11 @@ Future<T?> showDSheet<T>({
       false,
       fillAvailableHeight,
       false,
-      true,
+      dismissOnSwipe,
       variant: variant,
       sizeToContent: sizeToContent,
       contentLoading: contentLoading,
+      topBottomMaxWidth: topBottomMaxWidth,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),

@@ -17,6 +17,7 @@ import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 import 'd_avatar.dart';
 import 'd_kbd.dart';
+import 'd_link_interaction.dart';
 import 'd_spinner.dart';
 import 'd_tooltip.dart';
 
@@ -138,6 +139,9 @@ enum DButtonDensity {
 
   /// Bare 12px search-clear glyph with matching bounds, scaling with text.
   searchClear,
+
+  /// A 32px circular rail action with 16px artwork and matching hit bounds.
+  rail,
 }
 
 @immutable
@@ -603,6 +607,7 @@ class DButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveSemanticLabel =
         semanticLabel ?? (_iconOnly ? tooltip : null);
+    final linkActivation = DLinkInteractionBinding.capture(context, onPressed);
     final theme = Theme.of(context);
     final buttons = theme.discourseButtons;
     final tokens = DTokens.of(context);
@@ -638,6 +643,7 @@ class DButton extends StatelessWidget {
     final inlineMetadata = density == DButtonDensity.inlineMetadata;
     final searchClear = density == DButtonDensity.searchClear;
     final avatar = density == DButtonDensity.avatar;
+    final rail = density == DButtonDensity.rail;
     final dashedTile = variant == DButtonVariant.dashedTile;
     final resume = variant == DButtonVariant.resume;
     final launcher = variant == DButtonVariant.launcher;
@@ -679,7 +685,7 @@ class DButton extends StatelessWidget {
         ? DPostReactionStyle.iconSize
         : timelineEnd
         ? 11.0
-        : header
+        : header || rail
         ? 16.0
         : chrome
         ? 15.0
@@ -744,6 +750,8 @@ class DButton extends StatelessWidget {
             MediaQuery.textScalerOf(context),
             context: context,
           )
+        : rail
+        ? 32.0 + math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14)
         : searchClear
         ? MediaQuery.textScalerOf(context).scale(12)
         : avatar
@@ -779,6 +787,7 @@ class DButton extends StatelessWidget {
                     postReaction ||
                     chrome ||
                     avatar ||
+                    rail ||
                     shape == DButtonShape.pill ||
                     quiet ||
                     variant == DButtonVariant.primary
@@ -1266,7 +1275,7 @@ class DButton extends StatelessWidget {
                   depth: DSurfaceDepth.chromeSelection,
                   child: surface,
                 )
-              : timeline || postReaction || chrome || launcher || quiet
+              : timeline || postReaction || chrome || launcher || quiet || rail
               ? surface
               : DMaterialSurface(
                   radius: radius,
@@ -1463,7 +1472,7 @@ class DButton extends StatelessWidget {
     // The exterior ring paints beyond the Material, so the button never clips.
     Widget result = isLink
         ? _DLinkPrimitive(
-            onPressed: enabled ? onPressed : null,
+            onPressed: enabled ? linkActivation.onPressed : null,
             style: style,
             focusNode: focusNode,
             autofocus: autofocus,
@@ -1472,14 +1481,14 @@ class DButton extends StatelessWidget {
           )
         : postAction
         ? _DPostActionPrimitive(
-            onPressed: enabled ? onPressed : null,
+            onPressed: enabled ? linkActivation.onPressed : null,
             style: style,
             focusNode: focusNode,
             autofocus: autofocus,
             child: child,
           )
         : FilledButton(
-            onPressed: enabled ? onPressed : null,
+            onPressed: enabled ? linkActivation.onPressed : null,
             style: style,
             focusNode: focusNode,
             autofocus: autofocus,
@@ -1520,19 +1529,21 @@ class DButton extends StatelessWidget {
       );
     }
 
-    return MergeSemantics(
-      child: Semantics(
-        button: !isLink,
-        link: isLink,
-        enabled: enabled,
-        expanded: hasPopup ? expanded : null,
-        validationResult: invalid
-            ? SemanticsValidationResult.invalid
-            : SemanticsValidationResult.none,
-        liveRegion: loading,
-        label: effectiveSemanticLabel,
-        value: loading ? loadingSemanticLabel : null,
-        child: result,
+    return linkActivation.wrap(
+      MergeSemantics(
+        child: Semantics(
+          button: !isLink,
+          link: isLink,
+          enabled: enabled,
+          expanded: hasPopup ? expanded : null,
+          validationResult: invalid
+              ? SemanticsValidationResult.invalid
+              : SemanticsValidationResult.none,
+          liveRegion: loading,
+          label: effectiveSemanticLabel,
+          value: loading ? loadingSemanticLabel : null,
+          child: result,
+        ),
       ),
     );
   }

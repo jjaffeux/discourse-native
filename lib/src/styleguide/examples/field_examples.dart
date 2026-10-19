@@ -781,14 +781,11 @@ class _FieldResponsiveExampleState extends State<FieldResponsiveExample> {
                           description:
                               'Provide your full name for identification',
                           errors: errors,
-                          child: TextField(
+                          child: DInput(
                             focusNode: _focus,
                             controller: _text,
-                            decoration: const InputDecoration(
-                              hintText: 'Evil Rabbit',
-                              border: OutlineInputBorder(),
-                            ),
                             onChanged: state.didChange,
+                            hintText: 'Evil Rabbit',
                           ),
                         ),
                         if (state.hasError) DFieldError(errors: errors),

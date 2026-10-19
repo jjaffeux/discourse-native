@@ -287,23 +287,26 @@ class _LocalDateInlineState extends State<LocalDateInline> {
       );
       return;
     }
-    await showGeneralDialog<void>(
+    await showDPopover(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: appL10n.dismissDateAndTime,
-      barrierColor: Colors.transparent,
-      pageBuilder: (context, _, _) => CustomSingleChildLayout(
-        delegate: AnchoredLayout(anchor: anchor, maxWidth: 420),
-        child: Material(
-          elevation: 8,
-          color: Theme.of(context).shell.floating,
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: body(context),
-          ),
-        ),
+      useRootNavigator: true,
+      anchorRect: anchor,
+      anchorMode: DPopoverAnchorMode.rectangle,
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionCurve: Curves.linear,
+      reverseTransitionCurve: Curves.linear,
+      builder: (context) => DPopoverContent(
+        width: null,
+        constraints: const BoxConstraints(maxWidth: 420),
+        padding: const EdgeInsets.all(16),
+        side: DPopoverSide.bottom,
+        align: DPopoverAlign.start,
+        sideOffset: 8,
+        collisionPadding: 12,
+        cornerRadius: 12,
+        shadow: DPopoverShadow.large,
+        motion: DPopoverMotion.fade,
+        child: body(context),
       ),
     );
   }
@@ -331,9 +334,7 @@ class _LocalDateButton extends StatelessWidget {
         : theme.colorScheme.primary;
     final label = semanticLabel.isEmpty ? formatted : semanticLabel;
 
-    // A 44px WidgetSpan would expand the cooked line, so the full inline date
-    // uses WCAG's inline-target exception. Align keeps HtmlWidget's unwrapped
-    // block constraint outside that interactive area.
+    // Keep HtmlWidget's unwrapped block constraint outside the inline target.
     return Align(
       alignment: AlignmentDirectional.centerStart,
       widthFactor: 1,
@@ -347,40 +348,33 @@ class _LocalDateButton extends StatelessWidget {
             onPressed(origin & box.size);
           }
 
-          return Semantics(
-            container: true,
-            button: true,
-            label: label,
-            onTap: activate,
-            child: ExcludeSemantics(
-              child: Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  onTap: activate,
-                  mouseCursor: SystemMouseCursors.click,
-                  hoverColor: Colors.transparent,
-                  borderRadius: BorderRadius.circular(2),
-                  focusColor: theme.colorScheme.primary.withValues(alpha: 0.16),
-                  child: Text.rich(
-                    TextSpan(
-                      style: inherited.copyWith(
-                        color: color,
-                        decoration: TextDecoration.underline,
-                        decorationStyle: TextDecorationStyle.dotted,
-                        decorationColor: color,
-                      ),
-                      children: [
-                        WidgetSpan(
-                          alignment: PlaceholderAlignment.middle,
-                          child: DIcon(DIcons.globe, size: 15, color: color),
-                        ),
-                        TextSpan(text: ' $formatted'),
-                      ],
+          return DItem(
+            size: DItemSize.artwork,
+            fitContent: true,
+            highlightOnInteraction: false,
+            semanticLabel: label,
+            onPressed: activate,
+            children: [
+              ExcludeSemantics(
+                child: Text.rich(
+                  TextSpan(
+                    style: inherited.copyWith(
+                      color: color,
+                      decoration: TextDecoration.underline,
+                      decorationStyle: TextDecorationStyle.dotted,
+                      decorationColor: color,
                     ),
+                    children: [
+                      WidgetSpan(
+                        alignment: PlaceholderAlignment.middle,
+                        child: DIcon(DIcons.globe, size: 15, color: color),
+                      ),
+                      TextSpan(text: ' $formatted'),
+                    ],
                   ),
                 ),
               ),
-            ),
+            ],
           );
         },
       ),

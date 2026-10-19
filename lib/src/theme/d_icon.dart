@@ -1,7 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../ui/foundation/tokens.dart';
 import 'd_icon_glyph.dart';
 import 'd_icon_sets.dart';
 

@@ -267,23 +267,23 @@ Future<void> showReactionPicker(
     );
   }
 
-  return showDialog<void>(
+  return showDDialog<void>(
     context: context,
-    builder: (dialogContext) => Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 340),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: ReactionGrid._withSession(
-            pickerSession,
-            context,
-            controller: controller,
-            siteUrl: siteUrl,
-            post: post,
-            onPicked: Navigator.of(dialogContext).pop,
-          ),
+    useRootNavigator: true,
+    builder: (dialogContext, dialog) => DDialogContent(
+      maxWidth: 340,
+      showCloseButton: false,
+      semanticLabel: appL10n.react,
+      children: [
+        ReactionGrid._withSession(
+          pickerSession,
+          context,
+          controller: controller,
+          siteUrl: siteUrl,
+          post: post,
+          onPicked: dialog.close,
         ),
-      ),
+      ],
     ),
   );
 }

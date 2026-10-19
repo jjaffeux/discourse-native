@@ -19,7 +19,6 @@ import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
-import 'package:discourse_native/src/shell/pill.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -158,10 +157,10 @@ EditableText _composerEditable(WidgetTester tester) =>
 
 BoxDecoration _pollPillDecoration(WidgetTester tester) =>
     tester
-            .widget<Container>(
+            .widget<AnimatedContainer>(
               find.descendant(
                 of: find.byType(PollComposerPill),
-                matching: find.byType(Container),
+                matching: find.byType(AnimatedContainer),
               ),
             )
             .decoration!
@@ -1289,7 +1288,7 @@ void main() {
         theme.shell.mention,
       );
       final sourceBefore = composer.text.value;
-      final rectBefore = tester.getRect(find.byType(Pill));
+      final rectBefore = tester.getRect(find.byType(DBadge));
       expect(_pollPillDecoration(tester).color, theme.shell.mention);
 
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -1299,7 +1298,7 @@ void main() {
       await tester.pump();
 
       expect(_pollPillDecoration(tester).color, expectedHover);
-      expect(tester.getRect(find.byType(Pill)), rectBefore);
+      expect(tester.getRect(find.byType(DBadge)), rectBefore);
       expect(composer.text.value, sourceBefore);
       expect(find.byTooltip('Edit poll'), findsNothing);
       expect(find.byTooltip('Remove poll'), findsNothing);
@@ -1310,7 +1309,7 @@ void main() {
       await mouse.moveTo(Offset.zero);
       await tester.pump();
       expect(_pollPillDecoration(tester).color, theme.shell.mention);
-      expect(tester.getRect(find.byType(Pill)), rectBefore);
+      expect(tester.getRect(find.byType(DBadge)), rectBefore);
       await _closeComposerAfterAssertions(tester, shell);
     });
   });

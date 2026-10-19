@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalender/kalender.dart' as kalender;
 
@@ -124,6 +125,31 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('event lanes activate once with pointer, Enter and Space', (
+    tester,
+  ) async {
+    await pump(tester, [event(1, name: 'Keyboard call')]);
+    final label = find.textContaining('Keyboard call', findRichText: true);
+    final action = find.ancestor(
+      of: label,
+      matching: find.byType(DCalendarEventAction),
+    );
+    final bounds = tester.getRect(action);
+    await tester.tapAt(Offset(bounds.left - 1, bounds.center.dy));
+    await tester.pump();
+    expect(opened, isEmpty);
+    await tester.tap(label);
+    await tester.pump();
+    expect(opened, [1]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(opened, [1, 1]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    expect(opened, [1, 1, 1]);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final width in [390.0, 800.0, 1300.0]) {

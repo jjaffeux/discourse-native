@@ -72,6 +72,63 @@ List<String?> _customActions(SemanticsNode node) => [
 ];
 
 void main() {
+  testWidgets(
+    'forum target follows artwork and retains hover marker and drag cursor',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pumpRail(tester);
+        final target = find.descendant(
+          of: _railItem(_team),
+          matching: find.byType(DItem),
+        );
+        expect(target, findsOneWidget);
+        final bounds = tester.getRect(target);
+        expect(bounds.size, const Size.square(32));
+        expect(tester.getSemantics(_railItem(_team)).rect.size, bounds.size);
+        final gapDrag = await tester.startGesture(
+          Offset(bounds.left - 3, bounds.center.dy),
+          kind: PointerDeviceKind.mouse,
+        );
+        await gapDrag.moveBy(const Offset(0, -20));
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('instance-rail-drag-feedback-$_team')),
+          findsNothing,
+        );
+        await gapDrag.up();
+        await gapDrag.removePointer();
+        await tester.pumpAndSettle();
+        final detector = tester.widget<FocusableActionDetector>(
+          find.descendant(
+            of: target,
+            matching: find.byType(FocusableActionDetector),
+          ),
+        );
+        expect(detector.mouseCursor, SystemMouseCursors.grab);
+        final marker = find.byKey(
+          const ValueKey('instance-rail-marker-$_team'),
+        );
+        double markerHeight() =>
+            tester.widget<AnimatedContainer>(marker).constraints!.maxHeight;
+        expect(markerHeight(), 8);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: const Offset(800, 500));
+        await mouse.moveTo(bounds.center);
+        await tester.pumpAndSettle();
+        expect(markerHeight(), 16);
+        await mouse.moveTo(Offset(bounds.left - 3, bounds.center.dy));
+        await tester.pumpAndSettle();
+        expect(markerHeight(), 8);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+    variant: _desktopBridges,
+  );
+
   testWidgets('rail actions keep cursor-only hover and keyboard focus', (
     tester,
   ) async {

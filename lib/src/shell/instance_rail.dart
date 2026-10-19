@@ -144,13 +144,9 @@ Color _railSurface(BuildContext context) {
 
 const double _railListPadding = 8;
 const double _railItemExtent = 44;
-const double _railControlExtent = 44;
 const double _railVisualSize = 32;
 const double _railIconSize = 16;
 const double _railFooterIconSize = 24;
-const double _railSelectedMarkerHeight = 28;
-const double _railHoveredMarkerHeight = 16;
-const double _railIdleMarkerHeight = 8;
 const double _railAvatarSize = _railVisualSize;
 const double _railSourceOpacity = 0.3;
 const double _railInsertionHorizontalInset = 5;
@@ -554,6 +550,8 @@ class _InstanceRailListState extends State<_InstanceRailList> {
                 onTap: () => widget.controller.selectInstance(index),
                 onMoveUp: moveUp,
                 onMoveDown: moveDown,
+                wrapControl: (control) =>
+                    _draggableItem(itemContext, index, instance, control),
               );
               return KeyedSubtree(
                 key: ValueKey(instance.url),
@@ -563,7 +561,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
                       visibleSlot == widget.state.instances.length &&
                       index == widget.state.instances.length - 1,
                   color: theme.colorScheme.primary,
-                  child: _draggableItem(itemContext, index, instance, item),
+                  child: item,
                 ),
               );
             },
@@ -853,31 +851,19 @@ class _RailLoadFailure extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Center(
-      child: DTooltip(
-        message: context.l10n.retryLoadingSites,
-        side: DTooltipSide.right,
-        child: InkWell(
-          key: const ValueKey('instance-load-retry-rail'),
-          onTap: ShellScope.read(context).load,
-          borderRadius: BorderRadius.circular(_railControlExtent / 2),
-          child: SizedBox.square(
-            dimension: _railControlExtent,
-            child: Center(
-              child: Container(
-                width: _railVisualSize,
-                height: _railVisualSize,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.error.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(_railVisualSize / 2),
-                ),
-                child: DIcon(
-                  DIcons.arrowsRotate,
-                  size: _railIconSize,
-                  color: theme.colorScheme.error,
-                ),
-              ),
-            ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Center(
+          child: DButton.iconOnly(
+            key: const ValueKey('instance-load-retry-rail'),
+            tooltip: context.l10n.retryLoadingSites,
+            tooltipSide: DTooltipSide.right,
+            onPressed: ShellScope.read(context).load,
+            variant: DButtonVariant.ghost,
+            density: DButtonDensity.rail,
+            backgroundColor: theme.colorScheme.error.withValues(alpha: .12),
+            foregroundColor: theme.colorScheme.error,
+            icon: const DIcon(DIcons.arrowsRotate),
           ),
         ),
       ),
@@ -1135,53 +1121,41 @@ class _UpdateButton extends StatelessWidget {
             updates.status == UpdateStatus.available ||
             updates.status == UpdateStatus.readyToInstall;
 
-        return DTooltip(
-          message: tooltip,
-          side: DTooltipSide.right,
-          child: InkWell(
-            onTap: () => showUpdateSheet(context),
-            borderRadius: BorderRadius.circular(_railControlExtent / 2),
-            child: SizedBox.square(
-              dimension: _railControlExtent,
-              child: Center(
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: _railVisualSize,
-                      height: _railVisualSize,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: filled
-                            ? color.withValues(alpha: 0.14)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(
-                          _railVisualSize / 2,
-                        ),
-                      ),
-                      child: updates.status == UpdateStatus.downloading
-                          ? SizedBox(
-                              width: _railIconSize,
-                              height: _railIconSize,
-                              child: CircularProgressIndicator(
-                                value: updates.progress,
-                                strokeWidth: 2,
-                                color: theme.colorScheme.primary,
-                              ),
-                            )
-                          : DIcon(icon, size: _railIconSize, color: color),
-                    ),
-                    if (wants)
-                      Positioned(
-                        right: -2,
-                        bottom: -2,
-                        child: DNotificationDot.overlay(
-                          ringColor: _railSurface(context),
-                        ),
-                      ),
-                  ],
+        return Padding(
+          padding: const EdgeInsets.all(6),
+          child: Center(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                DButton.iconOnly(
+                  tooltip: tooltip,
+                  tooltipSide: DTooltipSide.right,
+                  onPressed: () => showUpdateSheet(context),
+                  variant: DButtonVariant.ghost,
+                  density: DButtonDensity.rail,
+                  backgroundColor: filled
+                      ? color.withValues(alpha: .14)
+                      : Colors.transparent,
+                  foregroundColor: color,
+                  icon: updates.status == UpdateStatus.downloading
+                      ? DProgress(
+                          value: updates.progress,
+                          max: 1,
+                          track: const DProgressRing(size: _railIconSize),
+                        )
+                      : DIcon(icon),
                 ),
-              ),
+                if (wants)
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: IgnorePointer(
+                      child: DNotificationDot.overlay(
+                        ringColor: _railSurface(context),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         );
@@ -1241,7 +1215,7 @@ class _RailDragFeedback extends StatelessWidget {
   }
 }
 
-class _RailItem extends StatefulWidget {
+class _RailItem extends StatelessWidget {
   const _RailItem({
     required this.instance,
     required this.appearance,
@@ -1251,6 +1225,7 @@ class _RailItem extends StatefulWidget {
     required this.onTap,
     required this.onMoveUp,
     required this.onMoveDown,
+    required this.wrapControl,
   });
 
   final DiscourseInstance instance;
@@ -1261,25 +1236,14 @@ class _RailItem extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
-
-  @override
-  State<_RailItem> createState() => _RailItemState();
-}
-
-class _RailItemState extends State<_RailItem> {
-  bool _hovered = false;
-
-  void _handleHover(bool hovered) {
-    if (_hovered == hovered) return;
-    setState(() => _hovered = hovered);
-  }
+  final Widget Function(Widget) wrapControl;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final palette = _activePalette(widget.appearance, theme.brightness);
-    final accent = palette?.tertiary ?? widget.instance.accentColor;
-    final avatarBackground = widget.selected
+    final palette = _activePalette(appearance, theme.brightness);
+    final accent = palette?.tertiary ?? instance.accentColor;
+    final avatarBackground = selected
         ? accent
         : accent.withValues(alpha: accent.a * 0.16);
     final scaffold = opaqueColorOnCanvas(
@@ -1291,10 +1255,10 @@ class _RailItemState extends State<_RailItem> {
       background: avatarBackground,
       backdrop: railSurface,
       preferred: [
-        if (!widget.selected) theme.shell.railForeground,
+        if (!selected) theme.shell.railForeground,
         palette?.secondary,
         palette?.primary,
-        if (widget.selected) theme.shell.railForeground,
+        if (selected) theme.shell.railForeground,
       ],
     );
     final badgeBackground = Color.lerp(
@@ -1313,101 +1277,72 @@ class _RailItemState extends State<_RailItem> {
         theme.colorScheme.surface,
       ],
     );
-    final indicatorHeight = widget.selected
-        ? _railSelectedMarkerHeight
-        : (_hovered ? _railHoveredMarkerHeight : _railIdleMarkerHeight);
 
-    return Stack(
-      alignment: Alignment.centerLeft,
-      children: [
-        AnimatedContainer(
-          key: ValueKey('instance-rail-marker-${widget.instance.url}'),
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          width: 4,
-          height: indicatorHeight,
-          decoration: BoxDecoration(
-            color: theme.shell.railForeground,
-            borderRadius: const BorderRadius.horizontal(
-              right: Radius.circular(4),
-            ),
+    return DItemRail(
+      selected: selected,
+      onPressed: onTap,
+      markerColor: theme.shell.railForeground,
+      markerKey: ValueKey('instance-rail-marker-${instance.url}'),
+      mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
+      controlWrapper: (context, control) => wrapControl(
+        _RailTooltip(
+          instance: instance,
+          accent: accent,
+          shortcutKey: shortcutKey,
+          child: Semantics(
+            button: true,
+            selected: selected,
+            customSemanticsActions: {
+              CustomSemanticsAction(label: context.l10n.moveUp): ?onMoveUp,
+              CustomSemanticsAction(label: context.l10n.moveDown): ?onMoveDown,
+            },
+            child: control,
           ),
         ),
-        Center(
-          child: _RailTooltip(
-            instance: widget.instance,
-            accent: accent,
-            shortcutKey: widget.shortcutKey,
-            child: Semantics(
-              button: true,
-              selected: widget.selected,
-              customSemanticsActions: {
-                CustomSemanticsAction(label: context.l10n.moveUp):
-                    ?widget.onMoveUp,
-                CustomSemanticsAction(label: context.l10n.moveDown):
-                    ?widget.onMoveDown,
-              },
-              child: InkWell(
-                onTap: widget.onTap,
-                onHover: _handleHover,
-                mouseCursor: context.isTouch ? null : SystemMouseCursors.grab,
-                borderRadius: BorderRadius.circular(_railControlExtent / 2),
-                child: SizedBox.square(
-                  dimension: _railControlExtent,
-                  child: Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // The tooltip names the forum. The site icon would
-                        // otherwise make the rail item an unnamed image, and
-                        // the monogram fallback an abbreviation.
-                        SizedBox.square(
-                          dimension: _railVisualSize,
-                          child: ExcludeSemantics(
-                            child: _InstanceIcon(
-                              instance: widget.instance,
-                              foreground: avatarForeground,
-                              background: avatarBackground,
-                              selected: widget.selected,
-                            ),
-                          ),
-                        ),
-                        if (widget.badgeCount > 0)
-                          Positioned(
-                            right: -1.5,
-                            bottom: -1.5,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: _railVisualSize + 4,
-                              ),
-                              child: DBadge.overlay(
-                                key: ValueKey(
-                                  'instance-rail-badge-${widget.instance.url}',
-                                ),
-                                backgroundColor: badgeBackground,
-                                foregroundColor: badgeForeground,
-                                ringColor: railSurface,
-                                semanticLabel: countLabel(
-                                  widget.badgeCount,
-                                  CountNoun.unreadNotification,
-                                ),
-                                child: Text(
-                                  widget.badgeCount > 999
-                                      ? '999+'
-                                      : '${widget.badgeCount}',
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
+      ),
+      artwork: SizedBox.square(
+        dimension: _railVisualSize,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // The tooltip names the forum. The site icon would
+            // otherwise make the rail item an unnamed image, and
+            // the monogram fallback an abbreviation.
+            SizedBox.square(
+              dimension: _railVisualSize,
+              child: ExcludeSemantics(
+                child: _InstanceIcon(
+                  instance: instance,
+                  foreground: avatarForeground,
+                  background: avatarBackground,
+                  selected: selected,
                 ),
               ),
             ),
-          ),
+            if (badgeCount > 0)
+              Positioned(
+                right: -1.5,
+                bottom: -1.5,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: _railVisualSize + 4,
+                  ),
+                  child: DBadge.overlay(
+                    key: ValueKey('instance-rail-badge-${instance.url}'),
+                    backgroundColor: badgeBackground,
+                    foregroundColor: badgeForeground,
+                    ringColor: railSurface,
+                    semanticLabel: countLabel(
+                      badgeCount,
+                      CountNoun.unreadNotification,
+                    ),
+                    child: Text(badgeCount > 999 ? '999+' : '$badgeCount'),
+                  ),
+                ),
+              ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

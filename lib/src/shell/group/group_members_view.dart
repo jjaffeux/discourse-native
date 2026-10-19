@@ -434,32 +434,37 @@ class _MemberSortHeader extends StatelessWidget {
         : null,
     child: DTooltip(
       message: context.l10n.sortBy((label).toString()),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+      child: DItem(
+        size: DItemSize.sm,
+        onPressed: onPressed,
+        children: [
+          DItemContent(
             children: [
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.normal,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.normal,
+                      ),
+                    ),
                   ),
-                ),
+                  if (selected) ...[
+                    const SizedBox(width: 6),
+                    RotatedBox(
+                      quarterTurns: ascending ? 0 : 2,
+                      child: const DIcon(DIcons.arrowUp, size: 12),
+                    ),
+                  ],
+                ],
               ),
-              if (selected) ...[
-                const SizedBox(width: 6),
-                RotatedBox(
-                  quarterTurns: ascending ? 0 : 2,
-                  child: const DIcon(DIcons.arrowUp, size: 12),
-                ),
-              ],
             ],
           ),
-        ),
+        ],
       ),
     ),
   );
@@ -479,26 +484,30 @@ class _MemberTableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Colors.transparent,
-    child: InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        child: Row(
+    child: DItem(
+      size: DItemSize.sm,
+      onPressed: onTap,
+      children: [
+        DItemContent(
           children: [
-            Expanded(flex: 5, child: _MemberIdentity(member: member)),
-            Expanded(flex: 2, child: _MemberDate(value: member.addedAt)),
-            Expanded(
-              flex: 2,
-              child: _MemberRelativeDate(value: member.lastPostedAt),
+            Row(
+              children: [
+                Expanded(flex: 5, child: _MemberIdentity(member: member)),
+                Expanded(flex: 2, child: _MemberDate(value: member.addedAt)),
+                Expanded(
+                  flex: 2,
+                  child: _MemberRelativeDate(value: member.lastPostedAt),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: _MemberRelativeDate(value: member.lastSeenAt),
+                ),
+                SizedBox(width: 48, child: actions),
+              ],
             ),
-            Expanded(
-              flex: 2,
-              child: _MemberRelativeDate(value: member.lastSeenAt),
-            ),
-            SizedBox(width: 48, child: actions),
           ],
         ),
-      ),
+      ],
     ),
   );
 }
@@ -520,17 +529,23 @@ class _MemberCard extends StatelessWidget {
       width: double.infinity,
       child: DCard(
         spacing: 0,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+        child: DItem(
+          size: DItemSize.sm,
+          onPressed: onTap,
+          children: [
+            DItemContent(
               children: [
-                Expanded(child: _MemberIdentity(member: member, mobile: true)),
-                actions,
+                Row(
+                  children: [
+                    Expanded(
+                      child: _MemberIdentity(member: member, mobile: true),
+                    ),
+                    actions,
+                  ],
+                ),
               ],
             ),
-          ),
+          ],
         ),
       ),
     ),
@@ -853,7 +868,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
   }
 
   Future<void> _save() async {
-    if (await controller.save() && mounted) Navigator.pop(context);
+    if (await controller.save() && mounted) DDialogClose.close<void>(context);
   }
 
   List<_GroupMemberChoice> _selectedChoices() => [
@@ -1100,7 +1115,7 @@ class _InviteGroupSheetState extends State<_InviteGroupSheet> {
     final normalizedEmail = controller.email.text.trim();
     final result = await controller.create();
     if (!mounted || result != GroupInviteSubmission.sent) return;
-    Navigator.pop(context);
+    DDialogClose.close<void>(context);
     DToast.show(
       context,
       appL10n.invitationSentTo((normalizedEmail).toString()),

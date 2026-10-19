@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -5,7 +6,6 @@ import 'package:html/dom.dart' as dom;
 import '../models/user_status.dart';
 import '../theme/app_theme.dart';
 import 'open_link.dart';
-import 'pill.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 import 'user_card.dart';
@@ -75,15 +75,15 @@ class MentionPill extends StatelessWidget {
     final pill = LinkTarget(
       url: target,
       siteUrl: siteUrl,
-      child: Pill(
-        label: label,
+      child: DBadge.inline(
         baseStyle: baseStyle,
         backgroundColor: isCurrentUser
             ? Theme.of(context).shell.currentUserMention
-            : null,
-        onTap: target == null
+            : Theme.of(context).shell.mention,
+        onPressed: target == null
             ? null
             : () => openLink(context, target, siteUrl: siteUrl),
+        child: Text(label),
       ),
     );
     final reference = status;

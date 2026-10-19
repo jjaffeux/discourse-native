@@ -24,48 +24,71 @@ Future<T?> showShellSheet<T>({
   ),
   EdgeInsetsGeometry footerPadding = const EdgeInsets.fromLTRB(24, 12, 24, 16),
   bool enableDrag = true,
+  bool Function()? canDismiss,
 }) {
   if (dialogOnDesktop && !context.isTouch) {
-    return showDialog<T>(
+    return showDDialog<T>(
       context: context,
-      builder: (context) => Dialog(
-        insetPadding: EdgeInsets.symmetric(
-          horizontal: MediaQuery.sizeOf(context).width < 400 ? 16 : 40,
-          vertical: 24,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: ConstrainedBox(
-          constraints: desktopDialogConstraints,
-          child: _SheetBody(
-            title: title,
-            builder: builder,
-            footerBuilder: footerBuilder,
-            nested: nested,
-            showHeaderDivider: showHeaderDivider,
-            padding: padding,
-            footerPadding: footerPadding,
-            // A dialog is already lifted clear of the keyboard and of the
-            // screen edges by its own inset padding.
-            insetsBottom: false,
-          ),
+      useRootNavigator: true,
+      canDismiss: canDismiss,
+      builder: (context, _) => ConstrainedBox(
+        constraints: desktopDialogConstraints,
+        child: DDialogContent(
+          semanticLabel: title,
+          showCloseButton: false,
+          maxWidth: desktopDialogConstraints.maxWidth,
+          maxHeight: desktopDialogConstraints.maxHeight,
+          contentPadding: EdgeInsets.zero,
+          verticalPadding: 0,
+          spacing: 0,
+          children: [
+            Flexible(
+              child: _SheetBody(
+                title: title,
+                builder: builder,
+                footerBuilder: footerBuilder,
+                nested: nested,
+                showHeaderDivider: showHeaderDivider,
+                padding: padding,
+                footerPadding: footerPadding,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-  return showModalBottomSheet<T>(
+  final variant = enableDrag ? DSheetVariant.menu : DSheetVariant.standard;
+  return showDSheet<T>(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: enableDrag,
-    enableDrag: enableDrag,
-    constraints: const BoxConstraints(maxWidth: 640, maxHeight: 640),
-    builder: (context) => _SheetBody(
-      title: title,
-      builder: builder,
-      footerBuilder: footerBuilder,
-      nested: nested,
-      showHeaderDivider: showHeaderDivider,
-      padding: padding,
-      footerPadding: footerPadding,
+    side: DSheetSide.bottom,
+    variant: variant,
+    dismissOnSwipe: enableDrag,
+    canDismiss: canDismiss,
+    topBottomMaxWidth: 640,
+    builder: (context, _) => ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 640),
+      child: DSheetContent(
+        side: DSheetSide.bottom,
+        variant: variant,
+        semanticLabel: title,
+        showCloseButton: false,
+        scrollWholeSheet: false,
+        topBottomMaxHeightFactor: 1,
+        children: [
+          Flexible(
+            child: _SheetBody(
+              title: title,
+              builder: builder,
+              footerBuilder: footerBuilder,
+              nested: nested,
+              showHeaderDivider: showHeaderDivider,
+              padding: padding,
+              footerPadding: footerPadding,
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -79,7 +102,6 @@ class _SheetBody extends StatelessWidget {
     required this.showHeaderDivider,
     required this.padding,
     required this.footerPadding,
-    this.insetsBottom = true,
   });
 
   final String title;
@@ -90,87 +112,48 @@ class _SheetBody extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry footerPadding;
 
-  final bool insetsBottom;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final keyboardInset = insetsBottom
-        ? MediaQuery.viewInsetsOf(context).bottom
-        : 0.0;
-
-    // A menu that opens this sheet hands focus back to its trigger, on the
-    // route below, once the sheet is already pushed. The sheet claims focus
-    // after that so Tab and Escape act on it rather than behind its barrier;
-    // a control that autofocuses inside the builder still takes precedence.
-    return FocusScope(
-      autofocus: true,
-      child: AnimatedPadding(
-        key: const ValueKey('shell-sheet-keyboard-inset'),
-        padding: EdgeInsets.only(bottom: keyboardInset),
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
-              child: Row(
-                children: [
-                  if (nested)
-                    DButton.iconOnly(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      variant: DButtonVariant.ghost,
-                      tooltip: context.l10n.back,
-                      icon: const DIcon(DIcons.arrowLeft),
-                    ),
-                  Expanded(
-                    child: DText(
-                      title,
-                      variant: DTextVariant.h4,
-                      headingLevel: 1,
-                    ),
-                  ),
-                  if (!nested)
-                    DButton.iconOnly(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      variant: DButtonVariant.ghost,
-                      tooltip: context.l10n.close,
-                      icon: const DIcon(DIcons.xmark),
-                    ),
-                ],
-              ),
-            ),
-            if (showHeaderDivider)
-              DSeparator(color: theme.shell.divider, space: 1),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(
-                  bottom: footerBuilder == null && insetsBottom
-                      ? MediaQuery.paddingOf(context).bottom
-                      : 0,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
+          child: Row(
+            children: [
+              if (nested)
+                DButton.iconOnly(
+                  onPressed: () => DDialogClose.close<void>(context),
+                  variant: DButtonVariant.ghost,
+                  tooltip: context.l10n.back,
+                  icon: const DIcon(DIcons.arrowLeft),
                 ),
-                child: Padding(padding: padding, child: builder(context)),
+              Expanded(
+                child: DText(title, variant: DTextVariant.h4, headingLevel: 1),
               ),
-            ),
-            if (footerBuilder case final footerBuilder?) ...[
-              DSeparator(color: theme.shell.divider, space: 1),
-              Padding(
-                padding: EdgeInsets.only(
-                  bottom: insetsBottom
-                      ? MediaQuery.paddingOf(context).bottom
-                      : 0,
+              if (!nested)
+                DButton.iconOnly(
+                  onPressed: () => DDialogClose.close<void>(context),
+                  variant: DButtonVariant.ghost,
+                  tooltip: context.l10n.close,
+                  icon: const DIcon(DIcons.xmark),
                 ),
-                child: Padding(
-                  padding: footerPadding,
-                  child: footerBuilder(context),
-                ),
-              ),
             ],
-          ],
+          ),
         ),
-      ),
+        if (showHeaderDivider) DSeparator(color: theme.shell.divider, space: 1),
+        Flexible(
+          child: SingleChildScrollView(
+            child: Padding(padding: padding, child: builder(context)),
+          ),
+        ),
+        if (footerBuilder case final footerBuilder?) ...[
+          DSeparator(color: theme.shell.divider, space: 1),
+          Padding(padding: footerPadding, child: footerBuilder(context)),
+        ],
+      ],
     );
   }
 }

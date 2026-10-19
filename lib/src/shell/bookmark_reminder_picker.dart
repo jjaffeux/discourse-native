@@ -71,16 +71,17 @@ class _DateState extends State<BookmarkReminderDatePicker> {
           DButton(
             variant: DButtonVariant.secondary,
             label: Text(context.l10n.cancel),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => DDialogClose.close<void>(context),
           ),
           DButton(
             key: const ValueKey('bookmark-picker-apply'),
             label: Text(context.l10n.next),
             onPressed: !_valid || _date == null
                 ? null
-                : () => Navigator.of(
+                : () => DDialogClose.close<DateTime>(
                     context,
-                  ).pop(DateTime(_date!.year, _date!.month, _date!.day)),
+                    DateTime(_date!.year, _date!.month, _date!.day),
+                  ),
           ),
         ],
       ),
@@ -122,16 +123,17 @@ class _TimeState extends State<BookmarkReminderTimePicker> {
           DButton(
             variant: DButtonVariant.secondary,
             label: Text(context.l10n.cancel),
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => DDialogClose.close<void>(context),
           ),
           DButton(
             key: const ValueKey('bookmark-picker-apply'),
             label: Text(context.l10n.apply),
             onPressed: !_valid || _time == null
                 ? null
-                : () => Navigator.of(
+                : () => DDialogClose.close<TimeOfDay>(
                     context,
-                  ).pop(TimeOfDay(hour: _time!.hour, minute: _time!.minute)),
+                    TimeOfDay(hour: _time!.hour, minute: _time!.minute),
+                  ),
           ),
         ],
       ),

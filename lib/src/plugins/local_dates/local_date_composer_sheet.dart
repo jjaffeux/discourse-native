@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -34,7 +32,11 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
   final title = draft.isNew
       ? appL10n.insertDateAndTime
       : appL10n.editDateAndTime;
-  Widget editor(BuildContext context) => LocalDateComposerSheet(
+  Widget editor(
+    BuildContext context,
+    ValueChanged<LocalDateComposerSheetAction?> close,
+  ) => LocalDateComposerSheet(
+    onClose: close,
     mobileLayout: context.isTouch,
     draft: draft,
     siteFormats: siteFormats,
@@ -52,53 +54,30 @@ Future<LocalDateComposerSheetAction?> showLocalDateComposerSheet({
         showCloseButton: false,
         topBottomMaxHeightFactor: 1,
         scrollWholeSheet: false,
-        children: [Expanded(child: editor(context))],
+        children: [Expanded(child: editor(context, sheet.close))],
       ),
     );
   }
-  return showDialog<LocalDateComposerSheetAction>(
+  return showDDialog<LocalDateComposerSheetAction>(
     context: context,
-    builder: (dialogContext) => Dialog(
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680, maxHeight: 780),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    useRootNavigator: true,
+    builder: (dialogContext, dialog) => DDialogContent(
+      maxWidth: 680,
+      semanticLabel: title,
+      children: [
+        DDialogHeader(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DText(title, variant: DTextVariant.h4, headingLevel: 1),
-                        const SizedBox(height: 4),
-                        Text(
-                          appL10n.chooseTheDateThenCheckHowItWillAppear,
-                          style: Theme.of(dialogContext).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  DButton.iconOnly(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    variant: DButtonVariant.ghost,
-                    tooltip: appL10n.close,
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            DSeparator(color: Theme.of(dialogContext).shell.divider, space: 1),
-            Flexible(
-              child: SingleChildScrollView(child: editor(dialogContext)),
+            DDialogTitle(child: Text(title)),
+            DDialogDescription(
+              child: Text(appL10n.chooseTheDateThenCheckHowItWillAppear),
             ),
           ],
         ),
-      ),
+        DDialogScrollArea(
+          maxHeightFactor: 0.7,
+          child: editor(dialogContext, dialog.close),
+        ),
+      ],
     ),
   );
 }
@@ -107,12 +86,14 @@ class LocalDateComposerSheet extends StatefulWidget {
   const LocalDateComposerSheet({
     super.key,
     required this.draft,
+    required this.onClose,
     required this.siteFormats,
     this.isCurrent,
     this.mobileLayout = false,
   });
 
   final LocalDateComposerDraft draft;
+  final ValueChanged<LocalDateComposerSheetAction?> onClose;
   final List<String> siteFormats;
   final bool Function()? isCurrent;
   final bool mobileLayout;
@@ -140,6 +121,11 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
   late List<String> _previewTimezones;
   String? _previewCandidate;
   String? _error;
+  final Map<TextEditingController, bool> _timeValidity = {};
+
+  bool get _hasInvalidTime =>
+      (_hasStartTime && _timeValidity[_startTime] == false) ||
+      (_hasEnd && _hasEndTime && _timeValidity[_endTime] == false);
 
   late final List<String> _zones;
 
@@ -394,9 +380,11 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                           runSpacing: 6,
                           children: [
                             for (final format in widget.siteFormats)
-                              ActionChip(
+                              DButton(
                                 label: Text(format),
                                 onPressed: () => _format.text = format,
+                                variant: DButtonVariant.secondary,
+                                size: DButtonSize.small,
                               ),
                           ],
                         ),
@@ -412,11 +400,15 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                         runSpacing: 6,
                         children: [
                           for (final zone in _previewTimezones)
-                            InputChip(
+                            DButton(
                               label: Text(LocalDateFormatter.zoneLabel(zone)),
-                              onDeleted: () => setState(
+                              onPressed: () => setState(
                                 () => _previewTimezones.remove(zone),
                               ),
+                              icon: const DIcon(DIcons.xmark),
+                              iconPosition: DButtonIconPosition.end,
+                              variant: DButtonVariant.outline,
+                              size: DButtonSize.small,
                             ),
                         ],
                       ),
@@ -512,25 +504,15 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
               useLocaleDateOrder: false,
             ),
           );
-          final timeField = Row(
-            children: [
-              Expanded(
-                child: DInput(
-                  controller: time,
-                  keyboardType: TextInputType.datetime,
-                  labelText: appL10n.timeLocaldatecomposersheet(
-                    (label).toString(),
-                  ),
-                  hintText: '09:00:00',
-                ),
-              ),
-              DButton.iconOnly(
-                onPressed: () => unawaited(_pickTime(time)),
-                variant: DButtonVariant.ghost,
-                tooltip: appL10n.chooseTime((label).toString()),
-                icon: const Icon(Icons.schedule),
-              ),
-            ],
+          final timeField = DTimeInput(
+            initialValue: DTimeValue.tryParse(time.text),
+            label: appL10n.timeLocaldatecomposersheet(label),
+            mobilePicker: true,
+            width: double.infinity,
+            key: ObjectKey(time),
+            onValidityChanged: (valid) =>
+                setState(() => _timeValidity[time] = valid),
+            onChanged: (value) => time.text = value?.format() ?? '',
           );
           if (constraints.maxWidth < 430) {
             return Column(
@@ -565,7 +547,10 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
           child: Text(appL10n.includeTime((label.toLowerCase()).toString())),
         ),
         value: hasTime,
-        onChanged: (value) => onTimeEnabled(value ?? false),
+        onChanged: (value) {
+          _timeValidity.remove(time);
+          onTimeEnabled(value ?? false);
+        },
       ),
     ],
   );
@@ -573,7 +558,9 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
   Widget _preview() {
     final draft = _draft();
     final validation = draft.validate(locale: Localizations.localeOf(context));
-    final text = validation.isValid
+    final text = _hasInvalidTime
+        ? appL10n.enterAValidTime
+        : validation.isValid
         ? _previewText(draft)
         : validation.firstError ?? appL10n.completeTheDateToSeeAPreview;
     return DCard(
@@ -647,7 +634,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       ],
       DButton(
         label: Text(appL10n.cancel),
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () => widget.onClose(null),
       ),
       DButton(
         label: Text(appL10n.apply),
@@ -657,8 +644,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
     ],
   );
 
-  void _remove() =>
-      Navigator.of(context).pop(const LocalDateComposerSheetAction.remove());
+  void _remove() => widget.onClose(const LocalDateComposerSheetAction.remove());
 
   LocalDateComposerDraft _draft() => widget.draft.copyWith(
     startDate: _startDate.text.trim(),
@@ -688,31 +674,17 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
       );
       return;
     }
+    if (_hasInvalidTime) {
+      setState(() => _error = appL10n.enterAValidTime);
+      return;
+    }
     final draft = _draft();
     final validation = draft.validate(locale: Localizations.localeOf(context));
     if (!validation.isValid) {
       setState(() => _error = validation.firstError);
       return;
     }
-    Navigator.of(context).pop(LocalDateComposerSheetAction.apply(draft));
-  }
-
-  Future<void> _pickTime(TextEditingController controller) async {
-    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(controller.text);
-    final initial = match == null
-        ? TimeOfDay.now()
-        : TimeOfDay(
-            hour: int.parse(match.group(1)!).clamp(0, 23),
-            minute: int.parse(match.group(2)!).clamp(0, 59),
-          );
-    final selected = await showTimePicker(
-      context: context,
-      initialTime: initial,
-    );
-    if (selected == null || !mounted) return;
-    controller.text =
-        '${selected.hour.toString().padLeft(2, '0')}:'
-        '${selected.minute.toString().padLeft(2, '0')}:00';
+    widget.onClose(LocalDateComposerSheetAction.apply(draft));
   }
 }
 

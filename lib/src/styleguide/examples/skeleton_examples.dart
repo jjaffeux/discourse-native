@@ -312,10 +312,11 @@ class _GeometryPreviewState extends State<_GeometryPreview> {
         runSpacing: DSpacing.sm,
         children: [
           for (final shape in ['Rectangle', 'Pill', 'Circle'])
-            ChoiceChip(
-              label: Text(shape),
-              selected: _shape == shape,
-              onSelected: (_) => setState(() => _shape = shape),
+            DToggle(
+              size: DToggleSize.small,
+              pressed: _shape == shape,
+              onPressedChanged: (_) => setState(() => _shape = shape),
+              child: Text(shape),
             ),
         ],
       ),
@@ -476,10 +477,11 @@ class _LoadingPreviewState extends State<_LoadingPreview> {
           runSpacing: DSpacing.sm,
           children: [
             for (final status in ['Loading', 'Ready', 'Error'])
-              ChoiceChip(
-                label: Text(status),
-                selected: _status == status,
-                onSelected: (_) => setState(() => _status = status),
+              DToggle(
+                size: DToggleSize.small,
+                pressed: _status == status,
+                onPressedChanged: (_) => setState(() => _status = status),
+                child: Text(status),
               ),
           ],
         ),
@@ -708,11 +710,6 @@ class _FormContentState extends State<_FormContent> {
     String? Function(String?)? validator,
     void Function(String?)? onSaved,
   }) {
-    final tokens = DTokens.of(context);
-    OutlineInputBorder border(Color color) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(tokens.radius * 0.8),
-      borderSide: BorderSide(color: color),
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -728,24 +725,15 @@ class _FormContentState extends State<_FormContent> {
         const SizedBox(height: 12),
         Semantics(
           label: label,
-          child: TextFormField(
+          child: FormField<String>(
             initialValue: initialValue,
             validator: validator,
             onSaved: onSaved,
-            style: const TextStyle(
-              fontSize: DiscourseTypography.sm,
-              height: 20 / 14,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 5,
-              ),
-              enabledBorder: border(tokens.border),
-              focusedBorder: border(tokens.focusRing),
-              errorBorder: border(tokens.destructive),
-              focusedErrorBorder: border(tokens.destructive),
+            builder: (state) => DInput(
+              value: state.value ?? '',
+              semanticLabel: label,
+              errorText: state.errorText,
+              onChanged: state.didChange,
             ),
           ),
         ),

@@ -1688,23 +1688,13 @@ class _ForumTabState extends State<_ForumTab> {
           child: _renaming
               ? Focus(
                   onKeyEvent: _handleRenameKey,
-                  child: TextField(
+                  child: DInput(
                     key: ValueKey('forum-tab-rename-${widget.item.id}'),
                     controller: _renameController,
                     focusNode: _renameFocusNode,
                     maxLines: 1,
                     textInputAction: TextInputAction.done,
                     style: labelStyle,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 5,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
                     onSubmitted: _submitRename,
                     onTapOutside: (_) => _finishRenaming(),
                   ),

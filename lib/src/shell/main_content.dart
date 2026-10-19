@@ -34,7 +34,6 @@ import 'group_pages_coordinator.dart';
 import 'group_pages_host.dart';
 import 'group_pages_port.dart';
 import 'group_pages_shell_port.dart';
-import 'inline_action.dart';
 import 'keyboard_navigation.dart';
 import 'message_create_button.dart';
 import 'message_inbox_page.dart';
@@ -1219,57 +1218,68 @@ class _ContentHeader extends StatelessWidget {
                               : context.l10n.openDetailsMaincontent(
                                   route.title.toString(),
                                 ),
-                          child: InkWell(
+                          child: DItem(
+                            size: DItemSize.artwork,
                             key: contentHeaderTitleAction == null
                                 ? null
                                 : const ValueKey('content-header-title-action'),
-                            onTap: contentHeaderTitleAction,
-                            borderRadius: BorderRadius.circular(4),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Flexible(
-                                      fit: FlexFit.loose,
-                                      child: route.isTopic && siteUrl != null
-                                          ? TopicTitle(
-                                              route.title,
-                                              siteUrl: siteUrl!,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: theme.textTheme.titleSmall
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                            )
-                                          : Text(
-                                              route.title,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: theme.textTheme.titleSmall
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                            ),
-                                    ),
-                                    ?contentHeaderTitleTrailing,
-                                  ],
-                                ),
-                                if (route.isGroups && siteUrl != null)
-                                  _GroupsDirectoryCount(siteUrl: siteUrl!)
-                                else if (route.subtitle case final subtitle?)
-                                  Text(
-                                    subtitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
+                            onPressed: contentHeaderTitleAction,
+                            children: [
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        fit: FlexFit.loose,
+                                        child: route.isTopic && siteUrl != null
+                                            ? TopicTitle(
+                                                route.title,
+                                                siteUrl: siteUrl!,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme
+                                                    .textTheme
+                                                    .titleSmall
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              )
+                                            : Text(
+                                                route.title,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: theme
+                                                    .textTheme
+                                                    .titleSmall
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                      ),
+                                      ?contentHeaderTitleTrailing,
+                                    ],
                                   ),
-                              ],
-                            ),
+                                  if (route.isGroups && siteUrl != null)
+                                    _GroupsDirectoryCount(siteUrl: siteUrl!)
+                                  else if (route.subtitle case final subtitle?)
+                                    Text(
+                                      subtitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                 )
@@ -1452,48 +1462,53 @@ class _CategoryHeaderIdentity extends StatelessWidget {
               url: resolveSiteRootPath(siteUrl, '/c/${parent.id}'),
               title: parent.name,
               siteUrl: siteUrl,
-              child: InlineAction.link(
+              child: DItem(
                 key: const ValueKey('content-header-parent-category'),
-                onTap: () => controller.openCategory(parent, siteUrl: siteUrl),
+                fitContent: true,
+                size: DItemSize.artwork,
+                highlightOnInteraction: false,
+                link: true,
+                onPressed: () =>
+                    controller.openCategory(parent, siteUrl: siteUrl),
                 semanticLabel: context.l10n.parentCategory(
                   parent.name.toString(),
                 ),
-                excludeChildSemantics: true,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 32),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CategoryIcon(
-                        key: const ValueKey(
-                          'content-header-parent-category-icon',
+                children: [
+                  ExcludeSemantics(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CategoryIcon(
+                          key: const ValueKey(
+                            'content-header-parent-category-icon',
+                          ),
+                          category: parent,
+                          siteUrl: siteUrl,
+                          size: 15,
+                          squareSize: 10,
                         ),
-                        category: parent,
-                        siteUrl: siteUrl,
-                        size: 15,
-                        squareSize: 10,
-                      ),
-                      const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          parent.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w400,
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            parent.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      DIcon(
-                        DIcons.chevronRight,
-                        size: 12,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        DIcon(
+                          DIcons.chevronRight,
+                          size: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -1548,11 +1563,13 @@ class _CategoryHeaderTitle extends StatelessWidget {
     return Semantics(
       button: true,
       label: context.l10n.openDetailsMaincontent(route.title.toString()),
-      child: InkWell(
+      child: DItem(
+        size: DItemSize.sm,
         key: const ValueKey('content-header-title-action'),
-        onTap: titleAction,
-        borderRadius: BorderRadius.circular(4),
-        child: title,
+        onPressed: titleAction,
+        children: [
+          DItemContent(children: [title]),
+        ],
       ),
     );
   }

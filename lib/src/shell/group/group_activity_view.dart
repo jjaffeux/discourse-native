@@ -193,49 +193,55 @@ class _ActivityRows extends StatelessWidget {
               width: double.infinity,
               child: DCard(
                 spacing: 0,
-                child: InkWell(
-                  onTap: () => onOpenPost?.call(post),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                child: DItem(
+                  size: DItemSize.sm,
+                  onPressed: () => onOpenPost?.call(post),
+                  children: [
+                    DItemContent(
                       children: [
-                        Text(
-                          post.topicTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          post.plainExcerpt,
-                          maxLines: 4,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 9),
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (post.username case final username?)
-                              Expanded(
-                                child: Text(
-                                  '@$username',
+                            Text(
+                              post.topicTitle,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              post.plainExcerpt,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 9),
+                            Row(
+                              children: [
+                                if (post.username case final username?)
+                                  Expanded(
+                                    child: Text(
+                                      '@$username',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                  )
+                                else
+                                  const Spacer(),
+                                Text(
+                                  '#${post.postNumber}',
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
-                              )
-                            else
-                              const Spacer(),
-                            Text(
-                              '#${post.postNumber}',
-                              style: Theme.of(context).textTheme.bodySmall,
+                                const SizedBox(width: 5),
+                                const DIcon(DIcons.chevronRight, size: 13),
+                              ],
                             ),
-                            const SizedBox(width: 5),
-                            const DIcon(DIcons.chevronRight, size: 13),
                           ],
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -513,20 +519,25 @@ class _PermissionsSection extends StatelessWidget {
           return Center(
             child: SizedBox(
               width: double.infinity,
-              child: ListTile(
-                tileColor: Theme.of(context).colorScheme.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                leading: CategoryIcon(
-                  category: permission.category,
-                  siteUrl: siteUrl,
-                  size: 17,
-                  squareSize: 12,
-                ),
-                title: Text(permission.category.name),
-                subtitle: Text(label),
-                trailing: const DIcon(DIcons.lock, size: 15),
+              child: DItem(
+                variant: DItemVariant.muted,
+                children: [
+                  DItemMedia(
+                    child: CategoryIcon(
+                      category: permission.category,
+                      siteUrl: siteUrl,
+                      size: 17,
+                      squareSize: 12,
+                    ),
+                  ),
+                  DItemContent(
+                    children: [
+                      DItemTitle(child: Text(permission.category.name)),
+                      DItemDescription(child: Text(label)),
+                    ],
+                  ),
+                  const DItemActions(children: [DIcon(DIcons.lock, size: 15)]),
+                ],
               ),
             ),
           );

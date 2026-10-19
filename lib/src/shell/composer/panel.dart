@@ -805,9 +805,8 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
                       ),
                     ),
                     SliverToBoxAdapter(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTap: widget.composer.focus.requestFocus,
+                      child: DInputFocusRegion(
+                        focusNode: widget.composer.focus,
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
                             minHeight: math.max(
@@ -2720,9 +2719,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   Future<void> _addExistingImagesToSelectedGallery() async {
     await _media.chooseExistingImagesForSelectedGallery(
-      (images) => showDialog<List<ComposerImageBlock>>(
+      (images) => showDDialog<List<ComposerImageBlock>>(
         context: context,
-        builder: (context) => _ExistingGalleryImagesDialog(images: images),
+        useRootNavigator: true,
+        builder: (context, dialog) =>
+            _ExistingGalleryImagesDialog(images: images, onClose: dialog.close),
       ),
     );
   }
@@ -4203,9 +4204,13 @@ class _ComposerPasteAction extends Action<PasteTextIntent> {
 }
 
 class _ExistingGalleryImagesDialog extends StatefulWidget {
-  const _ExistingGalleryImagesDialog({required this.images});
+  const _ExistingGalleryImagesDialog({
+    required this.images,
+    required this.onClose,
+  });
 
   final List<ComposerImageBlock> images;
+  final ValueChanged<List<ComposerImageBlock>?> onClose;
 
   @override
   State<_ExistingGalleryImagesDialog> createState() =>
@@ -4217,57 +4222,65 @@ class _ExistingGalleryImagesDialogState
   final Set<int> _selectedStarts = {};
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(context.l10n.addExistingImages),
-    content: SizedBox(
-      width: 360,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 320),
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: widget.images.length,
-          itemBuilder: (context, index) {
-            final image = widget.images[index];
-            final selected = _selectedStarts.contains(image.start);
-            return DCheckbox(
-              key: ValueKey('gallery-existing-image-${image.start}'),
-              value: selected,
-              secondary: const Icon(Icons.image_outlined),
-              title: Text(
-                image.alt.isEmpty
-                    ? context.l10n.imageComposerpanel((index + 1).toString())
-                    : image.alt,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              onChanged: (value) {
-                setState(() {
-                  if (value == true) {
-                    _selectedStarts.add(image.start);
-                  } else {
-                    _selectedStarts.remove(image.start);
-                  }
-                });
-              },
-            );
-          },
+  Widget build(BuildContext context) => DDialogContent(
+    showCloseButton: false,
+    maxWidth: 520,
+    children: [
+      DDialogHeader(
+        children: [DDialogTitle(child: Text(context.l10n.addExistingImages))],
+      ),
+      SizedBox(
+        width: 360,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 320),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: widget.images.length,
+            itemBuilder: (context, index) {
+              final image = widget.images[index];
+              final selected = _selectedStarts.contains(image.start);
+              return DCheckbox(
+                key: ValueKey('gallery-existing-image-${image.start}'),
+                value: selected,
+                secondary: const Icon(Icons.image_outlined),
+                title: Text(
+                  image.alt.isEmpty
+                      ? context.l10n.imageComposerpanel((index + 1).toString())
+                      : image.alt,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    if (value == true) {
+                      _selectedStarts.add(image.start);
+                    } else {
+                      _selectedStarts.remove(image.start);
+                    }
+                  });
+                },
+              );
+            },
+          ),
         ),
       ),
-    ),
-    actions: [
-      DButton(
-        label: Text(context.l10n.cancel),
-        onPressed: () => Navigator.pop(context),
-      ),
-      DButton(
-        label: Text(context.l10n.addSelected),
-        variant: DButtonVariant.primary,
-        onPressed: _selectedStarts.isEmpty
-            ? null
-            : () => Navigator.pop(context, [
-                for (final image in widget.images)
-                  if (_selectedStarts.contains(image.start)) image,
-              ]),
+      DDialogFooter(
+        children: [
+          DButton(
+            label: Text(context.l10n.cancel),
+            onPressed: () => widget.onClose(null),
+          ),
+          DButton(
+            label: Text(context.l10n.addSelected),
+            variant: DButtonVariant.primary,
+            onPressed: _selectedStarts.isEmpty
+                ? null
+                : () => widget.onClose([
+                    for (final image in widget.images)
+                      if (_selectedStarts.contains(image.start)) image,
+                  ]),
+          ),
+        ],
       ),
     ],
   );

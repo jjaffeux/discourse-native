@@ -75,30 +75,32 @@ Future<GifResult?> showGifPicker({
       );
     }
 
-    return await showDialog<GifResult>(
+    return await showDDialog<GifResult>(
       context: context,
-      builder: (dialogContext) => Dialog(
-        child: SizedBox(
-          width: 620,
-          height: _pickerHeight(dialogContext),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _DialogHeader(onClose: () => Navigator.of(dialogContext).pop()),
-              const DSeparator(space: 1),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  child: GifPicker(
-                    controller: controller,
-                    siteUrl: siteUrl,
-                    onPicked: Navigator.of(dialogContext).pop,
-                  ),
-                ),
-              ),
-            ],
-          ),
+      useRootNavigator: true,
+      builder: (dialogContext, dialog) => DDialogContent(
+        maxWidth: 620,
+        semanticLabel: appL10n.searchGIFs,
+        closeButton: DButton.iconOnly(
+          key: const ValueKey('gif-picker-close'),
+          onPressed: dialog.close,
+          variant: DButtonVariant.ghost,
+          tooltip: appL10n.close,
+          icon: const DIcon(DIcons.xmark),
         ),
+        children: [
+          DDialogHeader(
+            children: [DDialogTitle(child: Text(appL10n.searchGIFs))],
+          ),
+          SizedBox(
+            height: _pickerHeight(dialogContext) - 96,
+            child: GifPicker(
+              controller: controller,
+              siteUrl: siteUrl,
+              onPicked: dialog.close,
+            ),
+          ),
+        ],
       ),
     );
   } finally {
@@ -108,35 +110,6 @@ Future<GifResult?> showGifPicker({
 
 double _pickerHeight(BuildContext context) =>
     (MediaQuery.sizeOf(context).height * 0.7).clamp(360.0, 540.0).toDouble();
-
-class _DialogHeader extends StatelessWidget {
-  const _DialogHeader({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-    child: Row(
-      children: [
-        Expanded(
-          child: DText(
-            context.l10n.searchGIFs,
-            variant: DTextVariant.h4,
-            headingLevel: 1,
-          ),
-        ),
-        DButton.iconOnly(
-          key: const ValueKey('gif-picker-close'),
-          onPressed: onClose,
-          variant: DButtonVariant.ghost,
-          tooltip: context.l10n.close,
-          icon: const DIcon(DIcons.xmark),
-        ),
-      ],
-    ),
-  );
-}
 
 class GifPicker extends StatefulWidget {
   const GifPicker({
@@ -439,12 +412,17 @@ class _GifResultTile extends StatelessWidget {
     final label = result.title.trim().isEmpty
         ? context.l10n.chooseGIF
         : context.l10n.chooseGIFGifpicker((result.title).toString());
-    return DButton(
-      onPressed: () => onPicked(result),
-      variant: DButtonVariant.secondary,
-      semanticLabel: label,
-      tooltip: label,
-      label: _NetworkArtwork(url: result.url, fit: BoxFit.cover),
+    return DTooltip(
+      message: label,
+      excludeFromSemantics: true,
+      child: DItem(
+        size: DItemSize.artwork,
+        shape: DItemShape.menu,
+        clipBehavior: Clip.antiAlias,
+        semanticLabel: label,
+        onPressed: () => onPicked(result),
+        children: [_NetworkArtwork(url: result.url, fit: BoxFit.cover)],
+      ),
     );
   }
 }
@@ -460,18 +438,19 @@ class _GifCategoryTile extends StatelessWidget {
   final VoidCallback onPicked;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: context.l10n.searchGIFsGifpicker((category.title).toString()),
-    child: DTooltip(
-      message: context.l10n.searchGIFsGifpicker((category.title).toString()),
-      excludeFromSemantics: true,
-      child: Material(
-        clipBehavior: Clip.antiAlias,
-        borderRadius: BorderRadius.circular(8),
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: InkWell(
-          onTap: onPicked,
+  Widget build(BuildContext context) => DTooltip(
+    message: context.l10n.searchGIFsGifpicker((category.title).toString()),
+    excludeFromSemantics: true,
+    child: DItem(
+      size: DItemSize.artwork,
+      shape: DItemShape.menu,
+      clipBehavior: Clip.antiAlias,
+      semanticLabel: context.l10n.searchGIFsGifpicker(
+        (category.title).toString(),
+      ),
+      onPressed: onPicked,
+      children: [
+        ExcludeSemantics(
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -505,7 +484,7 @@ class _GifCategoryTile extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      ],
     ),
   );
 }

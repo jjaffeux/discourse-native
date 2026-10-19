@@ -199,7 +199,7 @@ void main() {
     await capture(
       'flutter-real-voice-plum-rtl200',
       StyleguideTheme.plum.resolve(AppTheme.light),
-      const VoiceMeshPrivacyDialog(),
+      VoiceMeshPrivacyDialog(onClose: (_) {}),
       width: 360,
       height: 800,
       scale: 2,

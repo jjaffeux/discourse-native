@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -5,13 +6,12 @@ import 'package:html/dom.dart' as dom;
 import '../models/topic.dart';
 import '../plugin_api/hashtag_kind.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_icon.dart';
+import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'composer/autocomplete.dart';
 import 'emoji.dart';
 import 'open_link.dart';
-import 'pill.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
@@ -114,16 +114,19 @@ class HashtagPill extends StatelessWidget {
       url: target,
       title: label,
       siteUrl: siteUrl,
-      child: Pill(
-        label: label,
+      child: DBadge.inline(
         baseStyle: baseStyle,
-        leading: _leading(context, shellPresentation),
+        backgroundColor: Theme.of(context).shell.mention,
+        leadingArtwork: _artworkStyle(shellPresentation),
+        leadingBuilder: (context, dimension) =>
+            _leading(context, shellPresentation, dimension),
         // The label rather than the slug: Discourse writes the real name into
         // the anchor — `Parent > Child` for a subcategory — and that beats
         // un-slugging the URL once the list is open.
-        onTap: target == null
+        onPressed: target == null
             ? null
             : () => openLink(context, target, title: label, siteUrl: siteUrl),
+        child: Text(label),
       ),
     );
 
@@ -159,19 +162,28 @@ class HashtagPill extends StatelessWidget {
     );
   }
 
+  DBadgeInlineArtwork _artworkStyle(
+    _HashtagShellPresentation shellPresentation,
+  ) => switch (presentation.style) {
+    HashtagStyle.emoji when shellPresentation.emojiUrl != null =>
+      DBadgeInlineArtwork.image,
+    HashtagStyle.square when _drawsHashtagSquare(presentation) =>
+      DBadgeInlineArtwork.square,
+    _ => DBadgeInlineArtwork.icon,
+  };
+
   Widget _leading(
     BuildContext context,
     _HashtagShellPresentation shellPresentation,
+    double size,
   ) {
-    final size = Pill.fontSizeFor(baseStyle);
-
     switch (presentation.style) {
       case HashtagStyle.emoji:
         final url = shellPresentation.emojiUrl;
         if (url == null) {
           return _icon(context, size, null);
         }
-        return EmojiImage(url: url, size: size * pillGlyph, alt: '');
+        return EmojiImage(url: url, size: size, alt: '');
 
       case HashtagStyle.icon:
         return _icon(context, size, _hashtagColor(shellPresentation));
@@ -180,20 +192,17 @@ class HashtagPill extends StatelessWidget {
         if (!_drawsHashtagSquare(presentation)) {
           return _icon(context, size, null);
         }
-        return Padding(
-          padding: EdgeInsets.only(left: size * pillSquareInset),
-          child: CategorySquare(
-            size: size * pillSquare,
-            color: _hashtagColor(shellPresentation),
-            parentColor: _parentColor(shellPresentation),
-          ),
+        return CategorySquare(
+          size: size,
+          color: _hashtagColor(shellPresentation),
+          parentColor: _parentColor(shellPresentation),
         );
     }
   }
 
   Widget _icon(BuildContext context, double size, Color? tint) => DIcon(
     iconFor(context, presentation.icon, presentation.fallbackIcon),
-    size: Pill.iconBoxFor(baseStyle),
+    size: size,
     color: tint ?? Theme.of(context).colorScheme.onSurfaceVariant,
   );
 

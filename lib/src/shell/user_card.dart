@@ -20,7 +20,6 @@ import 'anchored_layout.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'external_link.dart';
-import 'inline_action.dart';
 import 'platform.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
@@ -337,95 +336,36 @@ Future<void> showUserCard({
         Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?,
   );
 
-  return showGeneralDialog<void>(
+  return showDPopover(
     context: context,
-    useRootNavigator: false,
-    barrierColor: Colors.transparent,
-    transitionDuration: Duration.zero,
-    pageBuilder: (context, animation, secondaryAnimation) =>
-        _UserCardPopup(username: username, siteUrl: targetSite, anchor: anchor),
+    anchorRect: anchor,
+    builder: (context) => DPopoverContent(
+      key: const ValueKey<String>('user-card-surface'),
+      semanticLabel: context.l10n.profileFor(username),
+      width: 400,
+      constraints: const BoxConstraints(maxHeight: 480),
+      align: DPopoverAlign.start,
+      sideOffset: 8,
+      collisionPadding: 12,
+      padding: EdgeInsets.zero,
+      child: DPopoverClose(
+        builder: (context, close) =>
+            ShellSelector<({ShellController controller, Object session})>(
+              select: (controller) => (
+                controller: controller,
+                session: controller.lifecycle.capture(targetSite).session,
+              ),
+              builder: (context, owner, _) => _ControllerUserCardPopup(
+                key: ValueKey(owner),
+                controller: owner.controller,
+                username: username,
+                siteUrl: targetSite,
+                close: close,
+              ),
+            ),
+      ),
+    ),
   );
-}
-
-class _UserCardPopup extends StatelessWidget {
-  const _UserCardPopup({
-    required this.username,
-    required this.siteUrl,
-    required this.anchor,
-  });
-
-  final String username;
-  final String siteUrl;
-  final Rect? anchor;
-
-  @override
-  Widget build(BuildContext context) {
-    final route = ModalRoute.of(context)!;
-    return DPopover(
-      defaultOpen: true,
-      onOpenChangeComplete: (open) {
-        // Remove this card's route even if a plugin action opened another one.
-        if (!open && route.isActive) route.navigator?.removeRoute(route);
-      },
-      content: DPopoverContent(
-        key: const ValueKey<String>('user-card-surface'),
-        semanticLabel: context.l10n.profileFor((username).toString()),
-        width: 400,
-        constraints: const BoxConstraints(maxHeight: 480),
-        align: DPopoverAlign.start,
-        sideOffset: 8,
-        collisionPadding: 12,
-        padding: EdgeInsets.zero,
-        child: DPopoverClose(
-          builder: (context, close) =>
-              ShellSelector<({ShellController controller, Object session})>(
-                select: (controller) => (
-                  controller: controller,
-                  session: controller.lifecycle.capture(siteUrl).session,
-                ),
-                builder: (context, owner, _) => _ControllerUserCardPopup(
-                  // Account changes clear the cache, so load the new session.
-                  key: ValueKey(owner),
-                  controller: owner.controller,
-                  username: username,
-                  siteUrl: siteUrl,
-                  close: close,
-                ),
-              ),
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // A profile link can supply an entire cooked post as its context.
-          // Only its opening corner belongs to the popover's anchor area.
-          final point =
-              switch (Directionality.of(context)) {
-                TextDirection.ltr => anchor?.bottomLeft,
-                TextDirection.rtl => anchor?.bottomRight,
-              } ??
-              constraints.biggest.center(Offset.zero);
-          final padding = MediaQuery.paddingOf(context);
-          return Stack(
-            children: [
-              Positioned(
-                left: point.dx.clamp(
-                  padding.left,
-                  constraints.maxWidth - padding.right - 1,
-                ),
-                top: (point.dy - 1).clamp(
-                  padding.top,
-                  constraints.maxHeight - padding.bottom - 1,
-                ),
-                width: 1,
-                height: 1,
-                child: const DPopoverAnchor(child: SizedBox.expand()),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _ControllerUserCardPopup extends StatefulWidget {
@@ -1073,11 +1013,14 @@ class _CardDetail extends StatelessWidget {
       ],
     );
     if (onTap == null) return child;
-    return InlineAction.link(
-      onTap: onTap!,
+    return DItem(
+      fitContent: true,
+      size: DItemSize.artwork,
+      highlightOnInteraction: false,
+      link: true,
+      onPressed: onTap!,
       semanticLabel: label,
-      excludeChildSemantics: true,
-      child: child,
+      children: [ExcludeSemantics(child: child)],
     );
   }
 }

@@ -1,8 +1,8 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_appearance_parser.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
-import 'package:discourse_native/src/shell/pill.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -66,10 +66,10 @@ Future<ShellController> _pumpMentions(
 }
 
 Color? _fill(WidgetTester tester, String label) {
-  final container = tester.widget<Container>(
+  final container = tester.widget<AnimatedContainer>(
     find.descendant(
-      of: find.widgetWithText(Pill, label),
-      matching: find.byType(Container),
+      of: find.widgetWithText(DBadge, label),
+      matching: find.byType(AnimatedContainer),
     ),
   );
   return (container.decoration! as BoxDecoration).color;

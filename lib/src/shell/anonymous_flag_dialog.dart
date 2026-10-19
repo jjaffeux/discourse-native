@@ -1,9 +1,7 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../ui/components/d_toast.dart';
-
-import 'adaptive_dialog_action.dart';
 import 'external_link.dart';
 
 Uri illegalContentMailtoUri({
@@ -34,22 +32,32 @@ Future<void> showAnonymousIllegalContentDialog({
   required String topicTitle,
   required String postUrl,
 }) async {
-  final send = await showDiscourseDialog<bool>(
+  final send = await showDDialog<bool>(
     context: context,
-    builder: (dialogContext) => DiscourseAlertDialog(
-      title: Text(appL10n.reportIllegalContent),
-      content: Text(
-        appL10n.thisSiteAcceptsIllegalContentReportsByEmailYourMailApplication,
-      ),
-      actions: [
-        AdaptiveDialogAction(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: Text(appL10n.cancel),
+    useRootNavigator: true,
+    builder: (dialogContext, dialog) => DDialogContent(
+      showCloseButton: false,
+      maxWidth: 520,
+      children: [
+        DDialogHeader(
+          children: [DDialogTitle(child: Text(appL10n.reportIllegalContent))],
         ),
-        AdaptiveDialogAction(
-          kind: AdaptiveDialogActionKind.primary,
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: Text(appL10n.openEmail),
+        Text(
+          appL10n
+              .thisSiteAcceptsIllegalContentReportsByEmailYourMailApplication,
+        ),
+        DDialogFooter(
+          children: [
+            DButton(
+              onPressed: () => dialog.close(false),
+              label: Text(appL10n.cancel),
+            ),
+            DButton(
+              variant: DButtonVariant.primary,
+              onPressed: () => dialog.close(true),
+              label: Text(appL10n.openEmail),
+            ),
+          ],
         ),
       ],
     ),

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
-import 'inline_action.dart';
 import 'open_link.dart';
 import 'topic_tag_picker.dart';
 
@@ -203,26 +202,29 @@ class TopicCategoryValue extends StatelessWidget {
         );
         value = DTooltip(
           message: message,
-          child: InlineAction.link(
+          child: DItem(
             key: actionKey,
-            onTap: onNavigate,
+            fitContent: true,
+            size: DItemSize.artwork,
+            highlightOnInteraction: false,
+            link: true,
+            onPressed: onNavigate,
             semanticLabel: context.l10n.categoryTopictaxonomyfields(
               (label).toString(),
             ),
-            excludeChildSemantics: true,
-            borderRadius: BorderRadius.circular(5),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                widthFactor: 1,
-                heightFactor: 1,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: categoryValue(label),
+            children: [
+              ExcludeSemantics(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: 1,
+                  heightFactor: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: categoryValue(label),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         );
       }
@@ -276,45 +278,48 @@ class _TopicCategoryNavigationLink extends StatelessWidget {
     final theme = Theme.of(context);
     return DTooltip(
       message: tooltip,
-      child: InlineAction.link(
+      child: DItem(
         key: actionKey,
-        onTap: onTap,
+        fitContent: true,
+        size: DItemSize.artwork,
+        highlightOnInteraction: false,
+        link: true,
+        onPressed: onTap,
         semanticLabel: semanticLabel,
-        excludeChildSemantics: true,
-        borderRadius: BorderRadius.circular(5),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (readRestricted) ...[
-                DIcon(
-                  DIcons.lock,
-                  size: 13,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 4),
-              ],
-              Flexible(
-                child: Text(
-                  label,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w500,
+        children: [
+          ExcludeSemantics(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (readRestricted) ...[
+                  DIcon(
+                    DIcons.lock,
+                    size: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-              if (showChevron) ...[
-                const SizedBox(width: 4),
-                DIcon(
-                  DIcons.chevronRight,
-                  size: 11,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                if (showChevron) ...[
+                  const SizedBox(width: 4),
+                  DIcon(
+                    DIcons.chevronRight,
+                    size: 11,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -378,7 +383,7 @@ class TopicTagsValue extends StatelessWidget {
       trailingAction = _TopicTaxonomyEditButton(
         actionKey: addKey,
         iconKey: addIconKey,
-        dimension: 24,
+        compact: true,
         tooltip: appL10n.editTopicTagsPostactions,
         onTap: onEdit,
       );
@@ -432,43 +437,25 @@ class _TopicTagPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(DRadius.pill),
+    final label = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 180),
+      child: Text(tag.name, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
-    final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 180),
-        child: Text(
-          tag.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-    final pill = Material(
+    if (onTap == null) {
+      return DBadge(
+        key: pillKey,
+        variant: DBadgeVariant.secondary,
+        size: DBadgeSize.compact,
+        child: label,
+      );
+    }
+    return DBadge.link(
       key: pillKey,
-      color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-      shape: shape,
-      clipBehavior: Clip.antiAlias,
-      child: content,
-    );
-    if (onTap == null) return pill;
-
-    return InlineAction.link(
-      onTap: onTap!,
+      variant: DBadgeVariant.secondary,
+      size: DBadgeSize.compact,
       semanticLabel: semanticLabel,
-      excludeChildSemantics: true,
-      borderRadius: BorderRadius.circular(DRadius.pill),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-        child: Align(widthFactor: 1, heightFactor: 1, child: pill),
-      ),
+      onPressed: onTap,
+      child: label,
     );
   }
 }
@@ -479,36 +466,24 @@ class _TopicTaxonomyEditButton extends StatelessWidget {
     required this.iconKey,
     required this.tooltip,
     required this.onTap,
-    this.dimension = 32,
+    this.compact = false,
   });
 
   final Key? actionKey;
   final Key? iconKey;
   final String tooltip;
   final VoidCallback onTap;
-  final double dimension;
+  final bool compact;
 
   @override
-  Widget build(BuildContext context) => DTooltip(
-    message: tooltip,
-    child: InlineAction(
-      key: actionKey,
-      onTap: onTap,
-      semanticLabel: tooltip,
-      excludeChildSemantics: true,
-      borderRadius: BorderRadius.circular(999),
-      child: SizedBox.square(
-        dimension: dimension,
-        child: Center(
-          child: DIcon(
-            DIcons.pencil,
-            key: iconKey,
-            size: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
-    ),
+  Widget build(BuildContext context) => DButton.iconOnly(
+    key: actionKey,
+    tooltip: tooltip,
+    variant: DButtonVariant.ghost,
+    size: compact ? DButtonSize.chip : DButtonSize.regular,
+    shape: DButtonShape.pill,
+    onPressed: onTap,
+    icon: DIcon(DIcons.pencil, key: iconKey),
   );
 }
 
@@ -524,59 +499,22 @@ class _EditableEmptyTopicTags extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.onSurfaceVariant;
-    const shape = StadiumBorder();
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 3),
-        child: DTooltip(
-          message: saving ? context.l10n.savingTopicTags : context.l10n.addTag,
-          child: Material(
-            color: theme.colorScheme.surfaceContainerHigh,
-            shape: shape,
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              key: actionKey,
-              onTap: onTap,
-              mouseCursor: onTap == null
-                  ? MouseCursor.defer
-                  : SystemMouseCursors.click,
-              customBorder: shape,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (saving)
-                      const SizedBox.square(
-                        dimension: 11,
-                        child: DSpinner(strokeWidth: 1.5),
-                      )
-                    else
-                      DIcon(DIcons.tag, size: 11, color: color),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        saving ? context.l10n.saving : context.l10n.addTag,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: color,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: DButton(
+      key: actionKey,
+      tooltip: saving ? context.l10n.savingTopicTags : context.l10n.addTag,
+      semanticLabel: saving
+          ? context.l10n.savingTopicTags
+          : context.l10n.addTag,
+      onPressed: onTap,
+      loading: saving,
+      variant: DButtonVariant.inline,
+      density: DButtonDensity.inlineMetadata,
+      icon: const DIcon(DIcons.tag),
+      label: Text(saving ? context.l10n.saving : context.l10n.addTag),
+    ),
+  );
 }
 
 class _TopicTagsSavingIndicator extends StatelessWidget {

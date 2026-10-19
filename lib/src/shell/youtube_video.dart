@@ -17,7 +17,6 @@ import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
-import '../ui/foundation/native_webview_scroll.dart';
 import 'external_link.dart';
 import 'media_webview.dart';
 import 'reader_media_activity.dart';
@@ -526,70 +525,78 @@ class _YoutubePoster extends StatelessWidget {
           child: ExcludeSemantics(
             child: Material(
               color: Colors.black,
-              child: InkWell(
-                onTap: onPlay,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (data.thumbnailUrl case final thumbnail?)
-                      SiteImage(
-                        url: thumbnail,
-                        siteUrl: siteUrl,
-                        fit: BoxFit.cover,
-                        coverDecodeSize: size,
-                        excludeFromSemantics: true,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                      ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0x22000000),
-                            Color(0x11000000),
-                            Color(0xDD000000),
-                          ],
-                          stops: [0, 0.48, 1],
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Container(
-                        width: 68,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF0033),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: DIcon(
-                            DIcons.play,
-                            size: 24,
-                            color: Colors.white,
+              child: DItem(
+                size: DItemSize.sm,
+                onPressed: onPlay,
+                children: [
+                  DItemContent(
+                    children: [
+                      Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (data.thumbnailUrl case final thumbnail?)
+                            SiteImage(
+                              url: thumbnail,
+                              siteUrl: siteUrl,
+                              fit: BoxFit.cover,
+                              coverDecodeSize: size,
+                              excludeFromSemantics: true,
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox.shrink(),
+                            ),
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Color(0x22000000),
+                                  Color(0x11000000),
+                                  Color(0xDD000000),
+                                ],
+                                stops: [0, 0.48, 1],
+                              ),
+                            ),
                           ),
-                        ),
+                          Center(
+                            child: Container(
+                              width: 68,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF0033),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Center(
+                                child: DIcon(
+                                  DIcons.play,
+                                  size: 24,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 16,
+                            right: 64,
+                            bottom: 14,
+                            child: Text(
+                              data.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                shadows: const [
+                                  Shadow(color: Colors.black, blurRadius: 3),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Positioned(
-                      left: 16,
-                      right: 64,
-                      bottom: 14,
-                      child: Text(
-                        data.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          shadows: const [
-                            Shadow(color: Colors.black, blurRadius: 3),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),

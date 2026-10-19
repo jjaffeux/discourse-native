@@ -243,11 +243,13 @@ final class _TopicCalendarState extends State<TopicCalendar> {
   }
 
   Future<void> _pickTimezone() async {
-    final selected = await showDialog<String>(
+    final selected = await showDDialog<String>(
       context: context,
-      builder: (_) => _TimezonePicker(
+      useRootNavigator: true,
+      builder: (_, dialog) => _TimezonePicker(
         names: widget.zones.timezoneNames().toList()..sort(),
         selected: _timezone,
+        onSelected: dialog.close,
       ),
     );
     if (mounted && selected != null) {
@@ -294,56 +296,71 @@ final class _TopicCalendarState extends State<TopicCalendar> {
 
   void _openDay(DateTime day, List<CalendarOccurrence> events) {
     unawaited(
-      showDialog<void>(
+      showDDialog<void>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text(DateFormat.yMMMMEEEEd(_locale).format(day)),
-          content: SizedBox(
-            width: 480,
-            child: events.isEmpty
-                ? Text(appL10n.noCalendarEntriesForThisDay)
-                : SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final event in events)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  event.title,
-                                  style: Theme.of(context).textTheme.titleSmall,
-                                ),
-                                Text(_dateLabel(event)),
-                                if (event.description.isNotEmpty &&
-                                    event.description != event.title)
-                                  Text(event.description),
-                                if (event.postNumber case final number?)
-                                  DButton(
-                                    variant: DButtonVariant.link,
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      widget.onOpenReply(number);
-                                    },
-                                    label: Text(
-                                      appL10n.viewReply((number).toString()),
-                                    ),
+        useRootNavigator: true,
+        builder: (context, dialog) => DDialogContent(
+          showCloseButton: false,
+          maxWidth: 520,
+          children: [
+            DDialogHeader(
+              children: [
+                DDialogTitle(
+                  child: Text(DateFormat.yMMMMEEEEd(_locale).format(day)),
+                ),
+              ],
+            ),
+            SizedBox(
+              width: 480,
+              child: events.isEmpty
+                  ? Text(appL10n.noCalendarEntriesForThisDay)
+                  : SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final event in events)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    event.title,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
                                   ),
-                              ],
+                                  Text(_dateLabel(event)),
+                                  if (event.description.isNotEmpty &&
+                                      event.description != event.title)
+                                    Text(event.description),
+                                  if (event.postNumber case final number?)
+                                    DButton(
+                                      variant: DButtonVariant.link,
+                                      onPressed: () {
+                                        dialog.close();
+                                        widget.onOpenReply(number);
+                                      },
+                                      label: Text(
+                                        appL10n.viewReply((number).toString()),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-          ),
-          actions: [
-            DButton(
-              variant: DButtonVariant.ghost,
-              onPressed: () => Navigator.pop(context),
-              label: Text(appL10n.close),
+            ),
+            DDialogFooter(
+              children: [
+                DButton(
+                  variant: DButtonVariant.ghost,
+                  onPressed: () => dialog.close(),
+                  label: Text(appL10n.close),
+                ),
+              ],
             ),
           ],
         ),
@@ -667,31 +684,27 @@ final class _TopicCalendarState extends State<TopicCalendar> {
     final label = '${event.title}, ${_dateLabel(event)}';
     return DTooltip(
       message: label,
-      child: Material(
-        color: background,
-        borderRadius: BorderRadius.circular(3),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () {
-            if (event.postNumber case final number?) {
-              widget.onOpenReply(number);
-            } else {
-              _openDay(event.firstDay, [event]);
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                '${event.allDay ? '' : '${_time(event.start)} '}${event.title}',
-                semanticsLabel: label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: foreground),
-              ),
+      child: DCalendarEventAction(
+        backgroundColor: background,
+        semanticLabel: label,
+        onPressed: () {
+          if (event.postNumber case final number?) {
+            widget.onOpenReply(number);
+          } else {
+            _openDay(event.firstDay, [event]);
+          }
+        },
+        child: ExcludeSemantics(
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              '${event.allDay ? '' : '${_time(event.start)} '}${event.title}',
+              semanticsLabel: label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: foreground),
             ),
           ),
         ),
@@ -700,60 +713,64 @@ final class _TopicCalendarState extends State<TopicCalendar> {
   }
 }
 
-final class _TimezonePicker extends StatefulWidget {
-  const _TimezonePicker({required this.names, required this.selected});
+final class _TimezonePicker extends StatelessWidget {
+  const _TimezonePicker({
+    required this.names,
+    required this.selected,
+    required this.onSelected,
+  });
+
   final List<String> names;
   final String selected;
-  @override
-  State<_TimezonePicker> createState() => _TimezonePickerState();
-}
+  final ValueChanged<String> onSelected;
 
-final class _TimezonePickerState extends State<_TimezonePicker> {
-  String _query = '';
   @override
-  Widget build(BuildContext context) {
-    final names = widget.names
-        .where(
-          (name) => name
-              .replaceAll('_', ' ')
-              .toLowerCase()
-              .contains(_query.toLowerCase()),
-        )
-        .toList();
-    return AlertDialog(
-      title: Text(context.l10n.calendarTimezone),
-      content: SizedBox(
+  Widget build(BuildContext context) => DDialogContent(
+    showCloseButton: false,
+    maxWidth: 520,
+    children: [
+      DDialogHeader(
+        children: [DDialogTitle(child: Text(context.l10n.calendarTimezone))],
+      ),
+      SizedBox(
         width: 400,
         height: 400,
-        child: Column(
-          children: [
-            TextField(
-              style: Theme.of(context).textTheme.bodyMedium,
-              decoration: InputDecoration(
-                labelText: context.l10n.searchTimezones,
-              ),
-              onChanged: (value) => setState(() => _query = value),
-            ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: names.length,
-                itemBuilder: (context, index) => ListTile(
-                  title: Text(names[index].replaceAll('_', ' ')),
-                  selected: names[index] == widget.selected,
-                  onTap: () => Navigator.pop(context, names[index]),
-                ),
-              ),
-            ),
+        child: DCombobox<String>.controlled(
+          value: selected,
+          options: [
+            for (final name in names)
+              DComboboxOption(value: name, label: name.replaceAll('_', ' ')),
           ],
+          onChanged: (value, _) {
+            if (value != null) onSelected(value);
+          },
+          anchor: DComboboxInput<String>(
+            autofocus: true,
+            placeholder: context.l10n.searchTimezones,
+            semanticLabel: context.l10n.searchTimezones,
+          ),
+          content: DComboboxContent.inline(
+            semanticLabel: context.l10n.calendarTimezone,
+            children: [
+              DComboboxEmpty<String>(
+                child: Text(context.l10n.noMatchingOptions),
+              ),
+              const DComboboxList<String>(),
+            ],
+          ),
         ),
       ),
-      actions: [
-        DButton(
-          variant: DButtonVariant.ghost,
-          onPressed: () => Navigator.pop(context),
-          label: Text(context.l10n.cancel),
-        ),
-      ],
-    );
-  }
+      DDialogFooter(
+        children: [
+          DDialogClose<String>(
+            builder: (context, close) => DButton(
+              variant: DButtonVariant.ghost,
+              onPressed: close,
+              label: Text(context.l10n.cancel),
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
 }

@@ -678,16 +678,19 @@ class _GroupHeader extends StatelessWidget {
 }
 
 Future<bool?> _confirmDeleteGroup(BuildContext context, Group group) {
-  return showDialog<bool>(
+  return showDDialog<bool>(
     context: context,
-    builder: (_) => _DeleteGroupDialog(group: group),
+    useRootNavigator: true,
+    builder: (_, dialog) =>
+        _DeleteGroupDialog(group: group, onClose: dialog.close),
   );
 }
 
 class _DeleteGroupDialog extends StatefulWidget {
-  const _DeleteGroupDialog({required this.group});
+  const _DeleteGroupDialog({required this.group, required this.onClose});
 
   final Group group;
+  final ValueChanged<bool?> onClose;
 
   @override
   State<_DeleteGroupDialog> createState() => _DeleteGroupDialogState();
@@ -703,40 +706,50 @@ class _DeleteGroupDialogState extends State<_DeleteGroupDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(context.l10n.deleteGroupGrouppage),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.l10n.thisCannotBeUndoneTypeToConfirm(
-            (widget.group.name).toString(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          style: Theme.of(context).textTheme.bodyMedium,
-          key: const ValueKey('group-delete-confirmation'),
-          controller: controller,
-          autofocus: true,
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(labelText: context.l10n.groupName),
-        ),
-      ],
-    ),
-    actions: [
-      DButton(
-        label: Text(context.l10n.cancel),
-        onPressed: () => Navigator.pop(context, false),
+  Widget build(BuildContext context) => DDialogContent(
+    showCloseButton: false,
+    maxWidth: 520,
+    children: [
+      DDialogHeader(
+        children: [
+          DDialogTitle(child: Text(context.l10n.deleteGroupGrouppage)),
+        ],
       ),
-      DButton(
-        key: const ValueKey('confirm-delete-group'),
-        label: Text(context.l10n.deletePermanently),
-        variant: DButtonVariant.destructive,
-        onPressed: controller.text == widget.group.name
-            ? () => Navigator.pop(context, true)
-            : null,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.thisCannotBeUndoneTypeToConfirm(
+              (widget.group.name).toString(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          DInput(
+            style: Theme.of(context).textTheme.bodyMedium,
+            key: const ValueKey('group-delete-confirmation'),
+            controller: controller,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
+            labelText: context.l10n.groupName,
+          ),
+        ],
+      ),
+      DDialogFooter(
+        children: [
+          DButton(
+            label: Text(context.l10n.cancel),
+            onPressed: () => widget.onClose(false),
+          ),
+          DButton(
+            key: const ValueKey('confirm-delete-group'),
+            label: Text(context.l10n.deletePermanently),
+            variant: DButtonVariant.destructive,
+            onPressed: controller.text == widget.group.name
+                ? () => widget.onClose(true)
+                : null,
+          ),
+        ],
       ),
     ],
   );

@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -330,6 +331,8 @@ void main() {
           tester.getSemantics(target),
           isSemantics(
             label: 'A topic',
+            hasEnabledState: true,
+            isEnabled: true,
             isLink: true,
             isButton: false,
             isFocusable: true,
@@ -337,17 +340,12 @@ void main() {
             hasFocusAction: true,
           ),
         );
-        final ink = find.descendant(of: target, matching: find.byType(InkWell));
-        expect(ink, findsOneWidget);
-        expect(
-          tester.widget<InkWell>(ink).mouseCursor,
-          SystemMouseCursors.click,
+        final item = find.descendant(
+          of: find.byType(QuoteBlock),
+          matching: find.byType(DItem),
         );
-        expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
-        expect(
-          tester.widget<InkWell>(ink).focusColor,
-          Theme.of(tester.element(target)).shell.hover,
-        );
+        expect(item, findsOneWidget);
+        expect(tester.getRect(target), tester.getRect(item));
 
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();

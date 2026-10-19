@@ -1,8 +1,6 @@
 /// Reusable native UI. Components accept values and callbacks, never services.
 library;
 
-// Baseline exports move into src/ui/components in their catalogue tasks.
-export 'src/shell/select.dart';
 export 'src/shell/topic_category_path_selector.dart';
 export 'src/shell/topic_category_selector.dart';
 export 'src/shell/topic_tag_selector.dart';
@@ -62,6 +60,8 @@ export 'src/ui/components/d_item.dart';
 export 'src/ui/components/d_kbd.dart';
 export 'src/ui/components/d_label.dart';
 export 'src/ui/components/d_layout_glyph.dart';
+export 'src/ui/components/d_link_interaction.dart'
+    show DLinkActivation, DLinkInteraction;
 export 'src/ui/components/d_marker.dart';
 export 'src/ui/components/d_menu_feed_row.dart';
 export 'src/ui/components/d_menubar.dart';
@@ -91,6 +91,7 @@ export 'src/ui/components/d_reveal.dart';
 export 'src/ui/components/d_scroll_area.dart';
 export 'src/ui/components/d_scroll_behavior.dart';
 export 'src/ui/components/d_scroll_chrome.dart';
+// Baseline exports move into src/ui/components in their catalogue tasks.
 export 'src/ui/components/d_select.dart';
 export 'src/ui/components/d_separator.dart';
 export 'src/ui/components/d_sheet.dart';
@@ -110,10 +111,16 @@ export 'src/ui/components/d_toggle.dart';
 export 'src/ui/components/d_toggle_group.dart';
 export 'src/ui/components/d_tooltip.dart';
 export 'src/ui/components/d_typography.dart';
+export 'src/ui/foundation/app_text_scaler.dart';
+export 'src/ui/foundation/code_source.dart' show CodeSource;
+export 'src/ui/foundation/code_syntax.dart';
+export 'src/ui/foundation/code_typography.dart' show monospaceTextStyle;
 export 'src/ui/foundation/control_style.dart' show DControlSize, DControlStyle;
 export 'src/ui/foundation/control_theme.dart';
 export 'src/ui/foundation/focus_highlight.dart';
 export 'src/ui/foundation/header_motion.dart'
     show DHeaderTuning, DHeaderSettle, DHeaderMotionSettings;
 export 'src/ui/foundation/material_theme.dart';
+export 'src/ui/foundation/native_webview_scroll.dart'
+    show NativeWebViewScrollBridge;
 export 'src/ui/foundation/tokens.dart';

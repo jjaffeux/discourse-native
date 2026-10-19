@@ -10,14 +10,31 @@ import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
+import 'd_card.dart';
+import 'd_link_interaction.dart';
 import 'd_separator.dart';
 
-enum DItemVariant { standard, outline, muted }
+enum DItemVariant {
+  standard,
+  outline,
+  muted,
 
-enum DItemSize { standard, sm, xs }
+  /// A grid action with selected-color focus and the Native hover treatment.
+  picker,
+}
+
+enum DItemSize {
+  standard,
+  sm,
+  xs,
+
+  /// No inset or internal gaps. Rich content supplies its own visible bounds
+  /// and text metrics while Item retains activation and focus treatment.
+  artwork,
+}
 
 /// Card follows Card surface corners, menu uses 8px, and fullWidth stays flush.
-enum DItemShape { standard, card, menu, fullWidth }
+enum DItemShape { standard, card, menu, fullWidth, pill, calendarEvent }
 
 enum DItemSelectionStyle {
   tinted,
@@ -34,6 +51,9 @@ enum DItemSelectionStyle {
 }
 
 enum DItemMediaVariant { standard, icon, avatar }
+
+typedef DItemPreviewBuilder =
+    ({Widget? header, Widget preview}) Function(BuildContext, BoxConstraints);
 
 /// A content row, optionally an action or link. Editable fields keep their own
 /// FormField owner; selection is controlled by the caller.
@@ -61,13 +81,50 @@ class DItem extends StatefulWidget {
     this.selectionStyle = DItemSelectionStyle.tinted,
     this.showSelectionIndicator = true,
     this.focusNode,
+    this.mouseCursor,
+    this.clipBehavior = Clip.none,
 
     this.semanticLabel,
     this.padding,
     this.cornerAction,
     this.dragData,
     this.dragFeedback,
-  });
+  }) : _previewBuilder = null,
+       _previewKey = null;
+
+  /// A row whose preview card owns its hover, press, and focus treatment.
+  const DItem.preview({
+    super.key,
+    required DItemPreviewBuilder builder,
+    required VoidCallback this.onPressed,
+    this.semanticLabel,
+    this.focusNode,
+    this._previewKey,
+  }) : _previewBuilder = builder,
+       children = const [],
+       header = null,
+       footer = null,
+       variant = DItemVariant.standard,
+       borderColor = null,
+       size = DItemSize.artwork,
+       fitContent = false,
+       shape = DItemShape.fullWidth,
+       onHoverChanged = null,
+       highlightOnInteraction = true,
+       link = false,
+       enabled = true,
+       selected = false,
+       selectionStyle = DItemSelectionStyle.tinted,
+       showSelectionIndicator = true,
+       mouseCursor = null,
+       clipBehavior = Clip.none,
+       padding = const EdgeInsets.fromLTRB(12, 20, 12, 22),
+       cornerAction = null,
+       dragData = null,
+       dragFeedback = null;
+
+  final DItemPreviewBuilder? _previewBuilder;
+  final Key? _previewKey;
 
   final List<Widget> children;
   final DItemHeader? header;
@@ -124,6 +181,13 @@ class DItem extends StatefulWidget {
   /// Borrowed when supplied; never disposed by Item.
   final FocusNode? focusNode;
 
+  /// Cursor for enabled artwork, including draggable rail destinations.
+  final MouseCursor? mouseCursor;
+
+  /// Clips full-bleed artwork to the same corners as the interactive item.
+  /// Overlay badges may retain the default non-clipping composition.
+  final Clip clipBehavior;
+
   /// Additional row announcement. Descendants retain their own semantics;
   /// use ExcludeSemantics on passive content when this replaces its full label.
   final String? semanticLabel;
@@ -148,12 +212,114 @@ class DItem extends StatefulWidget {
   State<DItem> createState() => _DItemState();
 }
 
+/// A rail destination with a visible 32px action inside its 44px layout slot.
+/// The marker is decorative. Hover changes its Native-owned height.
+class DItemRail extends StatefulWidget {
+  const DItemRail({
+    super.key,
+    required this.artwork,
+    required this.onPressed,
+    required this.selected,
+    required this.markerColor,
+    this.markerKey,
+    this.mouseCursor,
+    this.controlWrapper,
+  });
+
+  final Widget artwork;
+  final VoidCallback onPressed;
+  final bool selected;
+  final Color markerColor;
+  final Key? markerKey;
+  final MouseCursor? mouseCursor;
+  final Widget Function(BuildContext, Widget)? controlWrapper;
+
+  @override
+  State<DItemRail> createState() => _DItemRailState();
+}
+
+class _DItemRailState extends State<DItemRail> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final action = DItem(
+      size: DItemSize.artwork,
+      shape: DItemShape.pill,
+      mouseCursor: widget.mouseCursor,
+      onPressed: widget.onPressed,
+      onHoverChanged: (hovered) => setState(() => _hovered = hovered),
+      children: [SizedBox.square(dimension: 32, child: widget.artwork)],
+    );
+    final control = widget.controlWrapper?.call(context, action) ?? action;
+    return Stack(
+      alignment: Alignment.centerLeft,
+      children: [
+        IgnorePointer(
+          child: AnimatedContainer(
+            key: widget.markerKey,
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            width: 4,
+            height: widget.selected
+                ? 28
+                : _hovered
+                ? 16
+                : 8,
+            decoration: BoxDecoration(
+              color: widget.markerColor,
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(4),
+              ),
+            ),
+          ),
+        ),
+        Center(
+          child: SizedBox.square(dimension: 44, child: Center(child: control)),
+        ),
+      ],
+    );
+  }
+}
+
+/// Interaction inherited by passive Native artwork inside an Item.
+/// Item retains the focus node, gesture recognizer, and state lifecycle.
+class DItemInteraction extends InheritedWidget {
+  const DItemInteraction._({
+    required this.hovered,
+    required this.focused,
+    required this.pressed,
+    required super.child,
+  });
+
+  final bool hovered;
+  final bool focused;
+  final bool pressed;
+  bool get emphasized => hovered || focused || pressed;
+
+  static DItemInteraction of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DItemInteraction>() ??
+      const DItemInteraction._(
+        hovered: false,
+        focused: false,
+        pressed: false,
+        child: SizedBox.shrink(),
+      );
+
+  @override
+  bool updateShouldNotify(DItemInteraction oldWidget) =>
+      hovered != oldWidget.hovered ||
+      focused != oldWidget.focused ||
+      pressed != oldWidget.pressed;
+}
+
 class _DItemState extends State<DItem> {
   FocusNode? _ownedFocus;
   FocusNode get _focus => widget.focusNode ?? (_ownedFocus ??= FocusNode());
   bool _hover = false;
   bool _pressed = false;
   bool _focusVisible = false;
+  bool _focused = false;
   bool _focusWithin = false;
   bool get _active => widget.enabled && widget.onPressed != null;
 
@@ -175,15 +341,50 @@ class _DItemState extends State<DItem> {
 
   @override
   Widget build(BuildContext context) {
+    final linkActivation = DLinkInteractionBinding.capture(
+      context,
+      widget.onPressed,
+    );
+    final previewBuilder = widget._previewBuilder;
+    final children = previewBuilder == null
+        ? widget.children
+        : <Widget>[
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final content = previewBuilder(context, constraints);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (content.header case final header?) ...[
+                      header,
+                      const SizedBox(height: 13),
+                    ],
+                    DCard(
+                      key: widget._previewKey,
+                      variant: DCardVariant.itemPreview,
+                      child: content.preview,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ];
     final tokens = DTokens.of(context);
     final xs = widget.size == DItemSize.xs;
-    final gap = xs ? 8.0 : 12.0;
-    final described = widget.children.any(
+    final artwork = widget.size == DItemSize.artwork;
+    final gap = artwork
+        ? 0.0
+        : xs
+        ? 8.0
+        : 12.0;
+    final described = children.any(
       (child) =>
           child is DItemContent &&
           child.children.any((c) => c is DItemDescription),
     );
-    final focus = _active && _focusVisible;
+    final preview = widget._previewBuilder != null;
+    final focus = _active && _focusVisible && !preview;
     final outlineSelection =
         widget.selectionStyle == DItemSelectionStyle.outline;
     final neutralSelection =
@@ -197,18 +398,26 @@ class _DItemState extends State<DItem> {
         widget.selectionStyle == DItemSelectionStyle.leadingAccent;
     final radius = switch (widget.shape) {
       DItemShape.fullWidth => 0.0,
+      DItemShape.calendarEvent => 3.0,
+      DItemShape.pill => DRadius.pill,
       DItemShape.card => DRadius.panel,
       DItemShape.menu => 8.0,
       DItemShape.standard => DRadius.popover,
     };
     final borderRadius = BorderRadius.circular(radius);
-    final background = widget.selected && !outlineSelection
+    final background =
+        widget.variant == DItemVariant.picker && _active && _focused
+        ? tokens.selected
+        : widget.selected && !outlineSelection
         ? neutralSelection
               ? tokens.foreground.withValues(
                   alpha: strongNeutralSelection ? .13 : .05,
                 )
               : tokens.primary.withValues(alpha: .12)
-        : widget.highlightOnInteraction && _active && (_hover || _pressed)
+        : !preview &&
+              widget.highlightOnInteraction &&
+              _active &&
+              (_hover || _pressed)
         ? leadingSelection
               ? tokens.primary.withValues(alpha: _pressed ? .09 : .06)
               : outlineSelection
@@ -229,13 +438,16 @@ class _DItemState extends State<DItem> {
       size: widget.size,
       described: described,
       child: DefaultTextStyle.merge(
-        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-          fontSize: DControlStyle.labelFontSize,
-          height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
-          fontWeight: FontWeight.w400,
-          letterSpacing: 0,
-          color: tokens.foreground,
-        ),
+        style: artwork
+            ? DefaultTextStyle.of(context).style
+            : Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontSize: DControlStyle.labelFontSize,
+                height:
+                    DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
+                fontWeight: FontWeight.w400,
+                letterSpacing: 0,
+                color: tokens.foreground,
+              ),
         child: CustomPaint(
           painter: sidebarSelection
               ? DSidebarRowSurface.painterFor(
@@ -285,54 +497,68 @@ class _DItemState extends State<DItem> {
             ),
             padding:
                 widget.padding ??
-                EdgeInsets.symmetric(
-                  horizontal: xs
-                      ? 10
-                      : widget.size == DItemSize.sm
-                      ? 12
-                      : 16,
-                  vertical: xs
-                      ? 8
-                      : widget.size == DItemSize.sm
-                      ? 10
-                      : 12,
-                ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: widget.fitContent
-                  ? CrossAxisAlignment.start
-                  : CrossAxisAlignment.stretch,
-              children: [
-                if (widget.header != null) ...[
-                  widget.header!,
-                  if (widget.children.isNotEmpty || widget.footer != null)
-                    SizedBox(height: gap),
-                ],
-                if (widget.children.isNotEmpty)
-                  _ItemBody(
-                    gap: gap,
-                    described: described,
-                    fitContent: widget.fitContent,
+                (artwork
+                    ? EdgeInsets.zero
+                    : EdgeInsets.symmetric(
+                        horizontal: xs
+                            ? 10
+                            : widget.size == DItemSize.sm
+                            ? 12
+                            : 16,
+                        vertical: xs
+                            ? 8
+                            : widget.size == DItemSize.sm
+                            ? 10
+                            : 12,
+                      )),
+            child:
+                artwork &&
+                    widget.header == null &&
+                    widget.footer == null &&
+                    children.length == 1 &&
+                    !(widget.selected && widget.showSelectionIndicator)
+                ? ClipRRect(
+                    borderRadius: borderRadius,
+                    clipBehavior: widget.clipBehavior,
+                    child: children.single,
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: widget.fitContent
+                        ? CrossAxisAlignment.start
+                        : CrossAxisAlignment.stretch,
                     children: [
-                      ...widget.children,
-                      if (widget.selected && widget.showSelectionIndicator)
-                        DItemMedia(
-                          child: ExcludeSemantics(
-                            child: DIcon(
-                              DIcons.check,
-                              size: 16,
-                              color: tokens.primary,
-                            ),
-                          ),
+                      if (widget.header != null) ...[
+                        widget.header!,
+                        if (children.isNotEmpty || widget.footer != null)
+                          SizedBox(height: gap),
+                      ],
+                      if (children.isNotEmpty)
+                        _ItemBody(
+                          gap: gap,
+                          described: described,
+                          fitContent: widget.fitContent,
+                          children: [
+                            ...children,
+                            if (widget.selected &&
+                                widget.showSelectionIndicator)
+                              DItemMedia(
+                                child: ExcludeSemantics(
+                                  child: DIcon(
+                                    DIcons.check,
+                                    size: 16,
+                                    color: tokens.primary,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
+                      if (widget.footer != null) ...[
+                        if (children.isNotEmpty) SizedBox(height: gap),
+                        widget.footer!,
+                      ],
                     ],
                   ),
-                if (widget.footer != null) ...[
-                  if (widget.children.isNotEmpty) SizedBox(height: gap),
-                  widget.footer!,
-                ],
-              ],
-            ),
           ),
         ),
       ),
@@ -378,10 +604,11 @@ class _DItemState extends State<DItem> {
           focusNode: _focus,
           autofocus: false,
           mouseCursor: _active
-              ? SystemMouseCursors.click
+              ? widget.mouseCursor ?? SystemMouseCursors.click
               : SystemMouseCursors.basic,
           onShowFocusHighlight: (value) =>
               setState(() => _focusVisible = value),
+          onFocusChange: (value) => setState(() => _focused = value),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             excludeFromSemantics: true,
@@ -392,7 +619,7 @@ class _DItemState extends State<DItem> {
             onTap: _active
                 ? () {
                     _focus.requestFocus();
-                    widget.onPressed!();
+                    linkActivation.onPressed!();
                   }
                 : null,
             child: result,
@@ -411,35 +638,43 @@ class _DItemState extends State<DItem> {
           }
           final activates =
               event.logicalKey == LogicalKeyboardKey.enter ||
+              event.logicalKey == LogicalKeyboardKey.numpadEnter ||
               (!widget.link && event.logicalKey == LogicalKeyboardKey.space);
           if (!activates) {
             return KeyEventResult.ignored;
           }
-          if (event is KeyDownEvent) widget.onPressed!();
+          if (event is KeyDownEvent) linkActivation.onPressed!();
           return KeyEventResult.handled;
         },
         child: result,
       );
     }
-    final item = Semantics(
-      container: true,
-      button: widget.onPressed != null && !widget.link ? true : null,
-      link: widget.link ? true : null,
-      enabled: widget.onPressed != null || widget.link ? _active : null,
-      label: widget.semanticLabel,
-      selected: widget.selected ? true : null,
-      onTap: _active ? widget.onPressed : null,
-      // Toggling enabled keeps the tree shape: a remount would recreate child
-      // state and dispose the tap recognizer of a pointer still down.
-      child: Opacity(opacity: widget.enabled ? 1 : .5, child: result),
+    final item = DItemInteraction._(
+      hovered: _active && _hover,
+      focused: _active && _focused,
+      pressed: _active && _pressed,
+      child: Semantics(
+        container: true,
+        button: widget.onPressed != null && !widget.link ? true : null,
+        link: widget.link ? true : null,
+        enabled: widget.onPressed != null || widget.link ? _active : null,
+        label: widget.semanticLabel,
+        selected: widget.selected ? true : null,
+        onTap: _active ? linkActivation.onPressed : null,
+        // Toggling enabled keeps the tree shape: a remount would recreate child
+        // state and dispose the tap recognizer of a pointer still down.
+        child: Opacity(opacity: widget.enabled ? 1 : .5, child: result),
+      ),
     );
-    if (widget.dragData == null) return item;
-    return Draggable<Object>(
-      data: widget.dragData!,
-      maxSimultaneousDrags: widget.enabled ? null : 0,
-      dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: widget.dragFeedback ?? const SizedBox.shrink(),
-      child: item,
+    if (widget.dragData == null) return linkActivation.wrap(item);
+    return linkActivation.wrap(
+      Draggable<Object>(
+        data: widget.dragData!,
+        maxSimultaneousDrags: widget.enabled ? null : 0,
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        feedback: widget.dragFeedback ?? const SizedBox.shrink(),
+        child: item,
+      ),
     );
   }
 }
@@ -631,7 +866,9 @@ class DItemGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effective =
-        ((children.whereType<DItem>().any((c) => c.size == DItemSize.xs)
+        ((children.whereType<DItem>().any((c) => c.size == DItemSize.artwork)
+        ? DItemSize.artwork
+        : children.whereType<DItem>().any((c) => c.size == DItemSize.xs)
         ? DItemSize.xs
         : children.whereType<DItem>().any((c) => c.size == DItemSize.sm)
         ? DItemSize.sm
@@ -642,6 +879,7 @@ class DItemGroup extends StatelessWidget {
           DItemSize.standard => 16.0,
           DItemSize.sm => 10.0,
           DItemSize.xs => 8.0,
+          DItemSize.artwork => 0.0,
         };
     return Semantics(
       role: SemanticsRole.list,
@@ -712,7 +950,11 @@ class DItemContent extends StatelessWidget {
         if (i > 0)
           SizedBox(
             height:
-                spacing ?? (_ItemScope.sizeOf(context) == DItemSize.xs ? 0 : 4),
+                spacing ??
+                (switch (_ItemScope.sizeOf(context)) {
+                  DItemSize.xs || DItemSize.artwork => 0,
+                  _ => 4,
+                }),
           ),
         children[i],
       ],

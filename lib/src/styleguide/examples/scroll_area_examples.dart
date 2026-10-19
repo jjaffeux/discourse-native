@@ -108,9 +108,9 @@ final scrollAreaExamples = ComponentExamples(
           'Independent native positions on two axes. Resize and change themes without losing local text or scroll position.',
       code: '''DScrollArea(axes: DScrollAxes.both,
   child: SizedBox(width: 800, height: 800,
-    child: TextField(decoration: InputDecoration(labelText: 'Retained note'))),
+    child: DInput(labelText: 'Retained note')),
 )''',
-      builder: (_) => const SizedBox(
+      builder: (_) => SizedBox(
         height: 280,
         child: DScrollArea(
           axes: DScrollAxes.both,
@@ -118,18 +118,16 @@ final scrollAreaExamples = ComponentExamples(
             width: 800,
             height: 800,
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
                     width: 300,
-                    child: TextField(
-                      decoration: InputDecoration(labelText: 'Retained note'),
-                    ),
+                    child: DInput(labelText: 'Retained note'),
                   ),
-                  SizedBox(height: 550),
-                  Text('Far corner'),
+                  const SizedBox(height: 550),
+                  const Text('Far corner'),
                 ],
               ),
             ),

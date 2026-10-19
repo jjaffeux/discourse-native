@@ -263,12 +263,12 @@ class OneboxCard extends StatelessWidget {
     final link = LinkTarget(
       url: url,
       siteUrl: siteUrl,
-      child: InkWell(
-        onTap: () => openLink(context, url, siteUrl: siteUrl),
-        mouseCursor: SystemMouseCursors.click,
-        hoverColor: Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: card,
+      child: DItem(
+        size: DItemSize.sm,
+        onPressed: () => openLink(context, url, siteUrl: siteUrl),
+        children: [
+          DItemContent(children: [card]),
+        ],
       ),
     );
     if (!mergeLinkSemantics) return link;

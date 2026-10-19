@@ -26,7 +26,7 @@ void main() {
           final api = _DndApi();
           final launcher = _watchLauncher(tester);
           final shell = await _open(tester, api);
-          final dialog = tester.element(find.byType(AlertDialog));
+          final dialog = tester.element(find.byType(DDialogContent));
           final replacementApi = _DndApi();
           if (replacement == 'account') {
             await shell.disconnectCurrentInstance();
@@ -36,7 +36,7 @@ void main() {
             await _pump(tester, await _loadShell(replacementApi));
           }
           await tester.pumpAndSettle();
-          expect(tester.element(find.byType(AlertDialog)), same(dialog));
+          expect(tester.element(find.byType(DDialogContent)), same(dialog));
 
           await tester.tap(
             action == 'pause'
@@ -48,7 +48,7 @@ void main() {
           expect(api.writes, isEmpty);
           expect(replacementApi.writes, isEmpty);
           expect(launcher.urls, isEmpty);
-          expect(find.byType(AlertDialog), findsOneWidget);
+          expect(find.byType(DDialogContent), findsOneWidget);
         },
       );
     }
@@ -60,7 +60,7 @@ void main() {
           final api = _DndApi();
           final gate = _writeGate(api);
           final shell = await _open(tester, api);
-          final dialog = tester.element(find.byType(AlertDialog));
+          final dialog = tester.element(find.byType(DDialogContent));
           await tester.tap(_oneHour);
           await tester.pump();
           expect(api.writes, [
@@ -80,7 +80,7 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
 
-          expect(tester.element(find.byType(AlertDialog)), same(dialog));
+          expect(tester.element(find.byType(DDialogContent)), same(dialog));
           expect(tester.widget<DButton>(_oneHour).onPressed, isNull);
           expect(
             find.text(const WriteException(WriteFailure.forbidden).message),
@@ -107,7 +107,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.writes, [(_site, 'key', duration)]);
       expect(shell.doNotDisturb.stateFor(_site).until, api.doNotDisturbUntil);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(DDialogContent), findsNothing);
     });
   }
 
@@ -135,7 +135,7 @@ void main() {
     );
     gate.complete();
     await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(DDialogContent), findsNothing);
   });
 
   testWidgets('schedule opens once and rejects same-frame pause callbacks', (
@@ -152,7 +152,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.writes, isEmpty);
     expect(launcher.urls, ['$_site/u/reader/preferences/notifications']);
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(DDialogContent), findsNothing);
   });
 
   for (final replacement in ['none', 'account', 'shell', 'messenger']) {
@@ -164,7 +164,7 @@ void main() {
         await tester.tap(find.text('Set a notification schedule'));
         await tester.pumpAndSettle();
         expect(launcher.urls, ['$_site/u/reader/preferences/notifications']);
-        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(DDialogContent), findsNothing);
 
         switch (replacement) {
           case 'account':
@@ -209,7 +209,7 @@ void main() {
       (_site, 'key', const DoNotDisturbDuration.minutes(60)),
       (_site, 'key', const DoNotDisturbDuration.minutes(120)),
     ]);
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(DDialogContent), findsNothing);
   });
 }
 

@@ -1,3 +1,5 @@
+import 'dart:ui' show Tristate;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -8,6 +10,188 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('inline badges retain paragraph metrics, baseline and ellipsis', (
+    tester,
+  ) async {
+    for (final fontSize in [12.0, 17.0, 24.0]) {
+      for (final scale in [1.0, 2.0]) {
+        await _pump(
+          tester,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Expanded(
+                child: DBadge.inline(
+                  baseStyle: TextStyle(
+                    fontSize: fontSize,
+                    height: 1.8,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.underline,
+                  ),
+                  child: const Text(
+                    'A long inline label that must remain one line',
+                  ),
+                ),
+              ),
+              Text('Ag', style: TextStyle(fontSize: fontSize, height: 1.8)),
+            ],
+          ),
+          width: 180,
+          scale: scale,
+        );
+        final label = find.text(
+          'A long inline label that must remain one line',
+        );
+        final paragraph = tester.renderObject<RenderParagraph>(label);
+        final style = (paragraph.text as TextSpan).style!;
+        expect(style.fontSize, closeTo(fontSize * .93, .001));
+        expect(style.height, 1);
+        expect(style.fontWeight, FontWeight.w400);
+        expect(style.decoration, TextDecoration.none);
+        expect(paragraph.maxLines, 1);
+        expect(paragraph.softWrap, isFalse);
+        expect(paragraph.overflow, TextOverflow.ellipsis);
+        expect(paragraph.didExceedMaxLines, isTrue);
+        final reference = tester.renderObject<RenderParagraph>(find.text('Ag'));
+        final labelBaseline = paragraph.getDryBaseline(
+          paragraph.constraints,
+          TextBaseline.alphabetic,
+        );
+        final referenceBaseline = reference.getDryBaseline(
+          reference.constraints,
+          TextBaseline.alphabetic,
+        );
+        expect(labelBaseline, isNotNull);
+        expect(referenceBaseline, isNotNull);
+        expect(
+          paragraph.localToGlobal(Offset(0, labelBaseline!)).dy,
+          closeTo(
+            reference.localToGlobal(Offset(0, referenceBaseline!)).dy,
+            .001,
+          ),
+        );
+        expect(
+          tester.getSize(find.byType(DBadge)).width,
+          lessThanOrEqualTo(180),
+        );
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+
+  testWidgets(
+    'inline artwork uses Native optical metrics and stays decorative',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        for (final artwork in DBadgeInlineArtwork.values) {
+          double? dimension;
+          await _pump(
+            tester,
+            DBadge.inline(
+              baseStyle: const TextStyle(fontSize: 20),
+              leadingArtwork: artwork,
+              leadingBuilder: (context, size) {
+                dimension = size;
+                return Semantics(
+                  label: 'Decorative artwork',
+                  child: const SizedBox.expand(),
+                );
+              },
+              child: const Text('Tag'),
+            ),
+          );
+          final expected =
+              20 *
+              .93 *
+              switch (artwork) {
+                DBadgeInlineArtwork.icon => .93 / DIcon.glyphScale,
+                DBadgeInlineArtwork.image => .93,
+                DBadgeInlineArtwork.square => .72,
+              };
+          expect(dimension, closeTo(expected, .001));
+          expect(find.bySemanticsLabel('Decorative artwork'), findsNothing);
+          expect(tester.takeException(), isNull);
+        }
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'inline projected state changes paint without changing its bounds',
+    (tester) async {
+      const fill = Color(0xff456789);
+      const baseStyle = TextStyle(fontSize: 17);
+      Widget badge({bool hovered = false, bool highlighted = false}) =>
+          DBadge.inline(
+            baseStyle: baseStyle,
+            backgroundColor: fill,
+            hovered: hovered,
+            highlighted: highlighted,
+            child: const Text('Poll'),
+          );
+      await _pump(tester, badge());
+      final bounds = tester.getRect(find.byType(DBadge));
+      final tokens = DTokens.of(tester.element(find.byType(DBadge)));
+      expect(_decoration(tester).color, fill);
+      await _pump(tester, badge(hovered: true, highlighted: true));
+      expect(
+        _decoration(tester).color,
+        Color.alphaBlend(tokens.foreground.withValues(alpha: .08), fill),
+      );
+      final container = tester.widget<AnimatedContainer>(
+        find.byType(AnimatedContainer),
+      );
+      final highlight = container.foregroundDecoration! as BoxDecoration;
+      expect(highlight.border!.top.color, tokens.primary);
+      expect(highlight.border!.top.width, 1.5);
+      expect(tester.getRect(find.byType(DBadge)), bounds);
+      await _pump(tester, badge());
+      expect(_decoration(tester).color, fill);
+      expect(tester.getRect(find.byType(DBadge)), bounds);
+      expect(
+        find.descendant(
+          of: find.byType(DBadge),
+          matching: find.byType(GestureDetector),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('inline actions activate only inside their visible bounds', (
+    tester,
+  ) async {
+    var activations = 0;
+    await _pump(
+      tester,
+      SizedBox(
+        width: 300,
+        child: DBadge.inline(
+          baseStyle: const TextStyle(fontSize: 17),
+          semanticLabel: 'Open support',
+          onPressed: () => activations++,
+          child: const Text('support'),
+        ),
+      ),
+    );
+    final visible = tester.getRect(find.byType(AnimatedContainer));
+    final whole = tester.getRect(find.byType(DBadge));
+    expect(visible.width, lessThan(whole.width));
+    await tester.tapAt(Offset(visible.right + 8, visible.center.dy));
+    expect(activations, 0);
+    await tester.tapAt(visible.center);
+    expect(activations, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(activations, 2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(activations, 3);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'control badges match filter controls across platforms and text scales',
     (tester) async {
@@ -72,6 +256,53 @@ void main() {
       }
     },
   );
+
+  testWidgets('regular badge focus semantics preserve visible focus policy', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await _pump(
+        tester,
+        DFocusHighlight(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DBadge.action(onPressed: () {}, child: const Text('First')),
+              DBadge.action(onPressed: () {}, child: const Text('Second')),
+            ],
+          ),
+        ),
+      );
+      final tokens = DTokens.of(tester.element(find.text('First')));
+      await tester.tap(find.text('First'), kind: PointerDeviceKind.mouse);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(find.text('First')).flagsCollection.isFocused,
+        Tristate.isTrue,
+      );
+      expect(
+        _decorationOf(tester, 'First').border!.top.color,
+        Colors.transparent,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(find.text('First')).flagsCollection.isFocused,
+        Tristate.isFalse,
+      );
+      expect(
+        tester.getSemantics(find.text('Second')).flagsCollection.isFocused,
+        Tristate.isTrue,
+      );
+      expect(
+        _decorationOf(tester, 'Second').border!.top.color,
+        tokens.focusRing,
+      );
+    } finally {
+      semantics.dispose();
+    }
+  });
 
   testWidgets('overlay pills grow left without obscuring the icon or count', (
     tester,

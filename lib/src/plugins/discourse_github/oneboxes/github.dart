@@ -1,5 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -272,7 +272,6 @@ class GithubLineCounts extends StatelessWidget {
   }
 }
 
-/// Uses the inline-target exception without losing keyboard focus or activation.
 class _GithubInlineLink extends StatelessWidget {
   const _GithubInlineLink({
     required this.label,
@@ -290,11 +289,14 @@ class _GithubInlineLink extends StatelessWidget {
   Widget build(BuildContext context) => LinkTarget(
     url: url,
     siteUrl: siteUrl,
-    child: InlineAction.link(
-      onTap: () => openLink(context, url, siteUrl: siteUrl),
+    child: DItem(
+      fitContent: true,
+      size: DItemSize.artwork,
+      highlightOnInteraction: false,
+      link: true,
+      onPressed: () => openLink(context, url, siteUrl: siteUrl),
       semanticLabel: label,
-      excludeChildSemantics: true,
-      child: child,
+      children: [ExcludeSemantics(child: child)],
     ),
   );
 }

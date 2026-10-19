@@ -376,7 +376,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   T? get highlightedValue =>
       combobox.highlightControlled ? combobox.highlightedValue : _highlighted;
   String get query => combobox.query ?? textController.text;
-  bool get isOpen => combobox.open ?? _open;
+  bool get isOpen => combobox.content.isInline || (combobox.open ?? _open);
   bool get enabled => combobox.enabled;
   bool get mutable => (enabled);
 
@@ -453,11 +453,23 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     focusNode.addListener(_focusChanged);
     textController.addListener(_textChanged);
     final selected = selectedValues.firstOrNull;
-    if (!combobox.multiple && textController.text.isEmpty && selected != null) {
+    if (!combobox.content.isInline &&
+        !combobox.multiple &&
+        textController.text.isEmpty &&
+        selected != null) {
       _replaceText(labelFor(selected));
     }
     _resetValues = List<T>.unmodifiable(selectedValues);
     _resetQuery = textController.text;
+    if (combobox.content.isInline &&
+        combobox.autoHighlight &&
+        !combobox.highlightControlled &&
+        _highlighted == null) {
+      _highlighted = filteredOptions
+          .where((option) => option.enabled)
+          .firstOrNull
+          ?.value;
+    }
   }
 
   @override
@@ -480,7 +492,9 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     if (combobox.controlled &&
         !_sameValues(oldWidget.controlledValues, combobox.controlledValues)) {
       setValue(List<T>.unmodifiable(combobox.controlledValues));
-      if (!combobox.multiple && combobox.query == null) {
+      if (!combobox.content.isInline &&
+          !combobox.multiple &&
+          combobox.query == null) {
         final selected = combobox.controlledValues.firstOrNull;
         _syncTextAfterUpdate(selected == null ? '' : labelFor(selected));
       }
@@ -558,7 +572,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     DComboboxChangeReason reason, {
     bool focusInput = false,
   }) {
-    if (!mounted || (open && !enabled)) return;
+    if (!mounted || combobox.content.isInline || (open && !enabled)) return;
     if (open == isOpen) {
       if (open && focusInput) _focusInputAfterBuild();
       return;
@@ -679,10 +693,12 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     } else {
       final reselected = _contains(selectedValues, option.value);
       _emitValues([option.value], reason);
-      if (!combobox.controlled) {
+      if (!combobox.content.isInline && !combobox.controlled) {
         _replaceText(option.label);
         combobox.onQueryChanged?.call(option.label, reason);
-      } else if (reselected && combobox.query == null) {
+      } else if (!combobox.content.isInline &&
+          reselected &&
+          combobox.query == null) {
         // An unchanged controlled value never reaches didUpdateWidget's sync,
         // which would otherwise replace the typed filter with the label.
         _syncTextAfterUpdate(labelFor(option.value));
@@ -744,7 +760,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         return _submitHighlighted()
             ? KeyEventResult.handled
             : KeyEventResult.ignored;
-      case LogicalKeyboardKey.escape when isOpen:
+      case LogicalKeyboardKey.escape when isOpen && !combobox.content.isInline:
         _requestOpen(false, DComboboxChangeReason.escape);
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace
@@ -832,6 +848,33 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   }
 
   Widget _build() {
+    if (combobox.content.isInline) {
+      return _DComboboxScope<T>(
+        state: this,
+        child: Semantics(
+          container: true,
+          explicitChildNodes: true,
+          label: combobox.content.semanticLabel,
+          child: TextFieldTapRegion(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                combobox.anchor,
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: combobox.content.maxHeight,
+                    ),
+                    child: combobox.content,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final popupWidth = combobox.content.width ?? _anchorWidth ?? 320;
     return _DComboboxScope<T>(
       state: this,
@@ -1036,7 +1079,7 @@ class DComboboxInput<T> extends StatelessWidget {
     final root = _DComboboxScope.of<T>(context);
     final isInvalid = root.hasError;
 
-    final action = (showTrigger
+    final action = (showTrigger && !root.combobox.content.isInline
         ? Semantics(
             expanded: root.isOpen,
             child: DInputGroupButton.icon(
@@ -1093,7 +1136,7 @@ class DComboboxInput<T> extends StatelessWidget {
         ],
       ),
     );
-    if (!registerAsAnchor) return input;
+    if (!registerAsAnchor || root.combobox.content.isInline) return input;
     return DPopoverTrigger(
       focusNode: root.focusNode,
       builder: (context, state) => input,
@@ -1221,11 +1264,28 @@ class DComboboxContent extends StatelessWidget {
     this.maxHeight = 288,
     this.sheetOnMobile = false,
     this.fullScreenOnMobile = false,
-  });
+  }) : isInline = false;
+
+  /// Embeds search results beside the input in an existing surface.
+  ///
+  /// The parent supplies bounded height and owns dismissal. The input starts
+  /// with an empty search even when a value is selected, and Escape remains
+  /// available to the surrounding dialog or sheet.
+  const DComboboxContent.inline({
+    super.key,
+    required this.children,
+    this.semanticLabel,
+    this.maxHeight = double.infinity,
+  }) : isInline = true,
+       side = DPopoverSide.bottom,
+       width = null,
+       sheetOnMobile = false,
+       fullScreenOnMobile = false;
 
   final List<Widget> children;
   final String? semanticLabel;
   final DPopoverSide side;
+  final bool isInline;
 
   final double? width;
   final double maxHeight;

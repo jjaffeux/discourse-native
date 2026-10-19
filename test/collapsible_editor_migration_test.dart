@@ -30,9 +30,10 @@ void main() {
             builder: (context) => Scaffold(
               body: TextButton(
                 onPressed: () async {
-                  result = await showDialog<String>(
+                  result = await showDDialog<String>(
                     context: context,
-                    builder: (_) => EventComposerSheet(
+                    builder: (_, dialog) => EventComposerSheet(
+                      onClose: dialog.close,
                       settings: const EventSettings(enabled: true),
                       timezone: 'Etc/UTC',
                       isCurrent: () => true,

@@ -5,6 +5,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('ring artwork shares the progress owner and exact bounds', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      for (final value in <double?>[25, null]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: DProgress(
+                value: value,
+                semanticsLabel: 'Downloading update',
+                track: const DProgressRing(size: 18),
+              ),
+            ),
+          ),
+        );
+        expect(
+          tester.getSize(find.byType(DProgressRing)),
+          const Size.square(18),
+        );
+        final data = tester
+            .getSemantics(find.byType(DProgress))
+            .getSemanticsData();
+        expect(data.label, 'Downloading update');
+        expect(
+          data.role,
+          value == null
+              ? SemanticsRole.loadingSpinner
+              : SemanticsRole.progressBar,
+        );
+        expect(data.value, value == null ? '' : '25');
+      }
+    } finally {
+      semantics.dispose();
+    }
+  });
   Future<void> pump(
     WidgetTester tester, {
     double? value = 25,

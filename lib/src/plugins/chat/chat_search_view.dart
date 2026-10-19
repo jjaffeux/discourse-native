@@ -377,21 +377,6 @@ class _SearchControls extends StatelessWidget {
   final VoidCallback onClear;
   final ValueChanged<ChatSearchSort> onSort;
 
-  static List<ChoiceMenuOption<ChatSearchSort>> get _sortOptions => [
-    ChoiceMenuOption(
-      value: ChatSearchSort.relevance,
-      title: appL10n.relevance,
-      description: appL10n.bestMatchingMessagesFirst,
-      icon: DIcons.magnifyingGlass,
-    ),
-    ChoiceMenuOption(
-      value: ChatSearchSort.latest,
-      title: appL10n.latest,
-      description: appL10n.newestMessagesFirst,
-      icon: DIcons.farClock,
-    ),
-  ];
-
   String _sortLabel(ChatSearchSort sort) => switch (sort) {
     ChatSearchSort.relevance => appL10n.relevance,
     ChatSearchSort.latest => appL10n.latest,
@@ -438,30 +423,37 @@ class _SearchControls extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            ChoiceMenuAnchor<ChatSearchSort>(
-              title: context.l10n.sortSearchResults,
+            DSelect<ChatSearchSort>.controlled(
+              key: const ValueKey('chat-search-sort'),
               value: state.sort,
-              options: _sortOptions,
-              onSelected: onSort,
-              builder: (context, openMenu) {
-                final label = _sortLabel(state.sort);
-                return DButton(
-                  key: const ValueKey('chat-search-sort'),
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(label),
-                      const SizedBox(width: 8),
-                      const DIcon(DIcons.chevronDown, size: 12),
-                    ],
+              width: 128,
+              semanticLabel: context.l10n.sortSearchResultsBy(
+                _sortLabel(state.sort),
+              ),
+              entries: [
+                for (final sort in ChatSearchSort.values)
+                  DSelectItem(
+                    value: sort,
+                    textValue: _sortLabel(sort),
+                    description: sort == ChatSearchSort.relevance
+                        ? context.l10n.bestMatchingMessagesFirst
+                        : context.l10n.newestMessagesFirst,
+                    child: Row(
+                      children: [
+                        DIcon(
+                          sort == ChatSearchSort.relevance
+                              ? DIcons.magnifyingGlass
+                              : DIcons.farClock,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(_sortLabel(sort))),
+                      ],
+                    ),
                   ),
-                  tooltip: context.l10n.sortSearchResults,
-                  semanticLabel: context.l10n.sortSearchResultsBy(
-                    (label).toString(),
-                  ),
-                  variant: DButtonVariant.ghost,
-                  onPressed: openMenu,
-                );
+              ],
+              onChanged: (sort) {
+                if (sort != null && sort != state.sort) onSort(sort);
               },
             ),
           ],

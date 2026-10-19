@@ -42,7 +42,7 @@ Future<void> showPostFlagEditor({
         }
         return controller.createPostFlag(siteUrl, post, type, message: message);
       },
-      onComplete: () => Navigator.of(sheetContext).pop(),
+      onComplete: () => DDialogClose.close<void>(sheetContext),
     ),
   );
 }
@@ -83,7 +83,7 @@ Future<void> showTopicFlagEditor({
           message: message,
         );
       },
-      onComplete: () => Navigator.of(sheetContext).pop(),
+      onComplete: () => DDialogClose.close<void>(sheetContext),
       submitLabel: appL10n.flagTopic,
     ),
   );

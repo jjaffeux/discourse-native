@@ -556,62 +556,69 @@ class _CaptureEventRow extends StatelessWidget {
     final severityColor = event.severity == DiagnosticSeverity.error
         ? theme.colorScheme.error
         : theme.colorScheme.onSurfaceVariant;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 70),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: theme.shell.divider)),
-        ),
-        child: Row(
+    return DItem(
+      size: DItemSize.sm,
+      onPressed: onTap,
+      children: [
+        DItemContent(
           children: [
-            SizedBox(
-              width: 42,
-              child: Text(
-                event.severity.name.toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: severityColor,
-                  fontWeight: FontWeight.w800,
-                ),
+            Container(
+              constraints: const BoxConstraints(minHeight: 70),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: theme.shell.divider)),
               ),
-            ),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    event.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  SizedBox(
+                    width: 42,
+                    child: Text(
+                      event.severity.name.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: severityColor,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    [
-                      diagnosticTimeText(event.timestampUtc),
-                      event.component,
-                      event.message,
-                    ].whereType<String>().join(' · '),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          event.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          [
+                            diagnosticTimeText(event.timestampUtc),
+                            event.component,
+                            event.message,
+                          ].whereType<String>().join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(width: 4),
+                  const DIcon(DIcons.chevronRight, size: 12),
                 ],
               ),
             ),
-            const SizedBox(width: 4),
-            const DIcon(DIcons.chevronRight, size: 12),
           ],
         ),
-      ),
+      ],
     );
   }
 }

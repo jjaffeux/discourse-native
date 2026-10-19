@@ -1,73 +1,96 @@
-import 'package:discourse_native/src/shell/inline_action.dart';
+import 'dart:ui' show SemanticsAction;
+
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('inline buttons expose semantics and pointer feedback', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    try {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(
-            body: InlineAction(
-              key: const ValueKey('inline-action'),
-              onTap: () {},
-              semanticLabel: 'Edit category',
-              excludeChildSemantics: true,
-              child: const Text('Support'),
+  for (final link in [false, true]) {
+    testWidgets(
+      'Native inline activation owns bounds, semantics, hover, and keys ($link)',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final focus = FocusNode();
+        try {
+          var activations = 0;
+          final hover = <bool>[];
+          const artwork = Key('inline-artwork');
+          const target = Key('inline-target');
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: DefaultTextStyle.merge(
+                    style: const TextStyle(fontSize: 19, height: 1.2),
+                    child: DItem(
+                      key: target,
+                      size: DItemSize.artwork,
+                      fitContent: true,
+                      link: link,
+                      highlightOnInteraction: false,
+                      focusNode: focus,
+                      onPressed: () => activations++,
+                      onHoverChanged: hover.add,
+                      semanticLabel: 'Open support',
+                      children: const [
+                        ExcludeSemantics(child: Text('Support', key: artwork)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      );
+          );
+          expect(
+            tester.getRect(find.byKey(target)),
+            tester.getRect(find.byKey(artwork)),
+          );
+          expect(
+            DefaultTextStyle.of(
+              tester.element(find.byKey(artwork)),
+            ).style.fontSize,
+            19,
+          );
+          final announcement = tester
+              .getSemantics(find.bySemanticsLabel('Open support'))
+              .getSemanticsData();
+          expect(announcement.flagsCollection.isButton, !link);
+          expect(announcement.flagsCollection.isLink, link);
+          expect(announcement.hasAction(SemanticsAction.tap), isTrue);
+          expect(find.bySemanticsLabel('Support'), findsNothing);
 
-      final target = find.bySemanticsLabel('Edit category');
-      final ink = find.descendant(
-        of: find.byKey(const ValueKey('inline-action')),
-        matching: find.byType(InkWell),
-      );
-      expect(ink, findsOneWidget);
-      expect(tester.widget<InkWell>(ink).mouseCursor, SystemMouseCursors.click);
-      expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
-      expect(
-        tester.widget<InkWell>(ink).focusColor,
-        Theme.of(tester.element(target)).shell.hover,
-      );
-      expect(
-        tester.getSemantics(target),
-        isSemantics(isButton: true, isLink: false, hasTapAction: true),
-      );
-    } finally {
-      semantics.dispose();
-    }
-  });
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer(location: const Offset(700, 500));
+          await mouse.moveTo(tester.getCenter(find.byKey(target)));
+          await tester.pump();
+          expect(hover, [true]);
+          await mouse.moveTo(const Offset(700, 500));
+          await tester.pump();
+          expect(hover, [true, false]);
+          await mouse.removePointer();
 
-  testWidgets('inline links expose link semantics', (tester) async {
-    final semantics = tester.ensureSemantics();
-    try {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(
-            body: InlineAction.link(
-              onTap: () {},
-              semanticLabel: 'Open support',
-              excludeChildSemantics: true,
-              child: const Text('Support'),
-            ),
-          ),
-        ),
-      );
-
-      expect(
-        tester.getSemantics(find.bySemanticsLabel('Open support')),
-        isSemantics(isButton: false, isLink: true, hasTapAction: true),
-      );
-    } finally {
-      semantics.dispose();
-    }
-  });
+          focus.requestFocus();
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          expect(activations, 1);
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          expect(activations, link ? 1 : 2);
+          await tester.tapAt(
+            tester.getRect(find.byKey(target)).bottomRight + const Offset(1, 1),
+          );
+          expect(activations, link ? 1 : 2);
+        } finally {
+          semantics.dispose();
+          focus.dispose();
+        }
+      },
+    );
+  }
 }

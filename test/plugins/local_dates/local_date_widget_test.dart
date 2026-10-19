@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:ui' show SemanticsAction;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -70,15 +72,38 @@ void main() {
     );
 
     final date = find.byType(LocalDateInline);
-    final ink = find.descendant(of: date, matching: find.byType(InkWell));
+    final target = find.descendant(of: date, matching: find.byType(DItem));
     expect(date, findsOneWidget);
-    expect(ink, findsOneWidget);
+    expect(target, findsOneWidget);
+    final bounds = tester.getRect(target);
     expect(
-      tester.getSize(ink).width,
+      bounds.width,
       lessThan(tester.getSize(find.byType(CookedHtml)).width),
     );
-    expect(tester.widget<InkWell>(ink).mouseCursor, SystemMouseCursors.click);
-    expect(tester.widget<InkWell>(ink).hoverColor, Colors.transparent);
+    expect(bounds.height, lessThan(30));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(bounds.center);
+    await tester.pump();
+    final surfaces = tester.widgetList<Container>(
+      find.descendant(of: target, matching: find.byType(Container)),
+    );
+    expect(
+      surfaces
+          .map((surface) => surface.decoration)
+          .whereType<BoxDecoration>()
+          .every((decoration) => decoration.color == Colors.transparent),
+      isTrue,
+    );
+    await tester.tapAt(Offset(bounds.right + 4, bounds.center.dy));
+    await tester.pumpAndSettle();
+    expect(find.byType(DPopoverContent), findsNothing);
+    await tester.tap(target);
+    await tester.pumpAndSettle();
+    final popup = tester.getRect(find.byType(DPopoverContent));
+    expect(popup.top, greaterThanOrEqualTo(bounds.bottom));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('retains server-cooked text for invalid dates and zones', (

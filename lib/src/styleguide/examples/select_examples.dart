@@ -19,8 +19,7 @@ final selectExamples = ComponentExamples(
       'selection; open typeahead supports multi-word labels without treating '
       'Space as activation. Pointer/keyboard openings align the selected item with '
       'the trigger when there is enough viewport space; touch openings use '
-      'ordinary edge placement. Legacy DropdownMenuItem callers route through '
-      'the same rendering owner.',
+      'ordinary edge placement. Form validation uses the same Native rendering owner.',
   examples: [
     StyleguideExample(
       title: 'Size',
@@ -138,11 +137,11 @@ final selectExamples = ComponentExamples(
       description:
           'Flutter Form remains the validation/save/reset owner while Select paints the invalid trigger.',
       states: const ['Invalid', 'Required', 'Form'],
-      code: '''DSelectField<String>(
-  initialValue: fruit,
-  decoration: const InputDecoration(labelText: 'Fruit', hintText: 'Select a fruit'),
+      code: '''DSelect<String>(
+  value: fruit,
+  semanticLabel: 'Fruit',
   validator: (value) => value == null ? 'Please select a fruit.' : null,
-  items: const [DropdownMenuItem(value: 'apple', child: Text('Apple'))],
+  entries: const [DSelectOption(value: 'apple', label: 'Apple', child: Text('Apple'))],
   onChanged: (value) => setState(() => fruit = value),
 )''',
       builder: (_) => const _SelectFormDemo(),
@@ -252,9 +251,8 @@ class _AlignItemDemoState extends State<_AlignItemDemo> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SwitchListTile.adaptive(
+        DSwitchTile(
           value: _align,
-          dense: true,
           contentPadding: EdgeInsets.zero,
           onChanged: (value) => setState(() => _align = value),
           title: const DLabel(child: Text('Align Item')),
@@ -533,17 +531,31 @@ class _SelectFormDemoState extends State<_SelectFormDemo> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          DSelectField<String>(
+          DSelect<String>(
             initialValue: _fruit,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Fruit',
-              hintText: 'Select a fruit',
-            ),
-            items: const [
-              DropdownMenuItem(value: 'apple', child: Text('Apple')),
-              DropdownMenuItem(value: 'banana', child: Text('Banana')),
-              DropdownMenuItem(value: 'grapes', child: Text('Grapes')),
+            label: const Text('Fruit'),
+            entries: const [
+              DSelectItem(
+                value: null,
+                textValue: 'Select a fruit',
+                child: Text('Select a fruit'),
+              ),
+              DSelectItem(
+                value: 'apple',
+                textValue: 'Apple',
+                child: Text('Apple'),
+              ),
+              DSelectItem(
+                value: 'banana',
+                textValue: 'Banana',
+                child: Text('Banana'),
+              ),
+              DSelectItem(
+                value: 'grapes',
+                textValue: 'Grapes',
+                child: Text('Grapes'),
+              ),
             ],
             validator: (value) =>
                 value == null ? 'Please select a fruit.' : null,

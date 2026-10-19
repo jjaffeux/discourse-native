@@ -11,6 +11,7 @@ import '../foundation/interactive_row.dart';
 import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_dialog.dart';
 import 'd_popover.dart';
 import 'd_scroll_area.dart';
 import 'd_separator.dart';
@@ -21,6 +22,42 @@ typedef DDropdownMenuOpenChange = DPopoverOpenChange;
 typedef DDropdownMenuTriggerState = DPopoverTriggerState;
 typedef DDropdownMenuTriggerBuilder =
     Widget Function(BuildContext context, DDropdownMenuTriggerState state);
+
+/// Opens a Native menu at a measured anchor and returns a typed result.
+/// Descendants may return that result with [DDialogClose.close].
+Future<T?> showDDropdownMenu<T>({
+  required BuildContext context,
+  required Rect anchorRect,
+  required DDropdownMenuContent Function(BuildContext context) builder,
+  bool useRootNavigator = true,
+  bool restoreFocus = true,
+}) => showDDialog<T>(
+  context: context,
+  useRootNavigator: useRootNavigator,
+  modal: false,
+  dismissOnBarrier: false,
+  dismissOnEscape: false,
+  restoreFocus: restoreFocus,
+  transitionDuration: Duration.zero,
+  reverseTransitionDuration: Duration.zero,
+  presentationBuilder: (_, presentation) => presentation.content,
+  builder: (context, dialog) => Stack(
+    children: [
+      Positioned.fromRect(
+        rect: anchorRect,
+        child: DDropdownMenu(
+          defaultOpen: true,
+          restoreFocus: false,
+          onOpenChangeComplete: (open) {
+            if (!open && dialog.isOpen) dialog.close();
+          },
+          content: builder(context),
+          child: const DPopoverAnchor(child: SizedBox.expand()),
+        ),
+      ),
+    ],
+  ),
+);
 
 enum DDropdownMenuItemVariant { standard, destructive }
 

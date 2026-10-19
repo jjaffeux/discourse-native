@@ -447,6 +447,23 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(selected, 'wave');
+    for (final activation in [
+      LogicalKeyboardKey.space,
+      LogicalKeyboardKey.numpadEnter,
+    ]) {
+      selected = null;
+      await tester.sendKeyEvent(activation);
+      await tester.pump();
+      expect(selected, 'wave');
+    }
+    final cell = find.byKey(const ValueKey('emoji-picker-cell-search-0-wave'));
+    final target = find.descendant(of: cell, matching: find.byType(DItem));
+    expect(target, findsOneWidget);
+    expect(tester.getRect(target), tester.getRect(cell));
+    selected = null;
+    await tester.tap(target);
+    await tester.pump();
+    expect(selected, 'wave');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();

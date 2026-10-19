@@ -20,16 +20,19 @@ Future<void> showPostFastEditor({
 }) {
   // Keep the opening account across sheet rebuilds and failed-save retries.
   final lease = controller.lifecycle.capture(siteUrl);
+  final editor = GlobalKey<_PostFastEditorState>();
   return showShellSheet<void>(
     context: context,
     title: appL10n.edit,
     dialogOnDesktop: true,
     enableDrag: false,
+    canDismiss: () => !(editor.currentState?._saving ?? false),
     desktopDialogConstraints: const BoxConstraints(
       maxWidth: 560,
       maxHeight: 520,
     ),
     builder: (context) => _PostFastEditor(
+      key: editor,
       controller: controller,
       lease: lease,
       siteUrl: siteUrl,
@@ -42,6 +45,7 @@ Future<void> showPostFastEditor({
 
 class _PostFastEditor extends StatefulWidget {
   const _PostFastEditor({
+    super.key,
     required this.controller,
     required this.lease,
     required this.siteUrl,
@@ -107,70 +111,68 @@ class _PostFastEditorState extends State<_PostFastEditor> {
       });
       return;
     }
-    Navigator.of(context).pop();
+    _saving = false;
+    DDialogClose.close<void>(context);
   }
 
   void _cancel() {
-    if (!_saving) Navigator.of(context).pop();
+    if (!_saving) DDialogClose.close<void>(context);
   }
 
   @override
-  Widget build(BuildContext context) => PopScope<void>(
-    canPop: !_saving,
-    child: CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): _cancel,
-        const SingleActivator(LogicalKeyboardKey.enter, meta: true): () =>
-            unawaited(_save()),
-        const SingleActivator(LogicalKeyboardKey.enter, control: true): () =>
-            unawaited(_save()),
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DTextarea(
-            key: const ValueKey('fast-edit-input'),
-            controller: _text,
-            autofocus: true,
-            enabled: !_saving,
-            minLines: 3,
-            maxLines: 8,
-            keyboardType: TextInputType.multiline,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) => setState(() => _error = null),
-            labelText: context.l10n.selectedText,
-          ),
-          if (_error case final error?) ...[
-            const SizedBox(height: 8),
-            Text(
-              error,
-              key: const ValueKey('fast-edit-error'),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              DButton(
-                key: const ValueKey('fast-edit-cancel'),
-                label: Text(context.l10n.cancel),
-                onPressed: _saving ? null : _cancel,
-              ),
-              const SizedBox(width: 8),
-              DButton(
-                key: const ValueKey('fast-edit-save'),
-                label: Text(context.l10n.saveEditPostfastedit),
-                loadingLabel: Text(context.l10n.saving),
-                onPressed: _canSave ? () => unawaited(_save()) : null,
-                variant: DButtonVariant.primary,
-                loading: _saving,
-              ),
-            ],
+  Widget build(BuildContext context) => CallbackShortcuts(
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.escape): _cancel,
+      const SingleActivator(LogicalKeyboardKey.enter, meta: true): () =>
+          unawaited(_save()),
+      const SingleActivator(LogicalKeyboardKey.enter, control: true): () =>
+          unawaited(_save()),
+    },
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DTextarea(
+          key: const ValueKey('fast-edit-input'),
+          controller: _text,
+          autofocus: true,
+          enabled: !_saving,
+          minLines: 3,
+          maxLines: 8,
+          keyboardType: TextInputType.multiline,
+          textCapitalization: TextCapitalization.sentences,
+          onChanged: (_) => setState(() => _error = null),
+          labelText: context.l10n.selectedText,
+        ),
+        if (_error case final error?) ...[
+          const SizedBox(height: 8),
+          Text(
+            error,
+            key: const ValueKey('fast-edit-error'),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
         ],
-      ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            DButton(
+              key: const ValueKey('fast-edit-cancel'),
+              label: Text(context.l10n.cancel),
+              onPressed: _saving ? null : _cancel,
+            ),
+            const SizedBox(width: 8),
+            DButton(
+              key: const ValueKey('fast-edit-save'),
+              label: Text(context.l10n.saveEditPostfastedit),
+              loadingLabel: Text(context.l10n.saving),
+              onPressed: _canSave ? () => unawaited(_save()) : null,
+              variant: DButtonVariant.primary,
+              loading: _saving,
+            ),
+          ],
+        ),
+      ],
     ),
   );
 }

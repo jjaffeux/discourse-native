@@ -54,9 +54,11 @@ Future<bool> confirmVoiceMeshPrivacy(
   if (_meshPrivacyWarningOpen) return false;
   _meshPrivacyWarningOpen = true;
   try {
-    final result = await showDialog<VoiceMeshPrivacyDecision>(
+    final result = await showDDialog<VoiceMeshPrivacyDecision>(
       context: context,
-      builder: (context) => const VoiceMeshPrivacyDialog(),
+      useRootNavigator: true,
+      builder: (context, dialog) =>
+          VoiceMeshPrivacyDialog(onClose: dialog.close),
     );
     if (result == null || !result.join || ifCurrent?.call() == false) {
       return false;
@@ -80,7 +82,9 @@ final class VoiceMeshPrivacyDecision {
 }
 
 class VoiceMeshPrivacyDialog extends StatefulWidget {
-  const VoiceMeshPrivacyDialog({super.key});
+  const VoiceMeshPrivacyDialog({super.key, required this.onClose});
+
+  final ValueChanged<VoiceMeshPrivacyDecision?> onClose;
 
   @override
   State<VoiceMeshPrivacyDialog> createState() => _VoiceMeshPrivacyDialogState();
@@ -90,41 +94,52 @@ class _VoiceMeshPrivacyDialogState extends State<VoiceMeshPrivacyDialog> {
   bool _dontShowAgain = false;
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    constraints: const BoxConstraints(maxWidth: 560),
-    scrollable: true,
-    title: Text(context.l10n.beforeYouJoinThisRoom),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context
-              .l10n
-              .thisRoomConnectsParticipantsDirectlyToEachOtherSoWhileYou,
-        ),
-        const SizedBox(height: 12),
-        DCheckbox(
-          value: _dontShowAgain,
-          onChanged: (value) => setState(() => _dontShowAgain = value ?? false),
-          title: DLabel(child: Text(context.l10n.donTShowThisAgain)),
-
-          contentPadding: EdgeInsets.zero,
-        ),
-      ],
-    ),
-    actions: [
-      DButton(
-        onPressed: () => Navigator.pop(context),
-        label: Text(context.l10n.cancel),
+  Widget build(BuildContext context) => DDialogContent(
+    showCloseButton: false,
+    maxWidth: 560,
+    children: [
+      DDialogHeader(
+        children: [
+          DDialogTitle(child: Text(context.l10n.beforeYouJoinThisRoom)),
+        ],
       ),
-      DButton(
-        onPressed: () => Navigator.pop(
-          context,
-          VoiceMeshPrivacyDecision(join: true, dontShowAgain: _dontShowAgain),
-        ),
-        label: Text(context.l10n.joinRoom),
-        variant: DButtonVariant.primary,
+      Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context
+                .l10n
+                .thisRoomConnectsParticipantsDirectlyToEachOtherSoWhileYou,
+          ),
+          const SizedBox(height: 12),
+          DCheckbox(
+            value: _dontShowAgain,
+            onChanged: (value) =>
+                setState(() => _dontShowAgain = value ?? false),
+            title: DLabel(child: Text(context.l10n.donTShowThisAgain)),
+
+            contentPadding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+      DDialogFooter(
+        children: [
+          DButton(
+            onPressed: () => widget.onClose(null),
+            label: Text(context.l10n.cancel),
+          ),
+          DButton(
+            onPressed: () => widget.onClose(
+              VoiceMeshPrivacyDecision(
+                join: true,
+                dontShowAgain: _dontShowAgain,
+              ),
+            ),
+            label: Text(context.l10n.joinRoom),
+            variant: DButtonVariant.primary,
+          ),
+        ],
       ),
     ],
   );

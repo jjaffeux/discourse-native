@@ -608,86 +608,89 @@ class _DraftRowContent extends StatelessWidget {
         ? null
         : draft.displayTitle;
 
-    final row = InkWell(
-      onTap: action,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          compact ? 8 : 16,
-          compact ? 14 : 20,
-          compact ? 8 : 12,
-          compact ? 14 : 20,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final row = DItem(
+      size: DItemSize.sm,
+      onPressed: action,
+      children: [
+        DItemContent(
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (title != null)
-                    TopicTitle(
-                      title,
-                      siteUrl: siteUrl,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  if (title != null && (category != null || createdAt != null))
-                    const SizedBox(height: 5),
-                  if (category != null || createdAt != null)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        if (category case final category?)
-                          _DraftCategory(siteUrl: siteUrl, category: category),
-                        if (category != null && createdAt != null)
-                          ExcludeSemantics(
-                            child: Text(
-                              '•',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (title != null)
+                        TopicTitle(
+                          title,
+                          siteUrl: siteUrl,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      if (title != null &&
+                          (category != null || createdAt != null))
+                        const SizedBox(height: 5),
+                      if (category != null || createdAt != null)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (category case final category?)
+                              _DraftCategory(
+                                siteUrl: siteUrl,
+                                category: category,
                               ),
-                            ),
-                          ),
-                        if (createdAt != null)
-                          RelativeTimeText(
-                            createdAt,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                            if (category != null && createdAt != null)
+                              ExcludeSemantics(
+                                child: Text(
+                                  '•',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            if (createdAt != null)
+                              RelativeTimeText(
+                                createdAt,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                          ],
+                        ),
+                      if (draft.excerpt.isNotEmpty) ...[
+                        SizedBox(height: title == null ? 10 : 18),
+                        TopicTitle(
+                          draft.excerpt,
+                          siteUrl: siteUrl,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge,
+                        ),
                       ],
-                    ),
-                  if (draft.excerpt.isNotEmpty) ...[
-                    SizedBox(height: title == null ? 10 : 18),
-                    TopicTitle(
-                      draft.excerpt,
-                      siteUrl: siteUrl,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            SizedBox(width: compact ? 8 : 16),
-            DButton.iconOnly(
-              tooltip: context.l10n.removeDraftDraftlist,
-              onPressed: deleting ? null : onRemove,
-              icon: const DIcon(DIcons.trashCan),
-              size: DButtonSize.small,
-              variant: DButtonVariant.destructive,
-              loading: deleting,
+                    ],
+                  ),
+                ),
+                SizedBox(width: compact ? 8 : 16),
+                DButton.iconOnly(
+                  tooltip: context.l10n.removeDraftDraftlist,
+                  onPressed: deleting ? null : onRemove,
+                  icon: const DIcon(DIcons.trashCan),
+                  size: DButtonSize.small,
+                  variant: DButtonVariant.destructive,
+                  loading: deleting,
+                ),
+              ],
             ),
           ],
         ),
-      ),
+      ],
     );
 
     return ConstrainedBox(

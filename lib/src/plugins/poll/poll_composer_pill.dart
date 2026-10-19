@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
@@ -152,16 +153,15 @@ class PollComposerPill extends StatelessWidget {
     label: context.l10n.activateToEdit((label).toString()),
     button: true,
     selected: highlighted,
-    child: Pill(
-      label: label,
+    child: DBadge.inline(
       baseStyle: baseStyle,
+      backgroundColor: Theme.of(context).shell.mention,
       hoverable: true,
       hovered: hovered,
       highlighted: highlighted,
-      leading: DIcon(
-        PollIcons.squarePollHorizontal,
-        size: Pill.iconBoxFor(baseStyle),
-      ),
+      leadingBuilder: (context, dimension) =>
+          DIcon(PollIcons.squarePollHorizontal, size: dimension),
+      child: Text(label),
     ),
   );
 }

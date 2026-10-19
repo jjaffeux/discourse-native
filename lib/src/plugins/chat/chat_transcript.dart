@@ -488,11 +488,14 @@ class _TranscriptLink extends StatelessWidget {
     return LinkTarget(
       url: href,
       siteUrl: siteUrl,
-      child: InlineAction.link(
-        onTap: () => openLink(context, href!, siteUrl: siteUrl),
+      child: DItem(
+        fitContent: true,
+        size: DItemSize.artwork,
+        highlightOnInteraction: false,
+        link: true,
+        onPressed: () => openLink(context, href!, siteUrl: siteUrl),
         semanticLabel: label,
-        excludeChildSemantics: true,
-        child: text,
+        children: [ExcludeSemantics(child: text)],
       ),
     );
   }

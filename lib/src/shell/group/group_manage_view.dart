@@ -682,19 +682,29 @@ class _GroupLogs extends StatelessWidget {
             return Center(
               child: SizedBox(
                 width: double.infinity,
-                child: ListTile(
-                  leading: const DIcon(DIcons.farClock, size: 17),
-                  title: Text(_humanizeLog(log.action)),
-                  subtitle: Text(
-                    [
-                      if (log.actingUser case final user?) '@${user.username}',
-                      if (log.targetUser case final user?)
-                        '→ @${user.username}',
-                      ?log.subject,
-                      if (log.previousValue != null || log.newValue != null)
-                        '${log.previousValue ?? '—'} → ${log.newValue ?? '—'}',
-                    ].join('  '),
-                  ),
+                child: DItem(
+                  children: [
+                    const DItemMedia(child: DIcon(DIcons.farClock, size: 17)),
+                    DItemContent(
+                      children: [
+                        DItemTitle(child: Text(_humanizeLog(log.action))),
+                        DItemDescription(
+                          child: Text(
+                            [
+                              if (log.actingUser case final user?)
+                                '@${user.username}',
+                              if (log.targetUser case final user?)
+                                '→ @${user.username}',
+                              ?log.subject,
+                              if (log.previousValue != null ||
+                                  log.newValue != null)
+                                '${log.previousValue ?? '—'} → ${log.newValue ?? '—'}',
+                            ].join('  '),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             );

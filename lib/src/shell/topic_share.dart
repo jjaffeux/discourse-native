@@ -172,7 +172,7 @@ Future<void> _showShareSheet({
                 softWrap: true,
               ),
               onPressed: () {
-                Navigator.of(context).pop();
+                DDialogClose.close<void>(context);
                 unawaited(onReplyAsNewTopic());
               },
               icon: const DIcon(DIcons.plus),

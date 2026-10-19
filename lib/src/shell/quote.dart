@@ -7,7 +7,6 @@ import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_dom.dart';
 import 'cooked_html.dart';
-import 'inline_action.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -228,11 +227,14 @@ class _Header extends StatelessWidget {
       return LinkTarget(
         url: link,
         siteUrl: siteUrl,
-        child: InlineAction.link(
-          onTap: () => openLink(context, link, siteUrl: siteUrl),
+        child: DItem(
+          fitContent: true,
+          size: DItemSize.artwork,
+          highlightOnInteraction: false,
+          link: true,
+          onPressed: () => openLink(context, link, siteUrl: siteUrl),
           semanticLabel: data.title ?? link,
-          excludeChildSemantics: true,
-          child: row,
+          children: [ExcludeSemantics(child: row)],
         ),
       );
     }

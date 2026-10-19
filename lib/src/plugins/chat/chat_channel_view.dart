@@ -2030,53 +2030,62 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
       return;
     }
     final count = widget.messageIds.length;
-    final destinationId = await showDiscourseDialog<int>(
+    final destinationId = await showDDialog<int>(
       context: context,
-      builder: (dialogContext) {
+      useRootNavigator: true,
+      builder: (dialogContext, dialog) {
         int? selected;
         return StatefulBuilder(
-          builder: (context, setDialogState) => DiscourseAlertDialog(
-            title: Text(appL10n.moveMessages),
-            content: SizedBox(
-              width: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+          builder: (context, setDialogState) => DDialogContent(
+            showCloseButton: false,
+            maxWidth: 520,
+            children: [
+              DDialogHeader(
+                children: [DDialogTitle(child: Text(appL10n.moveMessages))],
+              ),
+              SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(appL10n.moveSelectedTo(count)),
+                    const SizedBox(height: 16),
+                    DSelect<int>.controlled(
+                      isExpanded: true,
+                      key: const ValueKey('chat-move-destination'),
+                      value: selected,
+                      label: Text(appL10n.destinationChannel),
+                      entries: [
+                        for (final channel in destinations)
+                          DSelectOption(
+                            value: channel.id,
+                            label: channel.title,
+                            child: Text(channel.title),
+                          ),
+                      ],
+                      onChanged: (value) =>
+                          setDialogState(() => selected = value),
+                      initialValue: selected,
+                    ),
+                  ],
+                ),
+              ),
+              DDialogFooter(
                 children: [
-                  Text(appL10n.moveSelectedTo(count)),
-                  const SizedBox(height: 16),
-                  DSelect<int>.controlled(
-                    isExpanded: true,
-                    key: const ValueKey('chat-move-destination'),
-                    value: selected,
-                    label: Text(appL10n.destinationChannel),
-                    entries: [
-                      for (final channel in destinations)
-                        DSelectOption(
-                          value: channel.id,
-                          label: channel.title,
-                          child: Text(channel.title),
-                        ),
-                    ],
-                    onChanged: (value) =>
-                        setDialogState(() => selected = value),
-                    initialValue: selected,
+                  DButton(
+                    onPressed: () => dialog.close(),
+                    label: Text(appL10n.cancel),
+                  ),
+                  DButton(
+                    key: const ValueKey('confirm-move-chat-messages'),
+                    onPressed: selected == null
+                        ? null
+                        : () => dialog.close(selected),
+                    variant: DButtonVariant.primary,
+                    label: Text(appL10n.move),
                   ),
                 ],
-              ),
-            ),
-            actions: [
-              AdaptiveDialogAction(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: Text(appL10n.cancel),
-              ),
-              AdaptiveDialogAction(
-                key: const ValueKey('confirm-move-chat-messages'),
-                onPressed: selected == null
-                    ? null
-                    : () => Navigator.pop(dialogContext, selected),
-                kind: AdaptiveDialogActionKind.primary,
-                child: Text(appL10n.move),
               ),
             ],
           ),
@@ -2119,21 +2128,32 @@ class _ChatMessageSelectionBarState extends State<ChatMessageSelectionBar> {
     }
     final ids = widget.messageIds.toSet();
     final count = ids.length;
-    final confirmed = await showDiscourseDialog<bool>(
+    final confirmed = await showDDialog<bool>(
       context: context,
-      builder: (dialogContext) => DiscourseAlertDialog(
-        title: Text(appL10n.deleteSelectedMessages),
-        content: Text(appL10n.areYouSureYouWantToDelete(count)),
-        actions: [
-          AdaptiveDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(appL10n.cancel),
+      useRootNavigator: true,
+      builder: (dialogContext, dialog) => DDialogContent(
+        showCloseButton: false,
+        maxWidth: 520,
+        children: [
+          DDialogHeader(
+            children: [
+              DDialogTitle(child: Text(appL10n.deleteSelectedMessages)),
+            ],
           ),
-          AdaptiveDialogAction(
-            key: const ValueKey('confirm-delete-chat-messages'),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            kind: AdaptiveDialogActionKind.destructive,
-            child: Text(appL10n.delete),
+          Text(appL10n.areYouSureYouWantToDelete(count)),
+          DDialogFooter(
+            children: [
+              DButton(
+                onPressed: () => dialog.close(false),
+                label: Text(appL10n.cancel),
+              ),
+              DButton(
+                key: const ValueKey('confirm-delete-chat-messages'),
+                onPressed: () => dialog.close(true),
+                variant: DButtonVariant.destructive,
+                label: Text(appL10n.delete),
+              ),
+            ],
           ),
         ],
       ),

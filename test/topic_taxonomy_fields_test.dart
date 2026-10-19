@@ -1,4 +1,3 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_category_path.dart';
 import 'package:discourse_native/src/shell/topic_taxonomy_fields.dart';
@@ -108,8 +107,14 @@ void main() {
     expect(find.text(child.name), findsOneWidget);
     expect(parentLink, findsOneWidget);
     expect(categoryLink, findsOneWidget);
-    expect(tester.getSize(parentLink).height, greaterThanOrEqualTo(32));
-    expect(tester.getSize(categoryLink).height, greaterThanOrEqualTo(32));
+    expect(
+      tester.getSize(parentLink).height,
+      tester.getSize(find.text(parent.name)).height,
+    );
+    expect(
+      tester.getSize(categoryLink).height,
+      tester.getSize(find.text(child.name)).height,
+    );
     expect(
       tester.getTopLeft(categoryLink).dy,
       greaterThanOrEqualTo(tester.getBottomLeft(parentLink).dy),
@@ -157,32 +162,11 @@ void main() {
     expect(wrap.spacing, 4);
     expect(wrap.runSpacing, 0);
 
-    final firstToken = find.byKey(const ValueKey('sea2'));
-    final material = tester.widget<Material>(firstToken);
-    final shape = material.shape! as RoundedRectangleBorder;
-    expect(shape.borderRadius, BorderRadius.circular(DRadius.pill));
-    expect(
-      material.color,
-      AppTheme.dark.colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-    );
-    expect(
-      find.descendant(
-        of: firstToken,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Padding &&
-              widget.padding ==
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        ),
-      ),
-      findsOneWidget,
-    );
-
     for (final tag in tags) {
       expect(find.text(tag.name), findsOneWidget);
       expect(
-        tester.getSize(find.bySemanticsLabel('Tag: ${tag.name}')).height,
-        24,
+        tester.getRect(find.bySemanticsLabel('Tag: ${tag.name}')),
+        tester.getRect(find.byKey(ValueKey(tag.name))),
       );
     }
 
@@ -235,7 +219,7 @@ void main() {
         .reduce((highest, bottom) => highest > bottom ? highest : bottom);
 
     expect(finalTag.center.dy, editIcon.center.dy);
-    expect(editButton.size, const Size.square(24));
+    expect(editButton.size, const Size(32, 24));
     expect(finalTag.top, greaterThan(firstTag.top));
     expect(finalTag.top - precedingRunBottom, lessThan(8));
     expect(tester.takeException(), isNull);

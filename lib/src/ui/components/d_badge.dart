@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
+import 'd_link_interaction.dart';
 
 /// The six base-nova badge treatments. A treatment does not imply interaction.
 enum DBadgeVariant { primary, secondary, destructive, outline, ghost, link }
@@ -25,6 +28,18 @@ enum DBadgeSize {
   featured,
 }
 
+/// Optical metrics for artwork beside a paragraph-relative inline label.
+enum DBadgeInlineArtwork { icon, image, square }
+
+typedef _InlineBadge = ({
+  TextStyle? baseStyle,
+  Widget Function(BuildContext context, double dimension)? leadingBuilder,
+  DBadgeInlineArtwork leadingArtwork,
+  bool hoverable,
+  bool hovered,
+  bool highlighted,
+});
+
 enum _BadgeInteraction { none, action, link }
 
 /// Tailwind's default transition timing, `cubic-bezier(.4, 0, .2, 1)`.
@@ -34,8 +49,8 @@ const _transitionCurve = Cubic(.4, 0, .2, 1);
 ///
 /// [DBadge] is static; [DBadge.action] and [DBadge.link] own a single activation
 /// target and tab stop. Their nullable callback disables interaction. The caller
-/// owns navigation, loading and domain state; compose a DSpinner in [leading] or
-/// [trailing] and use [semanticValue] / [liveRegion] for a changing status.
+/// owns navigation, loading and domain state. Compose a DSpinner in [leading]
+/// or [trailing] for a changing status.
 /// Children must not contain independent controls. Inline artwork is decorative
 /// and fitted to 12px; label text inherits 12/18px medium metrics, can wrap,
 /// and stays selectable inside an enclosing selection area like the reference
@@ -43,9 +58,10 @@ const _transitionCurve = Cubic(.4, 0, .2, 1);
 /// height, 12/14px type and narrower insets. [DBadgeSize.control] opts into
 /// regular control height, typography and artwork metrics for the platform.
 /// All sizes grow with text. Actions and links use their visible pill bounds.
-/// Only ghost and link paint a hover treatment on a static badge, so other variants do
-/// not track the pointer. Borrowed focus nodes are never disposed. Colors are
-/// resolved every build, including custom palettes.
+/// [DBadge.inline] follows its paragraph's text metrics and can project hover
+/// and selection from an enclosing editor. Other static badges track hover only
+/// for ghost and link treatments. Colors resolve every build, including custom
+/// palettes.
 class DBadge extends StatefulWidget {
   const DBadge({
     super.key,
@@ -60,6 +76,7 @@ class DBadge extends StatefulWidget {
     this.semanticLabel,
   }) : _interaction = _BadgeInteraction.none,
        _overlay = false,
+       _inline = null,
        ringColor = null,
        onPressed = null;
 
@@ -77,6 +94,7 @@ class DBadge extends StatefulWidget {
     this.semanticLabel,
   }) : _interaction = _BadgeInteraction.none,
        _overlay = true,
+       _inline = null,
        variant = DBadgeVariant.primary,
        size = DBadgeSize.compact,
        leading = null,
@@ -99,10 +117,10 @@ class DBadge extends StatefulWidget {
     this.semanticLabel,
   }) : _interaction = _BadgeInteraction.action,
        _overlay = false,
+       _inline = null,
        ringColor = null;
 
-  /// A native link. [onPressed] opens the caller-owned route or URL. [url]
-  /// exposes an optional destination to accessibility; it does not launch it.
+  /// A native link. [onPressed] opens the caller-owned route or URL.
   const DBadge.link({
     super.key,
     required this.child,
@@ -118,6 +136,44 @@ class DBadge extends StatefulWidget {
     this.semanticLabel,
   }) : _interaction = _BadgeInteraction.link,
        _overlay = false,
+       _inline = null,
+       ringColor = null;
+
+  /// A paragraph-relative label that stays on one line and reports its text
+  /// baseline. The kit owns optical artwork sizing and insets. Builders receive
+  /// the artwork dimension, so callers supply artwork without control geometry.
+  /// [hovered] and [highlighted] project state from an enclosing editor. Without
+  /// [onPressed], the badge remains static and creates no competing tap target.
+  const DBadge.inline({
+    super.key,
+    required this.child,
+    TextStyle? baseStyle,
+    Widget Function(BuildContext context, double dimension)? leadingBuilder,
+    DBadgeInlineArtwork leadingArtwork = DBadgeInlineArtwork.icon,
+    this.backgroundColor,
+    this.foregroundColor,
+    this.semanticLabel,
+    this.onPressed,
+    bool hoverable = false,
+    bool hovered = false,
+    bool highlighted = false,
+  }) : _interaction = onPressed == null
+           ? _BadgeInteraction.none
+           : _BadgeInteraction.action,
+       _overlay = false,
+       _inline = (
+         baseStyle: baseStyle,
+         leadingBuilder: leadingBuilder,
+         leadingArtwork: leadingArtwork,
+         hoverable: hoverable,
+         hovered: hovered,
+         highlighted: highlighted,
+       ),
+       variant = DBadgeVariant.secondary,
+       size = DBadgeSize.regular,
+       leading = null,
+       trailing = null,
+       borderColor = null,
        ringColor = null;
 
   final Widget child;
@@ -137,6 +193,7 @@ class DBadge extends StatefulWidget {
 
   final _BadgeInteraction _interaction;
   final bool _overlay;
+  final _InlineBadge? _inline;
 
   @override
   State<DBadge> createState() => _DBadgeState();
@@ -160,6 +217,7 @@ class _DBadgeState extends State<DBadge> {
   bool get _enabled => !_interactive || widget.onPressed != null;
   bool get _tracksHover =>
       _interactive ||
+      (widget._inline?.hoverable ?? false) ||
       widget.variant == DBadgeVariant.ghost ||
       widget.variant == DBadgeVariant.link;
 
@@ -167,32 +225,54 @@ class _DBadgeState extends State<DBadge> {
   void didUpdateWidget(DBadge oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_enabled) _pressed = false;
+    if (!_interactive) _focused = false;
     // A removed MouseRegion reports no exit, so a hover it observed must not
     // resurface when a later rebuild returns to a hover-painting treatment.
     if (!_tracksHover) _hovered = false;
   }
 
-  void _activate() {
-    if (_enabled) widget.onPressed?.call();
-  }
-
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final linkActivation = DLinkInteractionBinding.capture(
+      context,
+      widget.onPressed,
+    );
+    void activate() {
+      if (_enabled) linkActivation.onPressed?.call();
+    }
+
+    final inline = widget._inline;
+    Widget complete(Widget child) {
+      final control = linkActivation.wrap(child);
+      return inline == null
+          ? control
+          : Align(
+              alignment: AlignmentDirectional.centerStart,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: control,
+            );
+    }
+
     final compact = widget.size == DBadgeSize.compact;
     final featured = widget.size == DBadgeSize.featured;
 
     final unread = widget.size == DBadgeSize.unread;
     final overlay = widget._overlay;
     final control = widget.size == DBadgeSize.control;
-    final fontSize = control
+    final fontSize = inline != null
+        ? (inline.baseStyle?.fontSize ?? DiscourseTypography.base) * .93
+        : control
         ? DControlStyle.fontSize(DControlSize.filter, context: context)
         : overlay
         ? 10.0
         : (unread)
         ? DiscourseTypography.micro
         : DiscourseTypography.xs;
-    final lineHeight = control
+    final lineHeight = inline != null
+        ? 1.0
+        : control
         ? DControlStyle.lineHeight(DControlSize.filter, context: context) /
               fontSize
         : overlay
@@ -200,13 +280,25 @@ class _DBadgeState extends State<DBadge> {
         : compact
         ? 14 / DiscourseTypography.xs
         : DiscourseTypography.lineHeightCaption;
-    final artworkSize = featured
+    final artworkSize = inline != null
+        ? fontSize *
+              switch (inline.leadingArtwork) {
+                DBadgeInlineArtwork.icon => .93 / DIcon.glyphScale,
+                DBadgeInlineArtwork.image => .93,
+                DBadgeInlineArtwork.square => .72,
+              }
+        : featured
         ? 10.5
         : control
         ? DControlStyle.iconDimension(DControlSize.filter, context: context)
         : 12.0;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final active = _enabled && (_hovered || _pressed);
+    final active =
+        _enabled &&
+        (_hovered ||
+            _pressed ||
+            (inline?.hovered ?? false) ||
+            (inline != null && _focused));
     final actionHover = active && _interactive;
     final (baseBackground, baseForeground) = switch (widget.variant) {
       DBadgeVariant.primary => (
@@ -243,7 +335,19 @@ class _DBadgeState extends State<DBadge> {
       ),
       DBadgeVariant.link => (Colors.transparent, tokens.primary),
     };
-    final foreground = widget.foregroundColor ?? baseForeground;
+    final foreground =
+        widget.foregroundColor ??
+        (inline == null
+            ? baseForeground
+            : inline.baseStyle?.color ??
+                  DefaultTextStyle.of(context).style.color ??
+                  tokens.foreground);
+    final fill =
+        widget.backgroundColor ??
+        (inline == null ? baseBackground : tokens.muted);
+    final background = inline != null && active
+        ? Color.alphaBlend(tokens.foreground.withValues(alpha: .08), fill)
+        : fill;
     final focus = _focused && _enabled;
     final destructiveRing = (widget.variant == DBadgeVariant.destructive);
     final ringColor = destructiveRing ? tokens.destructive : tokens.focusRing;
@@ -259,7 +363,7 @@ class _DBadgeState extends State<DBadge> {
                   ? tokens.border
                   : Colors.transparent));
     Widget visual = _BadgeHoverTransition(
-      hovered: _hovered,
+      hovered: _hovered || (inline?.hovered ?? false),
       builder: (hoverChanged) => AnimatedContainer(
         duration: hoverChanged
             ? Duration.zero
@@ -268,7 +372,9 @@ class _DBadgeState extends State<DBadge> {
         clipBehavior: Clip.antiAlias,
         constraints: BoxConstraints(
           minWidth: overlay ? 14 : (unread ? 18 : 0),
-          minHeight: featured
+          minHeight: inline != null
+              ? 0
+              : featured
               ? 26 + (MediaQuery.textScalerOf(context).scale(12) - 12) * 1.5
               : control
               ? DControlStyle.scaledHeight(
@@ -281,21 +387,35 @@ class _DBadgeState extends State<DBadge> {
               : ((unread) ? 0 : (compact ? 16 : 20)),
         ),
         decoration: BoxDecoration(
-          color: widget.backgroundColor ?? baseBackground,
-          border: overlay || unread ? null : Border.all(color: border),
+          color: background,
+          border: overlay || unread || inline != null
+              ? null
+              : Border.all(color: border),
           borderRadius: radius,
         ),
-        foregroundDecoration: _BadgeRing(
-          radius: radius,
-          width: overlay ? 1.5 : (focus ? 3 : 0),
-          color: overlay
-              ? widget.ringColor ?? tokens.background
-              : ringColor.withValues(
-                  alpha: destructiveRing ? (dark ? .4 : .2) : .5,
-                ),
-        ),
+        foregroundDecoration: inline != null
+            ? inline.highlighted || focus
+                  ? BoxDecoration(
+                      border: Border.all(color: tokens.primary, width: 1.5),
+                      borderRadius: radius,
+                    )
+                  : null
+            : _BadgeRing(
+                radius: radius,
+                width: overlay ? 1.5 : (focus ? 3 : 0),
+                color: overlay
+                    ? widget.ringColor ?? tokens.background
+                    : ringColor.withValues(
+                        alpha: destructiveRing ? (dark ? .4 : .2) : .5,
+                      ),
+              ),
         // Compact counts keep 12px type with 14px leading inside a 1px border.
-        padding: overlay
+        padding: inline != null
+            ? EdgeInsets.symmetric(
+                horizontal: fontSize * .34,
+                vertical: fontSize * .2,
+              )
+            : overlay
             ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
             : (unread
                   ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
@@ -318,33 +438,64 @@ class _DBadgeState extends State<DBadge> {
                       compact ? 0 : 1,
                     )),
         child: IconTheme.merge(
-          data: IconThemeData(size: artworkSize, color: foreground),
+          data: IconThemeData(
+            size: artworkSize,
+            color: inline == null ? foreground : null,
+          ),
           child: DefaultTextStyle(
-            style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle())
-                .copyWith(
-                  fontSize: fontSize,
-                  height: lineHeight,
-                  fontWeight: overlay
-                      ? FontWeight.w600
-                      : unread
-                      ? FontWeight.w700
-                      : (control ? FontWeight.w400 : FontWeight.w500),
-                  fontFeatures: overlay
-                      ? const [FontFeature.tabularFigures()]
-                      : null,
-                  letterSpacing: 0,
-                  color: foreground,
-                  decoration: widget.variant == DBadgeVariant.link && active
-                      ? TextDecoration.underline
-                      : TextDecoration.none,
-                  decorationColor: foreground,
-                ),
+            maxLines: inline == null ? null : 1,
+            softWrap: inline == null,
+            overflow: inline == null
+                ? TextOverflow.clip
+                : TextOverflow.ellipsis,
+            style:
+                (inline == null
+                        ? Theme.of(context).textTheme.bodySmall ??
+                              const TextStyle()
+                        : DefaultTextStyle.of(
+                            context,
+                          ).style.merge(inline.baseStyle))
+                    .copyWith(
+                      fontSize: fontSize,
+                      height: lineHeight,
+                      fontWeight: inline != null
+                          ? FontWeight.w400
+                          : overlay
+                          ? FontWeight.w600
+                          : unread
+                          ? FontWeight.w700
+                          : (control ? FontWeight.w400 : FontWeight.w500),
+                      fontFeatures: overlay
+                          ? const [FontFeature.tabularFigures()]
+                          : null,
+                      letterSpacing: inline == null
+                          ? 0
+                          : inline.baseStyle?.letterSpacing,
+                      color: foreground,
+                      decoration:
+                          inline == null &&
+                              widget.variant == DBadgeVariant.link &&
+                              active
+                          ? TextDecoration.underline
+                          : TextDecoration.none,
+                      decorationColor: foreground,
+                    ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: overlay
                   ? MainAxisAlignment.center
                   : MainAxisAlignment.start,
               children: [
+                if (inline?.leadingBuilder case final builder?) ...[
+                  _inlineArtwork(
+                    builder(context, artworkSize),
+                    artworkSize,
+                    inset: inline!.leadingArtwork == DBadgeInlineArtwork.square
+                        ? fontSize * .1
+                        : 0,
+                  ),
+                  SizedBox(width: fontSize * .287),
+                ],
                 if (widget.leading case final leading?) ...[
                   _artwork(leading, artworkSize),
                   const SizedBox(width: DSpacing.xs),
@@ -372,67 +523,101 @@ class _DBadgeState extends State<DBadge> {
       link: widget._interaction == _BadgeInteraction.link,
       linkUrl: null,
       enabled: _interactive ? _enabled : null,
+      focusable: _interactive ? _enabled : null,
+      focused: _interactive ? _focusNode.hasFocus : null,
+      onFocus:
+          _interactive &&
+              _enabled &&
+              defaultTargetPlatform != TargetPlatform.iOS
+          ? _focusNode.requestFocus
+          : null,
       label: widget.semanticLabel,
       value: null,
       liveRegion: false,
       validationResult: SemanticsValidationResult.none,
       excludeSemantics: widget.semanticLabel != null,
-      onTap: _interactive && _enabled ? _activate : null,
+      onTap: _interactive && _enabled ? activate : null,
       child: overlay ? IgnorePointer(child: visual) : visual,
     );
     if (!_interactive) {
-      if (!_tracksHover) return semantics;
-      return MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: semantics,
+      if (!_tracksHover) return complete(semantics);
+      return complete(
+        MouseRegion(
+          cursor: inline != null ? SystemMouseCursors.click : MouseCursor.defer,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: semantics,
+        ),
       );
     }
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: FocusableActionDetector(
-        focusNode: _focusNode,
-        autofocus: false,
-        enabled: _enabled,
-        mouseCursor: _enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        onShowFocusHighlight: (value) => setState(() => _focused = value),
-        shortcuts: <ShortcutActivator, Intent>{
-          const SingleActivator(LogicalKeyboardKey.enter):
-              const ActivateIntent(),
-          const SingleActivator(
-            LogicalKeyboardKey.space,
-          ): widget._interaction == _BadgeInteraction.action
-              ? const ActivateIntent()
-              : const DoNothingIntent(),
-        },
-        actions: <Type, Action<Intent>>{
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              _activate();
-              return null;
-            },
+    return complete(
+      MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: FocusableActionDetector(
+          focusNode: _focusNode,
+          autofocus: false,
+          enabled: _enabled,
+          includeFocusSemantics: false,
+          mouseCursor: _enabled
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          onFocusChange: (value) => setState(() {
+            if (inline != null) _focused = value;
+          }),
+          onShowFocusHighlight: inline != null
+              ? null
+              : (value) => setState(() => _focused = value),
+          shortcuts: <ShortcutActivator, Intent>{
+            const SingleActivator(LogicalKeyboardKey.enter):
+                const ActivateIntent(),
+            const SingleActivator(
+              LogicalKeyboardKey.space,
+            ): widget._interaction == _BadgeInteraction.action
+                ? const ActivateIntent()
+                : const DoNothingIntent(),
+          },
+          actions: <Type, Action<Intent>>{
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                activate();
+                return null;
+              },
+            ),
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: _enabled
+                ? () {
+                    _focusNode.requestFocus();
+                    activate();
+                  }
+                : null,
+            onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
+            onTapCancel: () => setState(() => _pressed = false),
+            child: semantics,
           ),
-        },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          excludeFromSemantics: true,
-          onTap: _enabled
-              ? () {
-                  _focusNode.requestFocus();
-                  _activate();
-                }
-              : null,
-          onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
-          onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
-          onTapCancel: () => setState(() => _pressed = false),
-          child: semantics,
         ),
       ),
     );
   }
+
+  Widget _inlineArtwork(
+    Widget child,
+    double dimension, {
+    required double inset,
+  }) => Padding(
+    padding: EdgeInsetsDirectional.only(start: inset),
+    child: ExcludeSemantics(
+      child: IgnorePointer(
+        child: ExcludeFocus(
+          child: SizedBox.square(dimension: dimension, child: child),
+        ),
+      ),
+    ),
+  );
 
   Widget _artwork(Widget child, double dimension) => ExcludeSemantics(
     child: IgnorePointer(

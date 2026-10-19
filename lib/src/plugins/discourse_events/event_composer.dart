@@ -153,23 +153,25 @@ Future<void> openEventComposer(
   }
   final controller = PluginUiScope.maybe(context, eventControllerKey);
   final touch = context.isTouch;
-  Widget content(BuildContext context) => EventComposerSheet(
-    embedded: touch,
-    block: block,
-    settings:
-        policy.state.siteSettings.get(eventSettingsKey) ??
-        const EventSettings(),
-    timezone:
-        policy.state.accountTimezone ??
-        controller?.zones.readerTimezone() ??
-        'Etc/UTC',
-    controller: controller,
-    isCurrent: () =>
-        editor.isCurrent &&
-        editor.isEditing &&
-        policy.canAuthor &&
-        editor.value.text == expected.text,
-  );
+  Widget content(BuildContext context, ValueChanged<String?> close) =>
+      EventComposerSheet(
+        onClose: close,
+        embedded: touch,
+        block: block,
+        settings:
+            policy.state.siteSettings.get(eventSettingsKey) ??
+            const EventSettings(),
+        timezone:
+            policy.state.accountTimezone ??
+            controller?.zones.readerTimezone() ??
+            'Etc/UTC',
+        controller: controller,
+        isCurrent: () =>
+            editor.isCurrent &&
+            editor.isEditing &&
+            policy.canAuthor &&
+            editor.value.text == expected.text,
+      );
   final result = touch
       ? await showDSheet<String>(
           context: context,
@@ -182,10 +184,14 @@ Future<void> openEventComposer(
             showCloseButton: false,
             topBottomMaxHeightFactor: 1,
             scrollWholeSheet: false,
-            children: [Expanded(child: content(context))],
+            children: [Expanded(child: content(context, sheet.close))],
           ),
         )
-      : await showDiscourseDialog<String>(context: context, builder: content);
+      : await showDDialog<String>(
+          context: context,
+          useRootNavigator: true,
+          builder: (context, dialog) => content(context, dialog.close),
+        );
   if (result == null ||
       !context.mounted ||
       !editor.isCurrent ||
@@ -213,6 +219,7 @@ class EventComposerSheet extends StatefulWidget {
     required this.settings,
     required this.timezone,
     required this.isCurrent,
+    required this.onClose,
     this.block,
     this.controller,
     this.embedded = false,
@@ -223,6 +230,7 @@ class EventComposerSheet extends StatefulWidget {
   final EventController? controller;
   final bool embedded;
   final bool Function() isCurrent;
+  final ValueChanged<String?> onClose;
   @override
   State<EventComposerSheet> createState() => _EventComposerSheetState();
 }
@@ -385,14 +393,14 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
           widget.block?.replace(values, description: _description.text) ??
           '[event${[for (final entry in values.entries)
             if (entry.value?.isNotEmpty == true) ' ${eventAttributeName(entry.key)}=${eventAttributeSource(entry.value!)}'].join()}]${_description.text}[/event]';
-      Navigator.pop(context, raw);
+      widget.onClose(raw);
     } on FormatException catch (error) {
       setState(() => _error = error.message);
     }
   }
 
   void _remove() {
-    if (widget.isCurrent()) Navigator.pop(context, '');
+    if (widget.isCurrent()) widget.onClose('');
   }
 
   Widget _field(String name) => Padding(
@@ -622,7 +630,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
       ),
       DButton(
         label: Text(context.l10n.cancel),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () => widget.onClose(null),
       ),
       if (widget.block != null)
         DButton(
@@ -658,15 +666,25 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
         ),
       );
     }
-    return DiscourseAlertDialog(
-      title: Text(
-        widget.block == null ? context.l10n.addEvent : context.l10n.editEvent,
-      ),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(child: fields),
-      ),
-      actions: actions,
+    return DDialogContent(
+      showCloseButton: false,
+      maxWidth: 520,
+      maxHeight: 720,
+      children: [
+        DDialogHeader(
+          children: [
+            DDialogTitle(
+              child: Text(
+                widget.block == null
+                    ? context.l10n.addEvent
+                    : context.l10n.editEvent,
+              ),
+            ),
+          ],
+        ),
+        Flexible(child: SingleChildScrollView(child: fields)),
+        DDialogFooter(children: actions),
+      ],
     );
   }
 }

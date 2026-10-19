@@ -56,6 +56,28 @@ class DProgress extends StatelessWidget {
   }
 }
 
+/// Circular artwork for a [DProgress] owner, including unknown progress.
+class DProgressRing extends StatelessWidget {
+  const DProgressRing({super.key, this.size = 24, this.strokeWidth = 2})
+    : assert(size > 0 && size < double.infinity),
+      assert(strokeWidth > 0 && strokeWidth < double.infinity);
+
+  final double size;
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: SizedBox.square(
+      dimension: size,
+      child: CircularProgressIndicator(
+        value: _ProgressScope.of(context).fraction,
+        strokeWidth: strokeWidth,
+        color: DTokens.of(context).primary,
+      ),
+    ),
+  );
+}
+
 class _ProgressScope extends InheritedWidget {
   const _ProgressScope({required this.fraction, required super.child});
   final double? fraction;

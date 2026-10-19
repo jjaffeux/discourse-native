@@ -120,9 +120,10 @@ class _InstanceActionsState extends State<InstanceActions> {
                       label: Text(appL10n.moveUp),
                       onPressed: widget.onMoveUp == null
                           ? null
-                          : () => Navigator.of(
+                          : () => DDialogClose.close<_InstanceSheetAction>(
                               sheetContext,
-                            ).pop(_InstanceSheetAction.moveUp),
+                              _InstanceSheetAction.moveUp,
+                            ),
                       icon: const DIcon(DIcons.arrowUp),
                     ),
                   ),
@@ -132,9 +133,10 @@ class _InstanceActionsState extends State<InstanceActions> {
                       label: Text(appL10n.moveDown),
                       onPressed: widget.onMoveDown == null
                           ? null
-                          : () => Navigator.of(
+                          : () => DDialogClose.close<_InstanceSheetAction>(
                               sheetContext,
-                            ).pop(_InstanceSheetAction.moveDown),
+                              _InstanceSheetAction.moveDown,
+                            ),
                       icon: const RotatedBox(
                         quarterTurns: 2,
                         child: DIcon(DIcons.arrowUp, size: 18),
@@ -147,8 +149,10 @@ class _InstanceActionsState extends State<InstanceActions> {
             ],
             DButton(
               label: Text(appL10n.removeForum),
-              onPressed: () =>
-                  Navigator.of(sheetContext).pop(_InstanceSheetAction.remove),
+              onPressed: () => DDialogClose.close<_InstanceSheetAction>(
+                sheetContext,
+                _InstanceSheetAction.remove,
+              ),
               icon: const DIcon(DIcons.trashCan),
               variant: DButtonVariant.destructive,
             ),

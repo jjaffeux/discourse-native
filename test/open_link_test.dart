@@ -922,9 +922,12 @@ Future<ShellController> _pumpLink(
                     child: LinkTarget(
                       url: url,
                       bookmarkUrl: bookmarkUrl,
-                      child: TextButton(
+                      child: DButton(
+                        isLink: true,
+                        variant: DButtonVariant.inline,
+                        density: DButtonDensity.inlineMetadata,
                         onPressed: () => openLink(context, url),
-                        child: const Text('Open link'),
+                        label: const Text('Open link'),
                       ),
                     ),
                   ),
