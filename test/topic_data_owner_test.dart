@@ -7,8 +7,11 @@ import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
+import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:discourse_native/src/shell/topic_data_owner.dart';
 import 'package:discourse_native/src/shell/topic_prefetch_controller.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -173,10 +176,35 @@ final class _Fixture {
             DiagnosticSeverity severity = DiagnosticSeverity.error,
           }) => errors.add(operation),
       loadTimeout: const Duration(seconds: 5),
+      bookmarkReads: (siteUrl, lease) => bookmarks.forLease(siteUrl, lease)!,
     );
     addTearDown(owner.dispose);
+    addTearDown(bookmarks.dispose);
+    addTearDown(bookmarkChanges.dispose);
   }
 
+  final bookmarkChanges = ChangeNotifier();
+  late final bookmarks = BookmarkTransactions(
+    api: api,
+    store: store,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    instanceAt: (_) => null,
+    siteContextFor: (_) =>
+        const BookmarkSiteContext(suggestWeekendsInDatePickers: true),
+    pluginStrategies: () => const [],
+    topicData: (siteUrl, lease) => owner.forLease(siteUrl, lease),
+    checklistWriting: (_, _) => false,
+    topicSlug: (_, _) => 'topic',
+    changes: bookmarkChanges,
+    changed: () {
+      changes++;
+      onChange?.call();
+    },
+    refreshMenu: (_) async {},
+    refreshList: (_) async {},
+    report: (_, _, operation) => errors.add(operation),
+  );
   final api = _Api();
   final store = Store();
   final lifecycle = SiteLifecycle();
@@ -353,7 +381,7 @@ void main() {
   test('bookmark repair preserves accepted content', () async {
     final f = _Fixture()..seed();
     final data = f.data;
-    final refresh = data.refreshBookmarks(7, 'topic');
+    final refresh = f.bookmarks.forSite(_site).refreshBookmarks(7, 'topic');
     await f.api.waitTopics(1);
     data.acceptEditedPost(
       _post(1, 'new content', raw: 'new content'),
@@ -533,11 +561,17 @@ void main() {
       f.store.ref<TopicDetail>(_site, 7).addListener(() {
         if (accepted) return;
         accepted = true;
-        data.acceptBookmark(
-          7,
-          const Bookmark(id: 12, bookmarkableId: 1, bookmarkableType: 'Post'),
-          isPost: true,
-        );
+        f.bookmarks
+            .forSite(_site)
+            .acceptBookmark(
+              7,
+              const Bookmark(
+                id: 12,
+                bookmarkableId: 1,
+                bookmarkableType: 'Post',
+              ),
+              isPost: true,
+            );
       });
       final refresh = data.refresh(7);
       await f.api.waitTopics(1);

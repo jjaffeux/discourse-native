@@ -58,8 +58,9 @@ IDs without replacing the full detail or advancing full-stream authority.
 Recommendations fill an unresolved snapshot only. An empty resolved snapshot
 remains resolved.
 
-Each read captures bookmark, archive, removal and stream revisions. Publication
-preserves fields written after dispatch. Removal history filters only removals
+Each read captures bookmark authority from `BookmarkReadProjection`, plus its
+archive, removal and stream revisions. Publication preserves fields written
+after dispatch. Removal history filters only removals
 newer than the read, allowing a later response to recover a post. Publication
 rechecks these revisions between observable Store writes.
 
@@ -75,9 +76,12 @@ against its own current owner. Deletion totals wait for the corresponding post
 refreshes. A newer invalidation or write hold prevents an older batch from
 publishing that post.
 
-Accepted post edits, actions, checklist changes, replies, bookmarks and archive
-changes use semantic session methods. A repair after an accepted mutation uses
-the original lease and captured key. Selected-post repair collects every batch
+Accepted post edits, actions, checklist changes, replies and archive changes
+use semantic topic session methods.
+[BookmarkTransactions](bookmark-transactions.md) owns bookmark operations,
+revisions and field projections. The topic session supplies nonpublishing
+bookmark metadata reads and shared post holds through `BookmarkTopicData`.
+A repair after an accepted mutation uses the original lease and captured key. Selected-post repair collects every batch
 before publishing any result. A failed later batch therefore cannot expose a
 partial repair.
 

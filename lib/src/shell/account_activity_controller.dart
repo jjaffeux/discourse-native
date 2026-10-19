@@ -116,7 +116,8 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, Future<void>> _bookmarkTasks = {};
   final Map<String, Future<void>> _bookmarkListTasks = {};
   final Map<String, Future<void>> _userActivityTasks = {};
-  final Map<String, DiscourseInstance> _pendingBookmarks = {};
+  final Map<String, ({DiscourseInstance instance, SiteLease lease})>
+  _pendingBookmarks = {};
   final Map<String, Completer<void>> _pendingBookmarkWaiters = {};
   final Map<String, Completer<void>> _replayingBookmarkWaiters = {};
   final Map<String, Object> _notificationRequests = {};
@@ -805,24 +806,29 @@ final class AccountActivityController extends FrameSafeNotifier {
   }
 
   Future<void> loadBookmarks(DiscourseInstance instance, {bool force = false}) {
+    final lease = lifecycle.capture(instance.url);
     final active = _bookmarkTasks[instance.url];
     if (active != null) {
       if (!force) return active;
-      _pendingBookmarks[instance.url] = instance;
+      _pendingBookmarks[instance.url] = (instance: instance, lease: lease);
       return _pendingBookmarkWaiters
           .putIfAbsent(instance.url, Completer<void>.new)
           .future;
     }
-    return _startBookmarksLoad(instance);
+    return _startBookmarksLoad(instance, lease);
   }
 
-  Future<void> _startBookmarksLoad(DiscourseInstance instance) {
+  Future<void> _startBookmarksLoad(
+    DiscourseInstance instance,
+    SiteLease lease,
+  ) {
+    if (isDisposed || !lease.isCurrent) return Future<void>.value();
     final result = Completer<void>();
     final task = result.future;
     _bookmarkTasks[instance.url] = task;
     try {
       unawaited(
-        _loadBookmarks(instance).then<void>(
+        _loadBookmarks(instance, lease).then<void>(
           (_) {
             _finishBookmarksLoad(instance.url, task);
             if (!result.isCompleted) result.complete();
@@ -845,13 +851,16 @@ final class AccountActivityController extends FrameSafeNotifier {
     final _ = _bookmarkTasks.remove(siteUrl);
     final pending = _pendingBookmarks.remove(siteUrl);
     final waiter = _pendingBookmarkWaiters.remove(siteUrl);
-    if (pending == null || waiter == null || isDisposed) {
+    if (pending == null ||
+        waiter == null ||
+        isDisposed ||
+        !pending.lease.isCurrent) {
       if (waiter != null && !waiter.isCompleted) waiter.complete();
       return;
     }
 
     _replayingBookmarkWaiters[siteUrl] = waiter;
-    final replay = _startBookmarksLoad(pending);
+    final replay = _startBookmarksLoad(pending.instance, pending.lease);
     unawaited(
       replay.then<void>(
         (_) {
@@ -870,11 +879,13 @@ final class AccountActivityController extends FrameSafeNotifier {
     );
   }
 
-  Future<void> _loadBookmarks(DiscourseInstance instance) async {
-    if (isDisposed) return;
+  Future<void> _loadBookmarks(
+    DiscourseInstance instance,
+    SiteLease lease,
+  ) async {
+    if (isDisposed || !lease.isCurrent) return;
     final username = instance.user?.username;
     if (username == null) return;
-    final lease = lifecycle.capture(instance.url);
     if (_bookmarkRequests.containsKey(instance.url)) return;
     final request = Object();
     _bookmarkRequests[instance.url] = request;

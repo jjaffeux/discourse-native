@@ -10,10 +10,10 @@ import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../diagnostics/diagnostics_controller.dart';
 import '../diagnostics/surface_opening_trace.dart';
-import '../models/bookmark.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../plugin_api/discourse_model_codec.dart';
+import 'bookmark_transactions.dart';
 import 'topic_prefetch_controller.dart';
 
 typedef TopicDataPosition = ({String slug, int postNumber});
@@ -52,6 +52,7 @@ final class TopicDataOwner {
     required this.prepareCategories,
     required this.report,
     required this.loadTimeout,
+    required this.bookmarkReads,
   });
 
   final TopicContentApi content;
@@ -67,6 +68,7 @@ final class TopicDataOwner {
   prepareCategories;
   final TopicDataErrorReporter report;
   final Duration loadTimeout;
+  final BookmarkReadProjection Function(String, SiteLease) bookmarkReads;
   final _prefetch = TopicPrefetchController();
   final Map<String, TopicDataSession> _accounts = {};
   bool _disposed = false;
@@ -124,7 +126,6 @@ final class _TopicState {
   Object? summaryRead;
   List<int>? summary;
   final Map<(int, bool), Object> gaps = {};
-  int bookmarks = 0;
   int archive = 0;
   int removals = 0;
   int streams = 0;
@@ -159,7 +160,7 @@ final class _CapturedKey implements SiteApiKeyReader {
   Future<String?> apiKeyFor(String siteUrl) async => key;
 }
 
-final class TopicDataSession {
+final class TopicDataSession implements BookmarkTopicData {
   TopicDataSession._(this._owner, this.siteUrl, this.lease);
 
   final TopicDataOwner _owner;
@@ -170,7 +171,6 @@ final class TopicDataSession {
   final Map<int, void Function()> _pluginWrites = {};
   void Function()? _detach;
   bool _retired = false;
-  int _bookmarkEpoch = 0;
 
   bool get isCurrent => !_retired && !_owner._disposed && lease.isCurrent;
   Store get _store => _owner.store;
@@ -186,33 +186,18 @@ final class TopicDataSession {
       isCurrent && _topic(topicId).summaryRead != null;
   bool showingSummary(int topicId) =>
       isCurrent && _topic(topicId).summary != null;
+  @override
   bool postWriting(int postId) => isCurrent && _post(postId).holders.isNotEmpty;
-  int get bookmarkEpoch => _bookmarkEpoch;
+  late final BookmarkReadProjection _bookmarks = _owner.bookmarkReads(
+    siteUrl,
+    lease,
+  );
 
   List<int> streamFor(TopicDetail detail) =>
       isCurrent ? _topic(detail.id).summary ?? detail.stream : detail.stream;
 
   void clearSummary(int topicId) {
     if (isCurrent) _topic(topicId).summary = null;
-  }
-
-  bool Function() bookmarkGuard(int topicId) {
-    final version = _topic(topicId).bookmarks;
-    return () => isCurrent && version == _topic(topicId).bookmarks;
-  }
-
-  Topic prepareRow(Topic incoming, int? versionAtDispatch) {
-    if (!isCurrent ||
-        versionAtDispatch == null ||
-        versionAtDispatch == _bookmarkEpoch) {
-      return incoming;
-    }
-    final held = _store.read<Topic>(siteUrl, incoming.id);
-    final detail = _store.read<TopicDetail>(siteUrl, incoming.id);
-    if (held == null && detail == null) return incoming;
-    return incoming.copyWith(
-      bookmarked: held?.bookmarked ?? detail?.hasBookmarks ?? false,
-    );
   }
 
   void _retire() {
@@ -257,7 +242,7 @@ final class TopicDataSession {
   _ReadStamp _stamp(int topicId) {
     final state = _topic(topicId);
     return (
-      bookmarks: state.bookmarks,
+      bookmarks: _bookmarks.revision(topicId),
       archive: state.archive,
       removals: state.removals,
       streams: state.streams,
@@ -319,10 +304,7 @@ final class TopicDataSession {
           (onlyUnloaded && _store.containsRecord<Post>(siteUrl, post.id))) {
         continue;
       }
-      final held = stamp.bookmarks == state.bookmarks
-          ? null
-          : _store.read<Post>(siteUrl, post.id);
-      _put(held == null ? post : post.withBookmarkOf(held));
+      _put(_bookmarks.postFromRead(topicId, stamp.bookmarks, post));
     }
     return isCurrent;
   }
@@ -340,9 +322,7 @@ final class TopicDataSession {
     if (!_publishPosts(topicId, payload.posts, stamp)) return null;
     final held = _store.read<TopicDetail>(siteUrl, topicId);
     final latest = _withoutRemoved(response, stamp.removals);
-    var incoming = stamp.bookmarks != state.bookmarks && held != null
-        ? latest.detail.withBookmarksOf(held)
-        : latest.detail;
+    var incoming = _bookmarks.detailFromRead(stamp.bookmarks, latest.detail);
     if (held != null && stamp.archive != state.archive) {
       incoming = incoming.copyWith(messageArchived: held.messageArchived);
     }
@@ -368,13 +348,11 @@ final class TopicDataSession {
     final accepted = detail;
     _update<Topic>(
       topicId,
-      (row) => row
-          .copyWith(
-            title: accepted.title,
-            postsCount: accepted.postsCount,
-            bookmarked: accepted.hasBookmarks,
-          )
-          .withPlugins(accepted.plugins),
+      (row) => _bookmarks.projectTopicRow(
+        row
+            .copyWith(title: accepted.title, postsCount: accepted.postsCount)
+            .withPlugins(accepted.plugins),
+      ),
     );
     if (!isCurrent) return null;
     detail = _store.read<TopicDetail>(siteUrl, topicId) ?? detail;
@@ -1047,6 +1025,7 @@ final class TopicDataSession {
     return release;
   }
 
+  @override
   void Function() holdPostWrite(int postId, {bool notifyOnRelease = true}) {
     if (!isCurrent) return () {};
     final state = _post(postId);
@@ -1328,26 +1307,26 @@ final class TopicDataSession {
     final held = _store.read<Post>(siteUrl, updated.id);
     final withRaw = updated.raw == null ? updated.withRaw(raw) : updated;
     _put(
-      held == null
-          ? withRaw
-          : withRaw
-                .copyWith(isLocalized: held.isLocalized)
-                .withLikesOf(held)
-                .withPostActionsOf(held)
-                .withBookmarkOf(held)
-                .withPlugins(
-                  _owner.models.mergeAfterPostEdit(
-                    held: held.plugins,
-                    incoming: updated.plugins,
+      _bookmarks.preservePost(
+        held == null
+            ? withRaw
+            : withRaw
+                  .copyWith(isLocalized: held.isLocalized)
+                  .withLikesOf(held)
+                  .withPostActionsOf(held)
+                  .withPlugins(
+                    _owner.models.mergeAfterPostEdit(
+                      held: held.plugins,
+                      incoming: updated.plugins,
+                    ),
                   ),
-                ),
+      ),
     );
   }
 
   void acceptPostAction(Post post) {
     if (!isCurrent) return;
-    final held = _store.read<Post>(siteUrl, post.id);
-    _put(held == null ? post : post.withBookmarkOf(held));
+    _put(_bookmarks.preservePost(post));
   }
 
   void guessLike(int postId, bool liked) {
@@ -1404,98 +1383,28 @@ final class TopicDataSession {
         : null;
   }
 
-  void _advanceBookmarks(int topicId) {
-    _topic(topicId).bookmarks++;
-    _bookmarkEpoch++;
-  }
-
-  void acceptBookmark(int topicId, Bookmark bookmark, {required bool isPost}) {
-    if (!isCurrent) return;
-    _advanceBookmarks(topicId);
-    _update<TopicDetail>(topicId, (detail) => detail.withBookmark(bookmark));
-    final id = bookmark.bookmarkableId;
-    if (isPost && id != null) {
-      _update<Post>(id, (post) => post.withBookmark(bookmark));
-    }
-    _update<Topic>(topicId, (row) => row.copyWith(bookmarked: true));
-    _changed();
-  }
-
-  void removeBookmark(
+  @override
+  Future<BookmarkTopicSnapshot?> readBookmarkMetadata(
     int topicId,
-    Bookmark bookmark, {
-    required bool isPost,
-    required bool? topicBookmarked,
-  }) {
-    if (!isCurrent) return;
-    _advanceBookmarks(topicId);
-    _update<TopicDetail>(
-      topicId,
-      (detail) => detail.withoutBookmark(bookmark.id),
+    String slug,
+  ) async {
+    if (!isCurrent) return null;
+    final credential = await _requests.credentials(_owner.credentials);
+    if (!isCurrent) return null;
+    final payload = await credential.run(
+      () => _owner.content.topic(
+        siteUrl: siteUrl,
+        slug: slug,
+        id: topicId,
+        apiKey: credential.apiKey,
+        clientId: credential.clientId,
+      ),
     );
-    final id = bookmark.bookmarkableId;
-    if (isPost && id != null) {
-      _update<Post>(id, (post) => post.withBookmark(null));
-    }
-    _update<Topic>(
-      topicId,
-      (row) => row.copyWith(bookmarked: topicBookmarked == true),
+    if (!isCurrent) return null;
+    return BookmarkTopicSnapshot(
+      bookmarks: payload.detail.bookmarks,
+      posts: {for (final post in payload.posts) post.id: post.bookmark},
     );
-    _changed();
-  }
-
-  void clearBookmarks(int topicId) {
-    if (!isCurrent) return;
-    _advanceBookmarks(topicId);
-    final detail = _store.read<TopicDetail>(siteUrl, topicId);
-    if (detail != null) {
-      for (final id in detail.stream) {
-        _update<Post>(id, (post) => post.withBookmark(null));
-      }
-      if (isCurrent) {
-        final latest = _store.read<TopicDetail>(siteUrl, topicId);
-        if (latest != null) _put(latest.withoutBookmarks());
-      }
-    }
-    _update<Topic>(topicId, (row) => row.copyWith(bookmarked: false));
-    _changed();
-  }
-
-  Future<void> refreshBookmarks(int topicId, String slug) async {
-    if (!isCurrent) return;
-    _advanceBookmarks(topicId);
-    final version = _topic(topicId).bookmarks;
-    try {
-      final credential = await _requests.credentials(_owner.credentials);
-      if (!isCurrent) return;
-      final payload = await credential.run(
-        () => _owner.content.topic(
-          siteUrl: siteUrl,
-          slug: slug,
-          id: topicId,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      bool current() => isCurrent && _topic(topicId).bookmarks == version;
-      for (final post in payload.posts) {
-        if (!current()) return;
-        _update<Post>(post.id, (held) => held.withBookmarkOf(post));
-      }
-      if (!current()) return;
-      _update<TopicDetail>(
-        topicId,
-        (held) => held.withBookmarksOf(payload.detail),
-      );
-      if (!current()) return;
-      _update<Topic>(
-        topicId,
-        (row) => row.copyWith(bookmarked: payload.detail.hasBookmarks),
-      );
-      _changed();
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'bookmark.refreshAfterWrite');
-    }
   }
 
   void acceptArchive(int topicId, bool archived) {
