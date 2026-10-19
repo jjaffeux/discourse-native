@@ -1,5 +1,13 @@
 part of 'shell_controller.dart';
 
+final class _CategoryIdRequest {
+  _CategoryIdRequest(this.ids);
+
+  final List<int> ids;
+  final completion = Completer<List<TopicCategory>>();
+  int consumers = 0;
+}
+
 final class _TaxonomySite {
   _TaxonomySite(this.lease);
 
@@ -8,7 +16,7 @@ final class _TaxonomySite {
   RequestIntentOperation<void>? categoryRequest;
   List<TopicCategory>? categories;
   CategoryFeed categoryFeed = const CategoryFeed();
-  final Map<int, Future<List<TopicCategory>>> categoryIdRequests = {};
+  final Map<int, _CategoryIdRequest> categoryIdRequests = {};
   Object? categoryPageRequest;
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
   Object? tagDirectoryRequest;
@@ -487,12 +495,19 @@ final class _TaxonomyDirectoryController {
 
   Future<void> ensureCategoryIds(
     DiscourseInstance instance,
-    Iterable<int> categoryIds,
-  ) async {
+    Iterable<int> categoryIds, {
+    bool Function()? isCurrent,
+  }) async {
+    if (_shell.accountSessionDisposed || isCurrent?.call() == false) return;
     final site = _site(instance.url);
     if (instance.loginRequired && !instance.isConnected) return;
     final lease = site.lease;
-    if (!lease.isCurrent) return;
+    bool requestIsCurrent() =>
+        !_shell.accountSessionDisposed &&
+        lease.isCurrent &&
+        identical(_sites[instance.url], site) &&
+        (isCurrent?.call() ?? true);
+    if (!requestIsCurrent()) return;
     try {
       final requestSession = AccountRequestSession(instance.url, lease);
       Future<AccountRequestCredentials>? credentialRead;
@@ -503,6 +518,7 @@ final class _TaxonomyDirectoryController {
       var pending = categoryIds.toSet();
       final visited = <int>{};
       while (pending.isNotEmpty) {
+        if (!requestIsCurrent()) return;
         final cached = [
           for (final id in pending)
             ?_shell.store.read<TopicCategory>(instance.url, id),
@@ -520,7 +536,7 @@ final class _TaxonomyDirectoryController {
         }
         final batch = <int>[];
         final requested = <int>{};
-        final requests = <Future<List<TopicCategory>>>{};
+        final requests = <_CategoryIdRequest>{};
         for (final id in pending) {
           if (batch.length == 100) break;
           requested.add(id);
@@ -532,15 +548,15 @@ final class _TaxonomyDirectoryController {
           }
         }
         if (batch.isNotEmpty) {
-          final result = Completer<List<TopicCategory>>();
+          final request = _CategoryIdRequest(batch);
           for (final id in batch) {
-            site.categoryIdRequests[id] = result.future;
+            site.categoryIdRequests[id] = request;
           }
-          requests.add(result.future);
+          requests.add(request);
           unawaited(() async {
             try {
               if (_shell.accountSessionDisposed || !lease.isCurrent) {
-                result.complete(const []);
+                request.completion.complete(const []);
                 return;
               }
               final credential = await readCredentials();
@@ -552,26 +568,49 @@ final class _TaxonomyDirectoryController {
                   clientId: credential.clientId,
                 ),
               );
-              if (!_shell.accountSessionDisposed) {
-                lease.commit(() {
-                  mergeCategories(instance.url, found);
-                  _shell._notify();
-                });
-              }
-              result.complete(found);
+              request.completion.complete(found);
             } catch (error, stackTrace) {
-              result.completeError(error, stackTrace);
-            } finally {
-              for (final id in batch) {
-                if (identical(site.categoryIdRequests[id], result.future)) {
-                  final _ = site.categoryIdRequests.remove(id);
-                }
-              }
+              request.completion.completeError(error, stackTrace);
             }
           }());
         }
-        final found = (await Future.wait(requests)).expand((batch) => batch);
-        if (_shell.accountSessionDisposed || !lease.isCurrent) return;
+        final found = (await Future.wait(
+          requests.map((request) async {
+            request.consumers++;
+            try {
+              final found = await request.completion.future;
+              if (!requestIsCurrent()) return const <TopicCategory>[];
+              final changed = [
+                for (final category in found)
+                  if (_shell.store.read<TopicCategory>(
+                        instance.url,
+                        category.id,
+                      ) !=
+                      category)
+                    category,
+              ];
+              if (changed.isNotEmpty) {
+                mergeCategories(
+                  instance.url,
+                  changed,
+                  isCurrent: requestIsCurrent,
+                );
+                if (requestIsCurrent()) _shell._notify();
+              }
+              return found;
+            } finally {
+              request.consumers--;
+              if (request.consumers == 0) {
+                for (final id in request.ids) {
+                  if (identical(site.categoryIdRequests[id], request)) {
+                    site.categoryIdRequests.remove(id);
+                  }
+                }
+              }
+            }
+          }),
+        )).expand((batch) => batch).toList();
+        if (!requestIsCurrent()) return;
         pending.removeAll(requested);
         visited.addAll(requested);
         pending.addAll([
@@ -582,7 +621,7 @@ final class _TaxonomyDirectoryController {
         ]);
       }
     } catch (error, stackTrace) {
-      if (_shell.accountSessionDisposed || !lease.isCurrent) return;
+      if (!requestIsCurrent()) return;
       _shell._reportOperationalError(
         error,
         stackTrace,
@@ -725,11 +764,25 @@ final class _TaxonomyDirectoryController {
     }
   }
 
-  void mergeCategories(String siteUrl, Iterable<TopicCategory> incoming) {
+  void mergeCategories(
+    String siteUrl,
+    Iterable<TopicCategory> incoming, {
+    bool Function()? isCurrent,
+  }) {
+    if (_shell.accountSessionDisposed || isCurrent?.call() == false) return;
     final site = _site(siteUrl);
-    if (!site.lease.isCurrent) return;
-    final stored = _shell.store.putAll(siteUrl, incoming);
-    if (!site.lease.isCurrent) return;
+    bool canMerge() =>
+        !_shell.accountSessionDisposed &&
+        site.lease.isCurrent &&
+        identical(_sites[siteUrl], site) &&
+        (isCurrent?.call() ?? true);
+    if (!canMerge()) return;
+    final stored = <TopicCategory>[];
+    for (final category in incoming) {
+      if (!canMerge()) return;
+      stored.add(_shell.store.put(siteUrl, category));
+      if (!canMerge()) return;
+    }
     final byId = <int, TopicCategory>{
       for (final category in site.categories ?? const <TopicCategory>[])
         category.id: category,

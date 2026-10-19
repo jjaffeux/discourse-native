@@ -1150,20 +1150,32 @@ class ShellController extends FrameSafeNotifier
                 destinationId)
               id,
       },
-      prepareFeed: (instance, apiKey, categories, categoryIds) async {
-        final lease = lifecycle.capture(instance.url);
-        if (categories.isNotEmpty) {
-          _taxonomy.mergeCategories(instance.url, categories);
-          _notify();
-        }
-        if (isDisposed || !lease.isCurrent) return;
-        unawaited(
-          RequestIntent.background().run(
-            () => _taxonomy.ensureCategoriesFor(instance),
-          ),
-        );
-        await _taxonomy.ensureCategoryIds(instance, categoryIds);
-      },
+      prepareFeed:
+          (instance, apiKey, categories, categoryIds, isCurrent) async {
+            if (!isCurrent()) return;
+            if (categories.isNotEmpty) {
+              _taxonomy.mergeCategories(
+                instance.url,
+                categories,
+                isCurrent: isCurrent,
+              );
+              if (!isCurrent()) return;
+              _notify();
+            }
+            if (!isCurrent()) return;
+            unawaited(
+              RequestIntent.background().run(
+                () => _taxonomy.ensureCategoriesFor(instance),
+              ),
+            );
+            unawaited(
+              _taxonomy.ensureCategoryIds(
+                instance,
+                categoryIds,
+                isCurrent: isCurrent,
+              ),
+            );
+          },
       readPersonalizationVersion: (siteUrl) =>
           _bookmarks.forSite(siteUrl).epoch,
       prepareTopicForStore: _prepareTopicForStore,

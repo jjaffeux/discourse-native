@@ -1673,7 +1673,7 @@ void main() {
           credentials: credentials,
           lifecycle: SiteLifecycle(),
           store: store,
-          prepareFeed: (_, _, _, ids) async {
+          prepareFeed: (_, _, _, ids, _) async {
             if (ids.contains(9)) await ready.future;
           },
         );
@@ -1726,7 +1726,7 @@ void main() {
           credentials: credentials,
           lifecycle: lifecycle,
           store: store,
-          prepareFeed: (_, _, _, _) {
+          prepareFeed: (_, _, _, _, _) {
             started.complete();
             return ready.future;
           },

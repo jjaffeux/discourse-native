@@ -1377,6 +1377,7 @@ class _TopicRowState extends State<_TopicRow> {
                     category: categoryPresentation.category,
                     categoryAncestors: categoryPresentation.ancestors,
                     showCategoryBreadcrumb: true,
+                    hiddenCategoryId: widget.hiddenCategoryId,
                     siteUrl: siteUrl,
                     selected: state.selected,
                     inbox: state.reading,
@@ -1590,6 +1591,7 @@ class _TopicRowBody extends StatelessWidget {
     required this.siteUrl,
     required this.onTap,
     this.compact,
+    this.hiddenCategoryId,
     this.forum,
     this.titleStyle,
     this.selected = false,
@@ -1612,6 +1614,7 @@ class _TopicRowBody extends StatelessWidget {
   final TopicCategory? category;
   final List<TopicCategory> categoryAncestors;
   final bool showCategoryBreadcrumb;
+  final int? hiddenCategoryId;
   final String siteUrl;
   final VoidCallback onTap;
   final DiscourseInstance? forum;

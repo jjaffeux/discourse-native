@@ -40,7 +40,6 @@ double _topicTextWidth(BuildContext context, String text) {
   return width;
 }
 
-// Match CategoryIcon's square/icon/emoji and optional private-category lock.
 double _topicCategoryMarkWidth(TopicCategory category) =>
     (category.styleType == 'icon' ||
             (category.styleType == 'emoji' && category.emoji != null)
@@ -53,9 +52,10 @@ double _topicMinimumTaxonomyWidth(BuildContext context, _TopicRowBody row) {
   var width = 0.0;
   if (row.topic.privateMessage) {
     width = ellipsis;
-  } else if (row.category case final category?) {
-    width = _topicCategoryMarkWidth(category) + _topicTagGap + ellipsis;
-    if (row.showCategoryBreadcrumb && row.categoryAncestors.isNotEmpty) {
+  } else if (row.topic.categoryId != null &&
+      row.topic.categoryId != row.hiddenCategoryId) {
+    width = 30 + _topicTagGap + ellipsis;
+    if (row.showCategoryBreadcrumb) {
       width += ellipsis + 7 + _topicTagGap * 2;
     }
   }

@@ -29,6 +29,7 @@ typedef TopicFeedPreparation =
       String? apiKey,
       Iterable<TopicCategory> categories,
       Iterable<int> categoryIds,
+      bool Function() isCurrent,
     );
 
 typedef TopicFeedIncomingFilter =
@@ -562,6 +563,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         apiKey,
         list.categories,
         _categoryIds(list.topics),
+        requestIsCurrent,
       );
       _commit(lease, () {
         if (!identical(_revisions[key], revision)) return;
@@ -718,6 +720,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         apiKey,
         list.categories,
         _categoryIds(list.topics),
+        requestIsCurrent,
       );
 
       _commit(lease, () {
@@ -830,11 +833,12 @@ final class TopicFeedController extends FrameSafeNotifier {
     _pageRequests[key] = pageRequest;
     _window(key);
 
-    bool requestIsCurrent() =>
+    bool feedIsCurrent() =>
         !isDisposed &&
         lease.isCurrent &&
-        identical(_revisions[key], feedRevision) &&
-        identical(_pageRequests[key], pageRequest);
+        identical(_revisions[key], feedRevision);
+    bool requestIsCurrent() =>
+        feedIsCurrent() && identical(_pageRequests[key], pageRequest);
 
     _feeds[key] = feed.loadingNextPage();
     notifySafely();
@@ -859,6 +863,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         apiKey,
         next.categories,
         _categoryIds(next.topics),
+        feedIsCurrent,
       );
 
       _commit(lease, () {
@@ -1011,11 +1016,10 @@ final class TopicFeedController extends FrameSafeNotifier {
     final lease = lifecycle.capture(instance.url);
     final revision = _revisions[key];
     final version = readPersonalizationVersion?.call(instance.url);
+    bool feedIsCurrent() =>
+        !isDisposed && lease.isCurrent && identical(_revisions[key], revision);
     bool requestIsCurrent() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_revisions[key], revision) &&
-        identical(_topicRequests[key], request);
+        feedIsCurrent() && identical(_topicRequests[key], request);
     try {
       final auth = await AccountRequestSession(
         instance.url,
@@ -1036,6 +1040,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         apiKey,
         const [],
         _categoryIds([topic]),
+        feedIsCurrent,
       );
       if (!requestIsCurrent()) return;
       _commit(lease, () {
@@ -1093,11 +1098,10 @@ final class TopicFeedController extends FrameSafeNotifier {
     final personalizationVersion = readPersonalizationVersion?.call(
       instance.url,
     );
+    bool feedIsCurrent() =>
+        !isDisposed && lease.isCurrent && identical(_revisions[key], revision);
     bool requestIsCurrent() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_revisions[key], revision) &&
-        identical(_rangeRequests[key], request);
+        feedIsCurrent() && identical(_rangeRequests[key], request);
 
     try {
       if (_pageRequests[key] case final page?) {
@@ -1140,6 +1144,7 @@ final class TopicFeedController extends FrameSafeNotifier {
             apiKey,
             const [],
             _categoryIds(topics),
+            feedIsCurrent,
           );
           if (!requestIsCurrent()) return;
           _commit(lease, () {
@@ -1208,6 +1213,7 @@ final class TopicFeedController extends FrameSafeNotifier {
               apiKey,
               list.categories,
               _categoryIds(list.topics),
+              feedIsCurrent,
             );
             if (!requestIsCurrent()) return;
             final earlier = {
