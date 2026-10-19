@@ -22,6 +22,9 @@ void main() {
   late bool allowed;
   late List<String> invalidatedFallbacks;
   late AssignmentController controller;
+  Object? reloadFailure;
+  Completer<void>? reloadGate;
+  late Completer<void> reloadStarted;
 
   setUp(() {
     transport = _PluginTransport();
@@ -29,12 +32,19 @@ void main() {
     reloads = [];
     allowed = true;
     invalidatedFallbacks = [];
+    reloadFailure = null;
+    reloadGate = null;
+    reloadStarted = Completer<void>();
     controller = AssignmentController(
       api: AssignApi(transport),
       requests: requests,
       canAssign: (_, _) => allowed,
-      reloadTopic: (siteUrl, topicId) async =>
-          reloads.add((siteUrl: siteUrl, topicId: topicId)),
+      reloadTopic: (siteUrl, topicId) async {
+        reloads.add((siteUrl: siteUrl, topicId: topicId));
+        if (!reloadStarted.isCompleted) reloadStarted.complete();
+        await reloadGate?.future;
+        if (reloadFailure case final failure?) throw failure;
+      },
       invalidateLegacyFallback: invalidatedFallbacks.add,
     );
     addTearDown(controller.dispose);
@@ -69,7 +79,8 @@ void main() {
         const AssignmentUser(username: 'sam'),
       );
 
-      expect(error, _forbiddenMessage);
+      expect(error.kind, AssignmentWriteKind.refused);
+      expect(error.failure?.failure, WriteFailure.forbidden);
       expect(transport.writes, isEmpty);
       expect(reloads, isEmpty);
       expect(invalidatedFallbacks, isEmpty);
@@ -88,7 +99,7 @@ void main() {
           status: 'New',
         );
 
-        expect(error, isNull);
+        expect(error.kind, AssignmentWriteKind.applied);
         _expectOnlyWrite(
           transport,
           path: '/assign/assign.json',
@@ -120,7 +131,8 @@ void main() {
           const AssignmentUser(username: 'sam'),
         );
 
-        expect(error, 'This user has too many assignments.');
+        expect(error.kind, AssignmentWriteKind.refused);
+        expect(error.failure?.errors, ['This user has too many assignments.']);
         _expectOnlyWrite(
           transport,
           path: '/assign/assign.json',
@@ -153,11 +165,11 @@ void main() {
         const AssignmentUser(username: 'alex'),
       );
 
-      expect(duplicate, 'An assignment update is already in progress.');
+      expect(duplicate.kind, AssignmentWriteKind.busy);
       expect(transport.writes, hasLength(1));
 
       gate.complete();
-      expect(await first, isNull);
+      expect((await first).kind, AssignmentWriteKind.applied);
       expect(controller.isWriting(_site, _topic), isFalse);
       expect(reloads, [(siteUrl: _site, topicId: 7)]);
     });
@@ -227,7 +239,11 @@ void main() {
               _topic,
               const AssignmentUser(username: 'alex'),
             ),
-            'An assignment update is already in progress.',
+            isA<AssignmentWriteResult>().having(
+              (result) => result.kind,
+              'kind',
+              AssignmentWriteKind.busy,
+            ),
           );
           expect(transport.writes.map((write) => write.body['username']), [
             'sam',
@@ -257,12 +273,154 @@ void main() {
         }
         allowed = false;
 
-        expect(await controller.restoreAssignment(permit!), _forbiddenMessage);
+        expect(
+          (await controller.restoreAssignment(permit!)).kind,
+          AssignmentWriteKind.inactive,
+        );
         expect(transport.writes.map((write) => write.path), [
           '/assign/unassign.json',
         ]);
       });
     }
+  });
+
+  group('write outcome authority', () {
+    test(
+      'retirement before credentials sends nothing and grants no undo',
+      () async {
+        requests.credentialsGate = Completer<PluginRequestCredentials>();
+        final pending = controller.unassignForUndo(
+          _site,
+          _topic,
+          const Assignment(assignee: AssignmentUser(username: 'sam')),
+        );
+        requests.invalidate();
+        controller.forget(_site);
+        requests.credentialsGate!.complete(
+          const PluginRequestCredentials(apiKey: 'old-key', clientId: ''),
+        );
+        final result = await pending;
+        expect(result.outcome.kind, AssignmentWriteKind.inactive);
+        expect(result.outcome.accepted, isFalse);
+        expect(result.permit, isNull);
+        expect(transport.writes, isEmpty);
+        expect(reloads, isEmpty);
+      },
+    );
+
+    test(
+      'accepted retirement keeps acceptance without undo or reload',
+      () async {
+        transport.writeGate = Completer<void>();
+        final pending = controller.unassignForUndo(
+          _site,
+          _topic,
+          const Assignment(assignee: AssignmentUser(username: 'sam')),
+        );
+        await transport.writeStarted.future;
+        requests.invalidate();
+        controller.forget(_site);
+        transport.writeGate!.complete();
+        final result = await pending;
+        expect(result.outcome.kind, AssignmentWriteKind.acceptedRetired);
+        expect(result.outcome.accepted, isTrue);
+        expect(result.permit, isNull);
+        expect(reloads, isEmpty);
+      },
+    );
+
+    test(
+      'a reload 404 cannot revoke accepted removal or undo authority',
+      () async {
+        reloadFailure = const WriteException(
+          WriteFailure.unreachable,
+          statusCode: 404,
+        );
+        final result = await controller.unassignForUndo(
+          _site,
+          _topic,
+          const Assignment(assignee: AssignmentUser(username: 'sam')),
+        );
+        expect(result.outcome.kind, AssignmentWriteKind.acceptedRefreshFailed);
+        expect(result.outcome.accepted, isTrue);
+        expect(result.outcome.failure, same(reloadFailure));
+        expect(result.permit, isNotNull);
+        expect(invalidatedFallbacks, isEmpty);
+        reloadFailure = null;
+        expect(
+          (await controller.restoreAssignment(result.permit!)).kind,
+          AssignmentWriteKind.applied,
+        );
+        expect(transport.writes.last.body['should_notify'], 'false');
+        expect(
+          (await controller.restoreAssignment(result.permit!)).kind,
+          AssignmentWriteKind.inactive,
+        );
+        expect(transport.writes, hasLength(2));
+      },
+    );
+
+    test('retirement during reload cannot grant an undo permit', () async {
+      reloadGate = Completer<void>();
+      final pending = controller.unassignForUndo(
+        _site,
+        _topic,
+        const Assignment(assignee: AssignmentUser(username: 'sam')),
+      );
+      await reloadStarted.future;
+      expect(reloads, hasLength(1));
+      requests.invalidate();
+      controller.forget(_site);
+      reloadGate!.complete();
+      final result = await pending;
+      expect(result.outcome.kind, AssignmentWriteKind.acceptedRetired);
+      expect(result.permit, isNull);
+    });
+
+    for (final notSent in [false, true]) {
+      test('lost write response distinguishes notSent=$notSent', () async {
+        transport.writeFailure = WriteException(
+          WriteFailure.unreachable,
+          notSent: notSent,
+        );
+        final result = await controller.unassignForUndo(
+          _site,
+          _topic,
+          const Assignment(assignee: AssignmentUser(username: 'sam')),
+        );
+        expect(
+          result.outcome.kind,
+          notSent ? AssignmentWriteKind.notSent : AssignmentWriteKind.uncertain,
+        );
+        expect(result.outcome.accepted, isFalse);
+        expect(result.permit, isNull);
+        expect(reloads, isEmpty);
+      });
+    }
+
+    test(
+      'an executor refusal before dispatch is not an uncertain write',
+      () async {
+        requests.executor = <T>(Future<T> Function() request) async {
+          throw const WriteException(WriteFailure.unreachable);
+        };
+        final result = await controller.unassign(_site, _topic);
+        expect(result.kind, AssignmentWriteKind.notSent);
+        expect(transport.writes, isEmpty);
+        expect(reloads, isEmpty);
+      },
+    );
+
+    test('a credential failure is not an uncertain write', () async {
+      requests.credentialsGate = Completer<PluginRequestCredentials>();
+      final pending = controller.unassign(_site, _topic);
+      requests.credentialsGate!.completeError(
+        StateError('credential read failed'),
+      );
+      final result = await pending;
+      expect(result.kind, AssignmentWriteKind.notSent);
+      expect(transport.writes, isEmpty);
+    });
   });
 
   group('404 reconciliation', () {
@@ -276,7 +434,7 @@ void main() {
 
         final error = await controller.unassign(_site, _topic);
 
-        expect(error, 'This assignment target is no longer available.');
+        expect(error.kind, AssignmentWriteKind.targetUnavailable);
         _expectOnlyWrite(
           transport,
           path: '/assign/unassign.json',
@@ -353,7 +511,7 @@ void main() {
 
       final error = await snapshotController.unassign(_site, _topic);
 
-      expect(error, 'This assignment target is no longer available.');
+      expect(error.kind, AssignmentWriteKind.targetUnavailable);
       expect(snapshotController.canAssign(_site, _topic), isFalse);
       expect(states, [
         (canAssign: true, isWriting: true),
@@ -426,7 +584,7 @@ void main() {
       expect(writing, [true]);
 
       gate.complete();
-      expect(await write, isNull);
+      expect((await write).kind, AssignmentWriteKind.applied);
       controller.forget(_site);
 
       expect(writing, [true, false]);
@@ -453,7 +611,11 @@ void main() {
 
       expect(
         await legacy.unassign(_site, _topic),
-        'This assignment target is no longer available.',
+        isA<AssignmentWriteResult>().having(
+          (result) => result.kind,
+          'kind',
+          AssignmentWriteKind.targetUnavailable,
+        ),
       );
       expect(permission, [false]);
 
@@ -531,7 +693,7 @@ void main() {
           const PluginRequestCredentials(apiKey: 'stale-key', clientId: 'test'),
         );
 
-        expect(await assignment, _forbiddenMessage);
+        expect((await assignment).kind, AssignmentWriteKind.inactive);
         expect(transport.writes, isEmpty);
         expect(disposedReloads, isEmpty);
       },
@@ -618,6 +780,8 @@ void _expectOnlyWrite(
 
 final class _RequestHost implements PluginRequestHost {
   final _leases = <_Lease>[];
+  Completer<PluginRequestCredentials>? credentialsGate;
+  PluginRequestExecutor? executor;
 
   @override
   PluginSiteLease capture(String siteUrl) {
@@ -634,7 +798,13 @@ final class _RequestHost implements PluginRequestHost {
 
   @override
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
-      const PluginRequestCredentials(apiKey: 'key', clientId: 'test-client');
+      credentialsGate == null
+      ? PluginRequestCredentials(
+          apiKey: 'key',
+          clientId: 'test-client',
+          execute: executor,
+        )
+      : await credentialsGate!.future;
 
   @override
   Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async => (

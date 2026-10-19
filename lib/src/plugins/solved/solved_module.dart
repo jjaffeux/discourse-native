@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import 'solved_change_result.dart';
 import 'solved_controller.dart';
 import 'solved_global_search.dart';
 import 'solved_post.dart';
@@ -103,13 +104,14 @@ final class SolvedPlugin
       placement: PostActionPlacement.overflow,
       enabled: !controller.posts.writeInFlight(siteUrl, post.id),
       onInvoke: () => unawaited(() async {
-        final error = await controller.change(
+        final result = await controller.change(
           siteUrl: siteUrl,
           topic: topic,
           postId: post.id,
           accepted: !state.accepted,
           lease: lease,
         );
+        final error = result.message;
         if (context.mounted && lease.isCurrent && error != null) {
           DToast.show(context, error, type: DToastType.error);
         }
@@ -173,4 +175,20 @@ final class SolvedPlugin
       ),
     ];
   }
+}
+
+extension on SolvedChangeResult {
+  String? get message => !isCurrent
+      ? null
+      : switch (kind) {
+          SolvedChangeKind.acceptedRefreshFailed ||
+          SolvedChangeKind.refused ||
+          SolvedChangeKind.notSent ||
+          SolvedChangeKind.uncertain => failure!.message,
+          SolvedChangeKind.applied ||
+          SolvedChangeKind.unchanged ||
+          SolvedChangeKind.busy ||
+          SolvedChangeKind.inactive ||
+          SolvedChangeKind.acceptedRetired => null,
+        };
 }

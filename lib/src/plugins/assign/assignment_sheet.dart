@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 
 import 'assign_services.dart';
 import 'assignment.dart';
+import 'assignment_write_feedback.dart';
+import 'assignment_write_result.dart';
 
 typedef AssignmentSuggestionsLoader = Future<AssignmentSuggestions> Function();
 typedef AssignmentAssigneeSearch =
@@ -15,12 +17,12 @@ typedef AssignmentAssigneeSearch =
       String term,
     );
 typedef AssignmentSave =
-    Future<String?> Function(
+    Future<AssignmentWriteResult> Function(
       AssignmentAssignee assignee, {
       String? note,
       String? status,
     });
-typedef AssignmentRemove = Future<String?> Function();
+typedef AssignmentRemove = Future<AssignmentWriteResult> Function();
 
 Future<void> showAssignmentEditor({
   required BuildContext context,
@@ -34,16 +36,29 @@ Future<void> showAssignmentEditor({
   );
   final session = controller.beginPicker(siteUrl, target);
 
+  bool currentPicker() =>
+      controller.isPickerCurrent(session) &&
+      (!context.mounted ||
+          identical(
+            PluginUiScope.maybe(context, assignmentControllerService),
+            controller,
+          ));
+
   Future<T> fromPicker<T>(Future<T> Function() operation) async {
-    if (!controller.isPickerCurrent(session) ||
-        (context.mounted &&
-            !identical(
-              PluginUiScope.maybe(context, assignmentControllerService),
-              controller,
-            ))) {
+    if (!currentPicker()) {
       throw const WriteException(WriteFailure.forbidden);
     }
     return operation();
+  }
+
+  Future<AssignmentWriteResult> writeFromPicker(
+    Future<AssignmentWriteResult> Function() operation,
+  ) async {
+    final result = await fromPicker(operation);
+    if (currentPicker()) return result;
+    return result.accepted
+        ? const AssignmentWriteResult.acceptedRetired()
+        : const AssignmentWriteResult.inactive();
   }
 
   final statusOptions = controller.statusOptions(siteUrl);
@@ -72,7 +87,7 @@ Future<void> showAssignmentEditor({
       () =>
           controller.search(session.siteUrl, session.target, suggestions, term),
     ),
-    save: (assignee, {note, status}) => fromPicker(
+    save: (assignee, {note, status}) => writeFromPicker(
       () => controller.assign(
         session.siteUrl,
         session.target,
@@ -83,10 +98,12 @@ Future<void> showAssignmentEditor({
     ),
     remove: existing == null
         ? null
-        : () => fromPicker(
+        : () => writeFromPicker(
             () => controller.unassign(session.siteUrl, session.target),
           ),
-    onComplete: close,
+    onComplete: () {
+      if (currentPicker()) close();
+    },
     onCancel: close,
   );
   if (drawer) {
@@ -328,8 +345,9 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       _error = null;
     });
     String? error;
+    var completed = false;
     try {
-      error = await widget.save(
+      final result = await widget.save(
         selected,
         note: note.trim().isEmpty ? null : note,
         // Preserve serialized status until independently loaded settings arrive.
@@ -337,6 +355,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
             ? _nullableText(_status)
             : widget.existing?.status,
       );
+      completed = result.kind == AssignmentWriteKind.applied;
+      error = assignmentWriteMessage(result);
     } catch (caught) {
       error = _errorText(caught);
     }
@@ -345,12 +365,12 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       _saving = false;
       _error = error;
     });
-    if (error == null) {
+    if (completed) {
       // PopScope exposes the successful write's canPop state next frame.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) widget.onComplete?.call();
       });
-    } else {
+    } else if (error != null) {
       _revealError();
     }
   }
@@ -363,8 +383,11 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       _error = null;
     });
     String? error;
+    var completed = false;
     try {
-      error = await remove();
+      final result = await remove();
+      completed = result.kind == AssignmentWriteKind.applied;
+      error = assignmentWriteMessage(result);
     } catch (caught) {
       error = _errorText(caught);
     }
@@ -373,11 +396,11 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       _saving = false;
       _error = error;
     });
-    if (error == null) {
+    if (completed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) widget.onComplete?.call();
       });
-    } else {
+    } else if (error != null) {
       _revealError();
     }
   }

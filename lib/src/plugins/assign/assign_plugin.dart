@@ -17,6 +17,7 @@ import 'assignment.dart';
 import 'assignment_controller.dart';
 import 'assignment_sheet.dart';
 import 'assignment_topic_list.dart';
+import 'assignment_write_feedback.dart';
 
 export 'assign_data.dart';
 
@@ -972,7 +973,7 @@ Future<void> _removeAssignment({
   final toast = DToast.maybeOf(context);
   final result = await controller.unassignForUndo(siteUrl, target, assignment);
   if (toast?.isDisposed != false) return;
-  if (result.error case final error?) {
+  if (assignmentWriteMessage(result.outcome) case final error?) {
     toast!.add(DToastOptions(description: error, type: DToastType.error));
     return;
   }
@@ -1002,7 +1003,8 @@ Future<void> _restoreAssignment({
   required AssignmentController controller,
   required AssignmentRestorePermit permit,
 }) async {
-  final error = await controller.restoreAssignment(permit);
+  final result = await controller.restoreAssignment(permit);
+  final error = assignmentWriteMessage(result);
   if (error == null || toast.isDisposed) return;
   toast.add(DToastOptions(description: error, type: DToastType.error));
 }

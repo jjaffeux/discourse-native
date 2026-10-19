@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import 'post_reactors.dart';
 import 'reaction.dart';
+import 'reaction_toggle_result.dart';
 import 'reactions_api.dart';
 import 'reactions_settings.dart';
 
@@ -173,13 +174,18 @@ class ReactionsController extends FrameSafeNotifier {
     return latest ?? fallback;
   }
 
-  Future<String?> toggleFromPicker(
+  Future<ReactionToggleResult> toggleFromPicker(
     ReactionPickerSession session,
     Post fallback,
     String reaction,
   ) {
     final latest = pickerPost(session, fallback);
-    if (latest == null || !latest.canReact) return Future.value(null);
+    if (latest == null) {
+      return Future.value(const ReactionToggleResult.inactive());
+    }
+    if (!latest.canReact) {
+      return Future.value(const ReactionToggleResult.unchanged());
+    }
     return toggle(
       latest.reactions == null ? fallback : latest,
       reaction,
@@ -240,27 +246,51 @@ class ReactionsController extends FrameSafeNotifier {
     }
   }
 
-  Future<String?> toggle(
+  Future<ReactionToggleResult> toggle(
     Post post,
     String reaction, {
     required String siteUrl,
   }) async {
-    if (isDisposed || !post.canReact) return null;
+    if (isDisposed) return const ReactionToggleResult.inactive();
+    if (!post.canReact) return const ReactionToggleResult.unchanged();
     final lease = _requestHost.capture(siteUrl);
-    if (!_posts.beginWrite(siteUrl, post.id)) return null;
+    bool current() => !isDisposed && lease.isCurrent;
+    if (!current()) return const ReactionToggleResult.inactive();
+    if (!_posts.beginWrite(siteUrl, post.id)) {
+      return const ReactionToggleResult.busy();
+    }
     _changed(siteUrl, post.id);
 
     try {
-      final credential = await _requestHost.writeCredentialFor(siteUrl);
-      if (isDisposed || !lease.isCurrent) return null;
-      if (credential.failure case final failure?) return failure.message;
+      PluginWriteCredential credential;
+      try {
+        credential = await _requestHost.writeCredentialFor(siteUrl);
+      } on WriteException catch (error) {
+        return ReactionToggleResult.notSent(error, isCurrent: current());
+      } catch (error, stackTrace) {
+        return ReactionToggleResult.notSent(
+          WriteException(
+            WriteFailure.unreachable,
+            notSent: true,
+            cause: error,
+            causeStackTrace: stackTrace,
+          ),
+          isCurrent: current(),
+        );
+      }
+      if (!current()) return const ReactionToggleResult.inactive();
+      if (credential.failure case final failure?) {
+        return failure.failure == WriteFailure.unreachable || failure.notSent
+            ? ReactionToggleResult.notSent(failure, isCurrent: true)
+            : ReactionToggleResult.refused(failure, isCurrent: true);
+      }
       final apiKey = credential.credentials!.apiKey!;
-      final current = _posts.readPost(siteUrl, post.id) ?? post;
-      if (!current.canReact) return null;
+      final latest = _posts.readPost(siteUrl, post.id) ?? post;
+      if (!latest.canReact) return const ReactionToggleResult.unchanged();
       // Permission comes from the current post; an open picker retains the
       // plugin snapshot needed to apply or roll back after its pill vanishes.
-      final held = current.reactions ?? post.reactions;
-      if (held == null) return null;
+      final held = latest.reactions ?? post.reactions;
+      if (held == null) return const ReactionToggleResult.unchanged();
 
       final applied = lease.commit(() {
         _posts.updatePluginRecord(
@@ -274,9 +304,12 @@ class ReactionsController extends FrameSafeNotifier {
               ),
         );
       });
-      if (!applied || isDisposed || !lease.isCurrent) return null;
+      if (!applied || !current()) {
+        return const ReactionToggleResult.inactive();
+      }
 
       void revert() {
+        if (!current()) return;
         lease.commit(() {
           _posts.updatePluginRecord(
             siteUrl,
@@ -287,51 +320,73 @@ class ReactionsController extends FrameSafeNotifier {
         });
       }
 
+      var dispatched = false;
+      Post? fresh;
       try {
         final api = _writes;
         if (api == null) {
           throw StateError('Reactions write API is unavailable.');
         }
-        final fresh = await credential.credentials!.run(
-          () => api.toggleReaction(
+        fresh = await credential.credentials!.run(() {
+          dispatched = true;
+          return api.toggleReaction(
             siteUrl: siteUrl,
             apiKey: apiKey,
             postId: post.id,
             reaction: reaction,
-          ),
-        );
-        if (fresh?.reactions case final answered?) {
-          lease.commit(() {
-            _posts.updatePluginRecord(
-              siteUrl,
-              post.id,
-              reactionsDataKey,
-              (stored) => stored?.withMineOf(answered),
-            );
-          });
-        }
+          );
+        });
       } on WriteException catch (error) {
+        if (!dispatched || error.notSent) {
+          revert();
+          return ReactionToggleResult.notSent(error, isCurrent: current());
+        }
         if (error.statusCode == 404) {
-          lease.commit(() {
-            _posts.updatePluginRecord(
-              siteUrl,
-              post.id,
-              reactionsDataKey,
-              (_) => null,
-            );
-          });
-          return null;
+          if (current()) {
+            lease.commit(() {
+              _posts.updatePluginRecord(
+                siteUrl,
+                post.id,
+                reactionsDataKey,
+                (_) => null,
+              );
+            });
+          }
+          return ReactionToggleResult.unavailable(error, isCurrent: current());
         }
         revert();
-        return error.message;
+        return error.failure == WriteFailure.unreachable
+            ? ReactionToggleResult.uncertain(error, isCurrent: current())
+            : ReactionToggleResult.refused(error, isCurrent: current());
       } catch (error, stackTrace) {
-        if (lease.isCurrent) {
+        if (current()) {
           _report(error, stackTrace, 'post.toggleReaction');
         }
         revert();
-        return const WriteException(WriteFailure.unreachable).message;
+        final failure = WriteException(
+          WriteFailure.unreachable,
+          notSent: !dispatched,
+          cause: error,
+          causeStackTrace: stackTrace,
+        );
+        return dispatched
+            ? ReactionToggleResult.uncertain(failure, isCurrent: current())
+            : ReactionToggleResult.notSent(failure, isCurrent: current());
       }
-      return null;
+      if (!current()) return const ReactionToggleResult.acceptedRetired();
+      if (fresh?.reactions case final answered?) {
+        lease.commit(() {
+          _posts.updatePluginRecord(
+            siteUrl,
+            post.id,
+            reactionsDataKey,
+            (stored) => stored?.withMineOf(answered),
+          );
+        });
+      }
+      return current()
+          ? const ReactionToggleResult.applied()
+          : const ReactionToggleResult.acceptedRetired();
     } finally {
       lease.commit(() => _posts.endWrite(siteUrl, post.id));
       _changed(siteUrl, post.id);

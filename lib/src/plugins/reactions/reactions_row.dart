@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'reaction.dart';
 import 'reaction_picker.dart';
+import 'reaction_toggle_presentation.dart';
 import 'reactions_controller.dart';
 import 'reactions_services.dart';
 
@@ -138,7 +139,11 @@ class ReactionsRow extends StatelessWidget {
             interactionOwner: controller ?? this,
             enabled: !writeInFlight,
             onToggle: post.canReact && controller != null
-                ? () => controller.toggleFromPicker(session!, post, entry.id)
+                ? () async => (await controller.toggleFromPicker(
+                    session!,
+                    post,
+                    entry.id,
+                  )).message
                 : null,
             loadReactors: controller == null
                 ? () async {}

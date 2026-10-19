@@ -183,10 +183,7 @@ class _PostPollCard extends StatelessWidget {
         poll: target,
         optionIds: options,
       );
-      if (result.message case final message?) {
-        throw _PollWriteRefused(message);
-      }
-      if (result.reconciled) throw const _PollVoteReconciled();
+      _completeWrite(result);
     }
 
     Future<void> remove(Poll target) async {
@@ -203,10 +200,7 @@ class _PostPollCard extends StatelessWidget {
         post: post,
         poll: target,
       );
-      if (result.message case final message?) {
-        throw _PollWriteRefused(message);
-      }
-      if (result.reconciled) throw const _PollVoteReconciled();
+      _completeWrite(result);
     }
 
     return PollCard(
@@ -221,7 +215,7 @@ class _PostPollCard extends StatelessWidget {
       onVoteError: (error) {
         if (!context.mounted || session?.isCurrent != true) return;
         final text = switch (error) {
-          _PollVoteReconciled() => null,
+          _PollVoteReset() => null,
           final _PollWriteRefused refusal => refusal.message,
           _ => context.l10n.couldnTSaveThatVote,
         };
@@ -239,6 +233,34 @@ class _PostPollCard extends StatelessWidget {
 
   static String _slug(String? slug) =>
       slug == null || slug.isEmpty ? 'topic' : slug;
+
+  static void _completeWrite(PollVoteWriteResult result) {
+    switch (result.kind) {
+      case PollVoteWriteKind.saved:
+      case PollVoteWriteKind.acceptedRetired:
+      case PollVoteWriteKind.unchanged:
+      case PollVoteWriteKind.inactive:
+        return;
+      case PollVoteWriteKind.refused:
+        throw _PollWriteRefused(
+          result.refusalReason == PollVoteRefusalReason.archived
+              ? appL10n.votingIsUnavailableInArchivedTopics
+              : result.failure!.message,
+        );
+      case PollVoteWriteKind.notSent:
+        if (result.notSentReason ==
+                PollVoteNotSentReason.credentialsUnavailable ||
+            result.failure!.failure != WriteFailure.unreachable) {
+          throw _PollWriteRefused(result.failure!.message);
+        }
+        throw const _PollVoteReset();
+      case PollVoteWriteKind.busy:
+      case PollVoteWriteKind.uncertain:
+        throw const _PollVoteReset();
+      case PollVoteWriteKind.uncertainRefreshFailed:
+        throw result.recoveryFailure!;
+    }
+  }
 
   static Future<void> _connect(
     BuildContext context,
@@ -265,6 +287,6 @@ class _PollWriteRefused implements Exception {
   final String message;
 }
 
-class _PollVoteReconciled implements Exception {
-  const _PollVoteReconciled();
+class _PollVoteReset implements Exception {
+  const _PollVoteReset();
 }

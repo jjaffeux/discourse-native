@@ -9,6 +9,7 @@ import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/plugins/gifs/gif_picker_controller.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api_client.dart';
+import 'package:discourse_native/src/plugins/solved/solved_change_result.dart';
 import 'package:discourse_native/src/plugins/solved/solved_controller.dart';
 import 'package:discourse_native/src/plugins/solved/solved_post.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,7 +82,9 @@ void main() {
       expect(fixture.sent, isEmpty);
 
       fixture.requests.lifecycle.invalidate(_site);
-      await pending.timeout(const Duration(seconds: 2));
+      final result = await pending.timeout(const Duration(seconds: 2));
+      expect(result.kind, SolvedChangeKind.notSent);
+      expect(result.isCurrent, isFalse);
       blocker.complete(http.Response('{}', 200));
       await pumpEventQueue();
 
@@ -118,7 +121,14 @@ void main() {
         } else {
           response.complete(http.Response('{}', 200));
         }
-        await pending;
+        final result = await pending;
+        expect(
+          result.kind,
+          responseLost
+              ? SolvedChangeKind.uncertain
+              : SolvedChangeKind.acceptedRetired,
+        );
+        expect(result.isCurrent, isFalse);
         await pumpEventQueue();
 
         expect(fixture.sent, hasLength(1));
@@ -177,7 +187,7 @@ final class _Fixture {
     return blocker;
   }
 
-  Future<String?> acceptSolution() => solved.change(
+  Future<SolvedChangeResult> acceptSolution() => solved.change(
     siteUrl: _site,
     topic: const TopicDetail(id: 7, title: 'Question', stream: [2]),
     postId: 2,

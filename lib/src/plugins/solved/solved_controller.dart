@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 
+import 'solved_change_result.dart';
 import 'solved_post.dart';
 
 final class SolvedController {
@@ -29,7 +30,7 @@ final class SolvedController {
         (accepted ? state.canAccept : state.canUnaccept);
   }
 
-  Future<String?> change({
+  Future<SolvedChangeResult> change({
     required String siteUrl,
     required TopicDetail topic,
     required int postId,
@@ -37,25 +38,49 @@ final class SolvedController {
     required PluginSiteLease lease,
   }) async {
     bool current() => !_closed && lease.isCurrent;
+    if (!current()) return const SolvedChangeResult.inactive();
     final post = posts.readPost(siteUrl, postId);
-    if (!current() ||
-        post == null ||
-        !canChange(post, accepted) ||
-        !posts.beginWrite(siteUrl, postId)) {
-      return null;
+    if (post == null || !canChange(post, accepted)) {
+      return const SolvedChangeResult.unchanged();
+    }
+    if (!posts.beginWrite(siteUrl, postId)) {
+      return const SolvedChangeResult.busy();
     }
     try {
-      final credential = await requests.writeCredentialFor(siteUrl);
-      if (!current()) return null;
-      if (credential.failure case final failure?) return failure.message;
-      final latest = posts.readPost(siteUrl, postId);
-      if (latest == null || !canChange(latest, accepted)) return null;
+      PluginWriteCredential credential;
       try {
-        // Solved returns an accepted-answer array (or null). The shared write
-        // transport validates status; fresh guardian-filtered records are the
-        // source of truth, including a formerly accepted answer on this topic.
-        await credential.credentials!.run(
-          () => transport.pluginWriteJson(
+        credential = await requests.writeCredentialFor(siteUrl);
+      } on WriteException catch (error) {
+        return SolvedChangeResult.notSent(error, isCurrent: current());
+      } catch (error, stackTrace) {
+        return SolvedChangeResult.notSent(
+          WriteException(
+            WriteFailure.unreachable,
+            notSent: true,
+            cause: error,
+            causeStackTrace: stackTrace,
+          ),
+          isCurrent: current(),
+        );
+      }
+      if (!current()) return const SolvedChangeResult.inactive();
+      if (credential.failure case final failure?) {
+        return failure.failure == WriteFailure.unreachable || failure.notSent
+            ? SolvedChangeResult.notSent(failure, isCurrent: true)
+            : SolvedChangeResult.refused(failure, isCurrent: true);
+      }
+      final latest = posts.readPost(siteUrl, postId);
+      if (latest == null || !canChange(latest, accepted)) {
+        return const SolvedChangeResult.unchanged();
+      }
+      var dispatched = false;
+      try {
+        // Solved returns an accepted-answer array (or null). Guardian-filtered
+        // records remain the source of truth, including a formerly accepted
+        // answer on this topic.
+        await credential.credentials!.run(() {
+          dispatched = true;
+          return transport.pluginWriteJson(
             siteUrl: siteUrl,
             path: accepted
                 ? '/solution/accept.json'
@@ -63,9 +88,28 @@ final class SolvedController {
             method: 'POST',
             apiKey: credential.credentials!.apiKey!,
             body: {'id': postId},
-          ),
+          );
+        });
+      } on WriteException catch (error) {
+        if (!dispatched || error.notSent) {
+          return SolvedChangeResult.notSent(error, isCurrent: current());
+        }
+        return error.failure == WriteFailure.unreachable
+            ? SolvedChangeResult.uncertain(error, isCurrent: current())
+            : SolvedChangeResult.refused(error, isCurrent: current());
+      } catch (error, stackTrace) {
+        final failure = WriteException(
+          WriteFailure.unreachable,
+          notSent: !dispatched,
+          cause: error,
+          causeStackTrace: stackTrace,
         );
-        if (!current()) return null;
+        return dispatched
+            ? SolvedChangeResult.uncertain(failure, isCurrent: current())
+            : SolvedChangeResult.notSent(failure, isCurrent: current());
+      }
+      if (!current()) return const SolvedChangeResult.acceptedRetired();
+      try {
         final refreshIds = <int>{
           postId,
           for (final id in topic.stream)
@@ -78,7 +122,7 @@ final class SolvedController {
               id,
         };
         for (final id in refreshIds) {
-          if (!current()) return null;
+          if (!current()) return const SolvedChangeResult.acceptedRetired();
           await posts.refreshPost(
             siteUrl: siteUrl,
             topicId: topic.id,
@@ -87,15 +131,26 @@ final class SolvedController {
             lease: lease,
           );
         }
-        if (current()) await topics.reloadTopic(siteUrl, topic.id);
+        if (!current()) return const SolvedChangeResult.acceptedRetired();
+        await topics.reloadTopic(siteUrl, topic.id);
       } on WriteException catch (error) {
-        if (current()) return error.message;
-      } catch (_) {
-        if (current()) {
-          return const WriteException(WriteFailure.unreachable).message;
-        }
+        return current()
+            ? SolvedChangeResult.acceptedRefreshFailed(error)
+            : const SolvedChangeResult.acceptedRetired();
+      } catch (error, stackTrace) {
+        return current()
+            ? SolvedChangeResult.acceptedRefreshFailed(
+                WriteException(
+                  WriteFailure.unreachable,
+                  cause: error,
+                  causeStackTrace: stackTrace,
+                ),
+              )
+            : const SolvedChangeResult.acceptedRetired();
       }
-      return null;
+      return current()
+          ? const SolvedChangeResult.applied()
+          : const SolvedChangeResult.acceptedRetired();
     } finally {
       lease.commit(() => posts.endWrite(siteUrl, postId));
     }

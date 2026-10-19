@@ -193,6 +193,48 @@ void main() {
     },
   );
 
+  for (final size in [const Size(1000, 800), const Size(390, 844)]) {
+    for (final action in ['save', 'unassign']) {
+      testWidgets(
+        'accepted $action after account retirement keeps the editor open at width ${size.width}',
+        (tester) async {
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final fixture = await _fixture(tester);
+          await tester.pumpWidget(fixture.host());
+          await _openAndSelect(tester);
+          final editor = tester.state(find.byType(AssignmentEditor));
+          final response = Completer<Map<String, dynamic>>();
+          fixture.api.pendingWrite = response;
+          addTearDown(() {
+            if (!response.isCompleted) {
+              response.complete(const {'success': 'OK'});
+            }
+          });
+          await tester.tap(find.byKey(Key('assignment-$action')));
+          await tester.pump();
+          expect(
+            fixture.api.calls.where((call) => call.method == 'PUT'),
+            hasLength(1),
+          );
+
+          await fixture.shell.connectCurrentInstance();
+          await _loadTarget(fixture.shell);
+          response.complete(const {'success': 'OK'});
+          await tester.pumpAndSettle();
+
+          expect(tester.state(find.byType(AssignmentEditor)), same(editor));
+          expect(find.byKey(const Key('assignment-error')), findsNothing);
+          expect(fixture.assignments.isWriting(_site, fixture.target), isFalse);
+          expect(tester.takeException(), isNull);
+          await _close(tester);
+        },
+      );
+    }
+  }
+
   for (final target in [
     const AssignmentTarget.topic(7),
     const AssignmentTarget.post(12, topicId: 7),

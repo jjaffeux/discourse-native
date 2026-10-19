@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/api_credentials.dart';
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -13,6 +14,8 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction_picker.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_toggle_presentation.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_toggle_result.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
@@ -191,6 +194,64 @@ final class _AcceptedWrites implements ReactionsWriteApi {
   }
 }
 
+final class _RejectedExecutorRequests implements PluginRequestHost {
+  _RejectedExecutorRequests(this.failure);
+
+  final WriteException failure;
+  final delegate = FakePluginRequestHost();
+
+  @override
+  PluginSiteLease capture(String siteUrl) => delegate.capture(siteUrl);
+
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) =>
+      delegate.credentialsFor(siteUrl);
+
+  Future<T> _reject<T>(Future<T> Function() request) async => throw failure;
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async => (
+    credentials: PluginRequestCredentials(
+      apiKey: 'key',
+      clientId: '',
+      execute: _reject,
+    ),
+    failure: null,
+  );
+}
+
+final class _ControlledWrites implements ReactionsWriteApi {
+  final started = Completer<void>();
+  final response = Completer<Post?>();
+  int calls = 0;
+
+  @override
+  Future<Post?> toggleReaction({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required String reaction,
+    String? clientId,
+  }) {
+    calls++;
+    if (!started.isCompleted) started.complete();
+    return response.future;
+  }
+}
+
+Post _reactablePost({
+  Reactions reactions = const Reactions(
+    entries: [Reaction(id: 'clap', count: 1)],
+  ),
+}) => Post(
+  id: 7,
+  postNumber: 2,
+  username: 'author',
+  cooked: '<p>Post</p>',
+  canLike: true,
+  plugins: PluginData.none.withValue(reactionsDataKey, reactions),
+);
+
 final class _UnusedEmojiPreferences implements EmojiPreferenceStore {
   @override
   Future<void> clearHistory({
@@ -267,6 +328,285 @@ ReactionsController _controller({
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('toggle delivery outcomes', () {
+    test(
+      'retired credentials do not send or release the replacement lane',
+      () async {
+        final lifecycle = SiteLifecycle();
+        final credentials = _GatedCredentials();
+        final post = _reactablePost();
+        final posts = _LanePostHost([post]);
+        final writes = _ControlledWrites();
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: FakePluginRequestHost(
+            credentials: credentials,
+            lifecycle: lifecycle,
+          ),
+          posts: posts,
+          writes: writes,
+        );
+        addTearDown(controller.dispose);
+        final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+        await credentials.apiKeyStarted.future;
+        lifecycle.invalidate(_siteUrl);
+        credentials.apiKeyResult.complete('retired-key');
+        final result = await pending;
+        expect(result.kind, ReactionToggleKind.inactive);
+        expect(result.isCurrent, isFalse);
+        expect(writes.calls, 0);
+        expect(posts.posts[7], same(post));
+        expect(posts.writeInFlight(_siteUrl, 7), isTrue);
+      },
+    );
+
+    test(
+      'accepted retired response cannot overwrite a replacement account',
+      () async {
+        final lifecycle = SiteLifecycle();
+        final post = _reactablePost();
+        final posts = _LanePostHost([post]);
+        final writes = _ControlledWrites();
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: FakePluginRequestHost(
+            credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            lifecycle: lifecycle,
+          ),
+          posts: posts,
+          writes: writes,
+        );
+        addTearDown(controller.dispose);
+        final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+        await writes.started.future;
+        expect(posts.posts[7]!.reactions!.mine!.id, 'clap');
+        lifecycle.invalidate(_siteUrl);
+        final replacement = _reactablePost(
+          reactions: const Reactions(
+            entries: [Reaction(id: 'heart', count: 9)],
+            mine: Reaction(id: 'heart', canUndo: true),
+          ),
+        );
+        posts.posts[7] = replacement;
+        writes.response.complete(post);
+        final result = await pending;
+        expect(result.kind, ReactionToggleKind.acceptedRetired);
+        expect(result.isCurrent, isFalse);
+        expect(posts.posts[7], same(replacement));
+        expect(posts.writeInFlight(_siteUrl, 7), isTrue);
+      },
+    );
+
+    test(
+      'an accepted response merges only personalized reaction fields',
+      () async {
+        final post = _reactablePost();
+        final posts = _LanePostHost([post]);
+        final writes = _ControlledWrites();
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: FakePluginRequestHost(
+            credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          ),
+          posts: posts,
+          writes: writes,
+        );
+        addTearDown(controller.dispose);
+        final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+        await writes.started.future;
+        posts.posts[7] = _reactablePost(
+          reactions: const Reactions(
+            entries: [Reaction(id: 'clap', count: 8)],
+            userCount: 8,
+          ),
+        );
+        writes.response.complete(
+          _reactablePost(
+            reactions: const Reactions(
+              entries: [Reaction(id: 'clap', count: 2)],
+              mine: Reaction(id: 'clap', canUndo: true),
+              usedMainReaction: true,
+            ),
+          ),
+        );
+        final result = await pending;
+        expect(result.kind, ReactionToggleKind.applied);
+        expect(result.message, isNull);
+        expect(posts.posts[7]!.reactions!.entries, [
+          const Reaction(id: 'clap', count: 8),
+        ]);
+        expect(
+          posts.posts[7]!.reactions!.mine,
+          const Reaction(id: 'clap', canUndo: true),
+        );
+        expect(posts.posts[7]!.reactions!.userCount, 8);
+        expect(posts.writeInFlight(_siteUrl, 7), isFalse);
+      },
+    );
+
+    for (final (failure, kind) in [
+      (
+        const WriteException(WriteFailure.forbidden),
+        ReactionToggleKind.refused,
+      ),
+      (
+        const WriteException(WriteFailure.unreachable),
+        ReactionToggleKind.uncertain,
+      ),
+      (
+        const WriteException(WriteFailure.unreachable, notSent: true),
+        ReactionToggleKind.notSent,
+      ),
+      (
+        const WriteException(
+          WriteFailure.validation,
+          statusCode: 404,
+          notSent: true,
+        ),
+        ReactionToggleKind.notSent,
+      ),
+    ]) {
+      test(
+        '${kind.name} preserves failure details and rolls back optimism',
+        () async {
+          final post = _reactablePost();
+          final posts = _LanePostHost([post]);
+          final writes = _ControlledWrites();
+          final controller = _controller(
+            api: _SequencedReactorsApi([]),
+            requests: FakePluginRequestHost(
+              credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            ),
+            posts: posts,
+            writes: writes,
+          );
+          addTearDown(controller.dispose);
+          final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+          await writes.started.future;
+          expect(posts.posts[7]!.reactions!.mine!.id, 'clap');
+          writes.response.completeError(failure);
+          final result = await pending;
+          expect(result.kind, kind);
+          expect(result.failure, same(failure));
+          expect(result.message, failure.message);
+          expect(posts.posts[7]!.reactions, same(post.reactions));
+          expect(posts.writeInFlight(_siteUrl, 7), isFalse);
+        },
+      );
+    }
+
+    test(
+      'a missing reaction endpoint is unavailable and remains silent',
+      () async {
+        final post = _reactablePost();
+        final posts = _LanePostHost([post]);
+        final writes = _ControlledWrites();
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: FakePluginRequestHost(
+            credentials: FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          ),
+          posts: posts,
+          writes: writes,
+        );
+        addTearDown(controller.dispose);
+        final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+        await writes.started.future;
+        const failure = WriteException(
+          WriteFailure.validation,
+          statusCode: 404,
+        );
+        writes.response.completeError(failure);
+        final result = await pending;
+        expect(result.kind, ReactionToggleKind.unavailable);
+        expect(result.failure, same(failure));
+        expect(result.message, isNull);
+        expect(posts.posts[7]!.reactions, isNull);
+        expect(posts.writeInFlight(_siteUrl, 7), isFalse);
+      },
+    );
+
+    test(
+      'credential lookup failure is known not sent before optimism',
+      () async {
+        final credentials = _GatedCredentials();
+        final post = _reactablePost();
+        final posts = _LanePostHost([post]);
+        final writes = _ControlledWrites();
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: FakePluginRequestHost(credentials: credentials),
+          posts: posts,
+          writes: writes,
+        );
+        addTearDown(controller.dispose);
+        final pending = controller.toggle(post, 'clap', siteUrl: _siteUrl);
+        await credentials.apiKeyStarted.future;
+        final failure = StateError('credential storage failed');
+        credentials.apiKeyResult.completeError(failure);
+        final result = await pending;
+        expect(result.kind, ReactionToggleKind.notSent);
+        expect(result.failure!.cause, same(failure));
+        expect(writes.calls, 0);
+        expect(posts.posts[7], same(post));
+        expect(posts.writeInFlight(_siteUrl, 7), isFalse);
+      },
+    );
+
+    test(
+      'an executor 404 before dispatch is not an unavailable endpoint',
+      () async {
+        final post = _reactablePost();
+        final posts = _LanePostHost([post]);
+        final writes = _ControlledWrites();
+        const failure = WriteException(
+          WriteFailure.validation,
+          statusCode: 404,
+        );
+        final controller = _controller(
+          api: _SequencedReactorsApi([]),
+          requests: _RejectedExecutorRequests(failure),
+          posts: posts,
+          writes: writes,
+        );
+        addTearDown(controller.dispose);
+        final result = await controller.toggle(post, 'clap', siteUrl: _siteUrl);
+        expect(result.kind, ReactionToggleKind.notSent);
+        expect(result.failure, same(failure));
+        expect(result.message, failure.message);
+        expect(writes.calls, 0);
+        expect(posts.posts[7]!.reactions, same(post.reactions));
+        expect(posts.writeInFlight(_siteUrl, 7), isFalse);
+      },
+    );
+
+    test('a busy lane differs from an unchanged reaction target', () async {
+      final post = _reactablePost();
+      final posts = _LanePostHost([post]);
+      final controller = _controller(
+        api: _SequencedReactorsApi([]),
+        requests: FakePluginRequestHost(),
+        posts: posts,
+      );
+      addTearDown(controller.dispose);
+      posts.beginWrite(_siteUrl, 7);
+      expect(
+        (await controller.toggle(post, 'clap', siteUrl: _siteUrl)).kind,
+        ReactionToggleKind.busy,
+      );
+      const unreactable = Post(
+        id: 8,
+        postNumber: 3,
+        username: 'author',
+        cooked: '',
+      );
+      expect(
+        (await controller.toggle(unreactable, 'clap', siteUrl: _siteUrl)).kind,
+        ReactionToggleKind.unchanged,
+      );
+    });
+  });
 
   group('request replacement and finalizers', () {
     test('an old finalizer cannot release a replacement request', () async {
@@ -631,8 +971,8 @@ void main() {
 
         changed.clear();
         expect(
-          await controller.toggle(post, 'clap', siteUrl: _siteUrl),
-          isNull,
+          (await controller.toggle(post, 'clap', siteUrl: _siteUrl)).kind,
+          ReactionToggleKind.applied,
         );
         expect(writes.toggled, [(7, 'clap')]);
         expect(changed, [(_siteUrl, 7), (_siteUrl, 7)]);

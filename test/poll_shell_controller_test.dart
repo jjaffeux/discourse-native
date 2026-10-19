@@ -8,12 +8,14 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_controller.dart';
 import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll_services.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
+import 'package:discourse_native/src/plugins/reactions/reaction_toggle_result.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_controller.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -83,14 +85,119 @@ final class _PerSiteCurrentUserApi extends FakeDiscourseApi {
   }
 }
 
+final class _GatedPollAuthenticator extends FakeAuthenticator {
+  Completer<void>? gate;
+  final started = Completer<void>();
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    if (gate case final gate?) {
+      if (!started.isCompleted) started.complete();
+      await gate.future;
+    }
+    return super.apiKeyFor(siteUrl);
+  }
+}
+
+final class _RejectedPollExecutor implements PluginRequestHost {
+  _RejectedPollExecutor(this.failure);
+
+  final Object failure;
+  final delegate = FakePluginRequestHost();
+
+  @override
+  PluginSiteLease capture(String siteUrl) => delegate.capture(siteUrl);
+
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) =>
+      delegate.credentialsFor(siteUrl);
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async => (
+    credentials: PluginRequestCredentials(
+      apiKey: 'api-key',
+      clientId: '',
+      execute: <T>(request) => Future<T>.error(failure),
+    ),
+    failure: null,
+  );
+}
+
+final class _FailingPollRecoveryHost
+    implements
+        PluginPostHost,
+        PluginFreshAccountHost,
+        PluginAccountConnectionHost {
+  _FailingPollRecoveryHost(this.post, this.failure);
+
+  final Post post;
+  final Object failure;
+  bool writing = false;
+  int refreshes = 0;
+  int updates = 0;
+
+  @override
+  bool beginWrite(String siteUrl, int postId) {
+    if (writing) return false;
+    writing = true;
+    return true;
+  }
+
+  @override
+  void endWrite(String siteUrl, int postId) => writing = false;
+
+  @override
+  Post? readPost(String siteUrl, int postId) => post;
+
+  @override
+  bool topicArchived(String siteUrl, int topicId) => false;
+
+  @override
+  bool writeInFlight(String siteUrl, int postId) => writing;
+
+  @override
+  Future<void> refreshPost({
+    required String siteUrl,
+    required int topicId,
+    required int postId,
+    required String? apiKey,
+    required PluginSiteLease lease,
+  }) async {
+    refreshes++;
+    throw failure;
+  }
+
+  @override
+  void updatePluginRecord<T extends Object>(
+    String siteUrl,
+    int postId,
+    PluginDataKey<T> key,
+    T? Function(T?) update,
+  ) => updates++;
+
+  @override
+  PluginFreshAccountProfile? profileFor(String siteUrl) => null;
+
+  @override
+  T? recordFor<T extends Object>(String siteUrl, PluginDataKey<T> key) => null;
+
+  @override
+  bool isConnected(String siteUrl) => true;
+
+  @override
+  Future<String?> connect(String siteUrl) async => null;
+}
+
 Poll _poll({
   String name = 'poll',
+  PollStatus status = PollStatus.open,
   int voters = 1,
   int firstVotes = 1,
   List<String> selected = const ['a'],
 }) => Poll(
   id: name.hashCode,
   name: name,
+  status: status,
   voters: voters,
   options: [
     PollOption(id: 'a', html: 'A', votes: firstVotes),
@@ -428,7 +535,8 @@ void main() {
           case 'reaction':
             await _reactions(shell).toggle(post, 'clap', siteUrl: _site);
           case 'poll':
-            await _castPollVote(shell, post, poll, ['b']);
+            final result = await _castPollVote(shell, post, poll, ['b']);
+            expect(result.kind, PollVoteWriteKind.inactive);
         }
 
         expect(replaced, isTrue);
@@ -446,6 +554,96 @@ void main() {
   });
 
   group('successful poll writes', () {
+    test('retirement during credential lookup does not send a vote', () async {
+      final initialPoll = _poll();
+      final api = _api(initial: _post(poll: initialPoll));
+      final authenticator = _GatedPollAuthenticator();
+      final (:shell, tracker: _) = await _loadShell(
+        api,
+        authenticator: authenticator,
+      );
+      addTearDown(shell.dispose);
+      final gate = Completer<void>();
+      authenticator.gate = gate;
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+
+      final writing = _castPollVote(
+        shell,
+        shell.store.read<Post>(_site, 11)!,
+        initialPoll,
+        const ['b'],
+      );
+      await authenticator.started.future;
+      shell.lifecycle.invalidate(_site);
+      shell.endPluginPostWrite(_site, 11);
+      shell.beginPluginPostWrite(_site, 11);
+
+      gate.complete();
+      final result = await writing;
+
+      expect(result.kind, PollVoteWriteKind.inactive);
+      expect(result.failure, isNull);
+      expect(api.pollVotes, isEmpty);
+      expect(api.postFetches, isEmpty);
+      expect(shell.pluginPostWriteInFlight(_site, 11), isTrue);
+    });
+
+    for (final retirement in ['account', 'controller']) {
+      test(
+        'accepted vote stays accepted after $retirement retirement',
+        () async {
+          final initialPoll = _poll();
+          final answered = _poll(
+            voters: 2,
+            firstVotes: 1,
+            selected: const ['b'],
+          );
+          final gate = Completer<void>();
+          final api = _api(
+            initial: _post(poll: initialPoll),
+            pollGate: gate,
+            voteResponses: {
+              FakeDiscourseApi.pollVoteKey(11, 'poll'): _answer(answered),
+            },
+          );
+          final (:shell, tracker: _) = await _loadShell(api);
+          addTearDown(shell.dispose);
+          addTearDown(() {
+            if (!gate.isCompleted) gate.complete();
+          });
+          final initial = shell.store.read<Post>(_site, 11)!;
+          final writing = _castPollVote(shell, initial, initialPoll, const [
+            'b',
+          ]);
+          await _waitFor(
+            () => api.pollVotes.isNotEmpty,
+            description: 'the accepted poll request',
+          );
+          if (retirement == 'account') {
+            shell.lifecycle.invalidate(_site);
+            shell.endPluginPostWrite(_site, 11);
+            shell.beginPluginPostWrite(_site, 11);
+          } else {
+            await shell.pluginSession.close();
+          }
+
+          gate.complete();
+          final result = await writing;
+
+          expect(result.kind, PollVoteWriteKind.acceptedRetired);
+          expect(result.failure, isNull);
+          expect(api.pollVotes, hasLength(1));
+          expect(shell.store.read<Post>(_site, 11), same(initial));
+          expect(api.postFetches, isEmpty);
+          if (retirement == 'account') {
+            expect(shell.pluginPostWriteInFlight(_site, 11), isTrue);
+          }
+        },
+      );
+    }
+
     test('merge only the named personalized poll after voting', () async {
       final initialPoll = _poll();
       final untouched = _poll(name: 'second', voters: 4, firstVotes: 2);
@@ -474,8 +672,8 @@ void main() {
         const ['b'],
       );
 
-      expect(result.message, isNull);
-      expect(result.reconciled, isFalse);
+      expect(result.kind, PollVoteWriteKind.saved);
+      expect(result.failure, isNull);
       expect(api.pollVotes, hasLength(1));
       expect(api.pollVotes.single.postId, 11);
       expect(api.pollVotes.single.pollName, 'poll');
@@ -504,8 +702,8 @@ void main() {
         initialPoll,
       );
 
-      expect(result.message, isNull);
-      expect(result.reconciled, isFalse);
+      expect(result.kind, PollVoteWriteKind.saved);
+      expect(result.failure, isNull);
       expect(api.pollVotesRemoved, [(postId: 11, pollName: 'poll')]);
       expect(
         shell.store.read<Post>(_site, 11)?.polls?['poll']?.selection,
@@ -515,6 +713,147 @@ void main() {
   });
 
   group('failed and uncertain poll writes', () {
+    for (final failure in <Object>[
+      const WriteException(WriteFailure.unreachable),
+      StateError('Account executor refused admission'),
+    ]) {
+      test('executor rejection is unsent for ${failure.runtimeType}', () async {
+        final initialPoll = _poll();
+        final initial = _post(poll: initialPoll);
+        final host = _FailingPollRecoveryHost(
+          initial,
+          StateError('An unsent vote must not recover'),
+        );
+        final api = _api(initial: initial);
+        final controller = PollController(
+          api: api,
+          requests: _RejectedPollExecutor(failure),
+          posts: host,
+          siteState: PluginSiteStateHost(
+            currentUserFor: (_) => null,
+            siteConfigFor: (_) => const SiteConfig.unknown(),
+          ),
+          freshAccount: host,
+          accounts: host,
+        );
+        addTearDown(controller.dispose);
+
+        final result = await controller.castVote(
+          siteUrl: _site,
+          topicId: 7,
+          archived: false,
+          post: initial,
+          poll: initialPoll,
+          optionIds: const ['b'],
+        );
+
+        expect(result.kind, PollVoteWriteKind.notSent);
+        expect(result.notSentReason, PollVoteNotSentReason.requestNotSent);
+        expect(result.failure?.failure, WriteFailure.unreachable);
+        expect(api.pollVotes, isEmpty);
+        expect(host.refreshes, 0);
+        expect(host.updates, 0);
+        expect(host.writing, isFalse);
+      });
+    }
+
+    test('a proven unsent request does not attempt recovery', () async {
+      final initialPoll = _poll();
+      const failure = WriteException(WriteFailure.unreachable, notSent: true);
+      final api = _api(
+        initial: _post(poll: initialPoll),
+        pollFailure: failure,
+      );
+      final (:shell, tracker: _) = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      final result = await _castPollVote(
+        shell,
+        shell.store.read<Post>(_site, 11)!,
+        initialPoll,
+        const ['b'],
+      );
+
+      expect(result.kind, PollVoteWriteKind.notSent);
+      expect(result.notSentReason, PollVoteNotSentReason.requestNotSent);
+      expect(result.failure, same(failure));
+      expect(api.pollVotes, hasLength(1));
+      expect(api.postFetches, isEmpty);
+      expect(shell.store.read<Post>(_site, 11)?.polls?['poll'], initialPoll);
+      expect(shell.pluginPostWriteInFlight(_site, 11), isFalse);
+    });
+
+    test('credential read failure is unsent rather than uncertain', () async {
+      final initialPoll = _poll();
+      final api = _api(initial: _post(poll: initialPoll));
+      final authenticator = FakeAuthenticator();
+      final (:shell, tracker: _) = await _loadShell(
+        api,
+        authenticator: authenticator,
+      );
+      addTearDown(shell.dispose);
+      authenticator.apiKeyFailure = StateError(
+        'Credential storage unavailable',
+      );
+
+      final result = await _castPollVote(
+        shell,
+        shell.store.read<Post>(_site, 11)!,
+        initialPoll,
+        const ['b'],
+      );
+
+      expect(result.kind, PollVoteWriteKind.notSent);
+      expect(
+        result.notSentReason,
+        PollVoteNotSentReason.credentialsUnavailable,
+      );
+      expect(result.failure?.failure, WriteFailure.unreachable);
+      expect(api.pollVotes, isEmpty);
+      expect(api.postFetches, isEmpty);
+      expect(shell.pluginPostWriteInFlight(_site, 11), isFalse);
+    });
+
+    test('preserves uncertainty when the recovery host throws', () async {
+      final initialPoll = _poll();
+      final initial = _post(poll: initialPoll);
+      const failure = WriteException(WriteFailure.unreachable);
+      final recoveryFailure = StateError('Post refresh failed');
+      final host = _FailingPollRecoveryHost(initial, recoveryFailure);
+      final api = _api(initial: initial, pollFailure: failure);
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'api-key';
+      final controller = PollController(
+        api: api,
+        requests: FakePluginRequestHost(credentials: credentials),
+        posts: host,
+        siteState: PluginSiteStateHost(
+          currentUserFor: (_) => null,
+          siteConfigFor: (_) => const SiteConfig.unknown(),
+        ),
+        freshAccount: host,
+        accounts: host,
+      );
+      addTearDown(controller.dispose);
+
+      final result = await controller.castVote(
+        siteUrl: _site,
+        topicId: 7,
+        archived: false,
+        post: initial,
+        poll: initialPoll,
+        optionIds: const ['b'],
+      );
+
+      expect(result.kind, PollVoteWriteKind.uncertainRefreshFailed);
+      expect(result.failure, same(failure));
+      expect(result.recoveryFailure, same(recoveryFailure));
+      expect(api.pollVotes, hasLength(1));
+      expect(host.refreshes, 1);
+      expect(host.updates, 0);
+      expect(host.writing, isFalse);
+      expect(host.post, same(initial));
+    });
+
     test(
       'preserve the saved selection and report a definite refusal',
       () async {
@@ -536,8 +875,9 @@ void main() {
           const ['b'],
         );
 
-        expect(result.message, 'This poll is closed.');
-        expect(result.reconciled, isFalse);
+        expect(result.kind, PollVoteWriteKind.refused);
+        expect(result.failure?.failure, WriteFailure.validation);
+        expect(result.failure?.errors, ['This poll is closed.']);
         expect(api.pollVotes.single.postId, 11);
         expect(api.pollVotes.single.pollName, 'poll');
         expect(api.pollVotes.single.options, ['b']);
@@ -573,8 +913,9 @@ void main() {
           const ['b'],
         );
 
-        expect(result.message, isNull);
-        expect(result.reconciled, isTrue);
+        expect(result.kind, PollVoteWriteKind.uncertain);
+        expect(result.failure?.failure, WriteFailure.unreachable);
+        expect(result.recoveryFailure, isNull);
         expect(api.pollVotes.single.postId, 11);
         expect(api.pollVotes.single.pollName, 'poll');
         expect(api.pollVotes.single.options, ['b']);
@@ -688,8 +1029,9 @@ void main() {
             final result = await writing;
             await pumpEventQueue();
 
-            expect(result.message, isNull);
-            expect(result.reconciled, isTrue);
+            expect(result.kind, PollVoteWriteKind.uncertain);
+            expect(result.failure?.failure, WriteFailure.unreachable);
+            expect(result.recoveryFailure, isNull);
             if (change == 'no account change') {
               expect(api.postFetches, [
                 [11],
@@ -789,7 +1131,7 @@ void main() {
 
           gate.complete();
           final result = await voting;
-          expect(result.message, isNull);
+          expect(result.kind, PollVoteWriteKind.saved);
           await pumpEventQueue();
           expect(api.postFetches, isEmpty);
 
@@ -843,8 +1185,8 @@ void main() {
 
       gate.complete();
       final result = await voting;
-      expect(result.message, isNull);
-      expect(result.reconciled, isFalse);
+      expect(result.kind, PollVoteWriteKind.saved);
+      expect(result.failure, isNull);
       await pumpEventQueue();
 
       expect(api.postFetches, [
@@ -855,7 +1197,7 @@ void main() {
     });
 
     test(
-      'reconciles a competing action without issuing a second write',
+      'reports a busy competing action without issuing a second write',
       () async {
         final gate = Completer<void>();
         final initialPoll = _poll();
@@ -889,15 +1231,15 @@ void main() {
           initialPoll,
         );
 
-        expect(competing.message, isNull);
-        expect(competing.reconciled, isTrue);
+        expect(competing.kind, PollVoteWriteKind.busy);
+        expect(competing.failure, isNull);
         expect(api.pollVotes, hasLength(1));
         expect(api.pollVotesRemoved, isEmpty);
 
         gate.complete();
         final result = await voting;
-        expect(result.message, isNull);
-        expect(result.reconciled, isFalse);
+        expect(result.kind, PollVoteWriteKind.saved);
+        expect(result.failure, isNull);
         expect(shell.store.read<Post>(_site, 11)?.polls?['poll'], answered);
       },
     );
@@ -954,6 +1296,49 @@ void main() {
   });
 
   group('vote admission', () {
+    test('closed poll is unchanged without sending a vote', () async {
+      final initialPoll = _poll(status: PollStatus.closed);
+      final api = _api(initial: _post(poll: initialPoll));
+      final (:shell, tracker: _) = await _loadShell(api);
+      addTearDown(shell.dispose);
+
+      final result = await _castPollVote(
+        shell,
+        shell.store.read<Post>(_site, 11)!,
+        initialPoll,
+        const ['b'],
+      );
+
+      expect(result.kind, PollVoteWriteKind.unchanged);
+      expect(result.failure, isNull);
+      expect(api.pollVotes, isEmpty);
+      expect(shell.pluginPostWriteInFlight(_site, 11), isFalse);
+    });
+
+    test('disposed poll controller is inactive without sending', () async {
+      final initialPoll = _poll();
+      final api = _api(initial: _post(poll: initialPoll));
+      final (:shell, tracker: _) = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final controller = _polls(shell);
+      final initial = shell.store.read<Post>(_site, 11)!;
+      await shell.pluginSession.close();
+
+      final result = await controller.castVote(
+        siteUrl: _site,
+        topicId: 7,
+        archived: false,
+        post: initial,
+        poll: initialPoll,
+        optionIds: const ['b'],
+      );
+
+      expect(result.kind, PollVoteWriteKind.inactive);
+      expect(result.failure, isNull);
+      expect(api.pollVotes, isEmpty);
+      expect(shell.pluginPostWriteInFlight(_site, 11), isFalse);
+    });
+
     test(
       'rejects an archived topic without calling the plugin route',
       () async {
@@ -974,8 +1359,9 @@ void main() {
           const ['b'],
         );
 
-        expect(result.message, 'Voting is unavailable in archived topics.');
-        expect(result.reconciled, isFalse);
+        expect(result.kind, PollVoteWriteKind.refused);
+        expect(result.refusalReason, PollVoteRefusalReason.archived);
+        expect(result.failure, isNull);
         expect(api.pollVotes, isEmpty);
       },
     );
@@ -1026,7 +1412,9 @@ void main() {
         );
 
         gate.complete();
-        expect(await reacting, 'Reaction refused.');
+        final reactionResult = await reacting;
+        expect(reactionResult.kind, ReactionToggleKind.refused);
+        expect(reactionResult.failure?.errors, ['Reaction refused.']);
 
         final stored = shell.store.read<Post>(_site, 11)!;
         expect(stored.reactions, reactions);

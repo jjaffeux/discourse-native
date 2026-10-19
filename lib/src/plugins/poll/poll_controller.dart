@@ -1,23 +1,44 @@
 // ignore_for_file: prefer_initializing_formals
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/l10n/strings.dart';
 
 import 'poll.dart';
 import 'poll_data.dart';
 import 'polls_api.dart';
 
-/// [reconciled] forces optimistic selection to reset after a failed write was
-/// resolved by re-reading the owning post.
+enum PollVoteWriteKind {
+  saved,
+  acceptedRetired,
+  unchanged,
+  busy,
+  inactive,
+  refused,
+  notSent,
+  uncertain,
+  uncertainRefreshFailed,
+}
+
+enum PollVoteRefusalReason { archived }
+
+enum PollVoteNotSentReason { credentialsUnavailable, requestNotSent }
+
 final class PollVoteWriteResult {
-  const PollVoteWriteResult.saved() : message = null, reconciled = false;
+  const PollVoteWriteResult._(
+    this.kind, {
+    this.failure,
+    this.refusalReason,
+    this.notSentReason,
+    this.recoveryFailure,
+  });
 
-  const PollVoteWriteResult.reconciled() : message = null, reconciled = true;
+  final PollVoteWriteKind kind;
+  final WriteException? failure;
+  final PollVoteRefusalReason? refusalReason;
+  final PollVoteNotSentReason? notSentReason;
 
-  const PollVoteWriteResult.refused(this.message) : reconciled = false;
-
-  final String? message;
-  final bool reconciled;
+  /// A completed refresh cannot prove freshness through the host's void API.
+  /// This records only a recovery exception that the host actually surfaced.
+  final Object? recoveryFailure;
 }
 
 class PollController extends FrameSafeNotifier
@@ -107,53 +128,99 @@ class PollController extends FrameSafeNotifier
     required Poll poll,
     required List<String>? options,
   }) async {
-    if (isDisposed || !poll.isOpen) return const PollVoteWriteResult.saved();
+    if (isDisposed) {
+      return const PollVoteWriteResult._(PollVoteWriteKind.inactive);
+    }
+    if (!poll.isOpen) {
+      return const PollVoteWriteResult._(PollVoteWriteKind.unchanged);
+    }
     if (archived || _posts.topicArchived(siteUrl, topicId)) {
-      return PollVoteWriteResult.refused(
-        appL10n.votingIsUnavailableInArchivedTopics,
+      return const PollVoteWriteResult._(
+        PollVoteWriteKind.refused,
+        refusalReason: PollVoteRefusalReason.archived,
       );
     }
     final lease = _requests.capture(siteUrl);
     if (!_posts.beginWrite(siteUrl, post.id)) {
-      return const PollVoteWriteResult.reconciled();
+      return const PollVoteWriteResult._(PollVoteWriteKind.busy);
     }
     notifySafely();
     try {
-      final credential = await _requests.writeCredentialFor(siteUrl);
+      final PluginWriteCredential credential;
+      try {
+        credential = await _requests.writeCredentialFor(siteUrl);
+      } catch (error, stackTrace) {
+        if (isDisposed || !lease.isCurrent) {
+          return const PollVoteWriteResult._(PollVoteWriteKind.inactive);
+        }
+        final failure = error is WriteException
+            ? error
+            : WriteException(
+                WriteFailure.unreachable,
+                notSent: true,
+                cause: error,
+                causeStackTrace: stackTrace,
+              );
+        return PollVoteWriteResult._(
+          PollVoteWriteKind.notSent,
+          failure: failure,
+          notSentReason: PollVoteNotSentReason.credentialsUnavailable,
+        );
+      }
       if (isDisposed || !lease.isCurrent) {
-        return const PollVoteWriteResult.saved();
+        return const PollVoteWriteResult._(PollVoteWriteKind.inactive);
       }
       if (credential.failure case final failure?) {
-        return PollVoteWriteResult.refused(failure.message);
+        return PollVoteWriteResult._(
+          failure.failure == WriteFailure.unreachable
+              ? PollVoteWriteKind.notSent
+              : PollVoteWriteKind.refused,
+          failure: failure,
+          notSentReason: failure.failure == WriteFailure.unreachable
+              ? PollVoteNotSentReason.credentialsUnavailable
+              : null,
+        );
       }
       final apiKey = credential.credentials!.apiKey!;
 
       final PollVoteResponse answer;
+      var dispatched = false;
       try {
         answer = options == null
-            ? await credential.credentials!.run(
-                () => _api.removePollVote(
+            ? await credential.credentials!.run(() {
+                dispatched = true;
+                return _api.removePollVote(
                   siteUrl: siteUrl,
                   apiKey: apiKey,
                   postId: post.id,
                   pollName: poll.name,
-                ),
-              )
-            : await credential.credentials!.run(
-                () => _api.votePoll(
+                );
+              })
+            : await credential.credentials!.run(() {
+                dispatched = true;
+                return _api.votePoll(
                   siteUrl: siteUrl,
                   apiKey: apiKey,
                   postId: post.id,
                   pollName: poll.name,
                   options: options,
-                ),
-              );
+                );
+              });
       } on WriteException catch (error) {
-        if (error.failure != WriteFailure.unreachable) {
-          return PollVoteWriteResult.refused(error.message);
+        if (!dispatched || error.notSent) {
+          return PollVoteWriteResult._(
+            PollVoteWriteKind.notSent,
+            failure: error,
+            notSentReason: PollVoteNotSentReason.requestNotSent,
+          );
         }
-        await _refresh(siteUrl, topicId, post.id, apiKey, lease);
-        return const PollVoteWriteResult.reconciled();
+        if (error.failure != WriteFailure.unreachable) {
+          return PollVoteWriteResult._(
+            PollVoteWriteKind.refused,
+            failure: error,
+          );
+        }
+        return await _recover(siteUrl, topicId, post.id, apiKey, lease, error);
       } catch (error, stackTrace) {
         diagnostics.reportError(
           error,
@@ -163,10 +230,35 @@ class PollController extends FrameSafeNotifier
           handled: true,
           degraded: true,
         );
-        await _refresh(siteUrl, topicId, post.id, apiKey, lease);
-        return const PollVoteWriteResult.reconciled();
+        if (!dispatched) {
+          return PollVoteWriteResult._(
+            PollVoteWriteKind.notSent,
+            failure: WriteException(
+              WriteFailure.unreachable,
+              notSent: true,
+              cause: error,
+              causeStackTrace: stackTrace,
+            ),
+            notSentReason: PollVoteNotSentReason.requestNotSent,
+          );
+        }
+        return await _recover(
+          siteUrl,
+          topicId,
+          post.id,
+          apiKey,
+          lease,
+          WriteException(
+            WriteFailure.unreachable,
+            cause: error,
+            causeStackTrace: stackTrace,
+          ),
+        );
       }
 
+      if (isDisposed || !lease.isCurrent) {
+        return const PollVoteWriteResult._(PollVoteWriteKind.acceptedRetired);
+      }
       lease.commit(() {
         _posts.updatePluginRecord(
           siteUrl,
@@ -175,29 +267,44 @@ class PollController extends FrameSafeNotifier
           (held) => (held ?? const Polls()).withPoll(answer.poll),
         );
       });
-      return const PollVoteWriteResult.saved();
+      return PollVoteWriteResult._(
+        isDisposed || !lease.isCurrent
+            ? PollVoteWriteKind.acceptedRetired
+            : PollVoteWriteKind.saved,
+      );
     } finally {
       lease.commit(() => _posts.endWrite(siteUrl, post.id));
       notifySafely();
     }
   }
 
-  Future<void> _refresh(
+  Future<PollVoteWriteResult> _recover(
     String siteUrl,
     int topicId,
     int postId,
     String? apiKey,
     PluginSiteLease lease,
+    WriteException failure,
   ) async {
     // Recovery admits a new request after the original write has completed.
-    if (isDisposed || !lease.isCurrent) return;
-    await _posts.refreshPost(
-      siteUrl: siteUrl,
-      topicId: topicId,
-      postId: postId,
-      apiKey: apiKey,
-      lease: lease,
-    );
+    if (!isDisposed && lease.isCurrent) {
+      try {
+        await _posts.refreshPost(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          postId: postId,
+          apiKey: apiKey,
+          lease: lease,
+        );
+      } catch (error) {
+        return PollVoteWriteResult._(
+          PollVoteWriteKind.uncertainRefreshFailed,
+          failure: failure,
+          recoveryFailure: error,
+        );
+      }
+    }
+    return PollVoteWriteResult._(PollVoteWriteKind.uncertain, failure: failure);
   }
 
   @override

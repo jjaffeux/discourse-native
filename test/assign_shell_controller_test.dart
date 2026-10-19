@@ -188,7 +188,7 @@ void main() {
         status: 'New',
       );
 
-      expect(error, isNull);
+      expect(error.kind, AssignmentWriteKind.applied);
       expect(api.pluginWrites.single.body, {
         'target_id': 12,
         'target_type': 'Post',
@@ -301,7 +301,8 @@ void main() {
         const AssignmentUser(username: 'sam'),
       );
 
-      expect(error, contains("can't post"));
+      expect(error.kind, AssignmentWriteKind.refused);
+      expect(error.failure?.failure, WriteFailure.forbidden);
       expect(api.pluginWrites, isEmpty);
       expect(api.topicsOpened, [7]);
     });
@@ -325,7 +326,8 @@ void main() {
         const AssignmentUser(username: 'sam'),
       );
 
-      expect(error, contains("can't post"));
+      expect(error.kind, AssignmentWriteKind.refused);
+      expect(error.failure?.failure, WriteFailure.forbidden);
       expect(api.pluginWrites, isEmpty);
     });
   });
@@ -350,7 +352,7 @@ void main() {
         const AssignmentUser(username: 'sam'),
       );
 
-      expect(error, isNull);
+      expect(error.kind, AssignmentWriteKind.applied);
       expect(api.pluginWrites, hasLength(1));
     });
 
@@ -391,7 +393,7 @@ void main() {
           const AssignmentUser(username: 'sam'),
         );
 
-        expect(error, isNotNull);
+        expect(error.kind, AssignmentWriteKind.refused);
         expect(api.pluginWrites, isEmpty);
       },
     );
@@ -428,7 +430,7 @@ void main() {
           const AssignmentUser(username: 'sam'),
         );
 
-        expect(error, 'This assignment target is no longer available.');
+        expect(error.kind, AssignmentWriteKind.targetUnavailable);
         expect(assignments.canAssign(_site, legacyTarget), isFalse);
         expect(
           assignments.canAssign(_site, const AssignmentTarget.topic(7)),
@@ -976,7 +978,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(error, 'This assignment target is no longer available.');
+      expect(error.kind, AssignmentWriteKind.targetUnavailable);
       expect(topicPropertiesBuilds, greaterThan(initialTopicPropertiesBuilds));
       expect(postMenuBuilds, greaterThan(initialPostMenuBuilds));
       expect(find.byKey(const Key('assign-topic-property')), findsNothing);
@@ -1085,7 +1087,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(error, 'This assignment target is no longer available.');
+      expect(error.kind, AssignmentWriteKind.targetUnavailable);
       expect(sidebarRow, findsOneWidget);
       expect(find.byKey(const Key('assign-post-12-change')), findsNothing);
       expect(find.byKey(const Key('assign-post-12-remove')), findsNothing);
@@ -1107,7 +1109,7 @@ void main() {
         const AssignmentUser(username: 'sam'),
       );
 
-      expect(error, isNull);
+      expect(error.kind, AssignmentWriteKind.applied);
       expect(api.topicsOpened, [7, 7]);
 
       await shell.loadTopic(7, 'topic');
@@ -1245,7 +1247,11 @@ void main() {
           await _assignments(
             shell,
           ).assign(_site, const AssignmentTarget.post(12, topicId: 7), sam),
-          isNull,
+          isA<AssignmentWriteResult>().having(
+            (result) => result.kind,
+            'kind',
+            AssignmentWriteKind.applied,
+          ),
         );
         await tester.pumpAndSettle();
         expect(rebuilds.keys, [
@@ -1258,7 +1264,11 @@ void main() {
           await _assignments(
             shell,
           ).unassign(_site, const AssignmentTarget.post(13, topicId: 7)),
-          isNull,
+          isA<AssignmentWriteResult>().having(
+            (result) => result.kind,
+            'kind',
+            AssignmentWriteKind.applied,
+          ),
         );
         await tester.pumpAndSettle();
         expect(rebuilds.keys, [

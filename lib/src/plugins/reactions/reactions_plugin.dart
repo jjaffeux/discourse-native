@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'reaction.dart';
 import 'reaction_picker.dart';
+import 'reaction_toggle_presentation.dart';
 import 'reactions_notifications.dart';
 import 'reactions_row.dart';
 import 'reactions_services.dart';
@@ -107,7 +108,11 @@ class ReactionsPlugin
                   controller.writeInFlight(siteUrl, post.id)) {
                 return null;
               }
-              return controller.toggle(latest, main, siteUrl: siteUrl);
+              return (await controller.toggle(
+                latest,
+                main,
+                siteUrl: siteUrl,
+              )).message;
             },
       entries: [
         PostAction(

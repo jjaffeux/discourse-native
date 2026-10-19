@@ -27,9 +27,9 @@ const _users = ContentRoute(
 void main() {
   setUpAll(() async {
     if (const String.fromEnvironment('USERS_EVIDENCE_DIR').isNotEmpty) {
-      await (FontLoader('UsersReview')
-            ..addFont(rootBundle.load('assets/fonts/OpenSans.ttf')))
-          .load();
+      await (FontLoader(
+        'UsersReview',
+      )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
     }
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));

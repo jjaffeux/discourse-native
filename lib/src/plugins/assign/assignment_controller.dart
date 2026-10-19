@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 
 import 'assign_api.dart';
 import 'assignment.dart';
+import 'assignment_write_result.dart';
+
+export 'assignment_write_result.dart';
 
 typedef AssignmentPermissionReader =
     bool Function(String siteUrl, AssignmentTarget target);
@@ -113,8 +116,6 @@ class AssignmentController extends FrameSafeNotifier
 
   static String get _targetUnavailable =>
       appL10n.thisAssignmentTargetIsNoLongerAvailable;
-  static String get _writeAlreadyInProgress =>
-      appL10n.anAssignmentUpdateIsAlreadyInProgress;
   static const _restorePermitDuration = Duration(seconds: 10);
 
   bool isWriting(String siteUrl, AssignmentTarget target) =>
@@ -219,7 +220,7 @@ class AssignmentController extends FrameSafeNotifier
     ),
   );
 
-  Future<String?> assign(
+  Future<AssignmentWriteResult> assign(
     String siteUrl,
     AssignmentTarget target,
     AssignmentAssignee assignee, {
@@ -237,25 +238,27 @@ class AssignmentController extends FrameSafeNotifier
     );
   });
 
-  Future<String?> unassign(String siteUrl, AssignmentTarget target) =>
-      _mutate(siteUrl, target, (session) {
-        return api.unassign(
-          siteUrl: siteUrl,
-          apiKey: session.apiKey!,
-          clientId: session.clientId,
-          target: target,
-        );
-      });
+  Future<AssignmentWriteResult> unassign(
+    String siteUrl,
+    AssignmentTarget target,
+  ) => _mutate(siteUrl, target, (session) {
+    return api.unassign(
+      siteUrl: siteUrl,
+      apiKey: session.apiKey!,
+      clientId: session.clientId,
+      target: target,
+    );
+  });
 
-  Future<({String? error, AssignmentRestorePermit? permit})> unassignForUndo(
+  Future<({AssignmentWriteResult outcome, AssignmentRestorePermit? permit})>
+  unassignForUndo(
     String siteUrl,
     AssignmentTarget target,
     Assignment assignment,
   ) async {
     final lease = _requests.capture(siteUrl);
     final session = _restoreSessions.putIfAbsent(siteUrl, Object.new);
-    var removed = false;
-    final error = await _mutate(
+    final outcome = await _mutate(
       siteUrl,
       target,
       (session) => api.unassign(
@@ -264,11 +267,9 @@ class AssignmentController extends FrameSafeNotifier
         clientId: session.clientId,
         target: target,
       ),
-      afterWrite: () => removed = true,
     );
     final permit =
-        error == null &&
-            removed &&
+        outcome.accepted &&
             _isCurrent(lease) &&
             identical(_restoreSessions[siteUrl], session)
         ? AssignmentRestorePermit._(
@@ -281,12 +282,14 @@ class AssignmentController extends FrameSafeNotifier
             expiresAt: DateTime.now().add(_restorePermitDuration),
           )
         : null;
-    return (error: error, permit: permit);
+    return (outcome: outcome, permit: permit);
   }
 
-  Future<String?> restoreAssignment(AssignmentRestorePermit permit) {
+  Future<AssignmentWriteResult> restoreAssignment(
+    AssignmentRestorePermit permit,
+  ) {
     if (!permit._take(this)) {
-      return Future.value(const WriteException(WriteFailure.forbidden).message);
+      return Future.value(const AssignmentWriteResult.inactive());
     }
     return _mutate(
       permit.siteUrl,
@@ -305,59 +308,103 @@ class AssignmentController extends FrameSafeNotifier
     );
   }
 
-  Future<String?> _mutate(
+  Future<AssignmentWriteResult> _mutate(
     String siteUrl,
     AssignmentTarget target,
     Future<void> Function(PluginRequestCredentials session) write, {
     bool permissionAlreadyEstablished = false,
-    void Function()? afterWrite,
   }) async {
-    if (isDisposed ||
-        (!permissionAlreadyEstablished && !canAssign(siteUrl, target))) {
-      return const WriteException(WriteFailure.forbidden).message;
+    if (isDisposed) return const AssignmentWriteResult.inactive();
+    if (!permissionAlreadyEstablished && !canAssign(siteUrl, target)) {
+      return const AssignmentWriteResult.refused(
+        WriteException(WriteFailure.forbidden),
+      );
     }
 
     final key = (siteUrl: siteUrl, target: target);
-    if (_writes.containsKey(key)) return _writeAlreadyInProgress;
+    if (_writes.containsKey(key)) return const AssignmentWriteResult.busy();
     final token = Object();
     final lease = _requests.capture(siteUrl);
     _writes[key] = token;
     notifySafely();
 
     bool current() => _isCurrent(lease) && identical(_writes[key], token);
+    void report(Object error, StackTrace stackTrace, String operation) {
+      if (!current()) return;
+      diagnostics.reportError(
+        error,
+        stackTrace,
+        operation: operation,
+        source: 'assign',
+        handled: true,
+        degraded: true,
+      );
+    }
 
     try {
-      final session = await _session(siteUrl, lease: lease);
-      if (!current()) return null;
-      await session.run(() => write(session));
-      if (!current()) return null;
-      afterWrite?.call();
-      if (!current()) return null;
-
-      // Assign writes can change tracking and return no assignment snapshot.
-      await _reloadTopic(siteUrl, target.topicId);
-      return null;
-    } on WriteException catch (error) {
-      if (current() && error.statusCode == 404) {
-        // A scoped reload distinguishes neither missing route nor deleted
-        // target, but avoids disabling Assign for unrelated records.
-        _invalidateLegacyFallback(siteUrl);
-        await _reconcileUnavailable(siteUrl, target.topicId);
-        return _targetUnavailable;
+      final PluginRequestCredentials session;
+      try {
+        session = await _session(siteUrl, lease: lease);
+      } on WriteException catch (error) {
+        if (!current()) return const AssignmentWriteResult.inactive();
+        return error.failure == WriteFailure.unreachable
+            ? AssignmentWriteResult.notSent(error)
+            : AssignmentWriteResult.refused(error);
       }
-      return error.message;
-    } catch (error, stackTrace) {
-      if (current()) {
-        diagnostics.reportError(
-          error,
-          stackTrace,
-          operation: 'assign.write',
-          source: 'assign',
-          handled: true,
-          degraded: true,
+      if (!current()) return const AssignmentWriteResult.inactive();
+      var dispatched = false;
+      try {
+        await session.run(() {
+          dispatched = true;
+          return write(session);
+        });
+      } on WriteException catch (error) {
+        if (!dispatched || error.notSent) {
+          return AssignmentWriteResult.notSent(error);
+        }
+        if (error.statusCode == 404) {
+          if (current()) {
+            _invalidateLegacyFallback(siteUrl);
+            await _reconcileUnavailable(siteUrl, target.topicId);
+          }
+          return const AssignmentWriteResult.targetUnavailable();
+        }
+        return error.failure == WriteFailure.unreachable
+            ? AssignmentWriteResult.uncertain(error)
+            : AssignmentWriteResult.refused(error);
+      } catch (error, stackTrace) {
+        report(error, stackTrace, 'assign.write');
+        final failure = WriteException(
+          WriteFailure.unreachable,
+          notSent: !dispatched,
+          cause: error,
+          causeStackTrace: stackTrace,
+        );
+        return dispatched
+            ? AssignmentWriteResult.uncertain(failure)
+            : AssignmentWriteResult.notSent(failure);
+      }
+      if (!current()) return const AssignmentWriteResult.acceptedRetired();
+
+      try {
+        // Assign returns no assignment snapshot and can also change tracking.
+        await _reloadTopic(siteUrl, target.topicId);
+      } catch (error, stackTrace) {
+        report(error, stackTrace, 'assign.refresh');
+        if (!current()) return const AssignmentWriteResult.acceptedRetired();
+        return AssignmentWriteResult.acceptedRefreshFailed(
+          error is WriteException
+              ? error
+              : WriteException(
+                  WriteFailure.unreachable,
+                  cause: error,
+                  causeStackTrace: stackTrace,
+                ),
         );
       }
-      return const WriteException(WriteFailure.unreachable).message;
+      return current()
+          ? const AssignmentWriteResult.applied()
+          : const AssignmentWriteResult.acceptedRetired();
     } finally {
       if (identical(_writes[key], token)) {
         _writes.remove(key);

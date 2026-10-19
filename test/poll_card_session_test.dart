@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -69,6 +70,7 @@ final class _Api extends FakeDiscourseApi {
         feeds: const {
           '/latest.json': [_topic],
         },
+        postsById: {},
         topics: {
           7: topicPayload(
             id: 7,
@@ -90,6 +92,7 @@ final class _Api extends FakeDiscourseApi {
         },
       ) {
     accounts['replacement-key'] = _replacement;
+    postsById[1] = topics[7]!.posts.single;
   }
   final DiscourseApi writer;
 
@@ -112,6 +115,93 @@ final class _Api extends FakeDiscourseApi {
 }
 
 void main() {
+  for (final refused in [false, true]) {
+    testWidgets(
+      'poll ${refused ? 'refusal reports feedback' : 'uncertainty stays silent'} and resets the draft',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final plugins = PluginInstaller.install(
+          const PluginManifest([pollModule]),
+        );
+        addTearDown(plugins.close);
+        final sent = <http.Request>[];
+        final client = MockClient((request) async {
+          sent.add(request);
+          return refused
+              ? http.Response(
+                  jsonEncode({
+                    'errors': ['Ballot refused.'],
+                  }),
+                  422,
+                )
+              : http.Response('{}', 503);
+        });
+        addTearDown(client.close);
+        final api = _Api(DiscourseApi(client: client), plugins, 'draft');
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('forum.example').copyWith(user: _user),
+          ]),
+          api: api,
+          authenticator: FakeAuthenticator()..keys[_site] = 'old-key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: plugins,
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        shell.openTopic(_topic);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
+              builder: (context, child) => DToaster(child: child!),
+              home: const Scaffold(
+                body: MainContent(layout: ShellLayout.medium),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final option = find.byKey(const ValueKey('poll-poll-option-a'));
+        final cast = find.byKey(const ValueKey('poll-poll-cast'));
+        await tester.tap(option);
+        await tester.pumpAndSettle();
+        expect(tester.widget<DButton>(cast).onPressed, isNotNull);
+
+        await tester.tap(cast);
+        await tester.pumpAndSettle();
+
+        expect(sent, hasLength(1));
+        expect(sent.single.method, 'PUT');
+        expect(
+          api.postFetches,
+          refused
+              ? isEmpty
+              : [
+                  [1],
+                ],
+        );
+        final checkbox = find.descendant(
+          of: option,
+          matching: find.byType(DCheckbox),
+        );
+        expect(tester.widget<DCheckbox>(checkbox).value, isFalse);
+        expect(tester.widget<DButton>(cast).onPressed, isNull);
+        expect(
+          find.text('Ballot refused.'),
+          refused ? findsOneWidget : findsNothing,
+        );
+        expect(find.text(appL10n.couldnTSaveThatVote), findsNothing);
+        expect(find.text(appL10n.couldnTReachTheSite), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final action in ['vote', 'remove', 'draft', 'framed draft']) {
     for (final transition in ['unchanged', 'reconnect', 'rollback']) {
       final multiple = action.endsWith('draft');

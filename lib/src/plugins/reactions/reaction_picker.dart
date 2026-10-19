@@ -6,6 +6,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'reaction.dart';
+import 'reaction_toggle_presentation.dart';
+import 'reaction_toggle_result.dart';
 import 'reactions_controller.dart';
 import 'reactions_emoji_usage.dart';
 import 'reactions_services.dart';
@@ -421,11 +423,12 @@ void _report(
   DToastController? toast,
   ReactionsController controller,
   ReactionPickerSession session,
-  Future<String?> work, {
+  Future<ReactionToggleResult> work, {
   required bool Function() stillOwnsUi,
 }) {
   unawaited(
-    work.then((error) {
+    work.then((result) {
+      final error = result.message;
       if (error == null ||
           !controller.isPickerCurrent(session) ||
           toast?.isDisposed != false ||

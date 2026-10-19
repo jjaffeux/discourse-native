@@ -1,14 +1,16 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/src/plugins/assign/assignment_write_result.dart';
 
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/assign/assign_services.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
+import 'package:discourse_native/src/plugins/assign/assignment_write_result.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -106,7 +108,7 @@ void main() {
         _editor(
           suggestions: AssignmentSuggestions(users: const [_sam]),
           existing: const Assignment(assignee: _sam),
-          remove: () async => null,
+          remove: () async => const AssignmentWriteResult.applied(),
         ),
       );
       await tester.pumpAndSettle();
@@ -204,8 +206,9 @@ void main() {
                       assignAllowedForGroups: const ['support'],
                     ),
                     searchAssignees: (_, _) async => const [],
-                    save: (_, {note, status}) async => 'Please try again.',
-                    remove: () async => null,
+                    save: (_, {note, status}) async =>
+                        _refused('Please try again.'),
+                    remove: () async => const AssignmentWriteResult.applied(),
                     onCancel: modal.close,
                   ),
                 ),
@@ -269,7 +272,7 @@ void main() {
               savedAssignee = assignee;
               savedNote = note;
               savedStatus = status;
-              return null;
+              return const AssignmentWriteResult.applied();
             },
             onComplete: () => completed = true,
           ),
@@ -305,7 +308,7 @@ void main() {
           suggestions: AssignmentSuggestions(users: const [_sam]),
           save: (assignee, {note, status}) async {
             saves++;
-            return null;
+            return const AssignmentWriteResult.applied();
           },
         ),
       );
@@ -331,7 +334,7 @@ void main() {
           existing: const Assignment(assignee: _sam, note: 'Held note'),
           save: (assignee, {note, status}) async {
             savedNote = note;
-            return null;
+            return const AssignmentWriteResult.applied();
           },
         ),
       );
@@ -356,7 +359,7 @@ void main() {
           searchDebounce: Duration.zero,
           save: (assignee, {note, status}) async {
             saved = assignee;
-            return null;
+            return const AssignmentWriteResult.applied();
           },
         ),
       );
@@ -549,6 +552,59 @@ void main() {
   });
 
   group('assignment mutations', () {
+    for (final remove in [false, true]) {
+      for (final result in const [
+        AssignmentWriteResult.inactive(),
+        AssignmentWriteResult.acceptedRetired(),
+        AssignmentWriteResult.busy(),
+        AssignmentWriteResult.acceptedRefreshFailed(
+          WriteException(WriteFailure.unreachable),
+        ),
+        AssignmentWriteResult.uncertain(
+          WriteException(WriteFailure.unreachable),
+        ),
+      ]) {
+        testWidgets(
+          'does not dismiss ${remove ? 'remove' : 'save'} for ${result.kind}',
+          (tester) async {
+            var completions = 0;
+            await tester.pumpWidget(
+              _editor(
+                suggestions: AssignmentSuggestions(users: const [_sam]),
+                existing: remove ? const Assignment(assignee: _sam) : null,
+                save: (_, {note, status}) async => result,
+                remove: remove ? () async => result : null,
+                onComplete: () => completions++,
+              ),
+            );
+            await tester.pumpAndSettle();
+            if (!remove) {
+              await tester.tap(
+                find.byKey(const Key('assignment-assignee-user:sam')),
+              );
+              await tester.pump();
+            }
+            await tester.tap(
+              find.byKey(
+                Key(remove ? 'assignment-unassign' : 'assignment-save'),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(completions, 0);
+            expect(find.byType(AssignmentEditor), findsOneWidget);
+            if (result.kind == AssignmentWriteKind.acceptedRefreshFailed) {
+              expect(
+                find.text(
+                  const WriteException(WriteFailure.unreachable).message,
+                ),
+                findsOneWidget,
+              );
+            }
+          },
+        );
+      }
+    }
+
     testWidgets('keeps the optional note through collapse and a failed save', (
       tester,
     ) async {
@@ -560,7 +616,9 @@ void main() {
           save: (assignee, {note, status}) async {
             attempts++;
             savedNote = note;
-            return attempts == 1 ? 'Please retry' : null;
+            return attempts == 1
+                ? _refused('Please retry')
+                : const AssignmentWriteResult.applied();
           },
         ),
       );
@@ -596,7 +654,7 @@ void main() {
     testWidgets(
       'keep write errors inline and prevent duplicate pending saves',
       (tester) async {
-        final result = Completer<String?>();
+        final result = Completer<AssignmentWriteResult>();
         var calls = 0;
 
         await tester.pumpWidget(
@@ -627,7 +685,7 @@ void main() {
               .canPop,
           isFalse,
         );
-        result.complete('The assignment could not be saved.');
+        result.complete(_refused('The assignment could not be saved.'));
         await tester.pumpAndSettle();
 
         expect(find.text('The assignment could not be saved.'), findsOneWidget);
@@ -658,7 +716,7 @@ void main() {
           existing: const Assignment(assignee: _sam),
           remove: () async {
             calls++;
-            return 'This assignment cannot be removed.';
+            return _refused('This assignment cannot be removed.');
           },
         ),
       );
@@ -771,7 +829,7 @@ void main() {
             existing: existing,
             save: (assignee, {note, status}) async {
               savedStatus = status;
-              return null;
+              return const AssignmentWriteResult.applied();
             },
           ),
         );
@@ -801,7 +859,7 @@ void main() {
           statuses: const ['New', 'Done'],
           save: (assignee, {note, status}) async {
             savedStatus = status;
-            return null;
+            return const AssignmentWriteResult.applied();
           },
         ),
       );
@@ -887,13 +945,13 @@ Widget _editor({
   Future<AssignmentSuggestions> Function()? loadSuggestions,
   Future<List<AssignmentAssignee>> Function(AssignmentSuggestions, String)?
   search,
-  Future<String?> Function(
+  Future<AssignmentWriteResult> Function(
     AssignmentAssignee assignee, {
     String? note,
     String? status,
   })?
   save,
-  Future<String?> Function()? remove,
+  Future<AssignmentWriteResult> Function()? remove,
   Assignment? existing,
   bool statusesEnabled = false,
   List<String> statuses = const [],
@@ -906,7 +964,10 @@ Widget _editor({
       child: AssignmentEditor(
         loadSuggestions: loadSuggestions ?? () async => suggestions,
         searchAssignees: search ?? (_, _) async => const <AssignmentAssignee>[],
-        save: save ?? (assignee, {note, status}) async => null,
+        save:
+            save ??
+            (assignee, {note, status}) async =>
+                const AssignmentWriteResult.applied(),
         remove: remove,
         existing: existing,
         statusesEnabled: statusesEnabled,
@@ -916,4 +977,8 @@ Widget _editor({
       ),
     ),
   ),
+);
+
+AssignmentWriteResult _refused(String message) => AssignmentWriteResult.refused(
+  WriteException(WriteFailure.validation, errors: [message]),
 );

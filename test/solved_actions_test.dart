@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/src/plugins/solved/solved_change_result.dart';
 import 'package:discourse_native/src/plugins/solved/solved_controller.dart';
 import 'package:discourse_native/src/plugins/solved/solved_post.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,7 +72,7 @@ void main() {
         final f = Fixture();
         f.posts.records[2] = post(2, accepted: !accepted);
         f.posts.records[3] = post(3, accepted: true);
-        expect(await f.change(accepted), isNull);
+        expect((await f.change(accepted)).kind, SolvedChangeKind.applied);
         expect(
           f.api.calls.single.$1,
           accepted ? '/solution/accept.json' : '/solution/unaccept.json',
@@ -100,7 +101,9 @@ void main() {
         ),
         failure: null,
       ));
-      await pending;
+      final result = await pending;
+      expect(result.kind, SolvedChangeKind.inactive);
+      expect(result.isCurrent, isFalse);
       expect(f.api.calls, isEmpty);
       expect(f.posts.ends, 0);
     },
@@ -120,7 +123,7 @@ void main() {
         ),
         failure: null,
       ));
-      await pending;
+      expect((await pending).kind, SolvedChangeKind.unchanged);
       expect(f.api.calls, isEmpty);
       expect(f.posts.ends, 1);
     },
@@ -129,7 +132,9 @@ void main() {
   test('server refusal does not invent accepted state', () async {
     final f = Fixture();
     f.api.solvedFailure = const WriteException(WriteFailure.forbidden);
-    expect(await f.change(true), isNotNull);
+    final result = await f.change(true);
+    expect(result.kind, SolvedChangeKind.refused);
+    expect(result.failure, same(f.api.solvedFailure));
     expect(f.posts.records[2]!.plugins.get(solvedPostKey)!.accepted, isFalse);
     expect(f.posts.refreshed, isEmpty);
     expect(f.posts.busy, isFalse);
@@ -139,7 +144,7 @@ void main() {
     final f = Fixture();
     f.requests.gate = Completer();
     final pending = f.change(true);
-    await f.change(true);
+    expect((await f.change(true)).kind, SolvedChangeKind.busy);
     f.requests.gate!.complete((
       credentials: const PluginRequestCredentials(apiKey: 'key', clientId: ''),
       failure: null,
@@ -147,6 +152,98 @@ void main() {
     await pending;
     expect(f.api.calls, hasLength(1));
   });
+
+  test('an unchanged answer sends no write', () async {
+    final f = Fixture();
+    f.posts.records[2] = post(2, accepted: true);
+    expect((await f.change(true)).kind, SolvedChangeKind.unchanged);
+    expect(f.api.calls, isEmpty);
+    expect(f.posts.ends, 0);
+  });
+
+  test('acceptance is retained when the opening lease retires', () async {
+    final f = Fixture();
+    f.api.onAccepted = () => f.requests.lease.current = false;
+    final result = await f.change(true);
+    expect(result.kind, SolvedChangeKind.acceptedRetired);
+    expect(result.isCurrent, isFalse);
+    expect(f.api.calls, hasLength(1));
+    expect(f.posts.refreshed, isEmpty);
+    expect(f.reloads, isEmpty);
+    expect(f.posts.ends, 0);
+  });
+
+  test(
+    'retirement during refresh retains acceptance and stops reload',
+    () async {
+      final f = Fixture();
+      f.posts.onRefresh = () => f.requests.lease.current = false;
+      final result = await f.change(true);
+      expect(result.kind, SolvedChangeKind.acceptedRetired);
+      expect(f.posts.refreshed, [2]);
+      expect(f.reloads, isEmpty);
+      expect(f.posts.ends, 0);
+    },
+  );
+
+  for (final (failure, kind) in [
+    (
+      const WriteException(WriteFailure.unreachable),
+      SolvedChangeKind.uncertain,
+    ),
+    (
+      const WriteException(WriteFailure.unreachable, notSent: true),
+      SolvedChangeKind.notSent,
+    ),
+  ]) {
+    test(
+      'a transport ${kind.name} outcome does not invent acceptance',
+      () async {
+        final f = Fixture();
+        f.api.solvedFailure = failure;
+        final result = await f.change(true);
+        expect(result.kind, kind);
+        expect(result.failure, same(failure));
+        expect(f.posts.refreshed, isEmpty);
+        expect(f.reloads, isEmpty);
+        expect(f.posts.busy, isFalse);
+      },
+    );
+  }
+
+  test('a credential exception is known not sent', () async {
+    final f = Fixture();
+    f.requests.gate = Completer();
+    final pending = f.change(true);
+    final failure = StateError('credential storage failed');
+    f.requests.gate!.completeError(failure);
+    final result = await pending;
+    expect(result.kind, SolvedChangeKind.notSent);
+    expect(result.failure!.cause, same(failure));
+    expect(f.api.calls, isEmpty);
+    expect(f.posts.busy, isFalse);
+  });
+
+  for (final refreshPost in [true, false]) {
+    test(
+      'a surfaced ${refreshPost ? 'post refresh' : 'topic reload'} failure retains acceptance',
+      () async {
+        final f = Fixture();
+        const failure = WriteException(WriteFailure.forbidden, statusCode: 404);
+        if (refreshPost) {
+          f.posts.refreshFailure = failure;
+        } else {
+          f.reloadFailure = failure;
+        }
+        final result = await f.change(true);
+        expect(result.kind, SolvedChangeKind.acceptedRefreshFailed);
+        expect(result.failure, same(failure));
+        expect(result.isCurrent, isTrue);
+        expect(f.api.calls, hasLength(1));
+        expect(f.posts.busy, isFalse);
+      },
+    );
+  }
 }
 
 class Fixture {
@@ -154,6 +251,7 @@ class Fixture {
   final requests = _Requests();
   final posts = _Posts();
   final reloads = <int>[];
+  Object? reloadFailure;
   late final controller = SolvedController(
     transport: api,
     requests: requests,
@@ -161,10 +259,11 @@ class Fixture {
     topics: PluginTopicRefreshHost(
       reloadTopic: (_, id) async {
         reloads.add(id);
+        if (reloadFailure != null) throw reloadFailure!;
       },
     ),
   );
-  Future<String?> change(bool accepted) => controller.change(
+  Future<SolvedChangeResult> change(bool accepted) => controller.change(
     siteUrl: site,
     topic: topic,
     postId: 2,
@@ -211,6 +310,8 @@ class _Posts implements PluginPostHost {
   final refreshed = <int>[];
   bool busy = false;
   int ends = 0;
+  Object? refreshFailure;
+  void Function()? onRefresh;
   @override
   Post? readPost(String siteUrl, int id) => records[id];
   @override
@@ -245,12 +346,15 @@ class _Posts implements PluginPostHost {
     required PluginSiteLease lease,
   }) async {
     if (lease.isCurrent) refreshed.add(postId);
+    onRefresh?.call();
+    if (refreshFailure != null) throw refreshFailure!;
   }
 }
 
 class _Api extends FakeDiscourseApi {
   final calls = <(String, String, Map<String, Object?>)>[];
   WriteException? solvedFailure;
+  void Function()? onAccepted;
   @override
   Future<Map<String, dynamic>> pluginWriteJson({
     required String siteUrl,
@@ -262,6 +366,7 @@ class _Api extends FakeDiscourseApi {
   }) async {
     calls.add((path, method, body));
     if (solvedFailure != null) throw solvedFailure!;
+    onAccepted?.call();
     return {};
   }
 }
