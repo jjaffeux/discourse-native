@@ -34,6 +34,7 @@ import 'chat_wire.dart';
 
 part 'chat_conversation_stream.dart';
 part 'chat_channel_directory.dart';
+part 'chat_thread_catalog.dart';
 
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
 typedef _ChatReactorsKey = ({
@@ -506,7 +507,7 @@ class ChatController extends FrameSafeNotifier {
             ),
         revealThreads: (siteUrl) {
           if (hasThreads(siteUrl)) return;
-          _hasThreads[siteUrl] = true;
+          _threadCatalog(siteUrl).hasThreads = true;
           notifySafely();
         },
         admitActivityMessage: _admitActivityMessage,
@@ -728,7 +729,6 @@ class ChatController extends FrameSafeNotifier {
   /// re-reading on every app switch would cost requests for nothing.
   static const Duration resumeResyncThreshold = Duration(minutes: 1);
 
-  final Map<String, String> _errors = {};
   final Map<String, _ChatChannelDirectory> _directories = {};
 
   _ChatChannelDirectory? _heldDirectory(String siteUrl) {
@@ -754,7 +754,9 @@ class ChatController extends FrameSafeNotifier {
       onChatNotificationsDelta: onChatNotificationsDelta,
       hasThreads: () => hasThreads(siteUrl),
       replaceHasThreads: (previous, next) {
-        if (hasThreads(siteUrl) == previous) _hasThreads[siteUrl] = next;
+        if (hasThreads(siteUrl) == previous) {
+          _threadCatalog(siteUrl).hasThreads = next;
+        }
       },
       advanceLastViewedAt: (channelId) =>
           _advanceLastViewedAt(siteUrl, channelId, notify: false),
@@ -764,20 +766,35 @@ class ChatController extends FrameSafeNotifier {
   }
 
   DateTime? _backgroundedAt;
-  final Map<String, Future<void>> _myThreadRequests = {};
-  final Map<String, Object> _myThreadRuns = {};
-  final Map<String, Future<void>> _channelThreadListRequests = {};
-  final Map<String, Object> _channelThreadListRuns = {};
+  final Map<String, _ChatThreadCatalog> _threadCatalogs = {};
 
-  /// Sidebar orderings not represented by individual store records.
-  final Map<String, Set<ChatThreadListRefresh>> _threadListRefreshes = {};
-  final Map<String, List<int>> _myThreadIds = {};
-  final Map<String, int> _myThreadOffsets = {};
-  final Map<String, bool> _myThreadsHaveMore = {};
-  final Map<String, bool> _hasThreads = {};
-  final Map<String, List<int>> _channelThreadIds = {};
-  final Map<String, int> _channelThreadOffsets = {};
-  final Map<String, bool> _channelThreadsHaveMore = {};
+  _ChatThreadCatalog? _heldThreadCatalog(String siteUrl) {
+    final held = _threadCatalogs[siteUrl];
+    return held?.isCurrent == true ? held : null;
+  }
+
+  _ChatThreadCatalog _threadCatalog(String siteUrl) {
+    assert(!isDisposed);
+    final held = _threadCatalogs[siteUrl];
+    if (held != null && held.isCurrent) return held;
+    held?.retire();
+    return _threadCatalogs[siteUrl] = _ChatThreadCatalog(
+      siteUrl: siteUrl,
+      lease: _requests.capture(siteUrl),
+      api: api,
+      requests: _requests,
+      store: _store,
+      hydrateChannel: (channel) =>
+          _directory(siteUrl).hydratePartialIfMissing(channel),
+      onChanged: notifySafely,
+      report: _report,
+    );
+  }
+
+  _ChatThreadListSnapshot _threadList(String siteUrl, _ChatThreadListId id) =>
+      _heldThreadCatalog(siteUrl)?.snapshot(id) ??
+      const _ChatThreadListSnapshot.empty();
+
   final Map<String, int> _lastOpenedChannelIds = {};
 
   final Map<String, Future<ChatThread?>> _threadDetailRequests = {};
@@ -812,9 +829,6 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, FrameSafeValueNotifier<ChatComposerDraft?>>
   _composerDraftRefs = {};
 
-  static String _myThreadsKey(String siteUrl) => '$siteUrl~my-threads';
-  static String _channelThreadsKey(String siteUrl, int channelId) =>
-      '$siteUrl~channel-$channelId-threads';
   static String _targetKey(String siteUrl, ChatStreamTarget target) =>
       '$siteUrl~${target.storageKey}';
   static String _streamKey(String siteUrl, int id) =>
@@ -984,7 +998,8 @@ class ChatController extends FrameSafeNotifier {
     _enforceSiteRetention(siteUrl, keep: key);
   }
 
-  bool hasThreads(String siteUrl) => _hasThreads[siteUrl] ?? false;
+  bool hasThreads(String siteUrl) =>
+      _heldThreadCatalog(siteUrl)?.hasThreads ?? false;
 
   bool channelStarWriteInFlight(String siteUrl, int channelId) =>
       _heldDirectory(siteUrl)?.channelStarWriteInFlight(channelId) ?? false;
@@ -1110,25 +1125,29 @@ class ChatController extends FrameSafeNotifier {
       : _directory(siteUrl).updateChannelFollowing(candidate, following);
 
   List<ChatThread> myThreads(String siteUrl) => [
-    for (final id in _myThreadIds[siteUrl] ?? const <int>[])
+    for (final id
+        in _threadList(siteUrl, _ChatThreadListId.mine).ids ?? const <int>[])
       ?_store.read<ChatThread>(siteUrl, id),
   ];
 
-  bool myThreadsLoaded(String siteUrl) => _myThreadIds.containsKey(siteUrl);
+  bool myThreadsLoaded(String siteUrl) =>
+      _threadList(siteUrl, _ChatThreadListId.mine).loaded;
 
-  bool myThreadsLoadingMore(String siteUrl) =>
-      _myThreadRequests.containsKey(_myThreadsKey(siteUrl)) &&
-      myThreadsLoaded(siteUrl);
+  bool myThreadsLoadingMore(String siteUrl) {
+    final state = _threadList(siteUrl, _ChatThreadListId.mine);
+    return state.loading && state.loaded;
+  }
 
   bool myThreadsHaveMore(String siteUrl) =>
-      _myThreadsHaveMore[siteUrl] ?? false;
+      _threadList(siteUrl, _ChatThreadListId.mine).hasMore;
 
-  String? myThreadsError(String siteUrl) => _errors[_myThreadsKey(siteUrl)];
+  String? myThreadsError(String siteUrl) =>
+      _threadList(siteUrl, _ChatThreadListId.mine).error;
 
   List<ChatThread> channelThreads(String siteUrl, int channelId) {
-    final key = _channelThreadsKey(siteUrl, channelId);
+    final state = _threadList(siteUrl, _ChannelChatThreadList(channelId));
     final threads = <ChatThread>[
-      for (final id in _channelThreadIds[key] ?? const <int>[])
+      for (final id in state.ids ?? const <int>[])
         if (_store.read<ChatThread>(siteUrl, id) case final thread?
             when thread.channelId == channelId &&
                 thread.originalMessage?.deletedAt == null &&
@@ -1140,25 +1159,23 @@ class ChatController extends FrameSafeNotifier {
   }
 
   bool channelThreadsLoaded(String siteUrl, int channelId) =>
-      _channelThreadIds.containsKey(_channelThreadsKey(siteUrl, channelId));
+      _threadList(siteUrl, _ChannelChatThreadList(channelId)).loaded;
 
   bool channelThreadsLoading(String siteUrl, int channelId) {
-    final key = _channelThreadsKey(siteUrl, channelId);
-    return _channelThreadListRequests.containsKey(key) &&
-        !_channelThreadIds.containsKey(key);
+    final state = _threadList(siteUrl, _ChannelChatThreadList(channelId));
+    return state.loading && !state.loaded;
   }
 
   bool channelThreadsLoadingMore(String siteUrl, int channelId) {
-    final key = _channelThreadsKey(siteUrl, channelId);
-    return _channelThreadListRequests.containsKey(key) &&
-        _channelThreadIds.containsKey(key);
+    final state = _threadList(siteUrl, _ChannelChatThreadList(channelId));
+    return state.loading && state.loaded;
   }
 
   bool channelThreadsHaveMore(String siteUrl, int channelId) =>
-      _channelThreadsHaveMore[_channelThreadsKey(siteUrl, channelId)] ?? false;
+      _threadList(siteUrl, _ChannelChatThreadList(channelId)).hasMore;
 
   String? channelThreadsError(String siteUrl, int channelId) =>
-      _errors[_channelThreadsKey(siteUrl, channelId)];
+      _threadList(siteUrl, _ChannelChatThreadList(channelId)).error;
 
   static int _compareChannelThreads(ChatThread a, ChatThread b) {
     final aWatched = a.tracking.watchedThreadsUnreadCount > 0;
@@ -1351,36 +1368,7 @@ class ChatController extends FrameSafeNotifier {
     ChatThread? before,
     ChatThread after,
   ) {
-    final refreshes = _threadListRefreshes[siteUrl];
-    if (refreshes == null || identical(before, after)) return;
-    for (final refresh in refreshes) {
-      refresh.recordChange(before, after);
-    }
-  }
-
-  ChatThreadListRefresh _beginThreadListRefresh(String siteUrl) {
-    final refresh = ChatThreadListRefresh();
-    (_threadListRefreshes[siteUrl] ??= {}).add(refresh);
-    return refresh;
-  }
-
-  void _endThreadListRefresh(String siteUrl, ChatThreadListRefresh refresh) {
-    final refreshes = _threadListRefreshes[siteUrl];
-    if (refreshes == null || !refreshes.remove(refresh)) return;
-    if (refreshes.isEmpty) _threadListRefreshes.remove(siteUrl);
-  }
-
-  void _putThreadPage(
-    String siteUrl,
-    ChatThreadListRefresh refresh,
-    ChatThreadPage page,
-  ) {
-    for (final incoming in page.threads) {
-      _store.put(
-        siteUrl,
-        refresh.reconcile(incoming, thread(siteUrl, incoming.id)),
-      );
-    }
+    _heldThreadCatalog(siteUrl)?.recordThreadChange(before, after);
   }
 
   Ref<ChatThread> threadRef(String siteUrl, int threadId) =>
@@ -2917,21 +2905,7 @@ class ChatController extends FrameSafeNotifier {
     _directory(siteUrl).revokeChannel(channelId);
     final key = _streamKey(siteUrl, channelId);
     final threadPrefix = '$siteUrl~channel-$channelId-thread-';
-    // Revocation supersedes reads started while the channel was accessible.
-    _myThreadRuns.remove(_myThreadsKey(siteUrl));
-    final _ = _myThreadRequests.remove(_myThreadsKey(siteUrl));
-    final listKey = _channelThreadsKey(siteUrl, channelId);
-    _channelThreadListRuns.remove(listKey);
-    final _ = _channelThreadListRequests.remove(listKey);
-    _channelThreadIds.remove(listKey);
-    _channelThreadOffsets.remove(listKey);
-    _channelThreadsHaveMore.remove(listKey);
-    if (_myThreadIds[siteUrl] case final ids?) {
-      _myThreadIds[siteUrl] = [
-        for (final id in ids)
-          if (thread(siteUrl, id)?.channelId != channelId) id,
-      ];
-    }
+    _heldThreadCatalog(siteUrl)?.revokeChannel(channelId);
     _store.removeMatching<ChatThread>(
       siteUrl,
       (thread) => thread.channelId == channelId,
@@ -3331,10 +3305,9 @@ class ChatController extends FrameSafeNotifier {
     DateTime? deletedAt,
     bool clear = false,
   }) {
-    final candidateIds = <int>{
-      ...?_channelThreadIds[_channelThreadsKey(siteUrl, channelId)],
-      ...?_myThreadIds[siteUrl],
-    };
+    final candidateIds =
+        _heldThreadCatalog(siteUrl)?.loadedIdsForChannel(channelId) ??
+        const <int>{};
     var changed = false;
     for (final threadId in candidateIds) {
       final held = thread(siteUrl, threadId);
@@ -4085,95 +4058,11 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl, {
     bool more = false,
     bool force = false,
-  }) {
-    if (isDisposed) return Future.value();
-    if (more && !myThreadsHaveMore(siteUrl)) return Future.value();
-    if (!more && !force && myThreadsLoaded(siteUrl)) return Future.value();
-
-    final key = _myThreadsKey(siteUrl);
-    final active = _myThreadRequests[key];
-    // A refresh supersedes a page already in flight: joining it would append
-    // that page and leave the list unrefreshed. Replacing the run token drops
-    // the older request's commit and error write.
-    if (active != null && (more || !force)) return active;
-
-    final offset = more ? (_myThreadOffsets[siteUrl] ?? 0) : 0;
-    final run = Object();
-    _myThreadRuns[key] = run;
-    late final Future<void> request;
-    request = _loadMyThreads(siteUrl, key, offset, run).whenComplete(() {
-      if (identical(_myThreadRequests[key], request)) {
-        final _ = _myThreadRequests.remove(key);
-      }
-      if (identical(_myThreadRuns[key], run)) _myThreadRuns.remove(key);
-      notifySafely();
-    });
-    _myThreadRequests[key] = request;
-    notifySafely();
-    return request;
-  }
-
-  Future<void> _loadMyThreads(
-    String siteUrl,
-    String key,
-    int offset,
-    Object run,
-  ) async {
-    final lease = _requests.capture(siteUrl);
-    bool ownsRequest() => identical(_myThreadRuns[key], run);
-    final refresh = _beginThreadListRefresh(siteUrl);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-
-      final page = await requestCredentials.run(
-        () => api.chatThreads(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          offset: offset,
-        ),
-      );
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      lease.commit(() {
-        for (final embedded in page.channels) {
-          _directory(siteUrl).hydratePartialIfMissing(embedded);
-        }
-        _putThreadPage(siteUrl, refresh, page);
-        final incoming = [for (final thread in page.threads) thread.id];
-        if (offset == 0) {
-          _myThreadIds[siteUrl] = List.unmodifiable(incoming);
-        } else {
-          final seen = <int>{};
-          _myThreadIds[siteUrl] = List.unmodifiable([
-            for (final id in [...?_myThreadIds[siteUrl], ...incoming])
-              if (seen.add(id)) id,
-          ]);
-        }
-        _myThreadOffsets[siteUrl] = offset + page.threads.length;
-        _myThreadsHaveMore[siteUrl] = page.hasMore;
-        if (page.threads.isNotEmpty || page.hasMore) {
-          _hasThreads[siteUrl] = true;
-        } else if (offset == 0) {
-          _hasThreads[siteUrl] = false;
-        }
-        _errors.remove(key);
-      });
-    } catch (error, stackTrace) {
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      _report(error, stackTrace, 'chat.loadMyThreads');
-      lease.commit(() {
-        _errors[key] = appL10n.couldNotLoadYourChatThreads;
-      });
-    } finally {
-      _endThreadListRefresh(siteUrl, refresh);
-    }
-  }
+  }) => isDisposed
+      ? Future.value()
+      : _threadCatalog(
+          siteUrl,
+        ).load(_ChatThreadListId.mine, more: more, force: force);
 
   /// A [force]d load replaces a held list with its first page. [revalidate]
   /// instead refreshes that page into the held list, as the web list refetches
@@ -4194,43 +4083,12 @@ class ChatController extends FrameSafeNotifier {
       _directory(siteUrl).hydratePartialIfMissing(directoryChannel!);
     }
     if (heldChannel?.threadingEnabled != true) return Future.value();
-    final key = _channelThreadsKey(siteUrl, channelId);
-    if (more && !channelThreadsHaveMore(siteUrl, channelId)) {
-      return Future.value();
-    }
-    final held = _channelThreadIds.containsKey(key);
-    final merge = !more && !force && revalidate && held;
-    if (!more && !force && !merge && held) return Future.value();
-    final active = _channelThreadListRequests[key];
-    // A refresh supersedes a page already in flight: joining it would append
-    // that page and leave the list unrefreshed. Replacing the run token drops
-    // the older request's commit and error write.
-    if (active != null && (more || !(force || merge))) return active;
-
-    final offset = more ? (_channelThreadOffsets[key] ?? 0) : 0;
-    final run = Object();
-    _channelThreadListRuns[key] = run;
-    late final Future<void> request;
-    request =
-        _loadChannelThreads(
-          siteUrl,
-          channelId,
-          key,
-          offset,
-          run,
-          merge: merge,
-        ).whenComplete(() {
-          if (identical(_channelThreadListRequests[key], request)) {
-            final _ = _channelThreadListRequests.remove(key);
-          }
-          if (identical(_channelThreadListRuns[key], run)) {
-            _channelThreadListRuns.remove(key);
-          }
-          notifySafely();
-        });
-    _channelThreadListRequests[key] = request;
-    notifySafely();
-    return request;
+    return _threadCatalog(siteUrl).load(
+      _ChannelChatThreadList(channelId),
+      more: more,
+      force: force,
+      revalidate: revalidate,
+    );
   }
 
   /// Retries the load behind [channelThreadsError]. A failed page leaves more
@@ -4249,80 +4107,6 @@ class ChatController extends FrameSafeNotifier {
       force: !more,
       directoryChannel: directoryChannel,
     );
-  }
-
-  Future<void> _loadChannelThreads(
-    String siteUrl,
-    int channelId,
-    String key,
-    int offset,
-    Object run, {
-    required bool merge,
-  }) async {
-    final lease = _requests.capture(siteUrl);
-    bool ownsRequest() => identical(_channelThreadListRuns[key], run);
-    final refresh = _beginThreadListRefresh(siteUrl);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(lease, ownsRequest) || apiKey == null) return;
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      final page = await requestCredentials.run(
-        () => api.chatChannelThreads(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: channelId,
-          offset: offset,
-        ),
-      );
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      lease.commit(() {
-        _putThreadPage(siteUrl, refresh, page);
-        final incoming = [
-          for (final thread in page.threads)
-            if (thread.channelId == channelId) thread.id,
-        ];
-        if (merge) {
-          final held = _channelThreadIds[key] ?? const <int>[];
-          final listed = held.toSet();
-          final added = [
-            for (final id in incoming)
-              if (listed.add(id)) id,
-          ];
-          _channelThreadIds[key] = List.unmodifiable([...added, ...held]);
-          // Rows newly on the first page push the server's later pages down,
-          // as a local thread creation does; whether more remain is unchanged.
-          _channelThreadOffsets[key] =
-              (_channelThreadOffsets[key] ?? held.length) + added.length;
-        } else {
-          if (offset == 0) {
-            _channelThreadIds[key] = List.unmodifiable(incoming);
-          } else {
-            final seen = <int>{};
-            _channelThreadIds[key] = List.unmodifiable([
-              for (final id in [...?_channelThreadIds[key], ...incoming])
-                if (seen.add(id)) id,
-            ]);
-          }
-          _channelThreadOffsets[key] = offset + page.threads.length;
-          _channelThreadsHaveMore[key] = page.hasMore;
-        }
-        _errors.remove(key);
-      });
-    } catch (error, stackTrace) {
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      _report(error, stackTrace, 'chat.loadChannelThreads');
-      // The held list is still the reader's; the next visit revalidates it.
-      if (merge) return;
-      lease.commit(() {
-        _errors[key] = appL10n.couldNotLoadThisChannelSThreads;
-      });
-    } finally {
-      _endThreadListRefresh(siteUrl, refresh);
-    }
   }
 
   /// Opens at last-read so viewport-based receipts cannot credit an unseen
@@ -4590,32 +4374,7 @@ class ChatController extends FrameSafeNotifier {
       }
       lease.commit(() {
         _store.put(siteUrl, created);
-        _hasThreads[siteUrl] = true;
-        if (_myThreadIds[siteUrl] case final ids?) {
-          final alreadyListed = ids.contains(created.id);
-          _myThreadIds[siteUrl] = [
-            created.id,
-            for (final id in ids)
-              if (id != created.id) id,
-          ];
-          if (!alreadyListed) {
-            _myThreadOffsets[siteUrl] =
-                (_myThreadOffsets[siteUrl] ?? ids.length) + 1;
-          }
-        }
-        final channelThreadsKey = _channelThreadsKey(siteUrl, channelId);
-        if (_channelThreadIds[channelThreadsKey] case final ids?) {
-          final alreadyListed = ids.contains(created.id);
-          _channelThreadIds[channelThreadsKey] = [
-            created.id,
-            for (final id in ids)
-              if (id != created.id) id,
-          ];
-          if (!alreadyListed) {
-            _channelThreadOffsets[channelThreadsKey] =
-                (_channelThreadOffsets[channelThreadsKey] ?? ids.length) + 1;
-          }
-        }
+        _threadCatalog(siteUrl).insertCreated(created);
         final original = _store.read<ChatMessage>(siteUrl, originalMessageId);
         if (original != null && created.preview != null) {
           _putMessage(siteUrl, original.withThreadPreview(created.preview));
@@ -5025,7 +4784,7 @@ class ChatController extends FrameSafeNotifier {
     _messageCookingTokens.removeWhere((key, _) => key.$1 == siteUrl);
     channelListPreferences.forget(siteUrl);
     inboxFilters.forget(siteUrl);
-    _threadListRefreshes.remove(siteUrl);
+    _threadCatalogs.remove(siteUrl)?.retire();
     _liveSync.forget(siteUrl);
     final forgottenConversations = <_ChatConversationStream>[];
     _conversations.removeWhere((_, owner) {
@@ -5071,13 +4830,6 @@ class ChatController extends FrameSafeNotifier {
     _threadDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadDetailRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadDetailDirty.removeWhere((key) => key.startsWith('$siteUrl~'));
-    _myThreadRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _myThreadRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelThreadListRequests.removeWhere(
-      (key, _) => key.startsWith('$siteUrl~'),
-    );
-    _channelThreadListRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _hiddenDeletedMessageChannelIds.remove(siteUrl);
     _threadNotificationRevisions.removeWhere(
       (key, _) => key.startsWith('$siteUrl~'),
@@ -5092,15 +4844,6 @@ class ChatController extends FrameSafeNotifier {
     for (final owner in forgottenConversations) {
       owner.resetReference();
     }
-    _myThreadIds.remove(siteUrl);
-    _myThreadOffsets.remove(siteUrl);
-    _myThreadsHaveMore.remove(siteUrl);
-    _hasThreads.remove(siteUrl);
-    _channelThreadIds.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelThreadOffsets.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelThreadsHaveMore.removeWhere(
-      (key, _) => key.startsWith('$siteUrl~'),
-    );
     _lastOpenedChannelIds.remove(siteUrl);
     _store.forget(siteUrl);
     notifySafely();
@@ -5119,7 +4862,11 @@ class ChatController extends FrameSafeNotifier {
     _cookingLocaleRevisions.clear();
     channelListPreferences.dispose();
     inboxFilters.dispose();
-    _threadListRefreshes.clear();
+    final catalogs = _threadCatalogs.values.toList(growable: false);
+    _threadCatalogs.clear();
+    for (final catalog in catalogs) {
+      catalog.retire();
+    }
     _liveSync.dispose();
     final conversations = _conversations.values.toList(growable: false);
     _conversations.clear();
@@ -5135,10 +4882,6 @@ class ChatController extends FrameSafeNotifier {
     _threadNotificationTails.clear();
     _threadNotificationConfirmed.clear();
     _threadTitleWrites.clear();
-    _myThreadRequests.clear();
-    _myThreadRuns.clear();
-    _channelThreadListRequests.clear();
-    _channelThreadListRuns.clear();
     _reactionWrites.clear();
     _messageEditWrites.clear();
     _messageDeletionWrites.clear();

@@ -1,0 +1,15 @@
+# Chat thread catalog ownership
+
+`ChatController` keeps its public list, load, retry, and thread-record facades. Its private `_ChatThreadCatalog` owns personal and channel thread lists for one captured account lease. Each typed list identity selects one entry with an immutable snapshot and an optional request. The snapshot contains IDs, the wire offset, has-more state, loading state, and the error. A null ID list distinguishes an unloaded list from an empty loaded list. Snapshot constructors copy IDs into unmodifiable lists.
+
+The catalog owns request joining, supersession, endpoint dispatch, personalized reconciliation, and page acceptance. Each request owns its `ChatThreadListRefresh` overlay. Live and local canonical thread changes record into the active requests. HTTP hydration reconciles through those overlays directly into `Store`, without recording the page as a newer mutation. `Store` remains the only repository for `ChatThread` records. Channel filtering and activity sorting resolve current records through the controller.
+
+A forced refresh replaces the first page and supersedes paging. A background channel revalidation prepends unseen IDs to held pages and shifts the wire offset by the number added. It keeps has-more state and leaves a failed refresh quiet. Ordinary pages advance the offset by the raw server row count before filtering or deduplication. Local creation inserts into already loaded lists and shifts their offsets only when the ID was absent.
+
+Channel eligibility and partial channel hydration stay in the facade, so retries retain the same gates as ordinary loads. `ChatThreadDirectory` still discovers channels and coordinates browsing and its own session. It does not own the retained per-channel lists.
+
+Account forget detaches the catalog before retirement. Disposal retires all catalogs. Lookup replaces owners whose leases expired. A request can publish records, errors, or completion only while its catalog and entry still own it. A superseded or retired request cannot finish a replacement or send a list completion notification. Channel revocation drops its entry, disowns the personal request, and filters revoked threads from the held personal list before canonical records are removed.
+
+The design comparison favored a private part that owns complete loads over a catalog exposing begin, accept, fail, and finish stages. The staged API would require the controller to coordinate the same request rules across two files. Separate per-list owners would still need account-wide personalized reconciliation and retirement. The chosen catalog holds those rules together without another public service or a generic pagination framework.
+
+`chat_thread_controller_test.dart` pins request precedence, overlays, filtering, wire offsets, local creation, and late retirement replies through the facade. `chat_thread_directory_session_test.dart` pins mounted browsing across account rollback. `chat_thread_workspace_test.dart` verifies the existing workspace behavior.

@@ -402,7 +402,10 @@ final class _SequencedNotificationApi extends FakeDiscourseApi {
 /// Answers each thread-list page through its own completer so a test can
 /// finish an earlier page after a later refresh has already been issued.
 final class _SequencedThreadListApi extends FakeDiscourseApi {
-  _SequencedThreadListApi({super.chatChannelsBySite});
+  _SequencedThreadListApi({
+    super.chatChannelsBySite,
+    super.createdChatThreadsByKey,
+  });
 
   final List<Completer<ChatThreadPage>> myThreadPages = [];
   final List<Completer<ChatThreadPage>> channelThreadPages = [];
@@ -460,19 +463,21 @@ final class _SequencedThreadListApi extends FakeDiscourseApi {
   Store? store,
   DiscourseUser user = currentUser,
   FakeApiCredentialReader? credentials,
+  FakePluginRequestHost? requests,
+  bool autoDispose = true,
   DateTime Function()? clock,
 }) {
   credentials ??= FakeApiCredentialReader()..keys[site] = 'key';
   final resolvedStore = store ?? Store();
   final chat = ChatController(
     api: api,
-    requests: FakePluginRequestHost(credentials: credentials),
+    requests: requests ?? FakePluginRequestHost(credentials: credentials),
     store: resolvedStore,
     currentUserFor: (_) => user,
     minimumWindowRefreshInterval: Duration.zero,
     clock: clock ?? () => DateTime.utc(2026, 8, 12, 12),
   );
-  addTearDown(chat.dispose);
+  if (autoDispose) addTearDown(chat.dispose);
   return (chat: chat, store: resolvedStore);
 }
 
@@ -685,6 +690,188 @@ void main() {
     expect(subject.chat.channel(site, 12)?.title, 'Design');
     expect(subject.chat.myThreadsHaveMore(site), isFalse);
   });
+
+  for (final personal in [true, false]) {
+    for (final fails in [false, true]) {
+      test(
+        '${personal ? "personal" : "channel"} list retirement rejects late '
+        '${fails ? "failure" : "success"} without finishing its replacement',
+        () async {
+          final api = _SequencedThreadListApi(
+            chatChannelsBySite: {
+              site: ChatChannels(public: [followedChannel()]),
+            },
+          );
+          final subject = _controllerFor(api);
+          Future<void> load() => personal
+              ? subject.chat.loadMyThreads(site)
+              : subject.chat.loadChannelThreads(site, 9);
+          Future<void> started() =>
+              personal ? api.nextMyThreadPage() : api.nextChannelThreadPage();
+          final pages = personal ? api.myThreadPages : api.channelThreadPages;
+          await subject.chat.loadChannels(site);
+          final oldStarted = started();
+          final old = load();
+          await oldStarted;
+          subject.chat.forget(site);
+          await subject.chat.loadChannels(site);
+          final replacementStarted = started();
+          final replacement = load();
+          await replacementStarted;
+
+          if (fails) {
+            pages[0].completeError(StateError('Retired account'));
+          } else {
+            pages[0].complete(ChatThreadPage(threads: [listedThread(1)]));
+          }
+          await old;
+          expect(subject.chat.thread(site, 1), isNull);
+          expect(subject.chat.myThreadsLoaded(site), isFalse);
+          expect(subject.chat.channelThreadsLoaded(site, 9), isFalse);
+          expect(subject.chat.myThreadsError(site), isNull);
+          expect(subject.chat.channelThreadsError(site, 9), isNull);
+          expect(load(), same(replacement));
+
+          pages[1].complete(ChatThreadPage(threads: [listedThread(2)]));
+          await replacement;
+          final threads = personal
+              ? subject.chat.myThreads(site)
+              : subject.chat.channelThreads(site, 9);
+          expect(threads.map((thread) => thread.id), [2]);
+          expect(subject.chat.channelThreadsLoading(site, 9), isFalse);
+        },
+      );
+    }
+  }
+
+  test('local creation shifts both wire offsets once per new thread', () async {
+    final created = listedThread(3);
+    final api = _SequencedThreadListApi(
+      chatChannelsBySite: {
+        site: ChatChannels(public: [followedChannel()]),
+      },
+      createdChatThreadsByKey: {
+        FakeDiscourseApi.createdChatThreadKey(9, 30): created,
+      },
+    );
+    final subject = _controllerFor(api);
+    await subject.chat.loadChannels(site);
+    final personalStarted = api.nextMyThreadPage();
+    final personal = subject.chat.loadMyThreads(site);
+    await personalStarted;
+    api.myThreadPages.single.complete(
+      ChatThreadPage(threads: [listedThread(1)], hasMore: true),
+    );
+    await personal;
+    final channelStarted = api.nextChannelThreadPage();
+    final channel = subject.chat.loadChannelThreads(site, 9);
+    await channelStarted;
+    api.channelThreadPages.single.complete(
+      ChatThreadPage(threads: [listedThread(1)], hasMore: true),
+    );
+    await channel;
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      expect(
+        await subject.chat.createThread(
+          site,
+          channelId: 9,
+          originalMessageId: 30,
+        ),
+        created,
+      );
+    }
+    expect(subject.chat.myThreads(site).map((thread) => thread.id), [3, 1]);
+    expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+      3,
+      1,
+    ]);
+    final nextPersonalStarted = api.nextMyThreadPage();
+    final nextPersonal = subject.chat.loadMyThreads(site, more: true);
+    await nextPersonalStarted;
+    final nextChannelStarted = api.nextChannelThreadPage();
+    final nextChannel = subject.chat.loadChannelThreads(site, 9, more: true);
+    await nextChannelStarted;
+    expect(api.chatThreadPagesRequested.last.offset, 2);
+    expect(api.chatChannelThreadPagesRequested.last.offset, 2);
+    api.myThreadPages.last.complete(const ChatThreadPage());
+    api.channelThreadPages.last.complete(const ChatThreadPage());
+    await Future.wait([nextPersonal, nextChannel]);
+  });
+
+  for (final personal in [true, false]) {
+    test('${personal ? "personal" : "channel"} list replaces an expired lease '
+        'without replacing its retained conversation', () async {
+      final api = _SequencedThreadListApi();
+      final requests = FakePluginRequestHost(
+        credentials: FakeApiCredentialReader()..keys[site] = 'key',
+      );
+      final subject = _controllerFor(api, requests: requests);
+      subject.store.put(site, followedChannel());
+      final conversation = subject.chat.streamListenableFor(site, target);
+      Future<void> load() => personal
+          ? subject.chat.loadMyThreads(site)
+          : subject.chat.loadChannelThreads(site, 9);
+      Future<void> started() =>
+          personal ? api.nextMyThreadPage() : api.nextChannelThreadPage();
+      final pages = personal ? api.myThreadPages : api.channelThreadPages;
+      final oldStarted = started();
+      final old = load();
+      await oldStarted;
+      requests.lifecycle.invalidate(site);
+      final nextStarted = started();
+      final next = load();
+      await nextStarted;
+      pages.first.complete(ChatThreadPage(threads: [listedThread(1)]));
+      await old;
+      expect(subject.chat.thread(site, 1), isNull);
+      expect(load(), same(next));
+      expect(
+        subject.chat.streamListenableFor(site, target),
+        same(conversation),
+      );
+      pages.last.complete(ChatThreadPage(threads: [listedThread(2)]));
+      await next;
+      final threads = personal
+          ? subject.chat.myThreads(site)
+          : subject.chat.channelThreads(site, 9);
+      expect(threads.map((thread) => thread.id), [2]);
+    });
+  }
+
+  for (final personal in [true, false]) {
+    for (final dispose in [false, true]) {
+      test(
+        '${personal ? "personal" : "channel"} list '
+        '${dispose ? "disposal" : "forget"} disowns a credential wait',
+        () async {
+          final api = _SequencedThreadListApi();
+          final credentials = _HeldTitleCredentials();
+          final subject = _controllerFor(
+            api,
+            credentials: credentials,
+            autoDispose: !dispose,
+          );
+          subject.store.put(site, followedChannel());
+          final pending = personal
+              ? subject.chat.loadMyThreads(site)
+              : subject.chat.loadChannelThreads(site, 9);
+          await credentials.started.future;
+          if (dispose) {
+            subject.chat.dispose();
+          } else {
+            subject.chat.forget(site);
+          }
+          credentials.key.complete('key');
+          await pending;
+          expect(api.myThreadPages, isEmpty);
+          expect(api.channelThreadPages, isEmpty);
+          expect(subject.chat.myThreadsLoaded(site), isFalse);
+          expect(subject.chat.channelThreadsLoaded(site, 9), isFalse);
+        },
+      );
+    }
+  }
 
   test('channel threads page, filter, and sort like the web list', () async {
     final api = FakeDiscourseApi(
