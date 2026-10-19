@@ -19,6 +19,7 @@ import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/composer/projected_component_input.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -852,7 +853,7 @@ void main() {
         (LogicalKeyboardKey.arrowUp, _source.indexOf('\n\n[poll')),
         (LogicalKeyboardKey.arrowDown, _source.indexOf('After the poll.')),
       ]) {
-        composer.text.selectPillForKeyboard(occurrence);
+        composer.text.selectPillForKeyboard(ComposerSyntaxInput(occurrence));
         await tester.pump();
         expect(composer.text.keyboardSelectedPoll, isNotNull);
         expect(_composerEditable(tester).showCursor, isFalse);

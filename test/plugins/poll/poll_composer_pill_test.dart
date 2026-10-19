@@ -705,7 +705,9 @@ void main() {
         syntaxPolicies: const [PollComposerSyntaxPolicy()],
       );
       addTearDown(controller.dispose);
-      controller.selectPillForKeyboard(controller.syntaxBlocks.single);
+      controller.selectPillForKeyboard(
+        ComposerSyntaxInput(controller.syntaxBlocks.single),
+      );
 
       controller.value = const TextEditingValue(
         text: '$source!',

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:discourse_native/discourse_ui.dart' show monospaceTextStyle;
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
@@ -383,8 +384,8 @@ void main() {
 
     expect(selectedController.selectedProjectionHidesCursor, isFalse);
     for (final projection in [
-      selectedController.imageBlocks.single,
-      selectedController.syntaxBlocks.single,
+      ComposerImageInput(selectedController.imageBlocks.single),
+      ComposerSyntaxInput(selectedController.syntaxBlocks.single),
     ]) {
       selectedController.selectPillForKeyboard(projection);
       expect(selectedController.selectedProjectionHidesCursor, isTrue);
@@ -574,7 +575,7 @@ void main() {
           isTrue,
         );
         final keywordStyle = sourceStyle(span, source.indexOf('final'));
-        expect(keywordStyle.fontFamily, monospaceFontFamily);
+        expect(keywordStyle.fontFamily, monospaceTextStyle.fontFamily);
         expect(keywordStyle.color, AppTheme.dark.code.keyword);
         expect(
           sourceStyle(span, source.indexOf('last')).fontStyle,
@@ -613,8 +614,8 @@ void main() {
 
       for (final offset in [source.indexOf('inline'), source.indexOf('puts')]) {
         final style = styleAt(tester, source, offset);
-        expect(style.fontFamily, monospaceFontFamily);
-        expect(style.fontFamilyFallback, monospaceFallback);
+        expect(style.fontFamily, monospaceTextStyle.fontFamily);
+        expect(style.fontFamilyFallback, monospaceTextStyle.fontFamilyFallback);
         expect(style.fontFeatures, contains(const FontFeature.disable('liga')));
       }
     });
@@ -795,7 +796,7 @@ void main() {
       await tester.pump();
 
       final plain = styleAt(tester, edited, keyword);
-      expect(plain.fontFamily, monospaceFontFamily);
+      expect(plain.fontFamily, monospaceTextStyle.fontFamily);
       expect(plain.color, AppTheme.dark.colorScheme.onSurface);
 
       await tester.pump(MarkdownEditingController.fenceHighlightDebounce);

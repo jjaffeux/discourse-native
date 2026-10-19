@@ -7,10 +7,10 @@ import 'package:flutter/services.dart';
 import '../../../plugin_api/composer_syntax.dart';
 import '../../../theme/d_icons.dart';
 import '../../code_block.dart';
-import '../../syntax.dart';
 import '../block_selection.dart';
 import '../controller.dart';
 import '../embedded_editor.dart';
+import '../projected_component_input.dart';
 import 'code_source.dart';
 
 void insertComposerCodeBlock(ComposerController composer) {
@@ -163,7 +163,7 @@ final class _CodeProjection implements ComposerAtomicSelectionProjection {
     composer.autocomplete.dismiss();
     text.clearKeyboardPillSelection();
     text.selection = TextSelection(baseOffset: start, extentOffset: end);
-    text.selectPillForKeyboard(occurrence);
+    text.selectPillForKeyboard(ComposerSyntaxInput(occurrence));
     composer.requestFocus();
   }
 

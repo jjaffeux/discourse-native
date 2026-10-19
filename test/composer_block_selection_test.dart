@@ -11,6 +11,7 @@ import 'package:discourse_native/src/shell/composer/block_surface.dart';
 import 'package:discourse_native/src/shell/composer/components/list.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/composer/projected_component_input.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1258,7 +1259,7 @@ void main() {
     await tester.pump();
     expect(
       composer.text.keyboardSelectedProjection,
-      isA<ComposerSyntaxOccurrence>(),
+      isA<ComposerSyntaxInput>(),
     );
     expect(composer.text.selection.start, prefix.length);
 

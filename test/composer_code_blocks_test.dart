@@ -3,6 +3,7 @@ import 'package:discourse_native/src/shell/composer/components/code.dart';
 import 'package:discourse_native/src/shell/composer/components/code_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/composer/projected_component_input.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -210,7 +211,7 @@ void main() {
         final composer = await _pump(tester, source);
         final block = parseComposerCodeBlocks(source).single;
         composer.text.moveCaretBesideComponent(
-          composer.text.syntaxBlocks.single,
+          ComposerSyntaxInput(composer.text.syntaxBlocks.single),
           before: before,
         );
         composer.requestFocus();

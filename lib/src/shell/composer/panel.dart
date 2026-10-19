@@ -1165,33 +1165,11 @@ class _SelectedPillInputFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) {
     if (!isSelected(oldValue)) return newValue;
-    if (_componentDeletionRange(oldValue, newValue) != null) {
+    if (composerComponentDeletionRange(oldValue, newValue) != null) {
       onDelete();
     }
     return oldValue;
   }
-}
-
-/// Recognizes a native delete even when a visually selected component has a
-/// collapsed text caret. A keyboard can also start composing the remaining
-/// word in the same proposal; that must not bypass hidden-source protection.
-TextRange? _componentDeletionRange(
-  TextEditingValue oldValue,
-  TextEditingValue newValue,
-) {
-  final removedLength = oldValue.text.length - newValue.text.length;
-  if (removedLength <= 0 ||
-      !newValue.selection.isValid ||
-      !newValue.selection.isCollapsed) {
-    return null;
-  }
-  final start = newValue.selection.extentOffset;
-  final end = start + removedLength;
-  if (end > oldValue.text.length ||
-      newValue.text != oldValue.text.replaceRange(start, end, '')) {
-    return null;
-  }
-  return TextRange(start: start, end: end);
 }
 
 bool _startsNewParagraph(ComposerBlockIndex index, TextSelection selection) {
@@ -1554,14 +1532,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
     _selectedPillInputFormatter = _SelectedPillInputFormatter(
       (value) {
-        final pill = _media.value.selectedGallery ?? _keyboardSelectedPill;
+        final pill = _selectedComponent;
         final selection = value.selection;
         if (selection.isValid &&
             !selection.isCollapsed &&
-            ((pill is ComposerImageGalleryBlock &&
+            ((pill is ComposerGalleryInput &&
                     selection.start <= pill.start &&
                     selection.end >= pill.end) ||
-                (pill is ComposerQuoteBlock &&
+                (pill is ComposerQuoteInput &&
                     selection.start == pill.start &&
                     selection.end == pill.end))) {
           return false;
@@ -1571,7 +1549,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       },
       () {
         final composer = widget.composer;
-        final pill = _media.value.selectedGallery ?? _keyboardSelectedPill;
+        final pill = _selectedComponent;
         if (pill == null) return;
         final source = composer.text.text;
         // Finish the native proposal before committing the component's removal.
@@ -1580,10 +1558,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
               !identical(widget.composer, composer) ||
               !composer.isEditing ||
               composer.text.text != source ||
-              !identical(
-                _media.value.selectedGallery ?? _keyboardSelectedPill,
-                pill,
-              )) {
+              !pill.sameTargetAs(_selectedComponent)) {
             return;
           }
           _clearKeyboardPillSelection();
@@ -2274,10 +2249,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
     final editor = target.editor;
     final editable = editor._editableTextState;
     if (editable == null) return false;
-    final component = editor._collapsedPillStartingAt(target.start);
+    final component = editor.widget.composer.text.collapsedComponentStartingAt(
+      target.start,
+    );
     if (component != null &&
-        editor.widget.composer.text.componentContentEnd(component) >=
-            target.end) {
+        component.contentEnd(editor.widget.composer.text.text) >= target.end) {
       editor._selectPillForKeyboard(component);
       editor.widget.composer.requestFocus();
       root._verticalCaret = null;
@@ -2815,15 +2791,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
         keyboard.isControlPressed ||
         keyboard.isAltPressed ||
         keyboard.isShiftPressed;
-    final selectedComponent =
-        _media.value.selectedGallery ?? _keyboardSelectedPill;
+    final selectedComponent = _selectedComponent;
     final text = widget.composer.text;
     final boundaryComponent = text.boundaryCaretProjection;
     if (boundaryComponent != null &&
         (event is KeyDownEvent || event is KeyRepeatEvent) &&
         !hasModifier) {
-      final before =
-          text.selection.extentOffset == _pillStart(boundaryComponent);
+      final before = text.selection.extentOffset == boundaryComponent.start;
       if ((before && event.logicalKey == LogicalKeyboardKey.arrowRight) ||
           (!before && event.logicalKey == LogicalKeyboardKey.arrowLeft)) {
         _selectPillForKeyboard(boundaryComponent);
@@ -2864,7 +2838,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         event is KeyDownEvent &&
         isEnter &&
         !hasModifier) {
-      final start = _pillStart(selectedComponent);
+      final start = selectedComponent.start;
       final value = widget.composer.text.value;
       final newline = value.text.contains('\r\n') ? '\r\n' : '\n';
       _clearKeyboardPillSelection();
@@ -2881,10 +2855,12 @@ class _ComposerEditorState extends State<ComposerEditor> {
         text.selection.isValid &&
         text.selection.isCollapsed &&
         text.value.composing.isCollapsed) {
-      final component = _collapsedPillEndingAt(text.selection.extentOffset);
+      final component = widget.composer.text.collapsedComponentEndingAt(
+        text.selection.extentOffset,
+      );
       if (component != null &&
-          text.componentContentEnd(component) == text.selection.extentOffset) {
-        _removePill(component);
+          component.contentEnd(text.text) == text.selection.extentOffset) {
+        _applyComponentCommand(ComposerRemoveComponent(component));
         return KeyEventResult.handled;
       }
     }
@@ -2924,14 +2900,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         _clearKeyboardPillSelection();
         if (movesBefore) {
           widget.composer.text.selection = TextSelection.collapsed(
-            offset: switch (selectedPill) {
-              ComposerSyntaxOccurrence(:final projection)
-                  when projection is! ComposerBlockSyntaxProjection =>
-                projection.start,
-              _ => widget.composer.text.caretBeforeBlock(
-                _pillStart(selectedPill),
-              ),
-            },
+            offset: selectedPill.caretBefore(widget.composer.text.text),
           );
         } else {
           _moveCaretAfterPill(selectedPill);
@@ -3075,8 +3044,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
         return KeyEventResult.handled;
       }
       final pill = moveLeft
-          ? _collapsedPillEndingAt(caret)
-          : _collapsedPillStartingAt(caret);
+          ? widget.composer.text.collapsedComponentEndingAt(caret)
+          : widget.composer.text.collapsedComponentStartingAt(caret);
       if (pill == null) return KeyEventResult.ignored;
       _selectPillForKeyboard(pill);
       return KeyEventResult.handled;
@@ -3086,191 +3055,60 @@ class _ComposerEditorState extends State<ComposerEditor> {
         event.logicalKey == LogicalKeyboardKey.backspace ||
         event.logicalKey == LogicalKeyboardKey.delete;
     if (deletes) {
-      final boundarySyntax = event.logicalKey == LogicalKeyboardKey.backspace
-          ? _collapsedPillEndingAt(caret)
-          : _collapsedPillStartingAt(caret);
-      if (boundarySyntax is ComposerSyntaxOccurrence &&
-          boundarySyntax.projection.protectsAdjacentDelete) {
-        _selectPillForKeyboard(boundarySyntax);
+      final command = text.adjacentComponentDeletion(
+        caret: caret,
+        backward: event.logicalKey == LogicalKeyboardKey.backspace,
+        modifiesRange: hasModifier,
+      );
+      if (command != null) {
+        _applyComponentCommand(command);
         return KeyEventResult.handled;
       }
-    }
-    for (final quote in widget.composer.text.quoteBlocks) {
-      final removesQuote =
-          (event.logicalKey == LogicalKeyboardKey.backspace &&
-              quote.end == caret) ||
-          (event.logicalKey == LogicalKeyboardKey.delete &&
-              quote.start == caret);
-      if (!removesQuote || !widget.composer.text.isQuoteCollapsed(quote)) {
-        continue;
-      }
-      widget.composer.removeQuote(quote);
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey != LogicalKeyboardKey.backspace) {
-      return KeyEventResult.ignored;
-    }
-    for (final syntax in widget.composer.text.syntaxBlocks) {
-      if (syntax.end != caret ||
-          syntax.projection.protectsAdjacentDelete ||
-          !widget.composer.text.isSyntaxCollapsed(syntax)) {
-        continue;
-      }
-      unawaited(
-        Future.sync(
-          () => syntax.projection.remove(
-            _syntaxUiContext(syntax),
-            widget.composer,
-          ),
-        ),
-      );
-      return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
 
-  Object? get _keyboardSelectedPill =>
+  ComposerComponentInput? get _selectedComponent {
+    final gallery = _media.value.selectedGallery;
+    return gallery == null
+        ? _keyboardSelectedPill
+        : ComposerGalleryInput(gallery);
+  }
+
+  ComposerComponentInput? get _keyboardSelectedPill =>
       widget.composer.text.keyboardSelectedProjection;
 
   TextEditingValue _formatComponentDeletion(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final selection = oldValue.selection;
-    final deletion = _componentDeletionRange(oldValue, newValue);
-    if (selection.isValid &&
-        !selection.isCollapsed &&
-        newValue.selection.isValid &&
-        newValue.selection.isCollapsed &&
-        newValue.selection.extentOffset ==
-            selection.end + newValue.text.length - oldValue.text.length &&
-        selection.end <= oldValue.text.length &&
-        newValue.text.length >=
-            oldValue.text.length - selection.end + selection.start &&
-        newValue.text.startsWith(oldValue.text.substring(0, selection.start)) &&
-        newValue.text.endsWith(oldValue.text.substring(selection.end)) &&
-        (deletion == null ||
-            widget.composer.text.collapsedComponents.every(
-              (pill) =>
-                  _pillEnd(pill) <= selection.start ||
-                  _pillStart(pill) >= selection.end ||
-                  pill is ComposerImageGalleryBlock ||
-                  (pill is ComposerQuoteBlock &&
-                      selection.start == pill.start &&
-                      selection.end == pill.end) ||
-                  (pill is ComposerImageBlock &&
-                      widget.composer.text.galleryBlocks.any(
-                        (gallery) =>
-                            gallery.start <= pill.start &&
-                            gallery.end >= pill.end,
-                      )),
-            )) &&
-        widget.composer.text.collapsedComponents.every((pill) {
-          final start = _pillStart(pill);
-          final end = _pillEnd(pill);
-          return end <= selection.start ||
-              start >= selection.end ||
-              (selection.start <= start && selection.end >= end);
-        })) {
-      // Honor explicit whole-range replacements, including a gallery replaced
-      // or quote with a shared delimiter such as `[`. A quote must match the
-      // range exactly; selection metadata snapped over partial native deletes
-      // must still follow atomic handling below.
-      return newValue;
-    }
-    if (deletion == null) {
-      // A visually trailing gallery caret can have a hidden source offset.
-      // Normalize its insertion to the gallery boundary before rejecting
-      // edits into projected Markdown. Deletions retain atomic handling below.
-      newValue = const ComposerImageGalleryInputFormatter().formatEditUpdate(
-        oldValue,
-        newValue,
-      );
-      if (oldValue.text == newValue.text) return newValue;
-      // A keyboard may combine deletion with prediction or autocorrection.
-      // Keep ambiguous replacements out of projected source rather than
-      // accepting a damaged component that its parser can no longer recognize.
-      var start = 0;
-      while (start < oldValue.text.length &&
-          start < newValue.text.length &&
-          oldValue.text.codeUnitAt(start) == newValue.text.codeUnitAt(start)) {
-        start++;
-      }
-      var end = oldValue.text.length;
-      var newEnd = newValue.text.length;
-      while (end > start &&
-          newEnd > start &&
-          oldValue.text.codeUnitAt(end - 1) ==
-              newValue.text.codeUnitAt(newEnd - 1)) {
-        end--;
-        newEnd--;
-      }
-      for (final pill in widget.composer.text.collapsedComponents) {
-        final pillStart = _pillStart(pill);
-        final pillEnd = _pillEnd(pill);
-        if (start < pillEnd && end > pillStart ||
-            start == end && start > pillStart && start < pillEnd) {
-          return oldValue.copyWith(composing: TextRange.empty);
-        }
-      }
-      return newValue;
-    }
-    final caret = selection.extentOffset;
-    final backward = deletion.end == caret;
     final composer = widget.composer;
-    final component =
-        _collapsedPillContaining(caret) ??
-        (backward
-            ? _collapsedPillEndingAt(caret) ?? composer.text.blockBeforeCaret
-            : _collapsedPillStartingAt(caret));
-    // Native word/range deletion can begin in prose and end inside hidden
-    // source, or cross several components. Expand every partially touched
-    // projection against the old document before any delimiter can be lost.
-    var start = deletion.start;
-    var end = deletion.end;
-    for (final pill in composer.text.collapsedComponents) {
-      final pillStart = _pillStart(pill);
-      final pillEnd = _pillEnd(pill);
-      if (start < pillEnd && pillStart < end) {
-        start = math.min(start, pillStart);
-        end = math.max(end, pillEnd);
-      }
+    final edit = composer.text.projectedComponentEdit(oldValue, newValue);
+    final command = edit.command;
+    if (command != null) {
+      scheduleMicrotask(() {
+        if (!mounted ||
+            !identical(widget.composer, composer) ||
+            !composer.isEditing ||
+            composer.text.value != edit.value) {
+          return;
+        }
+        _applyComponentCommand(command);
+      });
     }
-    final afterContent =
-        component != null &&
-        backward &&
-        caret > composer.text.componentContentEnd(component) &&
-        deletion.start >= composer.text.componentContentEnd(component);
-    if (!selection.isCollapsed ||
-        component == null ||
-        deletion.start < _pillStart(component) ||
-        (deletion.end > _pillEnd(component) && !afterContent)) {
-      if (start == deletion.start && end == deletion.end) return newValue;
-      return TextEditingValue(
-        text: oldValue.text.replaceRange(start, end, ''),
-        selection: TextSelection.collapsed(offset: start),
-      );
-    }
+    return edit.value;
+  }
 
-    // Software keyboards send a text replacement instead of a key event.
-    // Reject their edit into hidden source and perform the same component
-    // command as a hardware key, after EditableText finishes its proposal.
-    final protectedValue = oldValue.copyWith(composing: TextRange.empty);
-    scheduleMicrotask(() {
-      if (!mounted ||
-          !identical(widget.composer, composer) ||
-          !composer.isEditing ||
-          composer.text.value != protectedValue) {
-        return;
-      }
-      if (afterContent) {
-        composer.text.selectBlockBeforeCaret();
-      } else {
+  void _applyComponentCommand(ComposerComponentCommand command) {
+    switch (command) {
+      case ComposerRemoveComponent(:final component):
         _clearKeyboardPillSelection();
         _removePill(component);
-      }
-    });
-    return protectedValue;
+      case ComposerSelectComponent(:final component):
+        _selectPillForKeyboard(component);
+      case ComposerSelectPreviousComponent():
+        widget.composer.text.selectBlockBeforeCaret();
+    }
   }
 
   void _clearKeyboardPillSelection() {
@@ -3279,8 +3117,8 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.text.clearKeyboardPillSelection();
   }
 
-  void _selectPillForKeyboard(Object pill) {
-    if (pill case final ComposerImageBlock image) {
+  void _selectPillForKeyboard(ComposerComponentInput pill) {
+    if (pill case ComposerImageInput(:final image)) {
       _media.selectImageForKeyboard(image, moveCaretToEnd: false);
       return;
     }
@@ -3288,112 +3126,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     widget.composer.text.selectPillForKeyboard(pill);
   }
 
-  Object? _collapsedPillContaining(int caret) {
+  void _moveCaretAfterPill(ComposerComponentInput pill) {
     final text = widget.composer.text;
-    // A caret painted beside a WidgetSpan can resolve to one of its hidden
-    // source offsets. Delete the visible component, including its delimiters.
-    // Only rendered projections participate; explicit source editing stays
-    // editable, and outer components take precedence over their children.
-    for (final quote in text.quoteBlocks) {
-      if (caret > quote.start &&
-          caret < quote.contentEnd &&
-          text.isQuoteCollapsed(quote)) {
-        return quote;
-      }
-    }
-    for (final syntax in text.syntaxBlocks) {
-      if (caret > syntax.start &&
-          caret < text.componentContentEnd(syntax) &&
-          text.isSyntaxCollapsed(syntax)) {
-        return syntax;
-      }
-    }
-    for (final gallery in text.galleryBlocks) {
-      if (caret > gallery.start &&
-          caret < gallery.end &&
-          text.isGalleryCollapsed(gallery)) {
-        return gallery;
-      }
-    }
-    return text.collapsedImageAtOffset(caret);
-  }
-
-  Object? _collapsedPillEndingAt(int caret) {
-    final text = widget.composer.text;
-    for (final quote in text.quoteBlocks) {
-      if ((quote.end == caret || text.componentContentEnd(quote) == caret) &&
-          text.isQuoteCollapsed(quote)) {
-        return quote;
-      }
-    }
-    for (final gallery in text.galleryBlocks) {
-      if (gallery.end == caret && text.isGalleryCollapsed(gallery)) {
-        return gallery;
-      }
-    }
-    for (final image in text.imageBlocks) {
-      if (image.end == caret && text.isImageCollapsed(image)) return image;
-    }
-    for (final syntax in text.syntaxBlocks) {
-      if ((syntax.end == caret ||
-              text.componentContentEnd(syntax) == caret ||
-              text.syntaxCaretAfter(syntax) == caret) &&
-          text.isSyntaxCollapsed(syntax)) {
-        return syntax;
-      }
-    }
-    return null;
-  }
-
-  Object? _collapsedPillStartingAt(int caret) {
-    final text = widget.composer.text;
-    for (final quote in text.quoteBlocks) {
-      if (quote.start == caret && text.isQuoteCollapsed(quote)) return quote;
-    }
-    for (final gallery in text.galleryBlocks) {
-      if (gallery.start == caret && text.isGalleryCollapsed(gallery)) {
-        return gallery;
-      }
-    }
-    for (final image in text.imageBlocks) {
-      if (image.start == caret && text.isImageCollapsed(image)) return image;
-    }
-    for (final syntax in text.syntaxBlocks) {
-      if (syntax.start == caret && text.isSyntaxCollapsed(syntax)) {
-        return syntax;
-      }
-    }
-    return null;
-  }
-
-  static int _pillStart(Object pill) => switch (pill) {
-    ComposerSyntaxOccurrence syntax => syntax.start,
-    ComposerQuoteBlock quote => quote.start,
-    ComposerImageGalleryBlock gallery => gallery.start,
-    ComposerImageBlock image => image.start,
-    _ => throw ArgumentError.value(pill, 'pill'),
-  };
-
-  static int _pillEnd(Object pill) => switch (pill) {
-    ComposerSyntaxOccurrence syntax => syntax.end,
-    ComposerQuoteBlock quote => quote.end,
-    ComposerImageGalleryBlock gallery => gallery.end,
-    ComposerImageBlock image => image.end,
-    _ => throw ArgumentError.value(pill, 'pill'),
-  };
-
-  void _moveCaretAfterPill(Object pill) {
-    if (pill case final ComposerSyntaxOccurrence syntax) {
-      _moveCaretAfterSyntax(syntax);
-      return;
-    }
-    final end = switch (pill) {
-      ComposerQuoteBlock quote => quote.end,
-      ComposerImageGalleryBlock gallery => gallery.end,
-      ComposerImageBlock image => image.end,
-      _ => throw ArgumentError.value(pill, 'pill'),
-    };
-    widget.composer.text.selection = TextSelection.collapsed(offset: end);
+    text.value = pill.moveCaretAfter(text.value);
   }
 
   void _moveCaretAfterSyntax(ComposerSyntaxOccurrence syntax) {
@@ -3401,14 +3136,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
     text.value = syntax.projection.moveCaretAfter(text.value);
   }
 
-  void _removePill(Object pill) {
+  void _removePill(ComposerComponentInput pill) {
     if (!widget.composer.isEditing) return;
     switch (pill) {
-      case ComposerImageBlock image:
+      case ComposerImageInput(:final image):
         _media.clearKeyboardImageSelection();
         widget.composer.removeImage(image);
         return;
-      case ComposerSyntaxOccurrence syntax:
+      case ComposerSyntaxInput(occurrence: final syntax):
         unawaited(
           Future.sync(
             () => syntax.projection.remove(
@@ -3418,14 +3153,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
           ),
         );
         return;
-      case ComposerQuoteBlock quote:
+      case ComposerQuoteInput(:final quote):
         widget.composer.removeQuote(quote);
         return;
-      case ComposerImageGalleryBlock gallery:
+      case ComposerGalleryInput(:final gallery):
         widget.composer.removeGallery(gallery);
         return;
     }
-    throw ArgumentError.value(pill, 'pill');
   }
 
   _ComposerEditorState? get _imageMenuEditor {

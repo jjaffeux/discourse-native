@@ -12,6 +12,7 @@ import 'clipboard.dart';
 import 'components/gallery_source.dart';
 import 'components/image_source.dart';
 import 'controller.dart';
+import 'projected_component_input.dart';
 import 'upload_picker.dart';
 
 @immutable
@@ -182,7 +183,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     }
     text.releaseImagePointerEdit(image);
     _composer.autocomplete.dismiss();
-    text.selectPillForKeyboard(image);
+    text.selectPillForKeyboard(ComposerImageInput(image));
     showImageMenu(image);
   }
 
@@ -240,7 +241,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
         .firstOrNull;
     if (resized != null) {
       _composer.autocomplete.dismiss();
-      _composer.text.selectPillForKeyboard(resized);
+      _composer.text.selectPillForKeyboard(ComposerImageInput(resized));
       showImageMenu(resized, refreshAlt: false);
     }
   }
@@ -794,7 +795,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
           selectedImage = current;
           selectedImageGallery = _composer.galleryForImage(current);
           if (_composer.text.keyboardSelectedImage == null) {
-            _composer.text.selectPillForKeyboard(current);
+            _composer.text.selectPillForKeyboard(ComposerImageInput(current));
           }
         }
       }

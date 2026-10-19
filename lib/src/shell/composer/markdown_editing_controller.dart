@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart'
@@ -10,7 +11,6 @@ import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/hashtag_kind.dart';
-import '../syntax.dart';
 import 'blocks.dart';
 import 'components/blockquote.dart';
 import 'components/emoji.dart';
@@ -27,8 +27,11 @@ import 'inline_spans.dart';
 import 'markdown_highlight.dart';
 import 'markdown_style.dart';
 import 'pills.dart';
+import 'projected_component_input.dart';
 import 'source_projection.dart';
 import 'text_scaling.dart';
+
+export 'projected_component_input.dart';
 
 class MarkdownEditingController extends TextEditingController {
   MarkdownEditingController({
@@ -279,9 +282,9 @@ class MarkdownEditingController extends TextEditingController {
   List<ComposerImageBlock> _imageBlocks = const [];
   Set<int> _collapsedImageStarts = const {};
   ComposerImageBlock? _caretSuppressedImage;
-  Object? _keyboardSelectedProjection;
+  ComposerComponentInput? _keyboardSelectedProjection;
   String? _keyboardSelectionDocument;
-  Object? _boundaryCaretProjection;
+  ComposerComponentInput? _boundaryCaretProjection;
   int? _boundaryCaretOffset;
   final Map<int, GlobalKey> _imageKeys = {};
   final Map<String, String> _imageUrls = {};
@@ -463,7 +466,8 @@ class MarkdownEditingController extends TextEditingController {
         ),
       );
       if (block != null) {
-        final (start, end) = _blockRange(block);
+        final start = block.start;
+        final end = block.end;
         if (newValue.selection.isCollapsed || newValue.selection.end == end) {
           _keyboardSelectedProjection = block;
           _keyboardSelectionDocument = newValue.text;
@@ -500,7 +504,7 @@ class MarkdownEditingController extends TextEditingController {
                 !atomic &&
                     selection.extentOffset - block.start >
                         block.end - selection.extentOffset
-                ? componentContentEnd(block)
+                ? ComposerSyntaxInput(block).contentEnd(document.text)
                 : block.start,
           );
           break;
@@ -521,14 +525,14 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   bool _isSyntaxHighlighted(ComposerSyntaxOccurrence block) =>
-      isPillSelectedForKeyboard(block) ||
+      isPillSelectedForKeyboard(ComposerSyntaxInput(block)) ||
       (block.projection is ComposerAtomicSelectionProjection &&
           selection.isValid &&
           !selection.isCollapsed &&
           selection.start <= block.start &&
           selection.end >= block.end);
 
-  Object? _blockStartingAt(TextEditingValue document) {
+  ComposerComponentInput? _blockStartingAt(TextEditingValue document) {
     final offset = document.selection.extentOffset;
     for (final syntax in _syntaxBlocksFor(document.text)) {
       if (syntax.start > offset) break;
@@ -540,49 +544,45 @@ class MarkdownEditingController extends TextEditingController {
                   document,
                   suppressCollapsedCaret: false,
                 )
-            ? syntax
+            ? ComposerSyntaxInput(syntax)
             : null;
       }
     }
     for (final quote in _quoteBlocksFor(document.text)) {
       if (quote.start <= offset && offset < quote.end) {
-        return quote.start == offset ? quote : null;
+        return quote.start == offset ? ComposerQuoteInput(quote) : null;
       }
     }
     for (final gallery in _galleryBlocksFor(document.text)) {
       if (gallery.start <= offset && offset < gallery.end) {
-        return gallery.start == offset ? gallery : null;
+        return gallery.start == offset ? ComposerGalleryInput(gallery) : null;
       }
     }
     for (final image in _imageBlocksFor(document.text)) {
-      if (image.start == offset) return image;
+      if (image.start == offset) return ComposerImageInput(image);
     }
     return null;
   }
 
-  static (int, int) _blockRange(Object block) => switch (block) {
-    ComposerSyntaxOccurrence block => (block.start, block.end),
-    ComposerQuoteBlock block => (block.start, block.end),
-    ComposerImageGalleryBlock block => (block.start, block.end),
-    ComposerImageBlock block => (block.start, block.end),
-    _ => throw ArgumentError.value(block, 'block'),
-  };
-
   /// Rendered components whose source must be edited as one unit.
-  Iterable<Object> get collapsedComponents sync* {
+  Iterable<ComposerComponentInput> get collapsedComponents sync* {
     if (rawMarkdown) return;
-    yield* syntaxBlocks.where(
-      (block) =>
-          block.projection is! ComposerParagraphSpacingProjection &&
-          isSyntaxCollapsed(block),
-    );
-    yield* quoteBlocks.where(isQuoteCollapsed);
-    yield* galleryBlocks.where(isGalleryCollapsed);
-    yield* imageBlocks.where(isImageCollapsed);
+    yield* syntaxBlocks
+        .where(
+          (block) =>
+              block.projection is! ComposerParagraphSpacingProjection &&
+              isSyntaxCollapsed(block),
+        )
+        .map(ComposerSyntaxInput.new);
+    yield* quoteBlocks.where(isQuoteCollapsed).map(ComposerQuoteInput.new);
+    yield* galleryBlocks
+        .where(isGalleryCollapsed)
+        .map(ComposerGalleryInput.new);
+    yield* imageBlocks.where(isImageCollapsed).map(ComposerImageInput.new);
   }
 
   /// The collapsed component separated from the caret by a structural gap.
-  Object? get blockBeforeCaret {
+  ComposerComponentInput? get blockBeforeCaret {
     if (!selection.isValid ||
         !selection.isCollapsed ||
         (!protectComponentSource && !value.composing.isCollapsed) ||
@@ -590,18 +590,21 @@ class MarkdownEditingController extends TextEditingController {
       return null;
     }
     final caret = selection.extentOffset;
-    final candidates = <Object>[
-      ...syntaxBlocks.where(
-        (block) =>
-            block.projection is ComposerBlockSyntaxProjection &&
-            isSyntaxCollapsed(block),
-      ),
-      ...quoteBlocks.where(isQuoteCollapsed),
-      ...galleryBlocks.where(isGalleryCollapsed),
-      ...imageBlocks.where(isImageCollapsed),
+    final candidates = <ComposerComponentInput>[
+      ...syntaxBlocks
+          .where(
+            (block) =>
+                block.projection is ComposerBlockSyntaxProjection &&
+                isSyntaxCollapsed(block),
+          )
+          .map(ComposerSyntaxInput.new),
+      ...quoteBlocks.where(isQuoteCollapsed).map(ComposerQuoteInput.new),
+      ...galleryBlocks.where(isGalleryCollapsed).map(ComposerGalleryInput.new),
+      ...imageBlocks.where(isImageCollapsed).map(ComposerImageInput.new),
     ];
     for (final block in candidates) {
-      final (start, end) = _blockRange(block);
+      final start = block.start;
+      final end = block.end;
       var contentEnd = end;
       while (contentEnd > start &&
           (text[contentEnd - 1] == '\n' || text[contentEnd - 1] == '\r')) {
@@ -629,7 +632,8 @@ class MarkdownEditingController extends TextEditingController {
     final block = blockBeforeCaret;
     if (block == null) return false;
     final caret = selection.extentOffset;
-    final (start, end) = _blockRange(block);
+    final start = block.start;
+    final end = block.end;
     var contentEnd = end;
     while (contentEnd > start &&
         (text[contentEnd - 1] == '\n' || text[contentEnd - 1] == '\r')) {
@@ -657,14 +661,18 @@ class MarkdownEditingController extends TextEditingController {
   }
 
   /// A caret explicitly placed beside a component, on its rendered line.
-  Object? get boundaryCaretProjection => _boundaryCaretProjection;
+  ComposerComponentInput? get boundaryCaretProjection =>
+      _boundaryCaretProjection;
 
-  void moveCaretBesideComponent(Object component, {required bool before}) {
+  void moveCaretBesideComponent(
+    ComposerComponentInput component, {
+    required bool before,
+  }) {
     clearKeyboardPillSelection();
     _boundaryCaretProjection = component;
     _boundaryCaretOffset = before
-        ? _blockRange(component).$1
-        : componentContentEnd(component);
+        ? component.start
+        : component.contentEnd(text);
     _cachedSpan = null;
     value = value.copyWith(
       selection: TextSelection.collapsed(offset: _boundaryCaretOffset!),
@@ -672,10 +680,202 @@ class MarkdownEditingController extends TextEditingController {
     );
   }
 
-  /// The boundary after the component, excluding consumed line separators.
-  int componentContentEnd(Object component) {
-    final (start, end) = _blockRange(component);
-    return start + text.substring(start, end).trimRight().length;
+  ComposerComponentInput? collapsedComponentContaining(int caret) {
+    final candidates = <ComposerComponentInput>[
+      ...quoteBlocks.where(isQuoteCollapsed).map(ComposerQuoteInput.new),
+      ...syntaxBlocks.where(isSyntaxCollapsed).map(ComposerSyntaxInput.new),
+      ...galleryBlocks.where(isGalleryCollapsed).map(ComposerGalleryInput.new),
+    ];
+    for (final component in candidates) {
+      if (component.containsCaret(caret, text)) return component;
+    }
+    final image = collapsedImageAtOffset(caret);
+    return image == null ? null : ComposerImageInput(image);
+  }
+
+  Iterable<ComposerComponentInput> get _boundaryComponents sync* {
+    yield* quoteBlocks.where(isQuoteCollapsed).map(ComposerQuoteInput.new);
+    yield* galleryBlocks
+        .where(isGalleryCollapsed)
+        .map(ComposerGalleryInput.new);
+    yield* imageBlocks.where(isImageCollapsed).map(ComposerImageInput.new);
+    yield* syntaxBlocks.where(isSyntaxCollapsed).map(ComposerSyntaxInput.new);
+  }
+
+  ComposerComponentInput? collapsedComponentEndingAt(int caret) {
+    for (final component in _boundaryComponents) {
+      if (component.endsAt(caret, text)) return component;
+    }
+    return null;
+  }
+
+  ComposerComponentInput? collapsedComponentStartingAt(int caret) {
+    for (final component in _boundaryComponents) {
+      if (component.start == caret) return component;
+    }
+    return null;
+  }
+
+  ComposerComponentCommand? adjacentComponentDeletion({
+    required int caret,
+    required bool backward,
+    bool modifiesRange = false,
+  }) {
+    final component = backward
+        ? collapsedComponentEndingAt(caret)
+        : collapsedComponentStartingAt(caret);
+    if (component == null) return null;
+    if (!modifiesRange && backward && component.contentEnd(text) == caret) {
+      return ComposerRemoveComponent(component);
+    }
+    if (component case ComposerSyntaxInput(
+      :final occurrence,
+    ) when occurrence.projection.protectsAdjacentDelete) {
+      return ComposerSelectComponent(component);
+    }
+    if ((component is ComposerQuoteInput &&
+            (backward ? component.end == caret : component.start == caret)) ||
+        (backward &&
+            component is ComposerSyntaxInput &&
+            component.end == caret)) {
+      return ComposerRemoveComponent(component);
+    }
+    return null;
+  }
+
+  ComposerComponentEdit projectedComponentEdit(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final selection = oldValue.selection;
+    final deletion = composerComponentDeletionRange(oldValue, newValue);
+    if (selection.isValid &&
+        !selection.isCollapsed &&
+        newValue.selection.isValid &&
+        newValue.selection.isCollapsed &&
+        newValue.selection.extentOffset ==
+            selection.end + newValue.text.length - oldValue.text.length &&
+        selection.end <= oldValue.text.length &&
+        newValue.text.length >=
+            oldValue.text.length - selection.end + selection.start &&
+        newValue.text.startsWith(oldValue.text.substring(0, selection.start)) &&
+        newValue.text.endsWith(oldValue.text.substring(selection.end)) &&
+        (deletion == null ||
+            collapsedComponents.every(
+              (pill) =>
+                  pill.end <= selection.start ||
+                  pill.start >= selection.end ||
+                  pill is ComposerGalleryInput ||
+                  (pill is ComposerQuoteInput &&
+                      selection.start == pill.start &&
+                      selection.end == pill.end) ||
+                  (pill is ComposerImageInput &&
+                      galleryBlocks.any(
+                        (gallery) =>
+                            gallery.start <= pill.start &&
+                            gallery.end >= pill.end,
+                      )),
+            )) &&
+        collapsedComponents.every((pill) {
+          final start = pill.start;
+          final end = pill.end;
+          return end <= selection.start ||
+              start >= selection.end ||
+              (selection.start <= start && selection.end >= end);
+        })) {
+      // Honor explicit whole-range replacements, including a gallery replaced
+      // or quote with a shared delimiter such as `[`. A quote must match the
+      // range exactly; selection metadata snapped over partial native deletes
+      // must still follow atomic handling below.
+      return ComposerComponentEdit(newValue);
+    }
+    if (deletion == null) {
+      // A visually trailing gallery caret can have a hidden source offset.
+      // Normalize its insertion to the gallery boundary before rejecting
+      // edits into projected Markdown. Deletions retain atomic handling below.
+      newValue = const ComposerImageGalleryInputFormatter().formatEditUpdate(
+        oldValue,
+        newValue,
+      );
+      if (oldValue.text == newValue.text) {
+        return ComposerComponentEdit(newValue);
+      }
+      // A keyboard may combine deletion with prediction or autocorrection.
+      // Keep ambiguous replacements out of projected source rather than
+      // accepting a damaged component that its parser can no longer recognize.
+      var start = 0;
+      while (start < oldValue.text.length &&
+          start < newValue.text.length &&
+          oldValue.text.codeUnitAt(start) == newValue.text.codeUnitAt(start)) {
+        start++;
+      }
+      var end = oldValue.text.length;
+      var newEnd = newValue.text.length;
+      while (end > start &&
+          newEnd > start &&
+          oldValue.text.codeUnitAt(end - 1) ==
+              newValue.text.codeUnitAt(newEnd - 1)) {
+        end--;
+        newEnd--;
+      }
+      for (final pill in collapsedComponents) {
+        final pillStart = pill.start;
+        final pillEnd = pill.end;
+        if (start < pillEnd && end > pillStart ||
+            start == end && start > pillStart && start < pillEnd) {
+          return ComposerComponentEdit(
+            oldValue.copyWith(composing: TextRange.empty),
+          );
+        }
+      }
+      return ComposerComponentEdit(newValue);
+    }
+    final caret = selection.extentOffset;
+    final backward = deletion.end == caret;
+    final component =
+        collapsedComponentContaining(caret) ??
+        (backward
+            ? collapsedComponentEndingAt(caret) ?? blockBeforeCaret
+            : collapsedComponentStartingAt(caret));
+    // Native word/range deletion can begin in prose and end inside hidden
+    // source, or cross several components. Expand every partially touched
+    // projection against the old document before any delimiter can be lost.
+    var start = deletion.start;
+    var end = deletion.end;
+    for (final pill in collapsedComponents) {
+      final pillStart = pill.start;
+      final pillEnd = pill.end;
+      if (start < pillEnd && pillStart < end) {
+        start = math.min(start, pillStart);
+        end = math.max(end, pillEnd);
+      }
+    }
+    final afterContent =
+        component != null &&
+        backward &&
+        caret > component.contentEnd(text) &&
+        deletion.start >= component.contentEnd(text);
+    if (!selection.isCollapsed ||
+        component == null ||
+        deletion.start < component.start ||
+        (deletion.end > component.end && !afterContent)) {
+      if (start == deletion.start && end == deletion.end) {
+        return ComposerComponentEdit(newValue);
+      }
+      return ComposerComponentEdit(
+        TextEditingValue(
+          text: oldValue.text.replaceRange(start, end, ''),
+          selection: TextSelection.collapsed(offset: start),
+        ),
+      );
+    }
+
+    return ComposerComponentEdit(
+      oldValue.copyWith(composing: TextRange.empty),
+      afterContent
+          ? const ComposerSelectPreviousComponent()
+          : ComposerRemoveComponent(component),
+    );
   }
 
   /// The preceding ordinary text position, skipping a complete grapheme.
@@ -727,18 +927,18 @@ class MarkdownEditingController extends TextEditingController {
       _collapsedImageStarts.contains(image.start);
 
   ComposerImageBlock? get keyboardSelectedImage =>
-      _keyboardSelectionDocument == text &&
-          _keyboardSelectedProjection is ComposerImageBlock
-      ? _keyboardSelectedProjection as ComposerImageBlock
-      : null;
+      switch (keyboardSelectedProjection) {
+        ComposerImageInput(:final image) => image,
+        _ => null,
+      };
 
   ComposerSyntaxOccurrence? get keyboardSelectedSyntax =>
-      _keyboardSelectionDocument == text &&
-          _keyboardSelectedProjection is ComposerSyntaxOccurrence
-      ? _keyboardSelectedProjection as ComposerSyntaxOccurrence
-      : null;
+      switch (keyboardSelectedProjection) {
+        ComposerSyntaxInput(:final occurrence) => occurrence,
+        _ => null,
+      };
 
-  Object? get keyboardSelectedProjection =>
+  ComposerComponentInput? get keyboardSelectedProjection =>
       _keyboardSelectionDocument == text ? _keyboardSelectedProjection : null;
 
   /// A whole component uses its own border instead of the document range fill.
@@ -760,28 +960,10 @@ class MarkdownEditingController extends TextEditingController {
       _caretSuppressedGallery != null ||
       keyboardSelectedProjection != null;
 
-  void selectPillForKeyboard(Object projection) {
+  void selectPillForKeyboard(ComposerComponentInput projection) {
     if (rawMarkdown) return;
-    if (projection is! ComposerImageBlock &&
-        projection is! ComposerSyntaxOccurrence &&
-        projection is! ComposerQuoteBlock &&
-        projection is! ComposerImageGalleryBlock) {
-      for (final occurrence in _syntaxBlocksFor(text)) {
-        if (identical(occurrence.projection, projection) ||
-            occurrence.projection == projection) {
-          projection = occurrence;
-          break;
-        }
-      }
-    }
-    if (projection is! ComposerImageBlock &&
-        projection is! ComposerSyntaxOccurrence &&
-        projection is! ComposerQuoteBlock &&
-        projection is! ComposerImageGalleryBlock) {
-      throw ArgumentError.value(projection, 'projection');
-    }
     if (_keyboardSelectionDocument == text &&
-        _sameProjection(_keyboardSelectedProjection, projection)) {
+        projection.sameAs(_keyboardSelectedProjection)) {
       return;
     }
     _boundaryCaretProjection = null;
@@ -798,30 +980,30 @@ class MarkdownEditingController extends TextEditingController {
     artworkArrived();
   }
 
-  bool isPillSelectedForKeyboard(Object projection) =>
+  bool isPillSelectedForKeyboard(ComposerComponentInput projection) =>
       _keyboardSelectionDocument == text &&
-      _sameProjection(_keyboardSelectedProjection, projection);
+      projection.sameAs(_keyboardSelectedProjection);
 
   void keepImageCollapsedForPointerEdit(ComposerImageBlock image) {
-    if (_sameProjection(_caretSuppressedImage, image)) return;
+    if (_sameImage(_caretSuppressedImage, image)) return;
     _caretSuppressedImage = image;
     artworkArrived();
   }
 
   void releaseImagePointerEdit(ComposerImageBlock image) {
-    if (!_sameProjection(_caretSuppressedImage, image)) return;
+    if (!_sameImage(_caretSuppressedImage, image)) return;
     _caretSuppressedImage = null;
     artworkArrived();
   }
 
   void keepGalleryCollapsedForPointerEdit(ComposerImageGalleryBlock gallery) {
-    if (_sameProjection(_caretSuppressedGallery, gallery)) return;
+    if (_sameGallery(_caretSuppressedGallery, gallery)) return;
     _caretSuppressedGallery = gallery;
     artworkArrived();
   }
 
   void releaseGalleryPointerEdit(ComposerImageGalleryBlock gallery) {
-    if (!_sameProjection(_caretSuppressedGallery, gallery)) return;
+    if (!_sameGallery(_caretSuppressedGallery, gallery)) return;
     _caretSuppressedGallery = null;
     artworkArrived();
   }
@@ -896,7 +1078,7 @@ class MarkdownEditingController extends TextEditingController {
       source,
       codeRanges: _codeRangesFor(source),
     );
-    _retainPillKeys(_imageKeys, _imageBlocks, blocks, (block) => block.start);
+    _retainPillKeys(_imageKeys, _imageBlocks, blocks, ComposerImageInput.new);
     return _imageBlocks = blocks;
   }
 
@@ -935,7 +1117,7 @@ class MarkdownEditingController extends TextEditingController {
       _galleryKeys,
       _galleryBlocks,
       blocks,
-      (block) => block.start,
+      ComposerGalleryInput.new,
     );
     return _galleryBlocks = blocks;
   }
@@ -991,13 +1173,13 @@ class MarkdownEditingController extends TextEditingController {
     bool preserveSelection = false,
   }) {
     _preserveSyntaxPointerSelection = preserveSelection;
-    if (_sameProjection(_caretSuppressedSyntax, block)) return;
+    if (block.sameAs(_caretSuppressedSyntax)) return;
     _caretSuppressedSyntax = block;
     artworkArrived();
   }
 
   void releaseSyntaxPointerEdit(ComposerSyntaxOccurrence block) {
-    if (!_sameProjection(_caretSuppressedSyntax, block)) return;
+    if (!block.sameAs(_caretSuppressedSyntax)) return;
     _preserveSyntaxPointerSelection = false;
     _caretSuppressedSyntax = null;
     artworkArrived();
@@ -1108,7 +1290,7 @@ class MarkdownEditingController extends TextEditingController {
           ? '${held.kind.id}:${held.start + delta}'
           : oldKey;
       final next = live[key];
-      if (_sameProjection(held, next) ||
+      if (held.sameAs(next) ||
           (held.projection is ComposerInteractiveSyntaxProjection &&
               next?.projection is ComposerInteractiveSyntaxProjection &&
               (key == oldKey || held.source == next?.source))) {
@@ -1195,12 +1377,12 @@ class MarkdownEditingController extends TextEditingController {
       source,
       knownCodeRanges: _codeRangesFor(source),
     );
-    _retainPillKeys(_quoteKeys, _quoteBlocks, blocks, (block) => block.start);
+    _retainPillKeys(_quoteKeys, _quoteBlocks, blocks, ComposerQuoteInput.new);
     _retainPillKeys(
       _quoteRemoveKeys,
       _quoteBlocks,
       blocks,
-      (block) => block.start,
+      ComposerQuoteInput.new,
     );
     // Cleared rather than retained: this holds what a resolver said about the
     // block that *was* at each offset, and a quote whose contents changed
@@ -1416,7 +1598,7 @@ class MarkdownEditingController extends TextEditingController {
           block.end,
           block.title,
           _displayedContentsFor(block),
-          isPillSelectedForKeyboard(block),
+          isPillSelectedForKeyboard(ComposerQuoteInput(block)),
         ),
       ),
     );
@@ -1427,13 +1609,10 @@ class MarkdownEditingController extends TextEditingController {
       for (final block in syntaxBlocks)
         if ((protectComponentSource &&
                 block.projection is! ComposerParagraphSpacingProjection) ||
-            isPillSelectedForKeyboard(block) ||
+            isPillSelectedForKeyboard(ComposerSyntaxInput(block)) ||
             !block.projection.needsRawSource(
               value,
-              suppressCollapsedCaret: _sameProjection(
-                _caretSuppressedSyntax,
-                block,
-              ),
+              suppressCollapsedCaret: block.sameAs(_caretSuppressedSyntax),
             ))
           block,
     ];
@@ -1485,7 +1664,7 @@ class MarkdownEditingController extends TextEditingController {
                 !_imageNeedsRawSource(
                   image,
                   value,
-                  suppressCollapsedCaret: _sameProjection(
+                  suppressCollapsedCaret: _sameImage(
                     _caretSuppressedImage,
                     image,
                   ),
@@ -1507,7 +1686,7 @@ class MarkdownEditingController extends TextEditingController {
           image.height,
           image.scale,
           resolvedImageUrl(image),
-          isPillSelectedForKeyboard(image),
+          isPillSelectedForKeyboard(ComposerImageInput(image)),
         ),
       ),
     );
@@ -1517,7 +1696,7 @@ class MarkdownEditingController extends TextEditingController {
           gallery.start,
           gallery.end,
           gallery.mode,
-          isPillSelectedForKeyboard(gallery),
+          isPillSelectedForKeyboard(ComposerGalleryInput(gallery)),
           Object.hashAll(
             gallery.images.map(
               (image) => Object.hash(
@@ -1527,7 +1706,7 @@ class MarkdownEditingController extends TextEditingController {
                 image.width,
                 image.height,
                 resolvedImageUrl(image),
-                isPillSelectedForKeyboard(image),
+                isPillSelectedForKeyboard(ComposerImageInput(image)),
               ),
             ),
           ),
@@ -1897,7 +2076,7 @@ class MarkdownEditingController extends TextEditingController {
             image,
             base,
             unresolvedImages,
-            highlighted: isPillSelectedForKeyboard(image),
+            highlighted: isPillSelectedForKeyboard(ComposerImageInput(image)),
           ),
         ),
       for (final gallery in collapsedGalleries)
@@ -1935,12 +2114,10 @@ class MarkdownEditingController extends TextEditingController {
                     source.startsWith('\n', projection.end) ||
                     source.startsWith('\r\n', projection.end) ||
                     (_boundaryCaretProjection != null &&
-                        _blockRange(_boundaryCaretProjection!).$1 ==
-                            projection.start) ||
+                        _boundaryCaretProjection!.start == projection.start) ||
                     (projection.end == source.length &&
                         keyboardSelectedProjection != null &&
-                        _blockRange(keyboardSelectedProjection!).$1 ==
-                            projection.start),
+                        keyboardSelectedProjection!.start == projection.start),
               )
             : projection.build(),
       );
@@ -2017,7 +2194,7 @@ class MarkdownEditingController extends TextEditingController {
       block.start,
       () => GlobalKey(debugLabel: 'composer-quote-remove-${block.start}'),
     ),
-    selected: isPillSelectedForKeyboard(block),
+    selected: isPillSelectedForKeyboard(ComposerQuoteInput(block)),
     onRemove: onRemoveQuote == null ? null : () => onRemoveQuote?.call(block),
   );
 
@@ -2085,15 +2262,16 @@ class MarkdownEditingController extends TextEditingController {
     ),
     siteUrl: imageSiteUrl,
     highlighted:
-        isPillSelectedForKeyboard(gallery) ||
-        _sameProjection(_caretSuppressedGallery, gallery),
+        isPillSelectedForKeyboard(ComposerGalleryInput(gallery)) ||
+        _sameGallery(_caretSuppressedGallery, gallery),
     trailingCaretLine: _lineEnd.matchAsPrefix(text, gallery.end) == null,
     resolveUrl: (image) => _imageUrlForArtwork(image, unresolved),
     imageKey: (image) => _imageKeys.putIfAbsent(
       image.start,
       () => GlobalKey(debugLabel: 'composer-gallery-image-${image.start}'),
     ),
-    imageHighlighted: isPillSelectedForKeyboard,
+    imageHighlighted: (image) =>
+        isPillSelectedForKeyboard(ComposerImageInput(image)),
     onNaturalSize: _recordNaturalImageSize,
     onEdit: onEditImageGallery == null
         ? null
@@ -2106,7 +2284,7 @@ class MarkdownEditingController extends TextEditingController {
   );
 
   void _startGalleryImageDrag(ComposerImageBlock image) {
-    if (_sameProjection(_draggedGalleryImage, image)) return;
+    if (_sameImage(_draggedGalleryImage, image)) return;
     _draggedGalleryImage = image;
     artworkArrived();
   }
@@ -2115,14 +2293,14 @@ class MarkdownEditingController extends TextEditingController {
     ComposerImageGalleryBlock gallery,
     ComposerImageBlock image,
   ) {
-    if (!_sameProjection(_draggedGalleryImage, image)) return;
+    if (!_sameImage(_draggedGalleryImage, image)) return;
 
     // EditableText can move its caret into a WidgetSpan's hidden source before
     // Draggable wins the pointer. A cancelled reorder has no source mutation
     // to move it back to a safe boundary, so settle it after the gallery.
     final current = _galleryBlocksFor(
       text,
-    ).where((candidate) => _sameProjection(candidate, gallery)).firstOrNull;
+    ).where((candidate) => _sameGallery(candidate, gallery)).firstOrNull;
     final selection = value.selection;
     if (current != null &&
         selection.isCollapsed &&
@@ -2192,28 +2370,34 @@ class MarkdownEditingController extends TextEditingController {
     notifyListeners();
   }
 
-  static bool _sameProjection(Object? first, Object? second) =>
-      switch ((first, second)) {
-        (ComposerImageBlock a, ComposerImageBlock b) =>
-          a.start == b.start && a.end == b.end && a.source == b.source,
-        (ComposerSyntaxOccurrence a, ComposerSyntaxOccurrence b) => a.sameAs(b),
-        (ComposerQuoteBlock a, ComposerQuoteBlock b) =>
-          a.start == b.start && a.end == b.end && a.source == b.source,
-        (ComposerImageGalleryBlock a, ComposerImageGalleryBlock b) =>
-          a.start == b.start && a.end == b.end && a.source == b.source,
-        _ => false,
-      };
+  static bool _sameImage(
+    ComposerImageBlock? first,
+    ComposerImageBlock second,
+  ) =>
+      first != null &&
+      ComposerImageInput(first).sameAs(ComposerImageInput(second));
+
+  static bool _sameGallery(
+    ComposerImageGalleryBlock? first,
+    ComposerImageGalleryBlock second,
+  ) =>
+      first != null &&
+      ComposerGalleryInput(first).sameAs(ComposerGalleryInput(second));
 
   static void _retainPillKeys<T>(
     Map<int, GlobalKey> keys,
     Iterable<T> previous,
     Iterable<T> next,
-    int Function(T) startOf,
+    ComposerComponentInput Function(T) inputOf,
   ) {
     if (keys.isEmpty) return;
-    final was = {for (final block in previous) startOf(block): block};
-    final now = {for (final block in next) startOf(block): block};
-    keys.removeWhere((start, _) => !_sameProjection(was[start], now[start]));
+    final was = {
+      for (final block in previous) inputOf(block).start: inputOf(block),
+    };
+    final now = {
+      for (final block in next) inputOf(block).start: inputOf(block),
+    };
+    keys.removeWhere((start, _) => !(now[start]?.sameAs(was[start]) ?? false));
   }
 
   static bool _stillContainsSyntax(

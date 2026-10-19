@@ -966,7 +966,7 @@ void main() {
         final gallery = controller.galleryBlocks.single;
         final selected = gallery.images[1];
         controller.selection = TextSelection.collapsed(offset: selected.end);
-        controller.selectPillForKeyboard(selected);
+        controller.selectPillForKeyboard(ComposerImageInput(selected));
         await tester.pump();
 
         expect(find.byType(ComposerImageGalleryPreview), findsOneWidget);

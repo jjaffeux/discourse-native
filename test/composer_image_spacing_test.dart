@@ -6,6 +6,7 @@ import 'package:discourse_native/src/shell/composer/components/gallery.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/composer/projected_component_input.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -181,8 +182,8 @@ void main() {
 
         composer.text.selectPillForKeyboard(
           gallery
-              ? composer.text.galleryBlocks.single
-              : composer.text.imageBlocks.single,
+              ? ComposerGalleryInput(composer.text.galleryBlocks.single)
+              : ComposerImageInput(composer.text.imageBlocks.single),
         );
         await tester.pumpAndSettle();
         expect(render.size.height, height);

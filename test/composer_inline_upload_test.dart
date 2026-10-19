@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/upload.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/composer/projected_component_input.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -587,7 +588,7 @@ void main() {
     final upload = composer.text.syntaxBlocks.singleWhere(
       (block) => block.kind.name == 'upload',
     );
-    final caret = composer.text.componentContentEnd(upload);
+    final caret = ComposerSyntaxInput(upload).contentEnd(composer.text.text);
     composer.text.selection = TextSelection.collapsed(offset: caret);
     await tester.pump();
     tester.testTextInput.updateEditingValue(

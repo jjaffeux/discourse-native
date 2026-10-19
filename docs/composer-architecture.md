@@ -63,6 +63,17 @@ component interface would need to treat inline emoji, editable task rows, and
 interactive plugin blocks alike. The existing editor already owns their shared
 invariants, so another interface would duplicate that ownership.
 
+`projected_component_input.dart` defines a sealed input-only handle for quotes,
+images, galleries and syntax occurrences. These handles carry source identity,
+UTF-16 ranges and caret behavior. They do not render, capture UI context or own
+feature state. `MarkdownEditingController` owns collapsed lookup, adjacent
+component commands and native source-edit planning. The panel decodes key events,
+keeps native proposal lifecycle guards and dispatches typed commands to the
+existing feature owners. Containment, boundary lookup and leading block selection
+retain their distinct nested precedence. Source equality preserves retained keys;
+exact parser-target identity guards deferred deletes. Input handles never become
+widget keys.
+
 The existing rendered-editor tests pin source length, caret geometry, composition,
 span cache identity, artwork retries, atomic deletion, gallery identity, and
 undo. Plugin tests pin permissions and stale picker behavior. The composer plugin

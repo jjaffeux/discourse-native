@@ -268,7 +268,9 @@ void main() {
         isFalse,
       );
 
-      controller.selectPillForKeyboard(controller.syntaxBlocks.single);
+      controller.selectPillForKeyboard(
+        ComposerSyntaxInput(controller.syntaxBlocks.single),
+      );
       await tester.pump();
       expect(
         tester
