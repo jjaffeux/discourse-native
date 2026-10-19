@@ -11,6 +11,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,6 +25,13 @@ const _users = ContentRoute(
 );
 
 void main() {
+  setUpAll(() async {
+    if (const String.fromEnvironment('USERS_EVIDENCE_DIR').isNotEmpty) {
+      await (FontLoader('UsersReview')
+            ..addFont(rootBundle.load('assets/fonts/OpenSans.ttf')))
+          .load();
+    }
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('unfocused displayed Users pane owns its search', (tester) async {
@@ -52,7 +60,10 @@ void main() {
       RepaintBoundary(
         key: capture,
         child: MaterialApp(
-          theme: AppTheme.light,
+          theme: AppTheme.forBrightness(
+            Brightness.light,
+            fontFamily: 'UsersReview',
+          ),
           home: Material(
             child: ShellScope(
               controller: shell,
