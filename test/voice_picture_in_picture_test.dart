@@ -4,14 +4,19 @@ import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_picture_in_picture.dart';
+import 'package:discourse_native/src/plugins/voice/voice_video_handle.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fake_voice_video_handle.dart';
 
 void main() {
   test(
     'preview follows remote speakers and falls back without stopping tracks',
     () {
-      final local = Object(), first = Object(), second = Object();
+      final local = FakeVoiceVideoHandle(),
+          first = FakeVoiceVideoHandle(),
+          second = FakeVoiceVideoHandle();
       final media = _PreviewMedia(
         local: local,
         tracks: {1: local, 2: first, 3: second},
@@ -177,13 +182,13 @@ void main() {
 
 class _PreviewMedia extends Fake implements VoiceMediaSession {
   _PreviewMedia({required this.local, required this.tracks});
-  Object? local;
-  final Map<int, Object> tracks;
+  VoiceVideoHandle? local;
+  final Map<int, VoiceVideoHandle> tracks;
   Set<int> speaking = {};
   @override
-  Object? get localVideoTrack => local;
+  VoiceVideoHandle? get localVideoTrack => local;
   @override
-  Object? videoTrackFor(int id) => tracks[id];
+  VoiceVideoHandle? videoTrackFor(int id) => tracks[id];
   @override
   Set<int> get speakingParticipantIds => speaking;
 }

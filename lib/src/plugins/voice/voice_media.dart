@@ -11,6 +11,8 @@ import 'voice_diagnostics.dart';
 import 'voice_livekit_endpoint.dart';
 import 'voice_models.dart';
 import 'voice_reconnect.dart';
+import 'voice_video_adapter.dart';
+import 'voice_video_handle.dart';
 
 export 'voice_reconnect.dart' show VoiceMediaConnectionState;
 
@@ -110,10 +112,10 @@ abstract interface class VoiceMediaSession implements Listenable {
 
   /// The cause of a failed reconnect, cleared while reconnecting or connected.
   Object? get connectionFailure;
-  Object? get localVideoTrack;
+  VoiceVideoHandle? get localVideoTrack;
   VoiceCameraFacing get cameraFacing;
   bool get screenSharing;
-  Object? videoTrackFor(int participantId);
+  VoiceVideoHandle? videoTrackFor(int participantId);
   Set<int> get speakingParticipantIds;
 
   Future<void> connect();
@@ -619,6 +621,8 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   Future<void> _mutationTail = Future<void>.value();
   bool _closing = false;
 
+  final _videoHandles = VoiceVideoHandleAdapter();
+
   String _peerDiagnosticAlias(int peerId) => _peerDiagnosticAliases.putIfAbsent(
     peerId,
     () => 'peer-${_nextPeerDiagnosticAlias++}',
@@ -635,15 +639,17 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       VoiceMediaConnectionState.connected;
 
   @override
-  Object? get localVideoTrack => _screenVideoTrack ?? _cameraTrack;
+  VoiceVideoHandle? get localVideoTrack =>
+      _videoHandles.fromRtc(_screenVideoTrack ?? _cameraTrack);
 
   @override
   bool get screenSharing => _screenStream != null;
 
   @override
-  Object? videoTrackFor(int participantId) => participantId == localUserId
+  VoiceVideoHandle? videoTrackFor(int participantId) =>
+      participantId == localUserId
       ? localVideoTrack
-      : _remoteTracks[participantId]?.video;
+      : _videoHandles.fromRtc(_remoteTracks[participantId]?.video);
 
   rtc.MediaStreamTrack? get _microphoneTrack =>
       _localStream?.getAudioTracks().firstOrNull;
@@ -2536,6 +2542,8 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   final Set<Future<void>> _roomConnections = {};
   Future<void>? _disposeFuture;
 
+  final _videoHandles = VoiceVideoHandleAdapter();
+
   @override
   VoiceTransport get transport => VoiceTransport.livekit;
 
@@ -2617,7 +2625,8 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   @override
-  Object? get localVideoTrack => _videoTrack(_room.localParticipant);
+  VoiceVideoHandle? get localVideoTrack =>
+      _videoHandles.fromLiveKit(_videoTrack(_room.localParticipant));
 
   @override
   VoiceCameraFacing get cameraFacing {
@@ -2632,9 +2641,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   @override
-  Object? videoTrackFor(int participantId) => participantId == localUserId
+  VoiceVideoHandle? videoTrackFor(int participantId) =>
+      participantId == localUserId
       ? localVideoTrack
-      : _videoTrack(_participant(participantId));
+      : _videoHandles.fromLiveKit(_videoTrack(_participant(participantId)));
 
   static lk.VideoTrack? _videoTrack(lk.Participant? participant) {
     if (participant == null) return null;

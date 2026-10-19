@@ -18,12 +18,14 @@ import 'package:discourse_native/src/plugins/voice/voice_idle.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
+import 'package:discourse_native/src/plugins/voice/voice_video_handle.dart';
 import 'package:discourse_plugin_api/testing.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 
+import 'support/fake_voice_video_handle.dart';
 import 'support/manual_scheduler.dart';
 import 'support/voice_fake_chat_conversations.dart';
 
@@ -235,7 +237,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   final List<(int, Map<String, dynamic>)> signals = [];
 
   @override
-  Object? localVideoTrack;
+  VoiceVideoHandle? localVideoTrack;
 
   @override
   bool get screenSharing => screen;
@@ -246,7 +248,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   Set<int> get speakingParticipantIds => speaking;
 
   @override
-  Object? videoTrackFor(int participantId) => null;
+  VoiceVideoHandle? videoTrackFor(int participantId) => null;
 
   @override
   Future<void> connect() async {
@@ -4333,12 +4335,12 @@ void main() {
       controller.addListener(() => notifications++);
 
       // The call port draws its local preview from the media session.
-      media.localVideoTrack = Object();
+      media.localVideoTrack = FakeVoiceVideoHandle();
       media.notifyListeners();
       expect(notifications, 1);
       media.notifyListeners();
       expect(notifications, 1);
-      media.localVideoTrack = Object();
+      media.localVideoTrack = FakeVoiceVideoHandle();
       media.notifyListeners();
       expect(notifications, 2);
       media.localVideoTrack = null;

@@ -230,7 +230,8 @@ void main() {
           peer.onTrack?.call(
             rtc.RTCTrackEvent(streams: const [], track: video),
           );
-          expect(media.videoTrackFor(20), same(video));
+          expect(media.videoTrackFor(20)?.nativeDescriptor.trackId, video.id);
+          expect(media.videoTrackFor(20), same(media.videoTrackFor(20)));
 
           final expectedError = failClose
               ? peer.closeError
@@ -1217,7 +1218,10 @@ void main() {
 
           await expectLater(media.setCameraEnabled(false), throwsStateError);
 
-          expect(media.localVideoTrack, same(camera));
+          expect(media.localVideoTrack?.nativeDescriptor.trackId, camera.id);
+          final localHandle = media.localVideoTrack;
+          expect(media.localVideoTrack, same(localHandle));
+          expect(media.videoTrackFor(media.localUserId), same(localHandle));
           expect([camera.enabled, camera.stopped], [false, false]);
           expect(stream.disposed, isFalse);
           await media.setCameraEnabled(true);
@@ -1355,7 +1359,7 @@ void main() {
           (false, 1, 1, 1),
         );
         expect(changes, [false]);
-        expect(media.localVideoTrack, same(camera));
+        expect(media.localVideoTrack?.nativeDescriptor.trackId, camera.id);
         expect(videoSender.track, isNull);
         expect(peer.createdTransceivers[1].sender.track, isNull);
         expect(peer.addedTrackSenders.single.track, same(microphone));
@@ -1384,7 +1388,10 @@ void main() {
 
         await media.setScreenShareEnabled(true);
         expect(screenCaptures, 2);
-        expect(media.localVideoTrack, same(replacementVideo));
+        expect(
+          media.localVideoTrack?.nativeDescriptor.trackId,
+          replacementVideo.id,
+        );
         expect(videoSender.track, same(replacementVideo));
         await media.dispose();
         await media.dispose();
@@ -1465,7 +1472,7 @@ void main() {
           await _pumpEventQueue();
 
           expect(media.screenSharing, isFalse);
-          expect(media.localVideoTrack, same(camera));
+          expect(media.localVideoTrack?.nativeDescriptor.trackId, camera.id);
           expect(
             [screen.disposeCalls, screenVideo.stopCalls, screenAudio.stopCalls],
             [1, 1, 1],
@@ -1563,7 +1570,10 @@ void main() {
           );
 
           expect(media.screenSharing, isTrue);
-          expect(media.localVideoTrack, same(screenVideo));
+          expect(
+            media.localVideoTrack?.nativeDescriptor.trackId,
+            screenVideo.id,
+          );
           expect(peer.createdTransceivers[1].sender.track, same(screenVideo));
           expect(peer.createdTransceivers[2].sender.track, same(screenAudio));
           expect(
@@ -1639,7 +1649,7 @@ void main() {
           await _pumpEventQueue();
 
           expect(media.screenSharing, isFalse);
-          expect(media.localVideoTrack, same(camera));
+          expect(media.localVideoTrack?.nativeDescriptor.trackId, camera.id);
           expect(peer.createdTransceivers[1].sender.track, same(camera));
           expect(peer.createdTransceivers[2].sender.track, isNull);
           expect(
@@ -1706,7 +1716,7 @@ void main() {
         await _pumpEventQueue();
 
         expect(media.screenSharing, isTrue);
-        expect(media.localVideoTrack, same(secondVideo));
+        expect(media.localVideoTrack?.nativeDescriptor.trackId, secondVideo.id);
         expect(peer.createdTransceivers[1].sender.track, same(secondVideo));
         expect(peer.createdTransceivers[2].sender.track, same(secondAudio));
         expect(
@@ -1811,7 +1821,7 @@ void main() {
       final video = _FakeTrack('remote-video', 'video');
 
       peer.onTrack?.call(rtc.RTCTrackEvent(streams: const [], track: video));
-      expect(media.videoTrackFor(20), same(video));
+      expect(media.videoTrackFor(20)?.nativeDescriptor.trackId, video.id);
 
       video.onEnded?.call();
       expect(media.videoTrackFor(20), isNull);
@@ -1909,7 +1919,7 @@ void main() {
       firstPeer.onTrack?.call(
         rtc.RTCTrackEvent(streams: const [], track: remoteVideo),
       );
-      expect(media.videoTrackFor(20), same(remoteVideo));
+      expect(media.videoTrackFor(20)?.nativeDescriptor.trackId, remoteVideo.id);
 
       await media.syncParticipants([
         response.room.participants.first,
@@ -2968,7 +2978,11 @@ void main() {
           ),
         ]);
         expect(old.stopped, isTrue);
-        expect(media.videoTrackFor(-1400), same(video.track));
+        expect(
+          media.videoTrackFor(-1400)?.nativeDescriptor.trackId,
+          video.track?.mediaStreamTrack.id,
+        );
+        expect(media.videoTrackFor(-1400), same(media.videoTrackFor(-1400)));
         expect(media.speakingParticipantIds, {-1400});
         final late = deliverAudio();
         expect(late.stopped, isTrue);

@@ -7,10 +7,13 @@ import 'package:discourse_native/src/plugins/voice/voice_call_controller_port.da
 import 'package:discourse_native/src/plugins/voice/voice_call_port.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
+import 'package:discourse_native/src/plugins/voice/voice_room_view.dart'
+    show VoiceVideoSurface;
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fake_voice_video_handle.dart';
 import 'support/voice_fake_chat_conversations.dart';
 import 'voice_controller_test.dart'
     show
@@ -112,6 +115,28 @@ void main() {
         isTrue,
       );
       final media = mediaFactory.sessions.single;
+      final firstVideo = FakeVoiceVideoHandle();
+      media.localVideoTrack = firstVideo;
+      media.notifyListeners();
+      expect(
+        port.state.call?.localVideoPreview,
+        isA<VoiceVideoSurface>().having(
+          (view) => view.track,
+          'track',
+          same(firstVideo),
+        ),
+      );
+      final nextVideo = FakeVoiceVideoHandle();
+      media.localVideoTrack = nextVideo;
+      media.notifyListeners();
+      expect(
+        port.state.call?.localVideoPreview,
+        isA<VoiceVideoSurface>().having(
+          (view) => view.track,
+          'track',
+          same(nextVideo),
+        ),
+      );
       media.connectionFailure = const WriteException(
         WriteFailure.validation,
         statusCode: 422,

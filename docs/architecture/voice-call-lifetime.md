@@ -42,3 +42,12 @@ retained call. Explicit account removal does.
 The owning controller, media, mesh teardown, signaling, app lifecycle and
 CallKit tests pin the protocol. The controller tests also gate prepublication
 media, preference restoration, repeated leave and late failed connection work.
+
+Video presentation borrows `VoiceVideoHandle` values from media. A handle exposes
+only a Flutter binding and the current native track descriptor. Each media
+session caches handles by provider object identity, so unchanged video keeps its
+notification and renderer identity. LiveKit descriptors read the current native
+track after provider restarts. `voice_video_adapter.dart` owns provider rendering
+and the private WebRTC native-owner lookup. Views and PiP never receive capture
+controls. Renderer disposal releases only its attachment and empty native bridge
+stream. Capture stop and disposal remain with the call's media owner.

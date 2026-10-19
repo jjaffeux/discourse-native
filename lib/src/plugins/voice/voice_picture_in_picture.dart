@@ -4,14 +4,10 @@ import 'dart:io';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-// The native owner ID is required to avoid resolving a track from another peer.
-// ignore: implementation_imports
-import 'package:flutter_webrtc/src/native/media_stream_track_impl.dart';
-import 'package:livekit_client/livekit_client.dart' as lk;
 
 import 'voice_controller.dart';
 import 'voice_media.dart';
+import 'voice_video_handle.dart';
 
 /// An observer of the call's existing tracks. It never creates or stops media.
 /// Calls are serialized so an old configure cannot resurrect PiP after leave.
@@ -55,7 +51,7 @@ class NativeVoicePictureInPicture extends ChangeNotifier {
   Future<void> configure({
     required String sessionId,
     required String roomName,
-    required Object? track,
+    required VoiceVideoHandle? track,
     required bool cameraEnabled,
     required bool recording,
     required String recordingLabel,
@@ -66,18 +62,12 @@ class NativeVoicePictureInPicture extends ChangeNotifier {
       notifyListeners();
     }
     _session = sessionId;
-    final rtcTrack = switch (track) {
-      lk.VideoTrack track => track.mediaStreamTrack,
-      rtc.MediaStreamTrack track => track,
-      _ => null,
-    };
+    final descriptor = track?.nativeDescriptor;
     final args = <String, Object?>{
       'sessionId': sessionId,
       'roomName': roomName,
-      'trackId': rtcTrack?.id,
-      'peerConnectionId': rtcTrack is MediaStreamTrackNative
-          ? rtcTrack.peerConnectionId
-          : null,
+      'trackId': descriptor?.trackId,
+      'peerConnectionId': descriptor?.peerConnectionId,
       'cameraEnabled': cameraEnabled,
       'recording': recording,
       'recordingLabel': recordingLabel,
@@ -127,11 +117,11 @@ class NativeVoicePictureInPicture extends ChangeNotifier {
 
 /// Share the selected video between the floating preview and native PiP.
 /// Prefer a remote speaker, then any remote video, then the local camera.
-Object? voiceCallPreviewTrack(VoiceCallSnapshot call) {
+VoiceVideoHandle? voiceCallPreviewTrack(VoiceCallSnapshot call) {
   if (call.status == VoiceCallStatus.leaving) return null;
   final media = call.media;
   final local = media.localVideoTrack;
-  Object? remote;
+  VoiceVideoHandle? remote;
   for (final person in call.room.participants) {
     final track = media.videoTrackFor(person.id);
     if (track == null || identical(track, local)) continue;
@@ -156,11 +146,11 @@ class VoiceCallVideoSession extends ChangeNotifier {
   final NativeVoicePictureInPicture pictureInPicture;
   VoiceMediaSession? _media;
   ({String site, int room})? _watched;
-  Object? _track;
+  VoiceVideoHandle? _track;
   bool _closed = false;
   bool _syncing = false;
 
-  Object? get track => _track;
+  VoiceVideoHandle? get track => _track;
 
   void _changed() {
     if (_closed || _syncing) return;

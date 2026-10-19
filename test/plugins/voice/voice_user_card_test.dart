@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:discourse_native/src/plugins/voice/voice_user_card.dart';
+import 'package:discourse_native/src/plugins/voice/voice_video_handle.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -400,13 +401,13 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   Object? get connectionFailure => null;
   @override
-  Object? get localVideoTrack => null;
+  VoiceVideoHandle? get localVideoTrack => null;
   @override
   bool get screenSharing => false;
   @override
   Set<int> get speakingParticipantIds => const {};
   @override
-  Object? videoTrackFor(int participantId) => null;
+  VoiceVideoHandle? videoTrackFor(int participantId) => null;
   @override
   Future<void> connect() async => connectCount++;
   @override

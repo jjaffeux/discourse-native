@@ -8,7 +8,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:livekit_client/livekit_client.dart' as lk;
 
 import 'voice_agent_invite.dart';
 import 'voice_call_port.dart';
@@ -23,6 +22,7 @@ import 'voice_models.dart';
 import 'voice_room_editor.dart';
 import 'voice_services.dart';
 import 'voice_shell_service.dart';
+import 'voice_video_handle.dart';
 
 export 'voice_room_editor.dart' show showVoiceRoomEditor;
 
@@ -655,7 +655,7 @@ class _ParticipantTile extends StatefulWidget {
 }
 
 class _ParticipantTileState extends State<_ParticipantTile> {
-  Object? _videoTrack;
+  VoiceVideoHandle? _videoTrack;
   bool _speaking = false;
 
   @override
@@ -1221,117 +1221,10 @@ class VoiceToolbarControl extends StatelessWidget {
 
 class VoiceVideoSurface extends StatelessWidget {
   const VoiceVideoSurface({super.key, required this.track});
-  final Object track;
+  final VoiceVideoHandle track;
 
   @override
-  Widget build(BuildContext context) => switch (track) {
-    final lk.VideoTrack track => lk.VideoTrackRenderer(
-      track,
-      fit: lk.VideoViewFit.cover,
-    ),
-    final rtc.MediaStreamTrack track => _RtcTrackRenderer(
-      key: ObjectKey(track),
-      track: track,
-    ),
-    _ => const SizedBox.shrink(),
-  };
-}
-
-class _RtcTrackRenderer extends StatefulWidget {
-  const _RtcTrackRenderer({super.key, required this.track});
-  final rtc.MediaStreamTrack track;
-
-  @override
-  State<_RtcTrackRenderer> createState() => _RtcTrackRendererState();
-}
-
-class _RtcTrackRendererState extends State<_RtcTrackRenderer> {
-  final rtc.RTCVideoRenderer _renderer = rtc.RTCVideoRenderer();
-  late final Future<void> _attachment;
-  rtc.MediaStream? _stream;
-  bool _rendererReady = false;
-  bool _disposed = false;
-  bool _released = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _attachment = _attach();
-    unawaited(_attachment);
-  }
-
-  Future<void> _attach() async {
-    rtc.MediaStream? pendingStream;
-    try {
-      await _renderer.initialize();
-      _rendererReady = true;
-      if (_disposed) return;
-      pendingStream = await rtc.createLocalMediaStream('voice-video-surface');
-      if (_disposed) return;
-
-      final track = widget.track;
-      // Keep the bridge stream empty on the native side. Disposing a native
-      // stream also disposes its tracks in flutter_webrtc, but this renderer
-      // only borrows tracks owned by the call's media session.
-      await pendingStream.addTrack(track, addToNative: false);
-      if (_disposed) return;
-      await _renderer.setSrcObject(stream: pendingStream, trackId: track.id);
-      if (_disposed) return;
-
-      _stream = pendingStream;
-      pendingStream = null;
-      if (mounted) setState(() {});
-    } catch (_) {
-      // A remote peer can disappear while the renderer crosses the platform
-      // channel. Video rendering is best-effort and the next track update will
-      // create a fresh surface.
-    } finally {
-      if (pendingStream case final stream?) {
-        if (_disposed) {
-          _stream = stream;
-        } else {
-          await _disposeStream(stream);
-        }
-      }
-    }
-  }
-
-  Future<void> _disposeRenderer() async {
-    try {
-      await _renderer.dispose();
-    } catch (_) {}
-  }
-
-  Future<void> _disposeStream(rtc.MediaStream stream) async {
-    try {
-      await stream.dispose();
-    } catch (_) {
-      // The media session may already have released the native resources.
-    }
-  }
-
-  Future<void> _release() async {
-    if (_released) return;
-    _released = true;
-    if (_rendererReady) await _disposeRenderer();
-    if (_stream case final stream?) {
-      _stream = null;
-      await _disposeStream(stream);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => rtc.RTCVideoView(
-    _renderer,
-    objectFit: rtc.RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-  );
-
-  @override
-  void dispose() {
-    _disposed = true;
-    unawaited(_attachment.then((_) => _release()));
-    super.dispose();
-  }
+  Widget build(BuildContext context) => track.buildSurface();
 }
 
 Future<void> _showVoiceRoomForm({

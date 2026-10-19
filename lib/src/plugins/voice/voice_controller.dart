@@ -19,6 +19,7 @@ import 'voice_models.dart';
 import 'voice_preferences.dart';
 import 'voice_settings.dart';
 import 'voice_signaling.dart';
+import 'voice_video_handle.dart';
 
 part 'voice_call_manager.dart';
 part 'voice_call_session.dart';
@@ -260,7 +261,7 @@ typedef _VoiceMediaView = ({
   VoiceMediaConnectionState connectionState,
   Object? connectionFailure,
   bool screenSharing,
-  Object? localVideoTrack,
+  VoiceVideoHandle? localVideoTrack,
 });
 
 /// Optional cancellation boundary for a Voice message-bus adapter whose

@@ -50,6 +50,8 @@ import 'package:discourse_native/src/plugins/voice/voice_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
+import 'package:discourse_native/src/plugins/voice/voice_video_adapter.dart';
+import 'package:discourse_native/src/plugins/voice/voice_video_handle.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -64,7 +66,9 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
+import 'support/fake_voice_video_handle.dart';
 import 'support/fakes.dart';
+import 'support/native_ui_evidence.dart';
 import 'support/voice_fake_chat_conversations.dart';
 
 const _siteUrl = 'https://voice.example.com';
@@ -84,6 +88,7 @@ void main() {
     testWidgets('video stage fills a solo call and fits a mobile group', (
       tester,
     ) async {
+      await prepareNativeUiEvidence(tester);
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -124,6 +129,7 @@ void main() {
         );
         expect(find.byTooltip('More options'), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await captureNativeUi(tester, 'voice-mobile-$count-participants');
       }
     });
 
@@ -352,7 +358,7 @@ void main() {
         expect(rebuilt, isNot(contains(roomContent)));
 
         rebuilt.clear();
-        media.setVideoTrack(2, Object());
+        media.setVideoTrack(2, FakeVoiceVideoHandle());
         await tester.pump();
 
         expect(find.byType(VoiceVideoSurface), findsOneWidget);
@@ -395,7 +401,7 @@ void main() {
       );
 
       first.setSpeakingParticipantIds(const {1});
-      first.setVideoTrack(1, Object());
+      first.setVideoTrack(1, FakeVoiceVideoHandle());
       await tester.pump();
       expect(
         find.byWidgetPredicate(
@@ -407,7 +413,7 @@ void main() {
       expect(find.byType(VoiceVideoSurface), findsNothing);
 
       replacement.setSpeakingParticipantIds(const {1});
-      replacement.setVideoTrack(1, Object());
+      replacement.setVideoTrack(1, FakeVoiceVideoHandle());
       await tester.pump();
       expect(
         find.byWidgetPredicate(
@@ -476,12 +482,20 @@ void main() {
         });
 
         await tester.pumpWidget(
-          MaterialApp(home: VoiceVideoSurface(track: _nativeVideoTrack())),
+          MaterialApp(
+            home: VoiceVideoSurface(
+              track: VoiceVideoHandleAdapter().fromRtc(_nativeVideoTrack())!,
+            ),
+          ),
         );
         expect(calls, contains('videoRendererSetSrcObject'));
 
         await tester.pumpWidget(
-          MaterialApp(home: VoiceVideoSurface(track: _nativeVideoTrack())),
+          MaterialApp(
+            home: VoiceVideoSurface(
+              track: VoiceVideoHandleAdapter().fromRtc(_nativeVideoTrack())!,
+            ),
+          ),
         );
         expect(
           calls.where((method) => method == 'createVideoRenderer'),
@@ -499,6 +513,7 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(rendererDisposed.isCompleted, isTrue);
         expect(calls, isNot(contains('mediaStreamAddTrack')));
+        expect(calls, isNot(contains('mediaStreamTrackDispose')));
         expect(
           calls.where((method) => method == 'streamDispose'),
           hasLength(2),
@@ -1020,7 +1035,7 @@ void main() {
         await tester.tap(find.text('Join room'));
         await tester.pumpAndSettle();
         final media = harness.media.sessions.single;
-        media.setVideoTrack(2, Object());
+        media.setVideoTrack(2, FakeVoiceVideoHandle());
         await tester.pump();
         expect(find.byType(VoiceVideoSurface), findsOneWidget);
 
@@ -2927,7 +2942,8 @@ void main() {
           await tester.pumpWidget(
             MaterialApp(
               theme: ThemeData(platform: TargetPlatform.macOS),
-              builder: (context, child) => DToaster(child: child!),
+              builder: (context, child) =>
+                  nativeUiEvidenceBuilder(context, DToaster(child: child!)),
               home: VoiceRoomView(
                 roomId: 7,
                 controller: harness.controller,
@@ -5303,7 +5319,8 @@ Widget _app(
   ThemeData? theme,
 }) => MaterialApp(
   theme: theme ?? ThemeData(platform: TargetPlatform.macOS),
-  builder: (context, child) => DToaster(child: child!),
+  builder: (context, child) =>
+      nativeUiEvidenceBuilder(context, DToaster(child: child!)),
   home: Scaffold(
     body: ListenableBuilder(
       listenable: controller,
@@ -6221,7 +6238,7 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   final VoiceTransport transport;
   Set<int> _speakingParticipantIds;
-  final Map<int, Object> _videoTracks = {};
+  final Map<int, VoiceVideoHandle> _videoTracks = {};
   @override
   Set<int> get speakingParticipantIds => _speakingParticipantIds;
   int connectCount = 0;
@@ -6242,18 +6259,19 @@ final class _MediaSession extends ChangeNotifier implements VoiceMediaSession {
   @override
   Object? get connectionFailure => null;
   @override
-  Object? get localVideoTrack => null;
+  VoiceVideoHandle? get localVideoTrack => null;
   @override
   bool get screenSharing => false;
   @override
-  Object? videoTrackFor(int participantId) => _videoTracks[participantId];
+  VoiceVideoHandle? videoTrackFor(int participantId) =>
+      _videoTracks[participantId];
 
   void setSpeakingParticipantIds(Set<int> value) {
     _speakingParticipantIds = Set.unmodifiable(value);
     notifyListeners();
   }
 
-  void setVideoTrack(int participantId, Object? track) {
+  void setVideoTrack(int participantId, VoiceVideoHandle? track) {
     if (track == null) {
       _videoTracks.remove(participantId);
     } else {
