@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/site_appearance.dart';
 import 'account_request_session.dart';
+import 'discourse_get_sender.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
@@ -76,6 +77,12 @@ final class SiteAppearanceLoader {
   final int maxResponseBytes;
   final int maxRedirects;
   final DiscourseRequestCoordinator _coordinator;
+  late final DiscourseGetSender _gets = DiscourseGetSender(
+    _client,
+    _coordinator,
+    timeout,
+    maxResponseBytes,
+  );
 
   static const String _userAgent = 'DiscourseNative/1.0';
 
@@ -401,67 +408,21 @@ final class SiteAppearanceLoader {
   }
 
   Future<http.Response> _send(
-    http.BaseRequest request, {
+    http.Request request, {
     AccountRequestScope? scope,
     Future<void>? abortTrigger,
   }) async {
     try {
-      if (scope != null || abortTrigger != null) {
-        scope?.validateHeaders(request.headers);
-        final cancellation = scope == null
-            ? abortTrigger
-            : abortTrigger == null
-            ? scope.retired
-            : Future.any([scope.retired, abortTrigger]);
-        return await _coordinator.runGet(
-          request.url,
-          (abort) {
-            if (scope != null && !scope.isCurrent) {
-              throw DiscourseQueuedRequestCancelledException(request.url);
-            }
-            final outgoing =
-                http.AbortableRequest(
-                    request.method,
-                    request.url,
-                    abortTrigger: abort,
-                  )
-                  ..headers.addAll(request.headers)
-                  ..followRedirects = request.followRedirects
-                  ..maxRedirects = request.maxRedirects
-                  ..persistentConnection = request.persistentConnection;
-            return sendBoundedHttpRequest(
-              _client,
-              outgoing,
-              timeout: timeout,
-              maxBodyBytes: maxResponseBytes,
-            );
-          },
-          coalesce: DiscourseGetRequestKey(
-            request.url,
-            headers: request.headers,
-            timeout: timeout,
-            maxResponseBytes: maxResponseBytes,
-            session: scope?.session,
-          ),
-          abortTrigger: cancellation,
-        );
-      }
-      return await _coordinator.run(
-        request.url,
-        () => sendBoundedHttpRequest(
-          _client,
-          request,
-          timeout: timeout,
-          maxBodyBytes: maxResponseBytes,
-        ),
-        coalesce: request.method == 'GET'
-            ? DiscourseGetRequestKey(
-                request.url,
-                headers: request.headers,
-                timeout: timeout,
-                maxResponseBytes: maxResponseBytes,
-              )
-            : null,
+      scope?.validateHeaders(request.headers);
+      final cancellation = scope == null
+          ? abortTrigger
+          : abortTrigger == null
+          ? scope.retired
+          : Future.any([scope.retired, abortTrigger]);
+      return await _gets.send(
+        request,
+        scope: scope,
+        cancellation: cancellation,
       );
     } on SiteAppearanceLoadException {
       rethrow;

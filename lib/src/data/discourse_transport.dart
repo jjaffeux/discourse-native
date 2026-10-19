@@ -9,6 +9,7 @@ import '../models/json.dart';
 import '../models/site_appearance.dart';
 import 'account_request_session.dart';
 import 'discourse_api_contracts.dart';
+import 'discourse_get_sender.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
 import 'json_decode.dart';
@@ -54,6 +55,13 @@ final class DiscourseTransport {
   final Duration timeout;
   final int _maxResponseBytes;
   final DiscourseRequestCoordinator coordinator;
+
+  late final DiscourseGetSender _gets = DiscourseGetSender(
+    _client,
+    coordinator,
+    timeout,
+    _maxResponseBytes,
+  );
 
   late final SiteAppearanceLoader _siteAppearanceLoader = SiteAppearanceLoader(
     client: _client,
@@ -305,32 +313,11 @@ final class DiscourseTransport {
           request.headers.addAll(authHeaders(apiKey, clientId: clientId));
         }
         scope?.validateRequest(requestUrl, request.headers);
-        response = await coordinator.runGet(
-          requestUrl,
-          (sharedAbort) {
-            if (scope != null && !scope.isCurrent) {
-              throw DiscourseQueuedRequestCancelledException(requestUrl);
-            }
-            final outgoing = http.AbortableRequest(
-              'GET',
-              requestUrl,
-              abortTrigger: sharedAbort,
-            )..headers.addAll(request.headers);
-            return sendBoundedHttpRequest(
-              _client,
-              outgoing,
-              timeout: effectiveTimeout,
-              maxBodyBytes: _maxResponseBytes,
-            );
-          },
-          abortTrigger: cancellation,
-          coalesce: DiscourseGetRequestKey(
-            requestUrl,
-            headers: request.headers,
-            timeout: effectiveTimeout,
-            maxResponseBytes: _maxResponseBytes,
-            session: scope?.session,
-          ),
+        response = await _gets.send(
+          request,
+          scope: scope,
+          cancellation: cancellation,
+          timeout: effectiveTimeout,
           intent: intent,
         );
 
