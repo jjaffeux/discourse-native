@@ -33,6 +33,7 @@ import 'chat_thread_list_refresh.dart';
 import 'chat_wire.dart';
 
 part 'chat_conversation_stream.dart';
+part 'chat_channel_directory.dart';
 
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
 typedef _ChatReactorsKey = ({
@@ -468,14 +469,12 @@ class ChatController extends FrameSafeNotifier {
         hasThreads: hasThreads,
         putChannel: _putChannel,
         didReceiveTrackingState: (siteUrl, channel) =>
-            _channelRefreshes[siteUrl]?.recordTrackingState(channel),
+            _heldDirectory(siteUrl)?.recordTrackingState(channel),
         didReceiveChannelEdit: (siteUrl, channelId) {
-          final write = _channelSettingsWrites[_streamKey(siteUrl, channelId)];
-          write?.receivedMetadata = true;
+          _heldDirectory(siteUrl)?.recordMetadataEdit(channelId);
         },
         didReceiveChannelStatus: (siteUrl, channelId) {
-          final write = _channelSettingsWrites[_streamKey(siteUrl, channelId)];
-          write?.receivedStatus = true;
+          _heldDirectory(siteUrl)?.recordStatusEdit(channelId);
         },
         putMessage: _putMessage,
         putLiveMessage: (siteUrl, message, preservePersonalizedState) =>
@@ -489,10 +488,9 @@ class ChatController extends FrameSafeNotifier {
         notifyCanonicalChange: notifySafely,
         removeKickedChannelState: _removeKickedChannelState,
         isChannelListed: (siteUrl, channelId) =>
-            (_directIds[siteUrl]?.contains(channelId) ?? false) ||
-            (_publicIds[siteUrl]?.contains(channelId) ?? false),
+            _heldDirectory(siteUrl)?.isListed(channelId) ?? false,
         resolvePartialChannel: (siteUrl, channelId) =>
-            _partialChannelIds[siteUrl]?.remove(channelId),
+            _heldDirectory(siteUrl)?.resolvePartial(channelId),
         insertListedChannel: _insertLiveChannel,
         advanceLastViewedAt: (siteUrl, channelId) =>
             _advanceLastViewedAt(siteUrl, channelId, notify: false),
@@ -730,30 +728,53 @@ class ChatController extends FrameSafeNotifier {
   /// re-reading on every app switch would cost requests for nothing.
   static const Duration resumeResyncThreshold = Duration(minutes: 1);
 
-  final Set<String> _loading = {};
   final Map<String, String> _errors = {};
-  final Map<String, int> _attempts = {};
-  final Map<String, Future<void>> _channelRequests = {};
-  final Map<String, Object> _channelRuns = {};
-  final Set<String> _channelRevalidations = {};
+  final Map<String, _ChatChannelDirectory> _directories = {};
+
+  _ChatChannelDirectory? _heldDirectory(String siteUrl) {
+    final held = _directories[siteUrl];
+    return held?.isCurrent == true ? held : null;
+  }
+
+  _ChatChannelDirectory _directory(String siteUrl) {
+    assert(!isDisposed);
+    final held = _directories[siteUrl];
+    if (held != null && held.isCurrent) return held;
+    held?.retire();
+    final directory = _ChatChannelDirectory(
+      siteUrl: siteUrl,
+      lease: _requests.capture(siteUrl),
+      api: api,
+      requests: _requests,
+      store: _store,
+      liveSync: _liveSync,
+      currentUserFor: _currentUserFor,
+      onChanged: notifySafely,
+      report: _report,
+      onChatNotificationsDelta: onChatNotificationsDelta,
+      hasThreads: () => hasThreads(siteUrl),
+      replaceHasThreads: (previous, next) {
+        if (hasThreads(siteUrl) == previous) _hasThreads[siteUrl] = next;
+      },
+      advanceLastViewedAt: (channelId) =>
+          _advanceLastViewedAt(siteUrl, channelId, notify: false),
+    );
+    _directories[siteUrl] = directory;
+    return directory;
+  }
+
   DateTime? _backgroundedAt;
-  final Map<String, Future<ChatChannel?>> _channelDetailRequests = {};
-  final Map<String, Object> _channelDetailRuns = {};
   final Map<String, Future<void>> _myThreadRequests = {};
   final Map<String, Object> _myThreadRuns = {};
   final Map<String, Future<void>> _channelThreadListRequests = {};
   final Map<String, Object> _channelThreadListRuns = {};
 
   /// Sidebar orderings not represented by individual store records.
-  final Map<String, List<int>> _publicIds = {};
-  final Map<String, List<int>> _directIds = {};
-  final Map<String, ChatChannelRefresh> _channelRefreshes = {};
   final Map<String, Set<ChatThreadListRefresh>> _threadListRefreshes = {};
   final Map<String, List<int>> _myThreadIds = {};
   final Map<String, int> _myThreadOffsets = {};
   final Map<String, bool> _myThreadsHaveMore = {};
   final Map<String, bool> _hasThreads = {};
-  final Map<String, Set<int>> _partialChannelIds = {};
   final Map<String, List<int>> _channelThreadIds = {};
   final Map<String, int> _channelThreadOffsets = {};
   final Map<String, bool> _channelThreadsHaveMore = {};
@@ -773,11 +794,6 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, int> _threadNotificationRevisions = {};
   final Map<String, Future<void>> _threadNotificationTails = {};
   final Map<String, ChatThreadMembership?> _threadNotificationConfirmed = {};
-  final Map<String, Object> _channelStarWrites = {};
-  final Map<String, Object> _channelNotificationWrites = {};
-  final Map<String, Object> _channelMessageResumes = {};
-  final Map<String, Object> _channelFollowWrites = {};
-  final Map<String, _ChannelSettingsWrite> _channelSettingsWrites = {};
   final Map<({String siteUrl, int messageId}), Object> _messageEditWrites = {};
   final Map<({String siteUrl, int messageId}), Object> _messageDeletionWrites =
       {};
@@ -796,7 +812,6 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, FrameSafeValueNotifier<ChatComposerDraft?>>
   _composerDraftRefs = {};
 
-  static String _channelsKey(String siteUrl) => '$siteUrl~channels';
   static String _myThreadsKey(String siteUrl) => '$siteUrl~my-threads';
   static String _channelThreadsKey(String siteUrl, int channelId) =>
       '$siteUrl~channel-$channelId-threads';
@@ -862,10 +877,10 @@ class ChatController extends FrameSafeNotifier {
   }
 
   List<ChatChannel> publicChannels(String siteUrl) =>
-      _resolve(siteUrl, _publicIds[siteUrl]);
+      _heldDirectory(siteUrl)?.publicChannels() ?? [];
 
   List<ChatChannel> directChannels(String siteUrl) =>
-      _resolve(siteUrl, _directIds[siteUrl]);
+      _heldDirectory(siteUrl)?.directChannels() ?? [];
 
   /// Unread messages across channels and DMs, including watched threads.
   /// Mentions overlap these counts; unread thread totals count threads, not messages.
@@ -896,58 +911,17 @@ class ChatController extends FrameSafeNotifier {
   }
 
   /// Public channels in the unread-first activity order.
-  List<ChatChannel> activitySortedPublicChannels(String siteUrl) {
-    final channels = [...publicChannels(siteUrl)];
-    final originalPositions = <int, int>{};
-    for (final channel in channels) {
-      originalPositions[channel.id] = originalPositions.length;
-    }
-    final unreadCounts = Map<ChatChannel, int>.identity();
-    int unread(ChatChannel channel) => unreadCounts.putIfAbsent(
-      channel,
-      () =>
-          channel.tracking.unreadCount +
-          channel.unreadThreadsCountSinceLastViewed,
-    );
-    channels.sort((a, b) {
-      int urgent(ChatChannel channel) =>
-          channel.tracking.mentionCount +
-          channel.tracking.watchedThreadsUnreadCount;
-      int bySlug(ChatChannel first, ChatChannel second) {
-        final compared = (first.slug ?? first.title).toLowerCase().compareTo(
-          (second.slug ?? second.title).toLowerCase(),
-        );
-        return compared != 0
-            ? compared
-            : originalPositions[first.id]!.compareTo(
-                originalPositions[second.id]!,
-              );
-      }
-
-      final aUrgent = urgent(a);
-      final bUrgent = urgent(b);
-      if (aUrgent > 0 && bUrgent > 0) return bySlug(a, b);
-      if ((aUrgent > 0) != (bUrgent > 0)) return aUrgent > 0 ? -1 : 1;
-
-      final aUnread = unread(a);
-      final bUnread = unread(b);
-      if (aUnread > 0 && bUnread > 0) return bySlug(a, b);
-      if ((aUnread > 0) != (bUnread > 0)) return aUnread > 0 ? -1 : 1;
-      return bySlug(a, b);
-    });
-    return List.unmodifiable(channels);
-  }
+  List<ChatChannel> activitySortedPublicChannels(String siteUrl) =>
+      _heldDirectory(siteUrl)?.activitySortedPublicChannels() ?? const [];
 
   /// Captures the account that owns a menu gesture or other synchronous UI action.
   PluginSiteLease captureAccount(String siteUrl) => _requests.capture(siteUrl);
 
   bool channelsLoaded(String siteUrl) =>
-      _publicIds.containsKey(siteUrl) && _directIds.containsKey(siteUrl);
+      _heldDirectory(siteUrl)?.channelsLoaded() ?? false;
 
-  bool channelsLoading(String siteUrl) {
-    final key = _channelsKey(siteUrl);
-    return _loading.contains(key) && !_channelRevalidations.contains(key);
-  }
+  bool channelsLoading(String siteUrl) =>
+      _heldDirectory(siteUrl)?.channelsLoading() ?? false;
 
   ChatComposerDraft? composerDraftFor(
     String siteUrl,
@@ -1013,92 +987,19 @@ class ChatController extends FrameSafeNotifier {
   bool hasThreads(String siteUrl) => _hasThreads[siteUrl] ?? false;
 
   bool channelStarWriteInFlight(String siteUrl, int channelId) =>
-      _channelStarWrites.containsKey(_streamKey(siteUrl, channelId));
+      _heldDirectory(siteUrl)?.channelStarWriteInFlight(channelId) ?? false;
 
   bool channelNotificationWriteInFlight(String siteUrl, int channelId) =>
-      _channelNotificationWrites.containsKey(_streamKey(siteUrl, channelId));
+      _heldDirectory(siteUrl)?.channelNotificationWriteInFlight(channelId) ??
+      false;
 
   Future<String?> updateChannelStarred(
     String siteUrl,
     int channelId,
     bool starred,
-  ) async {
-    if (isDisposed || channelId <= 0) {
-      return appL10n.thisChannelCanNoLongerBeChanged;
-    }
-    final held = channel(siteUrl, channelId);
-    if (held == null || !held.membership.following) {
-      return appL10n.onlyFollowedChannelsCanBeStarred;
-    }
-    if (held.membership.starred == starred) return null;
-
-    final key = _streamKey(siteUrl, channelId);
-    if (_channelStarWrites.containsKey(key)) {
-      return appL10n.anotherChannelChangeIsStillFinishing;
-    }
-    final token = Object();
-    final lease = _requests.capture(siteUrl);
-    _channelStarWrites[key] = token;
-
-    bool isCurrent() =>
-        identical(_channelStarWrites[key], token) &&
-        lease.isCurrent &&
-        !isDisposed;
-
-    // The star is the only field this write owns. Tracking, mentions, and
-    // read cursors that arrive while the request is in flight belong to the
-    // live record, so both the optimistic write and its rollback rebase on
-    // it rather than on the [held] snapshot.
-    void project(bool starred) {
-      lease.commit(() {
-        final current = channel(siteUrl, channelId) ?? held;
-        _putChannel(siteUrl, current.withStarred(starred));
-        notifySafely();
-      });
-    }
-
-    project(starred);
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!isCurrent()) return null;
-      if (apiKey == null) {
-        project(held.membership.starred);
-        return appL10n.reconnectThisSiteToChangeTheChannel;
-      }
-      final clientId = requestCredentials.clientId;
-      if (!isCurrent()) return null;
-      await requestCredentials.run(
-        () => api.updateChatChannelStarred(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          channelId: channelId,
-          starred: starred,
-          clientId: clientId,
-        ),
-      );
-      return null;
-    } on WriteException catch (error) {
-      if (isCurrent()) project(held.membership.starred);
-      return error.message;
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _report(
-          error,
-          stackTrace,
-          'chat.updateChannelStarred',
-          severity: DiagnosticSeverity.warning,
-        );
-        project(held.membership.starred);
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_channelStarWrites[key], token)) {
-        final _ = _channelStarWrites.remove(key);
-      }
-      if (!isDisposed) notifySafely();
-    }
-  }
+  ) => isDisposed
+      ? Future.value(appL10n.thisChannelCanNoLongerBeChanged)
+      : _directory(siteUrl).updateChannelStarred(channelId, starred);
 
   /// Muting and push frequency are independent Discourse fields.
   Future<String?> updateChannelNotifications(
@@ -1106,174 +1007,13 @@ class ChatController extends FrameSafeNotifier {
     int channelId, {
     bool? muted,
     ChatChannelNotificationLevel? notificationLevel,
-  }) async {
-    if (isDisposed || channelId <= 0) {
-      return appL10n.thisChannelCanNoLongerBeChanged;
-    }
-    if (muted == null && notificationLevel == null) {
-      return appL10n.chooseAChannelNotificationSettingToChange;
-    }
-    final held = channel(siteUrl, channelId);
-    if (held == null || !held.membership.following) {
-      return appL10n.onlyFollowedChannelsHaveNotificationSettings;
-    }
-    final projectedMembership = held.membership.withNotifications(
-      muted: muted,
-      notificationLevel: notificationLevel,
-    );
-    if (projectedMembership == held.membership) return null;
-
-    final key = _streamKey(siteUrl, channelId);
-    if (_channelNotificationWrites.containsKey(key)) {
-      return appL10n.anotherNotificationChangeIsStillFinishing;
-    }
-    final token = Object();
-    final lease = _requests.capture(siteUrl);
-    _channelNotificationWrites[key] = token;
-
-    bool isCurrent() =>
-        identical(_channelNotificationWrites[key], token) &&
-        lease.isCurrent &&
-        !isDisposed;
-
-    // This write owns only muting and the push level. A read, star, or pin
-    // view that lands while the request is in flight stays on the live
-    // membership: the server's answer carries cursors older than a read that
-    // happened locally meanwhile, and the rollback must not undo a
-    // concurrent optimistic star. Muting changes how the channel counts, so
-    // the projection, the server's answer and a rollback each publish their
-    // own counter change. Each also moves the channel's new-messages stream
-    // with its muting; restarting it needs fresh cursors, so that waits for a
-    // [settled] membership, the server's answer or a rollback to its state.
-    final changesMuting = held.membership.muted || projectedMembership.muted;
-    void project(ChatMembership source, {bool settled = true}) {
-      lease.commit(() {
-        final current = channel(siteUrl, channelId) ?? held;
-        final next = current.withMembership(
-          current.membership.withNotifications(
-            muted: source.muted,
-            notificationLevel: source.notificationLevel,
-          ),
-        );
-        _publishListedNotificationChange(
-          siteUrl,
-          () => _putChannel(siteUrl, next),
-        );
-        if (next.membership.muted) {
-          _channelMessageResumes.remove(key);
-          _liveSync.muteChannel(siteUrl, channelId);
-        } else if (settled && changesMuting) {
-          _resumeChannelMessages(siteUrl, channelId);
-        }
-        notifySafely();
-      });
-    }
-
-    project(projectedMembership, settled: false);
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!isCurrent()) return null;
-      if (apiKey == null) {
-        project(held.membership);
-        return appL10n.reconnectThisSiteToChangeChannelNotifications;
-      }
-      final clientId = requestCredentials.clientId;
-      if (!isCurrent()) return null;
-      final membership = await requestCredentials.run(
-        () => api.updateChatChannelNotifications(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          channelId: channelId,
+  }) => isDisposed
+      ? Future.value(appL10n.thisChannelCanNoLongerBeChanged)
+      : _directory(siteUrl).updateChannelNotifications(
+          channelId,
           muted: muted,
           notificationLevel: notificationLevel,
-          clientId: clientId,
-        ),
-      );
-      if (isCurrent()) project(membership);
-      return null;
-    } on WriteException catch (error) {
-      if (isCurrent()) project(held.membership);
-      return error.message;
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _report(
-          error,
-          stackTrace,
-          'chat.updateChannelNotifications',
-          severity: DiagnosticSeverity.warning,
         );
-        project(held.membership);
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_channelNotificationWrites[key], token)) {
-        final _ = _channelNotificationWrites.remove(key);
-      }
-      if (!isDisposed) notifySafely();
-    }
-  }
-
-  /// Restarts the new-messages stream of a channel that is no longer muted.
-  ///
-  /// The held record's cursors date from its snapshot and a stopped stream
-  /// keeps none of its own, so the channel detail supplies the position to
-  /// start from. The detail carries no tracking, so the unread messages the
-  /// muted snapshot left out arrive with the next channel-list snapshot. A
-  /// later mute withdraws the run and the commit re-checks the record, so a
-  /// mute that lands while the detail is in flight leaves the stream stopped.
-  void _resumeChannelMessages(String siteUrl, int channelId) {
-    if (_liveSync.ownsChannelMessages(siteUrl, channelId)) return;
-    final key = _streamKey(siteUrl, channelId);
-    final run = Object();
-    _channelMessageResumes[key] = run;
-    final lease = _requests.capture(siteUrl);
-    bool isCurrent() => _requestIsCurrent(
-      lease,
-      () => identical(_channelMessageResumes[key], run),
-    );
-
-    Future<void> resume() async {
-      try {
-        final requestCredentials = await _requests.credentialsFor(siteUrl);
-        final apiKey = requestCredentials.apiKey;
-        if (!isCurrent() || apiKey == null) return;
-        final clientId = requestCredentials.clientId;
-        if (!isCurrent()) return;
-        final fresh = await requestCredentials.run(
-          () => api.chatChannel(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            clientId: clientId,
-            channelId: channelId,
-          ),
-        );
-        if (!isCurrent() || fresh.id != channelId) return;
-        lease.commit(() {
-          final membership = channel(siteUrl, channelId)?.membership;
-          if (membership == null || !membership.following || membership.muted) {
-            return;
-          }
-          _liveSync.unmuteChannel(siteUrl, fresh);
-        });
-      } catch (error, stackTrace) {
-        if (isCurrent()) {
-          _report(
-            error,
-            stackTrace,
-            'chat.resumeChannelMessages',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-      } finally {
-        if (identical(_channelMessageResumes[key], run)) {
-          _channelMessageResumes.remove(key);
-        }
-      }
-    }
-
-    unawaited(resume());
-  }
 
   Future<ChatChannelMembersResult> fetchChannelMembers(
     String siteUrl,
@@ -1281,54 +1021,17 @@ class ChatController extends FrameSafeNotifier {
     String username = '',
     int offset = 0,
     int limit = 20,
-  }) async {
-    if (isDisposed || channelId <= 0) {
-      return (page: null, error: appL10n.thisMemberListIsNoLongerAvailable);
-    }
-    final held = channel(siteUrl, channelId);
-    if (held == null || !held.membership.following) {
-      return (page: null, error: appL10n.onlyFollowedChannelsShowTheirMembers);
-    }
-    final lease = _requests.capture(siteUrl);
-    bool isCurrent() => !isDisposed && lease.isCurrent;
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!isCurrent()) return (page: null, error: null);
-      if (apiKey == null) {
-        return (
+  }) => isDisposed
+      ? Future.value((
           page: null,
-          error: appL10n.reconnectThisSiteToSeeChannelMembers,
-        );
-      }
-      final clientId = requestCredentials.clientId;
-      if (!isCurrent()) return (page: null, error: null);
-      final page = await requestCredentials.run(
-        () => api.chatChannelMembers(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          channelId: channelId,
+          error: appL10n.thisMemberListIsNoLongerAvailable,
+        ))
+      : _directory(siteUrl).fetchChannelMembers(
+          channelId,
           username: username,
           offset: offset,
           limit: limit,
-          clientId: clientId,
-        ),
-      );
-      return isCurrent()
-          ? (page: page, error: null)
-          : (page: null, error: null);
-    } on SiteLookupException catch (error, stackTrace) {
-      if (isCurrent()) {
-        _report(error, stackTrace, 'chat.loadChannelMembers');
-      }
-      return (page: null, error: error.message);
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _report(error, stackTrace, 'chat.loadChannelMembers');
-      }
-      return (page: null, error: appL10n.couldnTLoadThisChannelSMembers);
-    }
-  }
+        );
 
   Future<ChatChannelBrowseResult> fetchBrowseChannels(
     String siteUrl, {
@@ -1336,62 +1039,27 @@ class ChatController extends FrameSafeNotifier {
     ChatChannelBrowseStatus status = ChatChannelBrowseStatus.all,
     int offset = 0,
     int limit = ChatChannelBrowsePage.pageSize,
-  }) async {
-    if (isDisposed) {
-      return (
-        page: null,
-        error: appL10n.theChannelDirectoryIsNoLongerAvailable,
-      );
-    }
-    final lease = _requests.capture(siteUrl);
-    bool isCurrent() => !isDisposed && lease.isCurrent;
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!isCurrent()) return (page: null, error: null);
-      if (apiKey == null) {
-        return (
+  }) => isDisposed
+      ? Future.value((
           page: null,
-          error: appL10n.reconnectThisSiteToBrowseChatChannels,
-        );
-      }
-      final clientId = requestCredentials.clientId;
-      if (!isCurrent()) return (page: null, error: null);
-      final page = await requestCredentials.run(
-        () => api.browseChatChannels(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
+          error: appL10n.theChannelDirectoryIsNoLongerAvailable,
+        ))
+      : _directory(siteUrl).fetchBrowseChannels(
           filter: filter,
           status: status,
           offset: offset,
           limit: limit,
-          clientId: clientId,
-        ),
-      );
-      return isCurrent()
-          ? (page: page, error: null)
-          : (page: null, error: null);
-    } on SiteLookupException catch (error, stackTrace) {
-      if (isCurrent()) _report(error, stackTrace, 'chat.browseChannels');
-      return (page: null, error: error.message);
-    } catch (error, stackTrace) {
-      if (isCurrent()) _report(error, stackTrace, 'chat.browseChannels');
-      return (page: null, error: appL10n.couldnTLoadChatChannels);
-    }
-  }
+        );
 
   bool channelFollowWriteInFlight(String siteUrl, int channelId) =>
-      _channelFollowWrites.containsKey(_streamKey(siteUrl, channelId));
+      _heldDirectory(siteUrl)?.channelFollowWriteInFlight(channelId) ?? false;
 
   bool channelSettingsWriteInFlight(String siteUrl, int channelId) =>
-      _channelSettingsWrites.containsKey(_streamKey(siteUrl, channelId));
+      _heldDirectory(siteUrl)?.channelSettingsWriteInFlight(channelId) ?? false;
 
-  bool canEditChannelMetadata(String siteUrl, int channelId) {
-    final held = channel(siteUrl, channelId);
-    return _currentUserFor(siteUrl)?.staff == true &&
-        held?.isCategoryChannel == true &&
-        held!.membership.following;
-  }
+  bool canEditChannelMetadata(String siteUrl, int channelId) => isDisposed
+      ? false
+      : _directory(siteUrl).canEditChannelMetadata(channelId);
 
   /// Omit unchanged fields; an empty description removes the existing value.
   Future<String?> updateChannelMetadata(
@@ -1401,356 +1069,45 @@ class ChatController extends FrameSafeNotifier {
     String? slug,
     String? description,
     bool? threadingEnabled,
-  }) async {
-    final held = channel(siteUrl, channelId);
-    if (held == null || !canEditChannelMetadata(siteUrl, channelId)) {
-      return appL10n.thisChannelCannotBeEdited;
-    }
-    if (name == null &&
-        slug == null &&
-        description == null &&
-        threadingEnabled == null) {
-      return null;
-    }
-    if (slug != null && (slug.trim().isEmpty || slug.trim().length > 100)) {
-      return appL10n.theChannelSlugMustBeBetween1And100Characters;
-    }
-    if (description != null &&
-        description.runes.length > ChatChannel.maxDescriptionLength) {
-      return appL10n.theChannelDescriptionCannotExceed500Characters;
-    }
-    final nextName = name?.trim();
-    final nextSlug = slug?.trim();
-    final nameChanged = name != null && nextName != held.title;
-    final slugChanged = slug != null && nextSlug != held.slug;
-    final descriptionChanged =
-        description != null && description != held.description;
-    final threadingChanged =
-        threadingEnabled != null && threadingEnabled != held.threadingEnabled;
-    if (!nameChanged &&
-        !slugChanged &&
-        !descriptionChanged &&
-        !threadingChanged) {
-      return null;
-    }
-
-    final key = _streamKey(siteUrl, channelId);
-    if (_channelSettingsWrites.containsKey(key)) {
-      return appL10n.anotherChannelChangeIsStillFinishing;
-    }
-    final token = _ChannelSettingsWrite();
-    final lease = _requests.capture(siteUrl);
-    _channelSettingsWrites[key] = token;
-    bool isCurrent() =>
-        identical(_channelSettingsWrites[key], token) &&
-        lease.isCurrent &&
-        !isDisposed;
-    if (threadingChanged) {
-      _putChannel(siteUrl, held.withThreadingEnabled(threadingEnabled));
-    }
-    notifySafely();
-
-    void restoreThreading() {
-      if (!threadingChanged || !isCurrent()) return;
-      lease.commit(() {
-        final current = channel(siteUrl, channelId);
-        if (current != null) {
-          _putChannel(
-            siteUrl,
-            current.withThreadingEnabled(held.threadingEnabled),
-          );
-        }
-        notifySafely();
-      });
-    }
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!isCurrent()) return null;
-      if (apiKey == null) {
-        restoreThreading();
-        return appL10n.reconnectThisSiteToEditTheChannel;
-      }
-      final clientId = requestCredentials.clientId;
-      if (!isCurrent()) return null;
-      // Events received before credentials resolved precede this write.
-      token.receivedMetadata = false;
-      final fresh = await requestCredentials.run(
-        () => api.updateChatChannel(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          channelId: channelId,
-          name: name == null ? null : nextName,
-          slug: nextSlug,
+  }) => isDisposed
+      ? Future.value(appL10n.thisChannelCannotBeEdited)
+      : _directory(siteUrl).updateChannelMetadata(
+          channelId,
+          name: name,
+          slug: slug,
           description: description,
           threadingEnabled: threadingEnabled,
-          clientId: clientId,
-        ),
-      );
-      if (!isCurrent()) return null;
-      lease.commit(() {
-        final current = channel(siteUrl, channelId);
-        if (current != null && fresh.id == current.id) {
-          // PUT returns a full serializer, but only submitted settings belong
-          // to this write. Preserve conflicting live edits; our own event echo
-          // still accepts normalization such as unicode_title from the response.
-          bool acceptsText(String? submitted, String? currentValue) =>
-              submitted != null &&
-              (!token.receivedMetadata || submitted == currentValue);
-
-          var next = current.withRemoteMetadata(
-            title: acceptsText(nextName, current.title)
-                ? fresh.title
-                : current.title,
-            slug: acceptsText(nextSlug, current.slug)
-                ? fresh.slug
-                : current.slug,
-            description: acceptsText(description, current.description)
-                ? fresh.description
-                : current.description,
-          );
-          // /chat/channel-edits does not carry threading_enabled.
-          if (threadingEnabled != null) {
-            next = next.withThreadingEnabled(fresh.threadingEnabled);
-          }
-          _putChannel(siteUrl, next);
-        }
-        notifySafely();
-      });
-      return null;
-    } on WriteException catch (error) {
-      restoreThreading();
-      return error.message;
-    } catch (error, stackTrace) {
-      restoreThreading();
-      if (isCurrent()) _report(error, stackTrace, 'chat.updateChannelMetadata');
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_channelSettingsWrites[key], token)) {
-        _channelSettingsWrites.remove(key);
-        if (!isDisposed) notifySafely();
-      }
-    }
-  }
+        );
 
   Future<String?> updateChannelThreading(
     String siteUrl,
     int channelId,
     bool enabled,
-  ) {
-    final held = channel(siteUrl, channelId);
-    if (held == null ||
-        !canEditChannelMetadata(siteUrl, channelId) ||
-        held.status != ChatChannelStatus.open) {
-      return Future.value(appL10n.searchThreadingCannotBeChanged);
-    }
-    return updateChannelMetadata(siteUrl, channelId, threadingEnabled: enabled);
-  }
+  ) => isDisposed
+      ? Future.value(appL10n.searchThreadingCannotBeChanged)
+      : _directory(siteUrl).updateChannelThreading(channelId, enabled);
 
-  bool canChangeChannelStatus(String siteUrl, int channelId) {
-    final held = channel(siteUrl, channelId);
-    return _currentUserFor(siteUrl)?.staff == true &&
-        held?.isCategoryChannel == true &&
-        held!.membership.following &&
-        (held.status == ChatChannelStatus.open ||
-            held.status == ChatChannelStatus.closed);
-  }
+  bool canChangeChannelStatus(String siteUrl, int channelId) => isDisposed
+      ? false
+      : _directory(siteUrl).canChangeChannelStatus(channelId);
 
   /// Discourse reserves read-only and archived transitions for its archive flow.
   Future<String?> setChannelClosed(
     String siteUrl,
     int channelId, {
     required bool closed,
-  }) async {
-    final held = channel(siteUrl, channelId);
-    final target = closed ? ChatChannelStatus.closed : ChatChannelStatus.open;
-    if (held == null || !canChangeChannelStatus(siteUrl, channelId)) {
-      return appL10n.thisChannelSStatusCannotBeChanged;
-    }
-    if (held.status == target) return null;
-    if ((closed && held.status != ChatChannelStatus.open) ||
-        (!closed && held.status != ChatChannelStatus.closed)) {
-      return appL10n.thisChannelSStatusCannotBeChanged;
-    }
-
-    final key = _streamKey(siteUrl, channelId);
-    if (_channelSettingsWrites.containsKey(key)) {
-      return appL10n.anotherChannelChangeIsStillFinishing;
-    }
-    final token = _ChannelSettingsWrite();
-    final lease = _requests.capture(siteUrl);
-    _channelSettingsWrites[key] = token;
-    bool isCurrent() =>
-        identical(_channelSettingsWrites[key], token) &&
-        lease.isCurrent &&
-        !isDisposed;
-    notifySafely();
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!isCurrent()) return null;
-      if (apiKey == null) return appL10n.reconnectThisSiteToChangeTheChannel;
-      final clientId = requestCredentials.clientId;
-      if (!isCurrent()) return null;
-      token.receivedStatus = false;
-      final fresh = await requestCredentials.run(
-        () => api.updateChatChannelStatus(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          channelId: channelId,
-          status: target,
-          clientId: clientId,
-        ),
-      );
-      if (!isCurrent()) return null;
-      lease.commit(() {
-        final current = channel(siteUrl, channelId);
-        if (current != null &&
-            fresh.id == current.id &&
-            !token.receivedStatus) {
-          _publishListedNotificationChange(
-            siteUrl,
-            () => _putChannel(siteUrl, current.withRemoteStatus(fresh.status)),
-          );
-        }
-        notifySafely();
-      });
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (isCurrent()) _report(error, stackTrace, 'chat.setChannelClosed');
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_channelSettingsWrites[key], token)) {
-        _channelSettingsWrites.remove(key);
-        if (!isDisposed) notifySafely();
-      }
-    }
-  }
+  }) => isDisposed
+      ? Future.value(appL10n.thisChannelSStatusCannotBeChanged)
+      : _directory(siteUrl).setChannelClosed(channelId, closed: closed);
 
   /// Closing a direct message is Discourse's reversible membership follow write.
   Future<String?> updateChannelFollowing(
     String siteUrl,
     ChatChannel candidate,
     bool following,
-  ) async {
-    if (isDisposed || candidate.id <= 0) {
-      return appL10n.thisChannelCanNoLongerBeChanged;
-    }
-    final held = channel(siteUrl, candidate.id) ?? candidate;
-    if (held.isDirectMessage && following) {
-      return appL10n.directMessagesCannotBeJoinedFromBrowseChannels;
-    }
-    if (held.membership.following == following) return null;
-    if (following && (!held.canJoin || held.status != ChatChannelStatus.open)) {
-      return appL10n.thisChannelCannotBeJoined;
-    }
-
-    final key = _streamKey(siteUrl, held.id);
-    if (_channelFollowWrites.containsKey(key)) {
-      return appL10n.anotherChannelChangeIsStillFinishing;
-    }
-    final token = Object();
-    final lease = _requests.capture(siteUrl);
-    _channelFollowWrites[key] = token;
-
-    bool isCurrent() =>
-        identical(_channelFollowWrites[key], token) &&
-        lease.isCurrent &&
-        !isDisposed;
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!isCurrent()) return null;
-      if (apiKey == null) {
-        return appL10n.reconnectThisSiteToChangeTheChannel;
-      }
-      final clientId = requestCredentials.clientId;
-      if (!isCurrent()) return null;
-      final membership = following
-          ? await requestCredentials.run(
-              () => api.followChatChannel(
-                siteUrl: siteUrl,
-                apiKey: apiKey,
-                channelId: held.id,
-                clientId: clientId,
-              ),
-            )
-          : await requestCredentials.run(
-              () => api.unfollowChatChannel(
-                siteUrl: siteUrl,
-                apiKey: apiKey,
-                channelId: held.id,
-                clientId: clientId,
-              ),
-            );
-      if (!isCurrent()) return null;
-
-      lease.commit(() {
-        // The commit builds on the record as it stands now, not the [held]
-        // snapshot: tracking and a live member count that arrived during the
-        // request stay in place.
-        final current = channel(siteUrl, held.id) ?? held;
-        final changed = membership.following != current.membership.following;
-        final memberDelta = current.isDirectMessage || !changed
-            ? 0
-            : membership.following
-            ? 1
-            : -1;
-        final next = current.withMembership(
-          membership,
-          membershipsCount: current.membershipsCount + memberDelta,
-        );
-        _publishListedNotificationChange(siteUrl, () {
-          _putChannel(siteUrl, next);
-          final ids = (next.isDirectMessage ? _directIds : _publicIds)
-              .putIfAbsent(siteUrl, () => []);
-          if (!membership.following) {
-            ids.remove(next.id);
-            return;
-          }
-          if (!ids.contains(next.id)) ids.add(next.id);
-          if (!next.isDirectMessage) {
-            ids.sort((left, right) {
-              final a = channel(siteUrl, left);
-              final b = channel(siteUrl, right);
-              return (a?.slug ?? a?.title ?? '').toLowerCase().compareTo(
-                (b?.slug ?? b?.title ?? '').toLowerCase(),
-              );
-            });
-          }
-        });
-        if (membership.following) {
-          _liveSync.adoptChannel(siteUrl, next, includeActivity: true);
-        } else {
-          _liveSync.stopFollowingChannel(siteUrl, next.id);
-        }
-        notifySafely();
-      });
-      return null;
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _report(
-          error,
-          stackTrace,
-          'chat.updateChannelFollowing',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_channelFollowWrites[key], token)) {
-        final _ = _channelFollowWrites.remove(key);
-      }
-      if (!isDisposed) notifySafely();
-    }
-  }
+  ) => isDisposed
+      ? Future.value(appL10n.thisChannelCanNoLongerBeChanged)
+      : _directory(siteUrl).updateChannelFollowing(candidate, following);
 
   List<ChatThread> myThreads(String siteUrl) => [
     for (final id in _myThreadIds[siteUrl] ?? const <int>[])
@@ -1836,83 +1193,14 @@ class ChatController extends FrameSafeNotifier {
     Iterable<String> groups = const [],
     String? name,
     bool upsert = false,
-  }) async {
-    final targets = <String>{
-      for (final username in usernames)
-        if (username.trim().isNotEmpty) username.trim(),
-    }.toList(growable: false);
-    final targetGroups = <String>{
-      for (final group in groups)
-        if (group.trim().isNotEmpty) group.trim(),
-    }.toList(growable: false);
-    final channelName = switch (name?.trim()) {
-      final value? when value.isNotEmpty => value,
-      _ => null,
-    };
-    if (isDisposed || targets.isEmpty && targetGroups.isEmpty) return null;
-    final lease = _requests.capture(siteUrl);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (isDisposed || !lease.isCurrent) return null;
-      if (apiKey == null) {
-        throw const WriteException(WriteFailure.forbidden);
-      }
-      final clientId = requestCredentials.clientId;
-      if (isDisposed || !lease.isCurrent) return null;
-      var channel = await requestCredentials.run(
-        () => api.createChatDirectMessageChannel(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          usernames: targets,
-          groups: targetGroups,
-          name: channelName,
+  }) => isDisposed
+      ? Future.value()
+      : _directory(siteUrl).createDirectMessageChannel(
+          usernames: usernames,
+          groups: groups,
+          name: name,
           upsert: upsert,
-        ),
-      );
-      if (isDisposed || !lease.isCurrent || channel.id <= 0) return null;
-
-      // Creation omits current_user_membership, including when upserting an
-      // existing DM. Following returns the membership required for reactions.
-      if (!channel.membership.following) {
-        final membership = await requestCredentials.run(
-          () => api.followChatChannel(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            clientId: clientId,
-            channelId: channel.id,
-          ),
         );
-        if (isDisposed || !lease.isCurrent) return null;
-        channel = channel.withMembership(membership);
-      }
-
-      lease.commit(() {
-        channel =
-            this.channel(siteUrl, channel.id)?.withServerSettings(channel) ??
-            channel;
-        _publishListedNotificationChange(siteUrl, () {
-          _putChannel(siteUrl, channel);
-          final direct = _directIds[siteUrl] ?? const <int>[];
-          _directIds[siteUrl] = [
-            channel.id,
-            for (final id in direct)
-              if (id != channel.id) id,
-          ];
-        });
-        _liveSync.adoptChannel(siteUrl, channel, includeActivity: true);
-        notifySafely();
-      });
-      return channel;
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _report(error, stackTrace, 'chat.createDirectMessage');
-      }
-      rethrow;
-    }
-  }
 
   /// Adopts conversations omitted by the capped sidebar snapshot and discards
   /// results from a superseded account session.
@@ -1922,300 +1210,53 @@ class ChatController extends FrameSafeNotifier {
     bool includeGroups = false,
     bool includeDirectMessageChannels = true,
     bool includeCategoryChannels = false,
-  }) async {
-    final query = term.trim();
-    if (isDisposed || query.isEmpty) {
-      return ChatDirectMessageSearchResults(const []);
-    }
-    final lease = _requests.capture(siteUrl);
-    final requestCredentials = await _requests.credentialsFor(siteUrl);
-    final apiKey = requestCredentials.apiKey;
-    if (isDisposed || !lease.isCurrent) {
-      return ChatDirectMessageSearchResults(const []);
-    }
-    if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-    final result = await requestCredentials.run(
-      () => api.searchChatDirectMessages(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: requestCredentials.clientId,
-        term: query,
-        includeGroups: includeGroups,
-        includeDirectMessageChannels: includeDirectMessageChannels,
-        includeCategoryChannels: includeCategoryChannels,
-      ),
-    );
-    if (isDisposed || !lease.isCurrent) {
-      return ChatDirectMessageSearchResults(const []);
-    }
-
-    lease.commit(() {
-      final listed = _directIds[siteUrl];
-      var sidebarChanged = false;
-      _publishListedNotificationChange(siteUrl, () {
-        for (final item in result.items) {
-          if (item case ChatDirectMessageChannel(:final channel)) {
-            final held = _store.read<ChatChannel>(siteUrl, channel.id);
-            _store.put(siteUrl, held?.withServerSettings(channel) ?? channel);
-            if (listed != null &&
-                channel.isDirectMessage &&
-                channel.membership.following &&
-                !listed.contains(channel.id)) {
-              listed.insert(0, channel.id);
-              _liveSync.adoptChannel(siteUrl, channel, includeActivity: true);
-              sidebarChanged = true;
-            }
-          }
-        }
-      });
-      if (sidebarChanged) {
-        notifySafely();
-      }
-    });
-    return result;
-  }
-
-  // Mirrors Chat::ChannelFetcher.unreads_total, the server's side of this
-  // counter: it sums mentions over followed open category channels (muting
-  // does not clear a mention) and unread messages over followed direct
-  // messages (a muted one reports none).
-  static int _notificationContribution(ChatChannel channel) {
-    final membership = channel.membership;
-    if (!membership.following) return 0;
-    if (channel.isDirectMessage) {
-      return membership.muted ? 0 : channel.tracking.unreadCount;
-    }
-    return channel.status == ChatChannelStatus.open
-        ? channel.tracking.mentionCount
-        : 0;
-  }
-
-  int _chatNotifications(String siteUrl) => [
-    ...publicChannels(siteUrl),
-    ...directChannels(siteUrl),
-  ].fold(0, (count, channel) => count + _notificationContribution(channel));
-
-  /// Publishes how far [change] moved the listed channels' share of the
-  /// persisted counter, which otherwise waits for a totals refresh to correct
-  /// it. Snapshots, follows, kicks, mutes, staff status writes and newly
-  /// listed channels go through here; reads and live events publish their one
-  /// channel's change directly. Before the first snapshot the totals payload
-  /// is the counter's only baseline, so nothing is published.
-  void _publishListedNotificationChange(
-    String siteUrl,
-    void Function() change,
-  ) {
-    if (!_publicIds.containsKey(siteUrl)) {
-      change();
-      return;
-    }
-    final before = _chatNotifications(siteUrl);
-    change();
-    final delta = _chatNotifications(siteUrl) - before;
-    if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
-  }
+  }) => isDisposed
+      ? Future.value(ChatDirectMessageSearchResults(const []))
+      : _directory(siteUrl).searchDirectMessages(
+          term,
+          includeGroups: includeGroups,
+          includeDirectMessageChannels: includeDirectMessageChannels,
+          includeCategoryChannels: includeCategoryChannels,
+        );
 
   void _publishNotificationChange(
     String siteUrl,
     ChatChannel before,
     ChatChannel after,
-  ) {
-    final delta =
-        _notificationContribution(after) - _notificationContribution(before);
-    if (delta != 0) onChatNotificationsDelta?.call(siteUrl, delta);
-  }
+  ) => _directory(siteUrl)._publishNotificationChange(before, after);
 
   void _insertLiveChannel(String siteUrl, ChatChannel incoming) =>
-      _publishListedNotificationChange(siteUrl, () {
-        if (incoming.isDirectMessage && incoming.membership.following) {
-          final ids = _directIds.putIfAbsent(siteUrl, () => []);
-          if (!ids.contains(incoming.id)) ids.add(incoming.id);
-          return;
-        }
-        if (!incoming.isCategoryChannel) return;
-        final ids = _publicIds.putIfAbsent(siteUrl, () => []);
-        if (!ids.contains(incoming.id)) ids.add(incoming.id);
-        ids.sort((a, b) {
-          final left = channel(siteUrl, a);
-          final right = channel(siteUrl, b);
-          return (left?.slug ?? left?.title ?? '').toLowerCase().compareTo(
-            (right?.slug ?? right?.title ?? '').toLowerCase(),
-          );
-        });
-      });
+      _directory(siteUrl)._insertLiveChannel(incoming);
 
-  Object? _beginLiveChannelFollow(String siteUrl, int channelId) {
-    final key = _streamKey(siteUrl, channelId);
-    if (_channelFollowWrites.containsKey(key)) return null;
-    final token = Object();
-    _channelFollowWrites[key] = token;
-    return token;
-  }
+  Object? _beginLiveChannelFollow(String siteUrl, int channelId) =>
+      _directory(siteUrl)._beginLiveChannelFollow(channelId);
 
   bool _ownsLiveChannelFollow(String siteUrl, int channelId, Object token) =>
-      identical(_channelFollowWrites[_streamKey(siteUrl, channelId)], token);
+      _heldDirectory(siteUrl)?._ownsLiveChannelFollow(channelId, token) ??
+      false;
 
-  void _endLiveChannelFollow(String siteUrl, int channelId, Object token) {
-    final key = _streamKey(siteUrl, channelId);
-    if (identical(_channelFollowWrites[key], token)) {
-      _channelFollowWrites.remove(key);
-    }
-  }
+  void _endLiveChannelFollow(String siteUrl, int channelId, Object token) =>
+      _heldDirectory(siteUrl)?._endLiveChannelFollow(channelId, token);
 
   /// Matches Discourse: starred public channels precede title-sorted starred DMs.
-  List<ChatChannel> starredChannels(String siteUrl) {
-    final direct = directChannels(
-      siteUrl,
-    ).where((channel) => channel.membership.starred).toList();
-    direct.sort(
-      (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-    );
-    return [
-      for (final channel in publicChannels(siteUrl))
-        if (channel.membership.starred) channel,
-      ...direct,
-    ];
-  }
+  List<ChatChannel> starredChannels(String siteUrl) =>
+      _heldDirectory(siteUrl)?.starredChannels() ?? [];
 
-  List<ChatChannel> unstarredPublicChannels(String siteUrl) => [
-    for (final channel in publicChannels(siteUrl))
-      if (!channel.membership.starred) channel,
-  ];
+  List<ChatChannel> unstarredPublicChannels(String siteUrl) =>
+      _heldDirectory(siteUrl)?.unstarredPublicChannels() ?? [];
 
-  List<ChatChannel> unstarredDirectChannels(String siteUrl) {
-    final channels = [
-      for (final channel in directChannels(siteUrl))
-        if (!channel.membership.starred) channel,
-    ];
-    return List.unmodifiable(_sortDirectMessageActivity(channels));
-  }
+  List<ChatChannel> unstarredDirectChannels(String siteUrl) =>
+      _heldDirectory(siteUrl)?.unstarredDirectChannels() ?? const [];
 
   /// All direct-message channels in the same activity order used by the web
   /// channel list, before its 50-row display limit is applied.
   List<ChatChannel> activitySortedDirectChannels(String siteUrl) =>
-      List.unmodifiable(
-        _sortDirectMessageActivity([...directChannels(siteUrl)]),
-      );
+      _heldDirectory(siteUrl)?.activitySortedDirectChannels() ?? const [];
 
   /// Starred channel rows follow web's four buckets—active public, active DMs,
   /// read public, read DMs—with urgency and last activity inside each bucket.
-  List<ChatChannel> activitySortedStarredChannels(String siteUrl) {
-    final channels = [...starredChannels(siteUrl)];
-    final originalPositions = <int, int>{};
-    for (final channel in channels) {
-      originalPositions[channel.id] = originalPositions.length;
-    }
-
-    int urgent(ChatChannel channel) => channel.isDirectMessage
-        ? channel.tracking.unreadCount +
-              channel.tracking.mentionCount +
-              channel.tracking.watchedThreadsUnreadCount
-        : channel.tracking.mentionCount +
-              channel.tracking.watchedThreadsUnreadCount;
-    final unreadCounts = Map<ChatChannel, int>.identity();
-    int unread(ChatChannel channel) => unreadCounts.putIfAbsent(
-      channel,
-      () =>
-          channel.tracking.unreadCount +
-          channel.unreadThreadsCountSinceLastViewed,
-    );
-    int byActivity(ChatChannel a, ChatChannel b) {
-      final compared = _newestActivityFirst(a, b);
-      return compared != 0
-          ? compared
-          : originalPositions[a.id]!.compareTo(originalPositions[b.id]!);
-    }
-
-    channels.sort((a, b) {
-      final aUrgent = urgent(a);
-      final bUrgent = urgent(b);
-      final aUnread = unread(a);
-      final bUnread = unread(b);
-      final aHasActivity = aUrgent > 0 || aUnread > 0;
-      final bHasActivity = bUrgent > 0 || bUnread > 0;
-      if (aHasActivity != bHasActivity) return aHasActivity ? -1 : 1;
-      if (a.isDirectMessage != b.isDirectMessage) {
-        return a.isDirectMessage ? 1 : -1;
-      }
-      if (aHasActivity) {
-        if (aUrgent > 0 && bUrgent > 0) return byActivity(a, b);
-        if ((aUrgent > 0) != (bUrgent > 0)) return aUrgent > 0 ? -1 : 1;
-        if (aUnread > 0 && bUnread > 0) return byActivity(a, b);
-        if ((aUnread > 0) != (bUnread > 0)) return aUnread > 0 ? -1 : 1;
-      }
-      return byActivity(a, b);
-    });
-    return List.unmodifiable(channels);
-  }
-
-  List<ChatChannel> _sortDirectMessageActivity(List<ChatChannel> channels) {
-    final unreadCounts = Map<ChatChannel, int>.identity();
-    int unreadThreads(ChatChannel channel) => unreadCounts.putIfAbsent(
-      channel,
-      () => channel.unreadThreadsCountSinceLastViewed,
-    );
-    final oldestThreads = Map<ChatChannel, DateTime?>.identity();
-    DateTime? oldestThread(ChatChannel channel) =>
-        oldestThreads.putIfAbsent(channel, () => channel.lastUnreadThreadAt);
-    // Mirrors core's activity ordering for unstarred direct messages.
-    int compare(ChatChannel a, ChatChannel b) {
-      final aHasMessage = a.lastMessageId != null && a.lastMessageAt != null;
-      final bHasMessage = b.lastMessageId != null && b.lastMessageAt != null;
-      if (aHasMessage != bHasMessage) return aHasMessage ? -1 : 1;
-
-      final aUrgent =
-          a.tracking.unreadCount +
-          a.tracking.mentionCount +
-          a.tracking.watchedThreadsUnreadCount;
-      final bUrgent =
-          b.tracking.unreadCount +
-          b.tracking.mentionCount +
-          b.tracking.watchedThreadsUnreadCount;
-      if (aUrgent > 0 && bUrgent > 0) {
-        return _newestActivityFirst(a, b);
-      }
-      if ((aUrgent > 0) != (bUrgent > 0)) return aUrgent > 0 ? -1 : 1;
-
-      final aThreads = unreadThreads(a);
-      final bThreads = unreadThreads(b);
-      if (aThreads > 0 && bThreads > 0) {
-        final aAt = oldestThread(a);
-        final bAt = oldestThread(b);
-        if (aAt != null && bAt != null) {
-          final byThreadDate = bAt.compareTo(aAt);
-          if (byThreadDate != 0) return byThreadDate;
-        }
-        return _newestActivityFirst(a, b);
-      }
-      if ((aThreads > 0) != (bThreads > 0)) return aThreads > 0 ? -1 : 1;
-
-      return _newestActivityFirst(a, b);
-    }
-
-    final originalPositions = {
-      for (var index = 0; index < channels.length; index++)
-        channels[index].id: index,
-    };
-    channels.sort((a, b) {
-      final compared = compare(a, b);
-      return compared != 0
-          ? compared
-          : originalPositions[a.id]!.compareTo(originalPositions[b.id]!);
-    });
-    return channels;
-  }
-
-  static int _newestActivityFirst(ChatChannel a, ChatChannel b) {
-    final aAt = a.lastMessageAt;
-    final bAt = b.lastMessageAt;
-    if (aAt == null || bAt == null) {
-      if (aAt == bAt) return 0;
-      return aAt == null ? 1 : -1;
-    }
-    final byDate = bAt.compareTo(aAt);
-    if (byDate != 0) return byDate;
-    return (b.lastMessageId ?? 0).compareTo(a.lastMessageId ?? 0);
-  }
+  List<ChatChannel> activitySortedStarredChannels(String siteUrl) =>
+      _heldDirectory(siteUrl)?.activitySortedStarredChannels() ?? const [];
 
   /// Mirrors core: DMs, mentions, and watched threads are urgent; ordinary
   /// activity is a dot only under the `all_new` preference.
@@ -2257,103 +1298,29 @@ class ChatController extends FrameSafeNotifier {
       final last = channel(siteUrl, preferredId);
       if (last?.membership.following == true) return last;
     }
-    return _sortDirectMessageActivity(
-          directChannels(siteUrl).toList(),
-        ).firstOrNull ??
+    return activitySortedDirectChannels(siteUrl).firstOrNull ??
         publicChannels(siteUrl).firstOrNull;
   }
-
-  List<ChatChannel> _resolve(String siteUrl, List<int>? ids) => [
-    for (final id in ids ?? const <int>[])
-      ?_store.read<ChatChannel>(siteUrl, id),
-  ];
 
   ChatChannel? channel(String siteUrl, int channelId) =>
       _store.read<ChatChannel>(siteUrl, channelId);
 
   // Live and local mutations participate in an in-flight list refresh. Ordinary
   // HTTP hydration (including partial channel metadata) is not a newer mutation.
-  void _putChannel(String siteUrl, ChatChannel next) {
-    _channelRefreshes[siteUrl]?.recordChange(channel(siteUrl, next.id), next);
-    _store.put(siteUrl, next);
-  }
+  void _putChannel(String siteUrl, ChatChannel next) =>
+      _directory(siteUrl)._putChannel(next);
 
   void _updateChannel(
     String siteUrl,
     int channelId,
     ChatChannel Function(ChatChannel) change,
-  ) {
-    final held = channel(siteUrl, channelId);
-    if (held != null) _putChannel(siteUrl, change(held));
-  }
+  ) => _directory(siteUrl)._updateChannel(channelId, change);
 
   /// Fetches membership absent from partial search hits outside the capped snapshot.
-  Future<ChatChannel?> ensureChannel(String siteUrl, int channelId) {
-    if (isDisposed || channelId <= 0) return Future.value();
-    final held = channel(siteUrl, channelId);
-    if (held != null &&
-        !(_partialChannelIds[siteUrl]?.contains(channelId) ?? false)) {
-      return Future.value(held);
-    }
-    final key = _streamKey(siteUrl, channelId);
-    final active = _channelDetailRequests[key];
-    if (active != null) return active;
-
-    final run = Object();
-    _channelDetailRuns[key] = run;
-    late final Future<ChatChannel?> request;
-    request = _ensureChannel(siteUrl, channelId, key, run).whenComplete(() {
-      if (identical(_channelDetailRequests[key], request)) {
-        final removed = _channelDetailRequests.remove(key);
-        assert(identical(removed, request));
-      }
-      if (identical(_channelDetailRuns[key], run)) {
-        _channelDetailRuns.remove(key);
-      }
-    });
-    _channelDetailRequests[key] = request;
-    return request;
-  }
-
-  Future<ChatChannel?> _ensureChannel(
-    String siteUrl,
-    int channelId,
-    String key,
-    Object run,
-  ) async {
-    final lease = _requests.capture(siteUrl);
-    bool ownsRequest() => identical(_channelDetailRuns[key], run);
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(lease, ownsRequest) || apiKey == null) return null;
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(lease, ownsRequest)) return null;
-      final fetched = await requestCredentials.run(
-        () => api.chatChannel(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: channelId,
-        ),
-      );
-      if (!_requestIsCurrent(lease, ownsRequest) || fetched.id != channelId) {
-        return null;
-      }
-      return lease.commit(() {
-            _partialChannelIds[siteUrl]?.remove(channelId);
-            _store.put(siteUrl, fetched);
-            _liveSync.adoptChannel(siteUrl, fetched, includeActivity: false);
-          })
-          ? channel(siteUrl, channelId)
-          : null;
-    } catch (error, stackTrace) {
-      if (_requestIsCurrent(lease, ownsRequest)) {
-        _report(error, stackTrace, 'chat.loadChannel');
-      }
-      rethrow;
-    }
-  }
+  Future<ChatChannel?> ensureChannel(String siteUrl, int channelId) =>
+      isDisposed
+      ? Future.value()
+      : _directory(siteUrl).ensureChannel(channelId);
 
   ChatThread? thread(String siteUrl, int threadId) =>
       _store.read<ChatThread>(siteUrl, threadId);
@@ -3947,18 +2914,10 @@ class ChatController extends FrameSafeNotifier {
       _liveSync.attachTracker(siteUrl, channels);
 
   void _removeKickedChannelState(String siteUrl, int channelId) {
-    _channelRefreshes[siteUrl]?.removeChannel(channelId);
+    _directory(siteUrl).revokeChannel(channelId);
     final key = _streamKey(siteUrl, channelId);
-    _publishListedNotificationChange(siteUrl, () {
-      _publicIds[siteUrl]?.remove(channelId);
-      _directIds[siteUrl]?.remove(channelId);
-    });
-    _partialChannelIds[siteUrl]?.remove(channelId);
     final threadPrefix = '$siteUrl~channel-$channelId-thread-';
     // Revocation supersedes reads started while the channel was accessible.
-    _channelDetailRuns.remove(key);
-    final _ = _channelDetailRequests.remove(key);
-    _channelMessageResumes.remove(key);
     _myThreadRuns.remove(_myThreadsKey(siteUrl));
     final _ = _myThreadRequests.remove(_myThreadsKey(siteUrl));
     final listKey = _channelThreadsKey(siteUrl, channelId);
@@ -4555,10 +3514,8 @@ class ChatController extends FrameSafeNotifier {
         _threadNotificationRevisions.containsKey(key) ||
         _threadNotificationTails.containsKey(key) ||
         _threadNotificationConfirmed.containsKey(key) ||
-        _channelStarWrites.containsKey(key) ||
-        _channelNotificationWrites.containsKey(key) ||
-        _channelFollowWrites.containsKey(key) ||
-        _channelSettingsWrites.containsKey(key) ||
+        (identity.target is ChatChannelTarget &&
+            _directory(identity.siteUrl).hasWrite(identity.target.channelId)) ||
         _threadTitleWrites.containsKey(key) ||
         _threadDetailRequests.containsKey(key) ||
         _threadDetailDirty.contains(key)) {
@@ -4683,7 +3640,8 @@ class ChatController extends FrameSafeNotifier {
     ];
   }
 
-  String? channelsError(String siteUrl) => _errors[_channelsKey(siteUrl)];
+  String? channelsError(String siteUrl) =>
+      _heldDirectory(siteUrl)?.channelsError();
 
   /// In-flight network sends do not block synchronous staging.
   bool canSendMessage(String siteUrl, int channelId) =>
@@ -5060,7 +4018,11 @@ class ChatController extends FrameSafeNotifier {
         _clock().difference(backgroundedAt) < resumeResyncThreshold) {
       return;
     }
-    for (final siteUrl in _publicIds.keys.toList()) {
+    for (final siteUrl
+        in _directories.entries
+            .where((entry) => entry.value.hasSnapshot)
+            .map((entry) => entry.key)
+            .toList()) {
       unawaited(loadChannels(siteUrl, revalidate: true));
     }
     for (final owner in _conversations.values.toList()) {
@@ -5114,133 +4076,9 @@ class ChatController extends FrameSafeNotifier {
     String siteUrl, {
     bool force = false,
     bool revalidate = false,
-  }) {
-    if (isDisposed) return Future.value();
-    final key = _channelsKey(siteUrl);
-    if (revalidate) {
-      // Only a held list is revalidated; a first load stays with its caller.
-      if (!_publicIds.containsKey(siteUrl)) return Future.value();
-    } else if (!force && _publicIds.containsKey(siteUrl)) {
-      return Future.value();
-    }
-
-    // The shortcut must await the shared task before choosing its destination.
-    final active = _channelRequests[key];
-    if (active != null) {
-      // A reader joining a background read owns its loading state and error.
-      if (!revalidate && _channelRevalidations.remove(key)) notifySafely();
-      return active;
-    }
-
-    // The cap stops automatic callers hammering a site that will not answer;
-    // an explicit retry is the later UI event it waits for, so it starts a
-    // fresh budget. It sits below the join so an attempt in flight keeps its
-    // count. A revalidation is already bounded by the absence or the gap that
-    // asked for it, so it never waits on a budget an earlier failure spent.
-    if (force || revalidate) _attempts.remove(key);
-    if ((_attempts[key] ?? 0) >= maxChannelAttempts) return Future.value();
-
-    final run = Object();
-    _channelRuns[key] = run;
-    if (revalidate) _channelRevalidations.add(key);
-    late final Future<void> request;
-    request = _loadChannels(siteUrl, key, run).whenComplete(() {
-      if (identical(_channelRequests[key], request)) {
-        final removed = _channelRequests.remove(key);
-        assert(identical(removed, request));
-      }
-      if (identical(_channelRuns[key], run)) {
-        _channelRuns.remove(key);
-        _channelRevalidations.remove(key);
-      }
-    });
-    _channelRequests[key] = request;
-    notifySafely();
-    return request;
-  }
-
-  Future<void> _loadChannels(String siteUrl, String key, Object run) async {
-    if (!_loading.add(key)) return;
-
-    final lease = _requests.capture(siteUrl);
-    ChatChannelRefresh? refresh;
-    bool ownsRequest() => identical(_channelRuns[key], run);
-    _attempts[key] = (_attempts[key] ?? 0) + 1;
-
-    try {
-      // Unsigned macOS keychain reads may throw; keep them inside cleanup guards.
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-
-      refresh = ChatChannelRefresh(
-        publicIds: _publicIds[siteUrl] ?? const [],
-        directIds: _directIds[siteUrl] ?? const [],
-      );
-      _channelRefreshes[siteUrl] = refresh;
-      final hadThreads = hasThreads(siteUrl);
-      final snapshot = await requestCredentials.run(
-        () => api.chatChannels(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-        ),
-      );
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      lease.commit(() {
-        final channels = refresh!.reconcile(
-          snapshot,
-          public: publicChannels(siteUrl),
-          direct: directChannels(siteUrl),
-        );
-        _channelRefreshes.remove(siteUrl);
-        _publishListedNotificationChange(siteUrl, () {
-          _store.putAll(siteUrl, channels.public);
-          _store.putAll(siteUrl, channels.direct);
-          _partialChannelIds[siteUrl]?.removeAll([
-            for (final channel in [...channels.public, ...channels.direct])
-              channel.id,
-          ]);
-          for (final channel in [...channels.public, ...channels.direct]) {
-            if (_liveSync.isViewingChannel(siteUrl, channel.id)) {
-              _advanceLastViewedAt(siteUrl, channel.id, notify: false);
-            }
-          }
-          _publicIds[siteUrl] = [for (final c in channels.public) c.id];
-          _directIds[siteUrl] = [for (final c in channels.direct) c.id];
-        });
-        if (hasThreads(siteUrl) == hadThreads) {
-          _hasThreads[siteUrl] = channels.hasThreads;
-        }
-        _liveSync.replace(
-          siteUrl,
-          channels,
-          preservedActivityChannelIds: refresh.preservedActivityChannelIds,
-        );
-        _errors.remove(key);
-        _attempts.remove(key);
-      });
-    } catch (error, stackTrace) {
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      _report(error, stackTrace, 'chat.loadChannels');
-      if (_channelRevalidations.contains(key)) return;
-      lease.commit(() {
-        _errors[key] = appL10n.couldNotLoadThisSiteSChatChannels;
-      });
-    } finally {
-      if (identical(_channelRefreshes[siteUrl], refresh)) {
-        _channelRefreshes.remove(siteUrl);
-      }
-      if (_requestIsCurrent(lease, ownsRequest)) {
-        lease.commit(() {
-          _loading.remove(key);
-          notifySafely();
-        });
-      }
-    }
-  }
+  }) => isDisposed
+      ? Future.value()
+      : _directory(siteUrl).loadChannels(force: force, revalidate: revalidate);
 
   /// Uses the wire offset, not deduplicated row count, for core's thread pages.
   Future<void> loadMyThreads(
@@ -5304,9 +4142,7 @@ class ChatController extends FrameSafeNotifier {
       if (!_requestIsCurrent(lease, ownsRequest)) return;
       lease.commit(() {
         for (final embedded in page.channels) {
-          if (channel(siteUrl, embedded.id) != null) continue;
-          _store.put(siteUrl, embedded);
-          (_partialChannelIds[siteUrl] ??= {}).add(embedded.id);
+          _directory(siteUrl).hydratePartialIfMissing(embedded);
         }
         _putThreadPage(siteUrl, refresh, page);
         final incoming = [for (final thread in page.threads) thread.id];
@@ -5355,8 +4191,7 @@ class ChatController extends FrameSafeNotifier {
     var heldChannel = channel(siteUrl, channelId);
     if (heldChannel == null && directoryChannel?.id == channelId) {
       heldChannel = directoryChannel;
-      _store.put(siteUrl, directoryChannel!);
-      (_partialChannelIds[siteUrl] ??= {}).add(channelId);
+      _directory(siteUrl).hydratePartialIfMissing(directoryChannel!);
     }
     if (heldChannel?.threadingEnabled != true) return Future.value();
     final key = _channelThreadsKey(siteUrl, channelId);
@@ -6183,13 +5018,13 @@ class ChatController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
+    _directories.remove(siteUrl)?.retire();
     _preparedCooking?.forget(siteUrl);
     _cookingLocales.remove(siteUrl);
     _cookingLocaleRevisions.remove(siteUrl);
     _messageCookingTokens.removeWhere((key, _) => key.$1 == siteUrl);
     channelListPreferences.forget(siteUrl);
     inboxFilters.forget(siteUrl);
-    _channelRefreshes.remove(siteUrl);
     _threadListRefreshes.remove(siteUrl);
     _liveSync.forget(siteUrl);
     final forgottenConversations = <_ChatConversationStream>[];
@@ -6236,12 +5071,6 @@ class ChatController extends FrameSafeNotifier {
     _threadDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadDetailRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadDetailDirty.removeWhere((key) => key.startsWith('$siteUrl~'));
-    _loading.removeWhere((key) => key.startsWith('$siteUrl~'));
-    _channelRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelRevalidations.removeWhere((key) => key.startsWith('$siteUrl~'));
-    _channelDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelDetailRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _myThreadRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _myThreadRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelThreadListRequests.removeWhere(
@@ -6249,7 +5078,6 @@ class ChatController extends FrameSafeNotifier {
     );
     _channelThreadListRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _errors.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _attempts.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _hiddenDeletedMessageChannelIds.remove(siteUrl);
     _threadNotificationRevisions.removeWhere(
       (key, _) => key.startsWith('$siteUrl~'),
@@ -6260,24 +5088,14 @@ class ChatController extends FrameSafeNotifier {
     _threadNotificationConfirmed.removeWhere(
       (key, _) => key.startsWith('$siteUrl~'),
     );
-    _channelStarWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelNotificationWrites.removeWhere(
-      (key, _) => key.startsWith('$siteUrl~'),
-    );
-    _channelMessageResumes.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelFollowWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _channelSettingsWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _threadTitleWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     for (final owner in forgottenConversations) {
       owner.resetReference();
     }
-    _publicIds.remove(siteUrl);
-    _directIds.remove(siteUrl);
     _myThreadIds.remove(siteUrl);
     _myThreadOffsets.remove(siteUrl);
     _myThreadsHaveMore.remove(siteUrl);
     _hasThreads.remove(siteUrl);
-    _partialChannelIds.remove(siteUrl);
     _channelThreadIds.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelThreadOffsets.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     _channelThreadsHaveMore.removeWhere(
@@ -6290,13 +5108,17 @@ class ChatController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    final directories = _directories.values.toList(growable: false);
+    _directories.clear();
+    for (final directory in directories) {
+      directory.retire();
+    }
     _preparedCooking?.dispose();
     _messageCookingTokens.clear();
     _cookingLocales.clear();
     _cookingLocaleRevisions.clear();
     channelListPreferences.dispose();
     inboxFilters.dispose();
-    _channelRefreshes.clear();
     _threadListRefreshes.clear();
     _liveSync.dispose();
     final conversations = _conversations.values.toList(growable: false);
@@ -6308,17 +5130,10 @@ class ChatController extends FrameSafeNotifier {
     _threadDetailRequests.clear();
     _threadDetailRuns.clear();
     _threadDetailDirty.clear();
-    _channelDetailRequests.clear();
-    _channelDetailRuns.clear();
     _hiddenDeletedMessageChannelIds.clear();
     _threadNotificationRevisions.clear();
     _threadNotificationTails.clear();
     _threadNotificationConfirmed.clear();
-    _channelStarWrites.clear();
-    _channelNotificationWrites.clear();
-    _channelMessageResumes.clear();
-    _channelFollowWrites.clear();
-    _channelSettingsWrites.clear();
     _threadTitleWrites.clear();
     _myThreadRequests.clear();
     _myThreadRuns.clear();
@@ -6345,13 +5160,6 @@ class ChatController extends FrameSafeNotifier {
     _composerDraftRefs.clear();
     super.dispose();
   }
-}
-
-/// Lives only for the existing per-channel settings lock. Separate flags keep
-/// status and text events from claiming fields that their payloads omit.
-final class _ChannelSettingsWrite {
-  bool receivedMetadata = false;
-  bool receivedStatus = false;
 }
 
 final class _QueuedThreadNotification {

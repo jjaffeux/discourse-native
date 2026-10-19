@@ -21,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/native_ui_evidence.dart';
 
 const _site = 'https://meta.discourse.org';
 const _channelId = 9;
@@ -34,6 +35,7 @@ void main() {
         '${directory.name} rebinds retained state to replacement services '
         'with old owner disposed $disposeOld',
         (tester) async {
+          await prepareNativeUiEvidence(tester);
           final first = await _fixture('Old');
           final second = await _fixture('New');
           await _mount(tester, first, directory);
@@ -47,6 +49,10 @@ void main() {
               ? 'New channel'
               : 'New thread';
           expect(find.text(oldLabel), findsWidgets);
+          await captureNativeUi(
+            tester,
+            '${directory.name}-initial-$disposeOld',
+          );
           if (directory == _Directory.channelThreads) {
             expect(
               first.shell.pluginSession
@@ -64,6 +70,10 @@ void main() {
           expect(tester.state(view), same(state));
           expect(find.text(oldLabel), findsNothing);
           expect(find.text(newLabel), findsWidgets);
+          await captureNativeUi(
+            tester,
+            '${directory.name}-replacement-$disposeOld',
+          );
           if (directory == _Directory.channels) {
             expect(
               tester
@@ -213,6 +223,7 @@ Future<void> _mount(
       chatPluginId,
       MaterialApp(
         theme: AppTheme.light,
+        builder: nativeUiEvidenceBuilder,
         home: Scaffold(
           body: switch (directory) {
             _Directory.channels => ChatBrowseChannelsView(
