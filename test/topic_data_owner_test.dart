@@ -643,6 +643,56 @@ void main() {
       },
     );
   }
+  test(
+    'forced opening reserves its reader before pending moderation recovery',
+    () async {
+      final f = _Fixture()..seed();
+      final data = f.data;
+      final uncertain = data.reconcileUncertainMutation(
+        7,
+        [1],
+        'key',
+        alreadyHeld: false,
+      );
+      await f.api.waitPosts(1);
+      f.api.postReads.single.result.completeError(StateError('Offline'));
+      await uncertain;
+      final first = data.open(
+        7,
+        slug: 'topic',
+        postNumber: 75,
+        force: true,
+        opening: f.opening,
+      );
+      expect(data.loading(7), isTrue);
+      await f.api.waitPosts(2);
+      await data.open(
+        7,
+        slug: 'topic',
+        postNumber: 90,
+        force: true,
+        opening: f.opening,
+      );
+      expect(f.api.topicReads, isEmpty);
+      f.api.postReads[1].result.complete([_post(1, 'recovered')]);
+      await f.api.waitTopics(1);
+      expect(f.api.topicReads.single.postNumber, 75);
+      f.api.topicReads.single.result.complete(
+        _payload([_post(75, 'first')], stream: [1, 75, 90]),
+      );
+      await first;
+      await f.api.waitTopics(2);
+      expect(f.api.topicReads[1].postNumber, 90);
+      f.api.topicReads[1].result.complete(
+        _payload([_post(90, 'newest')], stream: [1, 75, 90]),
+      );
+      await _drain();
+      expect([for (final read in f.api.topicReads) read.postNumber], [75, 90]);
+      expect(f.api.postReads, hasLength(2));
+      expect(data.loading(7), isFalse);
+    },
+  );
+
   for (final initialOpen in [true, false]) {
     test(
       'a settlement listener position wins over queued replay after ${initialOpen ? 'open' : 'refresh'}',

@@ -24,6 +24,14 @@ Future<void> showTopicMovePosts({
   final openingTabId = identical(ShellScope.maybeRead(context), controller)
       ? ForumTabScope.tabOf(context).tabId
       : controller.activeTabId;
+  final openingDestination = openingTabId == null
+      ? null
+      : controller
+            .workspaceFor(siteUrl)
+            ?.tabById(openingTabId)
+            ?.currentContent
+            .destination
+            .identity;
   final categories = controller
       .topicComposerCategories(siteUrl)
       .where(
@@ -50,7 +58,14 @@ Future<void> showTopicMovePosts({
       !controller.isTopicPostMoveTargetCurrent(target) ||
       openingTabId == null ||
       controller.workspaceFor(siteUrl)?.tabById(openingTabId) == null ||
-      controller.workspaceFor(siteUrl)?.activeTabId != openingTabId) {
+      controller.workspaceFor(siteUrl)?.activeTabId != openingTabId ||
+      controller
+              .workspaceFor(siteUrl)
+              ?.tabById(openingTabId)
+              ?.currentContent
+              .destination
+              .identity !=
+          openingDestination) {
     return;
   }
   final destinationUrl = result.destinationUrl;

@@ -705,6 +705,28 @@ void main() {
       expect(api.writes, hasLength(admin ? 1 : 0));
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
   }
+  testWidgets('accepted move cannot replace a newer topic in its opening tab', (
+    tester,
+  ) async {
+    final response = Completer<String>();
+    final api = _MoveApi()..moveResponse = response;
+    final shell = await _openDialog(tester, api);
+    final openingTab = shell.activeTabId;
+    await _prepare(tester, newTopic: true);
+    await _pressSubmit(tester);
+    expect(api.writes, hasLength(1));
+    shell.openTopicPost(siteUrl: _siteA, topicId: 8, postNumber: 1);
+    await tester.pump();
+    expect(shell.activeTabId, openingTab);
+    expect(shell.currentContent?.topicId, 8);
+    response.complete('/t/destination/99');
+    await tester.pumpAndSettle();
+    expect(find.byKey(_dialog), findsNothing);
+    expect(shell.currentContent?.topicId, 8);
+    expect(api.topicsOpened, isNot(contains(99)));
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
   testWidgets(
     'accepted move with stale source navigates without a dead refresh toast and reloads its source',
     (tester) async {

@@ -293,6 +293,36 @@ void main() {
     }
   }
 
+  for (final retirement in ['reader', 'account']) {
+    testWidgets(
+      'stale recovery toast closes without reading for a successor $retirement',
+      (tester) async {
+        final (:shell, :api) = await _fixture();
+        api.readFailure = StateError('Offline');
+        await _openOwner(tester, shell, api, 1000);
+        await _submit(tester);
+        final message = find.text(
+          'The change was saved, but this view could not be refreshed. Refresh to see the latest state.',
+        );
+        expect(message, findsOneWidget);
+        if (retirement == 'reader') {
+          shell.openTopicPost(siteUrl: _site, topicId: 8, postNumber: 1);
+        } else {
+          await shell.disconnectCurrentInstance();
+        }
+        await tester.pumpAndSettle();
+        final reads = api.reads.length;
+        await tester.tap(find.widgetWithText(DButton, 'Refresh'));
+        await tester.pumpAndSettle();
+        expect(message, findsNothing);
+        expect(api.reads, hasLength(reads));
+        expect(api.writes, 1);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+  }
+
   testWidgets(
     'accepted stale owner closes its form and keeps its refresh toast usable',
     (tester) async {

@@ -472,8 +472,6 @@ final class TopicDataSession implements BookmarkTopicData {
     required TopicOpening opening,
   }) async {
     if (!isCurrent) return;
-    if (force) await _recoverPendingModeration(topicId);
-    if (!isCurrent) return;
     final state = _topic(topicId);
     if (postNumber != null) {
       state.positions++;
@@ -551,6 +549,11 @@ final class TopicDataSession implements BookmarkTopicData {
     int? replayNumber;
     int? settledPosition;
     try {
+      if (force) {
+        await _recoverPendingModeration(topicId);
+        if (!isCurrent) return;
+        stamp = _stamp(topicId);
+      }
       final credential = await _stage(
         _requests.credentials(_owner.credentials),
         elapsed,
@@ -672,8 +675,6 @@ final class TopicDataSession implements BookmarkTopicData {
 
   Future<void> refresh(int topicId, {String slug = '', int? postNumber}) async {
     if (!isCurrent) return;
-    await _recoverPendingModeration(topicId);
-    if (!isCurrent) return;
     final state = _topic(topicId);
     if (postNumber != null) {
       state.positions++;
@@ -684,13 +685,16 @@ final class TopicDataSession implements BookmarkTopicData {
       return;
     }
     postNumber ??= state.refreshPostNumber;
-    final stamp = _stamp(topicId);
+    var stamp = _stamp(topicId);
     final reading = Object();
     state.reading = reading;
     state.refreshPending = false;
     state.refreshPostNumber = null;
     state.stale = true;
     try {
+      await _recoverPendingModeration(topicId);
+      if (!isCurrent) return;
+      stamp = _stamp(topicId);
       final credential = await _requests.credentials(_owner.credentials);
       if (!isCurrent) return;
       final payload = await credential.run(

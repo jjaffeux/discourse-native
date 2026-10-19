@@ -149,10 +149,11 @@ void showPostMutationFeedback(
             onPressed: loading
                 ? null
                 : () async {
-                    if (refreshing ||
-                        !context.mounted ||
+                    if (refreshing) return;
+                    if (!context.mounted ||
                         !isCurrent() ||
                         !recovery.isCurrent) {
+                      toaster.close(id);
                       return;
                     }
                     refreshing = true;

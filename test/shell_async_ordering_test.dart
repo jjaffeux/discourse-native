@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
@@ -1760,7 +1761,7 @@ void main() {
         final deleting = shell.deletePost(reply);
         await api.waitForPostRequests(1);
         api.postRequests.single.response.complete(const []);
-        expect(await deleting, isNull);
+        expect(await deleting, isA<PostMutationAccepted>());
         expect(shell.store.read<Post>(_siteUrl, 2), isNull);
         expect(shell.currentTopic?.stream, [1]);
 
@@ -1995,7 +1996,7 @@ void main() {
         'posts_count': 1,
       });
       api.postRequests.single.response.complete(const []);
-      expect(await deleting, isNull);
+      expect(await deleting, isA<PostMutationAccepted>());
       await pumpEventQueue();
 
       expect(shell.currentTopic?.stream, [1]);
