@@ -20,6 +20,9 @@ import 'voice_preferences.dart';
 import 'voice_settings.dart';
 import 'voice_signaling.dart';
 
+part 'voice_call_manager.dart';
+part 'voice_call_session.dart';
+
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
 
 /// A created direct call, still owned by the account that requested it.
@@ -91,12 +94,6 @@ final class _VoiceDiagnosticFailure implements Exception {
     (operation).toString(),
     (errorType).toString(),
   );
-}
-
-final class _VoiceParticipantSession {
-  _VoiceParticipantSession(this.id);
-
-  String? id;
 }
 
 final class _VoiceCameraRestore {
@@ -305,6 +302,7 @@ final class VoiceController extends ChangeNotifier {
        _videoMaxPublishersFor =
            videoMaxPublishersFor ?? _defaultVideoMaxPublishers,
        _timerFactory = timerFactory ?? Timer.new,
+       _idleClock = idleClock,
        _clock = clock ?? DateTime.now,
        _siteNameFor = siteNameFor,
        _meshPrivacyWarningEnabledFor = meshPrivacyWarningEnabledFor,
@@ -320,14 +318,6 @@ final class VoiceController extends ChangeNotifier {
              diagnostics: diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
            ),
        _preferences = preferences ?? const SharedPreferencesVoicePreferences() {
-    _idleTracker = VoiceIdleTracker(
-      thresholds: _activeIdleThresholds,
-      onStateChanged: _onIdleStateChanged,
-      onAutoMute: _onIdleAutoMute,
-      onDisconnect: _onIdleDisconnect,
-      clock: idleClock,
-      timerFactory: _timerFactory,
-    );
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
     _devicePreferencesLoaded = _restoreDevicePreferences();
     unawaited(_restoreAutoStatusPreference());
@@ -358,7 +348,8 @@ final class VoiceController extends ChangeNotifier {
   final VoiceSiteNameLookup? _siteNameFor;
   final VoiceSiteFlagReader? _meshPrivacyWarningEnabledFor;
   final VoiceIncomingCallAnswered? _onIncomingCallAnswered;
-  late final VoiceIdleTracker _idleTracker;
+  final Duration Function()? _idleClock;
+  late final _VoiceCallManager _calls = _VoiceCallManager(this);
   final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
   final Set<String> _handledRings = {};
   ({String siteUrl, VoiceIncomingCall call})? _incomingCall;
@@ -393,31 +384,8 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, int> _roomVideoWatchers = {};
   final StreamController<VoiceNotice> _notices =
       StreamController<VoiceNotice>.broadcast();
-  Future<void>? _joinTail;
-  Future<void>? _pendingJoin;
-  String? _pendingJoinKey;
-  String? _pendingJoinCorrelationId;
-  Object? _pendingJoinSession;
-  Future<void>? _stateSync;
-  Timer? _stateRetry;
-  bool _stateSyncPending = false;
-  Object? _joinRevision;
-  Future<void>? _leaveOperation;
-  VoiceMediaSession? _leavingMedia;
   Future<void>? _closeOperation;
-  final Expando<Future<void>> _mediaDisposals = Expando<Future<void>>();
-  final Expando<String> _mediaCorrelations = Expando<String>();
-  final Expando<_VoiceParticipantSession> _participantSessions =
-      Expando<_VoiceParticipantSession>();
-  final Expando<VoiceSignalBatcher> _signalBatchers =
-      Expando<VoiceSignalBatcher>();
-  // Per media session, the media state its last event was compared against.
-  final Expando<_VoiceMediaView> _mediaViews = Expando<_VoiceMediaView>();
-  Timer? _heartbeat;
-  Future<void>? _heartbeatRequest;
-  bool _heartbeatPending = false;
-  VoiceIdleState _idleState = VoiceIdleState.active;
-  VoiceCallSnapshot? _call;
+  VoiceCallSnapshot? get _call => _calls.current?._call;
   bool _disposed = false;
   String? _audioInputDeviceId;
   String? _audioOutputDeviceId;
@@ -428,32 +396,18 @@ final class VoiceController extends ChangeNotifier {
   bool _foreground = true;
   late final Future<void> _devicePreferencesLoaded;
   final Map<(String, int), Future<bool>> _cameraPreferences = {};
-  final SerialOperationQueue _cameraOperations = SerialOperationQueue();
-  int _cameraRevision = 0;
-  ({VoiceMediaSession media, int revision, bool remember})? _startingCamera;
-  final Expando<_VoiceCameraRestore> _cameraRestores =
-      Expando<_VoiceCameraRestore>();
-  // Per media session, the latest claim on each remote participant's volume:
-  // the read of their saved volume, or a slider change that supersedes it.
-  // Both media sessions keep a volume until they are disposed, so a
-  // participant is restored at most once per session.
-  final Expando<Map<int, Object>> _participantVolumeRevisions =
-      Expando<Map<int, Object>>();
+  Object _cameraSelection = Object();
 
   VoiceCallSnapshot? get call => _call;
 
-  bool isJoining(String siteUrl, int roomId) =>
-      !_disposed &&
-      ((_pendingJoinKey == '$siteUrl#$roomId' &&
-              identical(_pendingJoinSession, _siteSessions[siteUrl])) ||
-          (_call?.siteUrl == siteUrl &&
-              _call?.room.id == roomId &&
-              _call?.status == VoiceCallStatus.joining));
+  void _notifyCallChanged() {
+    if (!_disposed) notifyListeners();
+  }
 
-  /// Whether a camera capture for the current call can still be cancelled.
-  bool get cameraStarting =>
-      _startingCamera?.media == _call?.media &&
-      _startingCamera?.revision == _cameraRevision;
+  bool isJoining(String siteUrl, int roomId) =>
+      !_disposed && _calls.isJoining(siteUrl, roomId);
+
+  bool get cameraStarting => _calls.current?.cameraStarting ?? false;
   String? get activeSiteUrl => _call?.siteUrl;
   bool get supportedPlatform =>
       Platform.isIOS || Platform.isMacOS || Platform.isLinux;
@@ -571,7 +525,7 @@ final class VoiceController extends ChangeNotifier {
     final siteSession = _siteSession(incoming.siteUrl);
     final lease = _requests.capture(incoming.siteUrl);
     // A later join takes ownership even before it has created its media.
-    final joinTail = _joinTail;
+    final joinTail = _calls.admissionIdentity;
     late final _VoiceIncomingAnswer answer;
     answer = _VoiceIncomingAnswer(
       siteUrl: incoming.siteUrl,
@@ -579,7 +533,7 @@ final class VoiceController extends ChangeNotifier {
       presented: _incomingCallSystemPresented,
       isCurrent: () =>
           identical(_incomingAnswer, answer) &&
-          identical(_joinTail, joinTail) &&
+          identical(_calls.admissionIdentity, joinTail) &&
           _isCurrentSiteSession(incoming.siteUrl, siteSession) &&
           lease.isCurrent,
     );
@@ -715,7 +669,7 @@ final class VoiceController extends ChangeNotifier {
         (_incomingCall == null &&
             (_incomingAnswer != null ||
                 _call != null ||
-                _pendingJoin != null))) {
+                _calls.hasPendingJoin))) {
       return;
     }
     final answer = _takeIncomingCall();
@@ -728,7 +682,7 @@ final class VoiceController extends ChangeNotifier {
             _incomingCall == null &&
             _incomingAnswer == null &&
             _call == null &&
-            _pendingJoin == null);
+            !_calls.hasPendingJoin);
     if (!isCurrent()) return;
     if (accepted == null) {
       _record(
@@ -815,8 +769,8 @@ final class VoiceController extends ChangeNotifier {
     final previous = _roomVideoWatchers[key] ?? 0;
     _roomVideoWatchers[key] = previous + 1;
     if (previous == 0 && _isCurrentWatchedRoom(siteUrl, roomId)) {
-      unawaited(_requestStateSync());
-      _restorePreferredCamera();
+      unawaited((_calls.current?._requestStateSync() ?? Future<void>.value()));
+      _calls.current?._restorePreferredCamera();
     }
   }
 
@@ -827,8 +781,10 @@ final class VoiceController extends ChangeNotifier {
     if (previous <= 1) {
       _roomVideoWatchers.remove(key);
       if (previous == 1 && _isCurrentWatchedRoom(siteUrl, roomId)) {
-        _cameraRevision++;
-        unawaited(_requestStateSync());
+        _calls.current?.invalidateCamera();
+        unawaited(
+          (_calls.current?._requestStateSync() ?? Future<void>.value()),
+        );
       }
     } else {
       _roomVideoWatchers[key] = previous - 1;
@@ -1049,7 +1005,7 @@ final class VoiceController extends ChangeNotifier {
         if (linked?[room.id] case final previous?) {
           linked![room.id] = _mergeRoom(previous, room);
         }
-        _refreshCallRoom(siteUrl, room);
+        _calls.current?._refreshCallRoom(siteUrl, room);
       }
       // Read after the new listing is installed: a room that left it and is
       // neither linked nor in the call is released, while a linked or direct
@@ -1289,7 +1245,7 @@ final class VoiceController extends ChangeNotifier {
         if (linked?[incoming.id] case final previous?) {
           linked![incoming.id] = _mergeRoom(previous, incoming);
         }
-        _refreshCallRoom(siteUrl, incoming);
+        _calls.current?._refreshCallRoom(siteUrl, incoming);
         _liveRoomChanged(siteUrl, incoming.id);
       case 'destroyed':
         _roomResponseVersions[siteUrl]?.remove(incoming.id);
@@ -1376,66 +1332,7 @@ final class VoiceController extends ChangeNotifier {
       (held) => _mergeRoom(held, incoming),
       updateCall: false,
     );
-    _refreshCallRoom(siteUrl, incoming);
-  }
-
-  /// A room edited while its call is up: the call keeps its own roster and
-  /// ring state (the room channel is the authority for those) but takes the
-  /// new name, type, and capabilities. A type change re-applies the stage
-  /// speaking rule, and video that the room no longer allows stops now
-  /// rather than at the next toggle.
-  void _refreshCallRoom(String siteUrl, VoiceRoom incoming) {
-    final call = _call;
-    if (call == null ||
-        call.siteUrl != siteUrl ||
-        call.room.id != incoming.id) {
-      return;
-    }
-    final room = _mergeRoom(call.room, incoming, preserveRecording: true)
-        .copyWith(
-          participants: call.room.participants,
-          ringing: call.room.ringing,
-        );
-    final userId = _userIdFor(siteUrl);
-    final couldPublishAudio =
-        userId == null ||
-        _canPublishAudio(call.room, call.room.participants, userId);
-    final canPublishAudio =
-        userId == null || _canPublishAudio(room, room.participants, userId);
-    final canPublishVideo = canPublishAudio && room.videoAllowed;
-    final stopsVideo =
-        !canPublishVideo && (call.cameraEnabled || call.screenSharing);
-    _call = call.copyWith(room: room, muted: canPublishAudio ? null : true);
-    if (canPublishAudio != couldPublishAudio) {
-      _observe(() async {
-        // The call already shows a demoted speaker muted, so silence the
-        // microphone first; the publishing change can wait behind queued
-        // media work.
-        if (!canPublishAudio) {
-          await _runHandled(
-            () => call.media.setMuted(true),
-            'voice.media.rosterMute',
-          );
-        }
-        await _runHandled(
-          () => call.media.setAudioPublishingAllowed(canPublishAudio),
-          'voice.media.audioPublishing',
-        );
-      }, 'voice.media.roomUpdate');
-    }
-    if (stopsVideo) {
-      _record(
-        'media.video.room_disallowed',
-        component: 'media',
-        correlationId: _correlationFor(call),
-        data: {'roomId': room.id},
-      );
-      _observe(() async {
-        if (call.cameraEnabled) await _setCameraEnabled(false);
-        if (call.screenSharing) await _setScreenSharing(false);
-      }, 'voice.media.roomVideoDisabled');
-      _notify(appL10n.videoWasTurnedOffInThisRoom);
-    }
+    _calls.current?._refreshCallRoom(siteUrl, incoming);
   }
 
   void _onRoomEvent(String siteUrl, int roomId, Object? data, int messageId) {
@@ -1688,8 +1585,8 @@ final class VoiceController extends ChangeNotifier {
             );
           }
           if (identical(_call?.media, activeCall.media)) {
-            _call = activeCall.copyWith(
-              room: activeCall.room.withParticipants(participants),
+            _calls.current?.updateRoom(
+              (room) => room.withParticipants(participants),
             );
             notifyListeners();
             await activeCall.media.syncParticipants(participants);
@@ -1792,7 +1689,7 @@ final class VoiceController extends ChangeNotifier {
         call != null &&
         call.siteUrl == siteUrl &&
         call.room.id == roomId) {
-      _call = call.copyWith(room: update(call.room));
+      _calls.current?.updateRoom(update);
     }
   }
 
@@ -1816,60 +1713,11 @@ final class VoiceController extends ChangeNotifier {
       (room) => room.withParticipants(participants),
       updateCall: false,
     );
-    final call = _call;
-    if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
-      final userId = _userIdFor(siteUrl);
-      // Room subscriptions are cursored from the directory load, not from the
-      // join response, so a roster published before join.json committed can
-      // still be delivered while the join settles. The local user's absence
-      // from such a roster is not evidence of removal until the call has
-      // connected.
-      if (call.status != VoiceCallStatus.leaving &&
-          call.status != VoiceCallStatus.joining &&
-          userId != null &&
-          !participants.any((participant) => participant.id == userId)) {
-        _observe(
-          () => _leave(
-            notifyServer: false,
-            clearImmediately: true,
-            reason: _VoiceLeaveReason.rosterRemoval,
-          ),
-          'voice.rosterRemoval',
-        );
-        return;
-      }
-      var canPublishAudio = true;
-      if (userId != null) {
-        canPublishAudio = _canPublishAudio(call.room, participants, userId);
-      }
-      _call = call.copyWith(
-        room: call.room.withParticipants(participants),
-        muted: canPublishAudio ? null : true,
-      );
-      _restoreParticipantVolumes(_call!);
-      _observe(() async {
-        if (userId != null) {
-          // The call already shows a demoted speaker muted, so silence the
-          // microphone first; the publishing change can wait behind queued
-          // media work.
-          if (!canPublishAudio) {
-            await _runHandled(
-              () => call.media.setMuted(true),
-              'voice.media.rosterMute',
-            );
-          }
-          await _runHandled(
-            () => call.media.setAudioPublishingAllowed(canPublishAudio),
-            'voice.media.audioPublishing',
-          );
-        }
-        await _runHandled(
-          () => call.media.syncParticipants(participants),
-          'voice.media.participants',
-        );
-      }, 'voice.media.participantUpdate');
+    if (_calls.current case final session?) {
+      session.receiveParticipants(siteUrl, roomId, participants);
+    } else {
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   void _removeLocalParticipant(String siteUrl, int roomId) {
@@ -1903,717 +1751,7 @@ final class VoiceController extends ChangeNotifier {
     required String siteUrl,
     required String siteName,
     required VoiceRoom room,
-  }) {
-    final siteSession = _siteSession(siteUrl);
-    final key = '$siteUrl#${room.id}';
-    final pending = _pendingJoin;
-    if (_pendingJoinKey == key &&
-        identical(_pendingJoinSession, siteSession) &&
-        pending != null) {
-      _record(
-        'call.join.coalesced',
-        correlationId: _pendingJoinCorrelationId,
-        data: _roomDiagnosticData(room),
-      );
-      return pending;
-    }
-
-    final correlationId = _nextCallCorrelationId();
-    _record(
-      'call.join.requested',
-      correlationId: correlationId,
-      data: _roomDiagnosticData(room),
-    );
-    _recordRaw(
-      'call.join.context',
-      correlationId: correlationId,
-      data: _rawRoomDiagnosticData(siteUrl, room, siteName: siteName),
-    );
-    final previousJoin = _joinTail;
-    Future<void> runJoin() => _runPublicOperation(
-      () => _join(
-        siteUrl: siteUrl,
-        siteName: siteName,
-        room: room,
-        siteSession: siteSession,
-        correlationId: correlationId,
-      ),
-      'voice.join',
-      correlationId: correlationId,
-    );
-    final operation = _reporter.runOperation(
-      'voice.join',
-      () => previousJoin == null
-          ? runJoin()
-          : previousJoin.then((_) => runJoin()),
-      correlationId: correlationId,
-    );
-    // Room taps can arrive while the preceding transport is still connecting.
-    // Keep each leave/join transition atomic so a later tap cannot dispose the
-    // media session that the earlier transition is still establishing.
-    _joinTail = operation.then<void>(
-      (_) {},
-      onError: (Object _, StackTrace _) {},
-    );
-    late final Future<void> tracked;
-    tracked = operation.whenComplete(() {
-      if (identical(_pendingJoin, tracked)) {
-        _pendingJoin = null;
-        _pendingJoinKey = null;
-        _pendingJoinCorrelationId = null;
-        _pendingJoinSession = null;
-        if (!_disposed) notifyListeners();
-      }
-    });
-    _pendingJoin = tracked;
-    _pendingJoinKey = key;
-    _pendingJoinCorrelationId = correlationId;
-    _pendingJoinSession = siteSession;
-    if (!_disposed) notifyListeners();
-    return tracked;
-  }
-
-  Future<void> _join({
-    required String siteUrl,
-    required String siteName,
-    required VoiceRoom room,
-    required Object siteSession,
-    required String correlationId,
-  }) async {
-    bool siteIsCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    if (!supportedPlatform || !siteIsCurrent()) {
-      _record(
-        'call.join.skipped',
-        correlationId: correlationId,
-        data: {
-          ..._roomDiagnosticData(room),
-          'reason': !supportedPlatform ? 'unsupported_platform' : 'stale_site',
-          'platform': Platform.operatingSystem,
-        },
-      );
-      return;
-    }
-    _record(
-      'call.join.started',
-      correlationId: correlationId,
-      data: _roomDiagnosticData(room),
-    );
-    final pendingLeave = _leaveOperation;
-    if (pendingLeave != null) await pendingLeave;
-    if (!siteIsCurrent()) return;
-    final held = _call;
-    if (held?.siteUrl == siteUrl && held?.room.id == room.id) {
-      _record(
-        'call.join.cancelled',
-        correlationId: correlationId,
-        data: {'reason': 'active_room_toggle'},
-      );
-      await _leave(notifyServer: true, reason: _VoiceLeaveReason.roomToggle);
-      return;
-    }
-    if (held != null) {
-      await _leave(notifyServer: true, reason: _VoiceLeaveReason.roomSwitch);
-    }
-    if (!siteIsCurrent()) return;
-    final revision = Object();
-    _joinRevision = revision;
-    bool isCurrent() => siteIsCurrent() && identical(_joinRevision, revision);
-    // Push to talk and the saved devices are restored asynchronously; a join
-    // that raced the restore would open the microphone of a user who chose to
-    // speak only while holding Space.
-    await _devicePreferencesLoaded;
-    final credentials = await _requestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    final userId = _userIdFor(siteUrl);
-    if (credentials == null || userId == null || !isCurrent()) {
-      _record(
-        'call.join.skipped',
-        correlationId: correlationId,
-        data: {
-          'reason': !isCurrent()
-              ? 'cancelled'
-              : credentials == null
-              ? 'missing_api_key'
-              : 'missing_user_id',
-        },
-      );
-      return;
-    }
-    _errors.remove(siteUrl);
-    final apiKey = credentials.apiKey!;
-    final clientId = credentials.clientId;
-    final invitedBy = _consumeInviteRef(siteUrl, room);
-    VoiceMediaSession? media;
-    _VoiceParticipantSession? participantSession;
-    String? joinedParticipantSessionId;
-    var serverJoinActive = false;
-    try {
-      late VoiceJoinResponse response;
-      try {
-        _record(
-          'call.join.server_request.started',
-          correlationId: correlationId,
-          data: {'roomId': room.id},
-        );
-        response = await credentials.run(
-          () => api.join(
-            siteUrl: siteUrl,
-            roomId: room.id,
-            apiKey: apiKey,
-            skipStatus: !_autoStatusEnabled,
-            invitedBy: invitedBy,
-            clientId: clientId,
-          ),
-        );
-      } on WriteException catch (error) {
-        if (error.failure != WriteFailure.rateLimited) rethrow;
-        _record(
-          'call.join.server_request.rate_limited',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-          data: {
-            'retryAfterMilliseconds':
-                (error.retryAfter ?? const Duration(seconds: 1)).inMilliseconds,
-          },
-        );
-        // A 429 is the one write failure that is safe to retry: Discourse
-        // rejected it before the room mutation ran. Native user API keys share
-        // a site-wide request budget, so a room switch can legitimately land
-        // behind ordinary app refreshes or WebRTC signaling.
-        await Future<void>.delayed(
-          (error.retryAfter ?? const Duration(seconds: 1)) +
-              const Duration(milliseconds: 150),
-        );
-        if (!isCurrent()) return;
-        response = await credentials.run(
-          () => api.join(
-            siteUrl: siteUrl,
-            roomId: room.id,
-            apiKey: apiKey,
-            skipStatus: !_autoStatusEnabled,
-            invitedBy: invitedBy,
-            clientId: clientId,
-          ),
-        );
-      }
-      joinedParticipantSessionId = response.participantSessionId;
-      serverJoinActive = true;
-      if (!isCurrent()) {
-        await _runHandled(
-          () => api.leave(
-            siteUrl: siteUrl,
-            roomId: room.id,
-            apiKey: apiKey,
-            participantSessionId: response.participantSessionId,
-            clientId: clientId,
-          ),
-          'voice.leaveSupersededJoin',
-        );
-        serverJoinActive = false;
-        return;
-      }
-      _record(
-        'call.join.server_request.completed',
-        correlationId: correlationId,
-        data: {
-          'transport': response.transport.name,
-          'participantCount': response.room.participants.length,
-        },
-      );
-      _recordRoster(
-        'call.join.initial_roster',
-        siteUrl,
-        room.id,
-        response.room.participants,
-        correlationId: correlationId,
-      );
-      final session = _VoiceParticipantSession(response.participantSessionId);
-      participantSession = session;
-      final signalBatcher = VoiceSignalBatcher(
-        batchDelay: signalBatchDelay,
-        sendBatch: (payload) async {
-          await _reporter.runOperation(
-            'voice.signal',
-            () => api.signal(
-              siteUrl: siteUrl,
-              roomId: room.id,
-              apiKey: apiKey,
-              payload: payload,
-              participantSessionId: session.id,
-              clientId: clientId,
-            ),
-            correlationId: correlationId,
-          );
-        },
-      );
-      VoiceMediaSession? callbackMedia;
-      bool mediaIsCurrent() =>
-          isCurrent() &&
-          callbackMedia != null &&
-          identical(_call?.media, callbackMedia);
-      media = mediaFactory.create(
-        join: response,
-        localUserId: userId,
-        sendSignal: (recipientId, event) async {
-          if (!mediaIsCurrent()) return;
-          _record(
-            'signaling.send.started',
-            component: 'signaling',
-            correlationId: correlationId,
-            data: {
-              'roomId': room.id,
-              'recipientPresent': true,
-              'type': _voiceSignalingDiagnosticType(event['type']),
-            },
-          );
-          _recordRaw(
-            'signaling.send.raw',
-            component: 'signaling',
-            correlationId: correlationId,
-            data: {
-              'siteUrl': siteUrl,
-              'roomId': room.id,
-              'recipientId': recipientId,
-              'signal': event,
-            },
-          );
-          try {
-            await signalBatcher.send(recipientId, event);
-            _record(
-              'signaling.send.completed',
-              component: 'signaling',
-              correlationId: correlationId,
-            );
-          } catch (error, stackTrace) {
-            _record(
-              'signaling.send.failed',
-              component: 'signaling',
-              correlationId: correlationId,
-              severity: DiagnosticSeverity.warning,
-              data: {'errorType': error.runtimeType.toString()},
-            );
-            _recordRaw(
-              'signaling.send.failure_detail',
-              component: 'signaling',
-              correlationId: correlationId,
-              severity: DiagnosticSeverity.warning,
-              message: error.toString(),
-              data: {
-                'recipientId': recipientId,
-                'stackTrace': stackTrace.toString(),
-              },
-            );
-            rethrow;
-          }
-        },
-        refreshLiveKitCredentials: () async {
-          final fallback = response.livekit;
-          if (fallback == null) {
-            throw StateError('LiveKit credentials are unavailable.');
-          }
-          if (!mediaIsCurrent()) return fallback;
-          _record(
-            'livekit.credentials.refresh.requested',
-            component: 'livekit',
-            correlationId: correlationId,
-            data: {'roomId': room.id},
-          );
-          final refreshCredentials = await _requests.credentialsFor(siteUrl);
-          if (!mediaIsCurrent()) return fallback;
-          final refreshed = await _reporter.runOperation(
-            'voice.livekitToken',
-            () => api.livekitToken(
-              siteUrl: siteUrl,
-              roomId: room.id,
-              apiKey: apiKey,
-              clientId: refreshCredentials.clientId,
-            ),
-            correlationId: correlationId,
-          );
-          if (refreshed.participantSessionId case final renewed?) {
-            session.id = renewed;
-          }
-          _record(
-            'livekit.credentials.refresh.received',
-            component: 'livekit',
-            correlationId: correlationId,
-          );
-          return mediaIsCurrent() ? refreshed : fallback;
-        },
-        diagnostics: diagnostics,
-        correlationId: correlationId,
-      );
-      callbackMedia = media;
-      _mediaCorrelations[media] = correlationId;
-      _participantSessions[media] = session;
-      _signalBatchers[media] = signalBatcher;
-      _record(
-        'media.session.created',
-        component: 'media',
-        correlationId: correlationId,
-        data: {'transport': media.transport.name},
-      );
-      final joinedRoom = _mergeRoom(
-        this.room(siteUrl, room.id) ?? room,
-        response.room,
-      );
-      // Push to talk speaks only while Space is held, so it joins muted even
-      // where the room would let the user speak.
-      final initiallyMuted =
-          _pushToTalkEnabled ||
-          !_canPublishAudio(joinedRoom, joinedRoom.participants, userId);
-      await media.setMuted(initiallyMuted);
-      if (!isCurrent()) {
-        _record(
-          'call.join.cancelled',
-          correlationId: correlationId,
-          data: {'reason': 'cancelled_after_media_creation'},
-        );
-        await _runHandled(
-          () => api.leave(
-            siteUrl: siteUrl,
-            roomId: room.id,
-            apiKey: apiKey,
-            participantSessionId: session.id,
-            clientId: clientId,
-          ),
-          'voice.leaveCancelledJoin',
-        );
-        serverJoinActive = false;
-        await _disposeMedia(media, 'voice.media.disposeAfterCancelledJoin');
-        return;
-      }
-      _mediaViews[media] = _mediaView(media);
-      media.addListener(_mediaChanged);
-      if (_incomingCall case final incoming?
-          when incoming.siteUrl == siteUrl && incoming.call.roomId == room.id) {
-        _clearIncomingCall(
-          tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
-        );
-      }
-      final roomResponse = _acceptRoomResponse(
-        siteUrl,
-        response.room,
-        ++_roomRequestVersion,
-      );
-      _call = VoiceCallSnapshot(
-        siteUrl: siteUrl,
-        siteName: siteName,
-        room: _mergeRoom(this.room(siteUrl, room.id) ?? room, roomResponse),
-        status: VoiceCallStatus.joining,
-        media: media,
-        muted: initiallyMuted,
-      );
-      _updateRoom(
-        siteUrl,
-        room.id,
-        (held) => _mergeRoom(held, roomResponse),
-        updateCall: false,
-      );
-      _restoreParticipantVolumes(_call!);
-      if (systemCall case final NativeVoiceSystemCall nativeSystemCall) {
-        nativeSystemCall.associateDiagnostics(correlationId);
-      }
-      _record(
-        'call.status_changed',
-        correlationId: correlationId,
-        data: {
-          'from': null,
-          'to': VoiceCallStatus.joining.name,
-          'transport': media.transport.name,
-        },
-      );
-      _onCallSiteChanged();
-      attachTracker(siteUrl);
-      notifyListeners();
-      if (!isCurrent()) return;
-      _record(
-        'callkit.command.requested',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'start'},
-      );
-      await systemCall.start(roomName: room.name, siteName: siteName);
-      _record(
-        'callkit.command.completed',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'start'},
-      );
-      if (!isCurrent()) return;
-      _record(
-        'media.connect.started',
-        component: 'media',
-        correlationId: correlationId,
-      );
-      await media.connect();
-      _record(
-        'media.connect.completed',
-        component: 'media',
-        correlationId: correlationId,
-      );
-      if (!isCurrent()) return;
-      if (_audioInputDeviceId case final deviceId?) {
-        await _selectSavedAudioDevice(
-          kind: 'audio_input',
-          deviceId: deviceId,
-          correlationId: correlationId,
-          selectDevice: media.selectAudioInput,
-          isCurrent: isCurrent,
-        );
-        if (!isCurrent()) return;
-      }
-      if (_audioOutputDeviceId case final deviceId?) {
-        await _selectSavedAudioDevice(
-          kind: 'audio_output',
-          deviceId: deviceId,
-          correlationId: correlationId,
-          selectDevice: media.selectAudioOutput,
-          isCurrent: isCurrent,
-        );
-        if (!isCurrent()) return;
-      }
-      _call = _call?.copyWith(
-        status: VoiceCallStatus.connected,
-        clearError: true,
-      );
-      _record(
-        'call.status_changed',
-        correlationId: correlationId,
-        data: {
-          'from': VoiceCallStatus.joining.name,
-          'to': VoiceCallStatus.connected.name,
-        },
-      );
-      await _requestStateSync();
-      if (!isCurrent()) return;
-      if (initiallyMuted) {
-        await systemCall.setMuted(true);
-        if (!isCurrent()) return;
-      }
-      await systemCall.connected();
-      _record(
-        'callkit.command.completed',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'connected'},
-      );
-      if (!isCurrent()) return;
-      _startHeartbeat();
-      _idleTracker.start();
-      _record(
-        'call.join.completed',
-        correlationId: correlationId,
-        data: {
-          ..._roomDiagnosticData(response.room),
-          'transport': response.transport.name,
-        },
-      );
-      notifyListeners();
-      _restorePreferredCamera();
-    } catch (error, stackTrace) {
-      if (media case final activeMedia?) {
-        await _disposeMedia(activeMedia, 'voice.media.disposeAfterJoin');
-      }
-      if (serverJoinActive) {
-        await _runHandled(
-          () => api.leave(
-            siteUrl: siteUrl,
-            roomId: room.id,
-            apiKey: apiKey,
-            participantSessionId:
-                participantSession?.id ?? joinedParticipantSessionId,
-            clientId: clientId,
-          ),
-          'voice.leaveFailedJoin',
-        );
-      }
-      if (!isCurrent()) return;
-      _record(
-        'call.join.failed',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        data: {'errorType': error.runtimeType.toString()},
-      );
-      _recordRaw(
-        'call.join.failure_detail',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        message: error.toString(),
-        data: {'stackTrace': stackTrace.toString()},
-      );
-      await _runHandled(systemCall.failed, 'voice.systemCall.failed');
-      if (systemCall case final NativeVoiceSystemCall nativeSystemCall) {
-        nativeSystemCall.associateDiagnostics(null);
-      }
-      if (isCurrent()) {
-        _call = null;
-        if (serverJoinActive) _removeLocalParticipant(siteUrl, room.id);
-        _errors[siteUrl] = _joinFailureMessage(error, room);
-        _onCallSiteChanged();
-        notifyListeners();
-      }
-      if (isCurrent()) _report(error, stackTrace, 'voice.join');
-    }
-  }
-
-  void _startHeartbeat() {
-    _heartbeat?.cancel();
-    _heartbeatPending = false;
-    _recordRaw(
-      'heartbeat.started',
-      component: 'heartbeat',
-      correlationId: _correlationFor(_call),
-      data: {'intervalMilliseconds': heartbeatInterval.inMilliseconds},
-    );
-    _scheduleHeartbeat();
-  }
-
-  void _scheduleHeartbeat() {
-    _heartbeat?.cancel();
-    if (_disposed || _call?.status != VoiceCallStatus.connected) return;
-    _heartbeat = Timer(heartbeatInterval, () {
-      _heartbeat = null;
-      unawaited(_requestHeartbeat());
-    });
-  }
-
-  Future<void> _requestHeartbeat() {
-    final active = _heartbeatRequest;
-    if (active != null) {
-      _heartbeatPending = true;
-      return active;
-    }
-
-    _heartbeat?.cancel();
-    _heartbeat = null;
-    late final Future<void> request;
-    request = _beat().whenComplete(() {
-      if (!identical(_heartbeatRequest, request)) return;
-      _heartbeatRequest = null;
-      if (_disposed || _call?.status != VoiceCallStatus.connected) return;
-      if (_heartbeatPending) {
-        _heartbeatPending = false;
-        unawaited(_requestHeartbeat());
-      } else {
-        _scheduleHeartbeat();
-      }
-    });
-    _heartbeatRequest = request;
-    return request;
-  }
-
-  Future<void> _beat() async {
-    final call = _call;
-    if (call == null || call.status != VoiceCallStatus.connected) return;
-    final siteSession = _siteSession(call.siteUrl);
-    bool isCurrent() =>
-        _isCurrentCall(call, siteSession) &&
-        _call?.status == VoiceCallStatus.connected;
-    try {
-      final correlationId = _correlationFor(call);
-      _recordRaw(
-        'heartbeat.requested',
-        component: 'heartbeat',
-        correlationId: correlationId,
-        data: {
-          'siteUrl': call.siteUrl,
-          'roomId': call.room.id,
-          'idleState': _idleState.name,
-        },
-      );
-      final credentials = await _keyRequestCredentials(
-        call.siteUrl,
-        ifCurrent: isCurrent,
-      );
-      if (credentials == null) {
-        if (!isCurrent()) return;
-        _record(
-          'heartbeat.credentials_missing',
-          component: 'heartbeat',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-        );
-        await _leave(
-          notifyServer: false,
-          reason: _VoiceLeaveReason.credentialsMissing,
-        );
-        return;
-      }
-      await _reporter.runOperation(
-        'voice.heartbeat',
-        () => credentials.run(
-          () => api.heartbeat(
-            siteUrl: call.siteUrl,
-            roomId: call.room.id,
-            apiKey: credentials.apiKey!,
-            idle: _idleState,
-            participantSessionId: _participantSessions[call.media]?.id,
-          ),
-        ),
-        correlationId: correlationId,
-      );
-      _recordRaw(
-        'heartbeat.completed',
-        component: 'heartbeat',
-        correlationId: correlationId,
-      );
-    } on WriteException catch (error, stackTrace) {
-      if (!isCurrent()) return;
-      if (_isExpulsion(error)) {
-        // The server no longer recognizes this session — it lapsed while the
-        // app was cut off, the room was deleted, or access was revoked.
-        // Every later beat would be refused the same way, and if nobody else
-        // is in the room no roster broadcast will ever prune the local
-        // user, so the call is unwound here the way the web client does.
-        _record(
-          'heartbeat.expelled',
-          component: 'heartbeat',
-          correlationId: _correlationFor(call),
-          severity: DiagnosticSeverity.warning,
-          data: {'statusCode': error.statusCode},
-        );
-        _errors[call.siteUrl] = error.errors.isNotEmpty
-            ? error.errors.join('\n')
-            : appL10n.yourCallSessionHasExpiredRejoinTheRoomToStartA;
-        await _leave(
-          notifyServer: error.statusCode != HttpStatus.notFound,
-          reason: _VoiceLeaveReason.sessionExpired,
-        );
-        return;
-      }
-      _recordRaw(
-        'heartbeat.failed',
-        component: 'heartbeat',
-        correlationId: _correlationFor(call),
-        severity: DiagnosticSeverity.warning,
-        message: error.toString(),
-        data: {
-          'errorType': error.runtimeType.toString(),
-          'statusCode': error.statusCode,
-          'stackTrace': stackTrace.toString(),
-        },
-      );
-      _report(error, stackTrace, 'voice.heartbeat');
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _recordRaw(
-          'heartbeat.failed',
-          component: 'heartbeat',
-          correlationId: _correlationFor(call),
-          severity: DiagnosticSeverity.warning,
-          message: error.toString(),
-          data: {
-            'errorType': error.runtimeType.toString(),
-            'stackTrace': stackTrace.toString(),
-          },
-        );
-        _report(error, stackTrace, 'voice.heartbeat');
-      }
-    }
-  }
+  }) => _calls.join(siteUrl: siteUrl, siteName: siteName, room: room);
 
   /// A heartbeat refused with a membership-shaped status: the participant
   /// session is gone or was never ours to keep (403), the room is gone (404),
@@ -2637,103 +1775,24 @@ final class VoiceController extends ChangeNotifier {
     if (_disposed) return;
     _foreground = foreground;
     if (foreground) {
-      _restorePreferredCamera();
+      _calls.current?._restorePreferredCamera();
     } else {
-      _cameraRevision++;
+      _calls.current?.invalidateCamera();
     }
-    if (foreground) _idleTracker.recordActivity();
-    if (_call != null) unawaited(_requestHeartbeat());
-  }
-
-  VoiceIdleThresholds _activeIdleThresholds() {
-    final call = _call;
-    if (call == null) return _defaultIdleThresholds('');
-    try {
-      return _idleThresholdsFor(call.siteUrl);
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'voice.idle.thresholds');
-      return _defaultIdleThresholds(call.siteUrl);
+    if (foreground) _calls.current?._userActed();
+    if (_call != null) {
+      unawaited((_calls.current?._requestHeartbeat() ?? Future<void>.value()));
     }
-  }
-
-  void _onIdleStateChanged(VoiceIdleState state, {required bool wasAutoMuted}) {
-    if (_disposed) return;
-    final call = _call;
-    if (call == null || call.status == VoiceCallStatus.leaving) return;
-    _idleState = state;
-    _record(
-      'idle.state_changed',
-      component: 'idle',
-      correlationId: _correlationFor(call),
-      data: {'state': state.name, 'wasAutoMuted': wasAutoMuted},
-    );
-    final userId = _userIdFor(call.siteUrl);
-    if (userId != null) {
-      _updateRoom(
-        call.siteUrl,
-        call.room.id,
-        (room) => room.withParticipants([
-          for (final participant in room.participants)
-            participant.id == userId
-                ? _participantWithIdleState(participant, state)
-                : participant,
-        ]),
-      );
-    }
-    if (state == VoiceIdleState.active && wasAutoMuted && call.muted) {
-      _notify(appL10n.youWereAutoMutedAfterBeingIdleUnmuteToKeepTalking);
-    }
-    unawaited(_requestHeartbeat());
-    notifyListeners();
-  }
-
-  void _onIdleAutoMute() {
-    final call = _call;
-    if (_disposed || call == null || call.status == VoiceCallStatus.leaving) {
-      return;
-    }
-    _record(
-      'idle.auto_muted',
-      component: 'idle',
-      correlationId: _correlationFor(call),
-      data: {'alreadyMuted': call.muted},
-    );
-    if (!call.muted) {
-      _observe(() => _setMuted(true, syncSystem: true), 'voice.idle.autoMute');
-    }
-  }
-
-  void _onIdleDisconnect() {
-    final call = _call;
-    if (_disposed || call == null || call.status == VoiceCallStatus.leaving) {
-      return;
-    }
-    _record(
-      'idle.disconnected',
-      component: 'idle',
-      correlationId: _correlationFor(call),
-      severity: DiagnosticSeverity.warning,
-    );
-    _errors[call.siteUrl] = appL10n.youWereDisconnectedFromDueToInactivity(
-      (call.room.name).toString(),
-    );
-    _observe(
-      () =>
-          _leave(notifyServer: true, reason: _VoiceLeaveReason.idleDisconnect),
-      'voice.idle.disconnect',
-    );
   }
 
   /// Every deliberate call control counts as the user being present.
-  void _userActed() {
-    if (_disposed) return;
-    _idleTracker.recordActivity();
-  }
+
+  void _userActed() => _calls.current?._userActed();
 
   Future<void> setMuted(bool muted) {
     // Cleared before the activity is recorded: an unmute is the user acting
     // on an automatic mute, not a return that needs telling about it.
-    if (!muted) _idleTracker.wasAutoMuted = false;
+    if (!muted) _calls.current?.acknowledgeUnmute();
     _userActed();
     return _setMuted(muted, syncSystem: true);
   }
@@ -2742,115 +1801,30 @@ final class VoiceController extends ChangeNotifier {
     if (_disposed) return;
     final clearedSiteError = siteUrl != null && _errors.remove(siteUrl) != null;
     final clearedCallError = _call?.error != null;
-    if (clearedCallError) _call = _call?.copyWith(clearError: true);
+    if (clearedCallError) _calls.current?.dismissError();
     if (clearedSiteError || clearedCallError) notifyListeners();
   }
 
   Future<void> _setMuted(bool muted, {required bool syncSystem}) =>
-      _updateMediaState(
-        media: (call) => call.media.setMuted(muted),
-        update: (call) => call.copyWith(muted: muted),
-        rollback: (current, previous) =>
-            current.copyWith(muted: previous.muted),
-        system: syncSystem
-            ? (current) => systemCall.setMuted(current.muted)
-            : null,
-      );
+      _calls.current?._setMuted(muted, syncSystem: syncSystem) ??
+      Future<void>.value();
 
   Future<void> setDeafened(bool deafened) {
     _userActed();
     return _setDeafened(deafened);
   }
 
-  Future<void> _setDeafened(bool deafened) => _updateMediaState(
-    media: (call) => call.media.setDeafened(deafened),
-    update: (call) => call.copyWith(deafened: deafened),
-    rollback: (current, previous) =>
-        current.copyWith(deafened: previous.deafened),
-  );
+  Future<void> _setDeafened(bool deafened) =>
+      _calls.current?._setDeafened(deafened) ?? Future<void>.value();
 
   Future<void> setCameraEnabled(bool enabled, {String? deviceId}) {
     _userActed();
-    return _setCameraEnabled(enabled, deviceId: deviceId, remember: true);
-  }
-
-  Future<void> _setCameraEnabled(
-    bool enabled, {
-    String? deviceId,
-    bool remember = false,
-  }) async {
-    final call = _call;
-    if (_disposed || call == null || call.status == VoiceCallStatus.leaving) {
-      return;
-    }
-    final revision = ++_cameraRevision;
-    final userId = _userIdFor(call.siteUrl);
-    final siteSession = _siteSession(call.siteUrl);
-    bool isCurrent() =>
-        _isCurrentCall(call, siteSession) &&
-        (!enabled ||
-            (revision == _cameraRevision &&
-                userId != null &&
-                _canPublishCamera(_call!, userId))) &&
-        _userIdFor(call.siteUrl) == userId;
-    // Turning off is deliberate even if capture or persistence is still pending.
-    final saving = !enabled && remember && userId != null
-        ? _rememberCamera(call.siteUrl, userId, false)
-        : Future<void>.value();
-    _startingCamera = enabled
-        ? (media: call.media, revision: revision, remember: remember)
-        : null;
-    notifyListeners();
-    var applied = false;
-    await _cameraOperations
-        .run(
-          owner: this,
-          key: call.media,
-          operation: () async {
-            if (!isCurrent()) return;
-            try {
-              await call.media.setCameraEnabled(
-                enabled,
-                deviceId: deviceId ?? _cameraDeviceId,
-                facing: deviceId == null ? _cameraFacing : null,
-                shouldContinue: isCurrent,
-              );
-              if (!isCurrent()) {
-                if (enabled) await call.media.setCameraEnabled(false);
-                return;
-              }
-              applied = true;
-              _call = _call!.copyWith(cameraEnabled: enabled);
-              notifyListeners();
-            } catch (error, stackTrace) {
-              if (isCurrent()) {
-                _call = _call!.copyWith(
-                  error: appL10n.theMediaSettingWasNotApplied,
-                );
-                notifyListeners();
-              }
-              _report(error, stackTrace, 'voice.mediaState');
-            }
-          },
-        )
-        .whenComplete(() => _finishStartingCamera(call.media, revision));
-    // Stopping capture must never wait behind a slow preference or state write.
-    if (applied && isCurrent()) {
-      if (enabled && remember && userId != null) {
-        await _rememberCamera(call.siteUrl, userId, true);
-      }
-      if (isCurrent()) await _requestStateSync();
-    }
-    await saving;
-  }
-
-  void _finishStartingCamera(VoiceMediaSession media, int revision) {
-    if (_startingCamera?.media != media ||
-        _startingCamera?.revision != revision) {
-      return;
-    }
-    _startingCamera = null;
-    if (!_disposed && identical(_call?.media, media)) notifyListeners();
+    return _calls.current?._setCameraEnabled(
+          enabled,
+          deviceId: deviceId,
+          remember: true,
+        ) ??
+        Future<void>.value();
   }
 
   Future<void> _rememberCamera(String siteUrl, int userId, bool enabled) {
@@ -2868,112 +1842,6 @@ final class VoiceController extends ChangeNotifier {
       _report(error, stackTrace, 'voice.preferences.cameraEnabled');
       return false;
     }
-  }
-
-  bool _canRestoreCamera(VoiceCallSnapshot call, int userId) {
-    final current = _call;
-    if (_disposed ||
-        !_foreground ||
-        current == null ||
-        !identical(current.media, call.media) ||
-        _userIdFor(call.siteUrl) != userId ||
-        current.status != VoiceCallStatus.connected ||
-        !_isWatching(current) ||
-        current.cameraEnabled ||
-        current.screenSharing) {
-      return false;
-    }
-    return _canPublishCamera(current, userId);
-  }
-
-  bool _canPublishCamera(VoiceCallSnapshot call, int userId) {
-    if (!call.room.videoAllowed ||
-        !call.room.videoEnabled ||
-        !_canPublishAudio(call.room, call.room.participants, userId)) {
-      return false;
-    }
-    final publishers = call.room.participants.where(
-      (participant) =>
-          participant.id != userId &&
-          (participant.videoOn || participant.screenSharing),
-    );
-    return publishers.length < _videoMaxPublishersFor(call.siteUrl);
-  }
-
-  void _restorePreferredCamera() {
-    if (_disposed) return;
-    final call = _call;
-    if (call == null) return;
-    final pending = _cameraRestores[call.media];
-    if (pending != null) {
-      pending.again = true;
-      return;
-    }
-    final userId = _userIdFor(call.siteUrl);
-    if (userId == null || !_canRestoreCamera(call, userId)) return;
-    final revision = _cameraRevision;
-    final siteSession = _siteSession(call.siteUrl);
-    bool isCurrent() =>
-        revision == _cameraRevision &&
-        _isCurrentCall(call, siteSession) &&
-        _canRestoreCamera(call, userId);
-    final preference = _cameraPreferences.putIfAbsent((
-      call.siteUrl,
-      userId,
-    ), () => _readCameraPreference(call.siteUrl, userId));
-    final restore = _VoiceCameraRestore();
-    _cameraRestores[call.media] = restore;
-    unawaited(
-      (() async {
-            if (!await preference) return;
-            await _devicePreferencesLoaded;
-            if (!isCurrent()) return;
-            await _cameraOperations
-                .run(
-                  owner: this,
-                  key: call.media,
-                  operation: () async {
-                    if (!isCurrent()) return;
-                    _startingCamera = (
-                      media: call.media,
-                      revision: revision,
-                      remember: false,
-                    );
-                    notifyListeners();
-                    if (!isCurrent()) return;
-                    await call.media.setCameraEnabled(
-                      true,
-                      deviceId: _cameraDeviceId,
-                      facing: _cameraFacing,
-                      shouldContinue: isCurrent,
-                    );
-                    if (!isCurrent()) {
-                      await call.media.setCameraEnabled(false);
-                      return;
-                    }
-                    _call = _call!.copyWith(cameraEnabled: true);
-                    notifyListeners();
-                  },
-                )
-                .whenComplete(
-                  () => _finishStartingCamera(call.media, revision),
-                );
-            if (_isCurrentCall(call, siteSession) &&
-                revision == _cameraRevision) {
-              await _requestStateSync();
-            }
-          })()
-          .catchError((Object error, StackTrace stackTrace) {
-            // An automatic attempt must leave the audio call usable without a modal.
-            _report(error, stackTrace, 'voice.camera.restore');
-          })
-          .whenComplete(() {
-            _cameraRestores[call.media] = null;
-            if (restore.again && identical(_call?.media, call.media)) {
-              _restorePreferredCamera();
-            }
-          }),
-    );
   }
 
   Future<List<rtc.MediaDeviceInfo>> mediaDevices() =>
@@ -3091,97 +1959,37 @@ final class VoiceController extends ChangeNotifier {
     VoiceCameraFacing? facing,
   }) async {
     if (_disposed) return;
-    final call = _call;
-    final switchCamera = call != null && (call.cameraEnabled || cameraStarting);
-    final remember = cameraStarting && _startingCamera!.remember;
-    final revision = ++_cameraRevision;
-    final userId = call == null ? null : _userIdFor(call.siteUrl);
-    final siteSession = call == null ? null : _siteSession(call.siteUrl);
-    bool isCurrent() =>
-        call != null &&
-        siteSession != null &&
-        revision == _cameraRevision &&
-        _isCurrentCall(call, siteSession) &&
-        _userIdFor(call.siteUrl) == userId &&
-        userId != null &&
-        _canPublishCamera(_call!, userId);
+    final selection = _cameraSelection = Object();
+    final session = _calls.current;
+    if (session?._call != null) {
+      await session!._selectCamera(deviceId, facing: facing);
+      return;
+    }
     if (facing == null) _cameraDeviceId = deviceId;
     _cameraFacing = facing;
-    _startingCamera = switchCamera
-        ? (media: call.media, revision: revision, remember: remember)
-        : null;
     notifyListeners();
-    final correlationId =
-        _activeDiagnosticCorrelationId ??
-        _reporter.newCorrelationId('voice-device');
-    try {
-      await _traceDeviceSelection(
-        kind: 'camera',
-        origin: 'user',
-        deviceId: deviceId ?? facing!.name,
-        applied: switchCamera,
-        correlationId: correlationId,
-        action: () async {
-          if (deviceId != null) {
-            await _persistPreference(
-              () => _preferences.writeDevice(
-                VoiceDevicePreference.camera,
-                deviceId,
-              ),
-              'voice.preferences.camera',
-            );
-          }
-          if (_disposed || revision != _cameraRevision) return;
-          if (!switchCamera) {
-            _restorePreferredCamera();
-            return;
-          }
-          final media = call.media;
-          var applied = false;
-          await _cameraOperations.run(
-            owner: this,
-            key: media,
-            operation: () async {
-              if (!isCurrent()) return;
-              await media.setCameraEnabled(false);
-              if (!_isCurrentCall(call, siteSession!)) return;
-              _call = _call!.copyWith(cameraEnabled: false);
-              notifyListeners();
-              if (!isCurrent()) return;
-              await media.setCameraEnabled(
-                true,
-                deviceId: deviceId,
-                facing: facing,
-                shouldContinue: isCurrent,
-              );
-              if (!isCurrent()) {
-                await media.setCameraEnabled(false);
-                return;
-              }
-              applied = true;
-              _call = _call!.copyWith(cameraEnabled: true);
-              notifyListeners();
-            },
+    final correlationId = _reporter.newCorrelationId('voice-device');
+    await _traceDeviceSelection(
+      kind: 'camera',
+      origin: 'user',
+      deviceId: deviceId ?? facing!.name,
+      applied: false,
+      correlationId: correlationId,
+      action: () async {
+        if (deviceId != null) {
+          await _persistPreference(
+            () => _preferences.writeDevice(
+              VoiceDevicePreference.camera,
+              deviceId,
+            ),
+            'voice.preferences.camera',
           );
-          if (applied && remember && isCurrent()) {
-            await _rememberCamera(call.siteUrl, userId!, true);
-          }
-        },
-      );
-    } catch (_) {
-      if (isCurrent()) {
-        _call = _call!.copyWith(error: appL10n.theMediaSettingWasNotApplied);
-        notifyListeners();
-      }
-      rethrow;
-    } finally {
-      if (call != null) {
-        _finishStartingCamera(call.media, revision);
-        if (_isCurrentCall(call, siteSession!)) {
-          unawaited(_requestStateSync());
         }
-      }
-    }
+        if (!_disposed && identical(selection, _cameraSelection)) {
+          _calls.current?._restorePreferredCamera();
+        }
+      },
+    );
     if (!_disposed) notifyListeners();
   }
 
@@ -3243,7 +2051,7 @@ final class VoiceController extends ChangeNotifier {
         ? call?.media
         : null;
     if (media != null) {
-      (_participantVolumeRevisions[media] ??= {})[userId] = Object();
+      _calls.current?.claimParticipantVolume(userId);
     }
     await media?.setParticipantVolume(userId, normalized);
     if (_disposed) return;
@@ -3256,40 +2064,6 @@ final class VoiceController extends ChangeNotifier {
       ),
       'voice.preferences.writeVolume',
     );
-  }
-
-  /// Applies each remote participant's saved volume the first time [call]'s
-  /// media sees them, so they are heard at the volume chosen in an earlier
-  /// call. Both media sessions hold a volume until that participant's audio
-  /// arrives, so this starts as soon as the call has its media rather than
-  /// after connecting, when their first words would play at full volume.
-  void _restoreParticipantVolumes(VoiceCallSnapshot call) {
-    final siteSession = _siteSession(call.siteUrl);
-    final localUserId = _userIdFor(call.siteUrl);
-    final revisions = _participantVolumeRevisions[call.media] ??= {};
-    for (final participant in call.room.participants) {
-      final userId = participant.id;
-      if (userId == localUserId || revisions.containsKey(userId)) continue;
-      final revision = revisions[userId] = Object();
-      _observe(() async {
-        final volume = await participantVolume(
-          call.siteUrl,
-          call.room.id,
-          userId,
-        );
-        // The call may have been left or replaced during the read, and a
-        // slider change made meanwhile is newer than what was saved.
-        if (volume == 1 ||
-            !_isCurrentCall(call, siteSession) ||
-            !identical(
-              _participantVolumeRevisions[call.media]?[userId],
-              revision,
-            )) {
-          return;
-        }
-        await call.media.setParticipantVolume(userId, volume);
-      }, 'voice.media.restoreParticipantVolume');
-    }
   }
 
   Future<void> _restoreDevicePreferences() async {
@@ -3476,183 +2250,8 @@ final class VoiceController extends ChangeNotifier {
     return _setScreenSharing(enabled);
   }
 
-  Future<void> _setScreenSharing(bool enabled) async {
-    _cameraRevision++;
-    await _updateMediaState(
-      media: (call) => call.media.setScreenShareEnabled(enabled),
-      update: (call) => call.copyWith(screenSharing: enabled),
-      rollback: (current, previous) =>
-          current.copyWith(screenSharing: previous.screenSharing),
-    );
-    if (!enabled) _restorePreferredCamera();
-  }
-
-  Future<void> _updateMediaState({
-    required Future<void> Function(VoiceCallSnapshot call) media,
-    required VoiceCallSnapshot Function(VoiceCallSnapshot call) update,
-    required VoiceCallSnapshot Function(
-      VoiceCallSnapshot current,
-      VoiceCallSnapshot previous,
-    )
-    rollback,
-    Future<void> Function(VoiceCallSnapshot current)? system,
-  }) async {
-    if (_disposed) return;
-    final call = _call;
-    // A leaving call's media is already being released; a control that lands
-    // meanwhile must not restart capture on it.
-    if (call == null || call.status == VoiceCallStatus.leaving) return;
-    _call = update(call);
-    notifyListeners();
-    try {
-      await media(call);
-    } catch (error, stackTrace) {
-      final current = _call;
-      if (!_disposed &&
-          current != null &&
-          identical(current.media, call.media)) {
-        // Roster, status, and recording updates can land while the media call
-        // is in flight; restoring the pre-toggle snapshot would erase them.
-        // Revert only the toggled field on the current snapshot.
-        _call = rollback(
-          current,
-          call,
-        ).copyWith(error: appL10n.theMediaSettingWasNotApplied);
-        notifyListeners();
-      }
-      _report(error, stackTrace, 'voice.mediaState');
-      return;
-    }
-
-    if (_disposed) return;
-    await _requestStateSync();
-    // Toggles made while one state sync runs all resume, back to back, when
-    // it drains. Each hands the platform the call's current state rather
-    // than the value it set, so an earlier toggle cannot land last and
-    // overturn a newer one. A call that no longer owns this media has none
-    // of this toggle's state left to sync.
-    final current = _call;
-    if (_disposed ||
-        system == null ||
-        current == null ||
-        !identical(current.media, call.media)) {
-      return;
-    }
-    try {
-      await system(current);
-    } catch (error, stackTrace) {
-      // The local media operation already succeeded. A platform call-control
-      // sync failure must not roll it back or claim that the device rejected
-      // the setting.
-      _report(error, stackTrace, 'voice.systemCallState');
-    }
-  }
-
-  Future<void> _requestStateSync() {
-    _stateSyncPending = true;
-    _recordRaw(
-      'state_sync.queued',
-      component: 'state',
-      correlationId: _correlationFor(_call),
-      data: {'coalesced': _stateSync != null || _stateRetry != null},
-    );
-    final active = _stateSync;
-    if (active != null || _stateRetry != null) {
-      return active ?? Future<void>.value();
-    }
-
-    late final Future<void> operation;
-    operation = _drainStateSync().whenComplete(() {
-      if (identical(_stateSync, operation)) _stateSync = null;
-      if (_stateSyncPending && _stateRetry == null && !_disposed) {
-        unawaited(_requestStateSync());
-      }
-    });
-    _stateSync = operation;
-    return operation;
-  }
-
-  Future<void> _drainStateSync() async {
-    while (_stateSyncPending && _stateRetry == null && !_disposed) {
-      _stateSyncPending = false;
-      final call = _call;
-      if (call == null || call.status == VoiceCallStatus.leaving) return;
-      final siteSession = _siteSession(call.siteUrl);
-      bool isCurrent() => _isCurrentCall(call, siteSession);
-      try {
-        final correlationId = _correlationFor(call);
-        _recordRaw(
-          'state_sync.requested',
-          component: 'state',
-          correlationId: correlationId,
-          data: {
-            'siteUrl': call.siteUrl,
-            'roomId': call.room.id,
-            'muted': call.muted,
-            'deafened': call.deafened,
-            'video': call.cameraEnabled,
-            'screen': call.screenSharing,
-            'watching': _isWatching(call),
-          },
-        );
-        final credentials = await _keyRequestCredentials(
-          call.siteUrl,
-          ifCurrent: isCurrent,
-        );
-        if (credentials == null) return;
-        await _reporter.runOperation(
-          'voice.state',
-          () => credentials.run(
-            () => api.state(
-              siteUrl: call.siteUrl,
-              roomId: call.room.id,
-              apiKey: credentials.apiKey!,
-              muted: call.muted,
-              deafened: call.deafened,
-              video: call.cameraEnabled,
-              screen: call.screenSharing,
-              watching: _isWatching(call),
-              participantSessionId: _participantSessions[call.media]?.id,
-            ),
-          ),
-          correlationId: correlationId,
-        );
-        _recordRaw(
-          'state_sync.completed',
-          component: 'state',
-          correlationId: correlationId,
-        );
-      } on WriteException catch (error, stackTrace) {
-        if (!isCurrent()) return;
-        if (error.failure != WriteFailure.rateLimited) {
-          _report(error, stackTrace, 'voice.state');
-          return;
-        }
-        _recordRaw(
-          'state_sync.rate_limited',
-          component: 'state',
-          correlationId: _correlationFor(call),
-          severity: DiagnosticSeverity.warning,
-          data: {
-            'retryAfterMilliseconds':
-                (error.retryAfter ?? const Duration(seconds: 1)).inMilliseconds,
-          },
-        );
-        _stateSyncPending = true;
-        _stateRetry = Timer(
-          (error.retryAfter ?? const Duration(seconds: 1)) +
-              const Duration(milliseconds: 150),
-          () {
-            _stateRetry = null;
-            if (!_disposed) unawaited(_requestStateSync());
-          },
-        );
-      } catch (error, stackTrace) {
-        if (isCurrent()) _report(error, stackTrace, 'voice.state');
-        return;
-      }
-    }
-  }
+  Future<void> _setScreenSharing(bool enabled) =>
+      _calls.current?._setScreenSharing(enabled) ?? Future<void>.value();
 
   Future<void> leave({bool notifyServer = true}) =>
       _leave(notifyServer: notifyServer, reason: _VoiceLeaveReason.user);
@@ -3661,226 +2260,11 @@ final class VoiceController extends ChangeNotifier {
     required bool notifyServer,
     required _VoiceLeaveReason reason,
     bool clearImmediately = false,
-  }) {
-    _incomingAnswer = null;
-    final active = _leaveOperation;
-    final call = _call;
-    if (call == null) return active ?? Future<void>.value();
-    if (active != null && identical(_leavingMedia, call.media)) {
-      _record(
-        'call.leave.coalesced',
-        correlationId: _correlationFor(call),
-        data: {'reason': reason.name, 'clearImmediately': clearImmediately},
-      );
-      if (clearImmediately && identical(_call?.media, call.media)) {
-        _call = null;
-        _onCallSiteChanged();
-        if (!_disposed) notifyListeners();
-      }
-      return active;
-    }
-
-    final completion = Completer<void>();
-    final operation = completion.future;
-    _leavingMedia = call.media;
-    _leaveOperation = operation;
-    _cameraRevision++;
-    _joinRevision = Object();
-    _signalBatchers[call.media]?.close();
-    _heartbeat?.cancel();
-    _heartbeat = null;
-    _heartbeatPending = false;
-    _stateRetry?.cancel();
-    _stateRetry = null;
-    _stateSyncPending = false;
-    _idleTracker.stop();
-    _idleState = VoiceIdleState.active;
-    final correlationId = _correlationFor(call);
-    _record(
-      'call.leave.started',
-      correlationId: correlationId,
-      data: {
-        ..._roomDiagnosticData(call.room),
-        'reason': reason.name,
-        'notifyServer': notifyServer,
-        'clearImmediately': clearImmediately,
-        'status': call.status.name,
-      },
-    );
-    _recordRaw(
-      'call.leave.context',
-      correlationId: correlationId,
-      data: {
-        ..._rawRoomDiagnosticData(
-          call.siteUrl,
-          call.room,
-          siteName: call.siteName,
-        ),
-        'reason': reason.name,
-      },
-    );
-    _call = clearImmediately
-        ? null
-        : call.copyWith(status: VoiceCallStatus.leaving);
-    // A delayed roster broadcast must not leave our avatar beside Join room.
-    _removeLocalParticipant(call.siteUrl, call.room.id);
-    if (!clearImmediately && call.status != VoiceCallStatus.leaving) {
-      _record(
-        'call.status_changed',
-        correlationId: correlationId,
-        data: {
-          'from': call.status.name,
-          'to': VoiceCallStatus.leaving.name,
-          'reason': reason.name,
-        },
-      );
-    }
-    if (clearImmediately) _onCallSiteChanged();
-    if (!_disposed) notifyListeners();
-    unawaited(
-      _finishLeave(
-        call,
-        notifyServer: notifyServer,
-        reason: reason,
-        operation: operation,
-        completion: completion,
-      ),
-    );
-    return operation;
-  }
-
-  Future<void> _finishLeave(
-    VoiceCallSnapshot call, {
-    required bool notifyServer,
-    required _VoiceLeaveReason reason,
-    required Future<void> operation,
-    required Completer<void> completion,
-  }) async {
-    final correlationId = _correlationFor(call);
-    try {
-      // The room already shows the user gone, so capture stops before the
-      // server hears about it: the leave request can take a round trip, a
-      // timeout, or a gated backlog, and peers must not keep receiving the
-      // microphone, camera, or screen meanwhile. The participant session id
-      // the request carries is keyed on the media, not cleared by disposal.
-      try {
-        call.media.removeListener(_mediaChanged);
-      } catch (error, stackTrace) {
-        _report(error, stackTrace, 'voice.media.removeListener');
-      }
-      _record(
-        'media.dispose.started',
-        component: 'media',
-        correlationId: correlationId,
-      );
-      final mediaDisposal = _disposeMedia(call.media, 'voice.media.dispose');
-      if (notifyServer) {
-        try {
-          _record(
-            'call.leave.server_request.started',
-            correlationId: correlationId,
-            data: {'roomId': call.room.id},
-          );
-          final credentials = await _requestCredentials(call.siteUrl);
-          if (credentials != null) {
-            await _reporter.runOperation(
-              'voice.leave',
-              () => api.leave(
-                siteUrl: call.siteUrl,
-                roomId: call.room.id,
-                apiKey: credentials.apiKey!,
-                participantSessionId: _participantSessions[call.media]?.id,
-              ),
-              correlationId: correlationId,
-            );
-            _record(
-              'call.leave.server_request.completed',
-              correlationId: correlationId,
-            );
-          } else {
-            _record(
-              'call.leave.server_request.skipped',
-              correlationId: correlationId,
-              severity: DiagnosticSeverity.warning,
-              data: {'reason': 'missing_api_key'},
-            );
-          }
-        } catch (error, stackTrace) {
-          _record(
-            'call.leave.server_request.failed',
-            correlationId: correlationId,
-            severity: DiagnosticSeverity.warning,
-            data: {'errorType': error.runtimeType.toString()},
-          );
-          _recordRaw(
-            'call.leave.server_request.failure_detail',
-            correlationId: correlationId,
-            severity: DiagnosticSeverity.warning,
-            message: error.toString(),
-            data: {'stackTrace': stackTrace.toString()},
-          );
-          _report(error, stackTrace, 'voice.leave');
-        }
-      } else {
-        _record(
-          'call.leave.server_request.skipped',
-          correlationId: correlationId,
-          data: {'reason': 'local_only'},
-        );
-      }
-
-      await mediaDisposal;
-      _record(
-        'media.dispose.completed',
-        component: 'media',
-        correlationId: correlationId,
-      );
-      _record(
-        'callkit.command.requested',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'end'},
-      );
-      await _runHandled(systemCall.end, 'voice.systemCall.end');
-      _record(
-        'callkit.command.completed',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'end'},
-      );
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'voice.leave.dispose');
-    } finally {
-      if (identical(_leaveOperation, operation)) {
-        _leaveOperation = null;
-        _leavingMedia = null;
-      }
-      if (identical(_call?.media, call.media)) {
-        _call = null;
-        try {
-          _onCallSiteChanged();
-        } catch (error, stackTrace) {
-          _report(error, stackTrace, 'voice.callSiteChanged.dispose');
-        }
-      }
-      _record(
-        'call.leave.completed',
-        correlationId: correlationId,
-        data: {'reason': reason.name},
-      );
-      if (systemCall case final NativeVoiceSystemCall nativeSystemCall) {
-        nativeSystemCall.associateDiagnostics(null);
-      }
-      if (!_disposed) {
-        try {
-          notifyListeners();
-        } catch (error, stackTrace) {
-          _report(error, stackTrace, 'voice.listeners.dispose');
-        }
-      }
-      if (!completion.isCompleted) completion.complete();
-    }
-  }
+  }) => _calls.leave(
+    notifyServer: notifyServer,
+    reason: reason,
+    clearImmediately: clearImmediately,
+  );
 
   Future<VoiceRoom?> saveRoom({
     required String siteUrl,
@@ -4317,7 +2701,7 @@ final class VoiceController extends ChangeNotifier {
         apiKey: credentials.apiKey!,
         userId: userId,
         raised: raised,
-        participantSessionId: _participantSessions[call.media]?.id,
+        participantSessionId: _calls.current?._participantSessionId,
       ),
     );
   }
@@ -4799,120 +3183,6 @@ final class VoiceController extends ChangeNotifier {
       a.screenSharing == b.screenSharing &&
       identical(a.localVideoTrack, b.localVideoTrack);
 
-  void _mediaChanged() {
-    if (_disposed) return;
-    final call = _call;
-    if (call != null) {
-      final seen = _mediaViews[call.media];
-      final view = _mediaView(call.media);
-      _mediaViews[call.media] = view;
-      if (!call.muted &&
-          call.media.speakingParticipantIds.contains(
-            _userIdFor(call.siteUrl),
-          )) {
-        _idleTracker.recordVoiceActivity();
-      }
-      var updated = call;
-      final status = switch (view.connectionState) {
-        VoiceMediaConnectionState.connected => VoiceCallStatus.connected,
-        VoiceMediaConnectionState.reconnecting => VoiceCallStatus.reconnecting,
-        VoiceMediaConnectionState.failed => VoiceCallStatus.failed,
-      };
-      // Only a call that has already settled takes its status from the media
-      // layer. A join reaches `connected` at the end of its own sequence —
-      // after the state sync, the saved devices and the platform call — and
-      // the transports notify from inside `connect()`, so letting media
-      // promote a `joining` call would announce the call before any of that
-      // ran and would lift the guard that keeps a roster published before
-      // join.json committed from tearing the call down.
-      if ((status != call.status ||
-              (status == VoiceCallStatus.failed &&
-                  !identical(
-                    seen?.connectionFailure,
-                    view.connectionFailure,
-                  ))) &&
-          call.status != VoiceCallStatus.leaving &&
-          call.status != VoiceCallStatus.joining) {
-        _record(
-          'call.status_changed',
-          correlationId: _correlationFor(call),
-          severity: status == VoiceCallStatus.failed
-              ? DiagnosticSeverity.error
-              : DiagnosticSeverity.info,
-          data: {
-            'from': call.status.name,
-            'to': status.name,
-            'mediaConnectionState': view.connectionState.name,
-          },
-        );
-        updated = updated.copyWith(
-          status: status,
-          error: status == VoiceCallStatus.failed
-              ? switch (view.connectionFailure) {
-                  WriteException error => error.message,
-                  _ => appL10n.theMediaConnectionCouldNotBeRestored,
-                }
-              : null,
-          clearError:
-              status == VoiceCallStatus.connected ||
-              status == VoiceCallStatus.reconnecting,
-        );
-      }
-      final screenShareEnded =
-          updated.status != VoiceCallStatus.leaving &&
-          updated.screenSharing &&
-          !view.screenSharing;
-      if (screenShareEnded) {
-        _record(
-          'media.screen_share.ended',
-          component: 'media',
-          correlationId: _correlationFor(call),
-          data: {'cause': 'track_ended'},
-        );
-        updated = updated.copyWith(screenSharing: false);
-      }
-      _call = updated;
-      if (view.connectionFailure case final WriteException error
-          when updated.status == VoiceCallStatus.failed &&
-              error.statusCode == HttpStatus.gone) {
-        // The instance ended, so teardown must not leave a failed call owning
-        // capture or send a leave against a replacement instance. The room's
-        // existing error surface explains why the user needs to rejoin.
-        _errors[call.siteUrl] = error.message;
-        _observe(
-          () => _leave(
-            notifyServer: false,
-            reason: _VoiceLeaveReason.sessionExpired,
-          ),
-          'voice.reconnect.instanceEnded',
-        );
-        return;
-      }
-      // A heartbeat that fires while the call is away from connected declines
-      // to reschedule itself, so a recovered connection must restart the chain
-      // or server presence expires and the roster prunes the local user.
-      if (updated.status == VoiceCallStatus.connected &&
-          call.status != VoiceCallStatus.connected) {
-        _startHeartbeat();
-        _restorePreferredCamera();
-      }
-      if (screenShareEnded) {
-        unawaited(_requestStateSync());
-        _restorePreferredCamera();
-      }
-      // Speaking, connection-quality and remote-track events arrive several
-      // times a second for as long as a call lasts. This controller drives
-      // the sidebar, the chat inbox and the call port, none of which reads
-      // them; participant tiles listen to the media session for those. Only
-      // a changed call, or media state read through it, is worth a redraw.
-      if (!identical(updated, call) ||
-          seen == null ||
-          !_sameMediaView(seen, view)) {
-        notifyListeners();
-      }
-    }
-  }
-
   void _onSystemAction(VoiceSystemCallAction action) {
     _record(
       'callkit.action',
@@ -4928,7 +3198,7 @@ final class VoiceController extends ChangeNotifier {
           'voice.systemAction.mute',
         );
       case VoiceSystemCallAction.unmute:
-        _idleTracker.wasAutoMuted = false;
+        _calls.current?.acknowledgeUnmute();
         _userActed();
         _observe(
           () => _setMuted(false, syncSystem: false),
@@ -4951,7 +3221,7 @@ final class VoiceController extends ChangeNotifier {
 
   void forget(String siteUrl) {
     _cameraPreferences.removeWhere((account, _) => account.$1 == siteUrl);
-    if (_call?.siteUrl == siteUrl) {
+    if (_calls.current?.siteUrl == siteUrl) {
       _observe(
         () => _leave(
           notifyServer: true,
@@ -4996,7 +3266,7 @@ final class VoiceController extends ChangeNotifier {
   }
 
   String? _correlationFor(VoiceCallSnapshot? call) =>
-      call == null ? null : _mediaCorrelations[call.media];
+      call == null ? null : _calls.forMedia(call.media)?.correlationId;
 
   String? _correlationForSite(String siteUrl) {
     final call = _call;
@@ -5013,8 +3283,7 @@ final class VoiceController extends ChangeNotifier {
   String? get _activeDiagnosticCorrelationId {
     final active = _correlationFor(_call);
     if (active != null) return active;
-    final leavingMedia = _leavingMedia;
-    return leavingMedia == null ? null : _mediaCorrelations[leavingMedia];
+    return _calls.leavingCorrelationId;
   }
 
   void _record(
@@ -5219,22 +3488,6 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  Future<void> _disposeMedia(VoiceMediaSession media, String operation) {
-    final active = _mediaDisposals[media];
-    if (active != null) return active;
-
-    _signalBatchers[media]?.close();
-    final completion = Completer<void>();
-    final result = completion.future;
-    _mediaDisposals[media] = result;
-    unawaited(
-      _runHandled(media.dispose, operation).then((_) {
-        if (!completion.isCompleted) completion.complete();
-      }),
-    );
-    return result;
-  }
-
   /// Closes the complete native session and resolves only after every owned
   /// asynchronous teardown boundary has settled.
   ///
@@ -5247,13 +3500,7 @@ final class VoiceController extends ChangeNotifier {
 
     _disposed = true;
     _agentPermissionRevision.dispose();
-    _joinRevision = Object();
-    _heartbeat?.cancel();
-    _heartbeat = null;
-    _heartbeatPending = false;
-    _stateRetry?.cancel();
-    _stateRetry = null;
-    _stateSyncPending = false;
+    _calls.retire();
     _roomVideoWatchers.clear();
     _pendingInviteRefs.clear();
     _attachedTrackers.clear();
@@ -5262,7 +3509,6 @@ final class VoiceController extends ChangeNotifier {
       _closeChatConversation(state);
     }
     _chats.clear();
-    _idleTracker.stop();
     unawaited(_notices.close());
     final subscriptionCancellation = _cancelSubscriptions();
 
@@ -5319,36 +3565,7 @@ final class VoiceController extends ChangeNotifier {
   ) async {
     _record('session.close.started', component: 'lifecycle');
 
-    await _runHandled(() async {
-      final call = _call;
-      final leave = call == null
-          ? _leaveOperation
-          : _leave(notifyServer: true, reason: _VoiceLeaveReason.sessionClose);
-      if (leave != null) await leave;
-
-      // A join may own media before publishing it through [_call].
-      // Invalidating [_joinRevision] above makes it clean that media up;
-      // waiting here keeps a half-created native session from escaping
-      // PluginSession.close.
-      final joinTail = _joinTail;
-      if (joinTail != null) await joinTail;
-      final lateLeave = _leaveOperation;
-      if (lateLeave != null) await lateLeave;
-      if (_call case final lateCall?) {
-        await _leave(
-          notifyServer: true,
-          reason: _VoiceLeaveReason.sessionClose,
-        );
-        assert(!identical(_call?.media, lateCall.media));
-      }
-    }, 'voice.session.leave');
-
-    await _runHandled(() async {
-      final stateSync = _stateSync;
-      if (stateSync != null) await stateSync;
-      final heartbeatRequest = _heartbeatRequest;
-      if (heartbeatRequest != null) await heartbeatRequest;
-    }, 'voice.session.requests.dispose');
+    await _runHandled(_calls.close, 'voice.session.leave');
     await subscriptionCancellation;
     await systemActionsCancellation;
     await _runHandled(systemCall.dispose, 'voice.systemCall.dispose');

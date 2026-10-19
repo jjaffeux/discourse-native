@@ -63,6 +63,8 @@ final class FakeVoiceMediaFactory implements VoiceMediaFactory {
   final List<VoiceDiagnosticsRecorder> diagnosticsRecorders = [];
   Completer<void>? nextConnectGate;
   Completer<void>? nextConnectStarted;
+  Completer<void>? nextMuteGate;
+  Completer<void>? nextMuteStarted;
   Object? nextAudioInputFailure;
   Object? nextAudioOutputFailure;
   Future<void> Function(String)? nextAudioInputSelection;
@@ -86,6 +88,8 @@ final class FakeVoiceMediaFactory implements VoiceMediaFactory {
             connectGate: nextConnectGate,
             connectStarted: nextConnectStarted,
           )
+          ..muteGate = nextMuteGate
+          ..muteStarted = nextMuteStarted
           ..audioInputFailure = nextAudioInputFailure
           ..audioOutputFailure = nextAudioOutputFailure
           ..onSelectAudioInput = nextAudioInputSelection
@@ -93,6 +97,8 @@ final class FakeVoiceMediaFactory implements VoiceMediaFactory {
           ..cameraFailure = nextCameraFailure;
     nextConnectGate = null;
     nextConnectStarted = null;
+    nextMuteGate = null;
+    nextMuteStarted = null;
     nextAudioInputFailure = null;
     nextAudioOutputFailure = null;
     nextAudioInputSelection = null;
@@ -219,6 +225,7 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   void Function(bool)? afterSetCamera;
   final List<bool> cameraRequests = [];
   Completer<void>? muteGate;
+  Completer<void>? muteStarted;
   Completer<void>? audioPublishingGate;
   String? selectedAudioInput;
   String? selectedAudioOutput;
@@ -308,6 +315,9 @@ final class FakeVoiceMediaSession extends ChangeNotifier
   @override
   Future<void> setMuted(bool enabled) async {
     muted = enabled;
+    if (muteStarted case final started? when !started.isCompleted) {
+      started.complete();
+    }
     await muteGate?.future;
     if (muteFailure case final failure?) throw failure;
   }
@@ -466,6 +476,31 @@ final class _StaticRequestHost extends _RequestHostBase {
   @override
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
       const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
+}
+
+final class _ScopedRequestHost extends _RequestHostBase {
+  static final scope = Object();
+
+  Future<T> _run<T>(String kind, Future<T> Function() request) =>
+      runZoned(request, zoneValues: {scope: kind});
+
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
+      PluginRequestCredentials(
+        apiKey: 'key',
+        clientId: 'client',
+        execute: <T>(request) => _run<T>('full', request),
+      );
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async => (
+    credentials: PluginRequestCredentials(
+      apiKey: 'key',
+      clientId: '',
+      execute: <T>(request) => _run<T>('key', request),
+    ),
+    failure: null,
+  );
 }
 
 final class _GatedRequestHost extends _RequestHostBase {
@@ -987,6 +1022,43 @@ void main() {
       },
     );
   }
+
+  test(
+    'call requests retain capabilities while leave has its own lifetime',
+    () async {
+      final scopes = <String, Object?>{};
+      for (final method in ['join', 'heartbeat', 'state', 'leave']) {
+        final request =
+            '${method == 'leave' ? 'DELETE' : 'POST'} /voice/rooms/7/$method.json';
+        final response = transport.responses[request]!;
+        transport.responders[request] = (_) {
+          scopes[method] = Zone.current[_ScopedRequestHost.scope];
+          return response;
+        };
+      }
+      requests = _ScopedRequestHost();
+      useTransport(transport);
+
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: VoiceRoom.fromJson(fixture('room')),
+      );
+      await controller.setMuted(!controller.call!.muted);
+      controller.setForeground(false);
+      await pumpEventQueue();
+      await controller.leave();
+
+      expect(scopes, {
+        'join': 'full',
+        'state': 'key',
+        'heartbeat': 'key',
+        'leave': null,
+      });
+      expect(mediaFactory.sessions.single.disposeCount, 1);
+      expect(systemCall.ends, 1);
+    },
+  );
 
   group('directory loading', () {
     test(
@@ -5469,6 +5541,103 @@ void main() {
       },
     );
 
+    for (final notifyServer in [true, false]) {
+      test(
+        'late join failure respects leave notifyServer=$notifyServer',
+        () async {
+          final connectGate = Completer<void>();
+          final connectStarted = Completer<void>();
+          mediaFactory
+            ..nextConnectGate = connectGate
+            ..nextConnectStarted = connectStarted;
+          final joining = controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: VoiceRoom.fromJson(fixture('room')),
+          );
+          addTearDown(() async {
+            if (!connectGate.isCompleted) connectGate.complete();
+            await joining;
+          });
+          await connectStarted.future;
+          final media = mediaFactory.sessions.single;
+          await controller.leave(notifyServer: notifyServer);
+          expect(controller.call, isNull);
+          connectGate.completeError(StateError('late connection failure'));
+          await joining;
+          expect(media.disposeCount, 1);
+          expect(
+            transport.writes.where(
+              (write) => write.path.endsWith('/leave.json'),
+            ),
+            hasLength(notifyServer ? 1 : 0),
+          );
+          expect(systemCall.ends, 1);
+          expect(systemCall.failures, 0);
+        },
+      );
+    }
+
+    for (final action in ['close', 'leave', 'forget']) {
+      test('closes unpublished media on $action', () async {
+        final muteGate = Completer<void>();
+        final muteStarted = Completer<void>();
+        mediaFactory
+          ..nextMuteGate = muteGate
+          ..nextMuteStarted = muteStarted;
+        addTearDown(() {
+          if (!muteGate.isCompleted) muteGate.complete();
+        });
+        var callPublished = false;
+        controller.addListener(() {
+          if (controller.call != null) callPublished = true;
+        });
+
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(fixture('room')),
+        );
+        await muteStarted.future;
+        final media = mediaFactory.sessions.single;
+        expect(controller.call, isNull);
+
+        var completed = false;
+        final closing = switch (action) {
+          'close' => controller.close(),
+          'leave' => controller.leave(),
+          _ => () {
+            controller.forget(firstSite);
+            return joining;
+          }(),
+        };
+        if (action == 'leave') expect(controller.leave(), same(closing));
+        unawaited(closing.then((_) => completed = true));
+        await pumpEventQueue();
+
+        expect(completed, isFalse);
+        expect(media.disposeCount, 1);
+        expect(systemCall.starts, 0);
+
+        muteGate.complete();
+        await joining;
+        await closing;
+
+        expect(completed, isTrue);
+        expect(media.disposeCount, 1);
+        final leave = transport.writes.singleWhere(
+          (write) => write.path.endsWith('/leave.json'),
+        );
+        expect(
+          leave.body['participant_session_id'],
+          'mesh-participant-session',
+        );
+        expect(systemCall.starts, 0);
+        expect(controller.call, isNull);
+        expect(callPublished, isFalse);
+      });
+    }
+
     test(
       'awaits leave, media, subscriptions, CallKit, and diagnostics during session close',
       () async {
@@ -6739,6 +6908,33 @@ void main() {
         expectJoinedMuted();
       },
     );
+
+    test('close cancels a join waiting for device preferences', () async {
+      final devices = Completer<VoiceDevicePreferences>();
+      preferences.onReadDevices = () => devices.future;
+      addTearDown(() {
+        if (!devices.isCompleted) {
+          devices.complete(const VoiceDevicePreferences());
+        }
+      });
+      useTransport(transport);
+      final joining = controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: VoiceRoom.fromJson(fixture('room')),
+      );
+      await pumpEventQueue();
+      expect(controller.isJoining(firstSite, 7), isTrue);
+      await controller.close().timeout(const Duration(seconds: 1));
+      await joining;
+      expect(devices.isCompleted, isFalse);
+      expect(mediaFactory.sessions, isEmpty);
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/join.json')),
+        isEmpty,
+      );
+      expect(systemCall.starts, 0);
+    });
 
     test('the default status choice leaves the join request alone', () async {
       await controller.ensureLoaded(firstSite);
