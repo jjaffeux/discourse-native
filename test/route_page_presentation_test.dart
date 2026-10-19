@@ -6,6 +6,7 @@ import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_summary.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
@@ -68,6 +69,31 @@ void main() {
         }
       }, variant: TargetPlatformVariant.only(platform));
     }
+
+    testWidgets('summary retains its platform header on $platform', (
+      tester,
+    ) async {
+      final shell = await _shell(platform);
+      shell.pushContent(
+        const ContentRoute(
+          destination: PageDestination(CorePage.summary),
+          title: 'Summary',
+          icon: DIcons.list,
+        ),
+      );
+      await _pump(tester, shell, platform);
+      expect(find.byType(UserSummaryView), findsOneWidget);
+      final hasShellHeader = platform == TargetPlatform.iOS;
+      expect(
+        find.byKey(const ValueKey('content-header')),
+        hasShellHeader ? findsOneWidget : findsNothing,
+      );
+      expect(
+        _pageTitles(tester, 'Summary'),
+        hasShellHeader ? findsOneWidget : findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(platform));
 
     testWidgets('signed-out bookmarks retain shell title on $platform', (
       tester,

@@ -41,12 +41,11 @@ final class ContentPageContract {
     this.coreUrl = CoreUrlPolicy.specialized,
     this.retry = PageRetry.feature,
     this.searchScope,
-    _PageTitle title = _PageTitle.shell,
-    _ShellHeader header = _ShellHeader.standard,
+    this._title = _PageTitle.shell,
+    this._header = _ShellHeader.standard,
     this.showSearchWords = true,
     this.allowsTopicCreation = true,
-  }) : _title = title,
-       _header = header;
+  });
 
   final PageLoad? rootLoad;
   final PageLoad? currentLoad;
