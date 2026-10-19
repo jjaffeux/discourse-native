@@ -133,25 +133,17 @@ void main() {
     expect(sent.headers, isNot(contains('User-Api-Client-Id')));
   });
 
-  test('does not throttle authenticated media requests', () async {
+  test('bounds authenticated transfers until their bodies finish', () async {
     final credentials = FakeApiCredentialReader()
       ..keys[siteUrl] = 'account-key';
-    final gate = Completer<void>();
-    var active = 0;
-    var peak = 0;
+    final client = _HeldImageBodiesClient();
     final repository = SiteImageRepository(
       credentials: credentials,
       lifecycle: SiteLifecycle(),
-      client: MockClient((request) async {
-        active++;
-        peak = peak > active ? peak : active;
-        await gate.future;
-        active--;
-        return http.Response.bytes([1], 200);
-      }),
+      client: client,
     );
     addTearDown(() {
-      if (!gate.isCompleted) gate.complete();
+      client.releaseBodies();
       repository.dispose();
     });
 
@@ -162,15 +154,320 @@ void main() {
           url: '$siteUrl/secure-uploads/original/$index.png',
         ),
     ];
+    await Future<void>.delayed(Duration.zero);
 
-    for (var attempt = 0; attempt < 20 && peak < 20; attempt++) {
-      await Future<void>.delayed(Duration.zero);
-    }
-    expect(peak, 20);
+    expect(client.requests, hasLength(8));
+    expect(client.active, 8);
+    expect(client.peak, 8);
 
-    gate.complete();
-    expect(await Future.wait(loads), everyElement(isNotNull));
+    client.releaseBodies();
+    final images = await Future.wait(loads);
+    expect(images.map((image) => image?.bytes), everyElement([1, 2, 3]));
+    expect(client.requests, hasLength(20));
+    expect(client.peak, 8);
+    expect(client.active, 0);
   });
+
+  test('bounds aggregate transfers across account sessions', () async {
+    const sites = [
+      'https://a.example',
+      'https://b.example',
+      'https://c.example',
+    ];
+    final credentials = FakeApiCredentialReader();
+    for (final site in sites) {
+      credentials.keys[site] = 'key-$site';
+    }
+    final client = _HeldImageBodiesClient();
+    final repository = SiteImageRepository(
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      client: client,
+    );
+    addTearDown(() {
+      client.releaseBodies();
+      repository.dispose();
+    });
+
+    final loads = [
+      for (final site in sites)
+        for (var index = 0; index < 12; index++)
+          repository.load(siteUrl: site, url: '$site/$index.png'),
+    ];
+    await Future<void>.delayed(Duration.zero);
+
+    expect(client.requests, hasLength(16));
+    expect(client.active, 16);
+    expect(client.peak, 16);
+    expect(client.peakByOrigin.values, everyElement(lessThanOrEqualTo(8)));
+
+    client.releaseBodies();
+    final images = await Future.wait(loads);
+    expect(images.map((image) => image?.bytes), everyElement([1, 2, 3]));
+    expect(client.requests, hasLength(36));
+    expect(client.peak, 16);
+    expect(client.peakByOrigin.values, everyElement(lessThanOrEqualTo(8)));
+    expect(client.active, 0);
+  });
+
+  test('shares a CDN origin transfer limit across account sessions', () async {
+    const sites = ['https://a.example', 'https://b.example'];
+    final credentials = FakeApiCredentialReader();
+    for (final site in sites) {
+      credentials.keys[site] = 'key-$site';
+    }
+    final client = _HeldImageBodiesClient();
+    final repository = SiteImageRepository(
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      client: client,
+    );
+    addTearDown(() {
+      client.releaseBodies();
+      repository.dispose();
+    });
+
+    final loads = [
+      for (var account = 0; account < sites.length; account++)
+        for (var index = 0; index < 12; index++)
+          repository.load(
+            siteUrl: sites[account],
+            url: 'https://cdn.example/$account/$index.png',
+          ),
+    ];
+    await Future<void>.delayed(Duration.zero);
+
+    expect(client.requests, hasLength(8));
+    expect(client.active, 8);
+    expect(client.peakByOrigin, {'https://cdn.example': 8});
+
+    client.releaseBodies();
+    final images = await Future.wait(loads);
+    expect(images.map((image) => image?.bytes), everyElement([1, 2, 3]));
+    expect(client.requests, hasLength(24));
+    expect(client.peak, 8);
+    expect(client.active, 0);
+  });
+
+  test(
+    'finishes a gallery larger than the coordinator backlog limit',
+    () async {
+      final client = _HeldImageBodiesClient();
+      final repository = SiteImageRepository(
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+        client: client,
+      );
+      addTearDown(() {
+        client.releaseBodies();
+        repository.dispose();
+      });
+
+      final loads = [
+        for (var index = 0; index < 96; index++)
+          repository.load(siteUrl: siteUrl, url: '$siteUrl/$index.png'),
+      ];
+      await Future<void>.delayed(Duration.zero);
+      expect(client.requests, hasLength(8));
+
+      client.releaseBodies();
+      final images = await Future.wait(loads);
+      expect(images.map((image) => image?.bytes), everyElement([1, 2, 3]));
+      expect(client.requests, hasLength(96));
+      expect(client.peak, 8);
+      expect(client.active, 0);
+    },
+  );
+
+  testWidgets('local backlog outlives individual download timeouts', (
+    tester,
+  ) async {
+    var requested = 0;
+    final repository = SiteImageRepository(
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      client: MockClient.streaming((request, _) async {
+        requested++;
+        return http.StreamedResponse(
+          Stream.fromFuture(
+            Future<List<int>>.delayed(
+              const Duration(seconds: 8),
+              () => [1, 2, 3],
+            ),
+          ),
+          200,
+        );
+      }),
+    );
+    addTearDown(repository.dispose);
+    List<SiteImageBytes?>? images;
+    final loads = [
+      for (var index = 0; index < 24; index++)
+        repository.load(siteUrl: siteUrl, url: '$siteUrl/$index.png'),
+    ];
+    unawaited(Future.wait(loads).then((result) => images = result));
+    await tester.pump();
+    expect(requested, 8);
+    await tester.pump(const Duration(seconds: 8));
+    expect(requested, 16);
+    expect(images, isNull);
+    await tester.pump(const Duration(seconds: 8));
+    expect(requested, 24);
+    await tester.pump(const Duration(seconds: 8));
+    expect(images, hasLength(24));
+    expect(images!.map((image) => image?.bytes), everyElement([1, 2, 3]));
+  });
+
+  test('retiring queued images leaves other account sessions open', () async {
+    const retiredSite = 'https://retired.example';
+    const survivorSite = 'https://survivor.example';
+    final client = _HeldImageBodiesClient();
+    final repository = SiteImageRepository(
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      client: client,
+    );
+    addTearDown(() {
+      client.releaseBodies();
+      repository.dispose();
+    });
+
+    final active = [
+      for (var index = 0; index < 8; index++)
+        repository.load(
+          siteUrl: siteUrl,
+          url: 'https://cdn.example/active/$index.png',
+        ),
+    ];
+    await Future<void>.delayed(Duration.zero);
+    expect(client.requests, hasLength(8));
+    final retired = [
+      for (var index = 0; index < 12; index++)
+        repository.load(
+          siteUrl: retiredSite,
+          url: 'https://cdn.example/retired/$index.png',
+        ),
+    ];
+    final survivors = [
+      for (var index = 0; index < 4; index++)
+        repository.load(
+          siteUrl: survivorSite,
+          url: 'https://cdn.example/survivor/$index.png',
+        ),
+    ];
+    await Future<void>.delayed(Duration.zero);
+    expect(client.requests, hasLength(8));
+
+    repository.forget(retiredSite);
+    expect(await Future.wait(retired), everyElement(isNull));
+    client.releaseBodies();
+
+    final images = await Future.wait([...active, ...survivors]);
+    expect(images.map((image) => image?.bytes), everyElement([1, 2, 3]));
+    expect(client.requests, hasLength(12));
+    expect(
+      client.requests.where(
+        (request) => request.url.path.startsWith('/retired/'),
+      ),
+      isEmpty,
+    );
+    final later = await repository.load(
+      siteUrl: survivorSite,
+      url: 'https://cdn.example/survivor/later.png',
+    );
+    expect(later?.bytes, [1, 2, 3]);
+    expect(client.peak, 8);
+    expect(client.active, 0);
+  });
+
+  test(
+    'different accounts keep identical external image requests isolated',
+    () async {
+      const otherSite = 'https://other.example';
+      const externalUrl = 'https://images.example/shared.png';
+      final credentials = FakeApiCredentialReader()
+        ..keys[siteUrl] = 'first-key'
+        ..keys[otherSite] = 'second-key';
+      final client = _ControlledImageClient(honorAbort: true);
+      final repository = SiteImageRepository(
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        client: client,
+      );
+      addTearDown(repository.dispose);
+
+      final first = repository.load(siteUrl: siteUrl, url: externalUrl);
+      await client.started.future;
+      final second = repository.load(siteUrl: otherSite, url: externalUrl);
+      await Future<void>.delayed(Duration.zero);
+      expect(client.requests, hasLength(2));
+      client.response.complete(http.StreamedResponse(Stream.value([1]), 200));
+
+      expect((await first)?.bytes, [1]);
+      expect((await second)?.bytes, [2]);
+      expect(repository.cached(siteUrl: siteUrl, url: externalUrl)?.bytes, [1]);
+      expect(repository.cached(siteUrl: otherSite, url: externalUrl)?.bytes, [
+        2,
+      ]);
+      for (final request in client.requests) {
+        expect(request.url.toString(), externalUrl);
+        expect(request.headers, isNot(contains('User-Api-Key')));
+        expect(request.headers, isNot(contains('User-Api-Client-Id')));
+      }
+    },
+  );
+
+  test(
+    'redirected CDN cooldown is shared without closing other origins',
+    () async {
+      final requests = <Uri>[];
+      final repository = SiteImageRepository(
+        credentials: FakeApiCredentialReader()..keys[siteUrl] = 'account-key',
+        lifecycle: SiteLifecycle(),
+        client: MockClient((request) async {
+          requests.add(request.url);
+          if (request.url.origin == siteUrl) {
+            return http.Response(
+              '',
+              302,
+              headers: {'location': 'https://cdn.example/rate-limited.png'},
+            );
+          }
+          if (request.url.host == 'cdn.example') {
+            return http.Response('', 429, headers: {'retry-after': '60'});
+          }
+          return http.Response.bytes([1], 200);
+        }),
+      );
+      addTearDown(repository.dispose);
+
+      expect(await repository.load(siteUrl: siteUrl, url: secureUrl), isNull);
+      repository.forget(siteUrl);
+      expect(
+        await repository.load(siteUrl: siteUrl, url: '$siteUrl/other.png'),
+        isNull,
+      );
+      expect(
+        await repository.load(
+          siteUrl: 'https://other.example',
+          url: 'https://cdn.example/other.png',
+        ),
+        isNull,
+      );
+      expect(
+        (await repository.load(
+          siteUrl: 'https://other.example',
+          url: 'https://other.example/image.png',
+        ))?.bytes,
+        [1],
+      );
+      expect(requests.map((url) => url.host), [
+        'forum.example',
+        'cdn.example',
+        'other.example',
+      ]);
+    },
+  );
 
   test('forget suppresses a cached result already awaiting delivery', () async {
     final repository = SiteImageRepository(
@@ -629,6 +926,44 @@ void main() {
     expect(fresh?.bytes, orderedEquals([2]));
     expect(keys, ['old-key', 'new-key']);
   });
+}
+
+final class _HeldImageBodiesClient extends http.BaseClient {
+  final requests = <http.BaseRequest>[];
+  final peakByOrigin = <String, int>{};
+  final _activeByOrigin = <String, int>{};
+  final _release = Completer<void>();
+  var active = 0;
+  var peak = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    active++;
+    if (active > peak) peak = active;
+    final origin = request.url.origin;
+    final activeAtOrigin = (_activeByOrigin[origin] ?? 0) + 1;
+    _activeByOrigin[origin] = activeAtOrigin;
+    if (activeAtOrigin > (peakByOrigin[origin] ?? 0)) {
+      peakByOrigin[origin] = activeAtOrigin;
+    }
+    return http.StreamedResponse(_body(origin), 200);
+  }
+
+  Stream<List<int>> _body(String origin) async* {
+    try {
+      yield [1];
+      await _release.future;
+      yield [2, 3];
+    } finally {
+      active--;
+      _activeByOrigin[origin] = _activeByOrigin[origin]! - 1;
+    }
+  }
+
+  void releaseBodies() {
+    if (!_release.isCompleted) _release.complete();
+  }
 }
 
 final class _ControlledImageClient extends http.BaseClient {

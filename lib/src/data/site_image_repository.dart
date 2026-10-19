@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'api_credentials.dart';
 import 'avatar_loader.dart';
 import 'byte_cache.dart';
+import 'media_request_coordinator.dart';
 import 'site_lifecycle.dart';
 
 final class SiteImageBytes {
@@ -48,6 +49,7 @@ final class SiteImageRepository {
   final int maxCachedBytes;
   final http.Client _client;
   final bool _ownsClient;
+  final _coordinator = MediaRequestCoordinator();
 
   /// Ordered from least to most recently used.
   final Map<String, _SiteImageSession> _sessions = {};
@@ -146,6 +148,7 @@ final class SiteImageRepository {
         cache: _AuthenticatedSiteImageCache(
           client: _client,
           maxCachedBytes: maxCachedBytes,
+          coordinator: _coordinator,
           authenticatedOrigin: origin,
           apiKey: apiKey,
           clientId: clientId,
@@ -176,6 +179,7 @@ final class SiteImageRepository {
       session.cache.close();
     }
     _sessions.clear();
+    _coordinator.close();
     if (_ownsClient) _client.close();
   }
 }
@@ -198,10 +202,15 @@ final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
   _AuthenticatedSiteImageCache({
     required super.client,
     required super.maxCachedBytes,
+    required super.coordinator,
     required this.authenticatedOrigin,
     required this.apiKey,
     required this.clientId,
-  }) : super(maxEntries: 256, maxResponseBytes: 32 * 1024 * 1024);
+  }) : super(
+         maxConcurrent: MediaRequestCoordinator.defaultMaxConcurrentPerOrigin,
+         maxEntries: 256,
+         maxResponseBytes: 32 * 1024 * 1024,
+       );
 
   final String authenticatedOrigin;
   final String? apiKey;
