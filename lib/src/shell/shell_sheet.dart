@@ -12,6 +12,7 @@ Future<T?> showShellSheet<T>({
   required WidgetBuilder builder,
   WidgetBuilder? footerBuilder,
   bool nested = false,
+  bool scrollBody = true,
   bool dialogOnDesktop = false,
   bool showHeaderDivider = true,
   BoxConstraints desktopDialogConstraints = const BoxConstraints(
@@ -48,6 +49,7 @@ Future<T?> showShellSheet<T>({
                 builder: builder,
                 footerBuilder: footerBuilder,
                 nested: nested,
+                scrollBody: scrollBody,
                 showHeaderDivider: showHeaderDivider,
                 padding: padding,
                 footerPadding: footerPadding,
@@ -82,6 +84,7 @@ Future<T?> showShellSheet<T>({
               builder: builder,
               footerBuilder: footerBuilder,
               nested: nested,
+              scrollBody: scrollBody,
               showHeaderDivider: showHeaderDivider,
               padding: padding,
               footerPadding: footerPadding,
@@ -99,6 +102,7 @@ class _SheetBody extends StatelessWidget {
     required this.builder,
     required this.footerBuilder,
     required this.nested,
+    required this.scrollBody,
     required this.showHeaderDivider,
     required this.padding,
     required this.footerPadding,
@@ -108,6 +112,7 @@ class _SheetBody extends StatelessWidget {
   final WidgetBuilder builder;
   final WidgetBuilder? footerBuilder;
   final bool nested;
+  final bool scrollBody;
   final bool showHeaderDivider;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry footerPadding;
@@ -145,9 +150,11 @@ class _SheetBody extends StatelessWidget {
         ),
         if (showHeaderDivider) DSeparator(color: theme.shell.divider, space: 1),
         Flexible(
-          child: SingleChildScrollView(
-            child: Padding(padding: padding, child: builder(context)),
-          ),
+          child: scrollBody
+              ? SingleChildScrollView(
+                  child: Padding(padding: padding, child: builder(context)),
+                )
+              : Padding(padding: padding, child: builder(context)),
         ),
         if (footerBuilder case final footerBuilder?) ...[
           DSeparator(color: theme.shell.divider, space: 1),

@@ -92,6 +92,7 @@ class _ChatPinnedBarState extends State<ChatPinnedBar> {
       context: context,
       title: appL10n.pinnedMessages,
       padding: EdgeInsets.zero,
+      scrollBody: false,
       builder: (sheetContext) => ListView.builder(
         shrinkWrap: true,
         itemCount: ordered.length,

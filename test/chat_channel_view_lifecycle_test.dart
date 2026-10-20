@@ -2181,6 +2181,78 @@ void main() {
       }),
     );
 
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('pin sheet mounts only its viewport at text scale $scale', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.view.reset);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final api = _ChatApi(
+          user: const DiscourseUser(id: 7, username: 'reader'),
+          openPages: {
+            firstSite: [_messagesPage(1, 3)],
+          },
+          chatPinsByChannel: {
+            9: (
+              pins: [
+                for (var i = 1; i <= ChatPin.maximumPerChannel; i++)
+                  ChatPin(
+                    id: i,
+                    messageId: i,
+                    message: _message(i).withPinned(true),
+                    pinnedBy: const ChatMessageAuthor(id: 4, username: 'sam'),
+                    excerpt: 'Pinned answer $i',
+                  ),
+              ],
+              membership: const ChatMembership(following: true),
+            ),
+          },
+        );
+        final controller = await _controller(
+          api,
+          sites: const [firstSite],
+          user: const DiscourseUser(id: 7, username: 'reader'),
+        );
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(
+          firstSite,
+          _channel(lastRead: 3, pinnedMessagesCount: ChatPin.maximumPerChannel),
+        );
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Pinned messages'));
+        await tester.pumpAndSettle();
+        final rows = find.byWidgetPredicate(
+          (widget) =>
+              widget is DItem &&
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith('chat-pin-'),
+          skipOffstage: false,
+        );
+        final mounted = rows.evaluate().length;
+        debugPrint(
+          'LAZY_LIST pins scale=$scale mounted=$mounted total=${ChatPin.maximumPerChannel}',
+        );
+        expect(mounted, lessThan(ChatPin.maximumPerChannel));
+        final last = find.byKey(const ValueKey('chat-pin-1'));
+        final scrollable = find
+            .descendant(
+              of: find.byType(DSheetContent),
+              matching: find.byType(Scrollable),
+            )
+            .last;
+        await tester.scrollUntilVisible(last, 500, scrollable: scrollable);
+        await tester.tap(last);
+        await tester.pumpAndSettle();
+        expect(api.targetMessageIds.last, 1);
+        expect(find.byType(DSheetContent), findsNothing);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+    }
+
     testWidgets('the pinned bar jumps to a pin and opens the complete list', (
       tester,
     ) async {
