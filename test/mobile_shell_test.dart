@@ -75,6 +75,41 @@ final _user = DiscourseUser(
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
 
+Future<void> _loadChromeCaptureFonts(WidgetTester tester) async {
+  if (!const bool.fromEnvironment('captureMobileChrome')) return;
+  await tester.runAsync(() async {
+    final manifest =
+        jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
+    for (final entry in manifest.cast<Map<String, dynamic>>()) {
+      final loader = FontLoader(entry['family'] as String);
+      for (final face
+          in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
+        loader.addFont(rootBundle.load(face['asset'] as String));
+      }
+      await loader.load();
+    }
+  });
+}
+
+Future<void> _captureChrome(WidgetTester tester, String name) async {
+  if (!const bool.fromEnvironment('captureMobileChrome')) return;
+  await tester.runAsync(() async {
+    final builder = ui.SceneBuilder();
+    tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+    final scene = builder.build();
+    final image = await scene.toImage(
+      tester.view.physicalSize.width.toInt(),
+      tester.view.physicalSize.height.toInt(),
+    );
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    await File(
+      '/private/tmp/inset-body-${Theme.of(tester.element(_header)).platform.name}-$name.png',
+    ).writeAsBytes(bytes!.buffer.asUint8List());
+    image.dispose();
+    scene.dispose();
+  });
+}
+
 Future<void> _chatWheel(
   WidgetTester tester,
   Finder messages,
@@ -1234,6 +1269,129 @@ void main() {
     expect(find.byKey(const ValueKey('topic-card-7')), findsOneWidget);
   });
 
+  for (final bottom in [0.0, 34.0]) {
+    _mobileTest('all mobile roots share one body inset ($bottom)', (
+      tester,
+    ) async {
+      tester.view.padding = FakeViewPadding(top: 44, bottom: bottom);
+      tester.view.viewPadding = FakeViewPadding(top: 44, bottom: bottom);
+      final shell = await pumpMobileShellFixture(tester);
+      void expectBody() {
+        final body = find.byKey(const ValueKey('mobile-content-panel'));
+        expect(tester.getRect(body).bottom, phone.height - bottom);
+        expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
+        final surface = find
+            .descendant(of: body, matching: find.byType(DPageSurface))
+            .first;
+        expect(
+          tester.widget<DPageSurface>(surface).borderRadius,
+          BorderRadius.circular(22),
+        );
+        final page = tester.element(body);
+        expect(MediaQuery.paddingOf(page).bottom, 0);
+        final dock = tester.getRect(
+          find.byKey(const ValueKey('mobile-dock-surface')),
+        );
+        expect(dock.bottom, closeTo(phone.height - bottom - 6, .01));
+        expect(
+          DScrollChrome.bottomInsetOf(page),
+          closeTo(dock.height + 12, .01),
+        );
+      }
+
+      expectBody();
+      await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
+      await tester.pumpAndSettle();
+      expectBody();
+      await _tapDockTab(tester, 'panel/chat');
+      expectBody();
+      shell.selectMobileDestination(
+        MobileTab.users,
+        const SidebarDestination(
+          id: 'users',
+          label: 'Users',
+          icon: DIcons.users,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expectBody();
+      expect(find.byType(UsersPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  _mobileTest('Start shares the rounded inset mobile body', (tester) async {
+    await _loadChromeCaptureFonts(tester);
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+    final shell = await pumpMobileShellFixture(
+      tester,
+      size: const Size(390, 844),
+    );
+    await tester.tap(find.byKey(const ValueKey('mobile-mode-start')));
+    for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
+      for (final material in DAppearanceMaterial.values) {
+        await shell.forumSettings.setThemeMode(_site, mode);
+        await shell.forumSettings.setThemes(
+          _site,
+          ForumThemePreferences.preset('dracula'),
+        );
+        await shell.forumSettings.setShared(
+          shell.forumSettings.shared.copyWith(
+            material: material,
+            font: ForumFont.lato,
+            interfaceFont: ForumFont.lato,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _captureChrome(tester, 'start-${mode.name}-${material.name}');
+        final body = find.byKey(const ValueKey('mobile-content-panel'));
+        expect(tester.getRect(body).bottom, 810);
+        expect(tester.getRect(body).top, tester.getRect(_header).bottom + 6);
+        final surface = find
+            .descendant(of: body, matching: find.byType(DPageSurface))
+            .first;
+        expect(
+          tester.widget<DPageSurface>(surface).borderRadius,
+          BorderRadius.circular(22),
+        );
+        expect(
+          find.byKey(const ValueKey('start-page-content')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    }
+    if (const bool.fromEnvironment('captureMobileChrome')) {
+      final menu = find.byKey(const ValueKey('mobile-menu-button'));
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await _captureChrome(tester, 'navigation-open');
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      final gesture = await tester.startGesture(const Offset(1, 350));
+      await gesture.moveBy(const Offset(80, 0));
+      await tester.pump();
+      final navigation = tester.renderObject<RenderBox>(
+        find.byKey(const ValueKey('mobile-navigation-page')),
+      );
+      final panel = tester.renderObject<RenderBox>(
+        find.byKey(const ValueKey('mobile-navigation-panel')),
+      );
+      final panelBottom = panel
+          .localToGlobal(
+            panel.size.bottomLeft(Offset.zero),
+            ancestor: navigation,
+          )
+          .dy;
+      expect(navigation.size.height - panelBottom, 6);
+      expect(tester.getRect(find.byType(DScrollChrome)).bottom, 810);
+      await _captureChrome(tester, 'navigation-preview');
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+    }
+  });
+
   _mobileTest('Start opens the start page from another mobile tab', (
     tester,
   ) async {
@@ -1285,21 +1443,7 @@ void main() {
   _mobileTest(
     'reader compacts and reveals its header without changing topic or viewport',
     (tester) async {
-      if (const bool.fromEnvironment('captureMobileChrome')) {
-        await tester.runAsync(() async {
-          final manifest =
-              jsonDecode(await rootBundle.loadString('FontManifest.json'))
-                  as List;
-          for (final entry in manifest.cast<Map<String, dynamic>>()) {
-            final loader = FontLoader(entry['family'] as String);
-            for (final face
-                in (entry['fonts'] as List).cast<Map<String, dynamic>>()) {
-              loader.addFont(rootBundle.load(face['asset'] as String));
-            }
-            await loader.load();
-          }
-        });
-      }
+      await _loadChromeCaptureFonts(tester);
 
       final shell = await pumpMobileShellFixture(
         tester,
@@ -1353,24 +1497,7 @@ void main() {
         );
         await tester.pumpAndSettle();
       }
-      Future<void> capture(String name) async {
-        if (!const bool.fromEnvironment('captureMobileChrome')) return;
-        await tester.runAsync(() async {
-          final sceneBuilder = ui.SceneBuilder();
-          tester.binding.renderViews.first.debugLayer!.addToScene(sceneBuilder);
-          final scene = sceneBuilder.build();
-          final image = await scene.toImage(
-            tester.view.physicalSize.width.toInt(),
-            tester.view.physicalSize.height.toInt(),
-          );
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          await File(
-            '/private/tmp/discourse-mobile-parity-${Theme.of(tester.element(_header)).platform.name}-$name.png',
-          ).writeAsBytes(bytes!.buffer.asUint8List());
-          image.dispose();
-          scene.dispose();
-        });
-      }
+      Future<void> capture(String name) => _captureChrome(tester, name);
 
       await capture('root');
       final controls = tester.getRect(
@@ -1386,11 +1513,10 @@ void main() {
             matching: find.byType(DPageSurface),
           )
           .first;
-      // The glass stylesheet frames root panels too, with square corners.
       expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
       expect(
         tester.widget<DPageSurface>(mobileSurface).borderRadius,
-        BorderRadius.zero,
+        BorderRadius.circular(22),
       );
       await tester.tap(find.byKey(const ValueKey('topic-card-7')));
       await tester.pumpAndSettle();
@@ -2014,7 +2140,8 @@ void main() {
           BorderRadius.circular(DRadius.panel),
         );
         expect(tester.widget<DPageSurface>(frame).border, isFalse);
-        expect(page.bottom - panel.bottom, bottom + 6);
+        expect(page.bottom - panel.bottom, 6);
+        expect(page.bottom, phone.height - keyboard - bottom);
         expect(panel.top - page.top, 6);
         final rail = tester.getRect(find.byType(InstanceRail));
         expect(panel.left - rail.right, 6);
@@ -2200,7 +2327,10 @@ void main() {
     addTearDown(tester.view.resetViewPadding);
     await tester.pumpAndSettle();
     final listElement = tester.element(find.byType(TopicListView));
-    expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
+    expect(
+      tester.getRect(find.byType(TopicListView)).bottom,
+      phone.height - 34,
+    );
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -2220,7 +2350,10 @@ void main() {
     );
     expect(tester.getRect(restore).left, closeTo(dock.left, .01));
     expect(tester.getRect(restore).right, closeTo(dock.right, .01));
-    expect(tester.getRect(find.byType(TopicListView)).bottom, phone.height);
+    expect(
+      tester.getRect(find.byType(TopicListView)).bottom,
+      phone.height - 34,
+    );
     expect(tester.element(find.byType(TopicListView)), same(listElement));
     expect(tester.getRect(restore).top - dock.bottom, closeTo(8 + 6, .01));
     final list = find
@@ -2229,7 +2362,7 @@ void main() {
           matching: find.byType(Scrollable),
         )
         .first;
-    expect(tester.getRect(list).bottom, phone.height);
+    expect(tester.getRect(list).bottom, phone.height - 34);
     await tester.drag(list, const Offset(0, -5000));
     await tester.pumpAndSettle();
     expect(

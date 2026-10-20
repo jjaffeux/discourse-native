@@ -119,18 +119,14 @@ void main() {
                 final base = Color.alphaBlend(fill, backdrop);
                 pixel(120, 20, backdrop); // Header stays on the window ground.
                 pixel(120, 250, base); // Reading area owns a filled panel.
-                if (sidebar) {
-                  // All four clipped corners expose the canvas, including
-                  // when the child would otherwise paint an opaque fallback.
-                  for (final x in [1, 238]) {
-                    pixel(x, 49, backdrop);
-                    pixel(x, 358, backdrop);
-                  }
+                for (final x in [1, 238]) {
+                  pixel(x, 49, backdrop);
+                  pixel(x, 358, backdrop);
                 }
                 if (highContrast) {
                   if (!sidebar) {
-                    pixel(4, 52, base);
-                    pixel(235, 52, base);
+                    pixel(20, 52, base);
+                    pixel(219, 52, base);
                   }
                 } else {
                   final rim = Color.alphaBlend(
@@ -174,8 +170,7 @@ void main() {
                     ),
                   );
                   if (!sidebar) {
-                    // Ordinary mobile pages fill to both square top corners.
-                    for (final x in [4, 235]) {
+                    for (final x in [20, 219]) {
                       pixel(
                         x,
                         52,

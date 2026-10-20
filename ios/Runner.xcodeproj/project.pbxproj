@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D15C710C0000000000000002 /* WindowGeometryChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C710C0000000000000001 /* WindowGeometryChannel.swift */; };
 		D15C0A5E0000000000000002 /* PushRegistrationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */; };
 		D15C71A10000000000000004 /* VideoThumbnailChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C71A10000000000000003 /* VideoThumbnailChannel.swift */; };
 		D15C71B10000000000000004 /* PdfThumbnailChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15C71B10000000000000003 /* PdfThumbnailChannel.swift */; };
@@ -48,7 +47,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		D15C710C0000000000000001 /* WindowGeometryChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowGeometryChannel.swift; sourceTree = "<group>"; };
 		D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PushRegistrationCoordinator.swift; path = "../darwin/PushRegistrationCoordinator.swift"; sourceTree = SOURCE_ROOT; };
 		D15C71A10000000000000003 /* VideoThumbnailChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VideoThumbnailChannel.swift; path = "../darwin/VideoThumbnailChannel.swift"; sourceTree = SOURCE_ROOT; };
 		D15C71B10000000000000003 /* PdfThumbnailChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PdfThumbnailChannel.swift; path = "../darwin/PdfThumbnailChannel.swift"; sourceTree = SOURCE_ROOT; };
@@ -145,7 +143,6 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
-				D15C710C0000000000000001 /* WindowGeometryChannel.swift */,
 				D15C0A5E0000000000000001 /* PushRegistrationCoordinator.swift */,
 				D15C71A10000000000000003 /* VideoThumbnailChannel.swift */,
 				D15C71B10000000000000003 /* PdfThumbnailChannel.swift */,
@@ -317,7 +314,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
-				D15C710C0000000000000002 /* WindowGeometryChannel.swift in Sources */,
 				D15C0A5E0000000000000002 /* PushRegistrationCoordinator.swift in Sources */,
 				D15C71A10000000000000004 /* VideoThumbnailChannel.swift in Sources */,
 				D15C71B10000000000000004 /* PdfThumbnailChannel.swift in Sources */,

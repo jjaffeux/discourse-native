@@ -1,7 +1,7 @@
 # Phone container and header surface parity
 
-Reference: `discourse-native-mockups` at `7c86328`, the running phone layout,
-and the supplied October 14 screenshots (Native iPhone first, mockup second).
+Reference: `discourse-native-mockups` at `a4c4875`, the running phone layout,
+and the supplied October 20 screenshot of the Start page.
 
 The mockup's phone root has `background: none` inline, but its global
 `[data-glass] [data-panel]` stylesheet overrides that declaration with
@@ -10,9 +10,16 @@ paint. Its root list therefore exposed the gradient behind all the text and
 lost the visible separation from the window header.
 
 `ForumMobileSurface` now paints one Native `DPageSurface` for root screens as
-well as pushed pages. Content pages use square corners, including pushed
-readers. Inner pages continue to inherit a clear surface so the panel fill
-paints once. The window header stays on the canvas.
+well as pushed pages. Start, topic lists, ordinary destinations, plugin roots,
+and readers share 22px corners on all four sides. The body starts 6px below
+the window header and stops above the live bottom safe-area inset. Inner pages
+inherit a clear surface so the panel fill paints once. The window header stays
+on the canvas.
+
+`MobileForumRoot` consumes the bottom safe area once around the page and floating
+dock together. Navigation keeps its ordinary 6px margins. The measured footer
+obstruction excludes that consumed safe area, so chat composers clear the dock
+without adding another inset. Keyboard resizing uses the live safe padding.
 Existing palette tint, material selection, opacity and accessibility settings
 remain the source of its fill.
 
@@ -25,12 +32,11 @@ Focused validation:
 
 - `test/forum_mobile_surface_test.dart`: rendered root/reader, light/dark,
   both materials, opacity endpoints and high-contrast fallbacks; verifies
-  header ground, reading fill, both square top corners.
+  header ground, reading fill, all four rounded corners.
 - `test/material_surface_test.dart`: rendered panel edges and highlights.
 - `test/mobile_shell_test.dart`: production phone composition, navigation,
-  scroll/header/dock behavior and text scaling. Its two existing
-  "minimized composer and dock consume the bottom safe area once" variants
-  fail on unchanged main too because they look for the retired Minimize text.
+  scroll/header/dock behavior, text scaling, safe-area consumption, and the
+  minimized composer's 14px dock clearance.
 - Targeted static analysis of changed implementation, fixture and tests.
 
 `lib/mobile_panel_review_main.dart` is an account-free native capture fixture

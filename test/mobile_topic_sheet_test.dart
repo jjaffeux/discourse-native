@@ -73,7 +73,7 @@ Future<void> _capture(WidgetTester tester, String name) async {
     final image = await scene.toImage(390, 844);
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     await File(
-      '/private/tmp/topic-sheet-$name.png',
+      '/private/tmp/inset-body-topic-$name.png',
     ).writeAsBytes(bytes!.buffer.asUint8List());
     image.dispose();
     scene.dispose();
@@ -129,7 +129,7 @@ void main() {
         final bounds = tester.getRect(_sheet);
         expect(bounds.left, 0);
         expect(bounds.right, 390);
-        expect(bounds.bottom, 844);
+        expect(bounds.bottom, 810);
         expect(bounds.top, tester.getRect(_header).bottom + 6);
         expect(tester.getSize(_handle), const Size(36, 5));
         expect(tester.getRect(_handle).top, bounds.top + 7);
@@ -138,14 +138,7 @@ void main() {
             .first;
         expect(
           tester.widget<DPageSurface>(surface).borderRadius,
-          BorderRadius.vertical(
-            top: const Radius.circular(22),
-            bottom: Radius.circular(
-              Theme.of(tester.element(_sheet)).platform == TargetPlatform.iOS
-                  ? 64
-                  : 22,
-            ),
-          ),
+          BorderRadius.circular(22),
         );
         expect(find.byType(TopicListView), findsNothing);
         expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);
@@ -382,14 +375,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(_handle, findsOneWidget);
-    expect(tester.getRect(_sheet).bottom, 844);
+    expect(tester.getRect(_sheet).bottom, 810);
     await tester.drag(_handle, const Offset(0, 180));
     await tester.pumpAndSettle();
     expect(shell.currentContent, origin);
     expect(_sheet, findsNothing);
     expect(
       tester.getRect(find.byKey(const ValueKey('mobile-content-panel'))).bottom,
-      844,
+      810,
     );
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
@@ -406,7 +399,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.getRect(_sheet).width, width);
         expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
-        expect(tester.getRect(_sheet).bottom, 844);
+        expect(tester.getRect(_sheet).bottom, 810);
         expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
         expect(tester.getSize(_handle), const Size(36, 5));
         await tester.drag(_handle, const Offset(0, 180));

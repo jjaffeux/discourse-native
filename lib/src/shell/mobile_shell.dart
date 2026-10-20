@@ -93,12 +93,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 const SizedBox(width: _mobileRailWidth, child: InstanceRail()),
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      6,
-                      6,
-                      6,
-                      6 + MediaQuery.paddingOf(context).bottom,
-                    ),
+                    padding: const EdgeInsets.all(6),
                     child: ForumMobileSurface.sidebar(
                       key: const ValueKey('mobile-navigation-panel'),
                       child: InstanceSidebar(
@@ -408,45 +403,45 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               ),
             ),
             Expanded(
-              child: ListenableBuilder(
-                listenable: _footerAction,
-                // Keep the transition viewport full width. Each page owns its
-                // internal padding so animated content is only clipped at the
-                // screen edge.
-                child: page,
-                builder: (context, content) => MobileScrollDock(
-                  identity: (
-                    owner,
-                    selected,
-                    shell.mobileNavigation.entryId,
-                    widget.boundary,
-                  ),
-                  visible: !sidebarOpen,
-                  hideOnScroll: !keepDockVisible,
-                  keepActionVisible: _footerAction.action != null,
-                  body: content!,
-                  dockBuilder: (hidden) => ForumSidebarTheme(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        6,
-                        6,
-                        6,
-                        6 +
-                            MediaQuery.paddingOf(context).bottom +
-                            ComposerDock.bottomOverlayInsetOf(context),
-                      ),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) => _buildBottomBar(
-                          context,
-                          constraints,
-                          destinations: dockDestinations,
-                          selected: selected,
-                          showReply: showReply,
-                          showNewMessage: showNewMessage,
-                          panelAction: panelAction,
-                          showNewTopic: showNewTopic,
-                          shell: shell,
-                          hideDestinations: hidden,
+              child: SafeArea(
+                top: false,
+                left: false,
+                right: false,
+                child: ListenableBuilder(
+                  listenable: _footerAction,
+                  child: page,
+                  builder: (context, content) => MobileScrollDock(
+                    identity: (
+                      owner,
+                      selected,
+                      shell.mobileNavigation.entryId,
+                      widget.boundary,
+                    ),
+                    visible: !sidebarOpen,
+                    hideOnScroll: !keepDockVisible,
+                    keepActionVisible: _footerAction.action != null,
+                    body: content!,
+                    dockBuilder: (hidden) => ForumSidebarTheme(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          6,
+                          6,
+                          6,
+                          6 + ComposerDock.bottomOverlayInsetOf(context),
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => _buildBottomBar(
+                            context,
+                            constraints,
+                            destinations: dockDestinations,
+                            selected: selected,
+                            showReply: showReply,
+                            showNewMessage: showNewMessage,
+                            panelAction: panelAction,
+                            showNewTopic: showNewTopic,
+                            shell: shell,
+                            hideDestinations: hidden,
+                          ),
                         ),
                       ),
                     ),

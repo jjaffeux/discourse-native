@@ -141,75 +141,80 @@ class _MobilePanelReviewState extends State<MobilePanelReview> {
                       ),
                       const SizedBox(height: 6),
                       Expanded(
-                        child: ForumMobileSurface(
-                          child: DPageSurface(
-                            framed: false,
-                            header: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                14,
-                                16,
-                                16,
-                              ),
-                              child: Text(
-                                _pushed ? 'Topic reader' : 'Latest topics',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                  color: tokens.foreground,
+                        child: SafeArea(
+                          top: false,
+                          left: false,
+                          right: false,
+                          child: ForumMobileSurface(
+                            child: DPageSurface(
+                              framed: false,
+                              header: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  14,
+                                  16,
+                                  16,
+                                ),
+                                child: Text(
+                                  _pushed ? 'Topic reader' : 'Latest topics',
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: tokens.foreground,
+                                  ),
                                 ),
                               ),
-                            ),
-                            headerControls: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
+                              headerControls: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: Row(
+                                  spacing: 8,
+                                  children: [
+                                    for (final label in [
+                                      'Latest',
+                                      'Categories',
+                                      'Tags',
+                                    ])
+                                      DButton(
+                                        variant: DButtonVariant.secondary,
+                                        onPressed: () {},
+                                        label: Text(label),
+                                      ),
+                                  ],
+                                ),
                               ),
-                              child: Row(
-                                spacing: 8,
+                              child: ListView(
+                                padding: const EdgeInsets.all(16),
                                 children: [
-                                  for (final label in [
-                                    'Latest',
-                                    'Categories',
-                                    'Tags',
-                                  ])
-                                    DButton(
-                                      variant: DButtonVariant.secondary,
-                                      onPressed: () {},
-                                      label: Text(label),
+                                  for (final title in [
+                                    "What's everyone's sourdough hydration sweet spot?",
+                                    'Leeds starter swap and bake-off at The Crown',
+                                    'Starter maintenance when you bake twice a week',
+                                    'Name one thing you own that you would truly miss',
+                                    'Starting over with habits',
+                                  ]) ...[
+                                    Text(
+                                      title,
+                                      style: TextStyle(
+                                        color: tokens.foreground,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Community discussions, ideas and experiences.',
+                                      style: TextStyle(
+                                        color: tokens.mutedForeground,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const DSeparator(),
+                                    const SizedBox(height: 16),
+                                  ],
                                 ],
                               ),
-                            ),
-                            child: ListView(
-                              padding: const EdgeInsets.all(16),
-                              children: [
-                                for (final title in [
-                                  "What's everyone's sourdough hydration sweet spot?",
-                                  'Leeds starter swap and bake-off at The Crown',
-                                  'Starter maintenance when you bake twice a week',
-                                  'Name one thing you own that you would truly miss',
-                                  'Starting over with habits',
-                                ]) ...[
-                                  Text(
-                                    title,
-                                    style: TextStyle(
-                                      color: tokens.foreground,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Community discussions, ideas and experiences.',
-                                    style: TextStyle(
-                                      color: tokens.mutedForeground,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const DSeparator(),
-                                  const SizedBox(height: 16),
-                                ],
-                              ],
                             ),
                           ),
                         ),

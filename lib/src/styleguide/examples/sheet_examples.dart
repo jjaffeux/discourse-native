@@ -32,10 +32,7 @@ final sheetExamples = ComponentExamples(
       'reaches the dismissal threshold, then lets the host show close actions. '
       'DSheetDragRegion lets a pinned header drag independently of scrolling. '
       'Retained page sheets use DSheetVariant.page to fill their host with '
-      '22px corners and a 36 by 5px overlaid handle. Set pageCorners to '
-      'DSheetPageCorners.viewport for a page that reaches the bottom screen '
-      'edge. Public display radii shape its lower corners, with a 64px visual '
-      'approximation on compact iOS viewports with a home indicator. '
+      '22px corners and a 36 by 5px overlaid handle. '
       'Its underlay is hidden '
       'at rest and excluded from input, focus and semantics while revealed. '
       'A pull beyond 120px or a downward flick dismisses the page. '
@@ -61,7 +58,7 @@ final sheetExamples = ComponentExamples(
       code:
           'DSheetViewport(onDismiss: closePage, underlay: previousPage, '
           'content: DSheetContent(side: DSheetSide.bottom, '
-          'variant: DSheetVariant.page, pageCorners: DSheetPageCorners.viewport, '
+          'variant: DSheetVariant.page, '
           'showCloseButton: false, '
           'children: [Expanded(child: reader)]))',
       builder: (_) => const _PageSheetExample(),
@@ -327,7 +324,6 @@ class _PageSheetExampleState extends State<_PageSheetExample> {
               content: DSheetContent(
                 side: DSheetSide.bottom,
                 variant: DSheetVariant.page,
-                pageCorners: DSheetPageCorners.viewport,
                 semanticLabel: 'Reading page',
                 showCloseButton: false,
                 children: [

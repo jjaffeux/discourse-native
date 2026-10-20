@@ -18,6 +18,7 @@ import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,7 +111,7 @@ Future<void> _capture(WidgetTester tester, String name) async {
     final image = await scene.toImage(size.width.toInt(), size.height.toInt());
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     await File(
-      '/private/tmp/chat-page-sheets-audit/$name.png',
+      '/private/tmp/inset-body-chat-$name.png',
     ).writeAsBytes(bytes!.buffer.asUint8List());
     image.dispose();
     scene.dispose();
@@ -171,7 +172,6 @@ void main() {
         tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
         tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
         final shell = await _fixture(tester);
-        shell.openChatChannel(10);
         await shell.forumSettings.setThemeMode(_site, mode);
         await shell.forumSettings.setThemes(
           _site,
@@ -185,10 +185,14 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        final platform = Theme.of(tester.element(_header)).platform.name;
+        await _capture(tester, '$platform-${mode.name}-${material.name}-inbox');
+        shell.openChatChannel(10);
+        await tester.pumpAndSettle();
         final bounds = tester.getRect(_sheet);
         expect(bounds.left, 0);
         expect(bounds.right, 390);
-        expect(bounds.bottom, 844);
+        expect(bounds.bottom, 810);
         expect(bounds.top, tester.getRect(_header).bottom + 6);
         expect(tester.getSize(_handle), const Size(36, 5));
         expect(tester.getRect(_handle).top, bounds.top + 7);
@@ -197,14 +201,7 @@ void main() {
             .first;
         expect(
           tester.widget<DPageSurface>(surface).borderRadius,
-          BorderRadius.vertical(
-            top: const Radius.circular(22),
-            bottom: Radius.circular(
-              Theme.of(tester.element(_sheet)).platform == TargetPlatform.iOS
-                  ? 64
-                  : 22,
-            ),
-          ),
+          BorderRadius.circular(22),
         );
         expect(find.byType(ChatChannelView), findsOneWidget);
         final semantics = tester.ensureSemantics();
@@ -325,7 +322,7 @@ void main() {
           tester
               .getRect(find.byKey(const ValueKey('mobile-content-panel')))
               .bottom,
-          844,
+          810,
         );
         expect(
           find.byKey(const ValueKey('chat-inbox-channel-10')).hitTestable(),
@@ -365,6 +362,8 @@ void main() {
     testWidgets(
       'thread opened from $origin dismisses through its parent channel',
       (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
         final shell = await _fixture(tester, direct: origin == 'direct');
         final chat = shell.pluginSession.require(chatShellService);
         if (origin == 'my-threads') chat.openMyThreads();
@@ -385,6 +384,8 @@ void main() {
         shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
         await tester.pumpAndSettle();
         expect(find.byType(ChatThreadView), findsOneWidget);
+        expect(tester.getRect(_sheet).bottom, 810);
+        expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
         if (origin == 'channel' || origin == 'direct') {
           await _capture(
             tester,
@@ -521,6 +522,60 @@ void main() {
     variant: _platforms,
   );
 
+  for (final safeBottom in [0.0, 34.0]) {
+    testWidgets('chat composer clears the inset dock once ($safeBottom)', (
+      tester,
+    ) async {
+      tester.view.padding = FakeViewPadding(top: 44, bottom: safeBottom);
+      tester.view.viewPadding = FakeViewPadding(top: 44, bottom: safeBottom);
+      final shell = await _fixture(tester);
+      shell.openChatChannel(10);
+      await tester.pumpAndSettle();
+      final composer = find.byKey(const ValueKey('chat-composer'));
+      final dock = find.byKey(const ValueKey('mobile-dock-surface'));
+      final bodyBottom = 844 - safeBottom;
+      expect(tester.getRect(_sheet).bottom, bodyBottom);
+      expect(tester.getRect(dock).bottom, closeTo(bodyBottom - 6, .01));
+      expect(
+        tester.getRect(dock).top - tester.getRect(composer).bottom,
+        closeTo(8, .01),
+      );
+      final platform = Theme.of(tester.element(_sheet)).platform.name;
+      await _capture(
+        tester,
+        '$platform-composer-expanded-${safeBottom.toInt()}',
+      );
+      final messages = find.byType(DMessageScrollerViewport);
+      final scroll = tester
+          .widget<DMessageScrollerViewport>(messages)
+          .scrollController!;
+      scroll.jumpTo(700);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(messages),
+          scrollDelta: const Offset(0, 160),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('mobile-dock-reveal')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.getRect(composer).bottom, closeTo(bodyBottom - 6, .01));
+      expect(
+        find.byKey(const ValueKey('chat-composer-send')).hitTestable(),
+        findsOneWidget,
+      );
+      await _capture(
+        tester,
+        '$platform-composer-compact-${safeBottom.toInt()}',
+      );
+      expect(tester.takeException(), isNull);
+    }, variant: _platforms);
+  }
+
   for (final width in [320.0, 390.0, 800.0]) {
     testWidgets('chat sheet keyboard, safe areas and reduced motion at $width', (
       tester,
@@ -533,7 +588,7 @@ void main() {
       await shell.appSettings.setReduceMotion(true);
       await tester.pumpAndSettle();
       expect(tester.getRect(_sheet).width, width);
-      expect(tester.getRect(_sheet).bottom, 844);
+      expect(tester.getRect(_sheet).bottom, 810);
       expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
       expect(
         tester.getRect(find.byKey(const ValueKey('chat-composer-send'))).bottom,
@@ -546,14 +601,27 @@ void main() {
         ),
       );
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      tester.view.padding = const FakeViewPadding(top: 44);
       await tester.pumpAndSettle();
       final send = find.byKey(const ValueKey('chat-composer-send'));
       expect(send.hitTestable(), findsOneWidget);
       expect(tester.getRect(send).bottom, lessThanOrEqualTo(544));
       expect(_dock.hitTestable(), findsNothing);
+      expect(tester.getRect(_sheet).bottom, 544);
+      final composer = find.byKey(const ValueKey('chat-composer'));
+      expect(tester.getRect(composer).bottom, closeTo(538, .01));
       await _capture(
         tester,
         '${Theme.of(tester.element(_sheet)).platform.name}-keyboard-${width.toInt()}',
+      );
+      FocusManager.instance.primaryFocus?.unfocus();
+      tester.view.viewInsets = const FakeViewPadding();
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_sheet).bottom, 810);
+      await _capture(
+        tester,
+        '${Theme.of(tester.element(_sheet)).platform.name}-keyboard-closed-${width.toInt()}',
       );
       await _dismiss(tester);
       expect(shell.mobileNavigation.atRoot, isTrue);

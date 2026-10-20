@@ -1,25 +1,18 @@
 # Mobile topic sheets
 
-Reference: `discourse-native-mockups` at `3700183`, `App.tsx`'s
+Reference: `discourse-native-mockups` at `a4c4875`, `App.tsx`'s
 `phonePushed`/`pushedCard` presentation and `app.css`'s `.pushed-sheet` rules,
-plus the supplied October 15 topic screenshot.
+plus the supplied October 20 Start-page screenshot.
 
 Mobile topics fill the content area below the persistent header. The Native
 `DSheetVariant.page` paints the panel and overlays a 36×5px handle 7px below
-its top. Topic and chat channel sheets opt into `DSheetPageCorners.viewport`.
-Their top corners stay 22px. Their lower corners use public display radii in
-logical pixels when available. On iOS 26 and later, `DDisplayCornerRadii` supplies
-UIKit's resolved viewport radii through the app's `MediaQuery`. Its hidden,
-noninteractive probe uses the public concentric corner API without changing
-the Flutter view's clipping. Older iOS versions retain the 64px visual
-approximation on compact viewports with a home indicator. Tablets and viewports
-without that hint keep 22px corners when no native metrics are available.
-Page sheets add no menu margins or reserved handle row. The outer mobile
-surface stays mounted with a transparent fill, so the corners show the window
-ground without a square panel beneath them. Topic sheets extend
-to the bottom screen edge, including the bottom safe-area inset. The persistent
-dock and chat composer keep their safe-area spacing and existing positions.
-Chat channel sheets and ordinary destination pages also reach the bottom edge.
+its top. All four corners use the standard 22px page radius. The shared mobile
+body stops above the bottom safe-area inset for Start, topic lists, ordinary
+pages, plugin roots, topic sheets, and chat channel and thread sheets. Page
+sheets add no menu margins or reserved handle row. The outer mobile surface
+stays mounted with a transparent fill, so the corners show the window ground
+without another panel beneath them. The dock and chat composer share the
+body's consumed safe area and keep their existing screen positions.
 
 The inbox topic source list stays mounted but unpainted, unfocusable, and
 absent from semantics at rest. Pulling the sheet reveals that same list without
@@ -47,6 +40,6 @@ Focused validation covers iOS and Android, light and dark appearances, Standard
 and Liquid Glass settings, transparent panels, cancellation, list retention,
 reading and wheel/trackpad input, 320px, 800px, and 1024px widths, large text, safe areas,
 and reduced motion. `captureTopicSheet=true` renders open/pulled fixtures to
-`/private/tmp/topic-sheet-*.png` for visual inspection. Captures use fake forum
+`/private/tmp/inset-body-topic-*.png` for visual inspection. Captures use fake forum
 content and do not establish physical-device rendering performance or exact
-hardware corner alignment.
+full-screen parity with the reference's different content.

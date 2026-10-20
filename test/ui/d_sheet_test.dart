@@ -92,12 +92,6 @@ void main() {
     showCloseButton: false,
     children: [Expanded(child: SizedBox())],
   );
-  const viewportPage = DSheetContent(
-    variant: DSheetVariant.page,
-    pageCorners: DSheetPageCorners.viewport,
-    showCloseButton: false,
-    children: [Expanded(child: SizedBox())],
-  );
 
   Future<void> pumpPage(
     WidgetTester tester,
@@ -126,113 +120,30 @@ void main() {
       )
       .borderRadius;
 
-  testWidgets('standard page keeps 22px corners with display metrics', (
+  testWidgets('page keeps 22px corners across display radii and safe insets', (
     tester,
   ) async {
-    await pumpPage(
-      tester,
-      standardPage,
-      media: const MediaQueryData(
-        size: Size(390, 844),
-        displayCornerRadii: BorderRadius.all(Radius.circular(60)),
-        viewPadding: EdgeInsets.only(bottom: 34),
-      ),
-    );
-    expect(pageClip(tester), BorderRadius.circular(22));
-  });
-
-  testWidgets('viewport page clips to reported lower radii in logical pixels', (
-    tester,
-  ) async {
-    const reported = BorderRadius.only(
-      topLeft: Radius.circular(50),
-      topRight: Radius.circular(50),
-      bottomLeft: Radius.circular(48),
-      bottomRight: Radius.circular(62),
-    );
-    await pumpPage(
-      tester,
-      viewportPage,
-      media: const MediaQueryData(
-        size: Size(390, 844),
-        devicePixelRatio: 3,
-        displayCornerRadii: reported,
-        viewPadding: EdgeInsets.only(bottom: 34),
-      ),
-    );
-    expect(
-      pageClip(tester),
-      const BorderRadius.only(
-        topLeft: Radius.circular(22),
-        topRight: Radius.circular(22),
-        bottomLeft: Radius.circular(48),
-        bottomRight: Radius.circular(62),
-      ),
-    );
-
-    await pumpPage(
-      tester,
-      viewportPage,
-      media: const MediaQueryData(
-        size: Size(390, 844),
-        displayCornerRadii: BorderRadius.zero,
-        viewPadding: EdgeInsets.only(bottom: 34),
-      ),
-    );
-    expect(
-      pageClip(tester),
-      const BorderRadius.vertical(top: Radius.circular(22)),
-    );
-  });
-
-  testWidgets('viewport fallback needs a compact iOS home indicator', (
-    tester,
-  ) async {
-    for (final scenario in [
-      (TargetPlatform.iOS, const Size(390, 844), 34.0, 64.0),
-      (TargetPlatform.iOS, const Size(390, 844), 0.0, 22.0),
-      (TargetPlatform.iOS, const Size(800, 1024), 34.0, 22.0),
-      (TargetPlatform.android, const Size(390, 844), 34.0, 22.0),
-    ]) {
-      await pumpPage(
-        tester,
-        viewportPage,
-        platform: scenario.$1,
-        media: MediaQueryData(
-          size: scenario.$2,
-          viewPadding: EdgeInsets.only(bottom: scenario.$3),
-        ),
-      );
-      expect(
-        pageClip(tester),
-        BorderRadius.vertical(
-          top: const Radius.circular(22),
-          bottom: Radius.circular(scenario.$4),
-        ),
-        reason: '$scenario',
-      );
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      for (final bottom in [0.0, 34.0]) {
+        for (final radii in [
+          null,
+          BorderRadius.zero,
+          BorderRadius.circular(62),
+        ]) {
+          await pumpPage(
+            tester,
+            standardPage,
+            platform: platform,
+            media: MediaQueryData(
+              size: const Size(390, 844),
+              displayCornerRadii: radii,
+              viewPadding: EdgeInsets.only(bottom: bottom),
+            ),
+          );
+          expect(pageClip(tester), BorderRadius.circular(22));
+        }
+      }
     }
-  });
-
-  testWidgets('viewport fallback survives consumed safe-area padding', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 2;
-    tester.view.viewPadding = const FakeViewPadding(bottom: 68);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    addTearDown(tester.view.resetViewPadding);
-    await pumpPage(
-      tester,
-      viewportPage,
-      media: const MediaQueryData(size: Size(390, 844)),
-    );
-    expect(
-      pageClip(tester),
-      const BorderRadius.vertical(
-        top: Radius.circular(22),
-        bottom: Radius.circular(64),
-      ),
-    );
   });
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
