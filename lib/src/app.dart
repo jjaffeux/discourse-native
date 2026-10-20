@@ -732,17 +732,19 @@ class _DiscourseAppState extends State<DiscourseApp>
     supportedLocales: AppLocalizations.supportedLocales,
     localeListResolutionCallback: resolveAppLocale,
     home: const AdaptiveShell(),
-    builder: (context, child) => AppMotionRegion(
-      controller: _controller.appSettings,
-      child: DMaterialAccessibility(
-        child: DFocusHighlight(
-          child: DToaster(
-            key: ObjectKey(_controller),
-            child: AppTextScaleRegion(
-              controller: _controller.appSettings,
-              child: _MouseNavigationRegion(
-                navigatorKey: _navigatorKey,
-                child: child ?? const SizedBox.shrink(),
+    builder: (context, child) => DDisplayCornerRadii(
+      child: AppMotionRegion(
+        controller: _controller.appSettings,
+        child: DMaterialAccessibility(
+          child: DFocusHighlight(
+            child: DToaster(
+              key: ObjectKey(_controller),
+              child: AppTextScaleRegion(
+                controller: _controller.appSettings,
+                child: _MouseNavigationRegion(
+                  navigatorKey: _navigatorKey,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
           ),

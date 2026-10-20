@@ -8,9 +8,12 @@ Mobile topics fill the content area below the persistent header. The Native
 `DSheetVariant.page` paints the panel and overlays a 36×5px handle 7px below
 its top. Topic and chat channel sheets opt into `DSheetPageCorners.viewport`.
 Their top corners stay 22px. Their lower corners use public display radii in
-logical pixels when available. Compact iOS viewports with a home indicator use
-a 64px visual approximation because iOS does not report display radii through
-Flutter. Tablets and viewports without that hint keep 22px corners.
+logical pixels when available. On iOS 26 and later, `DDisplayCornerRadii` supplies
+UIKit's resolved viewport radii through the app's `MediaQuery`. Its hidden,
+noninteractive probe uses the public concentric corner API without changing
+the Flutter view's clipping. Older iOS versions retain the 64px visual
+approximation on compact viewports with a home indicator. Tablets and viewports
+without that hint keep 22px corners when no native metrics are available.
 Page sheets add no menu margins or reserved handle row. The outer mobile
 surface stays mounted with a transparent fill, so the corners show the window
 ground without a square panel beneath them. Topic sheets extend

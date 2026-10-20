@@ -14,6 +14,7 @@ import UserNotifications
   private var keyboardTransitionStarted: CFTimeInterval = 0
   private let videoThumbnails = VideoThumbnailChannel()
   private let pdfThumbnails = PdfThumbnailChannel()
+  private let windowGeometry = WindowGeometryChannel()
 
   override func application(
     _ application: UIApplication,
@@ -25,6 +26,9 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeWindowGeometry") {
+      windowGeometry.attach(to: registrar)
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeKeyboardTransitions") {
       let channel = FlutterMethodChannel(
         name: "org.discourse.native/keyboard", binaryMessenger: registrar.messenger()

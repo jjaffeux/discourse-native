@@ -117,6 +117,7 @@ export 'src/ui/foundation/code_syntax.dart';
 export 'src/ui/foundation/code_typography.dart' show monospaceTextStyle;
 export 'src/ui/foundation/control_style.dart' show DControlSize, DControlStyle;
 export 'src/ui/foundation/control_theme.dart';
+export 'src/ui/foundation/display_corner_radii.dart';
 export 'src/ui/foundation/focus_highlight.dart';
 export 'src/ui/foundation/header_motion.dart'
     show DHeaderTuning, DHeaderSettle, DHeaderMotionSettings;

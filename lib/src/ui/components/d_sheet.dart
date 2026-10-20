@@ -41,8 +41,9 @@ enum DSheetPageCorners {
 
   /// The standard top corners and the viewport's lower corners.
   ///
-  /// Public display radii take precedence. Compact iOS viewports with a home
-  /// indicator use a 64px visual approximation when no radii are reported.
+  /// Public display radii take precedence. `DDisplayCornerRadii` supplies native
+  /// viewport radii on iOS 26+. Compact iOS viewports with a home indicator use
+  /// a 64px visual approximation when no radii are reported.
   /// Other viewports retain the standard corners.
   viewport,
 }

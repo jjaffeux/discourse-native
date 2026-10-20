@@ -15,6 +15,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/ui/components/d_toast.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -22,6 +23,55 @@ import 'package:http/testing.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('native viewport corners reach app routes and overlays', (
+    tester,
+  ) async {
+    const channel = MethodChannel('org.discourse.native/window_geometry');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      channel,
+      (_) async => {
+        'width': 800,
+        'height': 600,
+        'topLeft': 47,
+        'topRight': 48,
+        'bottomLeft': 49,
+        'bottomRight': 50,
+      },
+    );
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    await tester.pumpWidget(
+      DiscourseApp(
+        store: FakeInstanceStore([instance('first.example')]),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final shell = tester.element(find.byType(AdaptiveShell));
+    expect(MediaQuery.displayCornerRadiiOf(shell)?.bottomLeft.x, 49);
+    final overlay = Navigator.of(shell).overlay!;
+    BorderRadius? inherited;
+    final entry = OverlayEntry(
+      builder: (context) {
+        inherited = MediaQuery.displayCornerRadiiOf(context);
+        return const SizedBox();
+      },
+    );
+    overlay.insert(entry);
+    await tester.pump();
+    expect(inherited?.bottomRight.x, 50);
+    entry.remove();
+    entry.dispose();
+    await tester.pumpWidget(const SizedBox());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   group('controller replacement and ownership', () {
     testWidgets('replaces the controller when an injected dependency changes', (
       tester,
