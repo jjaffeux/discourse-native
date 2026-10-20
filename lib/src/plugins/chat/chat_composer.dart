@@ -1208,7 +1208,6 @@ class _ChatComposerState extends State<ChatComposer> {
     PluginComposerHost host, {
     bool compact = false,
   }) {
-    final theme = Theme.of(context);
     final channel = _chat?.channel(widget.siteUrl, widget.channelId);
     final hint = channel == null
         ? context.l10n.messageChat
@@ -1216,386 +1215,401 @@ class _ChatComposerState extends State<ChatComposer> {
         ? context.l10n.message((channel.title).toString())
         : context.l10n.messageChatcomposer((channel.title).toString());
     final mobile = context.isTouch;
-    final editorStyle = mobile
-        ? DInputGroup.composerTextStyleOf(context)
-        : theme.textTheme.bodyLarge;
+    final colors = _chatComposerColors(DTokens.of(context));
+    final editorStyle = DInputGroup.composerTextStyleOf(
+      context,
+    ).copyWith(fontSize: 13, height: 20 / 13, color: colors.text);
     final lineExtent = DInputGroup.composerLineExtentOf(context);
     void openLink() =>
         unawaited(showComposerLinkDialog(context: context, composer: composer));
 
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
-            composer.toggleMark(ComposerMark.bold),
-        const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
-            composer.toggleMark(ComposerMark.bold),
-        const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
-            composer.toggleMark(ComposerMark.italic),
-        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
-            composer.toggleMark(ComposerMark.italic),
-        const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
-            composer.toggleSelectedInlineCode,
-        if (!_usesCommandModifier)
-          const SingleActivator(LogicalKeyboardKey.keyE, control: true):
+    return LayoutBuilder(
+      builder: (context, constraints) => CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyB, meta: true): () =>
+              composer.toggleMark(ComposerMark.bold),
+          const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
+              composer.toggleMark(ComposerMark.bold),
+          const SingleActivator(LogicalKeyboardKey.keyI, meta: true): () =>
+              composer.toggleMark(ComposerMark.italic),
+          const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
+              composer.toggleMark(ComposerMark.italic),
+          const SingleActivator(LogicalKeyboardKey.keyE, meta: true):
               composer.toggleSelectedInlineCode,
-        const SingleActivator(LogicalKeyboardKey.keyL, meta: true): openLink,
-        if (!_usesCommandModifier)
-          const SingleActivator(LogicalKeyboardKey.keyL, control: true):
-              openLink,
-        if (widget.editingMessage != null)
-          const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit
-        else if (_replyTo != null)
-          const SingleActivator(LogicalKeyboardKey.escape): _clearReply,
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DCard(
-            borderRadius: mobile ? DInputGroup.composerBorderRadius : null,
-            spacing: 0,
-            backgroundColor: DTokens.of(context).footerBackground,
-            child: DInputGroup(
-              key: const ValueKey('chat-composer'),
-              borderless: true,
-              compact: compact,
-              variant: mobile
-                  ? DInputGroupVariant.composer
-                  : DInputGroupVariant.standard,
-              action: mobile ? _sendButton(composer) : null,
-              children: [
-                DInputGroupControl(
-                  focusNode: composer.focus,
-                  multiline: true,
-                  builder: (context, focusNode) => DInputFocusRegion(
-                    focusNode: focusNode,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: mobile ? lineExtent : 40,
-                      ),
+          if (!_usesCommandModifier)
+            const SingleActivator(LogicalKeyboardKey.keyE, control: true):
+                composer.toggleSelectedInlineCode,
+          const SingleActivator(LogicalKeyboardKey.keyL, meta: true): openLink,
+          if (!_usesCommandModifier)
+            const SingleActivator(LogicalKeyboardKey.keyL, control: true):
+                openLink,
+          if (widget.editingMessage != null)
+            const SingleActivator(LogicalKeyboardKey.escape): _cancelEdit
+          else if (_replyTo != null)
+            const SingleActivator(LogicalKeyboardKey.escape): _clearReply,
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DCard(
+              borderRadius: DInputGroup.composerBorderRadius,
+              spacing: 0,
+              backgroundColor: colors.surface,
+              borderColor: DTokens.of(context).footerBorder,
+              child: DInputGroup(
+                key: const ValueKey('chat-composer'),
+                borderless: true,
+                compact: compact,
+                variant: DInputGroupVariant.composer,
+                action: _sendButton(
+                  composer,
+                  iconOnly: constraints.maxWidth <= 480,
+                ),
+                children: [
+                  DInputGroupControl(
+                    focusNode: composer.focus,
+                    multiline: true,
+                    builder: (context, focusNode) => DInputFocusRegion(
+                      focusNode: focusNode,
                       child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: compact
-                              ? lineExtent
-                              : MediaQuery.sizeOf(context).height * 0.25,
-                        ),
-                        child: Focus(
-                          canRequestFocus: false,
-                          skipTraversal: true,
-                          onKeyEvent: (_, event) =>
-                              _handleEditLastMessage(event, composer),
-                          child: ComposerEditor(
-                            composer: composer,
-                            autofocus: !mobile,
-                            onKeyEvent: (event) =>
-                                _handleComposerKey(event, composer),
-                            enableBlockReordering: false,
-                            slashActions: (context) {
-                              final gifs = PluginUiScope.maybe(
-                                context,
-                                chatGifsService,
-                              );
-                              final enabled =
-                                  !_pickingGif &&
-                                  !_pickingFiles &&
-                                  !_pickingEmoji &&
-                                  !_savingEdit &&
-                                  (_chat?.canSendMessageTo(
-                                        widget.siteUrl,
-                                        _target,
-                                      ) ??
-                                      false);
-                              return [
-                                if (enabled && composer.canUpload)
-                                  ComposerSlashAction(
-                                    label: context.l10n.files,
-                                    icon: DIcons.paperclip,
-                                    keywords: const [
-                                      'image',
-                                      'file',
-                                      'attachment',
-                                    ],
-                                    onInvoke: () => unawaited(_pickFiles()),
-                                  ),
-                                if (enabled && composer.canUpload)
-                                  ComposerSlashAction(
-                                    label: context.l10n.photoLibrary,
-                                    icon: DIcons.paperclip,
-                                    keywords: const [
-                                      'image',
-                                      'photo',
-                                      'upload',
-                                    ],
-                                    onInvoke: () => unawaited(_pickImages()),
-                                  ),
-                                if (enabled &&
-                                    widget.editingMessage == null &&
-                                    (gifs?.isAvailable(widget.siteUrl) ??
-                                        false))
-                                  ComposerSlashAction(
-                                    label: context.l10n.insertGIF,
-                                    icon: gifsPickerIcon,
-                                    onInvoke: () => unawaited(_pickGif()),
-                                  ),
-                                if (enabled &&
-                                    host
-                                        .siteConfigFor(composer.target.siteUrl)
-                                        .emojiEnabled)
-                                  ComposerSlashAction(
-                                    label: context.l10n.emoji,
-                                    icon: DIcons.discourseEmojis,
-                                    keywords: const ['reaction', 'smile'],
-                                    onInvoke: () => unawaited(
-                                      _pickEmoji(pickerContext: context),
+                        constraints: BoxConstraints(minHeight: lineExtent),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: compact
+                                ? lineExtent
+                                : MediaQuery.sizeOf(context).height * 0.25,
+                          ),
+                          child: Focus(
+                            canRequestFocus: false,
+                            skipTraversal: true,
+                            onKeyEvent: (_, event) =>
+                                _handleEditLastMessage(event, composer),
+                            child: ComposerEditor(
+                              composer: composer,
+                              autofocus: !mobile,
+                              onKeyEvent: (event) =>
+                                  _handleComposerKey(event, composer),
+                              enableBlockReordering: false,
+                              slashActions: (context) {
+                                final gifs = PluginUiScope.maybe(
+                                  context,
+                                  chatGifsService,
+                                );
+                                final enabled =
+                                    !_pickingGif &&
+                                    !_pickingFiles &&
+                                    !_pickingEmoji &&
+                                    !_savingEdit &&
+                                    (_chat?.canSendMessageTo(
+                                          widget.siteUrl,
+                                          _target,
+                                        ) ??
+                                        false);
+                                return [
+                                  if (enabled && composer.canUpload)
+                                    ComposerSlashAction(
+                                      label: context.l10n.files,
+                                      icon: DIcons.paperclip,
+                                      keywords: const [
+                                        'image',
+                                        'file',
+                                        'attachment',
+                                      ],
+                                      onInvoke: () => unawaited(_pickFiles()),
                                     ),
-                                  ),
-                              ];
-                            },
-                            expands: false,
-                            showLatestLine: compact,
-                            enableDropTarget:
-                                widget.uploadDropController == null,
-                            onSuggestionAction:
-                                ({
-                                  required context,
-                                  required composer,
-                                  required suggestion,
-                                  anchor,
-                                }) async {
-                                  if (suggestion.action !=
-                                      ComposerSuggestionAction
-                                          .openEmojiPicker) {
-                                    return;
-                                  }
-                                  await _pickEmoji(
-                                    pickerContext: context,
-                                    initialQuery:
-                                        composer.autocomplete.trigger?.query ??
-                                        suggestion.value,
-                                    anchor: anchor,
-                                  );
-                                },
-                            hintText: hint,
-                            textStyle: editorStyle,
-                            hintStyle: editorStyle?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                                  if (enabled && composer.canUpload)
+                                    ComposerSlashAction(
+                                      label: context.l10n.photoLibrary,
+                                      icon: DIcons.paperclip,
+                                      keywords: const [
+                                        'image',
+                                        'photo',
+                                        'upload',
+                                      ],
+                                      onInvoke: () => unawaited(_pickImages()),
+                                    ),
+                                  if (enabled &&
+                                      widget.editingMessage == null &&
+                                      (gifs?.isAvailable(widget.siteUrl) ??
+                                          false))
+                                    ComposerSlashAction(
+                                      label: context.l10n.insertGIF,
+                                      icon: gifsPickerIcon,
+                                      onInvoke: () => unawaited(_pickGif()),
+                                    ),
+                                  if (enabled &&
+                                      host
+                                          .siteConfigFor(
+                                            composer.target.siteUrl,
+                                          )
+                                          .emojiEnabled)
+                                    ComposerSlashAction(
+                                      label: context.l10n.emoji,
+                                      icon: DIcons.discourseEmojis,
+                                      keywords: const ['reaction', 'smile'],
+                                      onInvoke: () => unawaited(
+                                        _pickEmoji(pickerContext: context),
+                                      ),
+                                    ),
+                                ];
+                              },
+                              expands: false,
+                              showLatestLine: compact,
+                              enableDropTarget:
+                                  widget.uploadDropController == null,
+                              onSuggestionAction:
+                                  ({
+                                    required context,
+                                    required composer,
+                                    required suggestion,
+                                    anchor,
+                                  }) async {
+                                    if (suggestion.action !=
+                                        ComposerSuggestionAction
+                                            .openEmojiPicker) {
+                                      return;
+                                    }
+                                    await _pickEmoji(
+                                      pickerContext: context,
+                                      initialQuery:
+                                          composer
+                                              .autocomplete
+                                              .trigger
+                                              ?.query ??
+                                          suggestion.value,
+                                      anchor: anchor,
+                                    );
+                                  },
+                              hintText: hint,
+                              textStyle: editorStyle,
+                              hintStyle: editorStyle.copyWith(
+                                color: colors.text.withValues(alpha: .5),
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                if (_replyTo case final reply?
-                    when widget.editingMessage == null)
+                  if (_replyTo case final reply?
+                      when widget.editingMessage == null)
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.blockStart,
+                      child: _replyPreview(context, reply),
+                    ),
                   DInputGroupAddon(
-                    alignment: DInputGroupAddonAlignment.blockStart,
-                    child: _replyPreview(context, reply),
-                  ),
-                DInputGroupAddon(
-                  alignment: DInputGroupAddonAlignment.blockEnd,
-                  child: Row(
-                    spacing: mobile ? 4 : DSpacing.controlGap,
-                    children: [
-                      ValueListenableBuilder<SiteConfig>(
-                        valueListenable: host.siteConfigListenableFor(
-                          composer.target.siteUrl,
-                        ),
-                        builder: (context, _, _) {
-                          final gifs = PluginUiScope.maybe(
-                            context,
-                            chatGifsService,
-                          );
-                          final canUpload = composer.imageUploader != null;
-                          final canInsertGif =
-                              widget.editingMessage == null &&
-                              (gifs?.isAvailable(widget.siteUrl) ?? false);
-                          if (!canUpload && !canInsertGif) {
-                            return const SizedBox.shrink();
-                          }
+                    alignment: DInputGroupAddonAlignment.blockEnd,
+                    child: Row(
+                      spacing: 4,
+                      children: [
+                        ValueListenableBuilder<SiteConfig>(
+                          valueListenable: host.siteConfigListenableFor(
+                            composer.target.siteUrl,
+                          ),
+                          builder: (context, _, _) {
+                            final gifs = PluginUiScope.maybe(
+                              context,
+                              chatGifsService,
+                            );
+                            final canUpload = composer.imageUploader != null;
+                            final canInsertGif =
+                                widget.editingMessage == null &&
+                                (gifs?.isAvailable(widget.siteUrl) ?? false);
+                            if (!canUpload && !canInsertGif) {
+                              return const SizedBox.shrink();
+                            }
 
-                          final enabled =
-                              !_pickingGif &&
-                              !_pickingFiles &&
-                              !_pickingEmoji &&
-                              !_savingEdit &&
-                              (_chat?.canSendMessageTo(
-                                    widget.siteUrl,
-                                    _target,
-                                  ) ??
-                                  false);
-                          return Center(
-                            heightFactor: 1,
-                            child: Semantics(
-                              container: true,
-                              explicitChildNodes: true,
-                              child: DDropdownMenu(
-                                key: ValueKey((
-                                  composer,
-                                  widget.editingMessage?.id,
-                                )),
-                                content: DDropdownMenuContent(
-                                  semanticLabel: context.l10n.addToMessage,
-                                  side: DPopoverSide.top,
-                                  width: 192,
-                                  children: [
-                                    if (canUpload)
-                                      DDropdownMenuItem(
-                                        key: const ValueKey(
-                                          'chat-composer-upload',
-                                        ),
-                                        leading: const DIcon(DIcons.paperclip),
-                                        onPressed: enabled
-                                            ? () {
-                                                if (identical(
-                                                  _composer,
-                                                  composer,
-                                                )) {
-                                                  unawaited(_pickFiles());
+                            final enabled =
+                                !_pickingGif &&
+                                !_pickingFiles &&
+                                !_pickingEmoji &&
+                                !_savingEdit &&
+                                (_chat?.canSendMessageTo(
+                                      widget.siteUrl,
+                                      _target,
+                                    ) ??
+                                    false);
+                            return Center(
+                              heightFactor: 1,
+                              child: Semantics(
+                                container: true,
+                                explicitChildNodes: true,
+                                child: DDropdownMenu(
+                                  key: ValueKey((
+                                    composer,
+                                    widget.editingMessage?.id,
+                                  )),
+                                  content: DDropdownMenuContent(
+                                    semanticLabel: context.l10n.addToMessage,
+                                    side: DPopoverSide.top,
+                                    width: 192,
+                                    children: [
+                                      if (canUpload)
+                                        DDropdownMenuItem(
+                                          key: const ValueKey(
+                                            'chat-composer-upload',
+                                          ),
+                                          leading: const DIcon(
+                                            DIcons.paperclip,
+                                          ),
+                                          onPressed: enabled
+                                              ? () {
+                                                  if (identical(
+                                                    _composer,
+                                                    composer,
+                                                  )) {
+                                                    unawaited(_pickFiles());
+                                                  }
                                                 }
-                                              }
-                                            : null,
-                                        child: Text(context.l10n.files),
-                                      ),
-                                    if (canUpload)
-                                      DDropdownMenuItem(
-                                        key: const ValueKey(
-                                          'chat-composer-photos',
+                                              : null,
+                                          child: Text(context.l10n.files),
                                         ),
-                                        leading: const DIcon(DIcons.paperclip),
-                                        onPressed: enabled
-                                            ? () {
-                                                if (identical(
-                                                  _composer,
-                                                  composer,
-                                                )) {
-                                                  unawaited(_pickImages());
+                                      if (canUpload)
+                                        DDropdownMenuItem(
+                                          key: const ValueKey(
+                                            'chat-composer-photos',
+                                          ),
+                                          leading: const DIcon(
+                                            DIcons.paperclip,
+                                          ),
+                                          onPressed: enabled
+                                              ? () {
+                                                  if (identical(
+                                                    _composer,
+                                                    composer,
+                                                  )) {
+                                                    unawaited(_pickImages());
+                                                  }
                                                 }
-                                              }
-                                            : null,
-                                        child: Text(context.l10n.photoLibrary),
-                                      ),
-                                    if (canInsertGif)
-                                      DDropdownMenuItem(
-                                        key: const ValueKey(
-                                          'chat-composer-gif',
+                                              : null,
+                                          child: Text(
+                                            context.l10n.photoLibrary,
+                                          ),
                                         ),
-                                        leading: const DIcon(gifsPickerIcon),
-                                        onPressed: enabled
-                                            ? () {
-                                                if (identical(
-                                                  _composer,
-                                                  composer,
-                                                )) {
-                                                  unawaited(_pickGif());
+                                      if (canInsertGif)
+                                        DDropdownMenuItem(
+                                          key: const ValueKey(
+                                            'chat-composer-gif',
+                                          ),
+                                          leading: const DIcon(gifsPickerIcon),
+                                          onPressed: enabled
+                                              ? () {
+                                                  if (identical(
+                                                    _composer,
+                                                    composer,
+                                                  )) {
+                                                    unawaited(_pickGif());
+                                                  }
                                                 }
-                                              }
-                                            : null,
-                                        child: Text(context.l10n.insertGIF),
-                                      ),
-                                  ],
-                                ),
-                                child: DDropdownMenuTrigger(
-                                  builder: (context, state) => DButton.iconOnly(
-                                    key: const ValueKey('chat-composer-add'),
-                                    size: mobile
-                                        ? DButtonSize.toolbar
-                                        : DButtonSize.large,
-                                    onPressed: enabled ? state.toggle : null,
-                                    focusNode: state.focusNode,
-                                    hasPopup: true,
-                                    expanded: state.open,
-                                    icon: const DIcon(
-                                      DIcons.plus,
-                                      key: ValueKey('chat-composer-add-icon'),
-                                    ),
-                                    tooltip: context.l10n.addToMessage,
-                                    variant: DButtonVariant.ghost,
+                                              : null,
+                                          child: Text(context.l10n.insertGIF),
+                                        ),
+                                    ],
+                                  ),
+                                  child: DDropdownMenuTrigger(
+                                    builder: (context, state) =>
+                                        DButton.iconOnly(
+                                          key: const ValueKey(
+                                            'chat-composer-add',
+                                          ),
+                                          size: DButtonSize.toolbar,
+                                          foregroundColor: colors.muted,
+                                          onPressed: enabled
+                                              ? state.toggle
+                                              : null,
+                                          focusNode: state.focusNode,
+                                          hasPopup: true,
+                                          expanded: state.open,
+                                          icon: const DIcon(
+                                            DIcons.plus,
+                                            key: ValueKey(
+                                              'chat-composer-add-icon',
+                                            ),
+                                          ),
+                                          tooltip: context.l10n.addToMessage,
+                                          variant: DButtonVariant.ghost,
+                                        ),
                                   ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                      ValueListenableBuilder<SiteConfig>(
-                        valueListenable: host.siteConfigListenableFor(
-                          composer.target.siteUrl,
+                            );
+                          },
                         ),
-                        builder: (context, config, _) {
-                          final emojiEnabled = config.emojiEnabled;
-                          _closeDisabledEmojiAutocomplete(emojiEnabled);
-                          _updateMarkdownLinkify(config);
-                          return emojiEnabled
-                              ? EmojiPickerAnchor(
-                                  child: Center(
-                                    heightFactor: 1,
-                                    child: Builder(
-                                      builder: (buttonContext) =>
-                                          DButton.iconOnly(
-                                            key: const ValueKey(
-                                              'chat-composer-emoji',
-                                            ),
-                                            size: mobile
-                                                ? DButtonSize.toolbar
-                                                : DButtonSize.large,
-                                            onPressed:
-                                                _pickingGif ||
-                                                    _pickingFiles ||
-                                                    _pickingEmoji ||
-                                                    _savingEdit ||
-                                                    !(_chat?.canSendMessage(
-                                                          widget.siteUrl,
-                                                          widget.channelId,
-                                                        ) ??
-                                                        false)
-                                                ? null
-                                                : () => unawaited(
-                                                    _pickEmoji(
-                                                      pickerContext:
-                                                          buttonContext,
-                                                    ),
-                                                  ),
-                                            icon: DIcon(
-                                              mobile
-                                                  ? DIcons.faceSmile
-                                                  : DIcons.discourseEmojis,
-                                            ),
-                                            tooltip: context.l10n.addEmoji,
-                                            variant: DButtonVariant.ghost,
-                                          ),
-                                    ),
-                                  ),
-                                )
-                              : const SizedBox.shrink();
-                        },
-                      ),
-                      const Spacer(),
-                      if (widget.editingMessage != null)
-                        Center(
-                          heightFactor: 1,
-                          child: DButton.iconOnly(
-                            key: const ValueKey('chat-composer-edit-cancel'),
-                            onPressed: _savingEdit ? null : _cancelEdit,
-                            icon: const DIcon(DIcons.xmark),
-                            tooltip: context.l10n.cancelEdit,
-                            variant: DButtonVariant.ghost,
+                        ValueListenableBuilder<SiteConfig>(
+                          valueListenable: host.siteConfigListenableFor(
+                            composer.target.siteUrl,
                           ),
+                          builder: (context, config, _) {
+                            final emojiEnabled = config.emojiEnabled;
+                            _closeDisabledEmojiAutocomplete(emojiEnabled);
+                            _updateMarkdownLinkify(config);
+                            return emojiEnabled
+                                ? EmojiPickerAnchor(
+                                    child: Center(
+                                      heightFactor: 1,
+                                      child: Builder(
+                                        builder: (buttonContext) =>
+                                            DButton.iconOnly(
+                                              key: const ValueKey(
+                                                'chat-composer-emoji',
+                                              ),
+                                              size: DButtonSize.toolbar,
+                                              foregroundColor: colors.muted,
+                                              onPressed:
+                                                  _pickingGif ||
+                                                      _pickingFiles ||
+                                                      _pickingEmoji ||
+                                                      _savingEdit ||
+                                                      !(_chat?.canSendMessage(
+                                                            widget.siteUrl,
+                                                            widget.channelId,
+                                                          ) ??
+                                                          false)
+                                                  ? null
+                                                  : () => unawaited(
+                                                      _pickEmoji(
+                                                        pickerContext:
+                                                            buttonContext,
+                                                      ),
+                                                    ),
+                                              icon: const DIcon(
+                                                DIcons.faceSmile,
+                                              ),
+                                              tooltip: context.l10n.addEmoji,
+                                              variant: DButtonVariant.ghost,
+                                            ),
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink();
+                          },
                         ),
-                      if (!mobile)
-                        Center(heightFactor: 1, child: _sendButton(composer)),
-                    ],
+                        const Spacer(),
+                        if (widget.editingMessage != null)
+                          Center(
+                            heightFactor: 1,
+                            child: DButton.iconOnly(
+                              key: const ValueKey('chat-composer-edit-cancel'),
+                              onPressed: _savingEdit ? null : _cancelEdit,
+                              icon: const DIcon(DIcons.xmark),
+                              tooltip: context.l10n.cancelEdit,
+                              variant: DButtonVariant.ghost,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _sendButton(ComposerController composer) {
+  Widget _sendButton(ComposerController composer, {required bool iconOnly}) {
     final label = widget.editingMessage == null ? appL10n.send : appL10n.save;
     final tooltip = widget.editingMessage == null
         ? appL10n.sendMessage
@@ -1603,11 +1617,13 @@ class _ChatComposerState extends State<ChatComposer> {
     final VoidCallback? onPressed = _canSend(composer)
         ? () => _send(composer)
         : null;
-    final icon = DIcon(DIcons.paperPlane, size: context.isTouch ? 12 : 16);
-    return context.isTouch
+    const icon = DIcon(DIcons.paperPlane, size: 12);
+    final foreground = DTokens.of(context).buttonTheme.primary.foreground;
+    return iconOnly
         ? DButton.iconOnly(
             key: const ValueKey('chat-composer-send'),
             size: DButtonSize.toolbar,
+            foregroundColor: foreground,
             icon: icon,
             tooltip: tooltip,
             semanticLabel: label,
@@ -1617,6 +1633,8 @@ class _ChatComposerState extends State<ChatComposer> {
         : DButton(
             key: const ValueKey('chat-composer-send'),
             label: Text(label),
+            size: DButtonSize.toolbar,
+            foregroundColor: foreground,
             loadingLabel: Text(label),
             onPressed: onPressed,
             loading: _sending,
@@ -1625,6 +1643,57 @@ class _ChatComposerState extends State<ChatComposer> {
             variant: DButtonVariant.primary,
           );
   }
+}
+
+({Color surface, Color text, Color muted}) _chatComposerColors(DTokens tokens) {
+  final text = tokens.foreground;
+  final ground = tokens.background;
+  Color raisedAt(double share) => Color.lerp(ground, text, share)!;
+  Color hoveredAt(double share) => Color.lerp(raisedAt(share), text, .08)!;
+  double contrast(Color first, Color second) {
+    final a = first.computeLuminance() + .05;
+    final b = second.computeLuminance() + .05;
+    return a > b ? a / b : b / a;
+  }
+
+  var raised = .10;
+  while (raised > 0 &&
+      (contrast(text, raisedAt(raised)) < 4.55 ||
+          contrast(text, hoveredAt(raised)) < 4.55)) {
+    raised = (raised - .005).clamp(0.0, 1.0);
+  }
+  final panel = Color.lerp(ground, text, .03)!;
+  Color tintAt(double share) => Color.lerp(panel, tokens.primary, share)!;
+  var tint = .12;
+  while (tint > 0 && contrast(text, tintAt(tint)) < 4.55) {
+    tint = (tint - .005).clamp(0.0, 1.0);
+  }
+  final backgrounds = [
+    panel,
+    raisedAt(raised),
+    hoveredAt(raised),
+    tintAt(tint),
+  ];
+  Color ink(double need, double from) {
+    bool passes(double share) => backgrounds.every(
+      (background) => contrast(raisedAt(share), background) >= need,
+    );
+    if (passes(from)) return raisedAt(from);
+    if (!passes(1)) return text;
+    var low = from;
+    var high = 1.0;
+    for (var i = 0; i < 20; i++) {
+      final mid = (low + high) / 2;
+      if (passes(mid)) {
+        high = mid;
+      } else {
+        low = mid;
+      }
+    }
+    return raisedAt(high);
+  }
+
+  return (surface: raisedAt(raised), text: ink(7.05, .9), muted: ink(4.55, .5));
 }
 
 /// Core's channel preview card: until the reader follows a category channel,

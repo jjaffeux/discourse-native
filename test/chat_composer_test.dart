@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -59,6 +60,7 @@ import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 import 'support/native_drop.dart';
+import 'support/native_ui_evidence.dart';
 
 const _site = 'https://chat.example';
 final _gifsConfig = SiteConfig(
@@ -77,6 +79,126 @@ const _gif = GifResult(
 );
 
 void main() {
+  testWidgets('chat composer visual reference states', (tester) async {
+    await prepareNativeUiEvidence(tester);
+    await tester.binding.setSurfaceSize(const Size(393, 852));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final fixture = await _fixture(
+      pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+    );
+    addTearDown(fixture.shell.dispose);
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+      for (final dark in [false, true]) {
+        await tester.pumpWidget(
+          _TestView(shell: fixture.shell, platform: platform, dark: dark),
+        );
+        await tester.pumpAndSettle();
+        await captureNativeUi(
+          tester,
+          '${platform.name}-${dark ? 'dark' : 'light'}-empty',
+        );
+        await tester.enterText(_composerField(), 'Hello everyone');
+        await tester.pumpAndSettle();
+        await captureNativeUi(
+          tester,
+          '${platform.name}-${dark ? 'dark' : 'light'}-filled',
+        );
+        await tester.enterText(_composerField(), '');
+        await tester.pumpAndSettle();
+      }
+    }
+  });
+
+  testWidgets(
+    'chat composer matches the Dracula reference colors and geometry',
+    (tester) async {
+      await prepareNativeUiEvidence(tester);
+      final dracula = forumThemePresets.firstWhere(
+        (theme) => theme.id == 'dracula',
+      );
+      final theme = AppTheme.fromPalette(
+        dracula.resolve(Brightness.dark),
+        fontFamily: 'SF Pro Text',
+        readingFontFamily: 'SF Pro Text',
+      );
+      final fixture = await _fixture(
+        pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+      );
+      addTearDown(fixture.shell.dispose);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final platform = defaultTargetPlatform;
+      for (final material in DAppearanceMaterial.values) {
+        await tester.binding.setSurfaceSize(const Size(393, 852));
+        await tester.pumpWidget(
+          _TestView(
+            shell: fixture.shell,
+            theme: DMaterialTheme.apply(theme, material),
+            platform: platform,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final group = find.byKey(const ValueKey('chat-composer'));
+        final cardFinder = find
+            .ancestor(of: group, matching: find.byType(DCard))
+            .first;
+        final card = tester.widget<DCard>(cardFinder);
+        expect(card.backgroundColor!.toARGB32(), 0xff414350);
+        expect(card.borderColor!.toARGB32(), 0xff454754);
+        expect(tester.getSize(group).height, 79);
+        final editor = tester.widget<ComposerEditor>(
+          find.byType(ComposerEditor),
+        );
+        expect(editor.textStyle!.fontSize, 13);
+        expect(editor.textStyle!.height, 20 / 13);
+        expect(editor.textStyle!.color, const Color(0xfff2f2f2));
+        expect(
+          editor.hintStyle!.color,
+          const Color(0xfff2f2f2).withValues(alpha: .5),
+        );
+        for (final key in ['chat-composer-add', 'chat-composer-emoji']) {
+          final button = _button(tester, key);
+          expect(button.foregroundColor!.toARGB32(), 0xffc4c5c8);
+          expect(tester.getSize(find.byKey(ValueKey(key))), const Size(34, 34));
+        }
+        final emoji = _button(tester, 'chat-composer-emoji').icon! as DIcon;
+        expect(emoji.icon, DIcons.faceSmile);
+        final send = find.byKey(const ValueKey('chat-composer-send'));
+        expect(tester.getSize(send), const Size(34, 34));
+        expect(_button(tester, 'chat-composer-send').label, isA<SizedBox>());
+        final add = find.byKey(const ValueKey('chat-composer-add'));
+        final groupBounds = tester.getRect(group);
+        expect(tester.getRect(add).left - groupBounds.left, 7);
+        expect(groupBounds.right - tester.getRect(send).right, 7);
+        expect(groupBounds.bottom - tester.getRect(send).bottom, 7);
+        await captureNativeUi(
+          tester,
+          '${platform.name}-${material.name}-dracula-empty',
+        );
+        await tester.enterText(_composerField(), 'Hello everyone');
+        await tester.pumpAndSettle();
+        expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+        await captureNativeUi(
+          tester,
+          '${platform.name}-${material.name}-dracula-filled',
+        );
+        await tester.tap(send);
+        await tester.pumpAndSettle();
+        expect(fixture.api.chatMessagesSent.last.message, 'Hello everyone');
+        await tester.binding.setSurfaceSize(const Size(1024, 852));
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(of: send, matching: find.text('Send')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.macOS,
+    }),
+  );
+
   testWidgets('raw Markdown setting updates chat and preserves sending', (
     tester,
   ) async {
@@ -450,7 +572,7 @@ void main() {
   });
 
   testWidgets(
-    'insertion actions have larger artwork and consistent control spacing',
+    'insertion actions match reference artwork and spacing',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -475,17 +597,12 @@ void main() {
             final emoji = find.byKey(const ValueKey('chat-composer-emoji'));
             final addBounds = tester.getRect(add);
             final emojiBounds = tester.getRect(emoji);
-            final mobile = switch (defaultTargetPlatform) {
-              TargetPlatform.iOS || TargetPlatform.android => true,
-              _ => false,
-            };
-            final minimumDimension = switch (defaultTargetPlatform) {
-              TargetPlatform.iOS || TargetPlatform.android => 34.0,
-              _ => 40.0,
-            };
             for (final action in [add, emoji]) {
               final bounds = tester.getRect(action);
-              expect(bounds.width, greaterThanOrEqualTo(minimumDimension));
+              expect(
+                bounds.width,
+                scale == AppTextScale.percent100 ? 34 : greaterThan(34),
+              );
               expect(bounds.height, bounds.width);
               expect(
                 tester.getRect(
@@ -501,7 +618,7 @@ void main() {
                 matching: find.byType(DIcon),
               );
               final iconSize = tester.getSize(icon);
-              expect(iconSize.height, mobile ? 14 : 16);
+              expect(iconSize.height, 14);
               expect(iconSize.width, lessThanOrEqualTo(iconSize.height));
               expect(
                 tester
@@ -519,7 +636,7 @@ void main() {
             final gap = direction == TextDirection.ltr
                 ? emojiBounds.left - addBounds.right
                 : addBounds.left - emojiBounds.right;
-            expect(gap, mobile ? 4 : DSpacing.controlGap);
+            expect(gap, 4);
             final bar = tester.getRect(
               find.byKey(const ValueKey('chat-composer')),
             );
@@ -1894,11 +2011,7 @@ void main() {
           await tester.enterText(_composerField(), 'Draft');
           await tester.pump();
           expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
-          final fontSize = switch (defaultTargetPlatform) {
-            TargetPlatform.iOS ||
-            TargetPlatform.android => DiscourseTypography.mobileBase,
-            _ => DiscourseTypography.base,
-          };
+          const fontSize = 13.0;
           expect(_field(tester).style!.fontSize, fontSize);
           final render = tester
               .state<EditableTextState>(
@@ -4124,24 +4237,29 @@ final class _TestView extends StatelessWidget {
     required this.shell,
     this.dark = false,
     this.platform,
+    this.theme,
     this.direction = TextDirection.ltr,
   });
 
   final ShellController shell;
   final bool dark;
   final TargetPlatform? platform;
+  final ThemeData? theme;
   final TextDirection direction;
 
   @override
   Widget build(BuildContext context) {
     final app = MaterialApp(
-      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+      theme: (theme ?? (dark ? AppTheme.dark : AppTheme.light)).copyWith(
         platform: platform,
       ),
       builder: (context, child) => DToaster(
         child: AppTextScaleRegion(
           controller: shell.appSettings,
-          child: Directionality(textDirection: direction, child: child!),
+          child: nativeUiEvidenceBuilder(
+            context,
+            Directionality(textDirection: direction, child: child!),
+          ),
         ),
       ),
       home: const Scaffold(body: ChatChannelView(channelId: 9)),
