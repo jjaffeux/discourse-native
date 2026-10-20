@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
@@ -56,6 +57,12 @@ class DMaterialSurface extends StatelessWidget {
       DMaterialTheme.of(context) != null;
   static Color fill(BuildContext context, Color color) =>
       active(context) ? Colors.transparent : color;
+  static Clip panelClipOf(BuildContext context) =>
+      !kIsWeb &&
+          Theme.of(context).platform == TargetPlatform.iOS &&
+          DMaterialTheme.glassOf(context)
+      ? Clip.antiAliasWithSaveLayer
+      : Clip.antiAlias;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +113,7 @@ class DMaterialSurface extends StatelessWidget {
                 ),
               ),
             ),
-            _SurfaceContent(enabled: glass, child: child),
+            _SurfaceContent(enabled: glass, depth: depth, child: child),
           ],
         ),
       );
@@ -115,10 +122,7 @@ class DMaterialSurface extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final glass = DMaterialTheme.glassOf(context);
     final recessed = depth == DSurfaceDepth.recessed;
-    final menu =
-        depth == DSurfaceDepth.menu ||
-        depth == DSurfaceDepth.dialog ||
-        depth == DSurfaceDepth.sheet;
+    final menu = _escapesPanel(depth);
     final panel = depth == DSurfaceDepth.panel;
     final joined =
         depth == DSurfaceDepth.raised || depth == DSurfaceDepth.floatingDate
@@ -202,7 +206,7 @@ class DMaterialSurface extends StatelessWidget {
             Positioned.fill(
               child: IgnorePointer(child: ExcludeSemantics(child: background)),
             ),
-            _SurfaceContent(enabled: lens, child: child),
+            _SurfaceContent(enabled: lens, depth: depth, child: child),
           ],
         ),
       ),
@@ -433,10 +437,35 @@ class DMaterialBatch extends StatelessWidget {
   );
 }
 
+bool _escapesPanel(DSurfaceDepth depth) => switch (depth) {
+  DSurfaceDepth.menu || DSurfaceDepth.dialog || DSurfaceDepth.sheet => true,
+  _ => false,
+};
+
+class _PanelGlassScope extends InheritedWidget {
+  const _PanelGlassScope({required this.savedPanel, required super.child});
+
+  final bool savedPanel;
+
+  static bool of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_PanelGlassScope>()
+          ?.savedPanel ??
+      false;
+
+  @override
+  bool updateShouldNotify(_PanelGlassScope old) => old.savedPanel != savedPanel;
+}
+
 class _SurfaceContent extends StatelessWidget {
-  const _SurfaceContent({required this.enabled, required this.child});
+  const _SurfaceContent({
+    required this.enabled,
+    required this.depth,
+    required this.child,
+  });
 
   final bool enabled;
+  final DSurfaceDepth depth;
   final Widget child;
 
   @override
@@ -446,7 +475,16 @@ class _SurfaceContent extends StatelessWidget {
       data: IconThemeData(color: enabled ? color : null),
       child: DefaultTextStyle.merge(
         style: TextStyle(color: enabled ? color : null),
-        child: child,
+        child: _PanelGlassScope(
+          savedPanel: _escapesPanel(depth)
+              ? false
+              : depth == DSurfaceDepth.panel
+              ? DMaterialSurface.panelClipOf(context) ==
+                        Clip.antiAliasWithSaveLayer ||
+                    _PanelGlassScope.of(context)
+              : _PanelGlassScope.of(context),
+          child: child,
+        ),
       ),
     ),
   );
@@ -504,6 +542,9 @@ class _GlassPaint extends StatelessWidget {
         : preset;
     Widget glass = LiquidGlassLens(
       style: style.copyWith(
+        liteGlass:
+            style.liteGlass ||
+            (_PanelGlassScope.of(context) && !_escapesPanel(depth)),
         shape: LiquidGlassShape.roundedRectangle(cornerRadius: cornerRadius),
       ),
       child: const SizedBox.expand(),

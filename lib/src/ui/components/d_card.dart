@@ -204,6 +204,13 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
     final radius =
         borderRadius?.resolve(Directionality.of(context)) ??
         BorderRadius.circular(capsule ? DRadius.pill : DRadius.panel);
+    final depth = primaryCapsule
+        ? DSurfaceDepth.primaryCapsule
+        : capsule || variant == DCardVariant.well
+        ? DSurfaceDepth.recessed
+        : child is Expanded
+        ? DSurfaceDepth.panel
+        : DSurfaceDepth.card;
     return _CardScope(
       spacing: inset,
       size: size,
@@ -211,13 +218,7 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
       child: Semantics(
         container: true,
         child: DMaterialSurface(
-          depth: primaryCapsule
-              ? DSurfaceDepth.primaryCapsule
-              : capsule || variant == DCardVariant.well
-              ? DSurfaceDepth.recessed
-              : child is Expanded
-              ? DSurfaceDepth.panel
-              : DSurfaceDepth.card,
+          depth: depth,
           radius: radius,
           color: surfaceColor,
           preserveColor: compactCapsule,
@@ -247,7 +248,9 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
                       ? Colors.transparent
                       : DMaterialSurface.fill(context, surfaceColor),
                   borderRadius: radius,
-                  clipBehavior: Clip.antiAlias,
+                  clipBehavior: depth == DSurfaceDepth.panel
+                      ? DMaterialSurface.panelClipOf(context)
+                      : Clip.antiAlias,
                   textStyle: Theme.of(context).textTheme.bodyMedium!.copyWith(
                     fontSize: DiscourseTypography.sm,
                     height: 20 / 14,

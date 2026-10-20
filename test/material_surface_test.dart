@@ -20,6 +20,250 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'support/stock_glass.dart';
 
 void main() {
+  testWidgets(
+    'iOS saved panels contain frost while portals keep native glass',
+    (tester) async {
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+        for (final material in DAppearanceMaterial.values) {
+          for (final highContrast in [false, true]) {
+            final portals = {
+              for (final depth in [
+                DSurfaceDepth.menu,
+                DSurfaceDepth.dialog,
+                DSurfaceDepth.sheet,
+              ])
+                depth: OverlayPortalController(),
+            };
+            Widget control(
+              String name, {
+              DSurfaceDepth depth = DSurfaceDepth.raised,
+            }) => DMaterialSurface(
+              key: ValueKey(name),
+              color: const Color(0xff323543),
+              radius: BorderRadius.circular(10),
+              depth: depth,
+              child: const SizedBox(width: 80, height: 24),
+            );
+            await tester.pumpWidget(
+              MaterialApp(
+                themeAnimationStyle: AnimationStyle.noAnimation,
+                theme: DMaterialTheme.apply(
+                  AppTheme.dark.copyWith(platform: platform),
+                  material,
+                ),
+                home: MediaQuery(
+                  data: MediaQueryData(highContrast: highContrast),
+                  child: Column(
+                    children: [
+                      control('header'),
+                      Expanded(
+                        child: DPageSurface(
+                          child: Column(
+                            children: [
+                              DCard(child: control('card-control')),
+                              SizedBox(
+                                height: 80,
+                                child: DPageSurface(
+                                  child: control('nested-control'),
+                                ),
+                              ),
+                              SizedBox(
+                                height: 40,
+                                child: DPageSurface(
+                                  framed: false,
+                                  child: control('unframed-control'),
+                                ),
+                              ),
+                              SizedBox(
+                                height: 100,
+                                child: DSheetViewport(
+                                  onDismiss: () {},
+                                  content: DSheetContent(
+                                    side: DSheetSide.bottom,
+                                    variant: DSheetVariant.page,
+                                    showCloseButton: false,
+                                    children: [
+                                      Expanded(child: control('sheet-control')),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              control(
+                                'date',
+                                depth: DSurfaceDepth.floatingDate,
+                              ),
+                              for (final entry in portals.entries)
+                                OverlayPortal(
+                                  controller: entry.value,
+                                  overlayChildBuilder: (_) => Positioned(
+                                    top: 0,
+                                    left: entry.key.index * 80,
+                                    child: DMaterialSurface(
+                                      key: ValueKey('portal-${entry.key}'),
+                                      depth: entry.key,
+                                      color: const Color(0xff323543),
+                                      radius: BorderRadius.circular(10),
+                                      child: control(
+                                        'portal-control-${entry.key}',
+                                      ),
+                                    ),
+                                  ),
+                                  child: const SizedBox.shrink(),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      control('dock', depth: DSurfaceDepth.primaryCapsule),
+                    ],
+                  ),
+                ),
+              ),
+            );
+            for (final portal in portals.values) {
+              portal.show();
+            }
+            await tester.pumpAndSettle();
+            final glass =
+                material == DAppearanceMaterial.liquidGlass && !highContrast;
+            final saved = glass && platform == TargetPlatform.iOS;
+            final panels = find.byWidgetPredicate(
+              (widget) =>
+                  widget is DMaterialSurface &&
+                  widget.depth == DSurfaceDepth.panel,
+            );
+            expect(panels, findsNWidgets(3));
+            for (final panel in panels.evaluate()) {
+              final clip = find
+                  .descendant(
+                    of: find.byWidget(panel.widget),
+                    matching: find.byType(Material),
+                  )
+                  .first;
+              expect(
+                tester.widget<Material>(clip).clipBehavior,
+                saved ? Clip.antiAliasWithSaveLayer : Clip.antiAlias,
+              );
+            }
+            for (final name in [
+              'card-control',
+              'nested-control',
+              'unframed-control',
+              'sheet-control',
+              'date',
+            ]) {
+              final lenses = find.descendant(
+                of: find.byKey(ValueKey(name)),
+                matching: find.byType(LiquidGlassLens),
+              );
+              if (glass) {
+                expect(
+                  tester.widget<LiquidGlassLens>(lenses).style.liteGlass,
+                  saved,
+                  reason: name,
+                );
+              } else {
+                expect(lenses, findsNothing);
+              }
+            }
+            for (final name in [
+              'header',
+              'dock',
+              ...portals.keys.map((depth) => 'portal-$depth'),
+            ]) {
+              final lenses = find.descendant(
+                of: find.byKey(ValueKey(name)),
+                matching: find.byType(LiquidGlassLens),
+              );
+              expect(lenses, glass ? findsWidgets : findsNothing);
+              for (final lens in tester.widgetList<LiquidGlassLens>(lenses)) {
+                expect(lens.style.liteGlass, isFalse, reason: name);
+              }
+            }
+            if (saved) {
+              final gesture = await tester.startGesture(
+                tester.getCenter(
+                  find.byKey(const ValueKey('sheet-drag-handle')),
+                ),
+              );
+              await gesture.moveBy(const Offset(0, 10));
+              await gesture.moveBy(const Offset(0, 25));
+              await tester.pump();
+              for (final panel in panels.evaluate()) {
+                final clip = find
+                    .descendant(
+                      of: find.byWidget(panel.widget),
+                      matching: find.byType(Material),
+                    )
+                    .first;
+                expect(
+                  tester.widget<Material>(clip).clipBehavior,
+                  Clip.antiAliasWithSaveLayer,
+                );
+              }
+              await gesture.cancel();
+              await tester.pumpAndSettle();
+            }
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    },
+  );
+
+  testWidgets('nested previews cannot erase their enclosing saved panel', (
+    tester,
+  ) async {
+    final glass = DMaterialTheme.apply(
+      AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+      DAppearanceMaterial.liquidGlass,
+    );
+    for (final highContrast in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: glass,
+          home: DPageSurface(
+            child: Theme(
+              data: highContrast
+                  ? glass
+                  : DMaterialTheme.apply(glass, DAppearanceMaterial.standard),
+              child: MediaQuery(
+                data: MediaQueryData(highContrast: highContrast),
+                child: DPageSurface(
+                  child: Theme(
+                    data: glass,
+                    child: MediaQuery(
+                      data: const MediaQueryData(),
+                      child: DMaterialSurface(
+                        color: Colors.white,
+                        radius: BorderRadius.circular(10),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
+            .style
+            .liteGlass,
+        isTrue,
+      );
+      final clips = tester
+          .widgetList<Material>(find.byType(Material))
+          .where((m) => m.borderRadius != null)
+          .map((m) => m.clipBehavior);
+      expect(clips, containsAll([Clip.antiAliasWithSaveLayer, Clip.antiAlias]));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('glass controls retain their stock optics', (tester) async {
     for (final depth in [
       DSurfaceDepth.raised,
@@ -853,6 +1097,118 @@ void main() {
       expect(tester.state(find.byType(DInput)), same(state));
       expect(find.text('An unsaved draft'), findsOneWidget);
       expect(focus.hasFocus, isTrue);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('panel paint changes retain editing state and scroll position', (
+    tester,
+  ) async {
+    const channel = MethodChannel(
+      'org.discourse.native/material_accessibility',
+    );
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (_) async => false,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    final focus = FocusNode();
+    final text = TextEditingController();
+    final scroll = ScrollController();
+    addTearDown(focus.dispose);
+    addTearDown(text.dispose);
+    addTearDown(scroll.dispose);
+    var material = DAppearanceMaterial.liquidGlass;
+    var contrast = false;
+    late StateSetter change;
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) {
+          change = setState;
+          return MaterialApp(
+            themeAnimationStyle: AnimationStyle.noAnimation,
+            theme: DMaterialTheme.apply(
+              AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+              material,
+            ),
+            home: DMaterialAccessibility(
+              child: MediaQuery(
+                data: MediaQueryData(highContrast: contrast),
+                child: Center(
+                  child: SizedBox(
+                    width: 260,
+                    height: 200,
+                    child: DPageSurface(
+                      child: SingleChildScrollView(
+                        controller: scroll,
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 90),
+                            DInput(controller: text, focusNode: focus),
+                            const SizedBox(height: 700),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'An unsaved draft');
+    const selection = TextSelection(baseOffset: 3, extentOffset: 8);
+    text.selection = selection;
+    scroll.jumpTo(45);
+    await tester.pump();
+    final state = tester.state(find.byType(DInput));
+    for (final (nextMaterial, highContrast, reduced) in [
+      (DAppearanceMaterial.standard, false, false),
+      (DAppearanceMaterial.liquidGlass, false, false),
+      (DAppearanceMaterial.liquidGlass, true, false),
+      (DAppearanceMaterial.liquidGlass, false, true),
+      (DAppearanceMaterial.liquidGlass, false, false),
+    ]) {
+      change(() {
+        material = nextMaterial;
+        contrast = highContrast;
+      });
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        channel.name,
+        const StandardMethodCodec().encodeMethodCall(
+          MethodCall('reduceTransparencyChanged', reduced),
+        ),
+        (_) {},
+      );
+      await tester.pump();
+      expect(tester.state(find.byType(DInput)), same(state));
+      expect(text.text, 'An unsaved draft');
+      expect(text.selection, selection);
+      expect(focus.hasFocus, isTrue);
+      expect(scroll.offset, 45);
+      final panel = find.byWidgetPredicate(
+        (widget) =>
+            widget is DMaterialSurface && widget.depth == DSurfaceDepth.panel,
+      );
+      final clip = tester.widget<Material>(
+        find.descendant(of: panel, matching: find.byType(Material)).first,
+      );
+      expect(
+        clip.clipBehavior,
+        nextMaterial == DAppearanceMaterial.liquidGlass &&
+                !highContrast &&
+                !reduced
+            ? Clip.antiAliasWithSaveLayer
+            : Clip.antiAlias,
+      );
     }
     expect(tester.takeException(), isNull);
   });

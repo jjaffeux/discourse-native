@@ -61,6 +61,11 @@ and brightness modes; its integration wrapper checks the native shader renderer.
   simulator on iOS 27 reported Impeller/Metal, shader filters supported, and
   successful shader initialization. Both brightness modes and 200% text were
   captured. This is simulator evidence, not physical-device validation.
+  Rounded reading panels use saved clipping so scrolling content stays inside
+  their border. Controls inside those panels use the package's frosted renderer,
+  preserving live blur, tint and rim without shader edge refraction. Nested page
+  sheets clip their own border too. Header and dock controls, floating menus,
+  dialogs and ordinary sheets retain the native lens path.
 - **macOS/Skia:** this Mac reported Skia/Metal and no shader image filters.
   Controls therefore use live frosted blur, tint and a surface-colored rim;
   they do **not** claim in-app refraction. No duplicate background capture is
