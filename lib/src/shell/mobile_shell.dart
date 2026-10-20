@@ -470,11 +470,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   child: ExcludeFocus(
                     excluding: sidebarOpen,
                     child: Padding(
-                      // Keep the sheet's rounded foot above the home indicator
-                      // and the device's bottom corners.
                       padding: EdgeInsets.only(
                         top: 6,
-                        bottom: pageSheetOpen
+                        bottom:
+                            pageSheetOpen &&
+                                shell.currentContent?.isTopic != true
                             ? MediaQuery.paddingOf(context).bottom
                             : 0,
                       ),

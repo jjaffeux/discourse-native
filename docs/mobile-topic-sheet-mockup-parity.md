@@ -8,10 +8,10 @@ Mobile topics fill the content area below the persistent header. The Native
 `DSheetVariant.page` paints the panel with 22px corners and overlays a 36×5px
 handle 7px below its top. It adds no menu margins or reserved handle row. The
 outer mobile surface stays mounted with a transparent fill, so the corners
-show the window ground without a square panel beneath them. Topic sheets end
-above the bottom safe-area inset, keeping their rounded foot visible above
-the home indicator and device corners. The persistent dock keeps its existing
-position; ordinary destination pages still extend to the bottom edge.
+show the window ground without a square panel beneath them. Topic sheets extend
+to the bottom screen edge, including the bottom safe-area inset. The persistent
+dock keeps its safe-area spacing and existing position. Plugin page sheets retain
+their bottom inset, and ordinary destination pages extend to the bottom edge.
 
 The source list stays mounted but unpainted, unfocusable, and absent from
 semantics at rest. Pulling the sheet reveals that same list without allowing
