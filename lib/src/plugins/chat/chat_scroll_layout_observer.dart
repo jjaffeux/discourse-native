@@ -16,7 +16,7 @@ class ChatScrollLayoutObserver extends SingleChildRenderObjectWidget {
 
   final TopicScrollCaptureController? capture;
   final int index;
-  final VoidCallback onLayout;
+  final ValueChanged<int> onLayout;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
@@ -39,18 +39,19 @@ class RenderChatScrollLayoutObserver extends RenderProxyBox {
 
   TopicScrollCaptureController? capture;
   int index;
-  VoidCallback onLayout;
+  ValueChanged<int> onLayout;
 
   @override
   void performLayout() {
-    onLayout();
     final recorder = capture;
     if (recorder == null || !recorder.isRecording) {
       super.performLayout();
+      onLayout(index);
       return;
     }
     final started = developer.Timeline.now;
     super.performLayout();
+    onLayout(index);
     recorder.recordTopicEvent('chat.row.layout', {
       'index': index,
       'durationUs': developer.Timeline.now - started,

@@ -1657,23 +1657,25 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       covered: _moreTopicsCovered,
       child: header.inset(
         ListenableBuilder(
-          listenable: _viewportState.floatingDayOverlayListenable,
-          builder: (context, child) {
+          listenable: _viewportState.floatingDayListenable,
+          builder: (context, _) {
             final floatingDay = _floatingDay;
             if (floatingDay == null) return const SizedBox.shrink();
-            // Stack clips layout overflow, but this translation only affects paint.
-            return ClipRect(
-              child: Transform.translate(
-                offset: Offset(0, _floatingDayOffset),
-                child: RepaintBoundary(
-                  // Reuse the date artwork when only its position or the
-                  // surrounding header clip changes.
-                  child: StreamDaySeparator(
-                    key: ValueKey(('topic-floating-day', floatingDay)),
-                    day: floatingDay,
-                    floating: true,
-                    onTap: () => _jumpToDayStart(floatingDay),
-                  ),
+            return ListenableBuilder(
+              listenable: _viewportState.floatingDayOverlayListenable,
+              builder: (context, child) => ClipRect(
+                // Stack clips layout overflow, but this translation only affects paint.
+                child: Transform.translate(
+                  offset: Offset(0, _floatingDayOffset),
+                  child: child,
+                ),
+              ),
+              child: RepaintBoundary(
+                child: StreamDaySeparator(
+                  key: ValueKey(('topic-floating-day', floatingDay)),
+                  day: floatingDay,
+                  floating: true,
+                  onTap: () => _jumpToDayStart(floatingDay),
                 ),
               ),
             );

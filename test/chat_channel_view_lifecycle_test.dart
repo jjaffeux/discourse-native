@@ -3699,10 +3699,12 @@ void main() {
       await mouse.moveTo(Offset.zero);
       await tester.pump();
 
-      final list = tester.widget<SuperListView>(find.byType(SuperListView));
+      final list = tester.widget<DMessageScrollerViewport>(
+        find.byType(DMessageScrollerViewport),
+      );
       list.listController!.jumpToItem(
         index: 35,
-        scrollController: list.controller!,
+        scrollController: list.scrollController!,
         alignment: 0.5,
       );
       await tester.pumpAndSettle();

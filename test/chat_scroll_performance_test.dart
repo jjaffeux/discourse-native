@@ -6,19 +6,26 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
+import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/reaction_presentation.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
@@ -520,8 +527,8 @@ void main() {
       expect(counts['chat.scroll.notification'], greaterThan(0));
       expect(counts['chat.stream.built'] ?? 0, 0);
       expect(counts['chat.row.layout'], greaterThan(0));
-      // Moving already measured rows must reuse the floating-date prefix sums.
-      expect(counts['chat.dayExtents.scanned'] ?? 0, lessThan(100));
+      expect(counts['chat.dayExtents.scanned'] ?? 0, 0);
+      expect(counts['chat.dayExtents.updated'] ?? 0, greaterThan(0));
       final context = capture.events.singleWhere(
         (event) => event.name == 'chat.capture.context',
       );
@@ -997,6 +1004,175 @@ void main() {
     });
   }
 
+  testWidgets('floating dates follow row rekeys, arrivals, and loading rows', (
+    tester,
+  ) async {
+    final controller = await chatScrollController(count: 48);
+    addTearDown(controller.dispose);
+    var messages = [
+      for (var id = 1; id <= 48; id++)
+        controller.chat.messageRef(chatScrollSite, id).value!,
+    ];
+    var items = buildChatStream(messages);
+    Future<void> mount({bool loadingNewer = false}) async {
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: PluginUiScope.own(
+            chatPluginId,
+            MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: SizedBox(
+                  width: 700.25,
+                  height: 500.75,
+                  child: ChatMessageStream(
+                    siteUrl: chatScrollSite,
+                    target: const ChatChannelTarget(9),
+                    items: items,
+                    stream: ChatStreamState(
+                      messageIds: [for (final message in messages) message.id],
+                      fetchedOnce: true,
+                      fetches: 1,
+                      loadingNewer: loadingNewer,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      if (loadingNewer) {
+        await tester.pump(const Duration(milliseconds: 16));
+        await tester.pump(const Duration(milliseconds: 16));
+      } else {
+        await tester.pumpAndSettle();
+      }
+      _expectChatFloatingMatchesFullScan(tester);
+    }
+
+    await mount();
+    final previousLength = items.length;
+    messages = [
+      for (final message in messages)
+        ChatMessage(
+          id: message.id + 1000,
+          channelId: message.channelId,
+          author: message.author,
+          cooked: '<p>Replacement ${message.id}</p>',
+          createdAt: message.createdAt,
+        ),
+    ];
+    controller.chatRecords.putAll(chatScrollSite, messages);
+    items = buildChatStream(messages);
+    expect(items.length, previousLength);
+    await mount();
+    await mount(loadingNewer: true);
+    await mount();
+
+    messages = [
+      ...messages,
+      ChatMessage(
+        id: 1049,
+        channelId: 9,
+        author: messages.last.author,
+        cooked: '<p>A newest row with a different day.</p>',
+        createdAt: DateTime(2026, 8, 5),
+      ),
+    ];
+    controller.chatRecords.put(chatScrollSite, messages.last);
+    items = buildChatStream(messages);
+    await mount();
+    final list = tester.widget<DMessageScrollerViewport>(
+      find.byType(DMessageScrollerViewport),
+    );
+    for (var step = 0; step < 30; step++) {
+      list.scrollController!.position.pointerScroll(17.5);
+      await tester.pump();
+      await tester.pump();
+      _expectChatFloatingMatchesFullScan(tester);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('floating date motion retains artwork and isolates its paint', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await chatScrollController(count: 48);
+    addTearDown(controller.dispose);
+    final diagnostics = DiagnosticsController.start(
+      persistence: MemoryDiagnosticsPersistence(),
+    );
+    addTearDown(diagnostics.close);
+    try {
+      await tester.pumpWidget(
+        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
+      );
+      await tester.pumpAndSettle();
+      final list = tester.widget<DMessageScrollerViewport>(
+        find.byType(DMessageScrollerViewport),
+      );
+      final floating = find.byWidgetPredicate(
+        (widget) => widget is StreamDaySeparator && widget.floating,
+      );
+      var paints = 0;
+      final previousPaint = debugOnProfilePaint;
+      debugOnProfilePaint = (object) {
+        previousPaint?.call(object);
+        if (object is! RenderParagraph) return;
+        if (object.debugCreator case final DebugCreator creator) {
+          creator.element.visitAncestorElements((ancestor) {
+            if (ancestor.widget case StreamDaySeparator(:final floating)) {
+              if (floating) paints++;
+              return false;
+            }
+            return true;
+          });
+        }
+      };
+      var moved = 0;
+      var stationary = 0;
+      try {
+        for (var step = 0; step < 400; step++) {
+          final before = tester.widget<StreamDaySeparator>(floating);
+          final beforeElement = tester.element(floating);
+          final beforeTop = tester.getTopLeft(floating).dy;
+          final beforePaints = paints;
+          list.scrollController!.position.pointerScroll(4);
+          await tester.pump(const Duration(milliseconds: 16));
+          await tester.pump();
+          _expectChatFloatingMatchesFullScan(tester);
+          if (floating.evaluate().isEmpty) continue;
+          final after = tester.widget<StreamDaySeparator>(floating);
+          if (before.day != after.day) continue;
+          final movedThisFrame =
+              (tester.getTopLeft(floating).dy - beforeTop).abs() > .1;
+          if (movedThisFrame) {
+            moved++;
+            expect(after, same(before));
+            expect(tester.element(floating), same(beforeElement));
+          } else {
+            stationary++;
+            expect(paints, beforePaints);
+          }
+        }
+      } finally {
+        debugOnProfilePaint = previousPaint;
+      }
+      expect(moved, greaterThan(0));
+      expect(stationary, greaterThan(0));
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await diagnostics.close();
+    }
+  });
+
   testWidgets('date extents refresh after a visible edit and viewport resize', (
     tester,
   ) async {
@@ -1031,6 +1207,7 @@ void main() {
       }
 
       await mount(800);
+      _expectChatFloatingMatchesFullScan(tester);
       final firstDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 1)));
       final secondDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 2)));
       expect(find.byKey(firstDay), findsOneWidget);
@@ -1049,21 +1226,39 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byKey(secondDay), findsOneWidget);
+      _expectChatFloatingMatchesFullScan(tester);
       expect(
         capture.events.where(
           (event) => event.name == 'chat.dayExtents.scanned',
+        ),
+        isEmpty,
+      );
+      expect(
+        capture.events.where(
+          (event) => event.name == 'chat.dayExtents.updated',
         ),
         isNotEmpty,
       );
       capture.start();
       await mount(360);
       expect(find.byKey(secondDay), findsOneWidget);
+      _expectChatFloatingMatchesFullScan(tester);
       expect(
         capture.events.where(
           (event) => event.name == 'chat.dayExtents.scanned',
         ),
+        isEmpty,
+      );
+      expect(
+        capture.events.where(
+          (event) => event.name == 'chat.dayExtents.updated',
+        ),
         isNotEmpty,
       );
+      tester.platformDispatcher.textScaleFactorTestValue = 1.35;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      _expectChatFloatingMatchesFullScan(tester);
       expect(tester.takeException(), isNull);
     } finally {
       capture.stop();
@@ -1072,6 +1267,67 @@ void main() {
       await diagnostics.close();
     }
   });
+}
+
+void _expectChatFloatingMatchesFullScan(WidgetTester tester) {
+  final stream = tester.widget<ChatMessageStream>(
+    find.byType(ChatMessageStream),
+  );
+  final header = DPageSurface.headerGeometryOf(
+    tester.element(find.byType(ChatMessageStream)),
+  );
+  final list = tester.widget<DMessageScrollerViewport>(
+    find.byType(DMessageScrollerViewport),
+  );
+  final leading = stream.stream.loadingNewer ? 1 : 0;
+  final days = [
+    for (var index = 0; index < stream.items.length; index++)
+      if (stream.items[index] case ChatStreamDay(:final day))
+        (day: day, row: leading + stream.items.length - 1 - index),
+  ];
+  final sums = <int, double>{};
+  var sum = 0.0;
+  for (var row = 0; row <= days.first.row; row++) {
+    sum += list.listController!.extentForIndex(row).$1;
+    sums[row] = sum;
+  }
+  final position = list.scrollController!.position;
+  final fromBottom =
+      position.viewportDimension -
+      8 -
+      (header?.footerExtent ?? 0) +
+      position.pixels;
+  final headerExtent = header?.visibleExtent ?? 0;
+  var candidate = -1;
+  for (var index = 0; index < days.length; index++) {
+    if (fromBottom - sums[days[index].row]! > headerExtent) break;
+    candidate = index;
+  }
+  final floating = find.byWidgetPredicate(
+    (widget) => widget is StreamDaySeparator && widget.floating,
+  );
+  if (candidate < 0) {
+    expect(floating, findsNothing);
+    return;
+  }
+  var offset = 0.0;
+  if (candidate + 1 < days.length) {
+    final nextTop = fromBottom - sums[days[candidate + 1].row]!;
+    if (nextTop < headerExtent + StreamDaySeparator.height) {
+      offset = nextTop - headerExtent - StreamDaySeparator.height;
+    }
+  }
+  expect(
+    tester.widget<StreamDaySeparator>(floating).day,
+    days[candidate].day,
+    reason:
+        'pixels ${position.pixels}, tops '
+        '${[for (final day in days) (day.day, fromBottom - sums[day.row]!)]}',
+  );
+  final positioned = tester.widget<Positioned>(
+    find.ancestor(of: floating, matching: find.byType(Positioned)).first,
+  );
+  expect(positioned.top, closeTo(offset, .1));
 }
 
 /// Scrolls outward and back so the retention window holds rows beyond the

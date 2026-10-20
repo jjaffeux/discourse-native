@@ -25,6 +25,64 @@ import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
 
 void main() {
+  testWidgets('floating date push retains the date artwork', (tester) async {
+    final site = instance('meta.example');
+    final firstDay = DateTime(2020, 1, 2);
+    final secondDay = DateTime(2020, 1, 3);
+    final posts = [
+      for (var id = 1; id <= 12; id++)
+        _post(id, day: id <= 6 ? firstDay : secondDay),
+    ];
+    final controller = _controller(site);
+    addTearDown(controller.dispose);
+    await controller.load();
+    controller.store
+      ..put(
+        site.url,
+        TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [for (final post in posts) post.id],
+          postsCount: posts.length,
+        ),
+      )
+      ..putAll(site.url, posts);
+    controller.pushContent(
+      ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+    );
+    await tester.pumpWidget(_topicView(controller));
+    await tester.pumpAndSettle();
+    final list = topicPostList(tester);
+    list.listController!.jumpToItem(
+      index: 5 * 2,
+      scrollController: list.controller!,
+      alignment: 0,
+    );
+    await tester.pumpAndSettle();
+    final floating = find.byWidgetPredicate(
+      (widget) => widget is StreamDaySeparator && widget.floating,
+    );
+    var moved = 0;
+    for (var step = 0; step < 130; step++) {
+      final before = tester.widget<StreamDaySeparator>(floating);
+      final beforeElement = tester.element(floating);
+      final beforeTop = tester.getTopLeft(floating).dy;
+      list.controller!.position.pointerScroll(2);
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump();
+      final after = tester.widget<StreamDaySeparator>(floating);
+      if (before.day != after.day ||
+          (tester.getTopLeft(floating).dy - beforeTop).abs() <= .1) {
+        continue;
+      }
+      moved++;
+      expect(after, same(before));
+      expect(tester.element(floating), same(beforeElement));
+    }
+    expect(moved, greaterThan(0));
+    expect(tester.takeException(), isNull);
+  });
+
   setUpAll(() async {
     if (Platform.environment['THREAD_NOTES_RENDER_DIR'] == null) return;
     final fonts =

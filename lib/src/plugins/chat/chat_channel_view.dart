@@ -788,6 +788,65 @@ class ChatMessageStream extends StatefulWidget {
   State<ChatMessageStream> createState() => _StreamState();
 }
 
+class _ChatDayExtents {
+  List<({DateTime day, int row})>? _days;
+  int? _rowCount;
+  final _rowExtents = <double>[];
+  final _sums = <int, double>{};
+  final _laidOut = <int>{};
+
+  void noteLayout(int row) => _laidOut.add(row);
+
+  void clear() {
+    _days = null;
+    _rowCount = null;
+    _rowExtents.clear();
+    _sums.clear();
+    _laidOut.clear();
+  }
+
+  ({Map<int, double> sums, bool initialized, int rows}) sync(
+    List<({DateTime day, int row})> days,
+    ListController list,
+  ) {
+    final initialized =
+        !identical(_days, days) || _rowCount != list.numberOfItems;
+    if (initialized) {
+      clear();
+      _days = days;
+      _rowCount = list.numberOfItems;
+      final dayRows = {for (final day in days) day.row};
+      var sum = 0.0;
+      for (var row = 0; row <= days.first.row; row++) {
+        final extent = list.extentForIndex(row).$1;
+        _rowExtents.add(extent);
+        sum += extent;
+        if (dayRows.contains(row)) _sums[row] = sum;
+      }
+      return (sums: _sums, initialized: true, rows: _rowExtents.length);
+    }
+
+    // The virtualizer writes measured extents after each child layout returns.
+    // Read them here, after layout, including unchanged first measurements.
+    final rows = _laidOut.where((row) => row < _rowExtents.length).toList()
+      ..sort();
+    _laidOut.clear();
+    if (rows.isEmpty) return (sums: _sums, initialized: false, rows: 0);
+    var rowIndex = 0;
+    var delta = 0.0;
+    for (final day in days.reversed) {
+      while (rowIndex < rows.length && rows[rowIndex] <= day.row) {
+        final row = rows[rowIndex++];
+        final extent = list.extentForIndex(row).$1;
+        delta += extent - _rowExtents[row];
+        _rowExtents[row] = extent;
+      }
+      _sums[day.row] = _sums[day.row]! + delta;
+    }
+    return (sums: _sums, initialized: false, rows: rows.length);
+  }
+}
+
 class _StreamState extends State<ChatMessageStream>
     with WidgetsBindingObserver {
   /// Matches Discourse's `READ_INTERVAL_MS`.
@@ -825,11 +884,8 @@ class _StreamState extends State<ChatMessageStream>
   /// window below them. Any scroll before it is applied supersedes it.
   ({_RetainedChatMessageState row, double top, double pixels})? _arrivalHold;
 
-  final _floatingDayState =
-      FrameSafeValueNotifier<({DateTime? day, double offset})>((
-        day: null,
-        offset: 0,
-      ));
+  final _floatingDay = FrameSafeValueNotifier<DateTime?>(null);
+  final _floatingDayOffset = FrameSafeValueNotifier<double>(0);
   final _presentState = FrameSafeValueNotifier<({bool away, int pendingCount})>(
     (away: false, pendingCount: 0),
   );
@@ -876,7 +932,9 @@ class _StreamState extends State<ChatMessageStream>
       _awayFromPresent = false;
       _unseenLiveMessages = 0;
       _arrivalHold = null;
-      _floatingDayState.value = (day: null, offset: 0);
+      _dayExtents.clear();
+      _floatingDay.value = null;
+      _floatingDayOffset.value = 0;
       _expandedDeletedMessageIds.clear();
       _clearHighlight(notify: false);
       _watchChannel();
@@ -1034,7 +1092,8 @@ class _StreamState extends State<ChatMessageStream>
     _list.dispose();
     _scroll.dispose();
     _messageScroller.dispose();
-    _floatingDayState.dispose();
+    _floatingDay.dispose();
+    _floatingDayOffset.dispose();
     _presentState.dispose();
     super.dispose();
   }
@@ -1381,7 +1440,6 @@ class _StreamState extends State<ChatMessageStream>
     _daySeparators = days;
     _daySeparatorsFor = widget.items;
     _daySeparatorsLeadingRows = _leadingRows;
-    _dayExtentSums = null;
     return days;
   }
 
@@ -1389,16 +1447,14 @@ class _StreamState extends State<ChatMessageStream>
   List<ChatStreamItem>? _daySeparatorsFor;
   int _daySeparatorsLeadingRows = 0;
 
-  Map<int, double>? _dayExtentSums;
+  final _dayExtents = _ChatDayExtents();
 
   void _noteExtentsChanged() {
-    // The virtualizer notifies on every scroll layout, even when its children
-    // reuse their sizes. Only actual row layouts invalidate the prefix sums.
     _scheduleLook();
   }
 
-  void _invalidateDayExtents() {
-    _dayExtentSums = null;
+  void _noteDayRowLayout(int row) {
+    _dayExtents.noteLayout(row);
     _scheduleLook();
   }
 
@@ -1409,27 +1465,20 @@ class _StreamState extends State<ChatMessageStream>
 
     final days = _daySeparatorRows();
     if (days.isEmpty) {
+      _dayExtents.clear();
       _setFloatingDay(null, 0);
       return;
     }
 
-    var sums = _dayExtentSums;
-    if (sums == null) {
-      final started = _recording ? developer.Timeline.now : null;
-      sums = <int, double>{};
-      final dayRows = {for (final entry in days) entry.row};
-      var extentThroughRow = 0.0;
-      for (var row = 0; row <= days.first.row; row++) {
-        extentThroughRow += _list.extentForIndex(row).$1;
-        if (dayRows.contains(row)) sums[row] = extentThroughRow;
-      }
-      _dayExtentSums = sums;
-      if (started != null) {
-        _recordScrollEvent('chat.dayExtents.scanned', {
-          'rows': days.first.row + 1,
-          'durationUs': developer.Timeline.now - started,
-        });
-      }
+    final started = _recording ? developer.Timeline.now : null;
+    final extents = _dayExtents.sync(days, _list);
+    if (started != null && extents.rows > 0) {
+      _recordScrollEvent(
+        extents.initialized
+            ? 'chat.dayExtents.scanned'
+            : 'chat.dayExtents.updated',
+        {'rows': extents.rows, 'durationUs': developer.Timeline.now - started},
+      );
     }
     final fromBottom =
         _scroll.position.viewportDimension -
@@ -1438,7 +1487,7 @@ class _StreamState extends State<ChatMessageStream>
         _scroll.position.pixels;
     final headerExtent = _headerGeometry?.visibleExtent ?? 0;
 
-    double topOf(int row) => fromBottom - sums![row]!;
+    double topOf(int row) => fromBottom - extents.sums[row]!;
 
     var candidateIndex = -1;
     for (var index = 0; index < days.length; index++) {
@@ -1462,18 +1511,19 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   void _setFloatingDay(DateTime? day, double offset) {
-    final current = _floatingDayState.value;
-    if (current.day == day && (current.offset - offset).abs() < 0.1) {
+    final dayChanged = _floatingDay.value != day;
+    if (!dayChanged && (_floatingDayOffset.value - offset).abs() < 0.1) {
       return;
     }
     if (!mounted) return;
     if (_recording) {
       _recordScrollEvent('chat.floatingDay.changed', {
-        'dayChanged': current.day != day,
+        'dayChanged': dayChanged,
         'offset': offset,
       });
     }
-    _floatingDayState.value = (day: day, offset: offset);
+    _floatingDayOffset.value = offset;
+    _floatingDay.value = day;
   }
 
   Object? _dayJumpToken;
@@ -1799,7 +1849,14 @@ class _StreamState extends State<ChatMessageStream>
                 if (_recording) {
                   _recordScrollEvent('chat.row.built', {'index': row});
                 }
-                if (row < leading) return const _LoadingNewerRow();
+                if (row < leading) {
+                  return ChatScrollLayoutObserver(
+                    capture: _scrollCapture,
+                    index: row,
+                    onLayout: _noteDayRowLayout,
+                    child: const _LoadingNewerRow(),
+                  );
+                }
                 if (row > lastRow) return const _LoadingOlderRow();
 
                 // The oldest row drives fill-pane fallback when no scroll fires.
@@ -1849,11 +1906,11 @@ class _StreamState extends State<ChatMessageStream>
                       ),
                     ),
                   ChatStreamDay(:final day) => ValueListenableBuilder(
-                    valueListenable: _floatingDayState,
+                    valueListenable: _floatingDay,
                     builder: (context, floating, child) => IgnorePointer(
-                      ignoring: day == floating.day,
+                      ignoring: day == floating,
                       child: Opacity(
-                        opacity: day == floating.day ? 0 : 1,
+                        opacity: day == floating ? 0 : 1,
                         child: child,
                       ),
                     ),
@@ -1897,25 +1954,31 @@ class _StreamState extends State<ChatMessageStream>
                 return ChatScrollLayoutObserver(
                   capture: _scrollCapture,
                   index: row,
-                  onLayout: _invalidateDayExtents,
+                  onLayout: _noteDayRowLayout,
                   child: child,
                 );
               },
             ),
             ValueListenableBuilder(
-              valueListenable: _floatingDayState,
-              builder: (context, floating, _) {
-                if (floating.day == null) return const SizedBox.shrink();
-                final separator = StreamDaySeparator(
-                  key: ValueKey(('chat-floating-day', floating.day!)),
-                  day: floating.day!,
-                  floating: true,
-                  onTap: () => _jumpToDayStart(floating.day!),
+              valueListenable: _floatingDay,
+              builder: (context, day, _) {
+                if (day == null) return const SizedBox.shrink();
+                final separator = RepaintBoundary(
+                  child: StreamDaySeparator(
+                    key: ValueKey(('chat-floating-day', day)),
+                    day: day,
+                    floating: true,
+                    onTap: () => _jumpToDayStart(day),
+                  ),
                 );
-                return Positioned(
-                  left: lane.leftInset,
-                  right: lane.rightInset,
-                  top: floating.offset,
+                return ValueListenableBuilder(
+                  valueListenable: _floatingDayOffset,
+                  builder: (context, offset, child) => Positioned(
+                    left: lane.leftInset,
+                    right: lane.rightInset,
+                    top: offset,
+                    child: child!,
+                  ),
                   child: header?.inset(separator) ?? separator,
                 );
               },
