@@ -78,3 +78,10 @@ flutter test --no-pub -d <iphone-simulator-id> integration_test/list_virtualizat
 The iPhone runner also supports focused replays with `--name 'Native dropdown lists'` or `--name 'Live draft tabs'`. The dropdown fixture preserves physical pixel ratio and places triggers inside the safe area; an open-popup assertion and a positive mount count prevent a dismissed menu from passing the measurement.
 
 Validation is scoped to the owning app and Native component suites, the changed pin/Voice behaviors, targeted analysis, and the iPhone integration helpers. Retained composer tests cover standard and glass material with semantics enabled. These checks establish rendering bounds and the exercised interactions. Physical-device frame timing remains unmeasured.
+
+
+## Validation record
+
+The final combined run passed 773 tests across 40 explicitly named owning files. A separate filtered run passed all 45 affected pin and Voice checks. Targeted analysis covers all 41 changed Dart files.
+
+The accepted iPhone simulator groups passed 105 cases: 27 notification/options cases, 41 radio navigation cases, 4 assignment cases, 21 corrected dropdown cases, and 12 live-draft cases. These groups ran separately as their units stabilized. The final live-draft group includes the current-main glass-button styling. Retained composer tests exercise both standard and glass material, with explicit semantics and editor-state checks. Desktop glass widget tests use the software lite-glass fallback.
