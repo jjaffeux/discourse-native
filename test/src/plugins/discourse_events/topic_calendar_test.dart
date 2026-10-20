@@ -32,22 +32,23 @@ void main() {
   }) => MaterialApp(
     theme: (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
         .copyWith(platform: platform),
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(
+        context,
+      ).copyWith(textScaler: TextScaler.linear(scale)),
+      child: child!,
+    ),
     home: Scaffold(
-      body: MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-        child: SingleChildScrollView(
-          child: SizedBox(
-            width: width,
-            child: TopicCalendar(
-              data: TopicCalendarData.decode(
-                calendarPostJson(details: details),
-              )!,
-              options: calendarOptions(options),
-              settings: settings,
-              zones: ports.zones,
-              now: now ?? DateTime.utc(2026, 9, 7, 12),
-              onOpenReply: openReply ?? (_) {},
-            ),
+      body: SingleChildScrollView(
+        child: SizedBox(
+          width: width,
+          child: TopicCalendar(
+            data: TopicCalendarData.decode(calendarPostJson(details: details))!,
+            options: calendarOptions(options),
+            settings: settings,
+            zones: ports.zones,
+            now: now ?? DateTime.utc(2026, 9, 7, 12),
+            onOpenReply: openReply ?? (_) {},
           ),
         ),
       ),
@@ -116,15 +117,89 @@ void main() {
       await tester.ensureVisible(find.text('+5'));
       await tester.tap(find.text('+5'));
       await tester.pumpAndSettle();
-      expect(find.text('Person 7'), findsOneWidget);
       final reply = find.text('View reply #17');
-      await tester.ensureVisible(reply);
+      await tester.scrollUntilVisible(
+        reply,
+        250,
+        scrollable: find
+            .descendant(
+              of: find.byType(DDialogContent),
+              matching: find.byType(Scrollable),
+            )
+            .last,
+      );
       await tester.tap(reply);
       await tester.pumpAndSettle();
       expect(opened, 17);
       expect(find.byType(AlertDialog), findsNothing);
     },
   );
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('day dialog mounts only its viewport at text scale $scale', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      int? opened;
+      await tester.pumpWidget(
+        calendar(
+          width: 320,
+          scale: scale,
+          details: [
+            for (var i = 0; i < 200; i++)
+              calendarDetail(
+                overrides: {
+                  'from': '2026-09-07',
+                  'to': null,
+                  'message': 'Attendee $i',
+                  'post_number': i + 10,
+                },
+              ),
+          ],
+          openReply: (number) => opened = number,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('+197'));
+      await tester.tap(find.text('+197'));
+      await tester.pumpAndSettle();
+      final dialog = find.byType(DDialogContent);
+      final mounted = find
+          .descendant(
+            of: dialog,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Text &&
+                  (widget.data?.startsWith('Attendee ') ?? false),
+              skipOffstage: false,
+            ),
+            skipOffstage: false,
+          )
+          .evaluate()
+          .length;
+      debugPrint('LAZY_LIST topic-day scale=$scale mounted=$mounted total=200');
+      expect(mounted, lessThan(30));
+      final reply = find.text('View reply #209');
+      final scrollable = find
+          .descendant(of: dialog, matching: find.byType(Scrollable))
+          .last;
+      await tester.scrollUntilVisible(
+        reply,
+        300,
+        scrollable: scrollable,
+        maxScrolls: 150,
+      );
+      await tester.tap(reply);
+      await tester.pumpAndSettle();
+      expect(opened, 209);
+      expect(dialog, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets(
     'a changed post updates Kalender without resetting the current month',

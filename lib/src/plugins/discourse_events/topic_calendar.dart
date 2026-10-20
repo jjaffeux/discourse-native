@@ -310,48 +310,52 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                 ),
               ],
             ),
-            SizedBox(
-              width: 480,
-              child: events.isEmpty
-                  ? Text(appL10n.noCalendarEntriesForThisDay)
-                  : SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final event in events)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    event.title,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
-                                  ),
-                                  Text(_dateLabel(event)),
-                                  if (event.description.isNotEmpty &&
-                                      event.description != event.title)
-                                    Text(event.description),
-                                  if (event.postNumber case final number?)
-                                    DButton(
-                                      variant: DButtonVariant.link,
-                                      onPressed: () {
-                                        dialog.close();
-                                        widget.onOpenReply(number);
-                                      },
-                                      label: Text(
-                                        appL10n.viewReply((number).toString()),
-                                      ),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: math.min(
+                  420,
+                  MediaQuery.sizeOf(context).height * .5,
+                ),
+              ),
+              child: SizedBox(
+                width: 480,
+                child: events.isEmpty
+                    ? Text(appL10n.noCalendarEntriesForThisDay)
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: events.length,
+                        itemBuilder: (context, index) {
+                          final event = events[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  event.title,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                Text(_dateLabel(event)),
+                                if (event.description.isNotEmpty &&
+                                    event.description != event.title)
+                                  Text(event.description),
+                                if (event.postNumber case final number?)
+                                  DButton(
+                                    variant: DButtonVariant.link,
+                                    onPressed: () {
+                                      dialog.close();
+                                      widget.onOpenReply(number);
+                                    },
+                                    label: Text(
+                                      appL10n.viewReply(number.toString()),
                                     ),
-                                ],
-                              ),
+                                  ),
+                              ],
                             ),
-                        ],
+                          );
+                        },
                       ),
-                    ),
+              ),
             ),
             DDialogFooter(
               children: [
