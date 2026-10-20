@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show listEquals, setEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +8,39 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 import 'd_label.dart';
+
+/// Complete reading-order choices for a radio group with lazily mounted rows.
+///
+/// [values] and [disabledValues] are immutable snapshots. Change [revision]
+/// when a query or data owner changes even if the returned values are equal.
+/// [reveal] mounts an offscreen value and completes after its layout. Check
+/// `isCurrent()` before scrolling and after every await so superseded navigation
+/// cannot move a replacement list. The group retains selection and focus policy.
+class DRadioGroupNavigation<T> {
+  DRadioGroupNavigation({
+    required Iterable<T> values,
+    required this.reveal,
+    Iterable<T> disabledValues = const [],
+    this.revision,
+  }) : values = List.unmodifiable(values),
+       disabledValues = Set.unmodifiable(disabledValues) {
+    assert(this.values.toSet().length == this.values.length);
+    assert(this.disabledValues.every(this.values.contains));
+  }
+
+  final List<T> values;
+  final Set<T> disabledValues;
+  final Object? revision;
+  final Future<void> Function(T value, bool Function() isCurrent) reveal;
+}
+
+typedef _RadioItem<T> = ({
+  T value,
+  bool readOnly,
+  bool enabled,
+  bool toggleable,
+  FocusNode focus,
+});
 
 /// A single selection with native radio roving focus and Form integration.
 ///
@@ -23,6 +59,7 @@ class DRadioGroup<T> extends FormField<T> {
     this.onChanged,
     required this.child,
     this.label,
+    this.navigation,
 
     super.enabled = true,
   }) : groupValue = null,
@@ -36,6 +73,7 @@ class DRadioGroup<T> extends FormField<T> {
     required this.child,
     super.initialValue,
     this.label,
+    this.navigation,
 
     super.enabled = true,
   }) : _controlled = true,
@@ -46,6 +84,10 @@ class DRadioGroup<T> extends FormField<T> {
   final Widget child;
   final Widget? label;
 
+  /// Optional complete choice metadata and reveal owner for a lazy viewport.
+  /// Without it, mounted children retain Flutter's normal radio navigation.
+  final DRadioGroupNavigation<T>? navigation;
+
   final bool _controlled;
 
   @override
@@ -53,7 +95,10 @@ class DRadioGroup<T> extends FormField<T> {
 }
 
 class _DRadioGroupState<T> extends FormFieldState<T> {
-  final _items = <Object, ({T value, bool readOnly})>{};
+  final _items = <Object, _RadioItem<T>>{};
+  final _navigationFocus = FocusNode(debugLabel: 'DRadioGroup navigation');
+  ({T value})? _cursor;
+  int _navigationGeneration = 0;
   final _contentKey = GlobalKey();
   late final T? _initialValue;
   @override
@@ -70,6 +115,146 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
   void didUpdateWidget(covariant DRadioGroup<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget._controlled) setValue(widget.groupValue);
+    final previous = oldWidget.navigation;
+    final next = widget.navigation;
+    if (previous?.revision != next?.revision ||
+        !listEquals(previous?.values, next?.values) ||
+        !setEquals(previous?.disabledValues, next?.disabledValues) ||
+        oldWidget.enabled != widget.enabled ||
+        oldWidget._controlled != widget._controlled ||
+        (oldWidget.onChanged == null) != (widget.onChanged == null) ||
+        (widget._controlled &&
+            oldWidget.groupValue != widget.groupValue &&
+            (_cursor == null || widget.groupValue != _cursor!.value))) {
+      _retireNavigation();
+    }
+  }
+
+  @override
+  void dispose() {
+    _retireNavigation();
+    _navigationFocus.dispose();
+    super.dispose();
+  }
+
+  bool get _enabled =>
+      widget.enabled && (!widget._controlled || widget.onChanged != null);
+  T? get _selection => widget._controlled ? widget.groupValue : value;
+
+  void _retireNavigation() {
+    ++_navigationGeneration;
+    _cursor = null;
+  }
+
+  void _itemFocused(T value) {
+    if (_cursor?.value == value) return;
+    _retireNavigation();
+    _cursor = (value: value);
+  }
+
+  void _select(T? next, {bool navigating = false}) {
+    final target = next ?? _selection;
+    final item = _items.values
+        .where((item) => item.value == target)
+        .firstOrNull;
+    final navigation = widget.navigation;
+    if (!_enabled ||
+        (item?.readOnly ?? false) ||
+        (navigation != null &&
+            (!navigation.values.contains(target) ||
+                navigation.disabledValues.contains(target)))) {
+      return;
+    }
+    if (!navigating) {
+      _retireNavigation();
+    }
+    didChange(next);
+    widget.onChanged?.call(next);
+  }
+
+  KeyEventResult _navigationKey(FocusNode node, KeyEvent event) {
+    if ((event is! KeyDownEvent && event is! KeyRepeatEvent) ||
+        HardwareKeyboard.instance.isAltPressed ||
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isShiftPressed ||
+        !_enabled) {
+      return KeyEventResult.ignored;
+    }
+    final focused = _items.values
+        .where((item) => item.focus.hasFocus)
+        .firstOrNull;
+    if (focused == null && !_navigationFocus.hasPrimaryFocus) {
+      return KeyEventResult.ignored;
+    }
+    final forward = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowDown || LogicalKeyboardKey.arrowRight => true,
+      LogicalKeyboardKey.arrowUp || LogicalKeyboardKey.arrowLeft => false,
+      _ => null,
+    };
+    if (forward == null) {
+      if (event.logicalKey == LogicalKeyboardKey.space &&
+          _navigationFocus.hasPrimaryFocus &&
+          _cursor != null) {
+        unawaited(_revealAndFocus(_cursor!.value, activate: true));
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    final navigation = widget.navigation!;
+    final source = _cursor?.value ?? focused?.value ?? _selection;
+    var index = navigation.values.indexWhere((value) => value == source);
+    if (index < 0 && !forward) index = 0;
+    for (var attempt = 0; attempt < navigation.values.length; attempt++) {
+      index = (index + (forward ? 1 : -1)) % navigation.values.length;
+      final target = navigation.values[index];
+      if (navigation.disabledValues.contains(target)) continue;
+      _cursor = (value: target);
+      unawaited(_revealAndFocus(target, forward: forward));
+      break;
+    }
+    return KeyEventResult.handled;
+  }
+
+  Future<void> _revealAndFocus(
+    T target, {
+    bool forward = true,
+    bool activate = false,
+  }) async {
+    final generation = ++_navigationGeneration;
+    bool current() =>
+        mounted &&
+        generation == _navigationGeneration &&
+        _enabled &&
+        _navigationFocus.hasFocus;
+    final navigation = widget.navigation!;
+    if (!activate) _select(target, navigating: true);
+    if (!current()) return;
+    var item = _items.values.where((item) => item.value == target).firstOrNull;
+    if (item == null) {
+      _navigationFocus.requestFocus();
+      await navigation.reveal(target, current);
+      if (!current()) return;
+      item = _items.values.where((item) => item.value == target).firstOrNull;
+    }
+    final itemContext = item?.focus.context;
+    if (item == null ||
+        !item.enabled ||
+        itemContext == null ||
+        !itemContext.mounted) {
+      return;
+    }
+    await Scrollable.ensureVisible(
+      itemContext,
+      alignmentPolicy: forward
+          ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+          : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+    );
+    if (!current()) return;
+    item.focus.requestFocus();
+    if (activate) {
+      _select(item.toggleable && _selection == target ? null : target);
+    }
   }
 
   @override
@@ -80,6 +265,7 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
 
   @override
   void reset() {
+    _retireNavigation();
     setValue(widget._controlled ? widget.groupValue : _initialValue);
     // Clear validation/interaction state and notify Form only after restoring
     // the accepted value. super.reset() would publish the latest initialValue.
@@ -89,28 +275,29 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
 
   Widget _build() {
     final tokens = DTokens.of(context);
-    final enabled =
-        widget.enabled && ((!widget._controlled) || widget.onChanged != null);
-    final selection = widget._controlled ? widget.groupValue : value;
+    final enabled = _enabled;
+    final selection = _selection;
     Widget result = _RadioScope<T>(
       key: _contentKey,
       items: _items,
-
+      onItemFocused: widget.navigation == null ? null : _itemFocused,
       enabled: enabled,
       invalid: (hasError),
       errorText: errorText,
       child: RadioGroup<T>(
         groupValue: selection,
-        onChanged: (next) {
-          final target = next ?? selection;
-          final item = _items.values
-              .where((item) => item.value == target)
-              .firstOrNull;
-          if (!enabled || (item?.readOnly ?? false)) return;
-          didChange(next);
-          widget.onChanged?.call(next);
-        },
-        child: widget.child,
+        onChanged: _select,
+        child: widget.navigation == null
+            ? widget.child
+            : Focus(
+                focusNode: _navigationFocus,
+                skipTraversal: true,
+                onKeyEvent: _navigationKey,
+                onFocusChange: (focused) {
+                  if (!focused) _retireNavigation();
+                },
+                child: widget.child,
+              ),
       ),
     );
     if ((widget.label != null) || hasError) {
@@ -160,13 +347,15 @@ class _RadioScope<T> extends InheritedWidget {
     required this.errorText,
 
     required this.items,
+    required this.onItemFocused,
     required super.child,
   });
   final bool enabled;
   final bool invalid;
   final String? errorText;
 
-  final Map<Object, ({T value, bool readOnly})> items;
+  final Map<Object, _RadioItem<T>> items;
+  final ValueChanged<T>? onItemFocused;
   @override
   bool updateShouldNotify(_RadioScope<T> oldWidget) =>
       ((enabled != oldWidget.enabled ||
@@ -215,7 +404,8 @@ class DRadioGroupItem<T> extends StatefulWidget {
   State<DRadioGroupItem<T>> createState() => _DRadioGroupItemState<T>();
 }
 
-class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
+class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>>
+    with AutomaticKeepAliveClientMixin {
   late FocusNode _focus;
   bool _hovered = false;
   _RadioScope<T>? _scope;
@@ -228,7 +418,16 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
 
   void _attach() {
     _focus = (FocusNode());
-    _focus.addListener(_changed);
+    _focus.addListener(_focusChanged);
+  }
+
+  @override
+  bool get wantKeepAlive => _scope?.onItemFocused != null && _focus.hasFocus;
+
+  void _focusChanged() {
+    updateKeepAlive();
+    if (_focus.hasFocus) _scope?.onItemFocused?.call(widget.value);
+    _changed();
   }
 
   void _changed() {
@@ -237,7 +436,7 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
 
   void _highlightChanged(FocusHighlightMode mode) => _changed();
   void _detach() {
-    _focus.removeListener(_changed);
+    _focus.removeListener(_focusChanged);
     _focus.dispose();
   }
 
@@ -256,11 +455,18 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final scope = context.dependOnInheritedWidgetOfExactType<_RadioScope<T>>();
     if (_scope?.items != scope?.items) _scope?.items.remove(this);
     _scope = scope;
     const readOnly = false;
-    scope?.items[this] = (value: widget.value, readOnly: readOnly);
+    scope?.items[this] = (
+      value: widget.value,
+      readOnly: readOnly,
+      enabled: widget.enabled,
+      toggleable: widget.toggleable,
+      focus: _focus,
+    );
     final registry = RadioGroup.maybeOf<T>(context);
     assert(
       registry != null,
