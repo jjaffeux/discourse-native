@@ -1634,7 +1634,6 @@ class _DocumentTabSelectionBinding {
   _DDocumentTabState? owner;
 
   KeyEventResult handleKey(FocusNode node, KeyEvent event) {
-    // Keyboard activation must not inherit a drag's pointer-down selection.
     if (event is KeyDownEvent) owner?.widget.onTapCancel?.call();
     return originalHandler?.call(node, event) ?? KeyEventResult.ignored;
   }
