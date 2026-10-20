@@ -239,7 +239,10 @@ void main() {
             await tester.drag(
               find.descendant(
                 of: find.byType(UserMenuPanel),
-                matching: find.byType(ListView),
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable && widget.axis == Axis.vertical,
+                ),
               ),
               const Offset(0, -250),
             );
@@ -318,7 +321,9 @@ void main() {
       await tester.drag(
         find.descendant(
           of: find.byType(UserMenuPanel),
-          matching: find.byType(ListView),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          ),
         ),
         const Offset(0, -250),
       );

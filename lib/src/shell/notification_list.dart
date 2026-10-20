@@ -61,11 +61,19 @@ class NotificationSection extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.onOpened,
-  });
+  }) : _sliver = false;
+
+  const NotificationSection.sliver({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  }) : _sliver = true;
 
   final String siteUrl;
 
   final VoidCallback onOpened;
+
+  final bool _sliver;
 
   @override
   Widget build(BuildContext context) => AccountActivityLoader.notifications(
@@ -75,6 +83,7 @@ class NotificationSection extends StatelessWidget {
       siteUrl: siteUrl,
       onOpened: onOpened,
       kind: _NotificationFeedKind.all,
+      sliver: _sliver,
     ),
   );
 }
@@ -84,10 +93,17 @@ class RepliesSection extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.onOpened,
-  });
+  }) : _sliver = false;
+
+  const RepliesSection.sliver({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  }) : _sliver = true;
 
   final String siteUrl;
   final VoidCallback onOpened;
+  final bool _sliver;
 
   @override
   Widget build(BuildContext context) =>
@@ -98,19 +114,24 @@ class RepliesSection extends StatelessWidget {
           siteUrl: siteUrl,
           onOpened: onOpened,
           kind: _NotificationFeedKind.replies,
+          sliver: _sliver,
         ),
       );
 }
 
 class LikesSection extends StatelessWidget {
-  const LikesSection({
+  const LikesSection({super.key, required this.siteUrl, required this.onOpened})
+    : _sliver = false;
+
+  const LikesSection.sliver({
     super.key,
     required this.siteUrl,
     required this.onOpened,
-  });
+  }) : _sliver = true;
 
   final String siteUrl;
   final VoidCallback onOpened;
+  final bool _sliver;
 
   @override
   Widget build(BuildContext context) => AccountActivityLoader.likeNotifications(
@@ -120,6 +141,7 @@ class LikesSection extends StatelessWidget {
       siteUrl: siteUrl,
       onOpened: onOpened,
       kind: _NotificationFeedKind.likes,
+      sliver: _sliver,
     ),
   );
 }
@@ -129,9 +151,18 @@ class MessageNotificationsSection extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.onOpened,
-  });
+  }) : _sliver = false;
+
+  const MessageNotificationsSection.sliver({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  }) : _sliver = true;
+
   final String siteUrl;
   final VoidCallback onOpened;
+  final bool _sliver;
+
   @override
   Widget build(BuildContext context) =>
       AccountActivityLoader.messageNotifications(
@@ -141,6 +172,7 @@ class MessageNotificationsSection extends StatelessWidget {
           siteUrl: siteUrl,
           onOpened: onOpened,
           kind: _NotificationFeedKind.messages,
+          sliver: _sliver,
         ),
       );
 }
@@ -150,10 +182,17 @@ class OtherNotificationsSection extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.onOpened,
-  });
+  }) : _sliver = false;
+
+  const OtherNotificationsSection.sliver({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  }) : _sliver = true;
 
   final String siteUrl;
   final VoidCallback onOpened;
+  final bool _sliver;
 
   @override
   Widget build(BuildContext context) =>
@@ -164,6 +203,7 @@ class OtherNotificationsSection extends StatelessWidget {
           siteUrl: siteUrl,
           onOpened: onOpened,
           kind: _NotificationFeedKind.other,
+          sliver: _sliver,
         ),
       );
 }
@@ -477,12 +517,14 @@ class _NotificationSectionView extends StatefulWidget {
     required this.siteUrl,
     required this.onOpened,
     required this.kind,
+    required this.sliver,
   });
 
   final ShellController controller;
   final String siteUrl;
   final VoidCallback onOpened;
   final _NotificationFeedKind kind;
+  final bool sliver;
 
   @override
   State<_NotificationSectionView> createState() =>
@@ -551,6 +593,8 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
     return ListenableBuilder(
       listenable: listenable,
       builder: (context, _) {
+        Widget box(Widget child) =>
+            widget.sliver ? SliverToBoxAdapter(child: child) : child;
         final currentFeed = switch (widget.kind) {
           _NotificationFeedKind.all => controller.notificationsFor(
             widget.siteUrl,
@@ -570,45 +614,60 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
         };
 
         if (currentFeed.error case final error?) {
-          return UserMenuMessage(text: error, onRetry: retry);
+          return box(UserMenuMessage(text: error, onRetry: retry));
         }
         if (!currentFeed.loaded) {
-          return UserMenuLoading(
-            semanticsLabel: context.l10n.loadingNotifications,
+          return box(
+            UserMenuLoading(semanticsLabel: context.l10n.loadingNotifications),
           );
         }
         if (currentFeed.isEmpty) {
-          return UserMenuMessage(
-            text: switch (widget.kind) {
-              _NotificationFeedKind.likes =>
-                context.l10n.youHavenTReceivedAnyLikesYet,
-              _NotificationFeedKind.other =>
-                context.l10n.youDonTHaveAnyOtherNotificationsYet,
-              _ => context.l10n.nothingNew,
-            },
+          return box(
+            UserMenuMessage(
+              text: switch (widget.kind) {
+                _NotificationFeedKind.likes =>
+                  context.l10n.youHavenTReceivedAnyLikesYet,
+                _NotificationFeedKind.other =>
+                  context.l10n.youDonTHaveAnyOtherNotificationsYet,
+                _ => context.l10n.nothingNew,
+              },
+            ),
+          );
+        }
+
+        Widget row(DiscourseNotification notification) {
+          final resolved = controller.plugins.registry.resolveNotification(
+            widget.siteUrl,
+            notification,
+          );
+          return NotificationRow(
+            siteUrl: widget.siteUrl,
+            notification: notification,
+            resolved: resolved,
+            linkPath: resolved.path,
+            onTap: () => _open(notification, resolved.path),
+            onMiddleClick: () =>
+                _open(notification, resolved.path, newTab: true),
+          );
+        }
+
+        final spacing = DesktopHeaderMenu.isActiveOf(context) ? 2.0 : 0.0;
+        if (widget.sliver) {
+          return SliverList.separated(
+            itemCount: currentFeed.notifications.length,
+            itemBuilder: (context, index) =>
+                row(currentFeed.notifications[index]),
+            separatorBuilder: (context, index) => SizedBox(height: spacing),
           );
         }
 
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: DesktopHeaderMenu.isActiveOf(context) ? 2 : 0,
+          spacing: spacing,
           children: [
-            ...currentFeed.notifications.map((notification) {
-              final resolved = controller.plugins.registry.resolveNotification(
-                widget.siteUrl,
-                notification,
-              );
-              return NotificationRow(
-                siteUrl: widget.siteUrl,
-                notification: notification,
-                resolved: resolved,
-                linkPath: resolved.path,
-                onTap: () => _open(notification, resolved.path),
-                onMiddleClick: () =>
-                    _open(notification, resolved.path, newTab: true),
-              );
-            }),
+            for (final notification in currentFeed.notifications)
+              row(notification),
           ],
         );
       },

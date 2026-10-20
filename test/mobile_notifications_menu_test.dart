@@ -15,6 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  notificationScrollTests();
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final rtl in [false, true]) {
       testWidgets(
@@ -43,7 +45,11 @@ void main() {
             expect(sheetRect.bottom, greaterThanOrEqualTo(800));
             expect(
               tester.getRect(tabs).top,
-              lessThan(tester.getRect(find.byType(NotificationSection)).top),
+              lessThan(
+                tester
+                    .getRect(find.byKey(const ValueKey('notification-row-1')))
+                    .top,
+              ),
             );
             expect(
               tester.getSemantics(_tab('all')),
@@ -60,7 +66,13 @@ void main() {
             expect(tester.getRect(sheet).top, lessThan(sheetRect.top));
             final tabsRect = tester.getRect(tabs);
             await tester.drag(
-              find.descendant(of: panel, matching: find.byType(ListView)),
+              find.descendant(
+                of: panel,
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is Scrollable && widget.axis == Axis.vertical,
+                ),
+              ),
               const Offset(0, -180),
             );
             await tester.pumpAndSettle();
@@ -135,7 +147,9 @@ void main() {
         expect(panel.height, greaterThan(640));
         final feed = find.descendant(
           of: find.byType(UserMenuPanel),
-          matching: find.byType(ListView),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          ),
         );
         expect(tester.getRect(feed).bottom, closeTo(sheet.bottom, 1));
         final tabs = find.byKey(const ValueKey('user-menu-mobile-tabs'));
@@ -385,6 +399,71 @@ void main() {
   }
 }
 
+void notificationScrollTests() {
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'long notification feed mounts only nearby rows at $scale text',
+      (tester) async {
+        final controller = await _mount(
+          tester,
+          notificationCount: 200,
+          scale: scale,
+        );
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        final openedRows = find.byType(NotificationRow).evaluate().length;
+        debugPrint(
+          'notification-scroll opened rows=$openedRows total=200 scale=$scale',
+        );
+        expect(openedRows, lessThan(40));
+        expect(
+          find.byKey(const ValueKey('notification-row-200')),
+          findsNothing,
+        );
+
+        await tester.drag(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+        final tabs = find.byKey(const ValueKey('user-menu-mobile-tabs'));
+        final tabsRect = tester.getRect(tabs);
+        final scrollable = find.descendant(
+          of: find.byType(UserMenuPanel),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          ),
+        );
+        await tester.scrollUntilVisible(
+          find.byKey(const ValueKey('notification-row-200')),
+          500,
+          scrollable: scrollable,
+          maxScrolls: 100,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(tabs), tabsRect);
+        expect(find.byType(NotificationRow).evaluate().length, lessThan(40));
+        expect(find.byKey(const ValueKey('notification-row-1')), findsNothing);
+        expect(
+          find.byKey(const ValueKey('notification-row-200')).hitTestable(),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const ValueKey('notification-row-200')));
+        await tester.pumpAndSettle();
+        expect(
+          controller
+              .notificationsFor('https://meta.example')
+              .notifications
+              .last
+              .read,
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+}
+
 Finder _tab(String id) => find.descendant(
   of: find.ancestor(
     of: find.byKey(ValueKey('user-menu-tab-$id')),
@@ -401,6 +480,7 @@ Future<ShellController> _mount(
   double scale = 1,
   bool rtl = false,
   bool dark = false,
+  int notificationCount = 20,
 }) async {
   tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
@@ -414,7 +494,7 @@ Future<ShellController> _mount(
       user: user,
       totals: const NotificationTotals(unreadNotifications: 3),
       notificationList: [
-        for (var id = 1; id <= 20; id++)
+        for (var id = 1; id <= notificationCount; id++)
           DiscourseNotification.test(
             id: id,
             typeId: const NotificationTypeId(2),

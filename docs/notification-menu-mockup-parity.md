@@ -83,3 +83,19 @@ clean for the changed files.
 The corner/shadow follow-up passes 59 focused checks, including native iOS
 pixel checks for a smooth corner transition, an outer shadow below the pill,
 and no button activation when tapping that shadow. Static analysis is clean.
+
+Mobile core notification feeds use a bounded sliver list for All, Replies,
+Likes, Messages, and Other. Notification presentation, avatars, and row widgets
+are resolved only when the viewport requests them. The sheet keeps one scroll
+position, variable row heights, its pinned filters, and its existing Native
+row controls. Standalone section widgets retain their box layout.
+
+The 390x800 iOS widget fixture with 200 notifications mounted all 200 rows
+before virtualization. It mounts 7 rows at normal text size and 2 at 200%
+text after virtualization. These are live row counts, not frame-time or
+physical-device FPS measurements. The regression scrolls to notification 200,
+checks that the first row has been released and the filters stay fixed, then
+marks the last notification read. Run it with
+`flutter test test/mobile_notifications_menu_test.dart --plain-name 'long notification feed'`.
+The same regression runs on an iPhone simulator through
+`integration_test/mobile_notification_scroll_test.dart`.

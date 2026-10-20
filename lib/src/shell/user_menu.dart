@@ -538,6 +538,33 @@ class _SectionBody extends StatelessWidget {
       ],
     ];
 
+    final notificationSliver =
+        fillSheet && section.plugin == null && siteUrl != null
+        ? switch (section.id) {
+            UserMenuSection.notificationsId => NotificationSection.sliver(
+              siteUrl: siteUrl,
+              onOpened: onDismiss,
+            ),
+            UserMenuSection.repliesId => RepliesSection.sliver(
+              siteUrl: siteUrl,
+              onOpened: onDismiss,
+            ),
+            UserMenuSection.likesId => LikesSection.sliver(
+              siteUrl: siteUrl,
+              onOpened: onDismiss,
+            ),
+            UserMenuSection.messagesId => MessageNotificationsSection.sliver(
+              siteUrl: siteUrl,
+              onOpened: onDismiss,
+            ),
+            UserMenuSection.otherId => OtherNotificationsSection.sliver(
+              siteUrl: siteUrl,
+              onOpened: onDismiss,
+            ),
+            _ => null,
+          }
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: fillSheet ? MainAxisSize.max : MainAxisSize.min,
@@ -545,16 +572,25 @@ class _SectionBody extends StatelessWidget {
         if (showHeader) _SectionHeader(section: section),
         Flexible(
           fit: fillSheet ? FlexFit.tight : FlexFit.loose,
-          child: ListenableBuilder(
-            listenable: controller.draftList,
-            builder: (context, _) => ListView(
-              shrinkWrap: !fillSheet,
-              padding: DesktopHeaderMenu.isActiveOf(context)
-                  ? const EdgeInsets.all(6)
-                  : const EdgeInsets.symmetric(vertical: 6),
-              children: rows(),
-            ),
-          ),
+          child: notificationSliver != null
+              ? CustomScrollView(
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.all(6),
+                      sliver: notificationSliver,
+                    ),
+                  ],
+                )
+              : ListenableBuilder(
+                  listenable: controller.draftList,
+                  builder: (context, _) => ListView(
+                    shrinkWrap: !fillSheet,
+                    padding: DesktopHeaderMenu.isActiveOf(context)
+                        ? const EdgeInsets.all(6)
+                        : const EdgeInsets.symmetric(vertical: 6),
+                    children: rows(),
+                  ),
+                ),
         ),
       ],
     );
