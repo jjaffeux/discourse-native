@@ -218,8 +218,22 @@ class PluginNotificationsSection extends StatefulWidget {
     this.unreadCount = 0,
     this.viewAll,
     this.emptyStateAction,
-  }) : assert(unreadCount >= 0);
+  }) : _sliver = false,
+       assert(unreadCount >= 0);
 
+  const PluginNotificationsSection.sliver({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+    required this.host,
+    required this.source,
+    this.unreadCount = 0,
+    this.viewAll,
+    this.emptyStateAction,
+  }) : _sliver = true,
+       assert(unreadCount >= 0);
+
+  final bool _sliver;
   final String siteUrl;
   final VoidCallback onOpened;
   final PluginNotificationFeedHost host;
@@ -339,6 +353,9 @@ class _PluginNotificationsSectionState
     }
   }
 
+  Widget _box(Widget child) =>
+      widget._sliver ? SliverToBoxAdapter(child: child) : child;
+
   Widget _withActions(Widget content, {required bool empty}) {
     final dismissal = widget.source.dismissal;
     final showAction =
@@ -348,11 +365,9 @@ class _PluginNotificationsSectionState
     final link = empty ? widget.emptyStateAction : widget.viewAll;
     if (dismissAction == null && link == null) return content;
     final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (dismissAction != null)
+    final children = [
+      if (dismissAction != null)
+        _box(
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Align(
@@ -371,7 +386,9 @@ class _PluginNotificationsSectionState
               ),
             ),
           ),
-        if (_dismissError case final error?)
+        ),
+      if (_dismissError case final error?)
+        _box(
           Semantics(
             liveRegion: true,
             child: Padding(
@@ -388,8 +405,10 @@ class _PluginNotificationsSectionState
               ),
             ),
           ),
-        content,
-        if (link != null)
+        ),
+      content,
+      if (link != null)
+        _box(
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Align(
@@ -413,8 +432,15 @@ class _PluginNotificationsSectionState
               ),
             ),
           ),
-      ],
-    );
+        ),
+    ];
+    return widget._sliver
+        ? SliverMainAxisGroup(slivers: children)
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          );
   }
 
   Future<void> _openLink(String path, {bool newTab = false}) async {
@@ -461,50 +487,61 @@ class _PluginNotificationsSectionState
         widget.siteUrl,
       );
       if (feed.error case final error?) {
-        return UserMenuMessage(
-          text: error,
-          onRetry: () => widget.host.loadPluginNotificationFeed(
-            widget.siteUrl,
-            widget.source,
+        return _box(
+          UserMenuMessage(
+            text: error,
+            onRetry: () => widget.host.loadPluginNotificationFeed(
+              widget.siteUrl,
+              widget.source,
+            ),
           ),
         );
       }
       if (!feed.loaded) {
-        return UserMenuLoading(
-          semanticsLabel: context.l10n.loadingNotifications,
+        return _box(
+          UserMenuLoading(semanticsLabel: context.l10n.loadingNotifications),
         );
       }
       if (feed.isEmpty) {
         return _withActions(
-          UserMenuMessage(text: widget.source.emptyMessage),
+          _box(UserMenuMessage(text: widget.source.emptyMessage)),
           empty: true,
         );
       }
       final registry =
           PluginScope.maybeOf(context)?.registry ??
           PluginRegistryScope.maybeOf(context);
+      Widget row(DiscourseNotification notification) {
+        final resolved =
+            registry?.resolveNotification(widget.siteUrl, notification) ??
+            resolveCoreNotification(widget.siteUrl, notification);
+        return NotificationRow(
+          siteUrl: widget.siteUrl,
+          notification: notification,
+          resolved: resolved,
+          linkPath: resolved.path,
+          onTap: () => _open(notification, resolved.path),
+          onMiddleClick: () => _open(notification, resolved.path, newTab: true),
+        );
+      }
+
+      final spacing = DesktopHeaderMenu.isActiveOf(context) ? 2.0 : 0.0;
       return _withActions(
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: DesktopHeaderMenu.isActiveOf(context) ? 2 : 0,
-          children: [
-            ...feed.notifications.map((notification) {
-              final resolved =
-                  registry?.resolveNotification(widget.siteUrl, notification) ??
-                  resolveCoreNotification(widget.siteUrl, notification);
-              return NotificationRow(
-                siteUrl: widget.siteUrl,
-                notification: notification,
-                resolved: resolved,
-                linkPath: resolved.path,
-                onTap: () => _open(notification, resolved.path),
-                onMiddleClick: () =>
-                    _open(notification, resolved.path, newTab: true),
-              );
-            }),
-          ],
-        ),
+        widget._sliver
+            ? SliverList.separated(
+                itemCount: feed.notifications.length,
+                itemBuilder: (context, index) => row(feed.notifications[index]),
+                separatorBuilder: (context, index) => SizedBox(height: spacing),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: spacing,
+                children: [
+                  for (final notification in feed.notifications)
+                    row(notification),
+                ],
+              ),
         empty: false,
       );
     },

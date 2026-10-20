@@ -101,6 +101,13 @@ final class AssignPlugin
           unreadCount: unreadCount,
           viewAllPath: fullListPath,
         ),
+        sliverBuilder: (buildContext, actions) =>
+            AssignUserMenuNotifications.sliver(
+              siteUrl: context.siteUrl,
+              onOpened: actions.onDismiss,
+              unreadCount: unreadCount,
+              viewAllPath: fullListPath,
+            ),
       ),
     ];
   }

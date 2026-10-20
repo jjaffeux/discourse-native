@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugin_api/notification_feed_host.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_menu_message.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -43,7 +44,42 @@ const _plainSource = PluginNotificationFeedSource(
   emptyMessage: 'Nothing here.',
 );
 
+bool _sliverMode = false;
+
 void main() {
+  for (final sliver in [false, true]) {
+    group('sliver=$sliver', () {
+      setUp(() => _sliverMode = sliver);
+      _sectionTests();
+    });
+  }
+}
+
+void _sectionTests() {
+  testWidgets('loading, error and empty states keep their render contract', (
+    tester,
+  ) async {
+    final host = _FeedHost(const NotificationFeed.loading());
+    addTearDown(host.dispose);
+    await _pumpSection(
+      tester,
+      host: host,
+      source: _plainSource,
+      unreadCount: 0,
+    );
+    expect(find.byType(UserMenuLoading), findsOneWidget);
+    host.feed = const NotificationFeed.failed('Unavailable');
+    host.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.text('Unavailable'), findsOneWidget);
+    expect(find.byType(UserMenuLoading), findsNothing);
+    host.feed = const NotificationFeed.of([]);
+    host.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.text('Nothing here.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'middle-click opens a plugin notification in a background tab and marks it read without dismissing',
     (tester) async {
@@ -286,9 +322,10 @@ Future<void> _pumpSection(
   VoidCallback? onOpened,
   ShellController? controller,
 }) {
-  final app = MaterialApp(
-    home: Scaffold(
-      body: PluginNotificationsSection(
+  final section =
+      (_sliverMode
+      ? PluginNotificationsSection.sliver
+      : PluginNotificationsSection.new)(
         siteUrl: _siteUrl,
         onOpened: onOpened ?? _ignore,
         host: host,
@@ -296,7 +333,10 @@ Future<void> _pumpSection(
         unreadCount: unreadCount,
         viewAll: viewAll,
         emptyStateAction: emptyStateAction,
-      ),
+      );
+  final app = MaterialApp(
+    home: Scaffold(
+      body: _sliverMode ? CustomScrollView(slivers: [section]) : section,
     ),
   );
   return tester.pumpWidget(

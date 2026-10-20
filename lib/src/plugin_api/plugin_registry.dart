@@ -1893,6 +1893,7 @@ final class PluginRegistry
           );
         }
         final owner = PluginId(pluginName);
+        final sliverBuilder = section.sliverBuilder;
         sections.add(
           PluginUserMenuSection(
             id: section.id,
@@ -1901,6 +1902,15 @@ final class PluginRegistry
             badge: section.badge,
             linkWhenActive: linkWhenActive,
             notificationTypes: List.unmodifiable(section.notificationTypes),
+            sliverBuilder: sliverBuilder == null
+                ? null
+                : (buildContext, actions) => PluginUiScope.own(
+                    owner,
+                    sliverBuilder(
+                      PluginUiScope.contextFor(buildContext, owner),
+                      actions,
+                    ),
+                  ),
             builder: (buildContext, actions) => PluginUiScope.own(
               owner,
               section.builder(

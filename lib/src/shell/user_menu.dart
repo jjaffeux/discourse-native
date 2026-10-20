@@ -538,8 +538,13 @@ class _SectionBody extends StatelessWidget {
       ],
     ];
 
-    final notificationSliver =
-        fillSheet && section.plugin == null && siteUrl != null
+    final pluginSliverBuilder = section.plugin?.sliverBuilder;
+    final notificationSliver = pluginSliverBuilder != null
+        ? pluginSliverBuilder(
+            context,
+            PluginUserMenuRenderContext(onDismiss: onDismiss),
+          )
+        : section.plugin == null && siteUrl != null
         ? switch (section.id) {
             UserMenuSection.notificationsId => NotificationSection.sliver(
               siteUrl: siteUrl,
@@ -574,6 +579,7 @@ class _SectionBody extends StatelessWidget {
           fit: fillSheet ? FlexFit.tight : FlexFit.loose,
           child: notificationSliver != null
               ? CustomScrollView(
+                  shrinkWrap: !fillSheet,
                   slivers: [
                     SliverPadding(
                       padding: const EdgeInsets.all(6),

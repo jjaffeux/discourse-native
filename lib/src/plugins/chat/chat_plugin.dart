@@ -245,6 +245,11 @@ class ChatPlugin
               siteUrl: context.siteUrl,
               onOpened: actions.onDismiss,
             ),
+            sliverBuilder: (buildContext, actions) =>
+                ChatUserMenuNotifications.sliver(
+                  siteUrl: context.siteUrl,
+                  onOpened: actions.onDismiss,
+                ),
           ),
         ]
       : const [];

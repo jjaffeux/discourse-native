@@ -27,16 +27,26 @@ class ChatUserMenuNotifications extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.onOpened,
-  });
+  }) : _sliver = false;
 
+  const ChatUserMenuNotifications.sliver({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+  }) : _sliver = true;
+
+  final bool _sliver;
   final String siteUrl;
   final VoidCallback onOpened;
 
   @override
-  Widget build(BuildContext context) => PluginNotificationsSection(
-    siteUrl: siteUrl,
-    onOpened: onOpened,
-    host: PluginUiScope.require(context, chatNotificationHostService),
-    source: chatNotificationFeed,
-  );
+  Widget build(BuildContext context) =>
+      (_sliver
+      ? PluginNotificationsSection.sliver
+      : PluginNotificationsSection.new)(
+        siteUrl: siteUrl,
+        onOpened: onOpened,
+        host: PluginUiScope.require(context, chatNotificationHostService),
+        source: chatNotificationFeed,
+      );
 }

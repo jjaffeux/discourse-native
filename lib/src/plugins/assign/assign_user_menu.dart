@@ -12,27 +12,39 @@ class AssignUserMenuNotifications extends StatelessWidget {
     required this.onOpened,
     required this.unreadCount,
     required this.viewAllPath,
-  });
+  }) : _sliver = false;
 
+  const AssignUserMenuNotifications.sliver({
+    super.key,
+    required this.siteUrl,
+    required this.onOpened,
+    required this.unreadCount,
+    required this.viewAllPath,
+  }) : _sliver = true;
+
+  final bool _sliver;
   final String siteUrl;
   final VoidCallback onOpened;
   final int unreadCount;
   final String viewAllPath;
 
   @override
-  Widget build(BuildContext context) => PluginNotificationsSection(
-    siteUrl: siteUrl,
-    onOpened: onOpened,
-    host: PluginUiScope.require(context, assignNotificationHostService),
-    source: assignNotificationFeed,
-    unreadCount: unreadCount,
-    viewAll: PluginNotificationFeedLink(
-      label: context.l10n.viewAllAssigned,
-      path: viewAllPath,
-    ),
-    emptyStateAction: PluginNotificationFeedLink(
-      label: context.l10n.notificationPreferences,
-      path: '/my/preferences/notifications',
-    ),
-  );
+  Widget build(BuildContext context) =>
+      (_sliver
+      ? PluginNotificationsSection.sliver
+      : PluginNotificationsSection.new)(
+        siteUrl: siteUrl,
+        onOpened: onOpened,
+        host: PluginUiScope.require(context, assignNotificationHostService),
+        source: assignNotificationFeed,
+        unreadCount: unreadCount,
+        viewAll: PluginNotificationFeedLink(
+          label: context.l10n.viewAllAssigned,
+          path: viewAllPath,
+        ),
+        emptyStateAction: PluginNotificationFeedLink(
+          label: context.l10n.notificationPreferences,
+          path: '/my/preferences/notifications',
+        ),
+      );
 }

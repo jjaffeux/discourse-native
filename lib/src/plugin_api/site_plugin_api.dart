@@ -177,6 +177,7 @@ final class PluginUserMenuSection {
     required this.icon,
     required this.label,
     required this.builder,
+    this.sliverBuilder,
     this.badge = 0,
     this.linkWhenActive,
     this.notificationTypes = const [],
@@ -199,6 +200,11 @@ final class PluginUserMenuSection {
   /// is written from the forum root, as `ResolvedNotification.path` is.
   final String? linkWhenActive;
   final PluginUserMenuSectionBuilder builder;
+
+  /// Optional sliver content for the user menu's scroll view.
+  ///
+  /// The required [builder] retains its box content contract for other callers.
+  final PluginUserMenuSectionBuilder? sliverBuilder;
 }
 
 abstract interface class UserMenuSectionPlugin {
