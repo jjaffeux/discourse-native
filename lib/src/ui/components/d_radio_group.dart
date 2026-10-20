@@ -105,6 +105,8 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
   ({T value})? _cursor;
   int _navigationGeneration = 0;
   _RadioNavigation _navigation = _RadioNavigation.idle;
+  bool _hadNavigationFocus = false;
+  bool _entryUpdateScheduled = false;
   final _contentKey = GlobalKey();
   late final T? _initialValue;
   @override
@@ -114,6 +116,8 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
   void initState() {
     super.initState();
     _initialValue = widget.initialValue;
+    _navigationFocus.onKeyEvent = _navigationKey;
+    _navigationFocus.addListener(_navigationFocusChanged);
     if (widget._controlled) setValue(widget.groupValue);
   }
 
@@ -139,6 +143,7 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
   @override
   void dispose() {
     _retireNavigation();
+    _navigationFocus.removeListener(_navigationFocusChanged);
     _navigationFocus.dispose();
     super.dispose();
   }
@@ -151,6 +156,62 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
     ++_navigationGeneration;
     _cursor = null;
     _navigation = _RadioNavigation.idle;
+  }
+
+  ({T value})? get _entryTarget {
+    final navigation = widget.navigation;
+    if (navigation == null) return null;
+    ({T value})? first;
+    for (final value in navigation.values) {
+      if (navigation.disabledValues.contains(value)) continue;
+      first ??= (value: value);
+      if (value == _selection) return (value: value);
+    }
+    return first;
+  }
+
+  void _refreshEntryPolicy() {
+    final target = _entryTarget;
+    final selectedMounted =
+        target != null &&
+        target.value == _selection &&
+        _items.values.any((item) => item.enabled && item.value == target.value);
+    final needsEntry =
+        _navigationFocus.hasPrimaryFocus ||
+        _navigation == _RadioNavigation.enter ||
+        (!_navigationFocus.hasFocus && !selectedMounted);
+    _navigationFocus
+      ..skipTraversal = !needsEntry || !_enabled || target == null
+      ..descendantsAreTraversable = !needsEntry && _enabled;
+  }
+
+  void _itemsChanged() {
+    if (_entryUpdateScheduled || !mounted || widget.navigation == null) return;
+    _entryUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _entryUpdateScheduled = false;
+      if (mounted && widget.navigation != null) _refreshEntryPolicy();
+    });
+  }
+
+  void _navigationFocusChanged() {
+    final focused = _navigationFocus.hasFocus;
+    final entered = focused && !_hadNavigationFocus;
+    final left = !focused && _hadNavigationFocus;
+    _hadNavigationFocus = focused;
+    if (left) {
+      _retireNavigation();
+    } else if (entered &&
+        _navigationFocus.hasPrimaryFocus &&
+        _navigation == _RadioNavigation.idle) {
+      final target = _entryTarget;
+      if (target != null) {
+        _navigation = _RadioNavigation.enter;
+        _cursor = target;
+        unawaited(_revealAndFocus(target.value, propose: false));
+      }
+    }
+    _refreshEntryPolicy();
   }
 
   void _itemFocused(T value) {
@@ -262,12 +323,9 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
           : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
     );
     if (!current()) return;
-    if (_navigation == _RadioNavigation.enter) {
-      setState(() => _navigation = _RadioNavigation.idle);
-    } else {
-      _navigation = _RadioNavigation.idle;
-    }
+    _navigation = _RadioNavigation.idle;
     item.focus.requestFocus();
+    _refreshEntryPolicy();
     if (activate && (item.toggleable || _selection != target)) {
       _select(item.toggleable && _selection == target ? null : target);
     }
@@ -293,25 +351,12 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
     final tokens = DTokens.of(context);
     final enabled = _enabled;
     final selection = _selection;
-    final navigation = widget.navigation;
-    final entryValue = navigation?.values
-        .where((value) => !navigation.disabledValues.contains(value))
-        .firstOrNull;
-    final selectedEnabled =
-        navigation != null &&
-        navigation.values.contains(selection) &&
-        !navigation.disabledValues.contains(selection);
-    final selectedMounted = _items.values.any(
-      (item) => item.enabled && item.value == selection,
-    );
-    final needsEntry =
-        _navigationFocus.hasPrimaryFocus ||
-        _navigation == _RadioNavigation.enter ||
-        (!_navigationFocus.hasFocus && (!selectedEnabled || !selectedMounted));
+    if (widget.navigation != null) _refreshEntryPolicy();
     Widget result = _RadioScope<T>(
       key: _contentKey,
       items: _items,
       onItemFocused: widget.navigation == null ? null : _itemFocused,
+      onItemsChanged: widget.navigation == null ? null : _itemsChanged,
       enabled: enabled,
       invalid: (hasError),
       errorText: errorText,
@@ -320,27 +365,9 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
         onChanged: _select,
         child: widget.navigation == null
             ? widget.child
-            : Focus(
+            : Focus.withExternalFocusNode(
                 focusNode: _navigationFocus,
                 includeSemantics: false,
-                skipTraversal: !needsEntry || !enabled || entryValue == null,
-                descendantsAreTraversable: !needsEntry && enabled,
-                onKeyEvent: _navigationKey,
-                onFocusChange: (focused) {
-                  if (!focused) {
-                    _retireNavigation();
-                  } else if (_navigationFocus.hasPrimaryFocus &&
-                      _navigation == _RadioNavigation.idle &&
-                      entryValue != null) {
-                    final target = selectedEnabled
-                        ? selection as T
-                        : entryValue;
-                    _navigation = _RadioNavigation.enter;
-                    _cursor = (value: target);
-                    unawaited(_revealAndFocus(target, propose: false));
-                  }
-                  if (mounted) setState(() {});
-                },
                 child: widget.child,
               ),
       ),
@@ -393,6 +420,7 @@ class _RadioScope<T> extends InheritedWidget {
 
     required this.items,
     required this.onItemFocused,
+    required this.onItemsChanged,
     required super.child,
   });
   final bool enabled;
@@ -401,6 +429,18 @@ class _RadioScope<T> extends InheritedWidget {
 
   final Map<Object, _RadioItem<T>> items;
   final ValueChanged<T>? onItemFocused;
+  final VoidCallback? onItemsChanged;
+
+  void register(Object owner, _RadioItem<T> item) {
+    if (items[owner] == item) return;
+    items[owner] = item;
+    onItemsChanged?.call();
+  }
+
+  void unregister(Object owner) {
+    if (items.remove(owner) != null) onItemsChanged?.call();
+  }
+
   @override
   bool updateShouldNotify(_RadioScope<T> oldWidget) =>
       ((enabled != oldWidget.enabled ||
@@ -493,7 +533,7 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>>
   @override
   void dispose() {
     FocusManager.instance.removeHighlightModeListener(_highlightChanged);
-    _scope?.items.remove(this);
+    _scope?.unregister(this);
     _detach();
     super.dispose();
   }
@@ -502,16 +542,16 @@ class _DRadioGroupItemState<T> extends State<DRadioGroupItem<T>>
   Widget build(BuildContext context) {
     super.build(context);
     final scope = context.dependOnInheritedWidgetOfExactType<_RadioScope<T>>();
-    if (_scope?.items != scope?.items) _scope?.items.remove(this);
+    if (_scope?.items != scope?.items) _scope?.unregister(this);
     _scope = scope;
     const readOnly = false;
-    scope?.items[this] = (
+    scope?.register(this, (
       value: widget.value,
       readOnly: readOnly,
       enabled: widget.enabled,
       toggleable: widget.toggleable,
       focus: _focus,
-    );
+    ));
     final registry = RadioGroup.maybeOf<T>(context);
     assert(
       registry != null,

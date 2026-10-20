@@ -133,6 +133,87 @@ void radioListNavigationTests() {
   );
 
   for (final reverse in [false, true]) {
+    for (final settle in [false, true]) {
+      testWidgets(
+        'lazy radio reenters accepted choice after unfocused scroll reverse=$reverse settled=$settle',
+        (tester) async {
+          final key = GlobalKey<_LazyRadiosState>();
+          await _pumpRadios(tester, key);
+          final outside = reverse
+              ? key.currentState!.after
+              : key.currentState!.outside;
+          outside.requestFocus();
+          await tester.pump();
+          await _tab(tester, reverse: reverse);
+          expect(_focusedValues(tester), [0]);
+          outside.requestFocus();
+          await tester.pumpAndSettle();
+          key.currentState!.scroll.jumpTo(
+            key.currentState!.scroll.position.maxScrollExtent,
+          );
+          if (settle) {
+            await tester.pumpAndSettle();
+          } else {
+            await tester.pump();
+          }
+          expect(outside.hasPrimaryFocus, isTrue);
+          expect(
+            find.byKey(const ValueKey('choice-0'), skipOffstage: false),
+            findsNothing,
+          );
+          await _tab(tester, reverse: reverse);
+          expect(_focusedValues(tester), [0]);
+          expect(key.currentState!.selected, 0);
+          expect(key.currentState!.proposals, isEmpty);
+        },
+      );
+    }
+
+    for (final replacement in ['missing', 'disabled', 'selection']) {
+      testWidgets(
+        '$replacement reentry metadata preserves outside focus reverse=$reverse',
+        (tester) async {
+          final key = GlobalKey<_LazyRadiosState>();
+          await _pumpRadios(tester, key);
+          final outside = reverse
+              ? key.currentState!.after
+              : key.currentState!.outside;
+          outside.requestFocus();
+          await tester.pump();
+          await _tab(tester, reverse: reverse);
+          outside.requestFocus();
+          await tester.pumpAndSettle();
+          key.currentState!.scroll.jumpTo(
+            key.currentState!.scroll.position.maxScrollExtent,
+          );
+          await tester.pump();
+          key.currentState!.change(() {
+            switch (replacement) {
+              case 'missing':
+                key.currentState!.values.remove(0);
+              case 'disabled':
+                key.currentState!.disabled = {0};
+              case 'selection':
+                key.currentState!.selected = 190;
+            }
+          });
+          await tester.pump();
+          expect(outside.hasPrimaryFocus, isTrue);
+          await _tab(tester, reverse: reverse);
+          expect(_focusedValues(tester), [
+            replacement == 'selection' ? 190 : 1,
+          ]);
+          expect(
+            key.currentState!.selected,
+            replacement == 'selection' ? 190 : 0,
+          );
+          expect(key.currentState!.proposals, isEmpty);
+        },
+      );
+    }
+  }
+
+  for (final reverse in [false, true]) {
     testWidgets(
       'lazy radio enters far accepted choice with ${reverse ? 'ShiftTab' : 'Tab'} and exits once',
       (tester) async {
