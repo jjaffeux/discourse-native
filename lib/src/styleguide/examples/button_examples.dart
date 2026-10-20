@@ -162,7 +162,7 @@ final buttonExamples = ComponentExamples(
     StyleguideExample(
       title: 'Topic timeline actions',
       description:
-          'A blurred floating pill, footer progress, and compact endpoints. Both progress triggers retain their raised surface in Liquid Glass. Hit bounds follow each surface on desktop and touch.',
+          'A blurred floating pill, footer progress, and compact endpoints. Progress triggers retain their raised surface in Liquid Glass; pinned dates use a denser frosted lens. Hit bounds follow each surface on desktop and touch.',
       code:
           "DButton(density: DButtonDensity.floatingCall, variant: DButtonVariant.ghost, label: Text('25 / 120'), onPressed: openTimeline)",
       builder: (_) => Wrap(
@@ -184,6 +184,14 @@ final buttonExamples = ComponentExamples(
               ),
               onPressed: () {},
             ),
+          DButton(
+            density: DButtonDensity.floatingDate,
+            variant: DButtonVariant.outline,
+            size: DButtonSize.chip,
+            shape: DButtonShape.pill,
+            label: const Text('20 October 2026'),
+            onPressed: () {},
+          ),
         ],
       ),
     ),

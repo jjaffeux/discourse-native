@@ -5,10 +5,12 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import 'joined_control.dart';
 import 'material_theme.dart';
+import 'tokens.dart';
 
 /// Internal painting roles. This adds no targets, padding or gesture listeners.
 enum DSurfaceDepth {
   raised,
+  floatingDate,
   recessed,
   panel,
   menu,
@@ -114,7 +116,8 @@ class DMaterialSurface extends StatelessWidget {
         depth == DSurfaceDepth.dialog ||
         depth == DSurfaceDepth.sheet;
     final panel = depth == DSurfaceDepth.panel;
-    final joined = depth == DSurfaceDepth.raised
+    final joined =
+        depth == DSurfaceDepth.raised || depth == DSurfaceDepth.floatingDate
         ? DJoinedControlScope.maybeOf(context)
         : null;
     final solid = depth == DSurfaceDepth.swatch || depth == DSurfaceDepth.card;
@@ -471,15 +474,20 @@ class _GlassPaint extends StatelessWidget {
       DSurfaceDepth.sheet => LiquidGlassSheet.defaultStyle,
       _ => LiquidGlassButton.defaultStyle,
     };
+    final date = depth == DSurfaceDepth.floatingDate;
     final floating =
+        date ||
         depth == DSurfaceDepth.menu ||
         depth == DSurfaceDepth.dialog ||
         depth == DSurfaceDepth.sheet;
-    final tint = color;
+    final tint = date
+        ? DTokens.of(context).surface.withValues(alpha: .68)
+        : color;
     final style = floating && tint != null
         ? preset.copyWith(
             color: tint,
             blur: 16,
+            saturation: date ? 1.85 : preset.saturation,
             adaptivity: LiquidGlassAdaptivity(
               glassColorOnDark: tint,
               glassColorOnLight: tint,

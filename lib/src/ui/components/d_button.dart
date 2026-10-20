@@ -80,6 +80,9 @@ enum DButtonDensity {
   /// backdrop blur. Liquid Glass uses the shared raised surface treatment.
   floatingCall,
 
+  /// A pinned date with a denser frosted lens and the chosen control size.
+  floatingDate,
+
   /// A 30px footer progress pill, with 12.5px text and 8px insets. Clear in
   /// Standard; Liquid Glass retains the shared raised surface treatment.
   topicProgress,
@@ -1384,7 +1387,9 @@ class DButton extends StatelessWidget {
               : DMaterialSurface(
                   radius: radius,
                   color: materialColor(state.backgroundColor),
-                  depth: variant == DButtonVariant.recessed
+                  depth: density == DButtonDensity.floatingDate
+                      ? DSurfaceDepth.floatingDate
+                      : variant == DButtonVariant.recessed
                       ? DSurfaceDepth.recessed
                       : DSurfaceDepth.raised,
                   preserveColor: variant == DButtonVariant.recessed,

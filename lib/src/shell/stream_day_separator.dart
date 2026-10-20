@@ -26,8 +26,6 @@ class StreamDaySeparator extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final label = dayLabel(day, now: DateTime.now());
-    // Pinning switches the kit surface from resting to raised. The day rule
-    // stays at its original row; the floating copy carries only the pill.
     final background = floating
         ? theme.shell.content
         : Color.alphaBlend(
@@ -54,6 +52,9 @@ class StreamDaySeparator extends StatelessWidget {
         semanticLabel: actionLabel,
         tooltip: actionLabel,
         variant: DButtonVariant.outline,
+        density: floating
+            ? DButtonDensity.floatingDate
+            : DButtonDensity.standard,
         size: DButtonSize.chip,
         shape: DButtonShape.pill,
         backgroundColor: background,
