@@ -26,9 +26,14 @@ const _source = PluginNotificationFeedSource(
 
 void main() => menuListVirtualizationTests();
 
-void menuListVirtualizationTests() {
+void menuListVirtualizationTests({
+  Iterable<TargetPlatform> platforms = const [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+  ],
+}) {
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+  for (final platform in platforms) {
     for (final plugin in [false, true]) {
       for (final scale in [1.0, 2.0]) {
         testWidgets(

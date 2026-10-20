@@ -153,7 +153,7 @@ void optionListVirtualizationTests() {
     'long variable-height combobox reveals and selects the last option',
     (tester) async {
       int? selected;
-      var builds = 0;
+      final builtOptions = <int>{};
       await tester.pumpWidget(
         _app(
           DCombobox<int>(
@@ -164,7 +164,7 @@ void optionListVirtualizationTests() {
               children: [
                 DComboboxList<int>(
                   itemBuilder: (context, option) {
-                    builds++;
+                    builtOptions.add(option.value);
                     return SizedBox(
                       height: 40.0 + option.value % 3 * 40,
                       child: Text(option.label),
@@ -182,7 +182,7 @@ void optionListVirtualizationTests() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
       _expectComboboxVisible(tester, 199);
-      expect(builds, lessThan(100));
+      expect(builtOptions.length, lessThan(40));
       expect(
         tester.widget<TextField>(find.byType(TextField)).focusNode!.hasFocus,
         isTrue,
@@ -684,11 +684,13 @@ void optionListVirtualizationTests() {
       tester,
     ) async {
       var builds = 0;
+      final builtOptions = <int>{};
       await tester.pumpWidget(
         _app(
           _combobox(
             itemBuilder: (context, option) {
               builds++;
+              builtOptions.add(option.value);
               return Text(option.label);
             },
           ),
@@ -707,10 +709,11 @@ void optionListVirtualizationTests() {
           'scale': scale,
           'mounted': mounted,
           'builds': builds,
+          'distinctBuiltOptions': builtOptions.length,
         }),
       );
       expect(mounted, lessThan(40));
-      expect(builds, lessThan(100));
+      expect(builtOptions.length, lessThan(40));
       expect(tester.takeException(), isNull);
     });
   }
