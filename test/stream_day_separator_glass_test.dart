@@ -55,7 +55,20 @@ void main() {
                 ),
               );
             } else {
-              expectStockGlass(style, LiquidGlassButton.defaultStyle);
+              final tint = tester
+                  .widget<DButton>(find.byType(DButton))
+                  .backgroundColor!
+                  .withValues(alpha: .76);
+              expect(style.color, tint);
+              expect(style.adaptivity!.glassColorOnDark, tint);
+              expect(style.adaptivity!.glassColorOnLight, tint);
+              expectStockGlass(
+                style,
+                LiquidGlassButton.defaultStyle.copyWith(
+                  color: tint,
+                  adaptivity: style.adaptivity,
+                ),
+              );
             }
           }
           expect(tester.takeException(), isNull);

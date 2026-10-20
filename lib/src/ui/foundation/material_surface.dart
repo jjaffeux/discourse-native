@@ -33,6 +33,7 @@ class DMaterialSurface extends StatelessWidget {
     this.depth = DSurfaceDepth.raised,
     this.accented = false,
     this.preserveColor = false,
+    this.glassTint,
     this.insetEdges = false,
   });
   final Widget child;
@@ -43,6 +44,9 @@ class DMaterialSurface extends StatelessWidget {
 
   /// Pre-tinted window wells retain their opacity in both appearance modes.
   final bool preserveColor;
+
+  /// Explicit tint for raised glass. Null retains the stock glass material.
+  final Color? glassTint;
 
   /// CSS-style inner shadow and bottom rim for inset action wells. This
   /// opt-in retains the existing edge painting of other recessed controls.
@@ -139,6 +143,7 @@ class DMaterialSurface extends StatelessWidget {
         radius: radius,
         depth: depth,
         color: paintedColor,
+        glassTint: depth == DSurfaceDepth.raised ? glassTint : null,
         joined: joined,
       );
     } else {
@@ -452,12 +457,14 @@ class _GlassPaint extends StatelessWidget {
     required this.radius,
     required this.depth,
     this.color,
+    this.glassTint,
     this.joined,
   });
 
   final BorderRadius radius;
   final DSurfaceDepth depth;
   final Color? color;
+  final Color? glassTint;
   final DJoinedControlScope? joined;
 
   @override
@@ -480,13 +487,14 @@ class _GlassPaint extends StatelessWidget {
         depth == DSurfaceDepth.menu ||
         depth == DSurfaceDepth.dialog ||
         depth == DSurfaceDepth.sheet;
+    final explicitTint = glassTint?.withValues(alpha: glassTint!.a * .76);
     final tint = date
         ? DTokens.of(context).surface.withValues(alpha: .68)
-        : color;
-    final style = floating && tint != null
+        : explicitTint ?? color;
+    final style = (floating || explicitTint != null) && tint != null
         ? preset.copyWith(
             color: tint,
-            blur: 16,
+            blur: floating ? 16 : preset.blur,
             saturation: date ? 1.85 : preset.saturation,
             adaptivity: LiquidGlassAdaptivity(
               glassColorOnDark: tint,

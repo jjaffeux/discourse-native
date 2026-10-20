@@ -59,6 +59,176 @@ void main() {
     },
   );
 
+  testWidgets(
+    'explicit glass button colors survive hover and disabled states',
+    (tester) async {
+      const background = Color(0xff51496d);
+      const hover = Color(0xff6f5c96);
+      const foreground = Color(0xffd8c3f6);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      for (final dark in [false, true]) {
+        for (final state in [
+          (enabled: true, loading: false),
+          (enabled: false, loading: false),
+          (enabled: true, loading: true),
+        ]) {
+          focus.unfocus();
+          await mouse.moveTo(Offset.zero);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: DMaterialTheme.apply(
+                dark ? AppTheme.dark : AppTheme.light,
+                DAppearanceMaterial.liquidGlass,
+              ),
+              home: Center(
+                child: DButton.iconOnly(
+                  size: DButtonSize.toolbar,
+                  icon: const DIcon(DIcons.paperPlane, size: 12),
+                  tooltip: 'Send',
+                  focusNode: focus,
+                  backgroundColor: background,
+                  interactiveBackgroundColor: hover,
+                  foregroundColor: foreground,
+                  loading: state.loading,
+                  onPressed: state.enabled ? () {} : null,
+                ),
+              ),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          final enabled = state.enabled && !state.loading;
+          void expectTint(Color source) {
+            final tint = source.withValues(alpha: .76 * (enabled ? 1 : .6));
+            final style = tester
+                .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
+                .style;
+            expect(style.color, tint);
+            expect(style.adaptivity!.glassColorOnDark, tint);
+            expect(style.adaptivity!.glassColorOnLight, tint);
+            expectStockGlass(
+              style,
+              LiquidGlassButton.defaultStyle.copyWith(
+                color: tint,
+                adaptivity: style.adaptivity,
+              ),
+            );
+            for (final lite in tester.widgetList<LiquidGlassLite>(
+              find.byType(LiquidGlassLite),
+            )) {
+              expect(lite.color, tint);
+            }
+          }
+
+          expectTint(background);
+          final button = find.byType(DButton);
+          expect(tester.getSize(button), const Size(34, 34));
+          if (!state.loading) {
+            expect(
+              IconTheme.of(tester.element(find.byType(DIcon))).color,
+              foreground,
+            );
+          }
+          await mouse.moveTo(tester.getCenter(button));
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expectTint(enabled ? hover : background);
+          await mouse.moveTo(Offset.zero);
+          focus.requestFocus();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+          expectTint(enabled ? hover : background);
+          expect(tester.takeException(), isNull);
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'interactive glass tint leaves resting and expanded fills intact',
+    (tester) async {
+      const background = Color(0xff51496d);
+      const hover = Color(0xff6f5c96);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      for (final expanded in [false, true]) {
+        focus.unfocus();
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: DMaterialTheme.apply(
+              AppTheme.dark,
+              DAppearanceMaterial.liquidGlass,
+            ),
+            home: Center(
+              child: DButton.iconOnly(
+                icon: const DIcon(DIcons.paperPlane),
+                tooltip: 'Send',
+                focusNode: focus,
+                backgroundColor: expanded ? background : null,
+                interactiveBackgroundColor: hover,
+                expanded: expanded,
+                onPressed: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        void expectTint(Color? source) {
+          final style = tester
+              .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
+              .style;
+          if (source == null) {
+            expectStockGlass(style, LiquidGlassButton.defaultStyle);
+          } else {
+            expect(style.color, source.withValues(alpha: .76));
+          }
+        }
+
+        expectTint(expanded ? background : null);
+        focus.requestFocus();
+        await tester.pumpAndSettle();
+        expectTint(expanded ? background : hover);
+        await mouse.moveTo(tester.getCenter(find.byType(DButton)));
+        await tester.pumpAndSettle();
+        expectTint(hover);
+        focus.unfocus();
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        expectTint(expanded ? background : null);
+      }
+    },
+  );
+
+  testWidgets('transparent glass button override has no lens', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: DMaterialTheme.apply(
+          AppTheme.dark,
+          DAppearanceMaterial.liquidGlass,
+        ),
+        home: Center(
+          child: DButton.iconOnly(
+            icon: const DIcon(DIcons.paperPlane),
+            tooltip: 'Send',
+            backgroundColor: Colors.transparent,
+            onPressed: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(LiquidGlassLens), findsNothing);
+    expect(buttonSurface(tester).color.a, 0);
+  });
+
   testWidgets('timeline icon buttons preserve their glyph bounds', (
     tester,
   ) async {

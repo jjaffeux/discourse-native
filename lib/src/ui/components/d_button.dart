@@ -155,8 +155,10 @@ class DButtonStateStyle {
     required this.backgroundColor,
     required this.iconColor,
     required this.border,
+    this.backgroundOverride,
   });
 
+  final Color? backgroundOverride;
   final Color foregroundColor;
   final Color backgroundColor;
   final Color iconColor;
@@ -370,7 +372,8 @@ class DButton extends StatelessWidget {
 
   /// Overrides the variant's fill in every state, including expanded and
   /// disabled. [interactiveBackgroundColor] takes precedence while hovered
-  /// or focused. Use [foregroundColor] to override the variant's label and icon.
+  /// or focused. Liquid Glass uses the supplied fill as its tint. Use
+  /// [foregroundColor] to override the variant's label and icon.
   final Color? backgroundColor;
 
   /// Overrides label and icon color together, including disabled states.
@@ -859,6 +862,7 @@ class DButton extends StatelessWidget {
       return DButtonStateStyle(
         foregroundColor: foregroundColor ?? state.foregroundColor,
         backgroundColor: background ?? state.backgroundColor,
+        backgroundOverride: background,
         iconColor: foregroundColor ?? state.iconColor,
         border: state.border,
       );
@@ -1030,6 +1034,7 @@ class DButton extends StatelessWidget {
                 foregroundColor: tokens.mutedForeground,
                 iconColor: tokens.mutedForeground,
                 backgroundColor: base.backgroundColor,
+                backgroundOverride: base.backgroundOverride,
                 border: base.border,
               );
       }
@@ -1387,6 +1392,9 @@ class DButton extends StatelessWidget {
               : DMaterialSurface(
                   radius: radius,
                   color: materialColor(state.backgroundColor),
+                  glassTint: state.backgroundOverride == null
+                      ? null
+                      : materialColor(state.backgroundOverride!),
                   depth: density == DButtonDensity.floatingDate
                       ? DSurfaceDepth.floatingDate
                       : variant == DButtonVariant.recessed

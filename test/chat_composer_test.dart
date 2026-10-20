@@ -54,6 +54,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart'
     as images;
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
@@ -163,6 +164,24 @@ void main() {
         final emoji = _button(tester, 'chat-composer-emoji').icon! as DIcon;
         expect(emoji.icon, DIcons.faceSmile);
         final send = find.byKey(const ValueKey('chat-composer-send'));
+        void expectSendTint({required bool enabled}) {
+          final button = _button(tester, 'chat-composer-send');
+          final expected = theme.extension<DTokens>()!.buttonTheme.primary;
+          expect(button.backgroundColor, expected.background);
+          expect(button.foregroundColor, expected.foreground);
+          if (material == DAppearanceMaterial.liquidGlass) {
+            final lens = find.descendant(
+              of: send,
+              matching: find.byType(LiquidGlassLens),
+            );
+            final tint = expected.background.withValues(
+              alpha: .76 * (enabled ? 1 : .6),
+            );
+            expect(tester.widget<LiquidGlassLens>(lens).style.color, tint);
+          }
+        }
+
+        expectSendTint(enabled: false);
         expect(tester.getSize(send), const Size(34, 34));
         expect(_button(tester, 'chat-composer-send').label, isA<SizedBox>());
         final add = find.byKey(const ValueKey('chat-composer-add'));
@@ -177,6 +196,7 @@ void main() {
         await tester.enterText(_composerField(), 'Hello everyone');
         await tester.pumpAndSettle();
         expect(_button(tester, 'chat-composer-send').onPressed, isNotNull);
+        expectSendTint(enabled: true);
         await captureNativeUi(
           tester,
           '${platform.name}-${material.name}-dracula-filled',

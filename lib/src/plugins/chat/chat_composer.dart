@@ -1618,12 +1618,14 @@ class _ChatComposerState extends State<ChatComposer> {
         ? () => _send(composer)
         : null;
     const icon = DIcon(DIcons.paperPlane, size: 12);
-    final foreground = DTokens.of(context).buttonTheme.primary.foreground;
+    final colors = DTokens.of(context).buttonTheme.primary;
     return iconOnly
         ? DButton.iconOnly(
             key: const ValueKey('chat-composer-send'),
             size: DButtonSize.toolbar,
-            foregroundColor: foreground,
+            foregroundColor: colors.foreground,
+            backgroundColor: colors.background,
+            interactiveBackgroundColor: colors.hover,
             icon: icon,
             tooltip: tooltip,
             semanticLabel: label,
@@ -1634,7 +1636,9 @@ class _ChatComposerState extends State<ChatComposer> {
             key: const ValueKey('chat-composer-send'),
             label: Text(label),
             size: DButtonSize.toolbar,
-            foregroundColor: foreground,
+            foregroundColor: colors.foreground,
+            backgroundColor: colors.background,
+            interactiveBackgroundColor: colors.hover,
             loadingLabel: Text(label),
             onPressed: onPressed,
             loading: _sending,
