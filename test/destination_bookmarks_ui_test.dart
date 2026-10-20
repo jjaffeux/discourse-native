@@ -65,6 +65,76 @@ void main() {
         .load();
   });
 
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'long local bookmark page mounts only nearby rows at $scale text',
+      (tester) async {
+        final shell = await tester.runAsync(
+          () => _shell(store: DestinationBookmarksStore.memory()),
+        );
+        addTearDown(shell!.dispose);
+        await tester.runAsync(() async {
+          for (var id = 1; id <= 200; id++) {
+            final route = ContentRoute(
+              destination: FeedDestination(
+                key: 'category-$id',
+                sourcePath: '/c/category/$id.json',
+              ),
+              title: 'Saved category $id',
+              icon: DIcons.folder,
+            );
+            await shell.destinationBookmarkAction(route)!.invoke();
+          }
+        });
+        await _pump(
+          tester,
+          shell,
+          const BookmarkSection(siteUrl: _site, page: true, onOpened: _noop),
+          size: const Size(390, 844),
+          scale: scale,
+        );
+        final mounted = find
+            .byType(DestinationBookmarkRow, skipOffstage: false)
+            .evaluate()
+            .length;
+        debugPrint(
+          'list-audit local-bookmarks mounted=$mounted total=200 scale=$scale',
+        );
+        expect(mounted, lessThan(40));
+        final last = find.byKey(
+          const ValueKey('destination-bookmark-row-category:1'),
+        );
+        expect(last, findsNothing);
+        final scrollable = find.descendant(
+          of: find.byType(BookmarkSection),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          ),
+        );
+        await tester.scrollUntilVisible(
+          last,
+          500,
+          scrollable: scrollable,
+          maxScrolls: 200,
+        );
+        await tester.pumpAndSettle();
+        expect(last.hitTestable(), findsOneWidget);
+        expect(
+          find
+              .byType(DestinationBookmarkRow, skipOffstage: false)
+              .evaluate()
+              .length,
+          lessThan(40),
+        );
+        expect(
+          find.byKey(const ValueKey('destination-bookmark-row-category:200')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'content contexts add and remove every local destination without server mutation',
     (tester) async {

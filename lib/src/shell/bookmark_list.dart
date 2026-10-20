@@ -507,14 +507,14 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               controller: viewport.scrollController,
               slivers: [
                 SliverToBoxAdapter(child: header.spacer),
-                for (final bookmark in visibleLocalEntries)
-                  SliverToBoxAdapter(
-                    child: DestinationBookmarkRow(
-                      siteUrl: widget.siteUrl,
-                      bookmark: bookmark,
-                      onOpened: widget.onOpened,
-                    ),
+                SliverList.builder(
+                  itemCount: visibleLocalEntries.length,
+                  itemBuilder: (context, index) => DestinationBookmarkRow(
+                    siteUrl: widget.siteUrl,
+                    bookmark: visibleLocalEntries[index],
+                    onOpened: widget.onOpened,
                   ),
+                ),
                 if (feed.hasPrevious)
                   SliverToBoxAdapter(
                     child: Center(
