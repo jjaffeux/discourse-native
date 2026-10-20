@@ -36,6 +36,144 @@ Widget _list({ScrollController? controller}) => ListView.builder(
 );
 
 void main() {
+  for (final withHeader in [false, true]) {
+    testWidgets('floating footer resizes over a stable full-height body '
+        '(header: $withHeader)', (tester) async {
+      final height = ValueNotifier(60.0);
+      addTearDown(height.dispose);
+      late DPageHeaderGeometry geometry;
+      var bodyBuilds = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Center(
+            child: SizedBox(
+              width: 300,
+              height: 360,
+              child: DPageSurface.scrollable(
+                framed: false,
+                floatingFooter: true,
+                header: withHeader ? const SizedBox(height: 50) : null,
+                footer: ValueListenableBuilder(
+                  valueListenable: height,
+                  builder: (_, value, _) =>
+                      SizedBox(key: _footer, height: value),
+                ),
+                bodyBuilder: (_, measured) {
+                  geometry = measured;
+                  bodyBuilds++;
+                  return Stack(
+                    key: _viewport,
+                    children: [
+                      const Positioned.fill(child: Text('Transcript')),
+                      Positioned(
+                        bottom: 12,
+                        left: 0,
+                        child: measured.footerInset(
+                          const SizedBox(
+                            key: ValueKey('footer-overlay-control'),
+                            width: 24,
+                            height: 24,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      final viewport = find.byKey(_viewport);
+      final originalElement = tester.element(viewport);
+      final bounds = tester.getRect(viewport);
+      final control = find.byKey(const ValueKey('footer-overlay-control'));
+      expect(bounds.height, 360);
+      expect(geometry.footerExtent, 60);
+      expect(geometry.naturalExtent, withHeader ? 50 : 0);
+      expect(
+        tester.getBottomLeft(control).dy,
+        tester.getTopLeft(find.byKey(_footer)).dy - 12,
+      );
+
+      for (final value in [130.0, 35.0]) {
+        height.value = value;
+        await tester.pump();
+        expect(tester.getRect(viewport), bounds);
+        expect(tester.element(viewport), same(originalElement));
+        expect(bodyBuilds, 1);
+        expect(geometry.footerExtent, value);
+        expect(
+          tester.getBottomLeft(control).dy,
+          tester.getTopLeft(find.byKey(_footer)).dy - 12,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
+  testWidgets('optional floating footer clears its measured obstruction', (
+    tester,
+  ) async {
+    late StateSetter rebuild;
+    late DPageHeaderGeometry geometry;
+    var showFooter = true;
+    var floatingFooter = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StatefulBuilder(
+          builder: (_, setState) {
+            rebuild = setState;
+            return DPageSurface.scrollable(
+              framed: false,
+              floatingFooter: floatingFooter,
+              footer: showFooter ? const SizedBox(height: 60) : null,
+              bodyBuilder: (_, measured) {
+                geometry = measured;
+                return const SizedBox.expand(key: _viewport);
+              },
+            );
+          },
+        ),
+      ),
+    );
+    expect(geometry.footerExtent, 60);
+    rebuild(() => showFooter = false);
+    await tester.pump();
+    expect(geometry.footerExtent, 0);
+    rebuild(() => showFooter = true);
+    await tester.pump();
+    expect(geometry.footerExtent, 60);
+    rebuild(() => floatingFooter = false);
+    await tester.pump();
+    expect(geometry.footerExtent, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('fixed footer remains the default for scrollable pages', (
+    tester,
+  ) async {
+    late DPageHeaderGeometry geometry;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DPageSurface.scrollable(
+          framed: false,
+          header: const SizedBox(height: 50),
+          footer: const SizedBox(key: _footer, height: 60),
+          bodyBuilder: (_, measured) {
+            geometry = measured;
+            return const SizedBox.expand(key: _viewport);
+          },
+        ),
+      ),
+    );
+    expect(
+      tester.getBottomLeft(find.byKey(_viewport)).dy,
+      tester.getTopLeft(find.byKey(_footer)).dy,
+    );
+    expect(geometry.footerExtent, 0);
+  });
+
   for (final reducedMotion in [false, true]) {
     testWidgets('existing sliver viewport stays fixed while its header moves '
         '(reduced motion: $reducedMotion)', (tester) async {

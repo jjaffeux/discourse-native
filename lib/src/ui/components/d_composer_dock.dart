@@ -11,6 +11,9 @@ class DComposerDock extends StatefulWidget {
 
   final Widget Function(BuildContext context, bool compact) builder;
 
+  /// Gap above the visible composer inside the measured dock.
+  static const topInset = 6.0;
+
   @override
   State<DComposerDock> createState() => _DComposerDockState();
 }
@@ -80,7 +83,7 @@ class _DComposerDockState extends State<DComposerDock> {
     if (chrome == null) {
       return SafeArea(
         top: false,
-        minimum: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+        minimum: const EdgeInsets.fromLTRB(12, DComposerDock.topInset, 12, 12),
         child: widget.builder(context, false),
       );
     }
@@ -103,7 +106,7 @@ class _DComposerDockState extends State<DComposerDock> {
         curve: curve,
         padding: EdgeInsetsDirectional.fromSTEB(
           compact ? 6 + DMobileDock.collapsedExtentOf(context) + 8 : 6,
-          6,
+          DComposerDock.topInset,
           6,
           keyboard
               ? 6

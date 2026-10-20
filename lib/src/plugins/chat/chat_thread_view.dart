@@ -432,6 +432,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       title: appL10n.dropFilesToUploadToThisThread,
       child: DPageSurface.scrollable(
         framed: false,
+        floatingFooter: context.isTouch,
         hideHeaderOnScroll: true,
         measureCompactHeader: true,
         identity: (widget.siteUrl, widget.target, widget.chat),

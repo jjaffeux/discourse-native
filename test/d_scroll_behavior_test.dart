@@ -67,6 +67,49 @@ Widget _list(ScrollController scroll, {bool reverse = false, int count = 30}) =>
     );
 
 void main() {
+  testWidgets('bottom inset moves the fade without rebuilding its viewport', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    final scroll = ScrollController(initialScrollOffset: 100);
+    final inset = ValueNotifier(60.0);
+    addTearDown(scroll.dispose);
+    addTearDown(inset.dispose);
+    var builds = 0;
+    await tester.pumpWidget(
+      _host(
+        key,
+        DScrollFadeScope(
+          topExtent: 0,
+          bottomExtent: 40,
+          bottomInset: () => inset.value,
+          repaint: inset,
+          child: Builder(
+            builder: (_) {
+              builds++;
+              return _list(scroll);
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final position = scroll.position;
+    _expectInk(await _pixel(tester, key, 79), 1);
+    _expectInk(await _pixel(tester, key, 99), 20.5 / 40);
+    _expectInk(await _pixel(tester, key, 119), .5 / 40);
+    _expectInk(await _pixel(tester, key, 140), 0);
+
+    inset.value = 20;
+    await tester.pump();
+    _expectInk(await _pixel(tester, key, 119), 1);
+    _expectInk(await _pixel(tester, key, 139), 20.5 / 40);
+    _expectInk(await _pixel(tester, key, 159), .5 / 40);
+    _expectInk(await _pixel(tester, key, 170), 0);
+    expect(scroll.position, same(position));
+    expect(builds, 1);
+  });
+
   for (final direction in TextDirection.values) {
     for (final reverse in [false, true]) {
       testWidgets('opt-in horizontal fades follow physical edges in '

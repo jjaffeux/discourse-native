@@ -45,6 +45,7 @@ class DPageSurface extends StatefulWidget {
                  (child != null ? 1 : 0) ==
              1,
        ),
+       floatingFooter = false,
        header = _PageTitle(child: title),
        headerControls = _PageControls(child: controls),
        compactHeader = null,
@@ -83,6 +84,7 @@ class DPageSurface extends StatefulWidget {
     this.identity,
   }) : assert(child != null),
        foldTitleAtTop = false,
+       floatingFooter = false,
        adaptiveBodyBuilder = null,
        bodyBuilder = null;
 
@@ -98,6 +100,7 @@ class DPageSurface extends StatefulWidget {
     this.headerControls,
     this.tabs,
     this.footer,
+    this.floatingFooter = false,
     this.framed = true,
     this.border = true,
     this.backgroundColor,
@@ -169,6 +172,11 @@ class DPageSurface extends StatefulWidget {
 
   /// Persistent actions below the viewport.
   final Widget? footer;
+
+  /// Overlays [footer] at the bottom of the full-height scrolling viewport.
+  /// The measured [DPageHeaderGeometry.footerExtent] lets content reserve room
+  /// for its live edge while history continues behind the footer.
+  final bool floatingFooter;
 
   /// Disable when composed inside an already framed page or a touch shell.
   final bool framed;
@@ -376,6 +384,9 @@ class _DPageSurfaceState extends State<DPageSurface>
       _syncSuppression();
     }
     if (_header == null) _headerGeometry._update(0, 0);
+    if (!widget.floatingFooter || widget.footer == null) {
+      _headerGeometry._updateFooter(0);
+    }
     if (oldWidget.identity != widget.identity ||
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
         oldWidget.revealHeaderAtEnd != widget.revealHeaderAtEnd ||
@@ -880,13 +891,14 @@ class _DPageSurfaceState extends State<DPageSurface>
               ),
       ),
     );
+    final overlaidFooter = widget.floatingFooter && widget.footer != null;
     final page = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ?widget.tabs,
         if (!floating || _header == null) ?header,
         Expanded(
-          child: floating && _header != null
+          child: floating && (_header != null || widget.floatingFooter)
               ? ClipRect(
                   child: _PageOverlay(
                     geometry: _headerGeometry,
@@ -894,10 +906,15 @@ class _DPageSurfaceState extends State<DPageSurface>
                       headerBox()?.naturalHeight ?? 0,
                       headerBox()?.visibleHeight ?? 0,
                     ),
-                    header: ClipRect(
-                      clipper: _HeaderHitClipper(_headerGeometry),
-                      child: header!,
-                    ),
+                    header: header == null
+                        ? null
+                        : ClipRect(
+                            clipper: _HeaderHitClipper(_headerGeometry),
+                            child: header,
+                          ),
+                    footer: overlaidFooter
+                        ? fixedContent(widget.footer!)
+                        : null,
                     body: ClipRect(
                       clipper: _HeaderBodyClipper(_headerGeometry),
                       child: _PageHeaderScope(
@@ -909,7 +926,8 @@ class _DPageSurfaceState extends State<DPageSurface>
                 )
               : body,
         ),
-        if (widget.footer case final footer?) fixedContent(footer),
+        if (!overlaidFooter)
+          if (widget.footer case final footer?) fixedContent(footer),
       ],
     );
     return DPageContentSettings(
@@ -1328,6 +1346,17 @@ class _RenderScrollHeaderExtent extends RenderBox
 class DPageHeaderGeometry extends ChangeNotifier {
   DPageHeaderGeometry._();
 
+  double _footerExtent = 0;
+
+  /// Bottom space occupied by a floating footer, measured before body layout.
+  double get footerExtent => _footerExtent;
+
+  void _updateFooter(double extent) {
+    if (_footerExtent == extent) return;
+    _footerExtent = extent;
+    notifyListeners();
+  }
+
   double _naturalExtent = 0;
   double _visibleExtent = 0;
   double _maxExtent = double.infinity;
@@ -1350,6 +1379,10 @@ class DPageHeaderGeometry extends ChangeNotifier {
 
   /// Stable leading space inside the scroll content.
   Widget get spacer => inset(const SizedBox.shrink(), fullExtent: true);
+
+  /// Keeps an overlay above the floating footer as its height changes.
+  Widget footerInset(Widget child) =>
+      _FooterInset(geometry: this, child: child);
 
   /// Places an overlay below the visible header, or reserves the full header
   /// for a loading body. Floating insets move during paint; full insets reserve
@@ -1458,6 +1491,76 @@ class _RenderHeaderInset extends RenderShiftedBox {
   }
 }
 
+class _FooterInset extends SingleChildRenderObjectWidget {
+  const _FooterInset({required this.geometry, required super.child});
+  final DPageHeaderGeometry geometry;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFooterInset(geometry);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderFooterInset renderObject,
+  ) {
+    renderObject.geometry = geometry;
+  }
+}
+
+class _RenderFooterInset extends RenderProxyBox {
+  _RenderFooterInset(this._geometry);
+  DPageHeaderGeometry _geometry;
+  double _laidOutExtent = 0;
+
+  set geometry(DPageHeaderGeometry value) {
+    if (identical(value, _geometry)) return;
+    if (attached) _geometry.removeListener(_changed);
+    _geometry = value;
+    if (attached) _geometry.addListener(_changed);
+    markNeedsLayout();
+  }
+
+  void _changed() {
+    if (_laidOutExtent != _geometry.footerExtent) markNeedsLayout();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _geometry.addListener(_changed);
+  }
+
+  @override
+  void detach() {
+    _geometry.removeListener(_changed);
+    super.detach();
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final extent = _geometry.footerExtent;
+    final childSize = child!.getDryLayout(
+      constraints.deflate(EdgeInsets.only(bottom: extent)),
+    );
+    return constraints.constrain(
+      Size(childSize.width, childSize.height + extent),
+    );
+  }
+
+  @override
+  void performLayout() {
+    _laidOutExtent = _geometry.footerExtent;
+    child!.layout(
+      constraints.deflate(EdgeInsets.only(bottom: _laidOutExtent)),
+      parentUsesSize: true,
+    );
+    size = constraints.constrain(
+      Size(child!.size.width, child!.size.height + _laidOutExtent),
+    );
+  }
+}
+
 // Measure the header before updating any body geometry. The layout callback
 // permits the dependent spacer and overlays to invalidate inside this subtree,
 // so both are correct in the same frame, including the very first layout.
@@ -1465,23 +1568,31 @@ class _PageOverlay extends MultiChildRenderObjectWidget {
   _PageOverlay({
     required this.geometry,
     required this.extents,
-    required Widget header,
+    required Widget? header,
+    required Widget? footer,
     required Widget body,
-  }) : super(children: [body, header]);
+  }) : hasHeader = header != null,
+       hasFooter = footer != null,
+       super(children: [body, ?header, ?footer]);
 
   final DPageHeaderGeometry geometry;
   final ValueGetter<(double, double)> extents;
+  final bool hasHeader;
+  final bool hasFooter;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderPageOverlay(geometry, extents);
+      _RenderPageOverlay(geometry, extents, hasHeader, hasFooter);
 
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderPageOverlay renderObject,
   ) {
-    renderObject.extents = extents;
+    renderObject
+      ..hasHeader = hasHeader
+      ..hasFooter = hasFooter
+      ..extents = extents;
     renderObject.markNeedsLayout();
   }
 }
@@ -1490,9 +1601,16 @@ class _RenderPageOverlay extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _HeaderParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _HeaderParentData> {
-  _RenderPageOverlay(this.geometry, this.extents);
+  _RenderPageOverlay(
+    this.geometry,
+    this.extents,
+    this.hasHeader,
+    this.hasFooter,
+  );
   final DPageHeaderGeometry geometry;
   ValueGetter<(double, double)> extents;
+  bool hasHeader;
+  bool hasFooter;
 
   @override
   void setupParentData(RenderBox child) {
@@ -1507,13 +1625,21 @@ class _RenderPageOverlay extends RenderBox
   @override
   void performLayout() {
     size = constraints.biggest;
-    lastChild!.layout(
-      BoxConstraints.tightFor(width: size.width),
-      parentUsesSize: true,
-    );
+    final header = hasHeader ? childAfter(firstChild!) : null;
+    final footer = hasFooter ? lastChild : null;
+    final natural = BoxConstraints.tightFor(width: size.width);
+    header?.layout(natural, parentUsesSize: true);
+    footer?.layout(natural, parentUsesSize: true);
+    if (footer != null) {
+      (footer.parentData! as BoxParentData).offset = Offset(
+        0,
+        size.height - footer.size.height,
+      );
+    }
     invokeLayoutCallback<BoxConstraints>((_) {
-      final (natural, visible) = extents();
+      final (natural, visible) = hasHeader ? extents() : (0.0, 0.0);
       geometry._update(natural, visible);
+      geometry._updateFooter(footer?.size.height ?? 0);
     });
     firstChild!.layout(BoxConstraints.tight(size));
   }

@@ -77,6 +77,7 @@ class DScrollBehavior extends ScrollBehavior {
       topExtent: horizontal ? horizontalExtent : local?.topExtent ?? 14,
       bottomExtent: horizontal ? horizontalExtent : local?.bottomExtent ?? 20,
       topInset: horizontal ? null : local?.topInset,
+      bottomInset: horizontal ? null : local?.bottomInset,
       repaint: horizontal ? null : local?.repaint,
       child: decorated,
     );
@@ -98,6 +99,7 @@ class DScrollFadeScope extends InheritedWidget {
     this.bottomExtent = 20,
     this.horizontalExtent = 0,
     this.topInset,
+    this.bottomInset,
     this.repaint,
     required super.child,
   }) : assert(topExtent >= 0 && topExtent < double.infinity),
@@ -111,6 +113,9 @@ class DScrollFadeScope extends InheritedWidget {
   final double horizontalExtent;
   final ValueGetter<double>? topInset;
 
+  /// Space below the bottom fade, read during paint as overlays resize.
+  final ValueGetter<double>? bottomInset;
+
   /// Repaints changing insets without replacing the scroll position.
   final Listenable? repaint;
 
@@ -123,6 +128,7 @@ class DScrollFadeScope extends InheritedWidget {
       bottomExtent != oldWidget.bottomExtent ||
       horizontalExtent != oldWidget.horizontalExtent ||
       topInset != oldWidget.topInset ||
+      bottomInset != oldWidget.bottomInset ||
       repaint != oldWidget.repaint;
 }
 
@@ -133,6 +139,7 @@ class _ScrollEdgeFade extends StatefulWidget {
     required this.topExtent,
     required this.bottomExtent,
     required this.topInset,
+    required this.bottomInset,
     required this.repaint,
     required this.child,
   });
@@ -142,6 +149,7 @@ class _ScrollEdgeFade extends StatefulWidget {
   final double topExtent;
   final double bottomExtent;
   final ValueGetter<double>? topInset;
+  final ValueGetter<double>? bottomInset;
   final Listenable? repaint;
   final Widget child;
 
@@ -168,6 +176,7 @@ class _ScrollEdgeFadeState extends State<_ScrollEdgeFade> {
           topExtent: widget.topExtent,
           bottomExtent: widget.bottomExtent,
           topInset: widget.topInset,
+          bottomInset: widget.bottomInset,
           repaint: widget.repaint,
           child: widget.child,
         ),
@@ -182,6 +191,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
     required this.topExtent,
     required this.bottomExtent,
     required this.topInset,
+    required this.bottomInset,
     required this.repaint,
     required super.child,
   });
@@ -191,6 +201,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
   final double topExtent;
   final double bottomExtent;
   final ValueGetter<double>? topInset;
+  final ValueGetter<double>? bottomInset;
   final Listenable? repaint;
 
   @override
@@ -201,6 +212,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
         topExtent,
         bottomExtent,
         topInset,
+        bottomInset,
         repaint,
       );
 
@@ -215,6 +227,7 @@ class _ScrollFadeMask extends SingleChildRenderObjectWidget {
       topExtent,
       bottomExtent,
       topInset,
+      bottomInset,
       repaint,
     );
   }
@@ -227,6 +240,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     this._topExtent,
     this._bottomExtent,
     this._topInset,
+    this._bottomInset,
     this._repaint,
   );
 
@@ -235,6 +249,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
   double _topExtent;
   double _bottomExtent;
   ValueGetter<double>? _topInset;
+  ValueGetter<double>? _bottomInset;
   Listenable? _repaint;
 
   void update(
@@ -243,6 +258,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     double topExtent,
     double bottomExtent,
     ValueGetter<double>? topInset,
+    ValueGetter<double>? bottomInset,
     Listenable? repaint,
   ) {
     if (controller != _controller) {
@@ -259,6 +275,7 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     _axis = axis;
     _bottomExtent = bottomExtent;
     _topInset = topInset;
+    _bottomInset = bottomInset;
     markNeedsPaint();
   }
 
@@ -310,7 +327,9 @@ class _RenderScrollFadeMask extends RenderProxyBox {
       return;
     }
     final inset = (_topInset?.call() ?? 0).clamp(0.0, extent);
-    final room = extent - inset;
+    final bottomInset = (_bottomInset?.call() ?? 0).clamp(0.0, extent - inset);
+    final end = extent - bottomInset;
+    final room = end - inset;
     final topFade = top ? math.min(_topExtent, room / 2) : 0.0;
     final bottomFade = bottom ? math.min(_bottomExtent, room / 2) : 0.0;
     layer ??= ShaderMaskLayer();
@@ -322,13 +341,13 @@ class _RenderScrollFadeMask extends RenderProxyBox {
           if (top) ...[Colors.transparent, Colors.transparent],
           Colors.white,
           Colors.white,
-          if (bottom) Colors.transparent,
+          if (bottom) ...[Colors.transparent, Colors.transparent],
         ],
         stops: [
           if (top) ...[0, inset / extent],
           top ? (inset + topFade) / extent : 0,
-          bottom ? (extent - bottomFade) / extent : 1,
-          if (bottom) 1,
+          bottom ? (end - bottomFade) / extent : 1,
+          if (bottom) ...[end / extent, 1],
         ],
       ).createShader(Offset.zero & size)
       ..maskRect = offset & size

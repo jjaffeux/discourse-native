@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
@@ -320,6 +321,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       child: LayoutBuilder(
         builder: (context, constraints) => DPageSurface.scrollable(
           framed: false,
+          floatingFooter: context.isTouch,
           hideHeaderOnScroll: true,
           minimumScrollExtent: 0,
           identity: (widget.siteUrl, widget.channelId, widget.chat),
@@ -1076,7 +1078,10 @@ class _StreamState extends State<ChatMessageStream>
       if (!mounted) return;
       final recheckVisibleRead = _recheckVisibleRead;
       _recheckVisibleRead = false;
-      _recentMessages.syncVisible(_list.isAttached ? _list.visibleRange : null);
+      _recentMessages.syncVisible(
+        _list.isAttached ? _list.visibleRange : null,
+        visibleBounds: _visibleMessageBounds,
+      );
       if (_anchorIfFresh()) return;
       final started = _recording ? developer.Timeline.now : null;
       _syncFloatingDay();
@@ -1428,7 +1433,8 @@ class _StreamState extends State<ChatMessageStream>
     }
     final fromBottom =
         _scroll.position.viewportDimension -
-        _streamPadding.bottom +
+        _streamPadding.bottom -
+        (_headerGeometry?.footerExtent ?? 0) +
         _scroll.position.pixels;
     final headerExtent = _headerGeometry?.visibleExtent ?? 0;
 
@@ -1520,13 +1526,35 @@ class _StreamState extends State<ChatMessageStream>
     return null;
   }
 
+  _ChatMessageVisibleBounds? get _visibleMessageBounds {
+    final footerExtent = _headerGeometry?.footerExtent ?? 0;
+    if (footerExtent == 0 || !_scroll.hasClients) return null;
+    final viewport = _scroll.position.context.notificationContext
+        ?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.hasSize) return null;
+    return _ChatMessageVisibleBounds(
+      viewport: viewport,
+      bounds: Rect.fromLTWH(
+        0,
+        0,
+        viewport.size.width,
+        math.max(0, viewport.size.height - footerExtent),
+      ),
+    );
+  }
+
   /// Counts partially visible rows, unlike Discourse.
   int? _newestVisibleMessageId() {
     if (!_list.isAttached) return null;
     final range = _list.visibleRange;
     if (range == null) return null;
 
+    final visibleBounds = _visibleMessageBounds;
     for (var row = range.$1; row <= range.$2; row++) {
+      if (visibleBounds != null &&
+          !_recentMessages.overlaps(row, visibleBounds)) {
+        continue;
+      }
       final messageId = switch (_itemAt(row)) {
         ChatStreamMessage(:final id) => id,
         // Core tracks a collapsed deleted run using its newest message ID.
@@ -1559,6 +1587,7 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   static const double _presentSlack = 120;
+  static const _composerFadeExtent = 40.0;
 
   /// Held because dispose cannot depend on an inherited-widget lookup.
   ChatController? _chat;
@@ -1755,7 +1784,6 @@ class _StreamState extends State<ChatMessageStream>
                     paginationPrefetchDistance(notification.metrics)) {
                   unawaited(chat.loadNewerFor(siteUrl, widget.target));
                 }
-                _noteWhatIsOnScreen();
                 _syncAwayFromPresent();
                 _scheduleLook();
                 if (started != null) {
@@ -1839,18 +1867,28 @@ class _StreamState extends State<ChatMessageStream>
                       key: ValueKey(('chat-time-gap', messageId)),
                       daysSince: daysSince,
                     ),
-                  ChatStreamDeleted(:final messageIds) => _DeletedRun(
-                    siteUrl: siteUrl,
-                    messageIds: messageIds,
-                    expanded: messageIds.every(
-                      _expandedDeletedMessageIds.contains,
-                    ),
-                    contextThreadId: widget.target.threadId,
-                    onOpenThread: widget.onOpenThread,
-                    onJumpToMessage: widget.onJumpToMessage,
-                    showThreadSummaries: widget.showThreadSummaries,
-                    onExpand: () => setState(
-                      () => _expandedDeletedMessageIds.addAll(messageIds),
+                  ChatStreamDeleted(:final messageIds) => _RetainedChatMessage(
+                    key: ValueKey((
+                      siteUrl,
+                      widget.target,
+                      'deleted',
+                      messageIds.first,
+                    )),
+                    recent: _recentMessages,
+                    index: row,
+                    child: _DeletedRun(
+                      siteUrl: siteUrl,
+                      messageIds: messageIds,
+                      expanded: messageIds.every(
+                        _expandedDeletedMessageIds.contains,
+                      ),
+                      contextThreadId: widget.target.threadId,
+                      onOpenThread: widget.onOpenThread,
+                      onJumpToMessage: widget.onJumpToMessage,
+                      showThreadSummaries: widget.showThreadSummaries,
+                      onExpand: () => setState(
+                        () => _expandedDeletedMessageIds.addAll(messageIds),
+                      ),
                     ),
                   ),
                   ChatStreamNewDivider() => const _NewDivider(),
@@ -1884,19 +1922,21 @@ class _StreamState extends State<ChatMessageStream>
             ),
             ValueListenableBuilder(
               valueListenable: _presentState,
-              builder: (context, present, _) => !present.away
-                  ? const SizedBox.shrink()
-                  : Positioned(
-                      left: lane.leftInset,
-                      right: lane.rightInset,
-                      bottom: 16,
-                      child: Center(
-                        child: _JumpToPresent(
-                          pendingCount: present.pendingCount,
-                          onTap: () => _jumpToPresent(chat, siteUrl, channelId),
-                        ),
-                      ),
-                    ),
+              builder: (context, present, _) {
+                if (!present.away) return const SizedBox.shrink();
+                final button = Center(
+                  child: _JumpToPresent(
+                    pendingCount: present.pendingCount,
+                    onTap: () => _jumpToPresent(chat, siteUrl, channelId),
+                  ),
+                );
+                return Positioned(
+                  left: lane.leftInset,
+                  right: lane.rightInset,
+                  bottom: 16,
+                  child: header?.footerInset(button) ?? button,
+                );
+              },
             ),
           ],
         ),
@@ -1907,7 +1947,20 @@ class _StreamState extends State<ChatMessageStream>
       loading: stream.loadingNewer,
       hasMoreBefore: stream.canLoadMorePast,
       loadingBefore: stream.loadingOlder,
-      child: content,
+      child: DScrollFadeScope(
+        bottomExtent: context.isTouch ? _composerFadeExtent : 0,
+        topInset: header == null ? null : () => header.visibleExtent,
+        bottomInset: context.isTouch && header != null
+            ? () => math.max(
+                0,
+                header.footerExtent -
+                    DComposerDock.topInset -
+                    _composerFadeExtent / 2,
+              )
+            : null,
+        repaint: header,
+        child: content,
+      ),
     );
   }
 
@@ -2791,6 +2844,20 @@ class _Message extends StatelessWidget {
   );
 }
 
+class _ChatMessageVisibleBounds {
+  const _ChatMessageVisibleBounds({
+    required this.viewport,
+    required this.bounds,
+  });
+  final RenderBox viewport;
+  final Rect bounds;
+
+  bool overlaps(RenderBox row) =>
+      (row.localToGlobal(Offset.zero, ancestor: viewport) & row.size).overlaps(
+        bounds,
+      );
+}
+
 // Keep recently mounted rows available for direction reversals without retaining
 // the full history. The sliver still builds no offscreen rows in advance.
 class _RecentChatMessages {
@@ -2843,12 +2910,31 @@ class _RecentChatMessages {
     return newest;
   }
 
-  void syncVisible((int, int)? range) {
+  bool overlaps(int index, _ChatMessageVisibleBounds visibleBounds) {
+    for (final row in _mountedRows) {
+      if (row.widget.index == index) return _overlaps(row, visibleBounds);
+    }
+    return false;
+  }
+
+  bool _overlaps(
+    _RetainedChatMessageState row,
+    _ChatMessageVisibleBounds visibleBounds,
+  ) {
+    final box = row.context.findRenderObject();
+    return box is RenderBox && box.hasSize && visibleBounds.overlaps(box);
+  }
+
+  void syncVisible(
+    (int, int)? range, {
+    _ChatMessageVisibleBounds? visibleBounds,
+  }) {
     for (final row in _mountedRows) {
       final visible =
           range != null &&
           row.widget.index >= range.$1 &&
-          row.widget.index <= range.$2;
+          row.widget.index <= range.$2 &&
+          (visibleBounds == null || _overlaps(row, visibleBounds));
       row.setVisible(visible);
     }
   }

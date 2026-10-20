@@ -81,6 +81,93 @@ void main() {
     ),
   );
 
+  testWidgets('floating footer keeps live rows and jumps above the composer', (
+    tester,
+  ) async {
+    final footer = ValueNotifier(80.0);
+    final scroll = ScrollController();
+    final list = ListController();
+    final controller = DMessageScrollerController();
+    addTearDown(footer.dispose);
+    addTearDown(scroll.dispose);
+    addTearDown(list.dispose);
+    addTearDown(controller.dispose);
+    var bodyBuilds = 0;
+    await tester.pumpWidget(
+      host(
+        DPageSurface.scrollable(
+          framed: false,
+          floatingFooter: true,
+          footer: ValueListenableBuilder(
+            valueListenable: footer,
+            builder: (_, height, _) => SizedBox(
+              key: const ValueKey('composer-footer'),
+              height: height,
+            ),
+          ),
+          bodyBuilder: (_, _) {
+            bodyBuilds++;
+            return DMessageScrollerProvider(
+              controller: controller,
+              manageInitialPosition: false,
+              child: DMessageScroller(
+                children: [
+                  DMessageScrollerViewport.builder(
+                    scrollController: scroll,
+                    listController: list,
+                    reverse: true,
+                    gap: 0,
+                    cacheExtent: 0,
+                    preserveReaderPositionOnResize: false,
+                    contentPadding: const EdgeInsets.only(bottom: 8),
+                    itemCount: 40,
+                    itemIdBuilder: (index) => '$index',
+                    itemBuilder: (_, index) => SizedBox(
+                      key: ValueKey('floating-row-$index'),
+                      height: 40,
+                      child: Text('Row $index'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final first = find.byKey(const ValueKey('floating-row-0'));
+    final element = tester.element(first);
+    final footerFinder = find.byKey(const ValueKey('composer-footer'));
+    expect(
+      tester.getBottomLeft(first).dy,
+      tester.getTopLeft(footerFinder).dy - 8,
+    );
+
+    for (final height in [140.0, 60.0]) {
+      footer.value = height;
+      await tester.pumpAndSettle();
+      expect(
+        tester.getBottomLeft(first).dy,
+        tester.getTopLeft(footerFinder).dy - 8,
+      );
+      expect(tester.element(first), same(element));
+      expect(bodyBuilds, 1);
+    }
+
+    scroll.jumpTo(100);
+    await tester.pumpAndSettle();
+    expect(controller.state.visibleMessageIds, isNot(contains('0')));
+    expect(controller.state.visibleMessageIds, isNot(contains('1')));
+    expect(controller.state.visibleMessageIds, contains('2'));
+
+    list.jumpToItem(index: 20, scrollController: scroll, alignment: 0);
+    await tester.pumpAndSettle();
+    final target = find.byKey(const ValueKey('floating-row-20'));
+    expect(tester.getBottomLeft(target).dy, tester.getTopLeft(footerFinder).dy);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opens at the end without flashing and publishes edge state', (
     tester,
   ) async {

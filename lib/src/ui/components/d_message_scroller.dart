@@ -3,12 +3,13 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../foundation/tokens.dart';
 import 'd_button.dart';
+import 'd_page_surface.dart';
 import 'd_scroll_area.dart';
 
 /// A logical transcript edge, independent of a reversed Flutter viewport.
@@ -417,6 +418,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   ListController get _list => widget.listController ?? _ownedList;
   FocusNode get _focus => (_ownedFocus);
 
+  DPageHeaderGeometry? _pageGeometry;
   _DMessageScrollerScope? _scope;
   DMessageScrollerController? _attachedController;
   _ScrollerMode _mode = _ScrollerMode.free;
@@ -451,6 +453,12 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final geometry = DPageSurface.headerGeometryOf(context);
+    if (!identical(geometry, _pageGeometry)) {
+      _pageGeometry?.removeListener(_scheduleStateSync);
+      _pageGeometry = geometry;
+      geometry?.addListener(_scheduleStateSync);
+    }
     final next = _DMessageScrollerScope.of(context);
     final controllerChanged = !identical(next.controller, _attachedController);
     if (controllerChanged) {
@@ -509,6 +517,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
 
   @override
   void dispose() {
+    _pageGeometry?.removeListener(_scheduleStateSync);
     _attachedController?._detach(this);
     _list.removeListener(_handleExtentsChanged);
     _ownedScroll.dispose();
@@ -1122,13 +1131,25 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     final first = range.$1.clamp(0, _ids.length - 1);
     final last = range.$2.clamp(0, _ids.length - 1);
     final visible = <String>[];
+    final footerExtent = _pageGeometry?.footerExtent ?? 0;
+    bool unobstructed(int index) {
+      if (footerExtent == 0) return true;
+      final id = _ids[index];
+      final top = _rowTop(id);
+      final row = _rowKey(id)?.currentContext?.findRenderObject() as RenderBox?;
+      return top != null &&
+          row != null &&
+          top + row.size.height > 0 &&
+          top < _scroll.position.viewportDimension - footerExtent;
+    }
+
     if (first <= last) {
       for (var index = first; index <= last; index++) {
-        visible.add(_ids[index]);
+        if (unobstructed(index)) visible.add(_ids[index]);
       }
     } else {
       for (var index = first; index >= last; index--) {
-        visible.add(_ids[index]);
+        if (unobstructed(index)) visible.add(_ids[index]);
       }
     }
 
@@ -1226,7 +1247,7 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
     );
     final state = _attachedController?.state ?? const DMessageScrollerState();
 
-    Widget viewport = SuperListView.builder(
+    Widget viewport = _PageMessageListView(
       key: const ValueKey('d-message-scroller-list'),
       controller: _scroll,
       listController: _list,
@@ -1320,6 +1341,101 @@ class _DMessageScrollerViewportState extends State<DMessageScrollerViewport>
       );
     }
     return viewport;
+  }
+}
+
+class _PageMessageListView extends SuperListView {
+  _PageMessageListView({
+    super.key,
+    super.controller,
+    super.listController,
+    super.reverse,
+    super.physics,
+    super.restorationId,
+    super.cacheExtent,
+    super.padding,
+    required super.itemCount,
+    required super.findChildIndexCallback,
+    required super.itemBuilder,
+  }) : super.builder();
+
+  @override
+  Widget buildChildLayout(BuildContext context) {
+    final child = super.buildChildLayout(context);
+    final geometry = DPageSurface.headerGeometryOf(context);
+    return geometry == null
+        ? child
+        : _MessageFooterPadding(
+            geometry: geometry,
+            reverse: reverse,
+            child: child,
+          );
+  }
+}
+
+class _MessageFooterPadding extends SingleChildRenderObjectWidget {
+  const _MessageFooterPadding({
+    required this.geometry,
+    required this.reverse,
+    required super.child,
+  });
+  final DPageHeaderGeometry geometry;
+  final bool reverse;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMessageFooterPadding(geometry, reverse);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderMessageFooterPadding renderObject,
+  ) => renderObject.update(geometry, reverse);
+}
+
+class _RenderMessageFooterPadding extends RenderSliverPadding {
+  _RenderMessageFooterPadding(this._pageGeometry, this._reverse)
+    : super(padding: EdgeInsets.only(bottom: _pageGeometry.footerExtent));
+
+  DPageHeaderGeometry _pageGeometry;
+  bool _reverse;
+
+  void _changed() {
+    padding = EdgeInsets.only(bottom: _pageGeometry.footerExtent);
+  }
+
+  void update(DPageHeaderGeometry geometry, bool reverse) {
+    if (!identical(geometry, _pageGeometry)) {
+      if (attached) _pageGeometry.removeListener(_changed);
+      _pageGeometry = geometry;
+      if (attached) _pageGeometry.addListener(_changed);
+    }
+    _reverse = reverse;
+    _changed();
+    markNeedsLayout();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _pageGeometry.addListener(_changed);
+  }
+
+  @override
+  void detach() {
+    _pageGeometry.removeListener(_changed);
+    super.detach();
+  }
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    geometry = geometry!.withChildObstructionExtent(
+      ChildObstructionExtent(
+        leading: _reverse ? _pageGeometry.footerExtent : 0,
+        trailing: _reverse ? 0 : _pageGeometry.footerExtent,
+      ),
+    );
   }
 }
 

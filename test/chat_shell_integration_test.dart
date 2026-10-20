@@ -778,10 +778,74 @@ void _registerChatShellTests() {
         expect(shell.chat.channel(site, 9)?.membership.lastViewedAt, isNotNull);
       }, variant: TargetPlatformVariant.only(TargetPlatform.fuchsia));
 
+      testWidgets(
+        'mobile chat does not credit messages covered by its composer',
+        (tester) async {
+          const notifications = MethodChannel(
+            'org.discourse.native/notification_opens',
+          );
+          final messenger = tester.binding.defaultBinaryMessenger;
+          messenger.setMockMethodCallHandler(notifications, (_) async => null);
+          addTearDown(
+            () => messenger.setMockMethodCallHandler(notifications, null),
+          );
+          final api = FakeDiscourseApi(
+            totals: withChat,
+            user: me,
+            chatChannelsBySite: {
+              site: ChatChannels(public: [channel(9, lastRead: 5, unread: 95)]),
+            },
+            chatMessagesByKey: {
+              key(9): page([
+                for (var id = 1; id <= 100; id++)
+                  msg(
+                    id,
+                    cooked: '<p>Message $id in the conversation</p>',
+                    minute: id,
+                  ),
+              ]),
+            },
+          );
+          await pumpChat(tester, size: phone, api: api);
+          await selectChatSidebar(tester);
+          final shell = ShellScope.read(
+            tester.element(find.byKey(const ValueKey('mobile-root'))),
+          );
+          shell.openChatChannel(9);
+          await pumpUntilRead(tester);
+          expect(api.chatReadsMarked, isNotEmpty);
+          final credited = api.chatReadsMarked.last.messageId;
+          final message = find.byKey(ValueKey('chat-message-$credited'));
+          final composer = find.byKey(const ValueKey('chat-composer'));
+          expect(message, findsOneWidget);
+          expect(
+            tester.getRect(message).top,
+            lessThan(tester.getRect(composer).top),
+            reason: 'A message entirely hidden by the input has not been read',
+          );
+          expect(tester.takeException(), isNull);
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.iOS,
+          TargetPlatform.android,
+        }),
+      );
+
       for (final thread in [false, true]) {
         testWidgets(
           'mobile ${thread ? 'thread' : 'channel'} transcript continues behind its composer',
           (tester) async {
+            const notifications = MethodChannel(
+              'org.discourse.native/notification_opens',
+            );
+            final messenger = tester.binding.defaultBinaryMessenger;
+            messenger.setMockMethodCallHandler(
+              notifications,
+              (_) async => null,
+            );
+            addTearDown(
+              () => messenger.setMockMethodCallHandler(notifications, null),
+            );
             final history = [
               for (var id = 1; id <= 100; id++)
                 msg(id, cooked: '<p>Message $id in the conversation</p>'),
@@ -837,6 +901,12 @@ void _registerChatShellTests() {
             );
             position.jumpTo(position.maxScrollExtent / 2);
             await tester.pumpAndSettle();
+            final jump = find.bySemanticsLabel('Jump to latest messages');
+            expect(jump.hitTestable(), findsOneWidget);
+            expect(
+              tester.getRect(jump).bottom,
+              lessThan(tester.getRect(composer).top),
+            );
             const captureDirectory = String.fromEnvironment(
               'CHAT_DOCK_CAPTURE_DIR',
             );
