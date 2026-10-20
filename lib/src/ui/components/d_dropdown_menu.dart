@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
@@ -259,15 +260,160 @@ class DDropdownMenuContent extends StatefulWidget {
 }
 
 class _MenuRegistration {
-  _MenuRegistration(this.node, this.label, this.enabled);
+  _MenuRegistration(this.node, this.label, this.enabled, this.index);
   final FocusNode node;
   final String label;
   final bool enabled;
+  final int? index;
+}
+
+class _MenuLazyRow {
+  const _MenuLazyRow(
+    this.child, {
+    this.label = '',
+    this.enabled = false,
+    this.focusNode,
+  });
+
+  final Widget child;
+  final String label;
+  final bool enabled;
+  final FocusNode? focusNode;
+
+  Object get identity => child.key ?? focusNode ?? child;
+}
+
+List<_MenuLazyRow>? _menuLazyRows(DDropdownMenuContent content) {
+  if (!content.scrollable ||
+      content.width == null ||
+      content.children.length <= 64) {
+    return null;
+  }
+  final rows = <_MenuLazyRow>[];
+  for (final child in content.children) {
+    switch (child) {
+      case DDropdownMenuItem():
+        rows.add(
+          _MenuLazyRow(
+            child,
+            label: child.semanticLabel ?? _plainText(child.child),
+            enabled: child.onPressed != null,
+            focusNode: child.focusNode,
+          ),
+        );
+      case DDropdownMenuCheckboxItem():
+        rows.add(
+          _MenuLazyRow(
+            child,
+            label: child.semanticLabel ?? _plainText(child.child),
+            enabled: child.onChanged != null,
+            focusNode: child.focusNode,
+          ),
+        );
+      case DDropdownMenuSub():
+        rows.add(
+          _MenuLazyRow(
+            child,
+            label: child.semanticLabel ?? _plainText(child.trigger),
+            enabled: child.enabled,
+          ),
+        );
+      case DDropdownMenuLabel() || DDropdownMenuSeparator():
+        rows.add(_MenuLazyRow(child));
+      default:
+        return null;
+    }
+  }
+  return rows;
+}
+
+class _MenuRowKey extends ValueKey<Object> {
+  const _MenuRowKey(super.value);
+}
+
+class _MenuRowScope extends InheritedWidget {
+  const _MenuRowScope({super.key, required this.index, required super.child});
+  final int index;
+
+  @override
+  bool updateShouldNotify(_MenuRowScope oldWidget) => index != oldWidget.index;
 }
 
 class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   final _items = <Object, _MenuRegistration>{};
   final _scrollController = ScrollController();
+  final _listController = ListController();
+  List<_MenuLazyRow>? _lazyRows;
+  int? _focusedIndex;
+  int? _pendingIndex;
+  int _focusGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _lazyRows = _menuLazyRows(widget);
+  }
+
+  bool get _usesLazyRows => _lazyRows != null && _listController.isAttached;
+
+  void focused(Object owner) {
+    if (_items[owner]?.index case final index?) _focusedIndex = index;
+  }
+
+  List<int> get _enabledLazyIndexes => [
+    for (var index = 0; index < _lazyRows!.length; index++)
+      if (_lazyRows![index].enabled &&
+          (_lazyRows![index].focusNode?.canRequestFocus ?? true))
+        index,
+  ];
+
+  int? get _currentLazyIndex {
+    if (_pendingIndex != null) return _pendingIndex;
+    for (final item in _items.values) {
+      if (item.node.hasFocus) return item.index;
+    }
+    return _focusedIndex;
+  }
+
+  void _focusLazy(int index) {
+    final generation = ++_focusGeneration;
+    _pendingIndex = index;
+    void reveal([int attempt = 0]) {
+      if (!mounted || generation != _focusGeneration || !_usesLazyRows) return;
+      for (final item in _items.values) {
+        if (item.index == index && item.enabled && item.node.canRequestFocus) {
+          _pendingIndex = null;
+          _focusedIndex = index;
+          _focusAt([item], 0);
+          return;
+        }
+      }
+      if (attempt == 3 || !_scrollController.hasClients) {
+        _pendingIndex = null;
+        return;
+      }
+      _listController.jumpToItem(
+        index: index,
+        scrollController: _scrollController,
+        alignment: .5,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) => reveal(attempt + 1));
+      WidgetsBinding.instance.scheduleFrame();
+    }
+
+    reveal();
+  }
+
+  void _focusEdge(bool last) {
+    if (_usesLazyRows) {
+      final indexes = _enabledLazyIndexes;
+      if (indexes.isNotEmpty) _focusLazy(last ? indexes.last : indexes.first);
+    } else {
+      final items = _enabledItems;
+      _focusAt(items, last ? items.length - 1 : 0);
+    }
+  }
+
   _DDropdownMenuContentState? _parentContent;
   _DropdownMenuItemSurfaceState? _hoveredItem;
   _DDropdownMenuSubState? _activeSubmenu;
@@ -293,6 +439,17 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _autofocusScheduled = false;
       if (!mounted || !widget.autofocus || _autofocused) return;
+      if (_usesLazyRows) {
+        if (_enabledLazyIndexes.isEmpty) return;
+        _autofocused = true;
+        if (!_items.values.any((item) => item.node.hasFocus)) {
+          final indexes = _enabledLazyIndexes;
+          _focusLazy(
+            indexes.contains(_focusedIndex) ? _focusedIndex! : indexes.first,
+          );
+        }
+        return;
+      }
       final items = _enabledItems;
       if (items.isEmpty) return;
       _autofocused = true;
@@ -485,9 +642,11 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
 
   void _focusAt(List<_MenuRegistration> items, int index) {
     if (items.isEmpty) return;
+    final generation = ++_focusGeneration;
+    _pendingIndex = null;
     items[index % items.length].node.requestFocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || generation != _focusGeneration) return;
       final itemContext = items[index % items.length].node.context;
       final target = itemContext?.findRenderObject();
       if (itemContext != null && target != null && target.attached) {
@@ -509,6 +668,18 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   }
 
   void _move(int delta) {
+    if (_usesLazyRows) {
+      final indexes = _enabledLazyIndexes;
+      if (indexes.isEmpty) return;
+      final current = indexes.indexOf(_currentLazyIndex ?? -1);
+      _focusLazy(
+        indexes[(current < 0
+                ? (delta > 0 ? 0 : indexes.length - 1)
+                : current + delta) %
+            indexes.length],
+      );
+      return;
+    }
     final items = _enabledItems;
     if (items.isEmpty) return;
     final current = items.indexWhere((item) => item.node.hasFocus);
@@ -524,6 +695,18 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     final normalized = character.toLowerCase();
     _search = _search == normalized ? normalized : '$_search$normalized';
     _searchTimer = Timer(const Duration(milliseconds: 700), () => _search = '');
+    if (_usesLazyRows) {
+      final indexes = _enabledLazyIndexes;
+      final current = indexes.indexOf(_currentLazyIndex ?? -1);
+      for (var offset = 1; offset <= indexes.length; offset++) {
+        final index = indexes[(current + offset) % indexes.length];
+        if (_lazyRows![index].label.toLowerCase().startsWith(_search)) {
+          _focusLazy(index);
+          return;
+        }
+      }
+      return;
+    }
     final items = _enabledItems;
     if (items.isEmpty) return;
     final current = items.indexWhere((item) => item.node.hasFocus);
@@ -552,12 +735,11 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.home) {
-      _focusAt(_enabledItems, 0);
+      _focusEdge(false);
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.end) {
-      final items = _enabledItems;
-      _focusAt(items, items.length - 1);
+      _focusEdge(true);
       return KeyEventResult.handled;
     }
     final closeDirection = direction == TextDirection.ltr
@@ -594,6 +776,24 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   @override
   void didUpdateWidget(DDropdownMenuContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final previous = _lazyRows;
+    final hadFocus = _items.values.any((item) => item.node.hasFocus);
+    final focused = _currentLazyIndex;
+    final identity =
+        previous != null && focused != null && focused < previous.length
+        ? previous[focused].identity
+        : null;
+    _focusGeneration++;
+    _pendingIndex = null;
+    _lazyRows = _menuLazyRows(widget);
+    final next = identity == null
+        ? -1
+        : _lazyRows?.indexWhere((row) => row.identity == identity) ?? -1;
+    _focusedIndex = next < 0 ? null : next;
+    if (hadFocus && (next < 0 || (previous == null) != (_lazyRows == null))) {
+      _autofocused = false;
+      _focusedIndex ??= focused;
+    }
     _scheduleAutofocus();
   }
 
@@ -601,6 +801,8 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   void dispose() {
     _cancelPendingHover();
     _searchTimer?.cancel();
+    _focusGeneration++;
+    _listController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -669,14 +871,16 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
                 style: textStyle,
                 child: IconTheme.merge(
                   data: IconThemeData(color: tokens.foreground, size: 16),
-                  child: widget.scrollable
+                  child: _lazyRows != null
+                      ? _lazyViewport()
+                      : widget.scrollable
                       ? _DropdownMenuOverflowViewport(
                           controller: _scrollController,
                           padding: widget.padding,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: widget.children,
+                            children: _indexedChildren,
                           ),
                         )
                       : Padding(
@@ -698,6 +902,62 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
       ),
     );
   }
+
+  List<Widget> get _indexedChildren => [
+    for (var index = 0; index < widget.children.length; index++)
+      _MenuRowScope(
+        key: _MenuRowKey(widget.children[index].key ?? index),
+        index: index,
+        child: widget.children[index],
+      ),
+  ];
+
+  Widget _lazyViewport() => LayoutBuilder(
+    builder: (context, constraints) {
+      if (!constraints.hasBoundedHeight) {
+        return Padding(
+          padding: widget.padding,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: widget.children,
+          ),
+        );
+      }
+      final rows = _lazyRows!;
+      return DScrollBar(
+        backgroundColor: DTokens.of(context).surface,
+        controller: _scrollController,
+        child: CustomScrollView(
+          controller: _scrollController,
+          primary: false,
+          shrinkWrap: true,
+          slivers: [
+            SliverPadding(
+              padding: widget.padding,
+              sliver: SuperSliverList.builder(
+                listController: _listController,
+                itemCount: rows.length,
+                findChildIndexCallback: (key) {
+                  for (var index = 0; index < rows.length; index++) {
+                    if (key == _MenuRowKey(rows[index].child.key ?? index)) {
+                      return index;
+                    }
+                  }
+                  return null;
+                },
+                itemBuilder: (context, index) => _MenuRowScope(
+                  key: _MenuRowKey(rows[index].child.key ?? index),
+                  index: index,
+                  child: rows[index].child,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 /// Matches CSS `overflow-y: auto`: fitting menus are ordinary static content,
@@ -1384,7 +1644,10 @@ class _DropdownMenuItemSurface extends StatefulWidget {
       _DropdownMenuItemSurfaceState();
 }
 
-class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
+class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => _focused || widget.expanded == true;
   late FocusNode _ownedFocus;
   FocusNode get _focus => widget.focusNode ?? _ownedFocus;
   _DDropdownMenuContentState? _content;
@@ -1414,6 +1677,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
     // down, and the discarded recognizer cancels it mid-build, where the
     // cancel must find nothing left to rebuild.
     if (!widget.enabled) _pressed = false;
+    if (oldWidget.expanded != widget.expanded) updateKeepAlive();
     if (oldWidget.focusNode != widget.focusNode ||
         oldWidget.label != widget.label ||
         oldWidget.enabled != widget.enabled) {
@@ -1425,7 +1689,15 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
 
   void _register() {
     _content = _DropdownMenuContentScope.of(context)
-      ..register(this, _MenuRegistration(_focus, widget.label, widget.enabled));
+      ..register(
+        this,
+        _MenuRegistration(
+          _focus,
+          widget.label,
+          widget.enabled,
+          context.dependOnInheritedWidgetOfExactType<_MenuRowScope>()?.index,
+        ),
+      );
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -1451,6 +1723,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final tokens = DTokens.of(context);
     final destructive = widget.variant == DDropdownMenuItemVariant.destructive;
     // Pointer hover is menu-local and deliberately does not move keyboard
@@ -1570,7 +1843,11 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface> {
               if (focused && !widget.preserveSubmenuOnFocus) {
                 _content?.closeActiveSubmenu();
               }
-              if (mounted) setState(() => _focused = focused);
+              if (focused) _content?.focused(this);
+              if (mounted) {
+                setState(() => _focused = focused);
+                updateKeepAlive();
+              }
             },
             onKeyEvent: _onKey,
             child: GestureDetector(

@@ -37,6 +37,7 @@ import 'package:flutter/material.dart'
         ConstrainedBox,
         ColoredBox,
         Focus,
+        FocusManager,
         GlobalKey,
         InkWell,
         MaterialApp,
@@ -176,6 +177,72 @@ void main() {
       expect(find.byType(DSpinner), findsNothing);
       expect(tester.takeException(), isNull);
     });
+  }
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets(
+      'long draft dropdown retains bounded rows and far resume at scale $scale',
+      (tester) async {
+        final drafts = [
+          for (var index = 0; index < 200; index++)
+            UserDraft(
+              key: 'new_topic_$index',
+              sequence: 1,
+              data: ComposerDraft(
+                reply: 'Saved body $index',
+                action: ComposerDraft.createTopicAction,
+                title: 'Saved draft $index',
+              ),
+            ),
+        ];
+        expect(drafts.every((draft) => draft.canResume), isTrue);
+        await _pump(tester, userDrafts: drafts, draftCount: drafts.length);
+        await tester.tap(find.byKey(TopicCreateButton.buttonKey));
+        await tester.pumpAndSettle();
+        final shell = ShellScope.read(
+          tester.element(find.byType(ComposerPanel)),
+        );
+        await shell.appSettings.setTextScale(
+          scale == 2 ? AppTextScale.percent200 : AppTextScale.percent100,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('composer-all-drafts')));
+        await tester.pumpAndSettle();
+        while (shell.draftList.feedFor(_siteUrl).hasMore) {
+          await shell.draftList.load(shell.currentInstance!);
+        }
+        await tester.pumpAndSettle();
+        expect(shell.draftList.feedFor(_siteUrl).drafts.length, 200);
+        expect(
+          MediaQuery.textScalerOf(
+            tester.element(find.byType(DDropdownMenuContent)),
+          ).scale(14),
+          14 * scale,
+        );
+        final mounted = find
+            .byType(DDropdownMenuItem, skipOffstage: false)
+            .evaluate()
+            .length;
+        debugPrint('DRAFT_DROPDOWN_MOUNTED scale=$scale rows=$mounted');
+        expect(mounted, lessThan(40));
+        expect(
+          FocusManager.instance.primaryFocus?.debugLabel,
+          startsWith('Dropdown item'),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+        await tester.pumpAndSettle();
+        expect(find.text('Saved draft 199').hitTestable(), findsOneWidget);
+        await tester.tap(find.text('Saved draft 199'));
+        await tester.pumpAndSettle();
+        expect(shell.visibleComposer!.target.draftKey, 'new_topic_199');
+        expect(shell.visibleComposer!.raw, 'Saved body 199');
+        expect(find.byType(DDropdownMenuContent), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
   }
 
   group('topic creation controls', () {
