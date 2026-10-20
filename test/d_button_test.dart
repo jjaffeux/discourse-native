@@ -11,14 +11,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/button_surface.dart';
 import 'support/stock_glass.dart';
 
 void main() {
   testWidgets(
-    'ordinary glass buttons use button lighting without a cosmetic border',
+    'ordinary glass buttons use regular glass without a cosmetic border',
     (tester) async {
       for (final dark in [false, true]) {
         for (final enabled in [true, false]) {
@@ -38,11 +38,8 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final lens = find.byType(LiquidGlassLens);
-          expectStockGlass(
-            tester.widget<LiquidGlassLens>(lens).style,
-            expectedButtonGlassStyle,
-          );
+          final lens = find.byType(LiquidGlass);
+          expectStockGlass(tester, lens);
           expect(buttonSurface(tester).borderColor.a, 0);
           expect(buttonSurface(tester).color.a, 0);
           final node = tester.element(lens);
@@ -104,24 +101,7 @@ void main() {
           final enabled = state.enabled && !state.loading;
           void expectTint(Color source) {
             final tint = source.withValues(alpha: .76 * (enabled ? 1 : .6));
-            final style = tester
-                .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
-                .style;
-            expect(style.color, tint);
-            expect(style.adaptivity!.glassColorOnDark, tint);
-            expect(style.adaptivity!.glassColorOnLight, tint);
-            expectStockGlass(
-              style,
-              expectedButtonGlassStyle.copyWith(
-                color: tint,
-                adaptivity: style.adaptivity,
-              ),
-            );
-            for (final lite in tester.widgetList<LiquidGlassLite>(
-              find.byType(LiquidGlassLite),
-            )) {
-              expect(lite.color, tint);
-            }
+            expectStockGlass(tester, find.byType(LiquidGlass), tint: tint);
           }
 
           expectTint(background);
@@ -182,14 +162,11 @@ void main() {
         );
         await tester.pumpAndSettle();
         void expectTint(Color? source) {
-          final style = tester
-              .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
-              .style;
-          if (source == null) {
-            expectStockGlass(style, expectedButtonGlassStyle);
-          } else {
-            expect(style.color, source.withValues(alpha: .76));
-          }
+          expectStockGlass(
+            tester,
+            find.byType(LiquidGlass),
+            tint: source?.withValues(alpha: .76),
+          );
         }
 
         expectTint(expanded ? background : null);
@@ -225,7 +202,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.byType(LiquidGlassLens), findsNothing);
+    expect(find.byType(LiquidGlass), findsNothing);
     expect(buttonSurface(tester).color.a, 0);
   });
 
@@ -1087,7 +1064,7 @@ void main() {
                     icon: const Icon(Icons.add),
                     tooltip: 'New topic',
                     backgroundColor: density == DButtonDensity.mobileDock
-                        ? const LiquidGlassTabPillStyle().effectiveRest.color
+                        ? Colors.white12
                         : null,
                     focusNode: focus,
                     loading: loading,
@@ -1103,24 +1080,13 @@ void main() {
         await tester.pumpAndSettle();
         final button = find.byType(DButton);
         final bounds = tester.getRect(button);
-        final lens = find.byType(LiquidGlassLens);
+        final lens = find.byType(LiquidGlass);
         expect(tester.getRect(lens), bounds);
-        final style = tester.widget<LiquidGlassLens>(lens).style;
-        expect(style.color, LiquidGlassButton.defaultStyle.color);
-        expect(style.specular, expectedButtonGlassStyle.specular);
-        expect(style.blur, LiquidGlassButton.defaultStyle.blur);
+        expectStockGlass(tester, lens);
         expect(
-          style.refractionIndex,
-          LiquidGlassButton.defaultStyle.refractionIndex,
+          tester.widget<LiquidGlass>(lens).shape,
+          LiquidRoundedRectangle(borderRadius: bounds.height / 2),
         );
-        expect(
-          style.refractionWidth,
-          LiquidGlassButton.defaultStyle.refractionWidth,
-        );
-        expect(style.glow, expectedButtonGlassStyle.glow);
-        expect(style.shadow, isNull);
-        expect(style.saturation, 1);
-        expect(style.shape!.cornerRadius, bounds.height / 2);
         expect(tester.getCenter(find.byIcon(Icons.add)), bounds.center);
         expect(find.byType(DMaterialSurface), findsNothing);
         expect(

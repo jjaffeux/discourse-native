@@ -6,14 +6,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/stock_glass.dart';
 
 void main() {
   for (final dark in [false, true]) {
     testWidgets(
-      'sidebar glass uses button lighting for selection and hover ($dark)',
+      'sidebar glass uses regular glass for selection and hover ($dark)',
       (tester) async {
         for (final backdrop in [
           const Color(0xff555555),
@@ -30,12 +30,9 @@ void main() {
           );
           final selected = find.descendant(
             of: find.byKey(const ValueKey('forum')),
-            matching: find.byType(LiquidGlassLens),
+            matching: find.byType(LiquidGlass),
           );
-          expectStockGlass(
-            tester.widget<LiquidGlassLens>(selected).style,
-            expectedButtonGlassStyle,
-          );
+          expectStockGlass(tester, selected);
           await _pixel(tester, const Offset(340, 25), well);
           final mouse = await tester.createGesture(
             kind: PointerDeviceKind.mouse,
@@ -51,12 +48,9 @@ void main() {
           );
           final hovered = find.descendant(
             of: find.byKey(const ValueKey('chat')),
-            matching: find.byType(LiquidGlassLens),
+            matching: find.byType(LiquidGlass),
           );
-          expectStockGlass(
-            tester.widget<LiquidGlassLens>(hovered).style,
-            expectedButtonGlassStyle,
-          );
+          expectStockGlass(tester, hovered);
           await mouse.removePointer();
           await tester.pumpAndSettle();
           await _pixel(tester, const Offset(340, 25), well);

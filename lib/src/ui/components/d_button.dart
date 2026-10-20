@@ -3,7 +3,6 @@ import 'dart:ui' show ImageFilter, SemanticsValidationResult, lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
@@ -647,8 +646,6 @@ class DButton extends StatelessWidget {
     final mobileDockCollapsed = density == DButtonDensity.mobileDockCollapsed;
     final glassDock =
         glass && (mobileDock || mobileDockAction || mobileDockCollapsed);
-    const glassItems = LiquidGlassTabItemStyle();
-    const glassButton = LiquidGlassButton(label: '');
 
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
@@ -704,7 +701,7 @@ class DButton extends StatelessWidget {
         : backLink
         ? 11.0
         : glassDock
-        ? (mobileDock ? glassItems.iconSize : glassButton.iconSize) +
+        ? (mobileDock ? 24.0 : 20.0) +
               MediaQuery.textScalerOf(context).scale(11) -
               11
         : mobileDock || mobileDockAction || mobileDockCollapsed
@@ -1148,12 +1145,8 @@ class DButton extends StatelessWidget {
       textStyle: WidgetStateProperty.resolveWith(
         (states) => glassDock
             ? TextStyle(
-                fontSize: mobileDock
-                    ? glassItems.labelFontSize
-                    : glassButton.fontSize,
-                fontWeight: mobileDock
-                    ? glassItems.unselectedFontWeight
-                    : glassButton.fontWeight,
+                fontSize: mobileDock ? 10.5 : 16,
+                fontWeight: mobileDock ? FontWeight.w500 : FontWeight.w600,
               )
             : theme.textTheme.labelLarge!.copyWith(
                 fontSize: mobileDock ? 11 : fontSize,
@@ -1240,20 +1233,14 @@ class DButton extends StatelessWidget {
               mobileDockAction ||
               mobileDockCollapsed ||
               state.backgroundColor.a > 0;
-          final foreground = LiquidGlassAdaptiveContent(
-            adaptivity: const LiquidGlassAdaptivity(),
-            child: enabled
-                ? child
-                : Opacity(opacity: buttons.disabledOpacity, child: child),
-          );
+          final foreground = enabled
+              ? child
+              : Opacity(opacity: buttons.disabledOpacity, child: child);
           final content = selected
-              ? LiquidGlassLens(
-                  style: buttonGlassStyle.copyWith(
-                    shape: LiquidGlassShape.roundedRectangle(
-                      cornerRadius: visualDimension / 2,
-                    ),
-                  ),
-                  child: foreground,
+              ? DGlassSurface(
+                  radius: visualDimension / 2,
+                  brightness: theme.brightness,
+                  child: foreground ?? const SizedBox.shrink(),
                 )
               : foreground;
           return DControlArtwork(
@@ -1321,28 +1308,11 @@ class DButton extends StatelessWidget {
                 ? joined!.axis
                 : null,
           ),
-          child: LiquidGlassAdaptiveContent(
-            adaptivity: const LiquidGlassAdaptivity(),
-            builder: (context, color, _) => IconTheme.merge(
-              data: IconThemeData(
-                color:
-                    stockGlass &&
-                        foregroundColor == null &&
-                        variant != DButtonVariant.destructive
-                    ? color
-                    : state.iconColor,
-              ),
-              child: DefaultTextStyle.merge(
-                style: TextStyle(
-                  color:
-                      stockGlass &&
-                          foregroundColor == null &&
-                          variant != DButtonVariant.destructive
-                      ? color
-                      : state.foregroundColor,
-                ),
-                child: child ?? const SizedBox.shrink(),
-              ),
+          child: IconTheme.merge(
+            data: IconThemeData(color: state.iconColor),
+            child: DefaultTextStyle.merge(
+              style: TextStyle(color: state.foregroundColor),
+              child: child ?? const SizedBox.shrink(),
             ),
           ),
         );

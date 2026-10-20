@@ -54,7 +54,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart'
     as images;
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
@@ -174,12 +174,12 @@ void main() {
           if (material == DAppearanceMaterial.liquidGlass) {
             final lens = find.descendant(
               of: send,
-              matching: find.byType(LiquidGlassLens),
+              matching: find.byType(LiquidGlass),
             );
             final tint = expected.background.withValues(
               alpha: .76 * (enabled ? 1 : .6),
             );
-            expect(tester.widget<LiquidGlassLens>(lens).style.color, tint);
+            expect(tester.widget<LiquidGlass>(lens).appearance!.tint, tint);
           }
         }
 

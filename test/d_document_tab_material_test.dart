@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/button_surface.dart';
 import 'support/stock_glass.dart';
@@ -32,12 +32,7 @@ void main() {
           if (material == DAppearanceMaterial.standard) {
             await _expectPixel(tester, const Offset(120, 25), raised);
           } else {
-            expectStockGlass(
-              tester
-                  .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
-                  .style,
-              expectedButtonGlassStyle,
-            );
+            expectStockGlass(tester, find.byType(LiquidGlass));
           }
           final surface = tester.widget<Container>(
             find.byKey(const ValueKey('surface')),
@@ -84,12 +79,7 @@ void main() {
           if (material == DAppearanceMaterial.standard) {
             await _expectPixel(tester, const Offset(120, 25), backdrop);
           } else {
-            expectStockGlass(
-              tester
-                  .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
-                  .style,
-              expectedButtonGlassStyle,
-            );
+            expectStockGlass(tester, find.byType(LiquidGlass));
           }
           expect(tester.getRect(tab), rect);
           final close = find.byKey(const ValueKey('close'));
@@ -156,7 +146,7 @@ void main() {
       const Offset(120, 25),
       Color.lerp(tokens.background, tokens.foreground, .1)!,
     );
-    expect(find.byType(LiquidGlassLens), findsNothing);
+    expect(find.byType(LiquidGlass), findsNothing);
   });
 
   testWidgets(

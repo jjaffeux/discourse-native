@@ -10,7 +10,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 void main() {
   for (final effect in [
@@ -122,12 +122,7 @@ void main() {
       ),
     );
     await _waitForTexture(tester, ForumBackgroundEffect.lava);
-    expect(
-      ui.ImageFilter.isShaderFilterSupported
-          ? find.byType(LiquidGlassLens)
-          : find.byType(LiquidGlassLite),
-      findsWidgets,
-    );
+    expect(find.byType(LiquidGlass), findsWidgets);
     final initial = await _capture(tester);
     await tester.pump(const Duration(seconds: 4));
     expect(await _capture(tester), isNot(orderedEquals(initial)));

@@ -3,7 +3,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 Future<void> _mount(WidgetTester tester, Widget child, ThemeData theme) async {
   await tester.pumpWidget(
@@ -17,7 +17,7 @@ Future<void> _mount(WidgetTester tester, Widget child, ThemeData theme) async {
 }
 
 void _expectLiveLens(WidgetTester tester) {
-  final lens = find.byType(LiquidGlassLens);
+  final lens = find.byType(LiquidGlass);
   expect(lens, findsOneWidget);
   RenderObject? ancestor = tester.renderObject(lens).parent;
   while (ancestor != null) {
@@ -70,7 +70,7 @@ void main() {
           button,
           DMaterialTheme.apply(theme, DAppearanceMaterial.liquidGlass),
         );
-        expect(find.byType(LiquidGlassLens), findsOneWidget);
+        expect(find.byType(LiquidGlass), findsOneWidget);
         expect(
           DefaultTextStyle.of(tester.element(find.text('Action'))).style.color,
           expectedText,
@@ -108,7 +108,7 @@ void main() {
           if (density == DToggleDensity.menuFilter) {
             _expectLiveLens(tester);
           } else {
-            expect(find.byType(LiquidGlassLens), findsNothing);
+            expect(find.byType(LiquidGlass), findsNothing);
           }
           expect(
             find.byWidgetPredicate(

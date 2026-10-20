@@ -23,7 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/fakes.dart';
 
@@ -70,7 +70,7 @@ void _checkSurface(WidgetTester tester, Finder scope, bool glass) {
   }
   if (glass && ui.ImageFilter.isShaderFilterSupported) {
     expect(
-      find.descendant(of: scope, matching: find.byType(LiquidGlassLens)),
+      find.descendant(of: scope, matching: find.byType(LiquidGlass)),
       findsWidgets,
     );
   }
@@ -134,7 +134,7 @@ void glassCompositingTests({bool native = false}) {
           if (native) timeDilation = 6;
           try {
             if (ui.ImageFilter.isShaderFilterSupported) {
-              await tester.runAsync(LiquidGlassShaders.ensureLoaded);
+              await tester.runAsync(LiquidGlass.precache);
             }
             await body(tester);
             expect(tester.takeException(), isNull);

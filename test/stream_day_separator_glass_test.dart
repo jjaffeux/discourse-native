@@ -4,7 +4,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/button_surface.dart';
 import 'support/stock_glass.dart';
@@ -34,41 +34,27 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final lens = find.byType(LiquidGlassLens);
+          final lens = find.byType(LiquidGlass);
           if (!interactive) {
             expect(lens, findsNothing);
           } else {
-            final style = tester.widget<LiquidGlassLens>(lens).style;
             if (floating) {
               final tint = theme.extension<DTokens>()!.surface.withValues(
                 alpha: .68,
               );
-              expect(style.adaptivity!.glassColorOnDark, tint);
-              expect(style.adaptivity!.glassColorOnLight, tint);
               expectStockGlass(
-                style,
-                expectedButtonGlassStyle.copyWith(
-                  color: tint,
-                  blur: 16,
-                  saturation: 1.85,
-                  adaptivity: style.adaptivity,
-                ),
+                tester,
+                lens,
+                tint: tint,
+                frost: 16,
+                saturation: 1.85,
               );
             } else {
               final tint = tester
                   .widget<DButton>(find.byType(DButton))
                   .backgroundColor!
                   .withValues(alpha: .76);
-              expect(style.color, tint);
-              expect(style.adaptivity!.glassColorOnDark, tint);
-              expect(style.adaptivity!.glassColorOnLight, tint);
-              expectStockGlass(
-                style,
-                expectedButtonGlassStyle.copyWith(
-                  color: tint,
-                  adaptivity: style.adaptivity,
-                ),
-              );
+              expectStockGlass(tester, lens, tint: tint);
             }
           }
           expect(tester.takeException(), isNull);
@@ -178,10 +164,7 @@ void main() {
                 !highContrast &&
                 !reduced;
             expect(
-              find.descendant(
-                of: button,
-                matching: find.byType(LiquidGlassLens),
-              ),
+              find.descendant(of: button, matching: find.byType(LiquidGlass)),
               glass ? findsOneWidget : findsNothing,
             );
             if (!glass) {

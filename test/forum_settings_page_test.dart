@@ -643,12 +643,14 @@ void mobileSettingsPanelClipTests() {
           notificationChannel,
           (_) async => null,
         );
-        addTearDown(
-          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
             notificationChannel,
             null,
-          ),
-        );
+          );
+        });
         tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
         tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
         await tester.binding.setSurfaceSize(const Size(430, 932));
@@ -711,17 +713,37 @@ void mobileSettingsPanelClipTests() {
                   'display-font-system-interface',
                 ]) {
                   final bounds = tester.getRect(find.byKey(ValueKey(key)));
-                  final inside = bounds.topLeft + const Offset(8, 8);
                   final backdrop = bounds.topLeft + const Offset(8, -8);
-                  final controlPixel =
-                      (inside.dy.floor() * image.width + inside.dx.floor()) * 4;
                   final backdropPixel =
                       (backdrop.dy.floor() * image.width +
                           backdrop.dx.floor()) *
                       4;
+                  var rimContrast = 0;
+                  for (var dy = 0; dy < 8; dy++) {
+                    for (var dx = 0; dx < 8; dx++) {
+                      for (final point in [
+                        Offset(bounds.left + dx, bounds.top + dy),
+                        Offset(bounds.right - dx - 1, bounds.top + dy),
+                        Offset(bounds.left + dx, bounds.bottom - dy - 1),
+                        Offset(bounds.right - dx - 1, bounds.bottom - dy - 1),
+                      ]) {
+                        final pixel =
+                            (point.dy.floor() * image.width +
+                                point.dx.floor()) *
+                            4;
+                        for (var channel = 0; channel < 3; channel++) {
+                          final contrast =
+                              (bytes[pixel + channel] -
+                                      bytes[backdropPixel + channel])
+                                  .abs();
+                          if (contrast > rimContrast) rimContrast = contrast;
+                        }
+                      }
+                    }
+                  }
                   expect(
-                    bytes[controlPixel],
-                    greaterThan(bytes[backdropPixel] + 8),
+                    rimContrast,
+                    greaterThan(8),
                     reason:
                         '$key keeps its visible glass surface inside the panel.',
                   );

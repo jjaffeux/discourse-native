@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
@@ -154,10 +154,7 @@ void main() {
               BorderRadius.circular(8),
             );
             expect(
-              find.descendant(
-                of: button,
-                matching: find.byType(LiquidGlassLens),
-              ),
+              find.descendant(of: button, matching: find.byType(LiquidGlass)),
               findsNothing,
             );
             final icon = find.descendant(
@@ -186,11 +183,7 @@ void main() {
           final icon = find.descendant(of: reply, matching: find.byType(DIcon));
           expect(
             IconTheme.of(tester.element(icon)).color,
-            glass
-                ? (dark
-                      ? const LiquidGlassAdaptivity().contentColorOnDark
-                      : const LiquidGlassAdaptivity().contentColorOnLight)
-                : Color.lerp(tokens.background, tokens.foreground, .62),
+            Color.lerp(tokens.background, tokens.foreground, .62),
           );
           expect(
             buttonSurface(tester, of: reply).borderColor,
@@ -204,13 +197,10 @@ void main() {
           );
           final lens = find.descendant(
             of: reply,
-            matching: find.byType(LiquidGlassLens),
+            matching: find.byType(LiquidGlass),
           );
           if (glass) {
-            expectStockGlass(
-              tester.widget<LiquidGlassLens>(lens).style,
-              expectedButtonGlassStyle,
-            );
+            expectStockGlass(tester, lens);
           } else {
             expect(lens, findsNothing);
           }

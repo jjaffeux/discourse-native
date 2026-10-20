@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/start_chatting_fixture.dart';
@@ -23,7 +23,7 @@ void commandPresentationRenderingTests({bool native = false}) {
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
     if (ui.ImageFilter.isShaderFilterSupported) {
-      await LiquidGlassShaders.ensureLoaded();
+      await LiquidGlass.precache();
     }
   });
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
@@ -126,7 +126,7 @@ void commandPresentationRenderingTests({bool native = false}) {
             _expectPresentation(tester, platform);
             _expectTransparentCommand(tester);
             if (native && material == DAppearanceMaterial.liquidGlass) {
-              expect(find.byType(LiquidGlassLens), findsWidgets);
+              expect(find.byType(LiquidGlass), findsWidgets);
             }
             await _captureFrame(tester, 'chat-$name');
             await tester.enterText(

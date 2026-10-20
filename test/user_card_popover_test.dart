@@ -23,7 +23,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fake_image_http_client.dart';
@@ -52,7 +52,7 @@ void userCardBackdropTests({bool slowAnimations = false}) {
             if (slowAnimations) timeDilation = 5;
             try {
               if (ui.ImageFilter.isShaderFilterSupported) {
-                await tester.runAsync(LiquidGlassShaders.ensureLoaded);
+                await tester.runAsync(LiquidGlass.precache);
               }
               final api = await _pumpTarget(
                 tester,
@@ -77,9 +77,8 @@ void userCardBackdropTests({bool slowAnimations = false}) {
                 if (material == DAppearanceMaterial.liquidGlass) {
                   expect(fades, findsNothing);
                   if (ui.ImageFilter.isShaderFilterSupported) {
-                    // Warm shaders must paint the lens on the very first frame.
-                    expect(find.byType(LiquidGlassLens), findsWidgets);
-                    expect(find.byType(LiquidGlassLite), findsNothing);
+                    // The card must mount its glass material on the first frame.
+                    expect(find.byType(LiquidGlass), findsWidgets);
                   }
                 } else {
                   expect(fades, findsOneWidget);
@@ -96,8 +95,7 @@ void userCardBackdropTests({bool slowAnimations = false}) {
               if (material == DAppearanceMaterial.liquidGlass &&
                   ui.ImageFilter.isShaderFilterSupported) {
                 expect(_surface, findsOneWidget);
-                expect(find.byType(LiquidGlassLens), findsWidgets);
-                expect(find.byType(LiquidGlassLite), findsNothing);
+                expect(find.byType(LiquidGlass), findsWidgets);
               }
               await tester.pump();
               await tester.pump(const Duration(milliseconds: 16));

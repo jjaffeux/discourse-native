@@ -8,7 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'mobile_shell_test.dart' as fixture;
 
@@ -23,7 +23,7 @@ void mobileMoreBackdropTests({bool native = false}) {
           try {
             if (native) {
               expect(ui.ImageFilter.isShaderFilterSupported, isTrue);
-              await tester.runAsync(LiquidGlassShaders.ensureLoaded);
+              await tester.runAsync(LiquidGlass.precache);
             }
             final shell = await fixture.pumpMobileShellFixture(tester);
             await shell.forumSettings.setThemeMode(

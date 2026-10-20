@@ -38,50 +38,58 @@ control contracts remain in use.
 
 ## Rendering paths
 
-`liquid_glass_easy` 5.0.0 supplies **rendering only** (`LiquidGlassLens`,
-`LiquidGlassLite`, `LiquidGlassBatch`). Package buttons, switches, scaffolds,
-menus and dialogs are not used. SDK validation used Flutter 3.47.6 / Dart 3.13.5.
-See the [package documentation](https://pub.dev/packages/liquid_glass_easy).
+`liquid_glass_renderer` 1.0.0-dev.1 supplies rendering through
+`LiquidGlass`, `LiquidGlassLayer`, and `LiquidGlassCapture`. Native components
+continue to own controls, geometry, focus, semantics, and hit areas. The package
+is pinned because its 1.0 prerelease replaces the 0.2 API. It requires Flutter
+3.47 or newer. See the [package README](https://pub.dev/packages/liquid_glass_renderer).
 
-Raised glass controls and selected dock buttons keep the package's original
-specular band and add a 5px glow at 129 degrees to fill the corner gaps, with
-intensity 1 and spread 0.85. This shared button preset preserves the default
-refraction, blur, color, saturation, shadow, and adaptivity. The kit does not
-paint an additional 1px highlight over those lenses. Standard surfaces and
-recessed wells retain their existing edge treatment. Menus, dialogs, sheets,
-and dock capsules keep their existing glass presets; menus retain their
-separate top sheen.
+Controls and the dock use the package's regular iOS 27 settings and appearance
+for the app's selected brightness. Explicit tints use the direct color model.
+Floating dates, menus, dialogs, and sheets keep 16px frost and their supplied
+tints. Reading panels, recessed wells, cards, and swatches retain painted fills.
+Dock typography and dimensions belong to Native and retain their previous values.
+The reversible dock spring uses Flutter physics with stiffness 195 and damping 19.5.
 
-Live lenses must stay outside fractional-opacity layers. Glass dialogs, pickers,
-tab changes and panel folds keep their movement without fading the live surface.
-Captured page images can still crossfade. Covered topic chrome hides immediately
-in glass appearance. Disabled raised controls dim their flat artwork and tint
-independently of the lens, preserving the disabled state and visible hit bounds.
-Already-loaded shaders are reused on the first frame of each new surface.
-`test/glass_compositing_test.dart` covers these production paths in both materials
-and brightness modes; its integration wrapper checks the native shader renderer.
+Each glass surface keeps its original paint position. `DMaterialBatch` supplies
+one stable backdrop key to sibling layers, saving copies without moving selected
+glass behind a recessed well. Menus, dialogs, and sheets reset the inherited key
+so they can sample intervening painted content. Overlapping dock glass uses a
+small `LiquidGlassCapture` rather than a shared key, preserving glass on glass.
+Controls inside reading panels give their own glass a small capture as well.
+Native pixel checks found that omitting these captures lost the glass in the
+full settings composition. The captures cover individual controls, rather than
+whole reading panels. Each captured pass uses an independent key. Nested batches
+preserve this policy; overlays reset it and the dock owns its existing capture.
+No blend groups or extra glass shadows are introduced.
 
-- **iOS/Impeller:** lenses refract the app's live backdrop. The iPhone 18 Pro
-  simulator on iOS 27 reported Impeller/Metal, shader filters supported, and
-  successful shader initialization. Both brightness modes and 200% text were
-  captured. This is simulator evidence, not physical-device validation.
-  Rounded reading panels use saved clipping so scrolling content stays inside
-  their border. Controls inside those panels use the package's frosted renderer,
-  preserving live blur, tint and rim without shader edge refraction. Nested page
-  sheets clip their own border too. Header and dock controls, floating menus,
-  dialogs and ordinary sheets retain the native lens path.
-- **macOS/Skia:** this Mac reported Skia/Metal and no shader image filters.
-  Controls therefore use live frosted blur, tint and a surface-colored rim;
-  they do **not** claim in-app refraction. No duplicate background capture is
-  created. A shader failure also keeps a readable frosted path.
-- **macOS native window:** on macOS 26+, the host installs a full-window passive
-  `NSGlassEffectView`; older macOS uses under-window `NSVisualEffectView`
-  vibrancy. AppKit owns this separate backdrop below Flutter's input view.
-  Flutter lenses do not sample other desktop windows. macOS 26.6 was built and
-  inspected natively; an older-macOS device was unavailable. Compatibility
-  wrapper host sources were syntax checked, not separately packaged.
+The [performance guidance](https://pub.dev/packages/liquid_glass_renderer#performance)
+identifies backdrop copies as the primary cost. Glass bounds stay local to each
+control. Independent cards and overlays can still require separate copies.
+`FakeGlass` is an automatic compatibility fallback and still pays for copying
+and blur. High contrast and Reduce Transparency keep the existing opaque path,
+which avoids those costs. No physical-device speedup is established by this swap.
 
-## Validation
+Live glass stays outside fractional-opacity layers. Disabled controls dim their
+artwork independently of the glass. Native dock visibility gates continue to own
+hit testing and semantics. Resources load on first use in the application, using
+the renderer's temporary fallback. Native test fixtures explicitly precache them.
+
+Both macOS and iOS enable Flutter GPU. macOS also explicitly enables Impeller,
+replacing the previous Skia workaround. The compatibility application in
+`profiles/full` carries the same flags. Unsupported engines use automatic
+`FakeGlass`. Native macOS captures cover light, dark, and 200% text states. Native macOS and
+iOS simulator pixel checks verify GPU glass and saved clips. These are rendering
+checks, not physical-device performance evidence. The panel clip integration
+test verifies visible controls and saved rounded clips on iOS.
+
+The macOS host's passive `NSGlassEffectView` on macOS 26 and newer, or
+`NSVisualEffectView` on older systems, remains separate from Flutter glass.
+Flutter glass samples application content rather than other desktop windows.
+
+## Previous material validation
+
+This section records the earlier material migration before the renderer swap.
 
 Focused regressions cover persistence/migration, live accessibility overrides,
 visible control bounds and gaps, disabled actions, retained editing state,

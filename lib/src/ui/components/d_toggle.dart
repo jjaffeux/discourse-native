@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
@@ -614,16 +613,7 @@ class _DToggleState extends State<DToggle> {
             ? null
             : 1,
         heightFactor: 1,
-        child: LiquidGlassAdaptiveContent(
-          adaptivity: const LiquidGlassAdaptivity(),
-          builder: (context, color, _) => IconTheme.merge(
-            data: IconThemeData(color: stockGlass ? color : null),
-            child: DefaultTextStyle.merge(
-              style: TextStyle(color: stockGlass ? color : null),
-              child: content,
-            ),
-          ),
-        ),
+        child: content,
       ),
     );
     final surface = splitView && glass

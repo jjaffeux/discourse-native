@@ -52,7 +52,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/badge_fixtures.dart';
 import 'support/bundled_plugins.dart';
@@ -2818,10 +2818,7 @@ void main() {
             greaterThanOrEqualTo(tester.getRect(action).height - .001),
           );
           final glass = DMaterialTheme.glassOf(tester.element(action));
-          final iconDifference = glass
-              ? const LiquidGlassTabItemStyle().iconSize -
-                    const LiquidGlassButton(label: '').iconSize
-              : 0;
+          final iconDifference = glass ? 4 : 0;
           expect(
             tester.getSize(icon).height,
             tester.getSize(dockIcon).height - iconDifference,
@@ -2860,7 +2857,7 @@ void main() {
             of: action,
             matching: find.byWidgetPredicate(
               (widget) => glass
-                  ? widget is LiquidGlassLens
+                  ? widget is LiquidGlass
                   : widget is AnimatedContainer &&
                         widget.decoration is DButtonDecoration,
             ),

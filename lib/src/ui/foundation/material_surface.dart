@@ -2,7 +2,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import 'glass_presets.dart';
 import 'joined_control.dart';
@@ -114,7 +113,7 @@ class DMaterialSurface extends StatelessWidget {
                 ),
               ),
             ),
-            _SurfaceContent(enabled: glass, depth: depth, child: child),
+            child,
           ],
         ),
       );
@@ -182,6 +181,9 @@ class DMaterialSurface extends StatelessWidget {
     );
     final castsShadow =
         !lens && !recessed && !panel && color.a > 0 && (!menu || glass);
+    final content = panel
+        ? DGlassBackdrop(backdropKey: null, captureSurface: glass, child: child)
+        : child;
     final surface = CustomPaint(
       painter: castsShadow && joined != null
           ? _JoinedSurfaceShadow(
@@ -207,14 +209,14 @@ class DMaterialSurface extends StatelessWidget {
             Positioned.fill(
               child: IgnorePointer(child: ExcludeSemantics(child: background)),
             ),
-            _SurfaceContent(enabled: lens, depth: depth, child: child),
+            content,
           ],
         ),
       ),
     );
     // Popovers may overlap their parent controls; they must sample the live
     // painted stack instead of a card's earlier shared backdrop.
-    return menu ? LiquidGlassBatch.exclude(child: surface) : surface;
+    return menu ? DGlassBackdrop(backdropKey: null, child: surface) : surface;
   }
 }
 
@@ -424,17 +426,25 @@ class _JoinedSurfaceShadow extends CustomPainter {
 
 /// One shared read for the side-by-side controls inside a Native surface.
 /// Disable for page panels, whose lenses overlap other painted content.
-class DMaterialBatch extends StatelessWidget {
+class DMaterialBatch extends StatefulWidget {
   const DMaterialBatch({super.key, required this.child, this.enabled = true});
   final Widget child;
   final bool enabled;
+
   @override
-  Widget build(BuildContext context) => LiquidGlassBatch(
-    enabled:
-        enabled &&
-        DMaterialTheme.glassOf(context) &&
-        ui.ImageFilter.isShaderFilterSupported,
-    child: child,
+  State<DMaterialBatch> createState() => _DMaterialBatchState();
+}
+
+class _DMaterialBatchState extends State<DMaterialBatch> {
+  final _backdropKey = BackdropKey();
+
+  @override
+  Widget build(BuildContext context) => DGlassBackdrop(
+    backdropKey: widget.enabled && DMaterialTheme.glassOf(context)
+        ? _backdropKey
+        : null,
+    captureSurface: DGlassBackdrop.captureOf(context),
+    child: widget.child,
   );
 }
 
@@ -442,54 +452,6 @@ bool _escapesPanel(DSurfaceDepth depth) => switch (depth) {
   DSurfaceDepth.menu || DSurfaceDepth.dialog || DSurfaceDepth.sheet => true,
   _ => false,
 };
-
-class _PanelGlassScope extends InheritedWidget {
-  const _PanelGlassScope({required this.savedPanel, required super.child});
-
-  final bool savedPanel;
-
-  static bool of(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<_PanelGlassScope>()
-          ?.savedPanel ??
-      false;
-
-  @override
-  bool updateShouldNotify(_PanelGlassScope old) => old.savedPanel != savedPanel;
-}
-
-class _SurfaceContent extends StatelessWidget {
-  const _SurfaceContent({
-    required this.enabled,
-    required this.depth,
-    required this.child,
-  });
-
-  final bool enabled;
-  final DSurfaceDepth depth;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => LiquidGlassAdaptiveContent(
-    adaptivity: const LiquidGlassAdaptivity(),
-    builder: (context, color, _) => IconTheme.merge(
-      data: IconThemeData(color: enabled ? color : null),
-      child: DefaultTextStyle.merge(
-        style: TextStyle(color: enabled ? color : null),
-        child: _PanelGlassScope(
-          savedPanel: _escapesPanel(depth)
-              ? false
-              : depth == DSurfaceDepth.panel
-              ? DMaterialSurface.panelClipOf(context) ==
-                        Clip.antiAliasWithSaveLayer ||
-                    _PanelGlassScope.of(context)
-              : _PanelGlassScope.of(context),
-          child: child,
-        ),
-      ),
-    ),
-  );
-}
 
 class _GlassPaint extends StatelessWidget {
   const _GlassPaint({
@@ -514,40 +476,18 @@ class _GlassPaint extends StatelessWidget {
       radius.bottomLeft.x,
       radius.bottomRight.x,
     ].reduce((a, b) => a > b ? a : b);
-    final preset = switch (depth) {
-      DSurfaceDepth.menu ||
-      DSurfaceDepth.dialog => LiquidGlassDialog.defaultStyle,
-      DSurfaceDepth.sheet => LiquidGlassSheet.defaultStyle,
-      _ => buttonGlassStyle,
-    };
     final date = depth == DSurfaceDepth.floatingDate;
-    final floating =
-        date ||
-        depth == DSurfaceDepth.menu ||
-        depth == DSurfaceDepth.dialog ||
-        depth == DSurfaceDepth.sheet;
+    final floating = date || _escapesPanel(depth);
     final explicitTint = glassTint?.withValues(alpha: glassTint!.a * .76);
     final tint = date
         ? DTokens.of(context).surface.withValues(alpha: .68)
-        : explicitTint ?? color;
-    final style = (floating || explicitTint != null) && tint != null
-        ? preset.copyWith(
-            color: tint,
-            blur: floating ? 16 : preset.blur,
-            saturation: date ? 1.85 : preset.saturation,
-            adaptivity: LiquidGlassAdaptivity(
-              glassColorOnDark: tint,
-              glassColorOnLight: tint,
-            ),
-          )
-        : preset;
-    Widget glass = LiquidGlassLens(
-      style: style.copyWith(
-        liteGlass:
-            style.liteGlass ||
-            (_PanelGlassScope.of(context) && !_escapesPanel(depth)),
-        shape: LiquidGlassShape.roundedRectangle(cornerRadius: cornerRadius),
-      ),
+        : explicitTint ?? (floating ? color : null);
+    Widget glass = DGlassSurface(
+      radius: cornerRadius,
+      brightness: Theme.of(context).brightness,
+      tint: tint,
+      frost: floating ? 16 : null,
+      saturation: date ? 1.85 : 1.4,
       child: const SizedBox.expand(),
     );
     if (joined case final joined?) {

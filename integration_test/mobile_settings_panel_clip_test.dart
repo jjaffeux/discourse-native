@@ -5,7 +5,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import '../test/forum_settings_page_test.dart' as regressions;
 
@@ -14,7 +14,7 @@ void main() {
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.onlyPumps;
   setUpAll(() async {
     expect(ui.ImageFilter.isShaderFilterSupported, isTrue);
-    await LiquidGlassShaders.ensureLoaded();
+    await LiquidGlass.precache();
   });
   regressions.mobileSettingsPanelClipTests();
   testWidgets('a partially pulled page sheet clips its own rounded border', (

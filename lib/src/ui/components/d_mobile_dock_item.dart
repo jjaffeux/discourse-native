@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/material_theme.dart';
@@ -45,7 +44,6 @@ class DMobileDockItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final glass = DMaterialTheme.glassOf(context);
-    const glassItems = LiquidGlassTabItemStyle();
     final scaleDelta = math.max(
       0.0,
       MediaQuery.textScalerOf(context).scale(11) - 11,
@@ -55,10 +53,7 @@ class DMobileDockItem extends StatelessWidget {
       text: TextSpan(
         text: label,
         style: glass
-            ? TextStyle(
-                fontSize: glassItems.labelFontSize,
-                fontWeight: glassItems.selectedFontWeight,
-              )
+            ? const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)
             : Theme.of(context).textTheme.labelLarge!.copyWith(
                 fontSize: DiscourseTypography.micro,
                 fontWeight: FontWeight.w600,
@@ -94,13 +89,15 @@ class DMobileDockItem extends StatelessWidget {
           hasPopup: hasPopup,
           onPressed: onPressed,
           foregroundColor: glass
-              ? glassItems.colorFor(selected: selected)
+              ? selected
+                    ? tokens.foreground
+                    : tokens.mutedForeground
               : selected
               ? tokens.foreground
               : tokens.mutedForeground,
           backgroundColor: selected
               ? glass
-                    ? const LiquidGlassTabPillStyle().effectiveRest.color
+                    ? tokens.foreground.withValues(alpha: .12)
                     : Color.lerp(tokens.background, tokens.foreground, .20)
               : Colors.transparent,
           label: Column(
@@ -108,11 +105,11 @@ class DMobileDockItem extends StatelessWidget {
             children: [
               SizedBox(
                 key: const ValueKey('mobile-dock-glyph'),
-                height: (glass ? glassItems.iconSize : 26) + scaleDelta,
+                height: (glass ? 24 : 26) + scaleDelta,
                 child: Center(child: ExcludeSemantics(child: icon)),
               ),
               if (!bare) ...[
-                SizedBox(height: glass ? glassItems.iconLabelGap : 2),
+                SizedBox(height: glass ? 2 : 2),
                 SizedBox(
                   height: labelHeight,
                   child: Row(
@@ -128,7 +125,9 @@ class DMobileDockItem extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontWeight: glass
-                                  ? glassItems.fontWeightFor(selected: selected)
+                                  ? selected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500
                                   : selected
                                   ? FontWeight.w600
                                   : FontWeight.w500,

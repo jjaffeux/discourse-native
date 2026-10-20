@@ -6,7 +6,7 @@ import 'package:discourse_native/src/shell/topic_progress.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 void scrollGlassBackdropTests({bool native = false}) {
   for (final dark in [false, true]) {
@@ -15,7 +15,7 @@ void scrollGlassBackdropTests({bool native = false}) {
     ) async {
       if (native) {
         expect(ui.ImageFilter.isShaderFilterSupported, isTrue);
-        await tester.runAsync(LiquidGlassShaders.ensureLoaded);
+        await tester.runAsync(LiquidGlass.precache);
       }
       final scroll = ScrollController();
       addTearDown(scroll.dispose);
@@ -115,10 +115,7 @@ void scrollGlassBackdropTests({bool native = false}) {
       if (native) {
         for (final control in controls) {
           expect(
-            find.descendant(
-              of: control,
-              matching: find.byType(LiquidGlassLens),
-            ),
+            find.descendant(of: control, matching: find.byType(LiquidGlass)),
             findsWidgets,
           );
         }

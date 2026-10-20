@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/sidebar_filter_parity_test.dart' as vocabulary;
@@ -66,7 +66,7 @@ void main() {
       messenger.setMockMethodCallHandler(notifications, null);
     });
     debugPrint('TAXONOMY_SETUP loading shaders');
-    await LiquidGlassShaders.ensureLoaded();
+    await LiquidGlass.precache();
     debugPrint('TAXONOMY_SETUP loading fonts');
     final fonts =
         jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
@@ -181,7 +181,7 @@ void main() {
         'platform': defaultTargetPlatform.name,
         'debug': kDebugMode,
         'shaderFilters': ui.ImageFilter.isShaderFilterSupported,
-        'shadersLoaded': LiquidGlassShaders.isLoaded,
+        'renderer': 'liquid_glass_renderer',
         'logicalWidth':
             tester.view.physicalSize.width / tester.view.devicePixelRatio,
         'logicalHeight':

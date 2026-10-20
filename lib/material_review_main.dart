@@ -7,7 +7,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'src/models/forum_background.dart';
 import 'src/shell/forum_theme_surfaces.dart';
@@ -53,9 +53,9 @@ class _MaterialReviewState extends State<MaterialReview> {
         'org.discourse.native/window',
       ).invokeMethod<void>('dismissLaunchScreen');
     }
-    await LiquidGlassShaders.ensureLoaded();
+    await LiquidGlass.precache();
     debugPrint(
-      'MATERIAL_ENGINE ${jsonEncode({'platform': Platform.operatingSystem, 'shaderBackdrop': ui.ImageFilter.isShaderFilterSupported, 'shadersLoaded': LiquidGlassShaders.isLoaded})}',
+      'MATERIAL_ENGINE ${jsonEncode({'platform': Platform.operatingSystem, 'shaderBackdrop': ui.ImageFilter.isShaderFilterSupported, 'renderer': 'liquid_glass_renderer'})}',
     );
     if (!const bool.fromEnvironment('MATERIAL_REVIEW_CAPTURE')) return;
     for (final mode in DAppearanceMaterial.values) {
@@ -71,10 +71,13 @@ class _MaterialReviewState extends State<MaterialReview> {
           await Future<void>.delayed(const Duration(milliseconds: 800));
           if (_scroll.hasClients) _scroll.jumpTo(0);
           await Future<void>.delayed(const Duration(milliseconds: 100));
+          await WidgetsBinding.instance.endOfFrame;
           final boundary =
               _capture.currentContext!.findRenderObject()!
                   as RenderRepaintBoundary;
-          final image = await boundary.toImage(pixelRatio: 1);
+          final image = await boundary.toImage(
+            pixelRatio: MediaQuery.devicePixelRatioOf(_capture.currentContext!),
+          );
           final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
           image.dispose();
           final file = File(
@@ -82,7 +85,10 @@ class _MaterialReviewState extends State<MaterialReview> {
           );
           await file.writeAsBytes(bytes!.buffer.asUint8List());
           debugPrint('MATERIAL_CAPTURE ${file.path}');
-          if (mobile) continue;
+          if (mobile ||
+              const bool.fromEnvironment('MATERIAL_REVIEW_SKIP_MEASURE')) {
+            continue;
+          }
           _frames.clear();
           _measuring = true;
           for (var repeat = 0; repeat < 3; repeat++) {
@@ -147,7 +153,9 @@ class _MaterialReviewState extends State<MaterialReview> {
     ),
     home: DMaterialAccessibility(
       child: MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(_textScale)),
+        data: MediaQueryData.fromView(
+          View.of(context),
+        ).copyWith(textScaler: TextScaler.linear(_textScale)),
         child: RepaintBoundary(
           key: _capture,
           child: ForumWindowBackground(

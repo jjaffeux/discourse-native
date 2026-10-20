@@ -4,9 +4,9 @@ import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
-import 'support/stock_glass.dart' show expectedButtonGlassStyle;
+import 'support/stock_glass.dart';
 
 Widget fixture({
   double width = 390,
@@ -145,18 +145,13 @@ void main() {
           expect(surface.bottom - destination.bottom, 6);
           expect(surface.right - action.right, 6);
           if (material == DAppearanceMaterial.liquidGlass) {
-            final lens = tester.widget<LiquidGlassLens>(
-              find
-                  .descendant(
-                    of: capsule,
-                    matching: find.byType(LiquidGlassLens),
-                  )
-                  .first,
-            );
-            expectStockGlass(
-              lens.style,
-              LiquidGlassTabBar.defaultStyle,
-              surface.height,
+            final glass = find
+                .descendant(of: capsule, matching: find.byType(LiquidGlass))
+                .first;
+            expectStockGlass(tester, glass);
+            expect(
+              tester.widget<LiquidGlass>(glass).shape,
+              LiquidRoundedRectangle(borderRadius: surface.height / 2),
             );
             expect(
               tester.widget<AnimatedContainer>(capsule).decoration,
@@ -170,16 +165,15 @@ void main() {
     }
   }
   testWidgets(
-    'glass dock keeps stock material and selected destination uses button lighting; inactive items stay clear',
+    'glass dock uses regular glass for the capsule and selected controls',
     (tester) async {
-      final effects = find.byType(LiquidGlassLens);
+      final effects = find.byType(LiquidGlass);
       final theme = DMaterialTheme.apply(
         AppTheme.dark,
         DAppearanceMaterial.liquidGlass,
       );
       await tester.pumpWidget(fixture(theme: theme));
       await tester.pumpAndSettle();
-      // One shared dock lens, one selected destination and the compose action.
       expect(effects, findsNWidgets(3));
       expect(
         find.descendant(
@@ -194,7 +188,6 @@ void main() {
           findsNothing,
         );
       }
-      const itemStyle = LiquidGlassTabItemStyle();
       for (final (name, selected) in [('Start', false), ('Topics', true)]) {
         final item = find.byKey(ValueKey(name));
         final icon = find.descendant(
@@ -202,19 +195,21 @@ void main() {
           matching: find.byIcon(Icons.forum),
         );
         final iconTheme = IconTheme.of(tester.element(icon));
-        expect(iconTheme.size, itemStyle.iconSize);
+        expect(iconTheme.size, 24);
         expect(
           iconTheme.color,
-          const LiquidGlassAdaptivity().contentColorOnDark,
+          selected
+              ? theme.extension<DTokens>()!.foreground
+              : theme.extension<DTokens>()!.mutedForeground,
         );
         final text = tester.widget<Text>(find.text(name));
         final textStyle = DefaultTextStyle.of(
           tester.element(find.text(name)),
         ).style.merge(text.style);
-        expect(textStyle.fontSize, itemStyle.labelFontSize);
+        expect(textStyle.fontSize, 10.5);
         expect(
           textStyle.fontWeight,
-          itemStyle.fontWeightFor(selected: selected),
+          selected ? FontWeight.w600 : FontWeight.w500,
         );
       }
       final bounds = tester.getRect(find.byKey(const ValueKey('Topics')));
@@ -225,36 +220,34 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets(
-    'stock dock content follows the package light and dark palettes',
-    (tester) async {
-      const adaptive = LiquidGlassAdaptivity();
-      for (final brightness in Brightness.values) {
-        await tester.pumpWidget(
-          fixture(
-            theme: DMaterialTheme.apply(
-              brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
-              DAppearanceMaterial.liquidGlass,
-            ),
+  testWidgets('dock content follows the theme foreground colors', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      await tester.pumpWidget(
+        fixture(
+          theme: DMaterialTheme.apply(
+            brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+            DAppearanceMaterial.liquidGlass,
           ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final name in ['Start', 'Topics']) {
+        final glyph = find.descendant(
+          of: find.byKey(ValueKey(name)),
+          matching: find.byIcon(Icons.forum),
         );
-        await tester.pumpAndSettle();
-        for (final name in ['Start', 'Topics']) {
-          final glyph = find.descendant(
-            of: find.byKey(ValueKey(name)),
-            matching: find.byIcon(Icons.forum),
-          );
-          expect(
-            IconTheme.of(tester.element(glyph)).color,
-            brightness == Brightness.dark
-                ? adaptive.contentColorOnDark
-                : adaptive.contentColorOnLight,
-          );
-        }
-        expect(tester.takeException(), isNull);
+        expect(
+          IconTheme.of(tester.element(glyph)).color,
+          name == 'Topics'
+              ? DTokens.of(tester.element(glyph)).foreground
+              : DTokens.of(tester.element(glyph)).mutedForeground,
+        );
       }
-    },
-  );
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets('glass spring reverses smoothly and reduced motion snaps', (
     tester,
@@ -295,7 +288,7 @@ void main() {
     expect(tester.getSize(surface), open);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('glass controls keep button lighting during the spring morph', (
+  testWidgets('glass controls keep regular glass during the spring morph', (
     tester,
   ) async {
     final theme = DMaterialTheme.apply(
@@ -315,13 +308,15 @@ void main() {
     await tester.pumpWidget(fixture(theme: theme, collapsed: true));
     await tester.pump(const Duration(milliseconds: 16));
     for (var item = 0; item < controls.length; item++) {
-      final lens = tester.widget<LiquidGlassLens>(
-        find.descendant(
-          of: controls[item],
-          matching: find.byType(LiquidGlassLens),
-        ),
+      final glass = find.descendant(
+        of: controls[item],
+        matching: find.byType(LiquidGlass),
       );
-      expectStockGlass(lens.style, expectedButtonGlassStyle, 50);
+      expectStockGlass(tester, glass);
+      expect(
+        tester.widget<LiquidGlass>(glass).shape,
+        const LiquidRoundedRectangle(borderRadius: 25),
+      );
       RenderObject? ancestor = tester.renderObject(controls[item]);
       while (ancestor != null) {
         if (ancestor is RenderOpacity) {
@@ -406,25 +401,4 @@ void main() {
       }
     },
   );
-}
-
-void expectStockGlass(
-  LiquidGlassStyle actual,
-  LiquidGlassStyle stock,
-  double height,
-) {
-  expect(actual.color, stock.color);
-  expect(actual.blur, stock.blur);
-  expect(actual.saturation, stock.saturation);
-  expect(actual.specular, stock.specular);
-  expect(actual.glow, stock.glow);
-  expect(actual.shadow, stock.shadow);
-  expect(actual.refractionIndex, stock.refractionIndex);
-  expect(actual.refractionWidth, stock.refractionWidth);
-  expect(actual.magnification, stock.magnification);
-  expect(actual.dispersion, stock.dispersion);
-  expect(actual.adaptivity, stock.adaptivity);
-  expect(actual.liteGlass, stock.liteGlass);
-  expect(actual.shape!.cornerStyle, LiquidGlassCornerStyle.roundedRectangle);
-  expect(actual.shape!.cornerRadius, height / 2);
 }

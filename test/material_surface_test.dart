@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import 'support/stock_glass.dart';
 
@@ -154,16 +154,21 @@ void main() {
             ]) {
               final lenses = find.descendant(
                 of: find.byKey(ValueKey(name)),
-                matching: find.byType(LiquidGlassLens),
+                matching: find.byType(LiquidGlass),
               );
+              expect(lenses, glass ? findsOneWidget : findsNothing);
               if (glass) {
-                expect(
-                  tester.widget<LiquidGlassLens>(lenses).style.liteGlass,
-                  saved,
-                  reason: name,
+                expectStockGlass(
+                  tester,
+                  lenses,
+                  frost: name == 'date' ? 16 : null,
+                  tint: name == 'date'
+                      ? DTokens.of(
+                          tester.element(lenses),
+                        ).surface.withValues(alpha: .68)
+                      : null,
+                  saturation: name == 'date' ? 1.85 : 1.4,
                 );
-              } else {
-                expect(lenses, findsNothing);
               }
             }
             for (final name in [
@@ -173,11 +178,19 @@ void main() {
             ]) {
               final lenses = find.descendant(
                 of: find.byKey(ValueKey(name)),
-                matching: find.byType(LiquidGlassLens),
+                matching: find.byType(LiquidGlass),
               );
               expect(lenses, glass ? findsWidgets : findsNothing);
-              for (final lens in tester.widgetList<LiquidGlassLens>(lenses)) {
-                expect(lens.style.liteGlass, isFalse, reason: name);
+              for (final element in lenses.evaluate()) {
+                final layer = tester.widget<LiquidGlassLayer>(
+                  find
+                      .descendant(
+                        of: find.byWidget(element.widget),
+                        matching: find.byType(LiquidGlassLayer),
+                      )
+                      .first,
+                );
+                expect(layer.fake, isFalse, reason: name);
               }
             }
             if (saved) {
@@ -248,13 +261,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
-            .style
-            .liteGlass,
-        isTrue,
-      );
+      expectStockGlass(tester, find.byType(LiquidGlass));
       final clips = tester
           .widgetList<Material>(find.byType(Material))
           .where((m) => m.borderRadius != null)
@@ -264,9 +271,7 @@ void main() {
     }
   });
 
-  testWidgets('glass controls use button lighting and retain stock optics', (
-    tester,
-  ) async {
+  testWidgets('glass controls use the regular glass preset', (tester) async {
     for (final depth in [
       DSurfaceDepth.raised,
       DSurfaceDepth.primaryCapsule,
@@ -290,10 +295,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expectStockGlass(
-          tester.widget<LiquidGlassLens>(find.byType(LiquidGlassLens)).style,
-          expectedButtonGlassStyle,
-        );
+        expectStockGlass(tester, find.byType(LiquidGlass));
         final shadows = tester
             .widgetList<DecoratedBox>(find.byType(DecoratedBox))
             .map((box) => box.decoration)
@@ -305,73 +307,55 @@ void main() {
     }
   });
 
-  testWidgets('floating glass frosts the supplied tint without doubling alpha', (
-    tester,
-  ) async {
-    for (final brightness in Brightness.values) {
-      for (final depth in [
-        DSurfaceDepth.menu,
-        DSurfaceDepth.dialog,
-        DSurfaceDepth.sheet,
-      ]) {
-        for (final source in const [
-          Color(0xFF333644),
-          Color(0x80583F70),
-          Colors.transparent,
+  testWidgets(
+    'floating glass frosts the supplied tint without doubling alpha',
+    (tester) async {
+      for (final brightness in Brightness.values) {
+        for (final depth in [
+          DSurfaceDepth.menu,
+          DSurfaceDepth.dialog,
+          DSurfaceDepth.sheet,
         ]) {
-          for (final preserveColor in [false, true]) {
-            await tester.pumpWidget(
-              MaterialApp(
-                theme: DMaterialTheme.apply(
-                  AppTheme.forBrightness(brightness),
-                  DAppearanceMaterial.liquidGlass,
-                ),
-                home: Center(
-                  child: DMaterialSurface(
-                    depth: depth,
-                    color: source,
-                    preserveColor: preserveColor,
-                    radius: BorderRadius.circular(10),
-                    child: const SizedBox(width: 216, height: 200),
+          for (final source in const [
+            Color(0xFF333644),
+            Color(0x80583F70),
+            Colors.transparent,
+          ]) {
+            for (final preserveColor in [false, true]) {
+              await tester.pumpWidget(
+                MaterialApp(
+                  theme: DMaterialTheme.apply(
+                    AppTheme.forBrightness(brightness),
+                    DAppearanceMaterial.liquidGlass,
+                  ),
+                  home: Center(
+                    child: DMaterialSurface(
+                      depth: depth,
+                      color: source,
+                      preserveColor: preserveColor,
+                      radius: BorderRadius.circular(10),
+                      child: const SizedBox(width: 216, height: 200),
+                    ),
                   ),
                 ),
-              ),
-            );
-            await tester.pumpAndSettle();
-            final lens = find.byType(LiquidGlassLens);
-            if (source.a == 0) {
-              expect(lens, findsNothing);
-            } else {
-              final tint = source.withValues(
-                alpha: source.a * (preserveColor ? 1 : .68),
               );
-              final preset = depth == DSurfaceDepth.sheet
-                  ? LiquidGlassSheet.defaultStyle
-                  : LiquidGlassDialog.defaultStyle;
-              final style = tester.widget<LiquidGlassLens>(lens).style;
-              expect(style.adaptivity!.glassColorOnDark, tint);
-              expect(style.adaptivity!.glassColorOnLight, tint);
-              expectStockGlass(
-                style,
-                preset.copyWith(
-                  color: tint,
-                  blur: 16,
-                  adaptivity: style.adaptivity,
-                ),
-              );
-              for (final lite in tester.widgetList<LiquidGlassLite>(
-                find.byType(LiquidGlassLite),
-              )) {
-                expect(lite.color, tint);
-                expect(lite.blur, 16);
+              await tester.pumpAndSettle();
+              final lens = find.byType(LiquidGlass);
+              if (source.a == 0) {
+                expect(lens, findsNothing);
+              } else {
+                final tint = source.withValues(
+                  alpha: source.a * (preserveColor ? 1 : .68),
+                );
+                expectStockGlass(tester, lens, tint: tint, frost: 16);
               }
+              expect(tester.takeException(), isNull);
             }
-            expect(tester.takeException(), isNull);
           }
         }
       }
-    }
-  });
+    },
+  );
 
   testWidgets('menus and reading pages share each theme palette tint', (
     tester,
@@ -441,13 +425,13 @@ void main() {
               expect(tester.widget<DMaterialSurface>(surface).color, expected);
               final lens = find.descendant(
                 of: surface,
-                matching: find.byType(LiquidGlassLens),
+                matching: find.byType(LiquidGlass),
               );
               final glass =
                   material == DAppearanceMaterial.liquidGlass && !reduced;
               if (key == menuKey && glass) {
                 expect(
-                  tester.widget<LiquidGlassLens>(lens).style.color,
+                  tester.widget<LiquidGlass>(lens).appearance!.tint,
                   expected.withValues(alpha: .68),
                 );
               } else {
@@ -504,7 +488,7 @@ void main() {
             .widget<DMaterialSurface>(find.byType(DMaterialSurface))
             .color;
         expect(fill(), source);
-        expect(find.byType(LiquidGlassLens), findsNothing);
+        expect(find.byType(LiquidGlass), findsNothing);
         final gesture = await tester.startGesture(
           tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
         );
@@ -512,7 +496,7 @@ void main() {
         await gesture.moveBy(const Offset(0, 60));
         await tester.pump();
         expect(fill(), source.withValues(alpha: 1));
-        expect(find.byType(LiquidGlassLens), findsNothing);
+        expect(find.byType(LiquidGlass), findsNothing);
         await gesture.cancel();
         await tester.pumpAndSettle();
         expect(fill(), source);
@@ -522,7 +506,7 @@ void main() {
   });
 
   testWidgets(
-    'selected sidebar rows use button lighting and dormant rows stay flat',
+    'selected sidebar rows use regular glass and dormant rows stay flat',
     (tester) async {
       for (final selected in [false, true, false]) {
         await tester.pumpWidget(
@@ -546,13 +530,10 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final lens = find.byType(LiquidGlassLens);
+        final lens = find.byType(LiquidGlass);
         expect(lens, selected ? findsOneWidget : findsNothing);
         if (selected) {
-          expectStockGlass(
-            tester.widget<LiquidGlassLens>(lens).style,
-            expectedButtonGlassStyle,
-          );
+          expectStockGlass(tester, lens);
         }
         expect(
           tester.getSize(find.byType(DSidebarRowSurface)),
@@ -1419,8 +1400,8 @@ void main() {
       final glass = await capture(DAppearanceMaterial.liquidGlass);
       expect(glass, isNot(standard));
       expect(
-        find.byType(LiquidGlassLite).evaluate().isNotEmpty ||
-            find.byType(LiquidGlassLens).evaluate().isNotEmpty,
+        find.byType(FakeGlass).evaluate().isNotEmpty ||
+            find.byType(LiquidGlass).evaluate().isNotEmpty,
         isTrue,
       );
       expect(tester.takeException(), isNull);

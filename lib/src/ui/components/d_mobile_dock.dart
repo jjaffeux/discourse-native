@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
 import '../foundation/app_text_scaler.dart';
+import '../foundation/glass_presets.dart';
 import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
@@ -66,7 +68,11 @@ class _DMobileDockState extends State<DMobileDock>
   double _velocity = 0;
   Duration? _lastElapsed;
   bool _spring = false;
-  final _motion = LiquidGlassMorphMotion.plain;
+  static const _springDescription = SpringDescription(
+    mass: 1,
+    stiffness: 195,
+    damping: 19.5,
+  );
 
   @override
   void initState() {
@@ -108,14 +114,15 @@ class _DMobileDockState extends State<DMobileDock>
         : (elapsed - _lastElapsed!).inMicroseconds / 1000000;
     _lastElapsed = elapsed;
     final target = widget.collapsed ? 1.0 : 0.0;
-    final (phase, velocity) = liquidGlassSpringStep(
-      x: _phase,
-      vel: _velocity,
-      target: target,
-      dt: dt.clamp(0, .064),
-      stiffness: _motion.stiffness,
-      damping: _motion.damping,
+    final simulation = SpringSimulation(
+      _springDescription,
+      _phase,
+      target,
+      _velocity,
     );
+    final step = dt.clamp(0.0, .064);
+    final phase = simulation.x(step);
+    final velocity = simulation.dx(step);
     setState(() {
       _phase = phase;
       _velocity = velocity;
@@ -192,12 +199,9 @@ class _DMobileDockState extends State<DMobileDock>
         .12,
       )!.withValues(alpha: DMaterialTheme.reducedOf(context) ? 1 : .94);
       Widget dockSurface(Widget child) => glass
-          ? LiquidGlassLens(
-              style: LiquidGlassTabBar.defaultStyle.copyWith(
-                shape: LiquidGlassShape.roundedRectangle(
-                  cornerRadius: (expandedExtent - 14 * phase) / 2,
-                ),
-              ),
+          ? DGlassSurface(
+              radius: (expandedExtent - 14 * phase) / 2,
+              brightness: Theme.of(context).brightness,
               child: child,
             )
           : DMaterialSurface(
@@ -207,7 +211,7 @@ class _DMobileDockState extends State<DMobileDock>
               preserveColor: true,
               child: child,
             );
-      final capsule = Align(
+      final capsuleArtwork = Align(
         alignment: AlignmentDirectional.bottomStart,
         heightFactor: 1,
         child: AnimatedContainer(
@@ -325,6 +329,12 @@ class _DMobileDockState extends State<DMobileDock>
           ),
         ),
       );
+      final capsule = glass
+          ? DGlassBackdrop(
+              backdropKey: null,
+              child: LiquidGlassCapture(child: capsuleArtwork),
+            )
+          : capsuleArtwork;
       // Reserve the open footer extent while only its artwork morphs. This
       // keeps scroll clearance and anchors stable throughout a reversal.
       return _spring

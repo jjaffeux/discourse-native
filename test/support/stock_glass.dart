@@ -1,27 +1,31 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
-final LiquidGlassStyle expectedButtonGlassStyle = LiquidGlassButton.defaultStyle
-    .copyWith(
-      glow: const LiquidGlassLight.glow(
-        angle: 129,
-        thickness: 5,
-        intensity: 1,
-        spread: .85,
-      ),
-    );
-
-void expectStockGlass(LiquidGlassStyle actual, LiquidGlassStyle preset) {
-  expect(actual.color, preset.color);
-  expect(actual.blur, preset.blur);
-  expect(actual.saturation, preset.saturation);
-  expect(actual.refractionIndex, preset.refractionIndex);
-  expect(actual.refractionWidth, preset.refractionWidth);
-  expect(actual.magnification, preset.magnification);
-  expect(actual.dispersion, preset.dispersion);
-  expect(actual.specular, preset.specular);
-  expect(actual.glow, preset.glow);
-  expect(actual.shadow, preset.shadow);
-  expect(actual.adaptivity, preset.adaptivity);
-  expect(actual.liteGlass, preset.liteGlass);
+void expectStockGlass(
+  WidgetTester tester,
+  Finder glass, {
+  double? frost,
+  Color? tint,
+  double saturation = 1.4,
+}) {
+  final brightness = Theme.of(tester.element(glass)).brightness;
+  final layer = tester.widget<LiquidGlassLayer>(
+    find.descendant(of: glass, matching: find.byType(LiquidGlassLayer)).first,
+  );
+  expect(
+    layer.settings,
+    LiquidGlassSettings.ios27Regular(brightness: brightness, frost: frost),
+  );
+  final appearance = tester.widget<LiquidGlass>(glass).appearance;
+  expect(
+    appearance,
+    tint == null
+        ? LiquidGlassAppearance.ios27Regular(brightness: brightness)
+        : LiquidGlassAppearance(
+            tint: tint,
+            colorModel: LiquidGlassColorModel.direct(saturation: saturation),
+          ),
+  );
+  expect(tester.widget<LiquidGlass>(glass).shadows, isEmpty);
 }
