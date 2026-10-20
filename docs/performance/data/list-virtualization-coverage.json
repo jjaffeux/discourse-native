@@ -1,0 +1,1372 @@
+{
+  "baseline": "b875a469b504f5cf80428e0c809c0146bf484b50",
+  "method": "Source call-chain classification of regex inventory plus supporting owners; follow-up mounted-row and behavior measurements are in list-virtualization.md.",
+  "scroll_related_matches": 164,
+  "inventory_files": 86,
+  "limits": [
+    "Source classification is not frame-time evidence.",
+    "Fixed caps bound growth but do not establish cheap rendering.",
+    "ListView children descriptors can be eager while mounting remains lazy.",
+    "Line numbers and expressions below refer to the baseline."
+  ],
+  "files": [
+    {
+      "path": "lib/src/plugins/assign/assigned_group_view.dart",
+      "source_classification": [
+        "already lazy"
+      ],
+      "matches": [
+        {
+          "line": 274,
+          "source": "final content = CustomScrollView("
+        },
+        {
+          "line": 305,
+          "source": "sliver: SliverList.separated("
+        },
+        {
+          "line": 471,
+          "source": "child: ListView.separated("
+        },
+        {
+          "line": 645,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/assign/assignment_sheet.dart",
+      "source_classification": [
+        "assignment-results"
+      ],
+      "matches": [
+        {
+          "line": 652,
+          "source": "child: DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_browse_channels_view.dart",
+      "source_classification": [
+        "lazy in normal viewport; deliberate eager accessibility fallback"
+      ],
+      "matches": [
+        {
+          "line": 378,
+          "source": "? ListView.builder("
+        },
+        {
+          "line": 637,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_browse_skeleton.dart",
+      "source_classification": [
+        "bounded skeleton work"
+      ],
+      "matches": [
+        {
+          "line": 128,
+          "source": "? SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_channel_info_view.dart",
+      "source_classification": [
+        "already lazy / fixed form"
+      ],
+      "matches": [
+        {
+          "line": 247,
+          "source": "builder: (context, lane) => ListView("
+        },
+        {
+          "line": 953,
+          "source": "final content = ListView.builder("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_channel_threads_view.dart",
+      "source_classification": [
+        "already lazy"
+      ],
+      "matches": [
+        {
+          "line": 172,
+          "source": "builder: (context, lane) => ListView.separated("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_channel_view.dart",
+      "source_classification": [
+        "already lazy transcripts; fixed header and state scrollers",
+        "special rich-content aggregate, separate design scope"
+      ],
+      "matches": [
+        {
+          "line": 335,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 2779,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_channels_view.dart",
+      "source_classification": [
+        "already lazy"
+      ],
+      "matches": [
+        {
+          "line": 188,
+          "source": ": ListView.builder("
+        },
+        {
+          "line": 229,
+          "source": "child: ListView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_header_menu.dart",
+      "source_classification": [
+        "descriptor-only eagerness, mounted rows lazy"
+      ],
+      "matches": [
+        {
+          "line": 131,
+          "source": ": ListView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_inbox.dart",
+      "source_classification": [
+        "already lazy"
+      ],
+      "matches": [
+        {
+          "line": 579,
+          "source": "SliverList.builder("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_mobile_sidebar.dart",
+      "source_classification": [
+        "lazy in normal viewport; deliberate eager accessibility fallback"
+      ],
+      "matches": [
+        {
+          "line": 92,
+          "source": "? ListView.separated("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_my_threads_view.dart",
+      "source_classification": [
+        "lazy in normal viewport; deliberate eager accessibility fallback"
+      ],
+      "matches": [
+        {
+          "line": 226,
+          "source": "? ListView.builder("
+        },
+        {
+          "line": 1015,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_new_direct_message.dart",
+      "source_classification": [
+        "kit-owned command list; fixed composing form"
+      ],
+      "matches": [
+        {
+          "line": 460,
+          "source": "Flexible(child: DScrollArea(child: _buildGroupFields())),"
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_pinned_bar.dart",
+      "source_classification": [
+        "bounded20-item production collection; nested-scroll eager mounting confirmed and optimized"
+      ],
+      "matches": [
+        {
+          "line": 95,
+          "source": "builder: (sheetContext) => ListView.builder("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_search_view.dart",
+      "source_classification": [
+        "already lazy"
+      ],
+      "matches": [
+        {
+          "line": 193,
+          "source": "builder: (context, lane) => ListView.separated("
+        },
+        {
+          "line": 353,
+          "source": "? SingleChildScrollView("
+        },
+        {
+          "line": 521,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 544,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/chat/chat_thread_view.dart",
+      "source_classification": [
+        "already lazy transcripts; fixed header and state scrollers"
+      ],
+      "matches": [
+        {
+          "line": 839,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/discourse_ai/ai_conversations_page.dart",
+      "source_classification": [
+        "already lazy"
+      ],
+      "matches": [
+        {
+          "line": 116,
+          "source": "return SingleChildScrollView("
+        },
+        {
+          "line": 136,
+          "source": "builder: (context, constraints) => SingleChildScrollView("
+        },
+        {
+          "line": 161,
+          "source": "return SingleChildScrollView("
+        },
+        {
+          "line": 197,
+          "source": "return ListView.builder("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/discourse_events/event_calendar.dart",
+      "source_classification": [
+        "engine-owned calendar list / bounded month / already lazy day dialog"
+      ],
+      "matches": [
+        {
+          "line": 668,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 829,
+          "source": "child: ListView.builder("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/discourse_events/event_calendar_skeleton.dart",
+      "source_classification": [
+        "bounded skeleton work"
+      ],
+      "matches": [
+        {
+          "line": 32,
+          "source": "return schedule ? skeleton : SingleChildScrollView(child: skeleton);"
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/discourse_events/event_composer.dart",
+      "source_classification": [
+        "bounded form"
+      ],
+      "matches": [
+        {
+          "line": 685,
+          "source": "Flexible(child: SingleChildScrollView(child: fields)),"
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/discourse_events/event_participants.dart",
+      "source_classification": [
+        "bounded lazy builder"
+      ],
+      "matches": [
+        {
+          "line": 290,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 331,
+          "source": "return ListView.separated("
+        },
+        {
+          "line": 348,
+          "source": "return SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/discourse_events/topic_calendar.dart",
+      "source_classification": [
+        "topic-calendar-day"
+      ],
+      "matches": [
+        {
+          "line": 317,
+          "source": ": SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/gifs/gif_picker.dart",
+      "source_classification": [
+        "already lazy"
+      ],
+      "matches": [
+        {
+          "line": 572,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/voice/voice_diagnostics_view.dart",
+      "source_classification": [
+        "already lazy primary grids/chat/timeline; fixed state/detail forms"
+      ],
+      "matches": [
+        {
+          "line": 174,
+          "source": "child: ListView.builder("
+        },
+        {
+          "line": 640,
+          "source": "return ListView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/voice/voice_plugin.dart",
+      "source_classification": [
+        "descriptor-only eagerness, mounted rows lazy"
+      ],
+      "matches": [
+        {
+          "line": 165,
+          "source": "bodyBuilder: (_) => SliverList.list("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/plugins/voice/voice_room_view.dart",
+      "source_classification": [
+        "voice-members",
+        "voice-invite-suggestions",
+        "already lazy primary grids/chat/timeline; fixed state/detail forms"
+      ],
+      "matches": [
+        {
+          "line": 604,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 2196,
+          "source": "return ListView.builder("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/adaptive_shell.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 717,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 815,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/add_instance_sheet.dart",
+      "source_classification": [
+        "explicitly_bounded"
+      ],
+      "matches": [
+        {
+          "line": 60,
+          "source": "child: DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/badges_page.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 59,
+          "source": "builder: (context, lane) => CustomScrollView("
+        },
+        {
+          "line": 221,
+          "source": "SliverList.builder("
+        },
+        {
+          "line": 401,
+          "source": "builder: (context, lane) => CustomScrollView("
+        },
+        {
+          "line": 418,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 452,
+          "source": "SliverList.separated("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/bookmark_list.dart",
+      "source_classification": [
+        "local destination page optimized; server page already lazy; menu payload capped20; standalone compatibility path retained"
+      ],
+      "matches": [
+        {
+          "line": 506,
+          "source": "child: CustomScrollView("
+        },
+        {
+          "line": 531,
+          "source": "SuperSliverList.separated("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/categories_page.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 289,
+          "source": "child: CustomScrollView("
+        },
+        {
+          "line": 538,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/code_block.dart",
+      "source_classification": [
+        "intrinsic-width selectable document layout retained"
+      ],
+      "matches": [
+        {
+          "line": 443,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/composer/components/gallery.dart",
+      "source_classification": [
+        "composer-gallery-carousel"
+      ],
+      "matches": [
+        {
+          "line": 235,
+          "source": "SingleChildScrollView("
+        },
+        {
+          "line": 547,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/composer/discard.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 150,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/composer/draft_tabs.dart",
+      "source_classification": [
+        "flat draft dropdown uses shared Native lazy menus; live strip windows real Native tabs within the existing natural-height scroll container and preserves full select/close traversal"
+      ],
+      "matches": [
+        {
+          "line": 119,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/composer/header.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 295,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 429,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/composer/panel.dart",
+      "source_classification": [
+        "already_lazy_or_bounded"
+      ],
+      "matches": [
+        {
+          "line": 576,
+          "source": "child: DScrollArea("
+        },
+        {
+          "line": 791,
+          "source": "child: CustomScrollView("
+        },
+        {
+          "line": 922,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 3970,
+          "source": "child: ListView.builder("
+        },
+        {
+          "line": 4517,
+          "source": "final scroll = SingleChildScrollView("
+        },
+        {
+          "line": 4753,
+          "source": "child: ListView.separated("
+        },
+        {
+          "line": 4944,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 5018,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/composer/presentation.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 596,
+          "source": "builder: (context, bounds) => DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/composer/reply_context.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 270,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/diagnostics_panel.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 305,
+          "source": "child: ListView.builder("
+        },
+        {
+          "line": 539,
+          "source": "return ListView("
+        },
+        {
+          "line": 890,
+          "source": "return ListView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/directory_skeleton.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 54,
+          "source": "return CustomScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/discover_site_suggestions.dart",
+      "source_classification": [
+        "explicitly_bounded"
+      ],
+      "matches": [
+        {
+          "line": 97,
+          "source": "child: DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/draft_list.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 27,
+          "source": "const DraftListView({super.key, required this.siteUrl});"
+        },
+        {
+          "line": 414,
+          "source": "child: CustomScrollView("
+        },
+        {
+          "line": 465,
+          "source": "SuperSliverList.builder("
+        },
+        {
+          "line": 760,
+          "source": "builder: (context, constraints) => SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/emoji_picker.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 481,
+          "source": "return CustomScrollView("
+        },
+        {
+          "line": 557,
+          "source": "return CustomScrollView("
+        },
+        {
+          "line": 971,
+          "source": "return SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/empty_state.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 41,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/forum_about_page.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 104,
+          "source": "? DScrollArea("
+        },
+        {
+          "line": 130,
+          "source": ": DScrollArea("
+        },
+        {
+          "line": 294,
+          "source": "builder: (context, constraints) => DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/forum_appearance_settings.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 292,
+          "source": "return SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/forum_display_settings.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 51,
+          "source": "return SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/forum_search.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 739,
+          "source": "child: DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/forum_settings_page.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 71,
+          "source": "'accessibility' => DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/forum_tabs_bar.dart",
+      "source_classification": [
+        "forum workspace cap20; eager tab collection retained"
+      ],
+      "matches": [
+        {
+          "line": 624,
+          "source": "child: DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/global_search_category_editor.dart",
+      "source_classification": [
+        "global-search-category-editor"
+      ],
+      "matches": [
+        {
+          "line": 228,
+          "source": "child: DScrollArea("
+        },
+        {
+          "line": 349,
+          "source": "child: DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/global_search_filter_picker.dart",
+      "source_classification": [
+        "already_lazy_above_threshold"
+      ],
+      "matches": [
+        {
+          "line": 590,
+          "source": "child: DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/global_search_panel.dart",
+      "source_classification": [
+        "lazy_mounts_eager_descriptors"
+      ],
+      "matches": [
+        {
+          "line": 373,
+          "source": "return DScrollArea("
+        },
+        {
+          "line": 445,
+          "source": "child: ListView("
+        },
+        {
+          "line": 679,
+          "source": "child: DScrollArea("
+        },
+        {
+          "line": 723,
+          "source": ": DScrollArea("
+        },
+        {
+          "line": 936,
+          "source": "child: ListView("
+        },
+        {
+          "line": 1026,
+          "source": "child: ListView("
+        },
+        {
+          "line": 1127,
+          "source": "}) => SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/group/group_activity_view.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 181,
+          "source": "builder: (context, lane) => ListView.separated("
+        },
+        {
+          "line": 297,
+          "source": "builder: (context, lane) => ListView.separated("
+        },
+        {
+          "line": 506,
+          "source": "builder: (context, lane) => ListView.separated("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/group/group_manage_view.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 193,
+          "source": "builder: (context, lane) => ListView("
+        },
+        {
+          "line": 672,
+          "source": "builder: (context, lane) => ListView.separated("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/group/group_members_view.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 202,
+          "source": "child: ListView.separated("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/group/group_shared_view.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 86,
+          "source": "child: ListView("
+        },
+        {
+          "line": 320,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/group_pages_host.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 251,
+          "source": "? TopicListView(feed: feed)"
+        },
+        {
+          "line": 254,
+          "source": "? TopicListView(feed: feed)"
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/groups_page.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 196,
+          "source": "child: CustomScrollView("
+        },
+        {
+          "line": 231,
+          "source": "SliverList.separated("
+        },
+        {
+          "line": 646,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/image_grid.dart",
+      "source_classification": [
+        "image indicator control retained; gallery carousel optimized in its own owner"
+      ],
+      "matches": [
+        {
+          "line": 738,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/instance_rail.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 505,
+          "source": "child: ListView.builder("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/keyboard_shortcuts_help.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 16,
+          "source": "builder: (context) => SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/main_content.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 886,
+          "source": "CorePage.drafts => DraftListView(siteUrl: site),"
+        },
+        {
+          "line": 964,
+          "source": "content = TopicListView("
+        },
+        {
+          "line": 1673,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 1728,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/message_inbox_page.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 54,
+          "source": "child: TopicListView(feed: feed, inbox: true),"
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/new_tab_page.dart",
+      "source_classification": [
+        "explicitly_bounded"
+      ],
+      "matches": [
+        {
+          "line": 427,
+          "source": "Widget build(BuildContext context) => SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/notification_list.dart",
+      "source_classification": [
+        "core and opted-in plugin menu paths optimized; standalone box constructor retained"
+      ],
+      "matches": [
+        {
+          "line": 656,
+          "source": "return SliverList.separated("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/post_likes.dart",
+      "source_classification": [
+        "explicitly_bounded"
+      ],
+      "matches": [
+        {
+          "line": 325,
+          "source": "child: SingleChildScrollView(child: body),"
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/preferences_page.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 377,
+          "source": "builder: (context, lane) => SingleChildScrollView("
+        },
+        {
+          "line": 961,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/reaction_presentation.dart",
+      "source_classification": [
+        "explicitly_bounded_for_built_in_providers"
+      ],
+      "matches": [
+        {
+          "line": 322,
+          "source": "child: SingleChildScrollView(child: body),"
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/shell_sheet.dart",
+      "source_classification": [
+        "app helper supports caller-owned bounded scroll body; existing default preserved"
+      ],
+      "matches": [
+        {
+          "line": 148,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/tags_page.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 105,
+          "source": "builder: (context, lane) => ListView.separated("
+        },
+        {
+          "line": 224,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_category_path_selector.dart",
+      "source_classification": [
+        "horizontal category ancestry control; result menus use shared Native selectors"
+      ],
+      "matches": [
+        {
+          "line": 178,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_change_owner.dart",
+      "source_classification": [
+        "lazy_mounts_eager_descriptors"
+      ],
+      "matches": [
+        {
+          "line": 220,
+          "source": "child: ListView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_filter_sheet.dart",
+      "source_classification": [
+        "already_lazy_above_threshold"
+      ],
+      "matches": [
+        {
+          "line": 600,
+          "source": "? DScrollArea(child: command)"
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_inbox_header.dart",
+      "source_classification": [
+        "structured property details need separate data-bound and document-layout investigation"
+      ],
+      "matches": [
+        {
+          "line": 1460,
+          "source": "return SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_list_filter_bar.dart",
+      "source_classification": [
+        "finite_form_layout_or_chips"
+      ],
+      "matches": [
+        {
+          "line": 260,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_list_view.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 60,
+          "source": "const TopicListView({super.key, required this.feed, this.inbox = false});"
+        },
+        {
+          "line": 918,
+          "source": "builder: (context, insets) => SuperListView.separated("
+        },
+        {
+          "line": 1655,
+          "source": "builder: (context, constraints) => SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_move_posts.dart",
+      "source_classification": [
+        "lazy_mounts_eager_descriptors"
+      ],
+      "matches": [
+        {
+          "line": 340,
+          "source": "Widget _newTopicFields() => ListView("
+        },
+        {
+          "line": 427,
+          "source": "child: ListView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_post_sliver.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 132,
+          "source": "class TopicPostSliver extends SuperSliverList {"
+        },
+        {
+          "line": 160,
+          "source": "class _TopicPostRenderSliver extends RenderSuperSliverList {"
+        },
+        {
+          "line": 177,
+          "source": "// storage while SuperSliverList still uses it as its resize anchor."
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_taxonomy_picker.dart",
+      "source_classification": [
+        "topic-taxonomy-picker-content"
+      ],
+      "matches": [
+        {
+          "line": 154,
+          "source": "child: DScrollArea("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/topic_view.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 279,
+          "source": "'widget': 'CustomScrollView',"
+        },
+        {
+          "line": 280,
+          "source": "'sliver': 'SuperSliverList',"
+        },
+        {
+          "line": 1996,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 2362,
+          "source": "builder: (context, warmCacheIdentity, _) => CustomScrollView("
+        },
+        {
+          "line": 2889,
+          "source": "child: SingleChildScrollView("
+        },
+        {
+          "line": 3330,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/user_activity.dart",
+      "source_classification": [
+        "already lazy paged activity rows"
+      ],
+      "matches": [
+        {
+          "line": 266,
+          "source": "builder: (context, insets) => CustomScrollView("
+        },
+        {
+          "line": 289,
+          "source": "SuperSliverList.builder("
+        },
+        {
+          "line": 529,
+          "source": "builder: (context, lane) => ListView.separated("
+        },
+        {
+          "line": 597,
+          "source": "builder: (context, constraints) => SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/user_menu.dart",
+      "source_classification": [
+        "one bounded viewport; desktop core and opted-in plugin slivers optimized"
+      ],
+      "matches": [
+        {
+          "line": 576,
+          "source": "? CustomScrollView("
+        },
+        {
+          "line": 586,
+          "source": "builder: (context, _) => ListView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/user_summary.dart",
+      "source_classification": [
+        "explicitly_bounded"
+      ],
+      "matches": [
+        {
+          "line": 276,
+          "source": "builder: (context, lane) => DScrollArea("
+        },
+        {
+          "line": 1303,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    },
+    {
+      "path": "lib/src/shell/users_page.dart",
+      "source_classification": [
+        "already_lazy"
+      ],
+      "matches": [
+        {
+          "line": 917,
+          "source": "child: SingleChildScrollView("
+        }
+      ]
+    }
+  ],
+  "candidate_dispositions": {
+    "chat-pins": "optimized with the real20-pin parser cap",
+    "voice-members": "optimized bounded membership viewport",
+    "voice-invite-suggestions": "optimized bounded invitation viewport",
+    "assignment-results": "optimized after adding optional complete-collection Native radio navigation",
+    "global-search-category-editor": "optimized bounded lazy category choices",
+    "combobox-results": "optimized by shared long bounded Native Combobox path",
+    "composer-gallery-carousel": "optimized horizontal carousel; complete grid retained",
+    "other-growing-content": "structured document and indicator behavior retained",
+    "composer-live-draft-tabs": "windowed Native document tabs after approved borrowed focus support; complete select/close traversal and retained-host semantics required"
+  }
+}
