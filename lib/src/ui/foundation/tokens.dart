@@ -92,6 +92,9 @@ class DTokens extends ThemeExtension<DTokens> {
   Color get footerBackground => Color.lerp(background, foreground, .05)!;
   Color get footerBorder => Color.lerp(background, foreground, .12)!;
 
+  /// Reading panels and floating surfaces share the reference's palette tint.
+  Color get panelBackground => Color.lerp(background, foreground, .03)!;
+
   /// Inline code stays distinct from both the page and muted message bubbles.
   Color get inlineCodeBackground => Color.lerp(background, foreground, .12)!;
   Color get inlineCodeBorder => Color.lerp(background, foreground, .24)!;

@@ -51,7 +51,7 @@ class ForumWindowBackground extends StatefulWidget {
     final canvas = context.dependOnInheritedWidgetOfExactType<_ForumCanvas>();
     if (canvas == null) return null;
     final tokens = DTokens.of(context);
-    return Color.lerp(tokens.background, tokens.foreground, .03)!.withValues(
+    return tokens.panelBackground.withValues(
       // The current reference shares its panel treatment across materials.
       alpha: 1 - (canvas.transparency / .3 * 40).round() / 100,
     );

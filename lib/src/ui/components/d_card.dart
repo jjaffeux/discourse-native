@@ -190,6 +190,8 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
                 Colors.black.withValues(alpha: .08),
                 tokens.background,
               )
+            : child is Expanded && DMaterialSurface.active(context)
+            ? tokens.panelBackground
             : tokens.background);
     final inset =
         spacing ??

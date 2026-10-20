@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/shell/forum_appearance_effects.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
@@ -19,16 +20,11 @@ import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 import 'support/stock_glass.dart';
 
 void main() {
-  testWidgets('glass surfaces keep stock optics with readable panel tints', (
-    tester,
-  ) async {
+  testWidgets('glass controls retain their stock optics', (tester) async {
     for (final depth in [
       DSurfaceDepth.raised,
       DSurfaceDepth.primaryCapsule,
       DSurfaceDepth.chromeSelection,
-      DSurfaceDepth.menu,
-      DSurfaceDepth.dialog,
-      DSurfaceDepth.sheet,
     ]) {
       for (final brightness in Brightness.values) {
         await tester.pumpWidget(
@@ -48,40 +44,232 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        const panelAdaptivity = LiquidGlassAdaptivity(
-          glassColorOnDark: Color(0x99000000),
-          glassColorOnLight: Color(0xB3FFFFFF),
-        );
-        final preset = switch (depth) {
-          DSurfaceDepth.menu ||
-          DSurfaceDepth.dialog => LiquidGlassDialog.defaultStyle.copyWith(
-            adaptivity: panelAdaptivity,
-          ),
-          DSurfaceDepth.sheet => LiquidGlassSheet.defaultStyle.copyWith(
-            adaptivity: panelAdaptivity,
-          ),
-          _ => LiquidGlassButton.defaultStyle,
-        };
         expectStockGlass(
           tester.widget<LiquidGlassLens>(find.byType(LiquidGlassLens)).style,
-          preset,
+          LiquidGlassButton.defaultStyle,
         );
-        if (depth == DSurfaceDepth.menu ||
-            depth == DSurfaceDepth.dialog ||
-            depth == DSurfaceDepth.sheet) {
-          expect(
-            tester.widget<LiquidGlassLite>(find.byType(LiquidGlassLite)).color,
-            brightness == Brightness.dark
-                ? const Color(0x99000000)
-                : const Color(0xB3FFFFFF),
-          );
-        }
         final shadows = tester
             .widgetList<DecoratedBox>(find.byType(DecoratedBox))
             .map((box) => box.decoration)
             .whereType<BoxDecoration>()
             .expand((box) => box.boxShadow ?? const <BoxShadow>[]);
         expect(shadows, isEmpty);
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
+
+  testWidgets('floating glass frosts the supplied tint without doubling alpha', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      for (final depth in [
+        DSurfaceDepth.menu,
+        DSurfaceDepth.dialog,
+        DSurfaceDepth.sheet,
+      ]) {
+        for (final source in const [
+          Color(0xFF333644),
+          Color(0x80583F70),
+          Colors.transparent,
+        ]) {
+          for (final preserveColor in [false, true]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: DMaterialTheme.apply(
+                  AppTheme.forBrightness(brightness),
+                  DAppearanceMaterial.liquidGlass,
+                ),
+                home: Center(
+                  child: DMaterialSurface(
+                    depth: depth,
+                    color: source,
+                    preserveColor: preserveColor,
+                    radius: BorderRadius.circular(10),
+                    child: const SizedBox(width: 216, height: 200),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final lens = find.byType(LiquidGlassLens);
+            if (source.a == 0) {
+              expect(lens, findsNothing);
+            } else {
+              final tint = source.withValues(
+                alpha: source.a * (preserveColor ? 1 : .68),
+              );
+              final preset = depth == DSurfaceDepth.sheet
+                  ? LiquidGlassSheet.defaultStyle
+                  : LiquidGlassDialog.defaultStyle;
+              final style = tester.widget<LiquidGlassLens>(lens).style;
+              expect(style.adaptivity!.glassColorOnDark, tint);
+              expect(style.adaptivity!.glassColorOnLight, tint);
+              expectStockGlass(
+                style,
+                preset.copyWith(
+                  color: tint,
+                  blur: 16,
+                  adaptivity: style.adaptivity,
+                ),
+              );
+              for (final lite in tester.widgetList<LiquidGlassLite>(
+                find.byType(LiquidGlassLite),
+              )) {
+                expect(lite.color, tint);
+                expect(lite.blur, 16);
+              }
+            }
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    }
+  });
+
+  testWidgets('menus and reading pages share each theme palette tint', (
+    tester,
+  ) async {
+    const menuKey = ValueKey('themed-menu');
+    const pageKey = ValueKey('themed-page');
+    const sheetKey = ValueKey('themed-page-sheet');
+    for (final preset in forumThemePresets) {
+      for (final brightness in Brightness.values) {
+        final theme = AppTheme.fromPalette(preset.resolve(brightness));
+        final tokens = theme.extension<DTokens>()!;
+        final expected = Color.lerp(tokens.background, tokens.foreground, .03)!;
+        for (final material in DAppearanceMaterial.values) {
+          for (final reduced in [false, true]) {
+            await tester.pumpWidget(
+              MaterialApp(
+                themeAnimationStyle: AnimationStyle.noAnimation,
+                theme: DMaterialTheme.apply(theme, material),
+                home: MediaQuery(
+                  data: MediaQueryData(highContrast: reduced),
+                  child: const Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          key: menuKey,
+                          width: 220,
+                          height: 280,
+                          child: DSheetContent(
+                            side: DSheetSide.bottom,
+                            variant: DSheetVariant.menu,
+                            showCloseButton: false,
+                            children: [SizedBox(height: 80)],
+                          ),
+                        ),
+                        SizedBox(
+                          key: pageKey,
+                          width: 220,
+                          height: 280,
+                          child: DPageSurface(child: SizedBox.expand()),
+                        ),
+                        SizedBox(
+                          key: sheetKey,
+                          width: 220,
+                          height: 280,
+                          child: DSheetViewport(
+                            content: DSheetContent(
+                              side: DSheetSide.bottom,
+                              variant: DSheetVariant.page,
+                              showCloseButton: false,
+                              children: [Expanded(child: SizedBox.expand())],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            for (final key in [menuKey, pageKey, sheetKey]) {
+              final surface = find.descendant(
+                of: find.byKey(key),
+                matching: find.byType(DMaterialSurface),
+              );
+              expect(tester.widget<DMaterialSurface>(surface).color, expected);
+              final lens = find.descendant(
+                of: surface,
+                matching: find.byType(LiquidGlassLens),
+              );
+              final glass =
+                  material == DAppearanceMaterial.liquidGlass && !reduced;
+              if (key == menuKey && glass) {
+                expect(
+                  tester.widget<LiquidGlassLens>(lens).style.color,
+                  expected.withValues(alpha: .68),
+                );
+              } else {
+                expect(lens, findsNothing);
+                expect(
+                  find.descendant(
+                    of: surface,
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is DecoratedBox &&
+                          widget.decoration is BoxDecoration &&
+                          (widget.decoration as BoxDecoration).color ==
+                              expected,
+                    ),
+                  ),
+                  findsOneWidget,
+                );
+              }
+            }
+            expect(tester.takeException(), isNull);
+          }
+        }
+      }
+    }
+  });
+
+  testWidgets('page sheets keep caller alpha and become opaque during a pull', (
+    tester,
+  ) async {
+    for (final material in DAppearanceMaterial.values) {
+      for (final source in const [Color(0x80583F70), Colors.transparent]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: DMaterialTheme.apply(
+              AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+              material,
+            ),
+            home: DSheetViewport(
+              onDismiss: () {},
+              content: DSheetContent(
+                side: DSheetSide.bottom,
+                variant: DSheetVariant.page,
+                showCloseButton: false,
+                backgroundColor: source,
+                children: const [
+                  Expanded(child: Center(child: Text('Reading page'))),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        Color fill() => tester
+            .widget<DMaterialSurface>(find.byType(DMaterialSurface))
+            .color;
+        expect(fill(), source);
+        expect(find.byType(LiquidGlassLens), findsNothing);
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+        );
+        await gesture.moveBy(const Offset(0, 30));
+        await gesture.moveBy(const Offset(0, 60));
+        await tester.pump();
+        expect(fill(), source.withValues(alpha: 1));
+        expect(find.byType(LiquidGlassLens), findsNothing);
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(fill(), source);
         expect(tester.takeException(), isNull);
       }
     }

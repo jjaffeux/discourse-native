@@ -132,7 +132,12 @@ class DMaterialSurface extends StatelessWidget {
     final light = Colors.white.withValues(alpha: dark ? .08 : .8);
     Widget background;
     if (lens) {
-      background = _GlassPaint(radius: radius, depth: depth, joined: joined);
+      background = _GlassPaint(
+        radius: radius,
+        depth: depth,
+        color: paintedColor,
+        joined: joined,
+      );
     } else {
       background = DecoratedBox(
         decoration: BoxDecoration(color: paintedColor, borderRadius: radius),
@@ -440,10 +445,16 @@ class _SurfaceContent extends StatelessWidget {
 }
 
 class _GlassPaint extends StatelessWidget {
-  const _GlassPaint({required this.radius, required this.depth, this.joined});
+  const _GlassPaint({
+    required this.radius,
+    required this.depth,
+    this.color,
+    this.joined,
+  });
 
   final BorderRadius radius;
   final DSurfaceDepth depth;
+  final Color? color;
   final DJoinedControlScope? joined;
 
   @override
@@ -454,20 +465,29 @@ class _GlassPaint extends StatelessWidget {
       radius.bottomLeft.x,
       radius.bottomRight.x,
     ].reduce((a, b) => a > b ? a : b);
-    const panelAdaptivity = LiquidGlassAdaptivity(
-      glassColorOnDark: Color(0x99000000),
-      glassColorOnLight: Color(0xB3FFFFFF),
-    );
     final preset = switch (depth) {
-      DSurfaceDepth.menu || DSurfaceDepth.dialog =>
-        LiquidGlassDialog.defaultStyle.copyWith(adaptivity: panelAdaptivity),
-      DSurfaceDepth.sheet => LiquidGlassSheet.defaultStyle.copyWith(
-        adaptivity: panelAdaptivity,
-      ),
+      DSurfaceDepth.menu ||
+      DSurfaceDepth.dialog => LiquidGlassDialog.defaultStyle,
+      DSurfaceDepth.sheet => LiquidGlassSheet.defaultStyle,
       _ => LiquidGlassButton.defaultStyle,
     };
+    final floating =
+        depth == DSurfaceDepth.menu ||
+        depth == DSurfaceDepth.dialog ||
+        depth == DSurfaceDepth.sheet;
+    final tint = color;
+    final style = floating && tint != null
+        ? preset.copyWith(
+            color: tint,
+            blur: 16,
+            adaptivity: LiquidGlassAdaptivity(
+              glassColorOnDark: tint,
+              glassColorOnLight: tint,
+            ),
+          )
+        : preset;
     Widget glass = LiquidGlassLens(
-      style: preset.copyWith(
+      style: style.copyWith(
         shape: LiquidGlassShape.roundedRectangle(cornerRadius: cornerRadius),
       ),
       child: const SizedBox.expand(),

@@ -1491,9 +1491,7 @@ class DSheetContent extends StatelessWidget {
               .dependOnInheritedWidgetOfExactType<_DSheetPagePullScope>()
               ?.pulled ??
           false;
-      final color =
-          backgroundColor ??
-          Color.lerp(tokens.background, tokens.foreground, .03)!;
+      final color = backgroundColor ?? tokens.panelBackground;
       return Semantics(
         container: true,
         explicitChildNodes: true,
@@ -1561,7 +1559,7 @@ class DSheetContent extends StatelessWidget {
     final surfaceColor =
         backgroundColor ??
         (menu
-            ? Color.lerp(tokens.background, tokens.foreground, .03)!
+            ? tokens.panelBackground
             : fillAvailableHeight
             ? tokens.background.withValues(alpha: 1)
             : tokens.surface);
