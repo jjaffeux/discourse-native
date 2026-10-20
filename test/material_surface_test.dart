@@ -9,53 +9,125 @@ import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/material_surface.dart';
+import 'package:discourse_native/src/ui/foundation/sidebar_row_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
+import 'support/stock_glass.dart';
+
 void main() {
-  testWidgets('menu material follows the mockup frost and shadow', (
+  testWidgets('glass surfaces keep stock optics with readable panel tints', (
     tester,
   ) async {
-    for (final material in DAppearanceMaterial.values) {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: DMaterialTheme.apply(AppTheme.dark, material),
-          home: const Center(
-            child: DMaterialSurface(
-              depth: DSurfaceDepth.menu,
-              color: Color(0xff323543),
-              radius: BorderRadius.all(Radius.circular(10)),
-              child: SizedBox(width: 216, height: 200),
+    for (final depth in [
+      DSurfaceDepth.raised,
+      DSurfaceDepth.primaryCapsule,
+      DSurfaceDepth.chromeSelection,
+      DSurfaceDepth.menu,
+      DSurfaceDepth.dialog,
+      DSurfaceDepth.sheet,
+    ]) {
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: DMaterialTheme.apply(
+              AppTheme.forBrightness(brightness),
+              DAppearanceMaterial.liquidGlass,
+            ),
+            home: Center(
+              child: DMaterialSurface(
+                depth: depth,
+                color: const Color(0xff323543),
+                radius: BorderRadius.circular(10),
+                child: const SizedBox(width: 216, height: 200),
+              ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final shadows = tester
-          .widgetList<DecoratedBox>(find.byType(DecoratedBox))
-          .map((box) => box.decoration)
-          .whereType<BoxDecoration>()
-          .expand((decoration) => decoration.boxShadow ?? const <BoxShadow>[])
-          .toList();
-      if (material == DAppearanceMaterial.standard) {
-        expect(shadows, isEmpty);
-        expect(find.byType(LiquidGlassLite), findsNothing);
-      } else {
-        final glass = tester.widget<LiquidGlassLite>(
-          find.byType(LiquidGlassLite),
         );
-        expect(glass.color, const Color(0xff323543).withValues(alpha: .68));
-        expect(glass.blur, 26);
-        expect(shadows.single.offset, const Offset(0, 18));
-        expect(shadows.single.blurRadius, 44);
-        expect(shadows.single.color, Colors.black.withValues(alpha: .28));
+        await tester.pumpAndSettle();
+        const panelAdaptivity = LiquidGlassAdaptivity(
+          glassColorOnDark: Color(0x99000000),
+          glassColorOnLight: Color(0xB3FFFFFF),
+        );
+        final preset = switch (depth) {
+          DSurfaceDepth.menu ||
+          DSurfaceDepth.dialog => LiquidGlassDialog.defaultStyle.copyWith(
+            adaptivity: panelAdaptivity,
+          ),
+          DSurfaceDepth.sheet => LiquidGlassSheet.defaultStyle.copyWith(
+            adaptivity: panelAdaptivity,
+          ),
+          _ => LiquidGlassButton.defaultStyle,
+        };
+        expectStockGlass(
+          tester.widget<LiquidGlassLens>(find.byType(LiquidGlassLens)).style,
+          preset,
+        );
+        if (depth == DSurfaceDepth.menu ||
+            depth == DSurfaceDepth.dialog ||
+            depth == DSurfaceDepth.sheet) {
+          expect(
+            tester.widget<LiquidGlassLite>(find.byType(LiquidGlassLite)).color,
+            brightness == Brightness.dark
+                ? const Color(0x99000000)
+                : const Color(0xB3FFFFFF),
+          );
+        }
+        final shadows = tester
+            .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+            .map((box) => box.decoration)
+            .whereType<BoxDecoration>()
+            .expand((box) => box.boxShadow ?? const <BoxShadow>[]);
+        expect(shadows, isEmpty);
+        expect(tester.takeException(), isNull);
       }
-      expect(tester.takeException(), isNull);
     }
   });
+
+  testWidgets(
+    'selected sidebar rows use stock glass and dormant rows stay flat',
+    (tester) async {
+      for (final selected in [false, true, false]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: DMaterialTheme.apply(
+              AppTheme.light,
+              DAppearanceMaterial.liquidGlass,
+            ),
+            home: Center(
+              child: DSidebarRowSurface(
+                selected: selected,
+                hovered: false,
+                radius: BorderRadius.circular(8),
+                child: const SizedBox(
+                  width: 120,
+                  height: 32,
+                  child: Text('Topics'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final lens = find.byType(LiquidGlassLens);
+        expect(lens, selected ? findsOneWidget : findsNothing);
+        if (selected) {
+          expectStockGlass(
+            tester.widget<LiquidGlassLens>(lens).style,
+            LiquidGlassButton.defaultStyle,
+          );
+        }
+        expect(
+          tester.getSize(find.byType(DSidebarRowSurface)),
+          const Size(120, 32),
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
 
   testWidgets('opacity control reports the panel and native ground ceilings', (
     tester,

@@ -242,8 +242,11 @@ void main() {
                     : blueAt(group.right + 1, group.center.dy);
                 expect(
                   shadow,
-                  lessThan(0xc1),
-                  reason: 'The middle must cast a shadow.',
+                  material == DAppearanceMaterial.liquidGlass
+                      ? equals(0xc1)
+                      : lessThan(0xc1),
+                  reason:
+                      'Only standard material adds the Native outer shadow.',
                 );
                 for (var position = start; position <= end; position += .5) {
                   final actual = horizontal

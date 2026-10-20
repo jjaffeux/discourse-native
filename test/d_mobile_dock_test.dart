@@ -1,7 +1,6 @@
-import 'dart:ui' as ui;
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -124,57 +123,44 @@ void main() {
   for (final brightness in Brightness.values) {
     for (final material in DAppearanceMaterial.values) {
       testWidgets(
-        'capsule surrounds controls and masks content ($brightness, $material)',
+        'capsule surrounds controls with its stock material ($brightness, $material)',
         (tester) async {
           final theme = DMaterialTheme.apply(
             brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
             material,
           );
-          Future<List<int>> sample(Color backdrop) async {
-            await tester.pumpWidget(fixture(theme: theme, backdrop: backdrop));
-            await tester.pumpAndSettle();
-            final surface = tester.getRect(
-              find.byKey(const ValueKey('mobile-dock-surface')),
+          await tester.pumpWidget(fixture(theme: theme));
+          await tester.pumpAndSettle();
+          final capsule = find.byKey(const ValueKey('mobile-dock-surface'));
+          final surface = tester.getRect(capsule);
+          final destination = tester.getRect(
+            find.byKey(const ValueKey('Topics')),
+          );
+          final action = tester.getRect(find.byType(DMobileDockAction));
+          expect(surface.height, 62);
+          expect(destination.height, 50);
+          expect(destination.top - surface.top, 6);
+          expect(surface.bottom - destination.bottom, 6);
+          expect(surface.right - action.right, 6);
+          if (material == DAppearanceMaterial.liquidGlass) {
+            final lens = tester.widget<LiquidGlassLens>(
+              find
+                  .descendant(
+                    of: capsule,
+                    matching: find.byType(LiquidGlassLens),
+                  )
+                  .first,
             );
-            final destination = tester.getRect(
-              find.byKey(const ValueKey('Topics')),
+            expectStockGlass(
+              lens.style,
+              LiquidGlassTabBar.defaultStyle,
+              surface.height,
             );
-            final action = tester.getRect(find.byType(DMobileDockAction));
-            expect(surface.height, 62);
-            expect(destination.height, 50);
-            expect(destination.top - surface.top, 6);
-            expect(surface.bottom - destination.bottom, 6);
-            expect(surface.right - action.right, 6);
-            final boundaryFinder = find.byKey(const ValueKey('dock-capture'));
-            final boundary = tester.renderObject<RenderRepaintBoundary>(
-              boundaryFinder,
-            );
-            final origin = tester.getTopLeft(boundaryFinder);
-            // Inspect the surround itself, where the old inner-only material
-            // left underlying content fully exposed in glass appearance.
-            return (await tester.runAsync(() async {
-              final image = await boundary.toImage(pixelRatio: 1);
-              final bytes = (await image.toByteData(
-                format: ui.ImageByteFormat.rawRgba,
-              ))!;
-              final x = (surface.left - origin.dx + 3).round();
-              final y = (surface.center.dy - origin.dy).round();
-              final index = (y * image.width + x) * 4;
-              final rgb = bytes.buffer.asUint8List().sublist(index, index + 3);
-              image.dispose();
-              return rgb;
-            }))!;
-          }
-
-          final darkBehind = await sample(Colors.black);
-          final lightBehind = await sample(Colors.white);
-          for (var channel = 0; channel < 3; channel++) {
             expect(
-              (lightBehind[channel] - darkBehind[channel]).abs(),
-              lessThanOrEqualTo(
-                material == DAppearanceMaterial.liquidGlass ? 80 : 18,
-              ),
+              tester.widget<AnimatedContainer>(capsule).decoration,
+              isNull,
             );
+            expect(find.byType(DMaterialSurface), findsNothing);
           }
           expect(tester.takeException(), isNull);
         },
@@ -182,11 +168,9 @@ void main() {
     }
   }
   testWidgets(
-    'glass dock and selected destination have frost; inactive items share it',
+    'glass dock and selected destination use stock material; inactive items stay clear',
     (tester) async {
-      final effects = find.byWidgetPredicate(
-        (widget) => widget is LiquidGlassLite || widget is LiquidGlassLens,
-      );
+      final effects = find.byType(LiquidGlassLens);
       final theme = DMaterialTheme.apply(
         AppTheme.dark,
         DAppearanceMaterial.liquidGlass,
@@ -208,6 +192,29 @@ void main() {
           findsNothing,
         );
       }
+      const itemStyle = LiquidGlassTabItemStyle();
+      for (final (name, selected) in [('Start', false), ('Topics', true)]) {
+        final item = find.byKey(ValueKey(name));
+        final icon = find.descendant(
+          of: item,
+          matching: find.byIcon(Icons.forum),
+        );
+        final iconTheme = IconTheme.of(tester.element(icon));
+        expect(iconTheme.size, itemStyle.iconSize);
+        expect(
+          iconTheme.color,
+          const LiquidGlassAdaptivity().contentColorOnDark,
+        );
+        final text = tester.widget<Text>(find.text(name));
+        final textStyle = DefaultTextStyle.of(
+          tester.element(find.text(name)),
+        ).style.merge(text.style);
+        expect(textStyle.fontSize, itemStyle.labelFontSize);
+        expect(
+          textStyle.fontWeight,
+          itemStyle.fontWeightFor(selected: selected),
+        );
+      }
       final bounds = tester.getRect(find.byKey(const ValueKey('Topics')));
       await tester.pumpWidget(fixture(theme: theme, highContrast: true));
       await tester.pumpAndSettle();
@@ -216,6 +223,37 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'stock dock content follows the package light and dark palettes',
+    (tester) async {
+      const adaptive = LiquidGlassAdaptivity();
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(
+          fixture(
+            theme: DMaterialTheme.apply(
+              brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+              DAppearanceMaterial.liquidGlass,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        for (final name in ['Start', 'Topics']) {
+          final glyph = find.descendant(
+            of: find.byKey(ValueKey(name)),
+            matching: find.byIcon(Icons.forum),
+          );
+          expect(
+            IconTheme.of(tester.element(glyph)).color,
+            brightness == Brightness.dark
+                ? adaptive.contentColorOnDark
+                : adaptive.contentColorOnLight,
+          );
+        }
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   testWidgets('glass spring reverses smoothly and reduced motion snaps', (
     tester,
   ) async {
@@ -255,7 +293,7 @@ void main() {
     expect(tester.getSize(surface), open);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('glass controls retain their tint during the spring morph', (
+  testWidgets('glass controls keep stock material during the spring morph', (
     tester,
   ) async {
     final theme = DMaterialTheme.apply(
@@ -266,44 +304,22 @@ void main() {
       find.byKey(const ValueKey('Topics')),
       find.byType(DMobileDockAction),
     ];
-    Future<List<List<int>>> sample() async {
-      final boundaryFinder = find.byKey(const ValueKey('dock-capture'));
-      final boundary = tester.renderObject<RenderRepaintBoundary>(
-        boundaryFinder,
-      );
-      final origin = tester.getTopLeft(boundaryFinder);
-      final bounds = controls.map(tester.getRect).toList();
-      return (await tester.runAsync(() async {
-        final image = await boundary.toImage(pixelRatio: 1);
-        final bytes = (await image.toByteData(
-          format: ui.ImageByteFormat.rawRgba,
-        ))!.buffer.asUint8List();
-        final colors = <List<int>>[];
-        for (final rect in bounds) {
-          // Inside the glass, beside the centered glyph and above labels.
-          final x = (rect.left + rect.width * .2 - origin.dx).round();
-          final y = (rect.center.dy - origin.dy).round();
-          final index = (y * image.width + x) * 4;
-          colors.add(bytes.sublist(index, index + 3));
-        }
-        image.dispose();
-        return colors;
-      }))!;
-    }
-
     await tester.pumpWidget(fixture(theme: theme));
     await tester.pumpAndSettle();
-    final resting = await sample();
     final widths = controls
         .map(tester.getRect)
         .map((rect) => rect.width)
         .toList();
     await tester.pumpWidget(fixture(theme: theme, collapsed: true));
     await tester.pump(const Duration(milliseconds: 16));
-    final moving = await sample();
     for (var item = 0; item < controls.length; item++) {
-      // Widget tests use the frost fallback. Also pin the compositing contract
-      // required by iOS's live shader: no fractional opacity above its lens.
+      final lens = tester.widget<LiquidGlassLens>(
+        find.descendant(
+          of: controls[item],
+          matching: find.byType(LiquidGlassLens),
+        ),
+      );
+      expectStockGlass(lens.style, LiquidGlassButton.defaultStyle, 50);
       RenderObject? ancestor = tester.renderObject(controls[item]);
       while (ancestor != null) {
         if (ancestor is RenderOpacity) {
@@ -312,13 +328,6 @@ void main() {
           expect(ancestor.opacity.value, anyOf(0.0, 1.0));
         }
         ancestor = ancestor.parent;
-      }
-      for (var channel = 0; channel < 3; channel++) {
-        expect(
-          (moving[item][channel] - resting[item][channel]).abs(),
-          lessThanOrEqualTo(12),
-          reason: 'Control $item must retain its glass tint while morphing',
-        );
       }
       expect(tester.getRect(controls[item]).width, lessThan(widths[item]));
     }
@@ -395,4 +404,25 @@ void main() {
       }
     },
   );
+}
+
+void expectStockGlass(
+  LiquidGlassStyle actual,
+  LiquidGlassStyle stock,
+  double height,
+) {
+  expect(actual.color, stock.color);
+  expect(actual.blur, stock.blur);
+  expect(actual.saturation, stock.saturation);
+  expect(actual.specular, stock.specular);
+  expect(actual.glow, stock.glow);
+  expect(actual.shadow, stock.shadow);
+  expect(actual.refractionIndex, stock.refractionIndex);
+  expect(actual.refractionWidth, stock.refractionWidth);
+  expect(actual.magnification, stock.magnification);
+  expect(actual.dispersion, stock.dispersion);
+  expect(actual.adaptivity, stock.adaptivity);
+  expect(actual.liteGlass, stock.liteGlass);
+  expect(actual.shape!.cornerStyle, LiquidGlassCornerStyle.roundedRectangle);
+  expect(actual.shape!.cornerRadius, height / 2);
 }

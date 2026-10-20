@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 
@@ -42,6 +44,8 @@ class DMobileDockItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final glass = DMaterialTheme.glassOf(context);
+    const glassItems = LiquidGlassTabItemStyle();
     final scaleDelta = math.max(
       0.0,
       MediaQuery.textScalerOf(context).scale(11) - 11,
@@ -50,10 +54,15 @@ class DMobileDockItem extends StatelessWidget {
     final measure = TextPainter(
       text: TextSpan(
         text: label,
-        style: Theme.of(context).textTheme.labelLarge!.copyWith(
-          fontSize: DiscourseTypography.micro,
-          fontWeight: FontWeight.w600,
-        ),
+        style: glass
+            ? TextStyle(
+                fontSize: glassItems.labelFontSize,
+                fontWeight: glassItems.selectedFontWeight,
+              )
+            : Theme.of(context).textTheme.labelLarge!.copyWith(
+                fontSize: DiscourseTypography.micro,
+                fontWeight: FontWeight.w600,
+              ),
       ),
       textScaler: MediaQuery.textScalerOf(context),
       textDirection: Directionality.of(context),
@@ -67,6 +76,7 @@ class DMobileDockItem extends StatelessWidget {
         shape: DButtonShape.pill,
         icon: icon,
         tooltip: label,
+        focusNode: focusNode,
         onPressed: onPressed,
       );
     }
@@ -83,22 +93,26 @@ class DMobileDockItem extends StatelessWidget {
           expanded: expanded,
           hasPopup: hasPopup,
           onPressed: onPressed,
-          foregroundColor: selected
+          foregroundColor: glass
+              ? glassItems.colorFor(selected: selected)
+              : selected
               ? tokens.foreground
               : tokens.mutedForeground,
           backgroundColor: selected
-              ? Color.lerp(tokens.background, tokens.foreground, .20)
+              ? glass
+                    ? const LiquidGlassTabPillStyle().effectiveRest.color
+                    : Color.lerp(tokens.background, tokens.foreground, .20)
               : Colors.transparent,
           label: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
                 key: const ValueKey('mobile-dock-glyph'),
-                height: 26 + scaleDelta,
+                height: (glass ? glassItems.iconSize : 26) + scaleDelta,
                 child: Center(child: ExcludeSemantics(child: icon)),
               ),
               if (!bare) ...[
-                const SizedBox(height: 2),
+                SizedBox(height: glass ? glassItems.iconLabelGap : 2),
                 SizedBox(
                   height: labelHeight,
                   child: Row(
@@ -113,7 +127,9 @@ class DMobileDockItem extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontWeight: selected
+                              fontWeight: glass
+                                  ? glassItems.fontWeightFor(selected: selected)
+                                  : selected
                                   ? FontWeight.w600
                                   : FontWeight.w500,
                             ),

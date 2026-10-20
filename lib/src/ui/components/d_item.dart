@@ -8,6 +8,7 @@ import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
 import 'd_card.dart';
@@ -449,17 +450,6 @@ class _DItemState extends State<DItem> {
                 color: tokens.foreground,
               ),
         child: CustomPaint(
-          painter: sidebarSelection
-              ? DSidebarRowSurface.painterFor(
-                  context,
-                  selected: widget.selected,
-                  hovered:
-                      widget.highlightOnInteraction &&
-                      _active &&
-                      (_hover || _pressed),
-                  radius: borderRadius,
-                )
-              : null,
           foregroundPainter: _ItemRing(
             focus ? tokens.focusRing : Colors.transparent,
             radius,
@@ -563,6 +553,18 @@ class _DItemState extends State<DItem> {
         ),
       ),
     );
+    if (sidebarSelection) {
+      result = DSidebarRowSurface(
+        radius: borderRadius,
+        selected: widget.selected,
+        hovered:
+            widget.highlightOnInteraction && _active && (_hover || _pressed),
+        child: Opacity(
+          opacity: !widget.enabled && DMaterialTheme.glassOf(context) ? .5 : 1,
+          child: result,
+        ),
+      );
+    }
     if (widget.cornerAction case final action?) {
       final showAction =
           _hover ||
@@ -663,7 +665,14 @@ class _DItemState extends State<DItem> {
         onTap: _active ? linkActivation.onPressed : null,
         // Toggling enabled keeps the tree shape: a remount would recreate child
         // state and dispose the tap recognizer of a pointer still down.
-        child: Opacity(opacity: widget.enabled ? 1 : .5, child: result),
+        child: Opacity(
+          opacity:
+              widget.enabled ||
+                  (sidebarSelection && DMaterialTheme.glassOf(context))
+              ? 1
+              : .5,
+          child: result,
+        ),
       ),
     );
     if (widget.dragData == null) return linkActivation.wrap(item);

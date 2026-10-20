@@ -1565,30 +1565,35 @@ class DSheetContent extends StatelessWidget {
             ? tokens.background.withValues(alpha: 1)
             : tokens.surface);
     Widget surface = DMaterialSurface(
-      depth: DSurfaceDepth.menu,
+      depth: DSurfaceDepth.sheet,
       radius: radius,
       color: surfaceColor,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: radius,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .1),
-              blurRadius: 15,
-              offset: const Offset(0, 10),
-              spreadRadius: -3,
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .1),
-              blurRadius: 6,
-              offset: const Offset(0, 4),
-              spreadRadius: -4,
-            ),
-          ],
+          boxShadow: DMaterialTheme.glassOf(context)
+              ? const []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .1),
+                    blurRadius: 15,
+                    offset: const Offset(0, 10),
+                    spreadRadius: -3,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 4),
+                    spreadRadius: -4,
+                  ),
+                ],
         ),
         child: DecoratedBox(
           position: DecorationPosition.foreground,
-          decoration: BoxDecoration(border: border, borderRadius: radius),
+          decoration: BoxDecoration(
+            border: DMaterialTheme.glassOf(context) ? null : border,
+            borderRadius: radius,
+          ),
           child: Material(
             animationDuration: Duration.zero,
             borderRadius: radius,

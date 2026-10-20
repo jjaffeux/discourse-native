@@ -7,8 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import 'support/button_surface.dart';
+import 'support/stock_glass.dart';
 
 void main() {
   for (final dark in [false, true]) {
@@ -27,13 +29,16 @@ void main() {
           await _pump(tester, theme: theme, backdrop: backdrop);
           final tokens = DTokens.of(tester.element(find.byType(DDocumentTab)));
           final raised = Color.lerp(tokens.background, tokens.foreground, .1)!;
-          final expected = material == DAppearanceMaterial.standard
-              ? raised
-              : Color.alphaBlend(
-                  raised.withValues(alpha: dark ? .42 : .5),
-                  backdrop,
-                );
-          await _expectPixel(tester, const Offset(120, 25), expected);
+          if (material == DAppearanceMaterial.standard) {
+            await _expectPixel(tester, const Offset(120, 25), raised);
+          } else {
+            expectStockGlass(
+              tester
+                  .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
+                  .style,
+              LiquidGlassButton.defaultStyle,
+            );
+          }
           final surface = tester.widget<Container>(
             find.byKey(const ValueKey('surface')),
           );
@@ -76,17 +81,16 @@ void main() {
           addTearDown(pointer.removePointer);
           await pointer.moveTo(tester.getCenter(tab));
           await tester.pumpAndSettle();
-          final expected = material == DAppearanceMaterial.standard
-              ? backdrop
-              : Color.alphaBlend(
-                  Color.lerp(
-                    tokens.background,
-                    tokens.foreground,
-                    .1,
-                  )!.withValues(alpha: .22),
-                  backdrop,
-                );
-          await _expectPixel(tester, const Offset(120, 25), expected);
+          if (material == DAppearanceMaterial.standard) {
+            await _expectPixel(tester, const Offset(120, 25), backdrop);
+          } else {
+            expectStockGlass(
+              tester
+                  .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
+                  .style,
+              LiquidGlassButton.defaultStyle,
+            );
+          }
           expect(tester.getRect(tab), rect);
           final close = find.byKey(const ValueKey('close'));
           await pointer.moveTo(tester.getCenter(close));
@@ -152,10 +156,7 @@ void main() {
       const Offset(120, 25),
       Color.lerp(tokens.background, tokens.foreground, .1)!,
     );
-    expect(
-      tester.widget<BackdropFilter>(find.byType(BackdropFilter)).enabled,
-      isFalse,
-    );
+    expect(find.byType(LiquidGlassLens), findsNothing);
   });
 
   testWidgets(

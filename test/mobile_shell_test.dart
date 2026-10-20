@@ -52,6 +52,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import 'support/badge_fixtures.dart';
 import 'support/bundled_plugins.dart';
@@ -1546,13 +1547,15 @@ void main() {
         );
         expect(tester.widget<DMobileDockItem>(button).label, isNotEmpty);
         final icon = find.descendant(of: button, matching: find.byType(DIcon));
-        // The 17pt mobile baseline also scales the dock artwork.
-        expect(tester.getSize(icon).height, closeTo(22.36, .01));
+        final iconHeight = DMaterialTheme.glassOf(tester.element(button))
+            ? 26.36
+            : 22.36;
+        expect(tester.getSize(icon).height, closeTo(iconHeight, .01));
         final glyph = find.descendant(
           of: icon,
           matching: find.byType(TintedIconGlyph),
         );
-        expect(tester.getSize(glyph).height, closeTo(22.36, .01));
+        expect(tester.getSize(glyph).height, closeTo(iconHeight, .01));
       }
       expect(find.text('Start'), findsOneWidget);
       expect(find.text('Topics'), findsWidgets);
@@ -2619,11 +2622,32 @@ void main() {
             tester.getRect(action).width,
             greaterThanOrEqualTo(tester.getRect(action).height - .001),
           );
-          expect(tester.getSize(icon).height, tester.getSize(dockIcon).height);
+          final glass = DMaterialTheme.glassOf(tester.element(action));
+          final iconDifference = glass
+              ? const LiquidGlassTabItemStyle().iconSize -
+                    const LiquidGlassButton(label: '').iconSize
+              : 0;
           expect(
-            tester.getCenter(icon).dx,
-            closeTo(tester.getCenter(action).dx, .5),
+            tester.getSize(icon).height,
+            tester.getSize(dockIcon).height - iconDifference,
           );
+          final actionLabel = tester.widget<DButton>(action).label;
+          if (actionLabel is! Text) {
+            expect(
+              tester.getCenter(icon).dx,
+              closeTo(tester.getCenter(action).dx, .5),
+            );
+          } else {
+            final label = find.byWidget(actionLabel);
+            expect(
+              tester.getRect(action).contains(tester.getCenter(icon)),
+              isTrue,
+            );
+            expect(
+              tester.getRect(icon).right,
+              lessThanOrEqualTo(tester.getRect(label).left),
+            );
+          }
           final bar = tester.getRect(_bar);
           final visibleDestinations = find.descendant(
             of: _bar,
@@ -2640,9 +2664,10 @@ void main() {
           final surface = find.descendant(
             of: action,
             matching: find.byWidgetPredicate(
-              (widget) =>
-                  widget is AnimatedContainer &&
-                  widget.decoration is DButtonDecoration,
+              (widget) => glass
+                  ? widget is LiquidGlassLens
+                  : widget is AnimatedContainer &&
+                        widget.decoration is DButtonDecoration,
             ),
           );
           expect(tester.getRect(surface), tester.getRect(action));

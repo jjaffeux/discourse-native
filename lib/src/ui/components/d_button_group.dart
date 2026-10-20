@@ -6,6 +6,7 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_separator.dart';
@@ -173,14 +174,18 @@ class _DButtonGroupState extends State<DButtonGroup> {
       final theme = DTokens.of(context).buttonTheme;
       content = DecoratedBox(
         decoration: BoxDecoration(
-          color: theme.outline.background,
+          color: DMaterialTheme.glassOf(context)
+              ? Colors.transparent
+              : theme.outline.background,
           borderRadius: BorderRadius.circular(DRadius.control),
         ),
         child: DecoratedBox(
           position: DecorationPosition.foreground,
           decoration: DControlDecoration(
             color: Colors.transparent,
-            borderColor: theme.outline.border,
+            borderColor: DMaterialTheme.glassOf(context)
+                ? Colors.transparent
+                : theme.outline.border,
             borderRadius: BorderRadius.circular(DRadius.control),
             strokeWidth: 1,
           ),
@@ -326,7 +331,9 @@ class DButtonGroupText extends StatelessWidget {
                 context,
                 tokens.buttonTheme.outline.background,
               ),
-              borderColor: joined?.sharedOutline == true
+              borderColor:
+                  DMaterialTheme.glassOf(context) ||
+                      joined?.sharedOutline == true
                   ? Colors.transparent
                   : tokens.buttonTheme.outline.border,
               borderRadius: resolvedRadius,

@@ -4,16 +4,61 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import 'support/button_surface.dart';
+import 'support/stock_glass.dart';
 
 void main() {
+  testWidgets(
+    'ordinary glass buttons use stock material without a cosmetic border',
+    (tester) async {
+      for (final dark in [false, true]) {
+        for (final enabled in [true, false]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: DMaterialTheme.apply(
+                dark ? AppTheme.dark : AppTheme.light,
+                DAppearanceMaterial.liquidGlass,
+              ),
+              home: Center(
+                child: DButton(
+                  variant: DButtonVariant.outline,
+                  label: const Text('Reply'),
+                  onPressed: enabled ? () {} : null,
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final lens = find.byType(LiquidGlassLens);
+          expectStockGlass(
+            tester.widget<LiquidGlassLens>(lens).style,
+            LiquidGlassButton.defaultStyle,
+          );
+          expect(buttonSurface(tester).borderColor.a, 0);
+          expect(buttonSurface(tester).color.a, 0);
+          final node = tester.element(lens);
+          final fractional = <Opacity>[];
+          node.visitAncestorElements((ancestor) {
+            final widget = ancestor.widget;
+            if (widget is Opacity && widget.opacity < 1) fractional.add(widget);
+            return true;
+          });
+          expect(fractional, isEmpty);
+          expect(tester.takeException(), isNull);
+        }
+      }
+    },
+  );
+
   testWidgets('timeline icon buttons preserve their glyph bounds', (
     tester,
   ) async {
@@ -842,6 +887,125 @@ void main() {
       },
     );
   }
+
+  testWidgets('glass dock buttons retain focus, loading and exact targets', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    var presses = 0;
+    for (final density in [
+      DButtonDensity.mobileDock,
+      DButtonDensity.mobileDockAction,
+      DButtonDensity.mobileDockCollapsed,
+    ]) {
+      for (final scale in [1.0, 2.0]) {
+        Future<void> pump({bool loading = false}) => tester.pumpWidget(
+          MaterialApp(
+            theme: DMaterialTheme.apply(
+              AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+              DAppearanceMaterial.liquidGlass,
+            ),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: Center(
+                  child: DButton.iconOnly(
+                    density: density,
+                    shape: DButtonShape.pill,
+                    icon: const Icon(Icons.add),
+                    tooltip: 'New topic',
+                    backgroundColor: density == DButtonDensity.mobileDock
+                        ? const LiquidGlassTabPillStyle().effectiveRest.color
+                        : null,
+                    focusNode: focus,
+                    loading: loading,
+                    onPressed: () => presses++,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        focus.unfocus();
+        await pump();
+        await tester.pumpAndSettle();
+        final button = find.byType(DButton);
+        final bounds = tester.getRect(button);
+        final lens = find.byType(LiquidGlassLens);
+        expect(tester.getRect(lens), bounds);
+        final style = tester.widget<LiquidGlassLens>(lens).style;
+        expect(style.color, LiquidGlassButton.defaultStyle.color);
+        expect(style.specular, LiquidGlassButton.defaultStyle.specular);
+        expect(style.blur, LiquidGlassButton.defaultStyle.blur);
+        expect(
+          style.refractionIndex,
+          LiquidGlassButton.defaultStyle.refractionIndex,
+        );
+        expect(
+          style.refractionWidth,
+          LiquidGlassButton.defaultStyle.refractionWidth,
+        );
+        expect(style.glow, isNull);
+        expect(style.shadow, isNull);
+        expect(style.saturation, 1);
+        expect(style.shape!.cornerRadius, bounds.height / 2);
+        expect(tester.getCenter(find.byIcon(Icons.add)), bounds.center);
+        expect(find.byType(DMaterialSurface), findsNothing);
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is AnimatedContainer &&
+                widget.decoration is DButtonDecoration,
+          ),
+          findsNothing,
+        );
+        final before = presses;
+        await tester.tapAt(bounds.centerLeft - const Offset(1, 0));
+        expect(presses, before);
+        await tester.tap(button);
+        await tester.pump();
+        expect(presses, before + 1);
+        focus.requestFocus();
+        await tester.pumpAndSettle();
+        final artwork = find.byType(DControlArtwork);
+        final paint = tester.widget<CustomPaint>(
+          find
+              .descendant(of: artwork, matching: find.byType(CustomPaint))
+              .first,
+        );
+        expect(paint.foregroundPainter, isNotNull);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        expect(presses, before + 2);
+        await pump(loading: true);
+        await tester.pump();
+        expect(tester.getRect(button), bounds);
+        expect(find.byType(DSpinner), findsOneWidget);
+        expect(
+          find.ancestor(
+            of: lens,
+            matching: find.byWidgetPredicate(
+              (widget) => widget is Opacity && widget.opacity < 1,
+            ),
+          ),
+          findsNothing,
+        );
+        final data = tester.getSemantics(button).getSemanticsData();
+        expect(data.label, 'New topic');
+        expect(
+          tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+          isNull,
+        );
+        await tester.tap(button);
+        await tester.pump();
+        expect(presses, before + 2);
+        expect(tester.takeException(), isNull);
+      }
+    }
+    semantics.dispose();
+  });
 
   testWidgets('an icon-only dock action stays circular within a wider slot', (
     tester,

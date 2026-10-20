@@ -6,11 +6,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
+
+import 'support/stock_glass.dart';
 
 void main() {
   for (final dark in [false, true]) {
     testWidgets(
-      'sidebar glass uses the reference tint and bare hover ($dark)',
+      'sidebar glass uses stock selection and hover materials ($dark)',
       (tester) async {
         for (final backdrop in [
           const Color(0xff555555),
@@ -20,16 +23,18 @@ void main() {
           final tokens = DTokens.of(
             tester.element(find.byKey(const ValueKey('forum'))),
           );
-          final raised = Color.lerp(tokens.background, tokens.foreground, .1)!;
+
           final well = Color.alphaBlend(
             Colors.black.withValues(alpha: dark ? .16 : .045),
             backdrop,
           );
-          // Below the radial sheen and clear of the text and 1px rims.
-          await _pixel(
-            tester,
-            const Offset(250, 25),
-            Color.alphaBlend(raised.withValues(alpha: dark ? .42 : .5), well),
+          final selected = find.descendant(
+            of: find.byKey(const ValueKey('forum')),
+            matching: find.byType(LiquidGlassLens),
+          );
+          expectStockGlass(
+            tester.widget<LiquidGlassLens>(selected).style,
+            LiquidGlassButton.defaultStyle,
           );
           await _pixel(tester, const Offset(340, 25), well);
           final mouse = await tester.createGesture(
@@ -44,10 +49,13 @@ void main() {
             IconTheme.of(tester.element(find.byIcon(Icons.chat))).color,
             tokens.mutedForeground,
           );
-          await _pixel(
-            tester,
-            const Offset(340, 25),
-            Color.alphaBlend(raised.withValues(alpha: .28), well),
+          final hovered = find.descendant(
+            of: find.byKey(const ValueKey('chat')),
+            matching: find.byType(LiquidGlassLens),
+          );
+          expectStockGlass(
+            tester.widget<LiquidGlassLens>(hovered).style,
+            LiquidGlassButton.defaultStyle,
           );
           await mouse.removePointer();
           await tester.pumpAndSettle();

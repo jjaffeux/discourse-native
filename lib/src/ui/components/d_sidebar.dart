@@ -1209,13 +1209,13 @@ class _DSidebarMenuButtonState extends State<DSidebarMenuButton> {
             onTapDown: enabled ? (_) => _handlePointerDown() : null,
             onTapCancel: _handlePointerCancel,
             onTapUp: (_) => setState(() => pressed = false),
-            child: Opacity(
-              opacity: enabled ? 1 : .5,
-              child: DSidebarRowSurface(
-                radius: BorderRadius.circular(8),
-                selected: widget.isActive,
-                hovered: enabled && (hover || pressed),
-                navigation: navigation,
+            child: DSidebarRowSurface(
+              radius: BorderRadius.circular(8),
+              selected: widget.isActive,
+              hovered: enabled && (hover || pressed),
+              navigation: navigation,
+              child: Opacity(
+                opacity: enabled ? 1 : .5,
                 child: Container(
                   constraints: BoxConstraints(minHeight: minHeight),
                   padding: EdgeInsetsDirectional.only(

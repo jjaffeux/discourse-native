@@ -1264,7 +1264,9 @@ class DPopoverContent extends StatelessWidget {
       radius: BorderRadius.circular(radius),
       color: fill,
       child: CustomPaint(
-        foregroundPainter: _PopoverRingPainter(color: edge, radius: radius),
+        foregroundPainter: DMaterialTheme.glassOf(context)
+            ? null
+            : _PopoverRingPainter(color: edge, radius: radius),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: DMaterialSurface.fill(context, fill),

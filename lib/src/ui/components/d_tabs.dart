@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
@@ -1064,7 +1063,6 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
               child: surface,
               builder: (_, color, child) => DMaterialTheme.glassOf(context)
                   ? _DocumentTabMaterial(
-                      sidebar: true,
                       selected: selected,
                       hovered: _hovered,
                       radius: BorderRadius.circular(radius),
@@ -1073,7 +1071,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
                         tokens.foreground,
                         .1,
                       )!,
-                      child: child!,
+                      child: Opacity(opacity: enabled ? 1 : .5, child: child!),
                     )
                   : DMaterialSurface(
                       color: color!,
@@ -1092,7 +1090,9 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
         child: artwork,
       );
     }
-    if (!enabled) artwork = Opacity(opacity: .5, child: artwork);
+    if (!enabled && !(expanding && DMaterialTheme.glassOf(context))) {
+      artwork = Opacity(opacity: .5, child: artwork);
+    }
     if (widget.selectedLabelOnly && !selected && widget.semanticLabel != null) {
       artwork = DTooltip(
         message: widget.semanticLabel!,
@@ -1578,8 +1578,6 @@ class _DDocumentTabState extends State<DDocumentTab> {
   }
 }
 
-/// The mockup's tab-specific glass: thinner than ordinary raised controls.
-/// Paint stays behind the stable controls, so material changes retain focus.
 class _DocumentTabMaterial extends StatelessWidget {
   const _DocumentTabMaterial({
     required this.selected,
@@ -1587,7 +1585,6 @@ class _DocumentTabMaterial extends StatelessWidget {
     required this.radius,
     required this.color,
     required this.child,
-    this.sidebar = false,
   });
 
   final bool selected;
@@ -1595,232 +1592,13 @@ class _DocumentTabMaterial extends StatelessWidget {
   final BorderRadius radius;
   final Color color;
   final Widget child;
-  final bool sidebar;
 
   @override
-  Widget build(BuildContext context) {
-    final glass = DMaterialTheme.glassOf(context);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final visible = glass && (selected || hovered);
-    // app.css: selected .42/.50 tint, inactive document hover .22 and
-    // sidebar bare hover .28. Only selection samples the softened backdrop.
-    final highlight = sidebar && hovered
-        ? (selected ? (dark ? .22 : .75) : (dark ? .12 : .55))
-        : hovered
-        ? .22
-        : (dark ? .12 : .55);
-    return CustomPaint(
-      painter: glass && selected ? _DocumentTabShadow(radius, dark) : null,
-      child: Stack(
-        fit: StackFit.passthrough,
-        children: [
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ExcludeSemantics(
-                child: ClipRRect(
-                  borderRadius: radius,
-                  child: BackdropFilter(
-                    enabled: glass && selected,
-                    filter: ui.ImageFilter.compose(
-                      outer:
-                          // CSS saturation matrix, using sRGB luminance.
-                          const ColorFilter.matrix([
-                            1.66895,
-                            -.60775,
-                            -.0612,
-                            0,
-                            0,
-                            -.18105,
-                            1.24225,
-                            -.0612,
-                            0,
-                            0,
-                            -.18105,
-                            -.60775,
-                            1.7888,
-                            0,
-                            0,
-                            0,
-                            0,
-                            0,
-                            1,
-                            0,
-                          ]),
-                      inner: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                    ),
-                    child: sidebar
-                        ? TweenAnimationBuilder<Color?>(
-                            tween: ColorTween(
-                              end: color.withValues(
-                                alpha: !visible
-                                    ? 0
-                                    : selected
-                                    ? (dark ? .42 : .5)
-                                    : .28,
-                              ),
-                            ),
-                            duration: DMotion.duration(
-                              context,
-                              const Duration(milliseconds: 200),
-                            ),
-                            curve: Curves.ease,
-                            builder: (_, tint, _) {
-                              final strength =
-                                  (tint!.a /
-                                          (selected ? (dark ? .42 : .5) : .28))
-                                      .clamp(0.0, 1.0);
-                              return CustomPaint(
-                                painter: _DocumentTabGlassPaint(
-                                  radius: radius,
-                                  tint: tint,
-                                  rim: Colors.white.withValues(
-                                    alpha: (dark ? .14 : .75) * strength,
-                                  ),
-                                  highlight: highlight * strength,
-                                  bare: !selected,
-                                ),
-                              );
-                            },
-                          )
-                        : CustomPaint(
-                            painter: visible
-                                ? _DocumentTabGlassPaint(
-                                    radius: radius,
-                                    tint: color.withValues(
-                                      alpha:
-                                          color.a *
-                                          (selected ? (dark ? .42 : .5) : .22),
-                                    ),
-                                    rim: Colors.white.withValues(
-                                      alpha: dark ? .14 : .75,
-                                    ),
-                                    highlight: selected ? highlight : 0,
-                                  )
-                                : null,
-                          ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _DocumentTabShadow extends CustomPainter {
-  const _DocumentTabShadow(this.radius, this.dark);
-  final BorderRadius radius;
-  final bool dark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final shape = radius.toRRect(rect);
-    // CSS outer shadows leave the border box clear. A normal BoxShadow
-    // would show through the translucent tab and pollute its own backdrop.
-    final outside = Path()
-      ..fillType = PathFillType.evenOdd
-      ..addRect(rect.inflate(30))
-      ..addRRect(shape);
-    canvas.save();
-    canvas.clipPath(outside);
-    canvas.drawRRect(
-      shape.shift(const Offset(0, 4)),
-      const BoxShadow(blurRadius: 14)
-          .copyWith(color: Colors.black.withValues(alpha: dark ? .2 : .08))
-          .toPaint(),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_DocumentTabShadow old) =>
-      radius != old.radius || dark != old.dark;
-}
-
-class _DocumentTabGlassPaint extends CustomPainter {
-  const _DocumentTabGlassPaint({
-    required this.radius,
-    required this.tint,
-    required this.rim,
-    required this.highlight,
-    this.bare = false,
-  });
-
-  final BorderRadius radius;
-  final Color tint;
-  final Color rim;
-  final double highlight;
-  final bool bare;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final shape = radius.toRRect(rect);
-    canvas.drawRRect(shape, Paint()..color = tint);
-    if (highlight > 0) {
-      canvas.save();
-      canvas.clipRRect(shape);
-      // CSS's explicit elliptical radial gradient, fading at 62%.
-      canvas.translate(
-        size.width * (bare ? .5 : .35),
-        size.height * (bare ? 0 : -.25),
-      );
-      canvas.scale(size.width * 1.2, size.height * 1.1);
-      canvas.drawCircle(
-        Offset.zero,
-        1,
-        Paint()
-          ..shader = ui.Gradient.radial(
-            Offset.zero,
-            1,
-            [Colors.white.withValues(alpha: highlight), Colors.transparent],
-            [0, .62],
-          ),
-      );
-      canvas.restore();
-      // Inset catches along the upper and lower edge, clipped to the capsule.
-      canvas.save();
-      canvas.clipRRect(shape);
-      for (final (offset, blur, color) in [
-        (
-          const Offset(0, 1),
-          1.0,
-          Colors.white.withValues(alpha: highlight * (bare ? 1.4 : 1.8)),
-        ),
-        if (!bare)
-          (const Offset(0, -1), 2.0, Colors.black.withValues(alpha: .1)),
-      ]) {
-        final outside = Path()
-          ..fillType = PathFillType.evenOdd
-          ..addRect(rect.inflate(20))
-          ..addRRect(shape.shift(offset));
-        canvas.drawPath(
-          outside,
-          Paint()
-            ..color = color
-            ..maskFilter = MaskFilter.blur(BlurStyle.normal, blur / 2),
-        );
-      }
-      canvas.restore();
-    }
-    canvas.drawRRect(
-      shape.deflate(.5),
-      Paint()
-        ..color = rim
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_DocumentTabGlassPaint old) =>
-      radius != old.radius ||
-      tint != old.tint ||
-      rim != old.rim ||
-      highlight != old.highlight ||
-      bare != old.bare;
+  Widget build(BuildContext context) => DMaterialSurface(
+    radius: radius,
+    color: DMaterialTheme.glassOf(context) && (selected || hovered)
+        ? color
+        : Colors.transparent,
+    child: child,
+  );
 }

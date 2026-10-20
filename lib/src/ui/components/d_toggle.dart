@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../../theme/d_icon.dart';
 import '../foundation/control_style.dart';
@@ -354,10 +355,15 @@ class _DToggleState extends State<DToggle> {
         ? 18.0
         : (DControlStyle.lineHeight(widget.size, context: context));
     final activeSurface = _current || interacting;
+    final glass = DMaterialTheme.glassOf(context);
+    final stockGlass =
+        glass && !postReaction && !chatReaction && (!menuFilter || _current);
     final borderColor = widget.invalid
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
+        : stockGlass
+        ? Colors.transparent
         : postReaction
         ? Colors.transparent
         : menuFilter
@@ -537,14 +543,7 @@ class _DToggleState extends State<DToggle> {
               ? tokens.foreground.withValues(alpha: .13)
               : DControlStyle.rowHover(tokens)
         : Colors.transparent;
-    final disabledGlassLens =
-        !_enabled &&
-        DMaterialTheme.glassOf(context) &&
-        !postReaction &&
-        !chatReaction &&
-        !splitView &&
-        !menuFilter &&
-        surfaceColor.a > 0;
+    final disabledGlassLens = !_enabled && stockGlass && surfaceColor.a > 0;
     final artwork = AnimatedContainer(
       duration: splitView && !reducedMotion
           ? const Duration(milliseconds: 150)
@@ -570,14 +569,16 @@ class _DToggleState extends State<DToggle> {
               iconPosition: widget.iconPosition,
             ))),
       decoration: BoxDecoration(
-        color: splitView
+        color: stockGlass
+            ? Colors.transparent
+            : splitView
             ? null
             : menuFilter && _current
             ? Colors.transparent
             : postReaction || chatReaction
             ? surfaceColor
             : DMaterialSurface.fill(context, surfaceColor),
-        gradient: splitView
+        gradient: splitView && !glass
             ? RadialGradient(
                 center: Alignment.topCenter,
                 radius: 1.2,
@@ -613,12 +614,27 @@ class _DToggleState extends State<DToggle> {
             ? null
             : 1,
         heightFactor: 1,
-        child: content,
+        child: LiquidGlassAdaptiveContent(
+          adaptivity: const LiquidGlassAdaptivity(),
+          builder: (context, color, _) => IconTheme.merge(
+            data: IconThemeData(color: stockGlass ? color : null),
+            child: DefaultTextStyle.merge(
+              style: TextStyle(color: stockGlass ? color : null),
+              child: content,
+            ),
+          ),
+        ),
       ),
     );
-    // Bare glass has only an inset rim and sheen. It does not acquire the
-    // raised material's lens or outer shadow when the pointer enters.
-    final surface = splitView
+    final surface = splitView && glass
+        ? DMaterialSurface(
+            radius: radius,
+            color: surfaceColor,
+            child: disabledGlassLens
+                ? Opacity(opacity: .6, child: artwork)
+                : artwork,
+          )
+        : splitView
         ? TweenAnimationBuilder<double>(
             tween: Tween(end: interacting ? 1.0 : 0.0),
             duration: reducedMotion
@@ -643,8 +659,6 @@ class _DToggleState extends State<DToggle> {
             color: disabledGlassLens
                 ? surfaceColor.withValues(alpha: surfaceColor.a * .6)
                 : surfaceColor,
-            // The writing button already owns the mockup's accent tint,
-            // radial catch and inset rim. Reuse it inside the filter mask.
             depth: menuFilter && !_current
                 ? DSurfaceDepth.recessed
                 : menuFilter

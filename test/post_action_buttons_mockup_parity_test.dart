@@ -11,14 +11,15 @@ import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/ui/foundation/material_surface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
+import 'support/stock_glass.dart';
 
 const _site = 'https://meta.example';
 const _post = Post(
@@ -155,7 +156,7 @@ void main() {
             expect(
               find.descendant(
                 of: button,
-                matching: find.byType(DMaterialSurface),
+                matching: find.byType(LiquidGlassLens),
               ),
               findsNothing,
             );
@@ -185,7 +186,11 @@ void main() {
           final icon = find.descendant(of: reply, matching: find.byType(DIcon));
           expect(
             IconTheme.of(tester.element(icon)).color,
-            Color.lerp(tokens.background, tokens.foreground, .62),
+            glass
+                ? (dark
+                      ? const LiquidGlassAdaptivity().contentColorOnDark
+                      : const LiquidGlassAdaptivity().contentColorOnLight)
+                : Color.lerp(tokens.background, tokens.foreground, .62),
           );
           expect(
             buttonSurface(tester, of: reply).borderColor,
@@ -197,10 +202,18 @@ void main() {
                 ? Colors.transparent
                 : tokens.foreground.withValues(alpha: .08),
           );
-          expect(
-            find.descendant(of: reply, matching: find.byType(BackdropFilter)),
-            findsNothing,
+          final lens = find.descendant(
+            of: reply,
+            matching: find.byType(LiquidGlassLens),
           );
+          if (glass) {
+            expectStockGlass(
+              tester.widget<LiquidGlassLens>(lens).style,
+              LiquidGlassButton.defaultStyle,
+            );
+          } else {
+            expect(lens, findsNothing);
+          }
           await _capture(
             tester,
             key,

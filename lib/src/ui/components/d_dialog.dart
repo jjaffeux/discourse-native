@@ -818,15 +818,17 @@ class DDialogContent extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: radius,
-              boxShadow: [
-                BoxShadow(
-                  color: tokens.foreground.withValues(alpha: .1),
-                  spreadRadius: 1,
-                ),
-              ],
+              boxShadow: DMaterialTheme.glassOf(context)
+                  ? const []
+                  : [
+                      BoxShadow(
+                        color: tokens.foreground.withValues(alpha: .1),
+                        spreadRadius: 1,
+                      ),
+                    ],
             ),
             child: DMaterialSurface(
-              depth: DSurfaceDepth.menu,
+              depth: DSurfaceDepth.dialog,
               radius: radius,
               color: tokens.surface,
               child: body,

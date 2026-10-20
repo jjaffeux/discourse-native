@@ -53,6 +53,8 @@ void _checkSurface(WidgetTester tester, Finder scope, bool glass) {
           widget is DMaterialSurface &&
           widget.color.a > 0 &&
           (widget.depth == DSurfaceDepth.menu ||
+              widget.depth == DSurfaceDepth.dialog ||
+              widget.depth == DSurfaceDepth.sheet ||
               widget.depth == DSurfaceDepth.raised),
     ),
   );

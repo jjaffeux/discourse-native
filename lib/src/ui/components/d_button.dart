@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter, SemanticsValidationResult, lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
@@ -637,6 +638,10 @@ class DButton extends StatelessWidget {
     final mobileDock = density == DButtonDensity.mobileDock;
     final mobileDockAction = density == DButtonDensity.mobileDockAction;
     final mobileDockCollapsed = density == DButtonDensity.mobileDockCollapsed;
+    final glassDock =
+        glass && (mobileDock || mobileDockAction || mobileDockCollapsed);
+    const glassItems = LiquidGlassTabItemStyle();
+    const glassButton = LiquidGlassButton(label: '');
 
     final chatMessageAction = density == DButtonDensity.chatMessageAction;
     final backLink = density == DButtonDensity.backLink;
@@ -691,6 +696,10 @@ class DButton extends StatelessWidget {
         ? 15.0
         : backLink
         ? 11.0
+        : glassDock
+        ? (mobileDock ? glassItems.iconSize : glassButton.iconSize) +
+              MediaQuery.textScalerOf(context).scale(11) -
+              11
         : mobileDock || mobileDockAction || mobileDockCollapsed
         ? 20.0 + MediaQuery.textScalerOf(context).scale(11) - 11
         : (chatMessageAction
@@ -853,6 +862,15 @@ class DButton extends StatelessWidget {
     }
 
     DButtonStateStyle resolveState(Set<WidgetState> states) {
+      if (glassDock) {
+        final foreground = foregroundColor ?? Colors.white;
+        return DButtonStateStyle(
+          foregroundColor: foreground,
+          iconColor: foreground,
+          backgroundColor: backgroundColor ?? Colors.transparent,
+          border: BorderSide.none,
+        );
+      }
       if (menuAction) {
         final interactive =
             enabled &&
@@ -1119,40 +1137,61 @@ class DButton extends StatelessWidget {
               )),
       ),
       textStyle: WidgetStateProperty.resolveWith(
-        (states) => theme.textTheme.labelLarge!.copyWith(
-          fontSize: mobileDock ? 11 : fontSize,
-          height:
-              timeline || postReaction || header || menuAction || inlineMetadata
-              ? 1.5
-              : mobileDock
-              ? 13 / 11
-              : dashedTile
-              ? DControlStyle.lineHeight(DButtonSize.large, context: context) /
-                    fontSize
-              : DControlStyle.lineHeight(effectiveSize, context: context) /
-                    fontSize,
-          fontWeight: floatingCall
-              ? FontWeight.w600
-              : timelineEnd
-              ? FontWeight.w500
-              : topicProgress
-              ? FontWeight.w400
-              : postReaction
-              ? FontWeight.w500
-              : header || menuAction
-              ? FontWeight.w600
-              : mobileDock || backLink || quiet
-              ? FontWeight.w500
-              : variant == DButtonVariant.primary || dashedTile || launcher
-              ? FontWeight.w600
-              : FontWeight.w400,
-          letterSpacing: 0,
-          decoration:
-              variant == DButtonVariant.link &&
-                  states.contains(WidgetState.hovered)
-              ? TextDecoration.underline
-              : TextDecoration.none,
-        ),
+        (states) => glassDock
+            ? TextStyle(
+                fontSize: mobileDock
+                    ? glassItems.labelFontSize
+                    : glassButton.fontSize,
+                fontWeight: mobileDock
+                    ? glassItems.unselectedFontWeight
+                    : glassButton.fontWeight,
+              )
+            : theme.textTheme.labelLarge!.copyWith(
+                fontSize: mobileDock ? 11 : fontSize,
+                height:
+                    timeline ||
+                        postReaction ||
+                        header ||
+                        menuAction ||
+                        inlineMetadata
+                    ? 1.5
+                    : mobileDock
+                    ? 13 / 11
+                    : dashedTile
+                    ? DControlStyle.lineHeight(
+                            DButtonSize.large,
+                            context: context,
+                          ) /
+                          fontSize
+                    : DControlStyle.lineHeight(
+                            effectiveSize,
+                            context: context,
+                          ) /
+                          fontSize,
+                fontWeight: floatingCall
+                    ? FontWeight.w600
+                    : timelineEnd
+                    ? FontWeight.w500
+                    : topicProgress
+                    ? FontWeight.w400
+                    : postReaction
+                    ? FontWeight.w500
+                    : header || menuAction
+                    ? FontWeight.w600
+                    : mobileDock || backLink || quiet
+                    ? FontWeight.w500
+                    : variant == DButtonVariant.primary ||
+                          dashedTile ||
+                          launcher
+                    ? FontWeight.w600
+                    : FontWeight.w400,
+                letterSpacing: 0,
+                decoration:
+                    variant == DButtonVariant.link &&
+                        states.contains(WidgetState.hovered)
+                    ? TextDecoration.underline
+                    : TextDecoration.none,
+              ),
       ),
       iconSize: WidgetStatePropertyAll(spacingUnit),
       foregroundColor: WidgetStateProperty.resolveWith(
@@ -1187,10 +1226,53 @@ class DButton extends StatelessWidget {
         final focused =
             states.contains(WidgetState.focused) &&
             DFocusHighlight.visibleOf(context);
+        if (glassDock) {
+          final selected =
+              mobileDockAction ||
+              mobileDockCollapsed ||
+              state.backgroundColor.a > 0;
+          final foreground = LiquidGlassAdaptiveContent(
+            adaptivity: const LiquidGlassAdaptivity(),
+            child: enabled
+                ? child
+                : Opacity(opacity: buttons.disabledOpacity, child: child),
+          );
+          final content = selected
+              ? LiquidGlassLens(
+                  style: LiquidGlassButton.defaultStyle.copyWith(
+                    shape: LiquidGlassShape.roundedRectangle(
+                      cornerRadius: visualDimension / 2,
+                    ),
+                  ),
+                  child: foreground,
+                )
+              : foreground;
+          return DControlArtwork(
+            child: CustomPaint(
+              foregroundPainter: focused || invalid
+                  ? _DButtonFocusRing(radius: radius, color: ringColor)
+                  : null,
+              child: content,
+            ),
+          );
+        }
+        final stockGlass =
+            glass &&
+            state.backgroundColor.a > 0 &&
+            (postAction ||
+                progressTrigger ||
+                expandedChrome ||
+                (!(timeline ||
+                        postReaction ||
+                        chrome ||
+                        launcher ||
+                        quiet ||
+                        rail) &&
+                    variant != DButtonVariant.recessed));
         final border = state.border;
         final resolvedBorderColor = invalid
             ? _alpha(tokens.destructive, dark ? .5 : 1)
-            : joined?.sharedOutline == true
+            : stockGlass || joined?.sharedOutline == true
             ? Colors.transparent
             : borderColor ??
                   (avatar ? tokens.border : null) ??
@@ -1206,7 +1288,10 @@ class DButton extends StatelessWidget {
           transform: Matrix4.identity(),
           decoration: DButtonDecoration(
             // Launcher cells use a flat interaction tint in both materials.
-            color: expandedChrome || ((postAction || progressTrigger) && glass)
+            color:
+                stockGlass ||
+                    expandedChrome ||
+                    ((postAction || progressTrigger) && glass)
                 ? Colors.transparent
                 : postAction ||
                       timeline ||
@@ -1227,7 +1312,30 @@ class DButton extends StatelessWidget {
                 ? joined!.axis
                 : null,
           ),
-          child: child,
+          child: LiquidGlassAdaptiveContent(
+            adaptivity: const LiquidGlassAdaptivity(),
+            builder: (context, color, _) => IconTheme.merge(
+              data: IconThemeData(
+                color:
+                    stockGlass &&
+                        foregroundColor == null &&
+                        variant != DButtonVariant.destructive
+                    ? color
+                    : state.iconColor,
+              ),
+              child: DefaultTextStyle.merge(
+                style: TextStyle(
+                  color:
+                      stockGlass &&
+                          foregroundColor == null &&
+                          variant != DButtonVariant.destructive
+                      ? color
+                      : state.foregroundColor,
+                ),
+                child: child ?? const SizedBox.shrink(),
+              ),
+            ),
+          ),
         );
         // Dim the flat control artwork independently of the live glass lens.
         final Widget surface = disabledGlassLens
@@ -1238,10 +1346,6 @@ class DButton extends StatelessWidget {
               ? DPostActionSurface(
                   radius: radius,
                   color: state.backgroundColor,
-                  interacting:
-                      enabled &&
-                      (states.contains(WidgetState.hovered) ||
-                          states.contains(WidgetState.pressed)),
                   child: surface,
                 )
               : progressTrigger && glass
@@ -1495,7 +1599,7 @@ class DButton extends StatelessWidget {
             clipBehavior: Clip.none,
             child: child,
           );
-    if (!enabled && !timelineEnd && !disabledGlassLens) {
+    if (!enabled && !timelineEnd && !disabledGlassLens && !glassDock) {
       result = Opacity(opacity: buttons.disabledOpacity, child: result);
     }
     if (tooltip case final tooltip?) {
@@ -1547,6 +1651,27 @@ class DButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DButtonFocusRing extends CustomPainter {
+  const _DButtonFocusRing({required this.radius, required this.color});
+
+  final BorderRadius radius;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outline = radius.toRRect(Offset.zero & size).scaleRadii();
+    canvas.drawDRRect(
+      outline.inflate(DControlStyle.focusOffset + DControlStyle.focusWidth),
+      outline.inflate(DControlStyle.focusOffset),
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DButtonFocusRing oldDelegate) =>
+      oldDelegate.radius != radius || oldDelegate.color != color;
 }
 
 class _ResumeInteraction extends InheritedWidget {

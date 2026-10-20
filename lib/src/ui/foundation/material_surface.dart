@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -13,6 +12,8 @@ enum DSurfaceDepth {
   recessed,
   panel,
   menu,
+  dialog,
+  sheet,
   card,
   swatch,
   primaryCapsule,
@@ -54,49 +55,52 @@ class DMaterialSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     if (depth == DSurfaceDepth.primaryCapsule ||
         depth == DSurfaceDepth.chromeSelection) {
+      final glass = DMaterialTheme.glassOf(context);
       final dark = Theme.of(context).brightness == Brightness.dark;
       final selected = depth == DSurfaceDepth.chromeSelection;
-      // The native mockup always sets data-glass on its writing capsule.
-      // This artwork does not depend on the optional refractive material.
       final reduced = DMaterialTheme.reducedOf(context);
       final fill = selected || reduced
           ? color
           : color.withValues(alpha: color.a * .76);
       return CustomPaint(
-        painter: _ChromeOuterShadow(
-          radius,
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: selected ? .2 : (dark ? .2 : .08),
-            ),
-            offset: Offset(0, selected ? 1 : 4),
-            blurRadius: selected ? 2 : 14,
-          ),
-        ),
+        painter: glass
+            ? null
+            : _ChromeOuterShadow(
+                radius,
+                BoxShadow(
+                  color: Colors.black.withValues(
+                    alpha: selected ? .2 : (dark ? .2 : .08),
+                  ),
+                  offset: Offset(0, selected ? 1 : 4),
+                  blurRadius: selected ? 2 : 14,
+                ),
+              ),
         child: Stack(
           fit: StackFit.passthrough,
           children: [
             Positioned.fill(
               child: IgnorePointer(
                 child: ExcludeSemantics(
-                  child: CustomPaint(
-                    painter: _ChromeFill(
-                      radius,
-                      fill,
-                      dark,
-                      !reduced,
-                      selected,
-                    ),
-                    foregroundPainter: _ChromeRaisedEdges(
-                      radius,
-                      dark,
-                      selected,
-                    ),
-                  ),
+                  child: glass
+                      ? _GlassPaint(radius: radius, depth: depth)
+                      : CustomPaint(
+                          painter: _ChromeFill(
+                            radius,
+                            fill,
+                            dark,
+                            !reduced,
+                            selected,
+                          ),
+                          foregroundPainter: _ChromeRaisedEdges(
+                            radius,
+                            dark,
+                            selected,
+                          ),
+                        ),
                 ),
               ),
             ),
-            child,
+            _SurfaceContent(enabled: glass, child: child),
           ],
         ),
       );
@@ -105,7 +109,10 @@ class DMaterialSurface extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final glass = DMaterialTheme.glassOf(context);
     final recessed = depth == DSurfaceDepth.recessed;
-    final menu = depth == DSurfaceDepth.menu;
+    final menu =
+        depth == DSurfaceDepth.menu ||
+        depth == DSurfaceDepth.dialog ||
+        depth == DSurfaceDepth.sheet;
     final panel = depth == DSurfaceDepth.panel;
     final joined = depth == DSurfaceDepth.raised
         ? DJoinedControlScope.maybeOf(context)
@@ -125,13 +132,7 @@ class DMaterialSurface extends StatelessWidget {
     final light = Colors.white.withValues(alpha: dark ? .08 : .8);
     Widget background;
     if (lens) {
-      background = _GlassPaint(
-        color: paintedColor,
-        radius: radius,
-        blur: menu ? 26 : 5,
-        joined: joined,
-        child: const SizedBox.expand(),
-      );
+      background = _GlassPaint(radius: radius, depth: depth, joined: joined);
     } else {
       background = DecoratedBox(
         decoration: BoxDecoration(color: paintedColor, borderRadius: radius),
@@ -139,19 +140,14 @@ class DMaterialSurface extends StatelessWidget {
       );
     }
     background = CustomPaint(
-      foregroundPainter: color.a == 0
+      foregroundPainter: lens || color.a == 0
           ? null
           : menu
-          ? glass
-                ? _MenuEdge(radius, dark)
-                : null
+          ? null
           : insetEdges
           ? _InsetEdges(radius, dark)
           : panel && !DMaterialTheme.reducedOf(context)
           ? _PanelEdge(radius, dark)
-          // Raised lenses already paint their own specular band and glow.
-          : lens
-          ? null
           : _DepthEdge(radius, light, dark, recessed, glass && !solid),
       child: background,
     );
@@ -166,7 +162,8 @@ class DMaterialSurface extends StatelessWidget {
       offset: Offset(0, menu ? 18 : 1),
       blurRadius: menu ? 44 : 3,
     );
-    final castsShadow = !recessed && !panel && color.a > 0 && (!menu || glass);
+    final castsShadow =
+        !lens && !recessed && !panel && color.a > 0 && (!menu || glass);
     final surface = CustomPaint(
       painter: castsShadow && joined != null
           ? _JoinedSurfaceShadow(
@@ -192,7 +189,7 @@ class DMaterialSurface extends StatelessWidget {
             Positioned.fill(
               child: IgnorePointer(child: ExcludeSemantics(child: background)),
             ),
-            child,
+            _SurfaceContent(enabled: lens, child: child),
           ],
         ),
       ),
@@ -201,48 +198,6 @@ class DMaterialSurface extends StatelessWidget {
     // painted stack instead of a card's earlier shared backdrop.
     return menu ? LiquidGlassBatch.exclude(child: surface) : surface;
   }
-}
-
-/// The menu's radial top sheen and inset highlight from the mockup CSS.
-class _MenuEdge extends CustomPainter {
-  const _MenuEdge(this.radius, this.dark);
-
-  final BorderRadius radius;
-  final bool dark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.isEmpty) return;
-    final rect = Offset.zero & size;
-    final hi = dark ? .12 : .55;
-    canvas.save();
-    canvas.clipRRect(radius.toRRect(rect));
-    canvas.save();
-    canvas.translate(size.width * .4, size.height * -.3);
-    canvas.scale(size.width * 1.4, size.height * .9);
-    canvas.drawPaint(
-      Paint()
-        ..shader = ui.Gradient.radial(
-          Offset.zero,
-          1,
-          [Colors.white.withValues(alpha: hi * .6), Colors.transparent],
-          const [0, .6],
-        ),
-    );
-    canvas.restore();
-    canvas.drawLine(
-      const Offset(0, .5),
-      Offset(size.width, .5),
-      Paint()
-        ..strokeWidth = 1
-        ..color = Colors.white.withValues(alpha: hi),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_MenuEdge oldDelegate) =>
-      radius != oldDelegate.radius || dark != oldDelegate.dark;
 }
 
 /// CSS outer shadows exclude the border box. Flutter's ordinary BoxShadow
@@ -465,94 +420,60 @@ class DMaterialBatch extends StatelessWidget {
   );
 }
 
-class _GlassPaint extends StatefulWidget {
-  const _GlassPaint({
-    required this.color,
-    required this.radius,
-    required this.blur,
-    required this.child,
-    this.joined,
-  });
-  final Color color;
-  final BorderRadius radius;
-  final double blur;
+class _SurfaceContent extends StatelessWidget {
+  const _SurfaceContent({required this.enabled, required this.child});
+
+  final bool enabled;
   final Widget child;
-  final DJoinedControlScope? joined;
+
   @override
-  State<_GlassPaint> createState() => _GlassPaintState();
+  Widget build(BuildContext context) => LiquidGlassAdaptiveContent(
+    adaptivity: const LiquidGlassAdaptivity(),
+    builder: (context, color, _) => IconTheme.merge(
+      data: IconThemeData(color: enabled ? color : null),
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: enabled ? color : null),
+        child: child,
+      ),
+    ),
+  );
 }
 
-class _GlassPaintState extends State<_GlassPaint> {
-  static Future<bool>? _programs;
-  bool ready = LiquidGlassShaders.isLoaded;
-  static Future<bool> _load() async {
-    try {
-      await LiquidGlassShaders.ensureLoaded();
-      return true;
-    } catch (_) {
-      // Unsupported engines keep a readable frost instead of failing startup.
-      return false;
-    }
-  }
+class _GlassPaint extends StatelessWidget {
+  const _GlassPaint({required this.radius, required this.depth, this.joined});
 
-  @override
-  void initState() {
-    super.initState();
-    if (ready) return;
-    unawaited(
-      (_programs ??= _load()).then((value) {
-        if (mounted && value) setState(() => ready = true);
-      }),
-    );
-  }
+  final BorderRadius radius;
+  final DSurfaceDepth depth;
+  final DJoinedControlScope? joined;
 
   @override
   Widget build(BuildContext context) {
-    final radius = [
-      widget.radius.topLeft.x,
-      widget.radius.topRight.x,
-      widget.radius.bottomLeft.x,
-      widget.radius.bottomRight.x,
+    final cornerRadius = [
+      radius.topLeft.x,
+      radius.topRight.x,
+      radius.bottomLeft.x,
+      radius.bottomRight.x,
     ].reduce((a, b) => a > b ? a : b);
-    final shape = LiquidGlassShape.roundedRectangle(cornerRadius: radius);
-    // Version 5 expresses rim thickness in logical pixels. A half-sharp band
-    // gives the subdued rim depth instead of reducing it to a hairline.
-    const specular = LiquidGlassLight.specular(
-      thickness: 2.7,
-      sharpness: .5,
-      intensity: .25,
-      angle: 0,
-      spread: .5,
+    const panelAdaptivity = LiquidGlassAdaptivity(
+      glassColorOnDark: Color(0x99000000),
+      glassColorOnLight: Color(0xB3FFFFFF),
     );
-    const glow = LiquidGlassLight.glow(thickness: 14.7, angle: 90);
-    Widget glass = !ready || !ui.ImageFilter.isShaderFilterSupported
-        ? LiquidGlassLite(
-            shape: shape,
-            specular: specular,
-            glow: glow,
-            blur: widget.blur,
-            color: widget.color,
-            child: const SizedBox.expand(),
-          )
-        : LiquidGlassLens(
-            style: LiquidGlassStyle(
-              shape: shape,
-              specular: specular,
-              glow: glow,
-              color: widget.color,
-              blur: widget.blur,
-              saturation: 1.85,
-              refractionIndex: 1.02,
-              refractionWidth: 10,
-              dispersion: 0,
-            ),
-            child: const SizedBox.expand(),
-          );
-    if (widget.joined case final joined?) {
-      // The lens has one radius for all corners. Continue it beyond joined
-      // edges, including its rim, then clip to the actual segment silhouette.
-      // This leaves square joins filled without rounding or lighting them.
-      final extent = radius + glow.thickness;
+    final preset = switch (depth) {
+      DSurfaceDepth.menu || DSurfaceDepth.dialog =>
+        LiquidGlassDialog.defaultStyle.copyWith(adaptivity: panelAdaptivity),
+      DSurfaceDepth.sheet => LiquidGlassSheet.defaultStyle.copyWith(
+        adaptivity: panelAdaptivity,
+      ),
+      _ => LiquidGlassButton.defaultStyle,
+    };
+    Widget glass = LiquidGlassLens(
+      style: preset.copyWith(
+        shape: LiquidGlassShape.roundedRectangle(cornerRadius: cornerRadius),
+      ),
+      child: const SizedBox.expand(),
+    );
+    if (joined case final joined?) {
+      final extent = cornerRadius;
       final horizontal = joined.axis == Axis.horizontal;
       final ltr = Directionality.of(context) == TextDirection.ltr;
       glass = Stack(
@@ -571,9 +492,7 @@ class _GlassPaintState extends State<_GlassPaint> {
         ],
       );
     }
-    // Only paint the material here. The Native child is a stable sibling at
-    // the outer surface, preserving focus and unsaved input on style changes.
-    return ClipRRect(borderRadius: widget.radius, child: glass);
+    return ClipRRect(borderRadius: radius, child: glass);
   }
 }
 

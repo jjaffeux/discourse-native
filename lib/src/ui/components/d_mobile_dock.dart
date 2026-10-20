@@ -55,7 +55,7 @@ class _DMobileDockState extends State<DMobileDock>
   double _velocity = 0;
   Duration? _lastElapsed;
   bool _spring = false;
-  final _motion = LiquidGlassMorphMotion.plain.copyWith(damping: 26);
+  final _motion = LiquidGlassMorphMotion.plain;
 
   @override
   void initState() {
@@ -177,12 +177,27 @@ class _DMobileDockState extends State<DMobileDock>
       // geometry instead. Each control keeps its slot throughout the morph.
       Widget navigationArtwork(Widget child) =>
           glass ? Transform.scale(scale: navOpacity, child: child) : child;
-      // Frost supplies readability in glass appearance while leaving enough
-      // of the live backdrop visible for refraction. Standard keeps its fill.
-      final well = Color.lerp(tokens.background, tokens.foreground, .12)!
-          .withValues(
-            alpha: DMaterialTheme.reducedOf(context) ? 1 : (glass ? .72 : .94),
-          );
+      final well = Color.lerp(
+        tokens.background,
+        tokens.foreground,
+        .12,
+      )!.withValues(alpha: DMaterialTheme.reducedOf(context) ? 1 : .94);
+      Widget dockSurface(Widget child) => glass
+          ? LiquidGlassLens(
+              style: LiquidGlassTabBar.defaultStyle.copyWith(
+                shape: LiquidGlassShape.roundedRectangle(
+                  cornerRadius: (62 + growth - 14 * phase) / 2,
+                ),
+              ),
+              child: child,
+            )
+          : DMaterialSurface(
+              color: well,
+              radius: radius,
+              depth: DSurfaceDepth.recessed,
+              preserveColor: true,
+              child: child,
+            );
       final capsule = Align(
         alignment: AlignmentDirectional.bottomStart,
         heightFactor: 1,
@@ -193,18 +208,14 @@ class _DMobileDockState extends State<DMobileDock>
               : const Duration(milliseconds: 420),
           curve: const Cubic(.32, .72, 0, 1),
           width: constraints.maxWidth + (round - constraints.maxWidth) * phase,
-          decoration: BoxDecoration(
-            color: DMaterialSurface.fill(context, well),
-            borderRadius: radius,
-          ),
-          child: DMaterialSurface(
-            color: well,
-            radius: radius,
-            depth: glass ? DSurfaceDepth.raised : DSurfaceDepth.recessed,
-            preserveColor: true,
-            // Paint the 62px capsule before insetting its 50px controls. The
-            // surround remains visible in both standard and glass appearance.
-            child: AnimatedPadding(
+          decoration: glass
+              ? null
+              : BoxDecoration(
+                  color: DMaterialSurface.fill(context, well),
+                  borderRadius: radius,
+                ),
+          child: dockSurface(
+            AnimatedPadding(
               padding: EdgeInsets.all(inset),
               duration: reduced || _spring
                   ? Duration.zero
