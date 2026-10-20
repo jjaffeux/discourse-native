@@ -117,14 +117,38 @@ Future<void> _capture(WidgetTester tester, String name) async {
   });
 }
 
+Future<List<int>> _pixels(WidgetTester tester, Rect region) async {
+  return (await tester.runAsync(() async {
+    final builder = ui.SceneBuilder();
+    tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+    final scene = builder.build();
+    final size = tester.view.physicalSize;
+    final image = await scene.toImage(size.width.toInt(), size.height.toInt());
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final result = <int>[];
+    for (var y = region.top.toInt(); y < region.bottom.toInt(); y++) {
+      final row = bytes!.buffer.asUint8List(
+        (y * image.width + region.left.toInt()) * 4,
+        region.width.toInt() * 4,
+      );
+      for (var i = 0; i < row.length; i += 4) {
+        result.addAll(row.sublist(i, i + 3));
+      }
+    }
+    image.dispose();
+    scene.dispose();
+    return result;
+  }))!;
+}
+
 void main() {
-  if (const bool.fromEnvironment('captureChatSheet')) {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    const channel = MethodChannel('org.discourse.native/notification_opens');
-    setUpAll(() async {
-      messenger.setMockMethodCallHandler(channel, (_) async => null);
+  TestWidgetsFlutterBinding.ensureInitialized();
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  const channel = MethodChannel('org.discourse.native/notification_opens');
+  setUpAll(() async {
+    messenger.setMockMethodCallHandler(channel, (_) async => null);
+    if (const bool.fromEnvironment('captureChatSheet')) {
       final manifest =
           jsonDecode(await rootBundle.loadString('FontManifest.json')) as List;
       for (final entry in manifest.cast<Map<String, dynamic>>()) {
@@ -135,9 +159,9 @@ void main() {
         }
         await loader.load();
       }
-    });
-    tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
-  }
+    }
+  });
+  tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
 
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     for (final material in DAppearanceMaterial.values) {
@@ -164,7 +188,7 @@ void main() {
         final bounds = tester.getRect(_sheet);
         expect(bounds.left, 0);
         expect(bounds.right, 390);
-        expect(bounds.bottom, 810);
+        expect(bounds.bottom, 844);
         expect(bounds.top, tester.getRect(_header).bottom + 6);
         expect(tester.getSize(_handle), const Size(36, 5));
         expect(tester.getRect(_handle).top, bounds.top + 7);
@@ -173,7 +197,14 @@ void main() {
             .first;
         expect(
           tester.widget<DPageSurface>(surface).borderRadius,
-          BorderRadius.circular(22),
+          BorderRadius.vertical(
+            top: const Radius.circular(22),
+            bottom: Radius.circular(
+              Theme.of(tester.element(_sheet)).platform == TargetPlatform.iOS
+                  ? 64
+                  : 22,
+            ),
+          ),
         );
         expect(find.byType(ChatChannelView), findsOneWidget);
         final semantics = tester.ensureSemantics();
@@ -201,6 +232,73 @@ void main() {
         expect(tester.getRect(_sheet), bounds);
         expect(tester.takeException(), isNull);
       }, variant: _platforms);
+    }
+  }
+
+  for (final origin in ['inbox', 'directory', 'channel']) {
+    for (final reducedMotion in [false, true]) {
+      testWidgets(
+        'pull reveals departing $origin pixels with reduced motion $reducedMotion',
+        (tester) async {
+          final shell = await _fixture(tester);
+          await shell.appSettings.setReduceMotion(reducedMotion);
+          if (origin == 'directory') {
+            shell.pluginSession.require(chatShellService).openChannels();
+          } else if (origin == 'channel') {
+            shell.openChatChannel(10);
+          }
+          await tester.pumpAndSettle();
+          final originEntry = shell.mobileNavigation.entryId;
+          final platform = Theme.of(tester.element(_header)).platform.name;
+          final panel = tester.getRect(
+            find.byKey(const ValueKey('mobile-content-panel')),
+          );
+          final region = Rect.fromLTWH(24, panel.top + 12, 342, 56);
+          final previous = await _pixels(tester, region);
+          expect(previous.toSet().length, greaterThan(8));
+          await _capture(tester, '$platform-$origin-source-$reducedMotion');
+          if (origin == 'channel') {
+            shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+          } else {
+            shell.openChatChannel(10);
+          }
+          await tester.pumpAndSettle();
+          final currentEntry = shell.mobileNavigation.entryId;
+          if (origin == 'inbox') {
+            tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+            await tester.pumpAndSettle();
+            tester.view.viewInsets = FakeViewPadding.zero;
+            await tester.pumpAndSettle();
+          }
+          final drag = await tester.startGesture(tester.getCenter(_handle));
+          await drag.moveBy(const Offset(0, 20));
+          await drag.moveBy(const Offset(0, 90));
+          await tester.pump();
+          final exposed = await _pixels(tester, region);
+          await _capture(tester, '$platform-$origin-revealed-$reducedMotion');
+          expect(
+            List.generate(
+                  previous.length,
+                  (i) => (previous[i] - exposed[i]).abs(),
+                ).reduce((total, value) => total + value) /
+                previous.length,
+            lessThan(3),
+            reason: 'the departure pixels align within snapshot antialiasing',
+          );
+          expect(find.byType(ComposerEditor), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('chat-inbox-channel-10')).hitTestable(),
+            findsNothing,
+          );
+          await drag.cancel();
+          await tester.pumpAndSettle();
+          expect(shell.mobileNavigation.entryId, same(currentEntry));
+          await _dismiss(tester);
+          expect(shell.mobileNavigation.entryId, same(originEntry));
+          expect(tester.takeException(), isNull);
+        },
+        variant: _platforms,
+      );
     }
   }
 
@@ -435,8 +533,12 @@ void main() {
       await shell.appSettings.setReduceMotion(true);
       await tester.pumpAndSettle();
       expect(tester.getRect(_sheet).width, width);
-      expect(tester.getRect(_sheet).bottom, 810);
+      expect(tester.getRect(_sheet).bottom, 844);
       expect(tester.getRect(_dock).bottom, lessThanOrEqualTo(810));
+      expect(
+        tester.getRect(find.byKey(const ValueKey('chat-composer-send'))).bottom,
+        lessThanOrEqualTo(810),
+      );
       await tester.showKeyboard(
         find.descendant(
           of: find.byType(ComposerEditor),

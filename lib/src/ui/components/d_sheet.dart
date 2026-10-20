@@ -34,6 +34,19 @@ enum DSheetVariant {
   adaptiveMenu,
 }
 
+/// Corner policies for retained reading pages.
+enum DSheetPageCorners {
+  /// The standard 22px page corners.
+  standard,
+
+  /// The standard top corners and the viewport's lower corners.
+  ///
+  /// Public display radii take precedence. Compact iOS viewports with a home
+  /// indicator use a 64px visual approximation when no radii are reported.
+  /// Other viewports retain the standard corners.
+  viewport,
+}
+
 /// Physical edges, direction-aware conveniences, and a centered reading panel.
 enum DSheetSide { top, right, bottom, left, start, end, center }
 
@@ -1333,6 +1346,7 @@ class DSheetContent extends StatelessWidget {
     required this.children,
     this.side = DSheetSide.right,
     this.variant = DSheetVariant.standard,
+    this.pageCorners = DSheetPageCorners.standard,
     this.sizeToContent = true,
     this.contentLoading = false,
     this.showCloseButton = true,
@@ -1359,6 +1373,12 @@ class DSheetContent extends StatelessWidget {
 
   final List<Widget> children;
   final DSheetVariant variant;
+
+  /// The outline and clipping policy for [DSheetVariant.page].
+  ///
+  /// [DSheetPageCorners.viewport] suits pages that reach the screen's bottom
+  /// edge. Other sheet variants ignore this policy.
+  final DSheetPageCorners pageCorners;
 
   /// Whether an adaptive menu follows the height of its content.
   ///
@@ -1423,6 +1443,35 @@ class DSheetContent extends StatelessWidget {
   /// keep controls and scroll reveal bounds above it. Bottom safe-area padding
   /// is also content-owned. An edge-to-edge sheet has rounded top corners.
   final bool extendBehindKeyboard;
+
+  BorderRadius _pageBorderRadius(BuildContext context) {
+    const standard = Radius.circular(22);
+    if (pageCorners == DSheetPageCorners.standard) {
+      return const BorderRadius.all(standard);
+    }
+    final reported = MediaQuery.displayCornerRadiiOf(context);
+    if (reported != null) {
+      return BorderRadius.only(
+        topLeft: standard,
+        topRight: standard,
+        bottomLeft: reported.bottomLeft,
+        bottomRight: reported.bottomRight,
+      );
+    }
+    final view = View.of(context);
+    final bottomSafeInset = math.max(
+      MediaQuery.viewPaddingOf(context).bottom,
+      view.viewPadding.bottom / view.devicePixelRatio,
+    );
+    final roundedPhone =
+        Theme.of(context).platform == TargetPlatform.iOS &&
+        MediaQuery.sizeOf(context).shortestSide < 600 &&
+        bottomSafeInset > 0;
+    return BorderRadius.vertical(
+      top: standard,
+      bottom: roundedPhone ? const Radius.circular(64) : standard,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1500,7 +1549,7 @@ class DSheetContent extends StatelessWidget {
         label: semanticLabel,
         child: DPageSurface(
           border: false,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: _pageBorderRadius(context),
           backgroundColor: pulled ? color.withValues(alpha: 1) : color,
           child: Stack(
             fit: StackFit.expand,

@@ -138,7 +138,14 @@ void main() {
             .first;
         expect(
           tester.widget<DPageSurface>(surface).borderRadius,
-          BorderRadius.circular(22),
+          BorderRadius.vertical(
+            top: const Radius.circular(22),
+            bottom: Radius.circular(
+              Theme.of(tester.element(_sheet)).platform == TargetPlatform.iOS
+                  ? 64
+                  : 22,
+            ),
+          ),
         );
         expect(find.byType(TopicListView), findsNothing);
         expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);

@@ -65,6 +65,121 @@ Future<TestGesture> _drag(
 }
 
 void main() {
+  Future<_SnapshotHarnessState> pumpSnapshot(WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final key = GlobalKey<_SnapshotHarnessState>();
+    await tester.pumpWidget(MaterialApp(home: _SnapshotHarness(key: key)));
+    await tester.pumpAndSettle();
+    return key.currentState!;
+  }
+
+  Widget? previousUnderlay(WidgetTester tester) =>
+      tester.widget<DSheetViewport>(find.byType(DSheetViewport)).underlay;
+
+  testWidgets(
+    'previous underlay survives keyboard changes and reduced motion',
+    (tester) async {
+      final state = await pumpSnapshot(tester);
+      state.visit(1);
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNotNull);
+      for (final bottom in [300.0, 0.0]) {
+        state.keyboard(bottom);
+        await tester.pumpAndSettle();
+        expect(previousUnderlay(tester), isNotNull);
+      }
+      final semantics = tester.ensureSemantics();
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      );
+      await drag.moveBy(const Offset(0, 90));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Source action'), findsNothing);
+      expect(find.widgetWithText(DButton, 'Source action'), findsNothing);
+      await drag.cancel();
+      await tester.pumpAndSettle();
+      expect(state.entry, 1);
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final invalidation in [
+    'history',
+    'owner',
+    'theme',
+    'width',
+    'padding',
+    'memory',
+    'lifecycle',
+  ]) {
+    testWidgets('previous underlay clears safely on $invalidation', (
+      tester,
+    ) async {
+      final state = await pumpSnapshot(tester);
+      state.visit(1);
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNotNull);
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      );
+      await drag.moveBy(const Offset(0, 90));
+      await tester.pump();
+      switch (invalidation) {
+        case 'history':
+          state.resetHistory();
+        case 'owner':
+          state.changeOwner();
+        case 'theme':
+          state.changeTheme();
+        case 'width':
+          await tester.binding.setSurfaceSize(const Size(450, 600));
+        case 'padding':
+          state.changePadding();
+        case 'memory':
+          tester.binding.handleMemoryPressure();
+        case 'lifecycle':
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.paused,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+      }
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNull);
+      await drag.cancel();
+      await tester.pumpAndSettle();
+      if (invalidation == 'lifecycle') {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('previous underlay uses only the bounded adjacent entry cache', (
+    tester,
+  ) async {
+    final state = await pumpSnapshot(tester);
+    for (var entry = 1; entry <= 10; entry++) {
+      state.visit(entry);
+      await tester.pumpAndSettle();
+      expect(previousUnderlay(tester), isNotNull);
+    }
+    state.visit(1);
+    await tester.pumpAndSettle();
+    expect(previousUnderlay(tester), isNull);
+    state.visit(9);
+    await tester.pumpAndSettle();
+    expect(previousUnderlay(tester), isNotNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   for (final direction in TextDirection.values) {
     for (final livePreviews in [false]) {
       testWidgets(
@@ -956,6 +1071,69 @@ class _HistoryHarnessState extends State<_HistoryHarness> {
                   ],
                 ),
               ),
+      ),
+    ),
+  );
+}
+
+class _SnapshotHarness extends StatefulWidget {
+  const _SnapshotHarness({super.key});
+
+  @override
+  State<_SnapshotHarness> createState() => _SnapshotHarnessState();
+}
+
+class _SnapshotHarnessState extends State<_SnapshotHarness> {
+  Object history = Object();
+  Object owner = Object();
+  int entry = 0;
+  double keyboardBottom = 0;
+  bool dark = false;
+  bool topPadding = false;
+
+  void visit(int value) => setState(() => entry = value);
+  void keyboard(double bottom) => setState(() => keyboardBottom = bottom);
+  void resetHistory() => setState(() => history = Object());
+  void changeOwner() => setState(() => owner = Object());
+  void changeTheme() => setState(() => dark = !dark);
+  void changePadding() => setState(() => topPadding = !topPadding);
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: ThemeData(brightness: dark ? Brightness.dark : Brightness.light),
+    child: MediaQuery(
+      data: MediaQuery.of(context).copyWith(
+        disableAnimations: true,
+        viewInsets: EdgeInsets.only(bottom: keyboardBottom),
+        padding: EdgeInsets.only(
+          top: topPadding ? 20 : 0,
+          bottom: keyboardBottom == 0 ? 34 : 0,
+        ),
+        viewPadding: const EdgeInsets.only(bottom: 34),
+      ),
+      child: DHistoryTransition(
+        history: history,
+        tabOwner: owner,
+        entry: entry,
+        previousEntry: entry == 0 ? null : entry - 1,
+        child: Builder(
+          builder: (context) => entry == 0
+              ? Center(
+                  child: DButton(
+                    label: const Text('Source action'),
+                    onPressed: () {},
+                  ),
+                )
+              : DSheetViewport(
+                  onDismiss: () => visit(entry - 1),
+                  underlay: DHistoryTransition.previousPageUnderlayOf(context),
+                  content: DSheetContent(
+                    variant: DSheetVariant.page,
+                    showCloseButton: false,
+                    children: [Expanded(child: Text('Visit $entry'))],
+                  ),
+                ),
+        ),
       ),
     ),
   );

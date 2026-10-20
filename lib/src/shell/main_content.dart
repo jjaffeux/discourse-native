@@ -444,9 +444,11 @@ class _MainContentBody extends StatelessWidget {
             controller.handleBack();
           }
         },
+        underlay: DHistoryTransition.previousPageUnderlayOf(context),
         content: DSheetContent(
           side: DSheetSide.bottom,
           variant: DSheetVariant.page,
+          pageCorners: DSheetPageCorners.viewport,
           showCloseButton: false,
           semanticLabel: route.title,
           backgroundColor: ForumWindowBackground.panelColor(context),
@@ -738,6 +740,7 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             content: DSheetContent(
               side: DSheetSide.bottom,
               variant: DSheetVariant.page,
+              pageCorners: DSheetPageCorners.viewport,
               showCloseButton: false,
               semanticLabel: state.route!.title,
               backgroundColor: ForumWindowBackground.panelColor(context),

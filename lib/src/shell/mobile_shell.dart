@@ -470,14 +470,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   child: ExcludeFocus(
                     excluding: sidebarOpen,
                     child: Padding(
-                      padding: EdgeInsets.only(
-                        top: 6,
-                        bottom:
-                            pageSheetOpen &&
-                                shell.currentContent?.isTopic != true
-                            ? MediaQuery.paddingOf(context).bottom
-                            : 0,
-                      ),
+                      padding: const EdgeInsets.only(top: 6),
                       child: ForumMobileSurface(
                         key: const ValueKey('mobile-content-panel'),
                         coveredBySheet: pageSheetOpen,

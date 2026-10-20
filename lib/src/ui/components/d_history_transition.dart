@@ -29,6 +29,8 @@ import '../foundation/tokens.dart';
 /// focus, semantics and interaction excluded until they become the real page.
 /// Theme, viewport width, history and app lifecycle changes discard snapshots.
 /// Reduced motion keeps the page stationary while preserving the gestures.
+/// Departures are still captured for descendant reading-sheet underlays.
+/// Keyboard insets do not invalidate those departure snapshots.
 class DHistoryTransition extends StatefulWidget {
   const DHistoryTransition({
     super.key,
@@ -45,6 +47,27 @@ class DHistoryTransition extends StatefulWidget {
     this.tabOwner,
     this.frameBuilder,
   }) : assert(tabIndex == null || tabOwner != null);
+
+  /// The previous visit's inert snapshot for a descendant reading sheet.
+  ///
+  /// Returns `null` when that visit has no retained image. The image stays
+  /// aligned with this transition's captured page, including any padding
+  /// between the capture boundary and the sheet. It retains its aspect ratio
+  /// when the available height changes. Native owns the image lifetime.
+  static Widget? previousPageUnderlayOf(BuildContext context) {
+    final image = context
+        .dependOnInheritedWidgetOfExactType<_HistoryPageScope>()
+        ?.previousImage;
+    return image == null
+        ? null
+        : ExcludeSemantics(
+            child: ExcludeFocus(
+              child: IgnorePointer(
+                child: _HistorySnapshotUnderlay(image: image),
+              ),
+            ),
+          );
+  }
 
   final Object history;
   final Object entry;
@@ -123,9 +146,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final media = MediaQuery.of(context);
     final environment = (
       Theme.of(context),
-      MediaQuery.of(context),
+      media.copyWith(
+        viewInsets: EdgeInsets.zero,
+        padding: media.padding.copyWith(bottom: media.viewPadding.bottom),
+      ),
       Directionality.of(context),
     );
     if (_environment != environment) {
@@ -170,8 +197,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       // The descendant still contains the outgoing page's last painted frame.
       // Capture it before rebuilding that one live renderer for the new entry.
       final boundary = _boundary.currentContext?.findRenderObject();
-      if (boundary is _HistoryRepaintBoundary &&
-          !MediaQuery.disableAnimationsOf(context)) {
+      if (boundary is _HistoryRepaintBoundary) {
         final image = boundary.snapshot(MediaQuery.devicePixelRatioOf(context));
         if (image != null) {
           _remember(oldWidget.entry, image);
@@ -401,7 +427,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         return ClipRect(
           child: AnimatedBuilder(
             animation: _progress,
-            child: _HistoryBoundary(key: _boundary, child: widget.child),
+            child: _HistoryPageScope(
+              previousImage: _previews[widget.previousEntry],
+              child: _HistoryBoundary(key: _boundary, child: widget.child),
+            ),
             builder: (context, child) {
               final switching = _switchingTab && !reducedMotion;
               final p = reducedMotion ? 0.0 : _progress.value;
@@ -586,5 +615,91 @@ class _HistoryRepaintBoundary extends RenderRepaintBoundary {
       math.sqrt(1000000 / (painted.width * painted.height)),
     );
     return paintedLayer.toImageSync(Offset.zero & painted, pixelRatio: ratio);
+  }
+}
+
+class _HistoryPageScope extends InheritedWidget {
+  const _HistoryPageScope({required this.previousImage, required super.child});
+
+  final ui.Image? previousImage;
+
+  @override
+  bool updateShouldNotify(_HistoryPageScope oldWidget) =>
+      previousImage != oldWidget.previousImage;
+}
+
+class _HistorySnapshotUnderlay extends LeafRenderObjectWidget {
+  const _HistorySnapshotUnderlay({required this.image});
+
+  final ui.Image image;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _HistorySnapshotRenderer(image);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _HistorySnapshotRenderer renderObject,
+  ) => renderObject.image = image;
+}
+
+class _HistorySnapshotRenderer extends RenderBox {
+  _HistorySnapshotRenderer(ui.Image image)
+    : _source = image,
+      _image = image.clone();
+
+  ui.Image _source;
+  ui.Image _image;
+
+  set image(ui.Image image) {
+    if (image == _source) return;
+    final previous = _image;
+    _source = image;
+    _image = image.clone();
+    WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+    markNeedsPaint();
+  }
+
+  @override
+  bool get sizedByParent => true;
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) => constraints.biggest;
+
+  @override
+  void performResize() => size = computeDryLayout(constraints);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    RenderObject? ancestor = parent;
+    while (ancestor != null && ancestor is! _HistoryRepaintBoundary) {
+      ancestor = ancestor.parent;
+    }
+    if (ancestor is! _HistoryRepaintBoundary || ancestor.size.isEmpty) return;
+    final origin = localToGlobal(Offset.zero, ancestor: ancestor);
+    final target = Rect.fromLTWH(
+      offset.dx - origin.dx,
+      offset.dy - origin.dy,
+      ancestor.size.width,
+      ancestor.size.width * _image.height / _image.width,
+    );
+    context.canvas
+      ..save()
+      ..clipRect(offset & size)
+      ..drawImageRect(
+        _image,
+        Rect.fromLTWH(0, 0, _image.width.toDouble(), _image.height.toDouble()),
+        target,
+        Paint()..filterQuality = FilterQuality.low,
+      )
+      ..restore();
+  }
+
+  @override
+  void dispose() {
+    final image = _image;
+    WidgetsBinding.instance.addPostFrameCallback((_) => image.dispose());
+    super.dispose();
   }
 }
