@@ -13,7 +13,7 @@ void main() {
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.onlyPumps;
   menus.menuListVirtualizationTests(platforms: const [TargetPlatform.iOS]);
   options.optionListVirtualizationTests();
-  dropdowns.dropdownListVirtualizationTests();
+  group('Native dropdown lists', dropdowns.dropdownListVirtualizationTests);
   radios.radioListNavigationTests();
   assignments.assignmentListVirtualizationTests();
 }
