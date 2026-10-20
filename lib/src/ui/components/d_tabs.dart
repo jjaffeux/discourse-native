@@ -1367,6 +1367,8 @@ class DDocumentTab extends StatefulWidget {
     required this.onClose,
     required this.closeLabel,
     this.closeShortcut,
+    this.selectionFocusNode,
+    this.closeFocusNode,
 
     this.onDoubleTap,
     this.onTapDown,
@@ -1387,6 +1389,13 @@ class DDocumentTab extends StatefulWidget {
   final String closeLabel;
 
   final DShortcut? closeShortcut;
+
+  /// A borrowed selection focus node whose existing key handler is preserved.
+  final FocusNode? selectionFocusNode;
+
+  /// A borrowed focus node for the separately focusable close action.
+  final FocusNode? closeFocusNode;
+
   final VoidCallback? onDoubleTap;
   final GestureTapDownCallback? onTapDown;
   final GestureTapCancelCallback? onTapCancel;
@@ -1408,20 +1417,53 @@ class DDocumentTab extends StatefulWidget {
 
 class _DDocumentTabState extends State<DDocumentTab> {
   bool _hovered = false;
-  late final _selectionFocus = FocusNode(
-    onKeyEvent: (_, event) {
-      // A drag or double click can consume the button's pointer activation.
-      // Keyboard activation must not inherit the host's pointer-down selection.
-      if (event is KeyDownEvent) widget.onTapCancel?.call();
-      return KeyEventResult.ignored;
-    },
-  );
-  final _closeFocus = FocusNode();
+  final _ownedSelectionFocus = FocusNode();
+  final _ownedCloseFocus = FocusNode();
+  FocusOnKeyEventCallback? _selectionKeyHandler;
+
+  FocusNode get _selectionFocus =>
+      widget.selectionFocusNode ?? _ownedSelectionFocus;
+  FocusNode get _closeFocus => widget.closeFocusNode ?? _ownedCloseFocus;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindSelectionFocus();
+  }
+
+  @override
+  void didUpdateWidget(DDocumentTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectionFocusNode != widget.selectionFocusNode) {
+      _restoreSelectionFocus(
+        oldWidget.selectionFocusNode ?? _ownedSelectionFocus,
+      );
+      _bindSelectionFocus();
+    }
+  }
+
+  void _bindSelectionFocus() {
+    _selectionKeyHandler = _selectionFocus.onKeyEvent;
+    _selectionFocus.onKeyEvent = _handleSelectionKey;
+  }
+
+  void _restoreSelectionFocus(FocusNode node) {
+    if (node.onKeyEvent == _handleSelectionKey) {
+      node.onKeyEvent = _selectionKeyHandler;
+    }
+  }
+
+  KeyEventResult _handleSelectionKey(FocusNode node, KeyEvent event) {
+    // Keyboard activation must not inherit a drag's pointer-down selection.
+    if (event is KeyDownEvent) widget.onTapCancel?.call();
+    return _selectionKeyHandler?.call(node, event) ?? KeyEventResult.ignored;
+  }
 
   @override
   void dispose() {
-    _selectionFocus.dispose();
-    _closeFocus.dispose();
+    _restoreSelectionFocus(_selectionFocus);
+    _ownedSelectionFocus.dispose();
+    _ownedCloseFocus.dispose();
     super.dispose();
   }
 
