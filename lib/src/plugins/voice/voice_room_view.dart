@@ -1262,12 +1262,14 @@ class _VoiceRoomFormLayout extends StatelessWidget {
     required this.child,
     required this.actions,
     this.maxWidth = 520,
+    this.scrollBody = true,
   });
 
   final String title;
   final Widget child;
   final List<Widget> actions;
   final double maxWidth;
+  final bool scrollBody;
 
   @override
   Widget build(BuildContext context) {
@@ -1277,15 +1279,25 @@ class _VoiceRoomFormLayout extends StatelessWidget {
         children: [
           ComposerSheetHeader(title: title),
           Expanded(
-            child: DSheetBody(
-              padding: const EdgeInsets.fromLTRB(
-                DSpacing.lg,
-                0,
-                DSpacing.lg,
-                DSpacing.lg,
-              ),
-              child: child,
-            ),
+            child: scrollBody
+                ? DSheetBody(
+                    padding: const EdgeInsets.fromLTRB(
+                      DSpacing.lg,
+                      0,
+                      DSpacing.lg,
+                      DSpacing.lg,
+                    ),
+                    child: child,
+                  )
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      DSpacing.lg,
+                      0,
+                      DSpacing.lg,
+                      DSpacing.lg,
+                    ),
+                    child: child,
+                  ),
           ),
           const DSeparator(),
           DSheetFooter(children: actions),
@@ -1298,7 +1310,15 @@ class _VoiceRoomFormLayout extends StatelessWidget {
       semanticLabel: title,
       children: [
         DDialogHeader(children: [DDialogTitle(child: Text(title))]),
-        DDialogScrollArea(maxHeightFactor: .65, child: child),
+        if (scrollBody)
+          DDialogScrollArea(maxHeightFactor: .65, child: child)
+        else
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * .65,
+            ),
+            child: child,
+          ),
         DDialogFooter(children: actions),
       ],
     );
@@ -1470,108 +1490,130 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
           expanded: mobile,
         ),
       ],
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (mobile)
-            username
-          else
-            Row(
+      scrollBody: false,
+      child: CustomScrollView(
+        primary: false,
+        shrinkWrap: true,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: username),
-                const SizedBox(width: DSpacing.sm),
-                send,
+                if (mobile)
+                  username
+                else
+                  Row(
+                    children: [
+                      Expanded(child: username),
+                      const SizedBox(width: DSpacing.sm),
+                      send,
+                    ],
+                  ),
+                if (suggestions != null && suggestions.isNotEmpty) ...[
+                  const SizedBox(height: DSpacing.lg),
+                  Text(context.l10n.peopleYouVeSharedThisRoomWith),
+                ],
               ],
             ),
-          if (suggestions != null && suggestions.isNotEmpty) ...[
-            const SizedBox(height: DSpacing.lg),
-            Text(context.l10n.peopleYouVeSharedThisRoomWith),
-            for (final suggestion in suggestions)
-              DItem(
-                children: [
-                  DItemMedia(
-                    variant: DItemMediaVariant.avatar,
-                    child: DAvatar.frame(
-                      child: SizedBox.square(
-                        dimension: 36,
-                        child: AvatarImage(
-                          url: suggestion.user.avatarUrl(
-                            widget.siteUrl,
-                            size: 72,
-                          ),
-                          size: 36,
-                          fallback: ColoredBox(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceContainerHigh,
+          ),
+          if (suggestions != null)
+            SliverList.builder(
+              itemCount: suggestions.length,
+              itemBuilder: (context, index) {
+                final suggestion = suggestions[index];
+                return DItem(
+                  children: [
+                    DItemMedia(
+                      variant: DItemMediaVariant.avatar,
+                      child: DAvatar.frame(
+                        child: SizedBox.square(
+                          dimension: 36,
+                          child: AvatarImage(
+                            url: suggestion.user.avatarUrl(
+                              widget.siteUrl,
+                              size: 72,
+                            ),
+                            size: 36,
+                            fallback: ColoredBox(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHigh,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  DItemContent(
-                    children: [
-                      DItemTitle(child: Text(suggestion.user.username)),
-                      DItemDescription(
-                        child: Text(
-                          context.l10n.togetherRecently(
-                            _timeTogether(suggestion.totalSeconds),
+                    DItemContent(
+                      children: [
+                        DItemTitle(child: Text(suggestion.user.username)),
+                        DItemDescription(
+                          child: Text(
+                            context.l10n.togetherRecently(
+                              _timeTogether(suggestion.totalSeconds),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  DItemActions(
+                      ],
+                    ),
+                    DItemActions(
+                      children: [
+                        if (_invited.contains(suggestion.user.username))
+                          Text(context.l10n.invited)
+                        else
+                          DButton(
+                            onPressed: available
+                                ? () => _invite([suggestion.user.username])
+                                : null,
+                            label: Text(context.l10n.invite),
+                            variant: DButtonVariant.secondary,
+                          ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+          if (link != null)
+            SliverToBoxAdapter(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: DSpacing.lg),
+                  Text(context.l10n.orShareAnInviteLink),
+                  const SizedBox(height: DSpacing.xs),
+                  Flex(
+                    direction: mobile ? Axis.vertical : Axis.horizontal,
+                    crossAxisAlignment: mobile
+                        ? CrossAxisAlignment.stretch
+                        : CrossAxisAlignment.center,
                     children: [
-                      if (_invited.contains(suggestion.user.username))
-                        Text(context.l10n.invited)
+                      if (mobile)
+                        SelectableText(link)
                       else
-                        DButton(
-                          onPressed: available
-                              ? () => _invite([suggestion.user.username])
-                              : null,
-                          label: Text(context.l10n.invite),
-                          variant: DButtonVariant.secondary,
-                        ),
+                        Expanded(child: SelectableText(link)),
+                      const SizedBox(width: DSpacing.sm, height: DSpacing.sm),
+                      DButton(
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: link));
+                          if (context.mounted) {
+                            DToast.show(
+                              context,
+                              context.l10n.linkCopiedToClipboard,
+                              type: DToastType.success,
+                            );
+                          }
+                        },
+                        icon: const DIcon(DIcons.copy),
+                        label: Text(context.l10n.copy),
+                        variant: DButtonVariant.secondary,
+                      ),
                     ],
                   ),
                 ],
               ),
-          ],
-          if (link != null) ...[
-            const SizedBox(height: DSpacing.lg),
-            Text(context.l10n.orShareAnInviteLink),
-            const SizedBox(height: DSpacing.xs),
-            Flex(
-              direction: mobile ? Axis.vertical : Axis.horizontal,
-              crossAxisAlignment: mobile
-                  ? CrossAxisAlignment.stretch
-                  : CrossAxisAlignment.center,
-              children: [
-                if (mobile)
-                  SelectableText(link)
-                else
-                  Expanded(child: SelectableText(link)),
-                const SizedBox(width: DSpacing.sm, height: DSpacing.sm),
-                DButton(
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: link));
-                    if (context.mounted) {
-                      DToast.show(
-                        context,
-                        context.l10n.linkCopiedToClipboard,
-                        type: DToastType.success,
-                      );
-                    }
-                  },
-                  icon: const DIcon(DIcons.copy),
-                  label: Text(context.l10n.copy),
-                  variant: DButtonVariant.secondary,
-                ),
-              ],
             ),
-          ],
         ],
       ),
     );

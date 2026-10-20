@@ -4287,6 +4287,117 @@ void _directCallTests() {
 
 void _inviteTests() {
   group('invites', () {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets(
+          'invite suggestions mount only their viewport on $platform at text scale $scale',
+          (tester) async {
+            tester.view.physicalSize = const Size(390, 844);
+            tester.view.devicePixelRatio = 1;
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(tester.view.reset);
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            final room = _room(
+              canInvite: true,
+              participants: const [
+                VoiceParticipant(
+                  id: 1,
+                  username: 'sam',
+                  role: VoiceRole.moderator,
+                ),
+              ],
+            );
+            final harness = _Harness(joinRoom: room);
+            addTearDown(harness.dispose);
+            harness
+                .transport
+                .responses['GET /voice/rooms/7/invites/suggestions.json'] = {
+              'suggestions': [
+                for (var i = 0; i < 200; i++)
+                  {'id': i + 2, 'username': 'Guest $i', 'total_seconds': 5400},
+              ],
+            };
+            harness.transport.responses['POST /voice/rooms/7/invites.json'] = {
+              'invited_usernames': ['Guest 199'],
+              'skipped_usernames': <Object?>[],
+            };
+            await _join(harness, room);
+            await tester.pumpWidget(
+              _app(
+                harness.controller,
+                room: room,
+                call: harness.controller.call,
+                inviteLink: 'https://voice.example.com/invite',
+                theme: AppTheme.light.copyWith(platform: platform),
+              ),
+            );
+            if (platform == TargetPlatform.iOS) {
+              await tester.tap(find.byTooltip('More options'));
+              await tester.pumpAndSettle();
+            }
+            await tester.tap(find.byTooltip('Invite people'));
+            await tester.pumpAndSettle();
+            final surface = find.byType(
+              platform == TargetPlatform.iOS ? DSheetContent : DDialogContent,
+            );
+            final mounted = find
+                .descendant(
+                  of: surface,
+                  matching: find.byType(DItem, skipOffstage: false),
+                  skipOffstage: false,
+                )
+                .evaluate()
+                .length;
+            debugPrint(
+              'LAZY_LIST voice-invites platform=$platform scale=$scale mounted=$mounted total=200',
+            );
+            expect(mounted, lessThan(30));
+            final last = find.widgetWithText(DItem, 'Guest 199');
+            final scrollable = find
+                .descendant(of: surface, matching: find.byType(Scrollable))
+                .first;
+            await tester.scrollUntilVisible(
+              last,
+              350,
+              scrollable: scrollable,
+              maxScrolls: 180,
+            );
+            final invite = find.descendant(
+              of: last,
+              matching: find.widgetWithText(DButton, 'Invite'),
+            );
+            await tester.ensureVisible(invite);
+            await tester.pumpAndSettle();
+            expect(invite.hitTestable(), findsOneWidget);
+            await tester.tap(invite);
+            await tester.pumpAndSettle();
+            expect(
+              harness.transport.writes
+                  .where((write) => write.path.endsWith('/invites.json'))
+                  .single
+                  .body['usernames'],
+              ['Guest 199'],
+            );
+            await tester.scrollUntilVisible(
+              find.widgetWithText(DButton, 'Copy'),
+              350,
+              scrollable: scrollable,
+              maxScrolls: 10,
+            );
+            expect(
+              find.widgetWithText(DButton, 'Copy').hitTestable(),
+              findsOneWidget,
+            );
+            expect(tester.takeException(), isNull);
+            harness.dispose();
+          },
+          variant: TargetPlatformVariant.only(platform),
+        );
+      }
+    }
+
     testWidgets(
       'keeps Invite after shared edits and follows authenticated revocations',
       (tester) async {
@@ -4799,7 +4910,10 @@ void _mobileVoiceFormTests() {
           }
           final headerBounds = tester.getRect(find.byType(DSheetHeader));
           final footerBounds = tester.getRect(find.byType(DSheetFooter));
-          await tester.drag(find.byType(DSheetBody), const Offset(0, -180));
+          await tester.drag(
+            find.descendant(of: sheet, matching: find.byType(Scrollable)).first,
+            const Offset(0, -180),
+          );
           await tester.pumpAndSettle();
           expect(tester.getRect(find.byType(DSheetHeader)), headerBounds);
           expect(tester.getRect(find.byType(DSheetFooter)), footerBounds);
@@ -4836,7 +4950,15 @@ void _mobileVoiceFormTests() {
         final bounds = tester.getRect(action);
         expect(bounds.left, greaterThan(0));
         expect(bounds.right, lessThan(320));
-        await tester.drag(find.byType(DSheetBody), const Offset(0, -500));
+        await tester.drag(
+          find
+              .descendant(
+                of: find.byType(DSheetContent),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+          const Offset(0, -500),
+        );
         await tester.pumpAndSettle();
         expect(tester.getRect(find.byType(DSheetFooter)), footer);
         await tester.ensureVisible(
