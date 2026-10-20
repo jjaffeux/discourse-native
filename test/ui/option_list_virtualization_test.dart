@@ -722,14 +722,14 @@ Widget _app(
   TargetPlatform platform = TargetPlatform.iOS,
 }) => MaterialApp(
   theme: ThemeData(platform: platform),
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(scale), disableAnimations: true),
+    child: child!,
+  ),
   home: Scaffold(
-    body: MediaQuery(
-      data: MediaQueryData(
-        textScaler: TextScaler.linear(scale),
-        disableAnimations: true,
-      ),
-      child: Center(child: SizedBox(width: 320, child: child)),
-    ),
+    body: Center(child: SizedBox(width: 320, child: child)),
   ),
 );
 
