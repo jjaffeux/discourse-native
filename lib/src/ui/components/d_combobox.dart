@@ -3,6 +3,7 @@ import 'dart:ui' show SemanticsValidationResult;
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
@@ -355,7 +356,9 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   late final FocusNode _ownedFocusNode;
   late final DPopoverController _popoverController;
   final GlobalKey _anchorKey = GlobalKey();
-  final Map<T, GlobalKey> _itemKeys = {};
+  final Map<DComboboxOption<T>, GlobalKey> _itemKeys = Map.identity();
+  final Set<_DComboboxListState<T>> _lists = {};
+  T? _pointerHighlightValue;
   final Map<T, FocusNode> _chipFocusNodes = {};
   late final List<T> _resetValues;
   late final String _resetQuery;
@@ -514,14 +517,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
         )) {
       _requestHighlight(null, DComboboxChangeReason.input);
     }
-    if (combobox.equals == null) {
-      final values = {for (final option in _allOptions) option.value};
-      _itemKeys.removeWhere((value, _) => !values.contains(value));
-    } else {
-      _itemKeys.removeWhere(
-        (value, _) => !_allOptions.any((option) => _equal(option.value, value)),
-      );
-    }
+    final options = Set<DComboboxOption<T>>.identity()..addAll(_allOptions);
+    _itemKeys.removeWhere((option, _) => !options.contains(option));
+    _revealOptions(highlightedValue);
+
     _controller._changed();
   }
 
@@ -590,6 +589,9 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     setState(() {});
     _controller._changed();
     if (open && focusInput) _focusInputAfterBuild();
+    _revealOptions(
+      open ? highlightedValue ?? selectedValues.firstOrNull : null,
+    );
   }
 
   void _focusInputAfterBuild() {
@@ -630,28 +632,23 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     combobox.onHighlightChanged?.call(value, reason);
     if (mounted) setState(() {});
     _controller._changed();
-    // A pointer can only highlight a row that is already visible. Recentring
-    // that row makes a scrollable menu chase the cursor as it moves.
-    if (value != null && reason != DComboboxChangeReason.pointer) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final itemContext = _itemKeyFor(value)?.currentContext;
-        if (mounted && isOpen && itemContext != null) {
-          final target = itemContext.findRenderObject();
-          if (target != null && target.attached) {
-            // OverlayPortal preserves the anchor's scroll ancestors. Reveal
-            // highlights only in the popup list so hovering a row cannot move
-            // the surrounding page.
-            Scrollable.maybeOf(itemContext)?.position.ensureVisible(
-              target,
-              alignment: .5,
-              duration: DMotion.duration(
-                context,
-                const Duration(milliseconds: 100),
-              ),
-            );
-          }
-        }
-      });
+    _pointerHighlightValue = reason == DComboboxChangeReason.pointer
+        ? value
+        : null;
+    _revealOptions(highlightedValue);
+  }
+
+  bool get _highlightFromPointer {
+    final pointer = _pointerHighlightValue;
+    final highlighted = highlightedValue;
+    return pointer != null &&
+        highlighted != null &&
+        _equal(pointer, highlighted);
+  }
+
+  void _revealOptions(T? value) {
+    for (final list in _lists) {
+      list.reveal(_highlightFromPointer ? null : value);
     }
   }
 
@@ -801,14 +798,8 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   MapEntry<T, V>? _entryFor<V>(Map<T, V> entries, T value) =>
       entries.entries.where((entry) => _equal(entry.key, value)).firstOrNull;
 
-  // Every row asks for its key on each list build. Default equality agrees
-  // with the map's own lookup; only a custom one has to scan.
-  GlobalKey? _itemKeyFor(T value) => combobox.equals == null
-      ? _itemKeys[value]
-      : _entryFor(_itemKeys, value)?.value;
-
-  GlobalKey keyFor(T value) =>
-      _itemKeyFor(value) ?? (_itemKeys[value] = GlobalKey());
+  GlobalKey keyFor(DComboboxOption<T> option) =>
+      _itemKeys.putIfAbsent(option, GlobalKey.new);
 
   void registerChip(T value, FocusNode focusNode) {
     final existing = _entryFor(_chipFocusNodes, value);
@@ -1303,43 +1294,221 @@ class DComboboxContent extends StatelessWidget {
   );
 }
 
-class DComboboxList<T> extends StatelessWidget {
+class DComboboxList<T> extends StatefulWidget {
   const DComboboxList({super.key, this.itemBuilder});
 
   final DComboboxItemBuilder<T>? itemBuilder;
+
+  @override
+  State<DComboboxList<T>> createState() => _DComboboxListState<T>();
+}
+
+class _DComboboxListSection<T> {
+  const _DComboboxListSection({
+    required this.options,
+    required this.controller,
+    this.label,
+  });
+
+  final List<DComboboxOption<T>> options;
+  final ListController controller;
+  final String? label;
+}
+
+class _DComboboxListState<T> extends State<DComboboxList<T>> {
+  final ScrollController _scroll = ScrollController();
+  final List<ListController> _controllers = [];
+  _DComboboxState<T>? _root;
+  List<DComboboxOption<T>>? _filtered;
+  List<_DComboboxListSection<T>> _sections = const [];
+  int _revealGeneration = 0;
+  bool _wasOpen = false;
+  bool _lazy = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final root = _DComboboxScope.of<T>(context);
+    final first = _root != root;
+    if (first) {
+      _root?._lists.remove(this);
+      _root = root;
+      root._lists.add(this);
+    }
+    final changed = !identical(_filtered, root.filteredOptions);
+    if (changed) {
+      _filtered = root.filteredOptions;
+      _sections = _describeSections(root);
+    }
+    if (!root.isOpen || root._highlightFromPointer) {
+      reveal(null);
+    } else if (first || !_wasOpen) {
+      reveal(root.highlightedValue ?? root.selectedValues.firstOrNull);
+    } else if (changed) {
+      reveal(root.highlightedValue);
+    }
+    _wasOpen = root.isOpen;
+  }
+
+  List<_DComboboxListSection<T>> _describeSections(_DComboboxState<T> root) {
+    final filtered = root.filteredOptions;
+    final groups = <(String?, List<DComboboxOption<T>>)>[];
+    if (root.combobox.groups.isEmpty) {
+      if (filtered.isNotEmpty) groups.add((null, filtered));
+    } else {
+      final allowed = filtered.map((option) => option.value).toList();
+      for (final group in root.combobox.groups) {
+        final options = group.options
+            .where((option) => root._contains(allowed, option.value))
+            .toList();
+        if (options.isNotEmpty) groups.add((group.label, options));
+      }
+    }
+    while (_controllers.length < groups.length) {
+      _controllers.add(ListController());
+    }
+    return [
+      for (final (index, group) in groups.indexed)
+        _DComboboxListSection(
+          options: group.$2,
+          label: group.$1,
+          controller: _controllers[index],
+        ),
+    ];
+  }
+
+  void reveal(T? value) {
+    final generation = ++_revealGeneration;
+    if (value == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final root = _root;
+      if (!mounted ||
+          root == null ||
+          !root.isOpen ||
+          generation != _revealGeneration) {
+        return;
+      }
+      for (final section in _sections) {
+        final index = section.options.indexWhere(
+          (option) => root._equal(option.value, value),
+        );
+        if (index < 0) continue;
+        final option = section.options[index];
+        if (_lazy && _scroll.hasClients && section.controller.isAttached) {
+          section.controller.jumpToItem(
+            index: index + (section.label == null ? 0 : 1),
+            scrollController: _scroll,
+            alignment: .5,
+          );
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !root.isOpen || generation != _revealGeneration) {
+            return;
+          }
+          final itemContext = root.keyFor(option).currentContext;
+          final target = itemContext?.findRenderObject();
+          if (target != null && target.attached) {
+            Scrollable.maybeOf(itemContext!)?.position.ensureVisible(
+              target,
+              alignment: .5,
+              duration: DMotion.duration(
+                context,
+                const Duration(milliseconds: 100),
+              ),
+            );
+          }
+        });
+        WidgetsBinding.instance.scheduleFrame();
+        break;
+      }
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
 
   @override
   Widget build(BuildContext context) {
     final root = _DComboboxScope.of<T>(context);
     final filtered = root.filteredOptions;
     if (filtered.isEmpty) return const SizedBox.shrink();
-    final allowed = filtered.map((option) => option.value).toList();
-    final children = <Widget>[];
-    if (root.combobox.groups.isEmpty) {
-      children.addAll(filtered.map((option) => _item(context, root, option)));
-    } else {
-      for (final group in root.combobox.groups) {
-        final options = group.options
-            .where((option) => root._contains(allowed, option.value))
-            .toList();
-        if (options.isEmpty) continue;
-        if (children.isNotEmpty) children.add(const DComboboxSeparator());
-        children.add(
-          DComboboxGroup(
-            label: group.label,
-            labelWidget: null,
-            children: options
-                .map((option) => _item(context, root, option))
-                .toList(),
-          ),
-        );
-      }
+    final optionCount = _sections.fold(
+      0,
+      (count, section) => count + section.options.length,
+    );
+    if (optionCount <= 64) {
+      _lazy = false;
+      return Flexible(child: _eagerList(context, root));
     }
+
     return Flexible(
-      child: SingleChildScrollView(
-        padding: DInsets.menu,
-        child: DComboboxCollection(children: children),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          _lazy = constraints.hasBoundedHeight;
+          if (!_lazy) return _eagerList(context, root);
+          return CustomScrollView(
+            controller: _scroll,
+            slivers: [
+              SliverPadding(
+                padding: DInsets.menu,
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    for (final (index, section) in _sections.indexed) ...[
+                      if (index > 0)
+                        const SliverToBoxAdapter(child: DComboboxSeparator()),
+                      if (section.label != null)
+                        SliverSemantics(
+                          container: true,
+                          explicitChildNodes: true,
+                          label: section.label,
+                          sliver: _sectionSliver(root, section),
+                        )
+                      else
+                        _sectionSliver(root, section),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
+    );
+  }
+
+  Widget _eagerList(BuildContext context, _DComboboxState<T> root) =>
+      SingleChildScrollView(
+        controller: _scroll,
+        padding: DInsets.menu,
+        child: DComboboxCollection(
+          children: [
+            for (final (index, section) in _sections.indexed) ...[
+              if (index > 0) const DComboboxSeparator(),
+              if (section.label != null)
+                DComboboxGroup(
+                  label: section.label!,
+                  children: [
+                    for (final option in section.options)
+                      _item(context, root, option),
+                  ],
+                )
+              else
+                for (final option in section.options)
+                  _item(context, root, option),
+            ],
+          ],
+        ),
+      );
+
+  Widget _sectionSliver(
+    _DComboboxState<T> root,
+    _DComboboxListSection<T> section,
+  ) {
+    final labels = section.label == null ? 0 : 1;
+    return SuperSliverList.builder(
+      listController: section.controller,
+      itemCount: section.options.length + labels,
+      itemBuilder: (context, index) => labels > 0 && index == 0
+          ? DComboboxLabel(section.label!)
+          : _item(context, root, section.options[index - labels]),
     );
   }
 
@@ -1348,13 +1517,23 @@ class DComboboxList<T> extends StatelessWidget {
     _DComboboxState<T> root,
     DComboboxOption<T> option,
   ) => KeyedSubtree(
-    key: root.keyFor(option.value),
+    key: root.keyFor(option),
     child: DComboboxItem<T>(
       key: option.itemKey,
       option: option,
-      child: itemBuilder?.call(context, option) ?? Text(option.label),
+      child: widget.itemBuilder?.call(context, option) ?? Text(option.label),
     ),
   );
+
+  @override
+  void dispose() {
+    _root?._lists.remove(this);
+    _scroll.dispose();
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 }
 
 class DComboboxItem<T> extends StatelessWidget {
