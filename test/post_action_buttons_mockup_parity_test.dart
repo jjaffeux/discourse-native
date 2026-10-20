@@ -209,7 +209,7 @@ void main() {
           if (glass) {
             expectStockGlass(
               tester.widget<LiquidGlassLens>(lens).style,
-              LiquidGlassButton.defaultStyle,
+              expectedButtonGlassStyle,
             );
           } else {
             expect(lens, findsNothing);

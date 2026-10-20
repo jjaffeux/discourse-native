@@ -36,7 +36,7 @@ void main() {
               tester
                   .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
                   .style,
-              LiquidGlassButton.defaultStyle,
+              expectedButtonGlassStyle,
             );
           }
           final surface = tester.widget<Container>(
@@ -88,7 +88,7 @@ void main() {
               tester
                   .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
                   .style,
-              LiquidGlassButton.defaultStyle,
+              expectedButtonGlassStyle,
             );
           }
           expect(tester.getRect(tab), rect);

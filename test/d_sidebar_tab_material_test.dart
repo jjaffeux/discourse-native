@@ -13,7 +13,7 @@ import 'support/stock_glass.dart';
 void main() {
   for (final dark in [false, true]) {
     testWidgets(
-      'sidebar glass uses stock selection and hover materials ($dark)',
+      'sidebar glass uses button lighting for selection and hover ($dark)',
       (tester) async {
         for (final backdrop in [
           const Color(0xff555555),
@@ -34,7 +34,7 @@ void main() {
           );
           expectStockGlass(
             tester.widget<LiquidGlassLens>(selected).style,
-            LiquidGlassButton.defaultStyle,
+            expectedButtonGlassStyle,
           );
           await _pixel(tester, const Offset(340, 25), well);
           final mouse = await tester.createGesture(
@@ -55,7 +55,7 @@ void main() {
           );
           expectStockGlass(
             tester.widget<LiquidGlassLens>(hovered).style,
-            LiquidGlassButton.defaultStyle,
+            expectedButtonGlassStyle,
           );
           await mouse.removePointer();
           await tester.pumpAndSettle();

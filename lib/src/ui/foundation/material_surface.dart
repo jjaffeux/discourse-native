@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
+import 'glass_presets.dart';
 import 'joined_control.dart';
 import 'material_theme.dart';
 import 'tokens.dart';
@@ -517,7 +518,7 @@ class _GlassPaint extends StatelessWidget {
       DSurfaceDepth.menu ||
       DSurfaceDepth.dialog => LiquidGlassDialog.defaultStyle,
       DSurfaceDepth.sheet => LiquidGlassSheet.defaultStyle,
-      _ => LiquidGlassButton.defaultStyle,
+      _ => buttonGlassStyle,
     };
     final date = depth == DSurfaceDepth.floatingDate;
     final floating =

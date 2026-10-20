@@ -18,7 +18,7 @@ import 'support/stock_glass.dart';
 
 void main() {
   testWidgets(
-    'ordinary glass buttons use stock material without a cosmetic border',
+    'ordinary glass buttons use button lighting without a cosmetic border',
     (tester) async {
       for (final dark in [false, true]) {
         for (final enabled in [true, false]) {
@@ -41,7 +41,7 @@ void main() {
           final lens = find.byType(LiquidGlassLens);
           expectStockGlass(
             tester.widget<LiquidGlassLens>(lens).style,
-            LiquidGlassButton.defaultStyle,
+            expectedButtonGlassStyle,
           );
           expect(buttonSurface(tester).borderColor.a, 0);
           expect(buttonSurface(tester).color.a, 0);
@@ -112,7 +112,7 @@ void main() {
             expect(style.adaptivity!.glassColorOnLight, tint);
             expectStockGlass(
               style,
-              LiquidGlassButton.defaultStyle.copyWith(
+              expectedButtonGlassStyle.copyWith(
                 color: tint,
                 adaptivity: style.adaptivity,
               ),
@@ -186,7 +186,7 @@ void main() {
               .widget<LiquidGlassLens>(find.byType(LiquidGlassLens))
               .style;
           if (source == null) {
-            expectStockGlass(style, LiquidGlassButton.defaultStyle);
+            expectStockGlass(style, expectedButtonGlassStyle);
           } else {
             expect(style.color, source.withValues(alpha: .76));
           }
@@ -1107,7 +1107,7 @@ void main() {
         expect(tester.getRect(lens), bounds);
         final style = tester.widget<LiquidGlassLens>(lens).style;
         expect(style.color, LiquidGlassButton.defaultStyle.color);
-        expect(style.specular, LiquidGlassButton.defaultStyle.specular);
+        expect(style.specular, expectedButtonGlassStyle.specular);
         expect(style.blur, LiquidGlassButton.defaultStyle.blur);
         expect(
           style.refractionIndex,
@@ -1117,7 +1117,7 @@ void main() {
           style.refractionWidth,
           LiquidGlassButton.defaultStyle.refractionWidth,
         );
-        expect(style.glow, isNull);
+        expect(style.glow, expectedButtonGlassStyle.glow);
         expect(style.shadow, isNull);
         expect(style.saturation, 1);
         expect(style.shape!.cornerRadius, bounds.height / 2);

@@ -264,7 +264,9 @@ void main() {
     }
   });
 
-  testWidgets('glass controls retain their stock optics', (tester) async {
+  testWidgets('glass controls use button lighting and retain stock optics', (
+    tester,
+  ) async {
     for (final depth in [
       DSurfaceDepth.raised,
       DSurfaceDepth.primaryCapsule,
@@ -290,7 +292,7 @@ void main() {
         await tester.pumpAndSettle();
         expectStockGlass(
           tester.widget<LiquidGlassLens>(find.byType(LiquidGlassLens)).style,
-          LiquidGlassButton.defaultStyle,
+          expectedButtonGlassStyle,
         );
         final shadows = tester
             .widgetList<DecoratedBox>(find.byType(DecoratedBox))
@@ -520,7 +522,7 @@ void main() {
   });
 
   testWidgets(
-    'selected sidebar rows use stock glass and dormant rows stay flat',
+    'selected sidebar rows use button lighting and dormant rows stay flat',
     (tester) async {
       for (final selected in [false, true, false]) {
         await tester.pumpWidget(
@@ -549,7 +551,7 @@ void main() {
         if (selected) {
           expectStockGlass(
             tester.widget<LiquidGlassLens>(lens).style,
-            LiquidGlassButton.defaultStyle,
+            expectedButtonGlassStyle,
           );
         }
         expect(

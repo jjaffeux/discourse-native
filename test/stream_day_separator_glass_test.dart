@@ -47,7 +47,7 @@ void main() {
               expect(style.adaptivity!.glassColorOnLight, tint);
               expectStockGlass(
                 style,
-                LiquidGlassButton.defaultStyle.copyWith(
+                expectedButtonGlassStyle.copyWith(
                   color: tint,
                   blur: 16,
                   saturation: 1.85,
@@ -64,7 +64,7 @@ void main() {
               expect(style.adaptivity!.glassColorOnLight, tint);
               expectStockGlass(
                 style,
-                LiquidGlassButton.defaultStyle.copyWith(
+                expectedButtonGlassStyle.copyWith(
                   color: tint,
                   adaptivity: style.adaptivity,
                 ),

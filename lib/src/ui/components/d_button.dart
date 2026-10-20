@@ -10,6 +10,7 @@ import '../../theme/discourse_typography.dart';
 import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
+import '../foundation/glass_presets.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
@@ -1247,7 +1248,7 @@ class DButton extends StatelessWidget {
           );
           final content = selected
               ? LiquidGlassLens(
-                  style: LiquidGlassButton.defaultStyle.copyWith(
+                  style: buttonGlassStyle.copyWith(
                     shape: LiquidGlassShape.roundedRectangle(
                       cornerRadius: visualDimension / 2,
                     ),

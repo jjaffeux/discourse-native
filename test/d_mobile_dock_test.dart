@@ -6,6 +6,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_easy/liquid_glass_easy.dart';
 
+import 'support/stock_glass.dart' show expectedButtonGlassStyle;
+
 Widget fixture({
   double width = 390,
   bool collapsed = false,
@@ -168,7 +170,7 @@ void main() {
     }
   }
   testWidgets(
-    'glass dock and selected destination use stock material; inactive items stay clear',
+    'glass dock keeps stock material and selected destination uses button lighting; inactive items stay clear',
     (tester) async {
       final effects = find.byType(LiquidGlassLens);
       final theme = DMaterialTheme.apply(
@@ -293,7 +295,7 @@ void main() {
     expect(tester.getSize(surface), open);
     expect(tester.takeException(), isNull);
   });
-  testWidgets('glass controls keep stock material during the spring morph', (
+  testWidgets('glass controls keep button lighting during the spring morph', (
     tester,
   ) async {
     final theme = DMaterialTheme.apply(
@@ -319,7 +321,7 @@ void main() {
           matching: find.byType(LiquidGlassLens),
         ),
       );
-      expectStockGlass(lens.style, LiquidGlassButton.defaultStyle, 50);
+      expectStockGlass(lens.style, expectedButtonGlassStyle, 50);
       RenderObject? ancestor = tester.renderObject(controls[item]);
       while (ancestor != null) {
         if (ancestor is RenderOpacity) {

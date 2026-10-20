@@ -43,10 +43,14 @@ control contracts remain in use.
 menus and dialogs are not used. SDK validation used Flutter 3.47.6 / Dart 3.13.5.
 See the [package documentation](https://pub.dev/packages/liquid_glass_easy).
 
-Raised glass controls use the package's specular band and glow as their only
-rim lighting, with specular sharpness 0.5. The kit does not paint an additional
-1px highlight over those lenses. Standard surfaces and recessed wells retain
-their existing edge treatment; menus retain their separate top sheen.
+Raised glass controls and selected dock buttons keep the package's original
+specular band and add a 5px glow at 129 degrees to fill the corner gaps, with
+intensity 1 and spread 0.85. This shared button preset preserves the default
+refraction, blur, color, saturation, shadow, and adaptivity. The kit does not
+paint an additional 1px highlight over those lenses. Standard surfaces and
+recessed wells retain their existing edge treatment. Menus, dialogs, sheets,
+and dock capsules keep their existing glass presets; menus retain their
+separate top sheen.
 
 Live lenses must stay outside fractional-opacity layers. Glass dialogs, pickers,
 tab changes and panel folds keep their movement without fading the live surface.
