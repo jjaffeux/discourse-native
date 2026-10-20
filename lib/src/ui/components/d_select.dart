@@ -784,6 +784,10 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
   Timer? _typeaheadTimer;
   Duration? _lastTypedAt;
   int? _lastTypeaheadMatch;
+  int _revealGeneration = 0;
+  int? _pendingFocusIndex;
+  List<double> _optionOffsets = const [];
+  double _lazyItemHeight = 0;
 
   DPopoverController get _popover => widget.popoverController ?? _ownedPopover;
   ScrollController get _scroll => widget.scrollController ?? _ownedScroll;
@@ -822,9 +826,40 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       );
       _scroll.addListener(_scrollChanged);
     }
-    if (_items.length != _optionFocus.length) {
-      _syncNodes();
-    } else if (oldWidget.open != widget.open) {
+    final oldItems = [
+      for (final entry in oldWidget.entries)
+        if (entry case DSelectItem<T> item)
+          item
+        else if (entry case DSelectGroup<T> group)
+          ...group.items,
+    ];
+    final items = _items;
+    final focused =
+        _pendingFocusIndex ??
+        _optionFocus.indexWhere((node) => node.hasPrimaryFocus);
+    final changed =
+        oldItems.length != items.length ||
+        oldItems.indexed.any((entry) => !identical(entry.$2, items[entry.$1]));
+    if (changed) {
+      _revealGeneration++;
+      _pendingFocusIndex = null;
+      if (items.length != _optionFocus.length) _syncNodes();
+      if (_isOpen && focused >= 0 && focused < oldItems.length) {
+        final next = items.indexWhere(
+          (item) => widget.equals(item.value, oldItems[focused].value),
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _isOpen) {
+            _focusIndex(
+              next >= 0 && items[next].enabled
+                  ? next
+                  : _enabledFrom(0, 1, includeStart: true),
+            );
+          }
+        });
+      }
+    }
+    if (oldWidget.open != widget.open) {
       _setOptionFocusability(_isOpen);
       if (_isOpen) _focusInitial();
     }
@@ -887,18 +922,45 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
 
   void _focusIndex(int index) {
     if (index < 0 || index >= _optionFocus.length) return;
-    _optionFocus[index].requestFocus();
+    final generation = ++_revealGeneration;
+    _pendingFocusIndex = index;
+    final node = _optionFocus[index];
+    if (node.context?.mounted ?? false) node.requestFocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scroll.hasClients) return;
-      final context = _optionFocus[index].context;
-      if (context != null) {
-        Scrollable.ensureVisible(
-          context,
-          alignment: 0.5,
-          duration: DMotion.duration(context, const Duration(milliseconds: 80)),
+      if (!mounted || !_isOpen || generation != _revealGeneration) return;
+      if (_scroll.hasClients && index < _optionOffsets.length) {
+        final position = _scroll.position;
+        final offset =
+            _optionOffsets[index] +
+            _lazyItemHeight / 2 -
+            position.viewportDimension / 2;
+        _scroll.jumpTo(
+          offset.clamp(position.minScrollExtent, position.maxScrollExtent),
         );
       }
+      void focusMounted() {
+        if (!mounted || !_isOpen || generation != _revealGeneration) return;
+        final itemContext = node.context;
+        if (itemContext == null || !itemContext.mounted) return;
+        _pendingFocusIndex = null;
+        node.requestFocus();
+        final target = itemContext.findRenderObject();
+        if (target != null && target.attached) {
+          Scrollable.maybeOf(itemContext)?.position.ensureVisible(
+            target,
+            alignment: 0.5,
+            duration: DMotion.duration(
+              context,
+              const Duration(milliseconds: 80),
+            ),
+          );
+        }
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) => focusMounted());
+      WidgetsBinding.instance.scheduleFrame();
     });
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   void _focusInitial({bool last = false}) {
@@ -953,7 +1015,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
   KeyEventResult _popupKey(KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     if (_pointerHighlight) setState(() => _pointerHighlight = false);
-    final current = _optionFocus.indexWhere((node) => node.hasPrimaryFocus);
+    final current =
+        _pendingFocusIndex ??
+        _optionFocus.indexWhere((node) => node.hasPrimaryFocus);
     if (event.logicalKey == LogicalKeyboardKey.arrowDown ||
         event.logicalKey == LogicalKeyboardKey.arrowUp) {
       final delta = event.logicalKey == LogicalKeyboardKey.arrowDown ? 1 : -1;
@@ -1076,6 +1140,8 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       _focus.requestFocus();
     }
     if (!open) {
+      _revealGeneration++;
+      _pendingFocusIndex = null;
       _pointerHighlight = false;
       _hoveredIndex = null;
       _resetTypeahead();
@@ -1211,26 +1277,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (group.label != null)
-                SizedBox(
-                  height: labelHeight,
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.symmetric(
-                      horizontal: 6,
-                    ),
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: DefaultTextStyle.merge(
-                        style: TextStyle(
-                          fontSize: DiscourseTypography.xs,
-                          height: DiscourseTypography.lineHeightCaption,
-                          color: DTokens.of(context).mutedForeground,
-                        ),
-                        child: group.label!,
-                      ),
-                    ),
-                  ),
-                ),
+              if (group.label != null) _groupLabel(group.label!, labelHeight),
               for (final item in group.items)
                 _entry(item, itemHeight, labelHeight, indices),
             ],
@@ -1248,6 +1295,124 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       ),
     );
   }
+
+  Widget _groupLabel(Widget label, double labelHeight) => SizedBox(
+    height: labelHeight,
+    child: Padding(
+      padding: const EdgeInsetsDirectional.symmetric(horizontal: 6),
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: DefaultTextStyle.merge(
+          style: TextStyle(
+            fontSize: DiscourseTypography.xs,
+            height: DiscourseTypography.lineHeightCaption,
+            color: DTokens.of(context).mutedForeground,
+          ),
+          child: label,
+        ),
+      ),
+    ),
+  );
+
+  List<Widget> _lazySlivers(double itemHeight, double labelHeight) {
+    final slivers = <Widget>[];
+    final offsets = <double>[];
+    var offset = 0.0;
+    var selectableIndex = 0;
+    final entries = widget.entries;
+    var entryIndex = 0;
+    while (entryIndex < entries.length) {
+      final entry = entries[entryIndex];
+      if (entry case DSelectGroup<T> group) {
+        final firstIndex = selectableIndex;
+        offset += 4 + (group.label == null ? 0 : labelHeight);
+        for (final _ in group.items) {
+          offsets.add(offset);
+          offset += itemHeight;
+          selectableIndex++;
+        }
+        offset += 4;
+        final extent =
+            8 +
+            (group.label == null ? 0 : labelHeight) +
+            group.items.length * itemHeight;
+        slivers.add(
+          _visibleSliver(
+            extent,
+            () => SliverSemantics(
+              container: true,
+              explicitChildNodes: true,
+              sliver: SliverPadding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                sliver: SliverMainAxisGroup(
+                  slivers: [
+                    if (group.label != null)
+                      SliverToBoxAdapter(
+                        child: _groupLabel(group.label!, labelHeight),
+                      ),
+                    SliverFixedExtentList.builder(
+                      itemExtent: itemHeight,
+                      itemCount: group.items.length,
+                      itemBuilder: (context, index) => _entry(
+                        group.items[index],
+                        itemHeight,
+                        labelHeight,
+                        [firstIndex + index].iterator,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        entryIndex++;
+        continue;
+      }
+      final rows = <(DSelectEntry<T>, int, double)>[];
+      var extent = 0.0;
+      while (entryIndex < entries.length &&
+          entries[entryIndex] is! DSelectGroup<T>) {
+        final row = entries[entryIndex++];
+        final height = row is DSelectItem<T> ? itemHeight : 9.0;
+        rows.add((row, selectableIndex, height));
+        if (row is DSelectItem<T>) {
+          offsets.add(offset);
+          selectableIndex++;
+        }
+        offset += height;
+        extent += height;
+      }
+      slivers.add(
+        _visibleSliver(
+          extent,
+          () => SliverVariedExtentList.builder(
+            itemCount: rows.length,
+            itemExtentBuilder: (index, _) =>
+                index < rows.length ? rows[index].$3 : null,
+            itemBuilder: (context, index) => _entry(
+              rows[index].$1,
+              itemHeight,
+              labelHeight,
+              [rows[index].$2].iterator,
+            ),
+          ),
+        ),
+      );
+    }
+    _optionOffsets = offsets;
+    _lazyItemHeight = itemHeight;
+    return slivers;
+  }
+
+  Widget _visibleSliver(double extent, Widget Function() build) =>
+      SliverLayoutBuilder(
+        builder: (context, constraints) =>
+            constraints.scrollOffset + constraints.cacheOrigin >= extent ||
+                constraints.remainingCacheExtent <= 0
+            ? SliverToBoxAdapter(child: SizedBox(height: extent))
+            : build(),
+      );
 
   DPopoverContent _popup(double popupWidth) {
     final touch = _touch;
@@ -1288,20 +1453,32 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       arrows: arrows,
     );
     final indices = Iterable<int>.generate(_items.length).iterator;
+    final lazy = _items.length > 64;
+    if (!lazy) _optionOffsets = const [];
     final list = Focus(
       onKeyEvent: (_, event) => _popupKey(event),
-      child: DScrollArea(
-        backgroundColor: DTokens.of(context).surface,
-        controller: _scroll,
-        thumbVisibility: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final entry in widget.entries)
-              _entry(entry, itemHeight, labelHeight, indices),
-          ],
-        ),
-      ),
+      child: lazy
+          ? DScrollBar(
+              backgroundColor: DTokens.of(context).surface,
+              controller: _scroll,
+              thumbVisibility: false,
+              child: CustomScrollView(
+                controller: _scroll,
+                slivers: _lazySlivers(itemHeight, labelHeight),
+              ),
+            )
+          : DScrollArea(
+              backgroundColor: DTokens.of(context).surface,
+              controller: _scroll,
+              thumbVisibility: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final entry in widget.entries)
+                    _entry(entry, itemHeight, labelHeight, indices),
+                ],
+              ),
+            ),
     );
     final canScrollUp = _scroll.hasClients && _scroll.offset > 0.5;
     final canScrollDown =
