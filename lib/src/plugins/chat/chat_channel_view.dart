@@ -1963,13 +1963,11 @@ class _StreamState extends State<ChatMessageStream>
               valueListenable: _floatingDay,
               builder: (context, day, _) {
                 if (day == null) return const SizedBox.shrink();
-                final separator = RepaintBoundary(
-                  child: StreamDaySeparator(
-                    key: ValueKey(('chat-floating-day', day)),
-                    day: day,
-                    floating: true,
-                    onTap: () => _jumpToDayStart(day),
-                  ),
+                final separator = StreamDaySeparator(
+                  key: ValueKey(('chat-floating-day', day)),
+                  day: day,
+                  floating: true,
+                  onTap: () => _jumpToDayStart(day),
                 );
                 return ValueListenableBuilder(
                   valueListenable: _floatingDayOffset,

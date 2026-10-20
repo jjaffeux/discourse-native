@@ -1670,13 +1670,11 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                   child: child,
                 ),
               ),
-              child: RepaintBoundary(
-                child: StreamDaySeparator(
-                  key: ValueKey(('topic-floating-day', floatingDay)),
-                  day: floatingDay,
-                  floating: true,
-                  onTap: () => _jumpToDayStart(floatingDay),
-                ),
+              child: StreamDaySeparator(
+                key: ValueKey(('topic-floating-day', floatingDay)),
+                day: floatingDay,
+                floating: true,
+                onTap: () => _jumpToDayStart(floatingDay),
               ),
             );
           },

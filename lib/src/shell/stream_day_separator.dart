@@ -46,8 +46,12 @@ class StreamDaySeparator extends StatelessWidget {
     Widget date;
     if (onTap case final onTap?) {
       final actionLabel = context.l10n.goToStartOf((label).toString());
+      final dateLabel = Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      );
       date = DButton(
-        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        label: floating ? RepaintBoundary(child: dateLabel) : dateLabel,
         onPressed: onTap,
         semanticLabel: actionLabel,
         tooltip: actionLabel,
