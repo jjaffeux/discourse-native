@@ -100,6 +100,110 @@ void dropdownListVirtualizationTests() {
     );
   }
 
+  for (final changeParentTarget in [false, true]) {
+    testWidgets(
+      'parent keyboard navigation updates an active submenu, target changed $changeParentTarget',
+      (tester) async {
+        final focus = FocusNode(debugLabel: 'Nested checkbox');
+        addTearDown(focus.dispose);
+        await _pumpDropdown(
+          tester,
+          children: [
+            DDropdownMenuSub(
+              trigger: const Text('Nested commands'),
+              children: [
+                DDropdownMenuCheckboxItem(
+                  focusNode: focus,
+                  checked: false,
+                  onChanged: (_) {},
+                  child: const Text('Nested checkbox'),
+                ),
+                DDropdownMenuItem(
+                  onPressed: () {},
+                  child: const Text('Nested action'),
+                ),
+              ],
+            ),
+            ..._commands(),
+          ],
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(focus.hasPrimaryFocus, isTrue);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        expect(
+          FocusManager.instance.primaryFocus?.debugLabel,
+          'Dropdown item Nested action',
+        );
+        expect(find.byType(DDropdownMenuContent), findsNWidgets(2));
+        final parentFocus = Focus.of(
+          tester.element(find.text('Nested commands')),
+        );
+        parentFocus.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(
+          changeParentTarget ? LogicalKeyboardKey.end : LogicalKeyboardKey.home,
+        );
+        await tester.pumpAndSettle();
+        if (changeParentTarget) {
+          expect(find.byType(DDropdownMenuContent), findsOneWidget);
+          expect(
+            FocusManager.instance.primaryFocus?.debugLabel,
+            'Dropdown item Command 199',
+          );
+          expect(find.text('Command 199').hitTestable(), findsOneWidget);
+        } else {
+          expect(find.byType(DDropdownMenuContent), findsNWidgets(2));
+          expect(find.text('Nested checkbox').hitTestable(), findsOneWidget);
+          expect(parentFocus.hasPrimaryFocus, isTrue);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'scrolling an active submenu trigger offscreen dismisses it safely',
+    (tester) async {
+      await _pumpDropdown(
+        tester,
+        children: [
+          DDropdownMenuSub(
+            trigger: const Text('Nested commands'),
+            children: [
+              DDropdownMenuItem(
+                onPressed: () {},
+                child: const Text('Nested action'),
+              ),
+            ],
+          ),
+          ..._commands(),
+        ],
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsNWidgets(2));
+      final scroll = tester.state<ScrollableState>(
+        find.descendant(
+          of: find.byType(DDropdownMenuContent).first,
+          matching: find.byType(Scrollable),
+        ),
+      );
+      scroll.position.jumpTo(scroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(find.byType(DDropdownMenuContent), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'Dropdown item Command 199',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('pointer hover leaves a deferred keyboard reveal active', (
     tester,
   ) async {

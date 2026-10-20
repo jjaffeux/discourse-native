@@ -376,6 +376,14 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   }
 
   void _focusLazy(int index) {
+    final active = _activeSubmenu;
+    if (active != null &&
+        !_items.values.any(
+          (item) =>
+              item.index == index && identical(item.node, active._focusNode),
+        )) {
+      closeActiveSubmenu();
+    }
     final generation = ++_focusGeneration;
     _pendingIndex = index;
     void reveal([int attempt = 0]) {
@@ -944,6 +952,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
               padding: widget.padding,
               sliver: SuperSliverList.builder(
                 listController: _listController,
+                layoutKeptAliveChildren: true,
                 itemCount: rows.length,
                 findChildIndexCallback: (key) {
                   for (var index = 0; index < rows.length; index++) {
