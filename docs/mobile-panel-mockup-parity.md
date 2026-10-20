@@ -11,10 +11,11 @@ lost the visible separation from the window header.
 
 `ForumMobileSurface` now paints one Native `DPageSurface` for root screens as
 well as pushed pages. Start, topic lists, ordinary destinations, plugin roots,
-and readers share 22px corners on all four sides. The body starts 6px below
-the window header and stops above the live bottom safe-area inset. Inner pages
-inherit a clear surface so the panel fill paints once. The window header stays
-on the canvas.
+and readers keep 22px top corners. Following the October 20 request, their
+bottom corners match half the expanded tab bar height, including text scaling.
+The body starts 6px below the window header and stops above the live bottom
+safe-area inset. Inner pages inherit a clear surface so the panel fill paints
+once. The window header stays on the canvas.
 
 `MobileForumRoot` consumes the bottom safe area once around the page and floating
 dock together. Navigation keeps its ordinary 6px margins. The measured footer
@@ -32,7 +33,7 @@ Focused validation:
 
 - `test/forum_mobile_surface_test.dart`: rendered root/reader, light/dark,
   both materials, opacity endpoints and high-contrast fallbacks; verifies
-  header ground, reading fill, all four rounded corners.
+  header ground, reading fill, and rounded corners.
 - `test/material_surface_test.dart`: rendered panel edges and highlights.
 - `test/mobile_shell_test.dart`: production phone composition, navigation,
   scroll/header/dock behavior, text scaling, safe-area consumption, and the
@@ -54,12 +55,13 @@ content or typography comparison.
 
 The October 14 reader correction removes the route-dependent corner exception.
 Root, reader, chat and other content destinations inherit the same mobile
-frame. The inset navigation sidebar uses `ForumMobileSurface.sidebar` with the
-Native 14px panel radius, matching `NavSidebarContent`'s `.side-nav.glass-sheet`
-in the reference. Its fill, inset rim and top highlight use the shared panel
-treatment in both materials; the inner sidebar remains transparent so they
-paint once. Rendered tests check all four rounded corners, palette fill, rim
-and highlight across light/dark, both materials, opacity and high contrast.
+frame and dock-matched bottom corners. The inset navigation sidebar uses
+`ForumMobileSurface.sidebar` with the Native 14px panel radius, matching
+`NavSidebarContent`'s `.side-nav.glass-sheet` in the reference. Its fill, inset
+rim and top highlight use the shared panel treatment in both materials; the
+inner sidebar remains transparent so they paint once. Rendered tests check
+rounded corners, palette fill, rim and highlight across light/dark, both
+materials, opacity and high contrast.
 Topic and message readers also no longer overlay a fixed separator at
 the header edge; post separators stay in the scrolling content, matching the
 list treatment and avoiding a dark line as the header retracts.

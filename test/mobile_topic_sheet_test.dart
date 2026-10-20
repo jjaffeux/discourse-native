@@ -136,10 +136,13 @@ void main() {
         final surface = find
             .descendant(of: _sheet, matching: find.byType(DPageSurface))
             .first;
-        expect(
-          tester.widget<DPageSurface>(surface).borderRadius,
-          BorderRadius.circular(22),
-        );
+        final bottomRadius = Radius.circular(tester.getSize(_dock).height / 2);
+        final radius =
+            tester.widget<DPageSurface>(surface).borderRadius! as BorderRadius;
+        expect(radius.topLeft, const Radius.circular(22));
+        expect(radius.topRight, const Radius.circular(22));
+        expect(radius.bottomLeft.x, closeTo(bottomRadius.x, .01));
+        expect(radius.bottomRight.x, closeTo(bottomRadius.x, .01));
         expect(find.byType(TopicListView), findsNothing);
         expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);
         expect(

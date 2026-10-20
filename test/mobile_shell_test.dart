@@ -75,6 +75,22 @@ final _user = DiscourseUser(
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
 final _header = find.byKey(const ValueKey('mobile-header'));
 
+void _expectPageRadiusForDock(
+  WidgetTester tester,
+  BorderRadiusGeometry? geometry,
+) {
+  final dock = tester.getRect(
+    find.byKey(const ValueKey('mobile-dock-surface')),
+  );
+  final radius = geometry! as BorderRadius;
+  expect(radius.topLeft, const Radius.circular(22));
+  expect(radius.topRight, const Radius.circular(22));
+  expect(radius.bottomLeft.x, closeTo(dock.height / 2, .01));
+  expect(radius.bottomRight.x, closeTo(dock.height / 2, .01));
+  expect(radius.bottomLeft.y, closeTo(dock.height / 2, .01));
+  expect(radius.bottomRight.y, closeTo(dock.height / 2, .01));
+}
+
 Future<void> _loadChromeCaptureFonts(WidgetTester tester) async {
   if (!const bool.fromEnvironment('captureMobileChrome')) return;
   await tester.runAsync(() async {
@@ -1283,9 +1299,9 @@ void main() {
         final surface = find
             .descendant(of: body, matching: find.byType(DPageSurface))
             .first;
-        expect(
+        _expectPageRadiusForDock(
+          tester,
           tester.widget<DPageSurface>(surface).borderRadius,
-          BorderRadius.circular(22),
         );
         final page = tester.element(body);
         expect(MediaQuery.paddingOf(page).bottom, 0);
@@ -1320,6 +1336,45 @@ void main() {
     });
   }
 
+  for (final scale in [1.0, 1.5]) {
+    _mobileTest(
+      'body and plugin page follow the expanded dock at $scale text',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final shell = await pumpMobileShellFixture(tester);
+        final body = find.byKey(const ValueKey('mobile-content-panel'));
+        final bodyElement = tester.element(body);
+        BorderRadiusGeometry? bodyRadius() => tester
+            .widget<DPageSurface>(
+              find
+                  .descendant(of: body, matching: find.byType(DPageSurface))
+                  .first,
+            )
+            .borderRadius;
+
+        expect(tester.widget<DMobileDock>(_bar).referenceTextScale, isFalse);
+        _expectPageRadiusForDock(tester, bodyRadius());
+        shell.openChatChannel(10);
+        await tester.pumpAndSettle();
+        expect(tester.element(body), same(bodyElement));
+        expect(tester.widget<DMobileDock>(_bar).referenceTextScale, isTrue);
+        _expectPageRadiusForDock(tester, bodyRadius());
+        final sheet = find
+            .descendant(
+              of: find.byType(DSheetContent),
+              matching: find.byType(DPageSurface),
+            )
+            .first;
+        _expectPageRadiusForDock(
+          tester,
+          tester.widget<DPageSurface>(sheet).borderRadius,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   _mobileTest('Start shares the rounded inset mobile body', (tester) async {
     await _loadChromeCaptureFonts(tester);
     tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
@@ -1351,9 +1406,9 @@ void main() {
         final surface = find
             .descendant(of: body, matching: find.byType(DPageSurface))
             .first;
-        expect(
+        _expectPageRadiusForDock(
+          tester,
           tester.widget<DPageSurface>(surface).borderRadius,
-          BorderRadius.circular(22),
         );
         expect(
           find.byKey(const ValueKey('start-page-content')),
@@ -1514,9 +1569,9 @@ void main() {
           )
           .first;
       expect(tester.widget<DPageSurface>(mobileSurface).framed, isTrue);
-      expect(
+      _expectPageRadiusForDock(
+        tester,
         tester.widget<DPageSurface>(mobileSurface).borderRadius,
-        BorderRadius.circular(22),
       );
       await tester.tap(find.byKey(const ValueKey('topic-card-7')));
       await tester.pumpAndSettle();
@@ -1531,13 +1586,16 @@ void main() {
             matching: find.byType(DPageSurface),
           )
           .first;
-      expect(
+      _expectPageRadiusForDock(
+        tester,
         tester.widget<DPageSurface>(sheetSurface).borderRadius,
-        BorderRadius.circular(22),
       );
       final reader = find.byType(TopicView);
       final element = tester.element(reader);
       final viewport = tester.getRect(reader);
+      final expandedPageRadius = tester
+          .widget<DPageSurface>(sheetSurface)
+          .borderRadius;
       await capture('reader-full');
       final list = find
           .descendant(of: reader, matching: find.byType(CustomScrollView))
@@ -1564,6 +1622,10 @@ void main() {
         findsNothing,
       );
       final offset = controller.offset;
+      expect(
+        tester.widget<DPageSurface>(sheetSurface).borderRadius,
+        expandedPageRadius,
+      );
       await capture('reader-folded');
       await tester.tap(find.byKey(const ValueKey('mobile-dock-reveal')));
       if (const bool.fromEnvironment('captureMobileChrome')) {

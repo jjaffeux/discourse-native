@@ -213,6 +213,13 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               final route? => registry.keepsMobileDockVisible(context, route),
               null => false,
             };
+        final referenceTextScale =
+            shell.currentContent != null &&
+            registry.ownsContentChrome(context, shell.currentContent!);
+        final dockExtent = DMobileDock.expandedExtentOf(
+          context,
+          referenceTextScale: referenceTextScale,
+        );
         final dockDestinations = <_DockDestination>[
           (
             tab: MobileTab.start,
@@ -440,6 +447,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             panelAction: panelAction,
                             showNewTopic: showNewTopic,
                             shell: shell,
+                            referenceTextScale: referenceTextScale,
                             hideDestinations: hidden,
                           ),
                         ),
@@ -451,62 +459,65 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             ),
           ],
         );
-        return MobileHistoryGestures(
-          tabIndex: tabOrder.indexOf(selected),
-          navigationPreview: navigationPage,
-          frameBuilder: frame,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Offstage(
-                offstage: sidebarOpen,
-                child: TickerMode(
-                  enabled: !sidebarOpen,
-                  child: ExcludeFocus(
-                    excluding: sidebarOpen,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: ForumMobileSurface(
-                        key: const ValueKey('mobile-content-panel'),
-                        coveredBySheet: pageSheetOpen,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            for (final entry in panels)
-                              Offstage(
-                                offstage:
-                                    !(panelRoot &&
-                                        panelOwner == entry.owner.value),
-                                child: TickerMode(
-                                  enabled:
-                                      panelRoot &&
-                                      panelOwner == entry.owner.value,
-                                  child: ExcludeFocus(
-                                    excluding:
-                                        !(panelRoot &&
-                                            panelOwner == entry.owner.value),
-                                    child: InstanceSidebar(
-                                      key: ValueKey((
-                                        'mobile-panel',
-                                        entry.owner.value,
-                                        owner,
-                                      )),
-                                      mobile: true,
-                                      panelOwner: entry.owner.value,
+        return DMobilePageGeometry(
+          bottomRadius: Radius.circular(dockExtent / 2),
+          child: MobileHistoryGestures(
+            tabIndex: tabOrder.indexOf(selected),
+            navigationPreview: navigationPage,
+            frameBuilder: frame,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Offstage(
+                  offstage: sidebarOpen,
+                  child: TickerMode(
+                    enabled: !sidebarOpen,
+                    child: ExcludeFocus(
+                      excluding: sidebarOpen,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: ForumMobileSurface(
+                          key: const ValueKey('mobile-content-panel'),
+                          coveredBySheet: pageSheetOpen,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              for (final entry in panels)
+                                Offstage(
+                                  offstage:
+                                      !(panelRoot &&
+                                          panelOwner == entry.owner.value),
+                                  child: TickerMode(
+                                    enabled:
+                                        panelRoot &&
+                                        panelOwner == entry.owner.value,
+                                    child: ExcludeFocus(
+                                      excluding:
+                                          !(panelRoot &&
+                                              panelOwner == entry.owner.value),
+                                      child: InstanceSidebar(
+                                        key: ValueKey((
+                                          'mobile-panel',
+                                          entry.owner.value,
+                                          owner,
+                                        )),
+                                        mobile: true,
+                                        panelOwner: entry.owner.value,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            if (!panelRoot) widget.content,
-                          ],
+                              if (!panelRoot) widget.content,
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (sidebarOpen) navigationPage,
-            ],
+                if (sidebarOpen) navigationPage,
+              ],
+            ),
           ),
         );
       },
@@ -524,6 +535,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required SidebarPanelAction? panelAction,
     required bool showNewTopic,
     required ShellController shell,
+    required bool referenceTextScale,
     required bool hideDestinations,
   }) {
     final pageAction = _footerAction.action;
@@ -578,11 +590,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         active == null || destinations.indexOf(active) >= _shownDockCount;
     return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
-      referenceTextScale:
-          shell.currentContent != null &&
-          PluginScope.of(
-            context,
-          ).registry.ownsContentChrome(context, shell.currentContent!),
+      referenceTextScale: referenceTextScale,
       collapsed: hideDestinations && pageAction == null,
       destinationsHidden: hideDestinations && pageAction != null,
       onOverflowChanged: (shown) {

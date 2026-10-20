@@ -38,9 +38,20 @@ class DMobileDock extends StatefulWidget {
   final bool referenceTextScale;
   final ValueChanged<int> onOverflowChanged;
 
+  /// Height of the expanded capsule with the dock's selected text scale.
+  static double expandedExtentOf(
+    BuildContext context, {
+    bool referenceTextScale = false,
+  }) {
+    final scaler = referenceTextScale
+        ? DReferenceTextScale.scalerOf(context)
+        : MediaQuery.textScalerOf(context);
+    return 62 + math.max(0.0, scaler.scale(11) - 11);
+  }
+
   /// Width of the folded destination, including its visible capsule insets.
   static double collapsedExtentOf(BuildContext context) =>
-      48 + math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11);
+      expandedExtentOf(context) - 14;
 
   @override
   State<DMobileDock> createState() => _DMobileDockState();
@@ -156,10 +167,8 @@ class _DMobileDockState extends State<DMobileDock>
   Widget _buildDock(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final reduced = MediaQuery.disableAnimationsOf(context);
-      final growth = math.max(
-        0.0,
-        MediaQuery.textScalerOf(context).scale(11) - 11,
-      );
+      final expandedExtent = DMobileDock.expandedExtentOf(context);
+      final growth = expandedExtent - 62;
       final round = DMobileDock.collapsedExtentOf(context);
       final phase = _spring ? _phase.clamp(0.0, 1.0) : (collapsed ? 1.0 : 0.0);
       final inset = 6 - 2 * phase;
@@ -186,7 +195,7 @@ class _DMobileDockState extends State<DMobileDock>
           ? LiquidGlassLens(
               style: LiquidGlassTabBar.defaultStyle.copyWith(
                 shape: LiquidGlassShape.roundedRectangle(
-                  cornerRadius: (62 + growth - 14 * phase) / 2,
+                  cornerRadius: (expandedExtent - 14 * phase) / 2,
                 ),
               ),
               child: child,
@@ -320,7 +329,7 @@ class _DMobileDockState extends State<DMobileDock>
       // keeps scroll clearance and anchors stable throughout a reversal.
       return _spring
           ? SizedBox(
-              height: 62 + growth,
+              height: expandedExtent,
               child: Align(
                 alignment: AlignmentDirectional.bottomStart,
                 child: capsule,
