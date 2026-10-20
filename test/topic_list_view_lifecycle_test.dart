@@ -2,7 +2,15 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart'
-    show DButton, DSpinner, DItem, DPullToRefresh, DSeparator;
+    show
+        DAppearanceMaterial,
+        DButton,
+        DIcon,
+        DItem,
+        DMaterialTheme,
+        DPullToRefresh,
+        DSeparator,
+        DSpinner;
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
@@ -28,8 +36,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import 'support/button_surface.dart';
 import 'support/fakes.dart';
 
 void main() {
@@ -662,6 +672,62 @@ void main() {
       expectNoTableDivider();
     },
   );
+
+  for (final material in DAppearanceMaterial.values) {
+    for (final brightness in Brightness.values) {
+      testWidgets(
+        'incoming button stays flat with tertiary colors in $material $brightness',
+        (tester) async {
+          final api = _ControlledPagingApi();
+          final controller = await _controlledShell(api, sites.first);
+          addTearDown(controller.dispose);
+          api.requests.single.response.complete(_page(1));
+          final theme = DMaterialTheme.apply(
+            (brightness == Brightness.dark ? AppTheme.dark : AppTheme.light)
+                .copyWith(platform: TargetPlatform.iOS),
+            material,
+          );
+          await tester.pumpWidget(
+            _LiveTestList(controller: controller, theme: theme),
+          );
+          await tester.pumpAndSettle();
+          FakeSiteTracker.built.single.deliver({
+            'topic_id': 99,
+            'message_type': 'new_topic',
+          });
+          await tester.pumpAndSettle();
+
+          final button = find.byKey(const ValueKey('incoming-topics-button'));
+          final surface = buttonSurface(tester, of: button);
+          expect(surface.color, theme.colorScheme.primary);
+          expect(surface.borderColor.a, 0);
+          expect(
+            find.descendant(of: button, matching: find.byType(LiquidGlass)),
+            findsNothing,
+          );
+          expect(
+            find.descendant(of: button, matching: find.byType(BackdropFilter)),
+            findsNothing,
+          );
+          final label = find.text('See 1 new or updated topic');
+          expect(label, findsOneWidget);
+          expect(
+            DefaultTextStyle.of(tester.element(label)).style.color,
+            theme.colorScheme.onPrimary,
+          );
+          final icon = find.descendant(
+            of: button,
+            matching: find.byType(DIcon),
+          );
+          expect(
+            IconTheme.of(tester.element(icon)).color,
+            theme.colorScheme.onPrimary,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
 
   testWidgets(
     'incoming button disappears immediately while loading and reveals updates',
