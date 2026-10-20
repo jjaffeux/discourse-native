@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'assign_services.dart';
 import 'assignment.dart';
@@ -162,6 +163,8 @@ class AssignmentEditor extends StatefulWidget {
 class _AssignmentEditorState extends State<AssignmentEditor> {
   late final TextEditingController _searchController;
   late final TextEditingController _noteController;
+  final _assigneesScroll = ScrollController();
+  final _assigneesList = ListController();
   final _searchFocus = FocusNode();
   final _noteFocus = FocusNode();
   final _errorKey = GlobalKey();
@@ -207,6 +210,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     _queuedSearch = null;
     _searchController.dispose();
     _noteController.dispose();
+    _assigneesList.dispose();
+    _assigneesScroll.dispose();
     _searchFocus.dispose();
     _noteFocus.dispose();
     super.dispose();
@@ -610,6 +615,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     if (_suggestions == null) return const SizedBox.shrink();
     final selected = _selected;
     final searchEpoch = _searchEpoch;
+    final results = _results;
     final stackGroupBadge =
         MediaQuery.sizeOf(context).width /
             MediaQuery.textScalerOf(context).scale(1) <
@@ -649,9 +655,34 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
         else
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 280),
-            child: DScrollArea(
+            child: DScrollBar(
+              controller: _assigneesScroll,
               child: DRadioGroup<String>.controlled(
                 groupValue: selected == null ? null : _assigneeKey(selected),
+                navigation: DRadioGroupNavigation<String>(
+                  values: results.map(_assigneeKey),
+                  revision: searchEpoch,
+                  reveal: (value, isCurrent) async {
+                    if (!mounted ||
+                        !isCurrent() ||
+                        searchEpoch != _searchEpoch ||
+                        !identical(results, _results) ||
+                        !_assigneesList.isAttached ||
+                        !_assigneesScroll.hasClients) {
+                      return;
+                    }
+                    final index = results.indexWhere(
+                      (item) => _assigneeKey(item) == value,
+                    );
+                    if (index < 0) return;
+                    _assigneesList.jumpToItem(
+                      index: index * 2,
+                      scrollController: _assigneesScroll,
+                      alignment: .5,
+                    );
+                    await WidgetsBinding.instance.endOfFrame;
+                  },
+                ),
                 enabled: !_saving && !_searching,
                 onChanged: (value) {
                   // A mounted row can retain its enabled state until repaint.
@@ -668,53 +699,56 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                     });
                   }
                 },
-                child: Column(
-                  spacing: DSpacing.sm,
-                  children: [
-                    for (final assignee in _results)
-                      DRadioGroupItem<String>(
-                        key: Key(
-                          'assignment-assignee-${_assigneeKey(assignee)}',
-                        ),
-                        value: _assigneeKey(assignee),
-                        card: true,
-                        semanticLabel: appL10n.messageAssignmentsheet(
-                          (assignee.isGroup).toString(),
-                          (assignee.displayName).toString(),
-                          (assignee.identifier).toString(),
-                        ),
-                        label: ExcludeSemantics(
-                          child: Row(
-                            children: [
-                              AssignmentAssigneeAvatar(
-                                assignee: assignee,
-                                size: 32,
-                              ),
-                              const SizedBox(width: DSpacing.md),
-                              Expanded(
-                                child: DItemContent(
-                                  children: [
-                                    DItemTitle(
-                                      maxLines: null,
-                                      child: Text(assignee.displayName),
-                                    ),
-                                    DItemDescription(
-                                      maxLines: null,
-                                      child: Text('@${assignee.identifier}'),
-                                    ),
-                                    if (assignee.isGroup && stackGroupBadge)
-                                      groupBadge,
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        trailing: assignee.isGroup && !stackGroupBadge
-                            ? ExcludeSemantics(child: groupBadge)
-                            : null,
+                child: SuperListView.separated(
+                  listController: _assigneesList,
+                  controller: _assigneesScroll,
+                  shrinkWrap: true,
+                  itemCount: results.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: DSpacing.sm),
+                  itemBuilder: (context, index) {
+                    final assignee = results[index];
+                    return DRadioGroupItem<String>(
+                      key: Key('assignment-assignee-${_assigneeKey(assignee)}'),
+                      value: _assigneeKey(assignee),
+                      card: true,
+                      semanticLabel: appL10n.messageAssignmentsheet(
+                        (assignee.isGroup).toString(),
+                        (assignee.displayName).toString(),
+                        (assignee.identifier).toString(),
                       ),
-                  ],
+                      label: ExcludeSemantics(
+                        child: Row(
+                          children: [
+                            AssignmentAssigneeAvatar(
+                              assignee: assignee,
+                              size: 32,
+                            ),
+                            const SizedBox(width: DSpacing.md),
+                            Expanded(
+                              child: DItemContent(
+                                children: [
+                                  DItemTitle(
+                                    maxLines: null,
+                                    child: Text(assignee.displayName),
+                                  ),
+                                  DItemDescription(
+                                    maxLines: null,
+                                    child: Text('@${assignee.identifier}'),
+                                  ),
+                                  if (assignee.isGroup && stackGroupBadge)
+                                    groupBadge,
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      trailing: assignee.isGroup && !stackGroupBadge
+                          ? ExcludeSemantics(child: groupBadge)
+                          : null,
+                    );
+                  },
                 ),
               ),
             ),
