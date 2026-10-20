@@ -508,7 +508,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
         final diagnostics = DiagnosticsScope.maybeRead(context);
         if (diagnostics == null) {
-          return _buildScaffold(null, false);
+          return _buildScaffold(context, null, false);
         }
 
         // Panel visibility is the only diagnostics-controller state that
@@ -517,18 +517,22 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         // sidebar, topic list, or chat stream.
         return ValueListenableBuilder<bool>(
           valueListenable: diagnostics.panelListenable,
-          builder: (context, open, _) => _buildScaffold(diagnostics, open),
+          builder: (context, open, _) =>
+              _buildScaffold(context, diagnostics, open),
         );
       },
     );
   }
 
   Widget _buildScaffold(
+    BuildContext context,
     DiagnosticsController? diagnostics,
     bool diagnosticsOpen,
   ) {
     final mobile = ShellScope.read(context).mobileNavigationEnabled;
     return Scaffold(
+      resizeToAvoidBottomInset:
+          !mobile || !ComposerPresentationHost.hasMobileSheetOf(context),
       // iOS exposes this surface around the keyboard's rounded upper corners.
       backgroundColor: mobile
           ? Theme.of(context).shell.content
