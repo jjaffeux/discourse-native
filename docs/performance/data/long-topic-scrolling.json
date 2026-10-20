@@ -1,0 +1,665 @@
+{
+  "runsPerSide": 5,
+  "failures": 0,
+  "appFrameworkSha256": {
+    "baseline": "dd98da178e50eb9fa0847f603e3dab33f4f9046f6ecffe21e1d79ce161521aef",
+    "candidate": "e05f47fad8d6589d5391bd365a5d77ebbeb3695179c4fa4cf50c8618b351c306"
+  },
+  "summary": {
+    "baseline": {
+      "viewportMeanUs": {
+        "median": 33.84254143646409,
+        "min": 18.74401473296501,
+        "max": 40.064456721915285,
+        "samples": [
+          29.24907749077491,
+          18.74401473296501,
+          40.064456721915285,
+          33.84254143646409,
+          34.08195211786372
+        ]
+      },
+      "buildMeanMs": {
+        "median": 0.39458931860036817,
+        "min": 0.23731860036832333,
+        "max": 0.5251648250460406,
+        "samples": [
+          0.3529511070110702,
+          0.23731860036832333,
+          0.5251648250460406,
+          0.39458931860036817,
+          0.40125874769797426
+        ]
+      },
+      "rasterMeanMs": {
+        "median": 1.3771491712707193,
+        "min": 0.7873968692449351,
+        "max": 1.6393895027624332,
+        "samples": [
+          1.184789667896679,
+          0.7873968692449351,
+          1.6393895027624332,
+          1.379761510128914,
+          1.3771491712707193
+        ]
+      }
+    },
+    "candidate": {
+      "viewportMeanUs": {
+        "median": 22.317972350230416,
+        "min": 15.804788213627992,
+        "max": 37.404235727440145,
+        "samples": [
+          22.317972350230416,
+          15.804788213627992,
+          37.404235727440145,
+          33.71086556169429,
+          16.962246777163905
+        ]
+      },
+      "buildMeanMs": {
+        "median": 0.31535023041474625,
+        "min": 0.22047329650092043,
+        "max": 0.513160220994475,
+        "samples": [
+          0.31535023041474625,
+          0.22047329650092043,
+          0.513160220994475,
+          0.42747237569060753,
+          0.23963812154696076
+        ]
+      },
+      "rasterMeanMs": {
+        "median": 1.0213741935483869,
+        "min": 0.7533158379373852,
+        "max": 1.6418333333333308,
+        "samples": [
+          1.0213741935483869,
+          0.7533158379373852,
+          1.6418333333333308,
+          1.5100405156537766,
+          0.7939511970534072
+        ]
+      }
+    }
+  },
+  "runs": {
+    "baseline": [
+      {
+        "label": "baseline-verified",
+        "frames": 1084,
+        "updates": 1446,
+        "excursions": [
+          3599.9999999999927,
+          -3599.9999999999745,
+          3600.000000000011,
+          -3600.0000000000055,
+          3599.9999999999873,
+          -3600.0000000000127,
+          3599.999999999991,
+          -3599.999999999978
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.3529511070110702,
+          "p50Ms": 0.309,
+          "p95Ms": 0.718,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 1.184789667896679,
+          "p50Ms": 0.956,
+          "p95Ms": 2.142,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1084,
+          "meanUs": 29.24907749077491,
+          "p50Us": 24,
+          "p95Us": 62
+        }
+      },
+      {
+        "label": "baseline-verified",
+        "frames": 1086,
+        "updates": 1448,
+        "excursions": [
+          3599.9999999999927,
+          -3599.9999999999836,
+          3599.9999999999873,
+          -3599.999999999982,
+          3600.0,
+          -3600.0,
+          3599.9999999999745,
+          -3600.0000000000036
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.23731860036832333,
+          "p50Ms": 0.201,
+          "p95Ms": 0.497,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 0.7873968692449351,
+          "p50Ms": 0.716,
+          "p95Ms": 1.452,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1086,
+          "meanUs": 18.74401473296501,
+          "p50Us": 15,
+          "p95Us": 36
+        }
+      },
+      {
+        "label": "baseline-verified",
+        "frames": 1086,
+        "updates": 1448,
+        "excursions": [
+          3600.0000000000073,
+          -3599.999999999998,
+          3599.9999999999836,
+          -3599.9999999999727,
+          3600.0000000000127,
+          -3600.000000000011,
+          3600.0,
+          -3599.9999999999836
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.5251648250460406,
+          "p50Ms": 0.487,
+          "p95Ms": 1.059,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 1.6393895027624332,
+          "p50Ms": 1.753,
+          "p95Ms": 2.356,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1086,
+          "meanUs": 40.064456721915285,
+          "p50Us": 39,
+          "p95Us": 75
+        }
+      },
+      {
+        "label": "baseline-verified",
+        "frames": 1086,
+        "updates": 1448,
+        "excursions": [
+          3600.0,
+          -3600.0000000000127,
+          3600.000000000002,
+          -3600.000000000002,
+          3599.9999999999945,
+          -3600.000000000029,
+          3599.9999999999745,
+          -3600.0000000000146
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.39458931860036817,
+          "p50Ms": 0.376,
+          "p95Ms": 0.79,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 1.379761510128914,
+          "p50Ms": 1.483,
+          "p95Ms": 2.136,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1086,
+          "meanUs": 33.84254143646409,
+          "p50Us": 33,
+          "p95Us": 69
+        }
+      },
+      {
+        "label": "baseline-verified",
+        "frames": 1086,
+        "updates": 1448,
+        "excursions": [
+          3599.9999999999927,
+          -3599.999999999982,
+          3600.0,
+          -3600.0000000000055,
+          3600.000000000002,
+          -3600.0,
+          3600.0000000000146,
+          -3599.9999999999927
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.40125874769797426,
+          "p50Ms": 0.368,
+          "p95Ms": 0.775,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 1.3771491712707193,
+          "p50Ms": 1.467,
+          "p95Ms": 2.118,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1086,
+          "meanUs": 34.08195211786372,
+          "p50Us": 32,
+          "p95Us": 64
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "label": "candidate-verified",
+        "frames": 1085,
+        "updates": 1447,
+        "excursions": [
+          3599.9999999999927,
+          -3600.0000000000073,
+          3600.0000000000036,
+          -3599.9999999999927,
+          3600.0000000000036,
+          -3600.0,
+          3599.999999999978,
+          -3599.9999999999873
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.31535023041474625,
+          "p50Ms": 0.239,
+          "p95Ms": 0.73,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 1.0213741935483869,
+          "p50Ms": 0.811,
+          "p95Ms": 2.152,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1085,
+          "meanUs": 22.317972350230416,
+          "p50Us": 17,
+          "p95Us": 54
+        }
+      },
+      {
+        "label": "candidate-verified",
+        "frames": 1086,
+        "updates": 1448,
+        "excursions": [
+          3600.0,
+          -3600.0000000000073,
+          3599.9999999999854,
+          -3600.000000000011,
+          3599.999999999982,
+          -3599.9999999999945,
+          3599.999999999998,
+          -3599.9999999999964
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.22047329650092043,
+          "p50Ms": 0.188,
+          "p95Ms": 0.508,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 0.7533158379373852,
+          "p50Ms": 0.661,
+          "p95Ms": 1.692,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1086,
+          "meanUs": 15.804788213627992,
+          "p50Us": 13,
+          "p95Us": 38
+        }
+      },
+      {
+        "label": "candidate-verified",
+        "frames": 1086,
+        "updates": 1447,
+        "excursions": [
+          3599.9999999999964,
+          -3599.999999999991,
+          3599.999999999998,
+          -3599.9999999999927,
+          3600.000000000018,
+          -3599.999999999989,
+          3600.0,
+          -3600.0000000000146
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.513160220994475,
+          "p50Ms": 0.475,
+          "p95Ms": 1.027,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 1.6418333333333308,
+          "p50Ms": 1.749,
+          "p95Ms": 2.385,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1086,
+          "meanUs": 37.404235727440145,
+          "p50Us": 36,
+          "p95Us": 72
+        }
+      },
+      {
+        "label": "candidate-verified",
+        "frames": 1086,
+        "updates": 1447,
+        "excursions": [
+          3599.9999999999927,
+          -3600.0,
+          3599.9999999999927,
+          -3599.9999999999945,
+          3599.999999999991,
+          -3600.0000000000127,
+          3600.000000000002,
+          -3600.0000000000036
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.42747237569060753,
+          "p50Ms": 0.406,
+          "p95Ms": 0.836,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 1.5100405156537766,
+          "p50Ms": 1.617,
+          "p95Ms": 2.172,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1086,
+          "meanUs": 33.71086556169429,
+          "p50Us": 33,
+          "p95Us": 63
+        }
+      },
+      {
+        "label": "candidate-verified",
+        "frames": 1086,
+        "updates": 1448,
+        "excursions": [
+          3599.999999999978,
+          -3600.0,
+          3599.999999999982,
+          -3600.0000000000127,
+          3599.9999999999945,
+          -3599.9999999999764,
+          3599.999999999998,
+          -3599.9999999999927
+        ],
+        "streamPosts": 16000,
+        "loadedPosts": 200,
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "build": {
+          "meanMs": 0.23963812154696076,
+          "p50Ms": 0.204,
+          "p95Ms": 0.515,
+          "over8ms": 0
+        },
+        "raster": {
+          "meanMs": 0.7939511970534072,
+          "p50Ms": 0.701,
+          "p95Ms": 1.513,
+          "over8ms": 0
+        },
+        "viewportWork": {
+          "count": 1086,
+          "meanUs": 16.962246777163905,
+          "p50Us": 14,
+          "p95Us": 35
+        }
+      }
+    ]
+  },
+  "baselineCommit": "f923bdb0ff3c4f3a730768d47e31dab6080f0514",
+  "candidate": "Invocation-local post-bounds memoization; 13 added lines and 5 replacements; rejected",
+  "verdict": "Inconclusive end-to-end result; no application change accepted",
+  "initialCpuSampledBaseline": {
+    "baselineCommit": "1d0b1de1db764076b48d22a50197f6146aa20748",
+    "label": "baseline-profile",
+    "frames": 1086,
+    "updates": 1448,
+    "streamPosts": 16000,
+    "loadedPosts": 200,
+    "physicalSize": [
+      2560.0,
+      1720.0
+    ],
+    "pixelRatio": 2.0,
+    "build": {
+      "meanMs": 0.28533333333333305,
+      "p50Ms": 0.252,
+      "p95Ms": 0.508,
+      "over8ms": 0
+    },
+    "raster": {
+      "meanMs": 0.8759567219152841,
+      "p50Ms": 0.876,
+      "p95Ms": 1.02,
+      "over8ms": 0
+    },
+    "cpu": {
+      "status": "available",
+      "samplePeriodUs": 1000,
+      "capture": {
+        "sampleCount": 1134,
+        "truncatedStackCount": 0,
+        "topFunctions": [
+          {
+            "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool)",
+            "samples": 254
+          },
+          {
+            "name": "dart::Type::type_class_id() const",
+            "samples": 63
+          },
+          {
+            "name": "dart::Class::IsSubtypeOf(dart::Class const&, dart::TypeArguments const&, dart::Nullability, dart::AbstractType const&, d",
+            "samples": 50
+          },
+          {
+            "name": "Dart_InvokeClosure",
+            "samples": 39
+          },
+          {
+            "name": "dart::Function::AreValidArgumentCounts(long, long, long, dart::String*) const",
+            "samples": 32
+          },
+          {
+            "name": "dart::DartEntry::InvokeCallable(dart::Thread*, dart::Function const&, dart::Array const&, dart::Array const&)",
+            "samples": 28
+          },
+          {
+            "name": "_invoke1",
+            "samples": 26
+          },
+          {
+            "name": "dart::Instance::RuntimeTypeIsSubtypeOf(dart::AbstractType const&, dart::TypeArguments const&, dart::TypeArguments const&",
+            "samples": 25
+          }
+        ],
+        "topStacks": [
+          {
+            "name": "dart::Scavenger::TryAllocateNewTLAB(dart::Thread*, long, bool) \u2190 dart::Heap::AllocateNew(dart::Thread*, long) \u2190 dart::Object::Allocate(long, long, dart::Heap::Space, bool, unsigned long, unsigned long) \u2190 dart::Array::NewUninitialized(long, long, dart::Heap::Space) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>)",
+            "samples": 248
+          },
+          {
+            "name": "dart::Class::IsSubtypeOf(dart::Class const&, dart::TypeArguments const&, dart::Nullability, dart::AbstractType const&, d \u2190 dart::Function::DoArgumentTypesMatch(dart::Array const&, dart::ArgumentsDescriptor const&, dart::TypeArguments const&, d \u2190 dart::DartEntry::InvokeCallable(dart::Thread*, dart::Function const&, dart::Array const&, dart::Array const&) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>) \u2190 flutter::PlatformConfiguration::BeginFrame(fml::TimePoint, unsigned long long)",
+            "samples": 44
+          },
+          {
+            "name": "dart::Type::type_class_id() const \u2190 dart::DartEntry::InvokeCallable(dart::Thread*, dart::Function const&, dart::Array const&, dart::Array const&) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>) \u2190 flutter::PlatformConfiguration::BeginFrame(fml::TimePoint, unsigned long long) \u2190 flutter::RuntimeController::BeginFrame(fml::TimePoint, unsigned long long)",
+            "samples": 40
+          },
+          {
+            "name": "Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>) \u2190 flutter::PlatformConfiguration::BeginFrame(fml::TimePoint, unsigned long long) \u2190 flutter::RuntimeController::BeginFrame(fml::TimePoint, unsigned long long) \u2190 flutter::Animator::BeginFrame(std::__fl::unique_ptr<flutter::FrameTimingsRecorder, std::__fl::default_delete<flutter::Fr \u2190 std::__fl::__function::__func<flutter::Animator::AwaitVSync()::$_0, std::__fl::allocator<flutter::Animator::AwaitVSync()",
+            "samples": 39
+          },
+          {
+            "name": "dart::DartEntry::InvokeCallable(dart::Thread*, dart::Function const&, dart::Array const&, dart::Array const&) \u2190 Dart_InvokeClosure \u2190 tonic::DartInvoke(_Dart_Handle*, std::initializer_list<_Dart_Handle*>) \u2190 flutter::PlatformConfiguration::BeginFrame(fml::TimePoint, unsigned long long) \u2190 flutter::RuntimeController::BeginFrame(fml::TimePoint, unsigned long long) \u2190 flutter::Animator::BeginFrame(std::__fl::unique_ptr<flutter::FrameTimingsRecorder, std::__fl::default_delete<flutter::Fr",
+            "samples": 28
+          }
+        ],
+        "vmTags": [
+          {
+            "name": "VM",
+            "samples": 809
+          },
+          {
+            "name": "Dart",
+            "samples": 176
+          },
+          {
+            "name": "DRT_InterruptOrStackOverflow",
+            "samples": 94
+          },
+          {
+            "name": "Timeline_reportTaskEvent",
+            "samples": 24
+          },
+          {
+            "name": "Unknown native entry",
+            "samples": 19
+          },
+          {
+            "name": "Developer_postEvent",
+            "samples": 4
+          },
+          {
+            "name": "DRT_AllocateObject",
+            "samples": 2
+          },
+          {
+            "name": "DRT_AllocateClosure",
+            "samples": 1
+          }
+        ]
+      },
+      "slowTopicFrames": {
+        "sampleCount": 0,
+        "truncatedStackCount": 0,
+        "topFunctions": [],
+        "topStacks": [],
+        "vmTags": []
+      },
+      "frames": [],
+      "rasterTimeline": {
+        "status": "available",
+        "requestedFrameCount": 0,
+        "profiledFrameCount": 0,
+        "matchedFrameCount": 0,
+        "engineFrameSpanCount": 0,
+        "frames": [],
+        "unmatchedFrames": []
+      }
+    }
+  },
+  "lateWindowUpdateDebug": [
+    {
+      "streamLength": 2000,
+      "loaded": 200,
+      "updatesPerSample": 200,
+      "microseconds": [
+        14566,
+        14588,
+        13981,
+        13357,
+        13391
+      ],
+      "postReadsLastSample": 408400,
+      "errors": 0
+    },
+    {
+      "streamLength": 16000,
+      "loaded": 200,
+      "updatesPerSample": 200,
+      "microseconds": [
+        59048,
+        58797,
+        57650,
+        57208,
+        56554
+      ],
+      "postReadsLastSample": 3208400,
+      "errors": 0
+    }
+  ]
+}
