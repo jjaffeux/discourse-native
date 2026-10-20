@@ -132,6 +132,156 @@ void radioListNavigationTests() {
     },
   );
 
+  for (final reverse in [false, true]) {
+    testWidgets(
+      'lazy radio enters far accepted choice with ${reverse ? 'ShiftTab' : 'Tab'} and exits once',
+      (tester) async {
+        final key = GlobalKey<_LazyRadiosState>();
+        await _pumpRadios(tester, key);
+        key.currentState!.change(() => key.currentState!.selected = 190);
+        await tester.pump();
+        (reverse ? key.currentState!.after : key.currentState!.outside)
+            .requestFocus();
+        await tester.pump();
+        await _tab(tester, reverse: reverse);
+        expect(_focusedValues(tester), [190]);
+        expect(key.currentState!.proposals, isEmpty);
+        expect(key.currentState!.selected, 190);
+        await _tab(tester);
+        expect(key.currentState!.after.hasFocus, isTrue);
+        await _tab(tester, reverse: true);
+        expect(_focusedValues(tester), [190]);
+        await _tab(tester, reverse: true);
+        expect(key.currentState!.outside.hasFocus, isTrue);
+      },
+    );
+  }
+
+  for (final selected in [null, 190, 999]) {
+    testWidgets(
+      'lazy radio enters first enabled choice for unavailable selection $selected',
+      (tester) async {
+        final key = GlobalKey<_LazyRadiosState>();
+        await _pumpRadios(tester, key);
+        key.currentState!.change(() {
+          key.currentState!.selected = selected;
+          key.currentState!.disabled = {0, 190};
+        });
+        await tester.pump();
+        key.currentState!.outside.requestFocus();
+        await tester.pump();
+        await _tab(tester);
+        expect(_radio(tester, 1).focusNode.hasFocus, isTrue);
+        expect(key.currentState!.selected, selected);
+        expect(key.currentState!.proposals, isEmpty);
+        await _tab(tester);
+        expect(key.currentState!.after.hasFocus, isTrue);
+      },
+    );
+  }
+
+  for (final empty in [false, true]) {
+    testWidgets('Tab skips ${empty ? 'empty' : 'disabled'} lazy choices', (
+      tester,
+    ) async {
+      final key = GlobalKey<_LazyRadiosState>();
+      await _pumpRadios(tester, key);
+      key.currentState!.change(() {
+        if (empty) {
+          key.currentState!.values.clear();
+        } else {
+          key.currentState!.disabled = key.currentState!.values.toSet();
+        }
+      });
+      await tester.pump();
+      key.currentState!.outside.requestFocus();
+      await tester.pump();
+      await _tab(tester);
+      expect(key.currentState!.after.hasFocus, isTrue);
+      expect(key.currentState!.proposals, isEmpty);
+    });
+  }
+
+  for (final replacement in [
+    'query',
+    'selection',
+    'disabled',
+    'removed',
+    'focus',
+  ]) {
+    testWidgets('$replacement retires pending lazy Tab entry', (tester) async {
+      final key = GlobalKey<_LazyRadiosState>();
+      final gate = Completer<void>();
+      await _pumpRadios(tester, key, beforeReveal: (_) => gate.future);
+      key.currentState!.change(() => key.currentState!.selected = 190);
+      await tester.pump();
+      key.currentState!.outside.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      key.currentState!.change(() {
+        switch (replacement) {
+          case 'query':
+            key.currentState!.revision++;
+          case 'selection':
+            key.currentState!.selected = 99;
+          case 'disabled':
+            key.currentState!.disabled = {190};
+          case 'removed':
+            key.currentState!.values.remove(190);
+          case 'focus':
+            key.currentState!.after.requestFocus();
+        }
+      });
+      await tester.pumpAndSettle();
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(key.currentState!.revealed, isEmpty);
+      expect(key.currentState!.proposals, isEmpty);
+      expect(key.currentState!.scroll.offset, 0);
+      if (replacement != 'focus') {
+        await _tab(tester);
+        expect(key.currentState!.after.hasFocus, isTrue);
+      }
+    });
+  }
+
+  testWidgets('uncontrolled lazy navigation and reset update the Form owner', (
+    tester,
+  ) async {
+    final key = GlobalKey<_LazyRadiosState>();
+    await _pumpRadios(tester, key);
+    key.currentState!.change(() => key.currentState!.controlled = false);
+    await tester.pump();
+    await _focus(tester, 0);
+    await _press(tester, LogicalKeyboardKey.arrowDown);
+    final field = tester.state<FormFieldState<int>>(
+      find.byType(DRadioGroup<int>),
+    );
+    expect(field.value, 1);
+    key.currentState!.form.currentState!.reset();
+    await tester.pumpAndSettle();
+    expect(field.value, 0);
+    expect(key.currentState!.selected, 0);
+  });
+
+  testWidgets('Space during lazy reveal focuses without selecting twice', (
+    tester,
+  ) async {
+    final key = GlobalKey<_LazyRadiosState>();
+    final gate = Completer<void>();
+    await _pumpRadios(tester, key, beforeReveal: (_) => gate.future);
+    await _focus(tester, 2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pump();
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(key.currentState!.proposals, [3]);
+    expect(_radio(tester, 3).focusNode.hasFocus, isTrue);
+  });
+
   testWidgets('Form reset retires a pending lazy radio reveal', (tester) async {
     final key = GlobalKey<_LazyRadiosState>();
     final gate = Completer<void>();
@@ -215,10 +365,25 @@ void radioListNavigationTests() {
   });
 }
 
+Future<void> _tab(WidgetTester tester, {bool reverse = false}) async {
+  if (reverse) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+  if (reverse) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pumpAndSettle();
+}
+
 Future<void> _press(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.sendKeyEvent(key);
   await tester.pumpAndSettle();
 }
+
+List<int> _focusedValues(WidgetTester tester) => find
+    .byType(RawRadio<int>, skipOffstage: false)
+    .evaluate()
+    .map((element) => element.widget as RawRadio<int>)
+    .where((radio) => radio.focusNode.hasFocus)
+    .map((radio) => radio.value)
+    .toList();
 
 RawRadio<int> _radio(WidgetTester tester, int value) =>
     tester.widget<RawRadio<int>>(
@@ -285,6 +450,7 @@ class _LazyRadiosState extends State<_LazyRadios> {
   final form = GlobalKey<FormState>();
   final scroll = ScrollController();
   final outside = FocusNode();
+  final after = FocusNode();
   final proposals = <int?>[];
   final revealed = <int>[];
   final values = List.generate(200, (index) => index);
@@ -308,6 +474,7 @@ class _LazyRadiosState extends State<_LazyRadios> {
   void dispose() {
     scroll.dispose();
     outside.dispose();
+    after.dispose();
     super.dispose();
   }
 
@@ -380,6 +547,7 @@ class _LazyRadiosState extends State<_LazyRadios> {
                   child: child,
                 ),
         ),
+        DButton(focusNode: after, onPressed: () {}, label: const Text('After')),
       ],
     );
   }

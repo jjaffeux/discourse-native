@@ -11,6 +11,9 @@ import 'd_label.dart';
 
 /// Complete reading-order choices for a radio group with lazily mounted rows.
 ///
+/// Tab reveals the accepted enabled value, or the first enabled value, without
+/// changing selection. Arrows follow [values] and skip [disabledValues].
+///
 /// [values] and [disabledValues] are immutable snapshots. Change [revision]
 /// when a query or data owner changes even if the returned values are equal.
 /// [reveal] mounts an offscreen value and completes after its layout. Check
@@ -33,6 +36,8 @@ class DRadioGroupNavigation<T> {
   final Object? revision;
   final Future<void> Function(T value, bool Function() isCurrent) reveal;
 }
+
+enum _RadioNavigation { idle, move, enter }
 
 typedef _RadioItem<T> = ({
   T value,
@@ -99,6 +104,7 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
   final _navigationFocus = FocusNode(debugLabel: 'DRadioGroup navigation');
   ({T value})? _cursor;
   int _navigationGeneration = 0;
+  _RadioNavigation _navigation = _RadioNavigation.idle;
   final _contentKey = GlobalKey();
   late final T? _initialValue;
   @override
@@ -144,6 +150,7 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
   void _retireNavigation() {
     ++_navigationGeneration;
     _cursor = null;
+    _navigation = _RadioNavigation.idle;
   }
 
   void _itemFocused(T value) {
@@ -220,15 +227,19 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
     T target, {
     bool forward = true,
     bool activate = false,
+    bool propose = true,
   }) async {
     final generation = ++_navigationGeneration;
+    if (_navigation != _RadioNavigation.enter) {
+      _navigation = _RadioNavigation.move;
+    }
     bool current() =>
         mounted &&
         generation == _navigationGeneration &&
         _enabled &&
         _navigationFocus.hasFocus;
     final navigation = widget.navigation!;
-    if (!activate) _select(target, navigating: true);
+    if (!activate && propose) _select(target, navigating: true);
     if (!current()) return;
     var item = _items.values.where((item) => item.value == target).firstOrNull;
     if (item == null) {
@@ -251,8 +262,13 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
           : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
     );
     if (!current()) return;
+    if (_navigation == _RadioNavigation.enter) {
+      setState(() => _navigation = _RadioNavigation.idle);
+    } else {
+      _navigation = _RadioNavigation.idle;
+    }
     item.focus.requestFocus();
-    if (activate) {
+    if (activate && (item.toggleable || _selection != target)) {
       _select(item.toggleable && _selection == target ? null : target);
     }
   }
@@ -277,6 +293,21 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
     final tokens = DTokens.of(context);
     final enabled = _enabled;
     final selection = _selection;
+    final navigation = widget.navigation;
+    final entryValue = navigation?.values
+        .where((value) => !navigation.disabledValues.contains(value))
+        .firstOrNull;
+    final selectedEnabled =
+        navigation != null &&
+        navigation.values.contains(selection) &&
+        !navigation.disabledValues.contains(selection);
+    final selectedMounted = _items.values.any(
+      (item) => item.enabled && item.value == selection,
+    );
+    final needsEntry =
+        _navigationFocus.hasPrimaryFocus ||
+        _navigation == _RadioNavigation.enter ||
+        (!_navigationFocus.hasFocus && (!selectedEnabled || !selectedMounted));
     Widget result = _RadioScope<T>(
       key: _contentKey,
       items: _items,
@@ -291,10 +322,24 @@ class _DRadioGroupState<T> extends FormFieldState<T> {
             ? widget.child
             : Focus(
                 focusNode: _navigationFocus,
-                skipTraversal: true,
+                includeSemantics: false,
+                skipTraversal: !needsEntry || !enabled || entryValue == null,
+                descendantsAreTraversable: !needsEntry && enabled,
                 onKeyEvent: _navigationKey,
                 onFocusChange: (focused) {
-                  if (!focused) _retireNavigation();
+                  if (!focused) {
+                    _retireNavigation();
+                  } else if (_navigationFocus.hasPrimaryFocus &&
+                      _navigation == _RadioNavigation.idle &&
+                      entryValue != null) {
+                    final target = selectedEnabled
+                        ? selection as T
+                        : entryValue;
+                    _navigation = _RadioNavigation.enter;
+                    _cursor = (value: target);
+                    unawaited(_revealAndFocus(target, propose: false));
+                  }
+                  if (mounted) setState(() {});
                 },
                 child: widget.child,
               ),
