@@ -70,6 +70,62 @@ void main() {
     },
   );
 
+  testWidgets(
+    'swapping borrowed nodes between tabs keeps only the current cancellation handler',
+    (tester) async {
+      final events = <String>[];
+      KeyEventResult original(FocusNode node, KeyEvent event) {
+        if (event is KeyDownEvent) events.add('original');
+        return KeyEventResult.handled;
+      }
+
+      final first = FocusNode(onKeyEvent: original);
+      final next = FocusNode(onKeyEvent: original);
+      addTearDown(first.dispose);
+      addTearDown(next.dispose);
+      Future<void> pump(bool swapped) => tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                for (final (label, focus) in [
+                  ('A', swapped ? next : first),
+                  ('B', swapped ? first : next),
+                ])
+                  SizedBox(
+                    width: 170,
+                    child: DDocumentTab(
+                      selected: false,
+                      selectionFocusNode: focus,
+                      onTapCancel: () => events.add(label),
+                      onSelect: () {},
+                      onClose: () {},
+                      closeLabel: 'Close $label',
+                      child: Text(label),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await pump(false);
+      await pump(true);
+      first.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(events, ['B', 'original']);
+      events.clear();
+      next.requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(events, ['A', 'original']);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(first.onKeyEvent, original);
+      expect(next.onKeyEvent, original);
+    },
+  );
+
   testWidgets('replacing borrowed close focus updates close visibility', (
     tester,
   ) async {

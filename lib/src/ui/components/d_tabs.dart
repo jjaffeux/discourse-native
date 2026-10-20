@@ -1419,7 +1419,8 @@ class _DDocumentTabState extends State<DDocumentTab> {
   bool _hovered = false;
   final _ownedSelectionFocus = FocusNode();
   final _ownedCloseFocus = FocusNode();
-  FocusOnKeyEventCallback? _selectionKeyHandler;
+  static final _selectionBindings = Expando<_DocumentTabSelectionBinding>();
+  late _DocumentTabSelectionBinding _selectionBinding;
 
   FocusNode get _selectionFocus =>
       widget.selectionFocusNode ?? _ownedSelectionFocus;
@@ -1443,20 +1444,26 @@ class _DDocumentTabState extends State<DDocumentTab> {
   }
 
   void _bindSelectionFocus() {
-    _selectionKeyHandler = _selectionFocus.onKeyEvent;
-    _selectionFocus.onKeyEvent = _handleSelectionKey;
+    final node = _selectionFocus;
+    var binding = _selectionBindings[node];
+    if (binding == null || node.onKeyEvent != binding.handleKey) {
+      binding = _DocumentTabSelectionBinding(node.onKeyEvent);
+      _selectionBindings[node] = binding;
+    }
+    _selectionBinding = binding..owner = this;
+    node.onKeyEvent = binding.handleKey;
   }
 
   void _restoreSelectionFocus(FocusNode node) {
-    if (node.onKeyEvent == _handleSelectionKey) {
-      node.onKeyEvent = _selectionKeyHandler;
+    final binding = _selectionBinding;
+    if (!identical(binding.owner, this)) return;
+    binding.owner = null;
+    if (node.onKeyEvent == binding.handleKey) {
+      node.onKeyEvent = binding.originalHandler;
     }
-  }
-
-  KeyEventResult _handleSelectionKey(FocusNode node, KeyEvent event) {
-    // Keyboard activation must not inherit a drag's pointer-down selection.
-    if (event is KeyDownEvent) widget.onTapCancel?.call();
-    return _selectionKeyHandler?.call(node, event) ?? KeyEventResult.ignored;
+    if (identical(_selectionBindings[node], binding)) {
+      _selectionBindings[node] = null;
+    }
   }
 
   @override
@@ -1617,6 +1624,19 @@ class _DDocumentTabState extends State<DDocumentTab> {
         ),
       ),
     );
+  }
+}
+
+class _DocumentTabSelectionBinding {
+  _DocumentTabSelectionBinding(this.originalHandler);
+
+  final FocusOnKeyEventCallback? originalHandler;
+  _DDocumentTabState? owner;
+
+  KeyEventResult handleKey(FocusNode node, KeyEvent event) {
+    // Keyboard activation must not inherit a drag's pointer-down selection.
+    if (event is KeyDownEvent) owner?.widget.onTapCancel?.call();
+    return originalHandler?.call(node, event) ?? KeyEventResult.ignored;
   }
 }
 
