@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +68,78 @@ void dropdownListVirtualizationTests() {
       });
     }
   }
+
+  for (final alreadyFocused in [false, true]) {
+    testWidgets(
+      'pointer press retires a deferred reveal, already focused $alreadyFocused',
+      (tester) async {
+        final focus = FocusNode(debugLabel: 'Pointer checkbox');
+        final checked = ValueNotifier(false);
+        addTearDown(focus.dispose);
+        addTearDown(checked.dispose);
+        await _pumpPointerMenu(tester, focus: focus, checked: checked);
+        if (alreadyFocused) {
+          focus.requestFocus();
+          await tester.pump();
+        }
+        final point = tester.getCenter(find.text('Pointer checkbox'));
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        final mouse = await tester.startGesture(
+          point,
+          kind: PointerDeviceKind.mouse,
+        );
+        expect(focus.hasPrimaryFocus, isTrue);
+        await tester.pump();
+        expect(focus.hasPrimaryFocus, isTrue);
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(checked.value, isTrue);
+        expect(focus.hasPrimaryFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('pointer hover leaves a deferred keyboard reveal active', (
+    tester,
+  ) async {
+    final focus = FocusNode(debugLabel: 'Pointer checkbox');
+    final checked = ValueNotifier(false);
+    addTearDown(focus.dispose);
+    addTearDown(checked.dispose);
+    await _pumpPointerMenu(tester, focus: focus, checked: checked);
+    final point = tester.getCenter(find.text('Pointer checkbox'));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await mouse.moveTo(point);
+    await tester.pumpAndSettle();
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      'Dropdown item Command 199',
+    );
+    expect(checked.value, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'rapid arrow repeats retain the pending logical keyboard cursor',
+    (tester) async {
+      await _pumpDropdown(tester, children: _commands());
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(
+        FocusManager.instance.primaryFocus?.debugLabel,
+        'Dropdown item Command 197',
+      );
+      expect(find.text('Command 197').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'typeahead reveals a rich far checkbox and preserves its action',
@@ -376,6 +449,52 @@ Future<void> _pumpDropdown(
                 ),
                 child: DDropdownMenuTrigger.button(label: const Text('Open')),
               ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Open'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pumpPointerMenu(
+  WidgetTester tester, {
+  required FocusNode focus,
+  required ValueNotifier<bool> checked,
+}) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: ThemeData(platform: TargetPlatform.macOS),
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topCenter,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: checked,
+            builder: (context, value, _) => DDropdownMenu(
+              content: DDropdownMenuContent(
+                width: 250,
+                constraints: const BoxConstraints(maxHeight: 280),
+                children: [
+                  DDropdownMenuItem(
+                    onPressed: () {},
+                    child: const Text('Command 0'),
+                  ),
+                  DDropdownMenuCheckboxItem(
+                    focusNode: focus,
+                    checked: value,
+                    onChanged: (next) => checked.value = next,
+                    child: const Text('Pointer checkbox'),
+                  ),
+                  for (var index = 2; index < 200; index++)
+                    DDropdownMenuItem(
+                      onPressed: () {},
+                      child: Text('Command $index'),
+                    ),
+                ],
+              ),
+              child: DDropdownMenuTrigger.button(label: const Text('Open')),
             ),
           ),
         ),

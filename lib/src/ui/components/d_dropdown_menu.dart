@@ -576,6 +576,13 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     _pendingHover = null;
   }
 
+  void focusFromPointer(Object owner) {
+    _focusGeneration++;
+    _pendingIndex = null;
+    focused(owner);
+    cancelPointerIntent();
+  }
+
   void cancelPointerIntent() {
     _cancelPendingHover();
     _submenuOrigin = null;
@@ -1854,7 +1861,7 @@ class _DropdownMenuItemSurfaceState extends State<_DropdownMenuItemSurface>
               behavior: HitTestBehavior.opaque,
               onTapDown: widget.enabled
                   ? (_) {
-                      _content?.cancelPointerIntent();
+                      _content?.focusFromPointer(this);
                       _focus.requestFocus();
                       setState(() => _pressed = true);
                     }
