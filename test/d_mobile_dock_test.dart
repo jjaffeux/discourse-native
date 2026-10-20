@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+import 'package:liquid_glass_renderer/src/liquid_glass_capture.dart'
+    show RenderLiquidGlassCapture;
 
 import 'support/stock_glass.dart';
 
@@ -97,6 +99,117 @@ Widget fixture({
 );
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'glass capture follows the capsule through folding ($direction)',
+      (tester) async {
+        final theme = DMaterialTheme.apply(
+          AppTheme.dark,
+          DAppearanceMaterial.liquidGlass,
+        );
+        final surface = find.byKey(const ValueKey('mobile-dock-surface'));
+        final captures = find.byType(LiquidGlassCapture);
+        ({Rect surface, Rect footer, Rect layout, Rect coverage}) bounds() {
+          final capture = tester.renderObject<RenderLiquidGlassCapture>(
+            captures,
+          );
+          return (
+            surface: tester.getRect(surface),
+            footer: tester.getRect(find.byType(DMobileDock)),
+            layout: tester.getRect(captures),
+            coverage: MatrixUtils.transformRect(
+              capture.getTransformTo(null),
+              capture.captureRect,
+            ),
+          );
+        }
+
+        var revealed = 0;
+        await tester.pumpWidget(fixture(theme: theme, direction: direction));
+        await tester.pumpAndSettle();
+        final expanded = bounds();
+        final selected = tester.element(find.byKey(const ValueKey('Topics')));
+        final action = tester.element(find.byType(DMobileDockAction));
+        await tester.pumpWidget(
+          fixture(
+            theme: theme,
+            direction: direction,
+            collapsed: true,
+            onReveal: () => revealed++,
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 90));
+        final folding = bounds();
+        await tester.pump(const Duration(milliseconds: 90));
+        final hiddenNavigation = bounds();
+        await tester.pumpAndSettle();
+        final folded = bounds();
+        debugPrint(
+          'Dock capture $direction expanded=$expanded folding=$folding '
+          'hiddenNavigation=$hiddenNavigation folded=$folded',
+        );
+        expect(expanded.surface.size, const Size(378, 62));
+        expect(folded.surface.size, const Size(48, 48));
+        expect(folding.footer, expanded.footer);
+        expect(hiddenNavigation.footer, expanded.footer);
+        expect(folded.footer, expanded.footer);
+        expect(
+          direction == TextDirection.ltr
+              ? folded.surface.left
+              : folded.surface.right,
+          direction == TextDirection.ltr
+              ? expanded.surface.left
+              : expanded.surface.right,
+        );
+        expect(find.byKey(const ValueKey('Start')).hitTestable(), findsNothing);
+        final reveal = find.byKey(const ValueKey('reveal'));
+        expect(reveal.hitTestable(), findsOneWidget);
+        expect(tester.getRect(reveal), folded.surface.deflate(4));
+        await tester.tap(reveal);
+        expect(revealed, 1);
+        await tester.tapAt(
+          Offset(
+            direction == TextDirection.ltr
+                ? folded.surface.right + 1
+                : folded.surface.left - 1,
+            folded.surface.center.dy,
+          ),
+        );
+        expect(revealed, 1);
+        expect(
+          tester.element(find.byKey(const ValueKey('Topics'))),
+          same(selected),
+        );
+        expect(tester.element(find.byType(DMobileDockAction)), same(action));
+        for (final state in [expanded, folding, hiddenNavigation, folded]) {
+          expect(state.layout, state.surface);
+          expect(
+            state.coverage.width,
+            lessThanOrEqualTo(
+              state.surface.width +
+                  expanded.coverage.width -
+                  expanded.surface.width +
+                  1,
+            ),
+          );
+        }
+        await tester.pumpWidget(fixture(theme: theme, direction: direction));
+        await tester.pumpAndSettle();
+        expect(bounds(), expanded);
+        expect(
+          tester.element(find.byKey(const ValueKey('Topics'))),
+          same(selected),
+        );
+        expect(tester.element(find.byType(DMobileDockAction)), same(action));
+        expect(
+          find.byKey(const ValueKey('Start')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final direction in TextDirection.values) {
     testWidgets(
       'actionless dock fills the capsule with navigation ($direction)',

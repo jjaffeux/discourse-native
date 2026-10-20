@@ -211,9 +211,40 @@ class _DMobileDockState extends State<DMobileDock>
               preserveColor: true,
               child: child,
             );
+      final navigation = OverflowBox(
+        alignment: AlignmentDirectional.centerStart,
+        minWidth: constraints.maxWidth - 12,
+        maxWidth: constraints.maxWidth - 12,
+        child: _DockRow(
+          direction: Directionality.of(context),
+          onOverflowChanged: _overflow,
+          selected: destinations.indexWhere(
+            (item) => item is DMobileDockItem && item.selected,
+          ),
+          onAnchorChanged: _anchorChanged,
+          count: destinations.length,
+          actionExtent: action == null ? 0 : 50 + growth,
+          children: [
+            for (final (index, item) in destinations.indexed)
+              Offstage(
+                offstage: index >= (_shown ?? destinations.length),
+                child: navigationArtwork(_destination(item)),
+              ),
+            Offstage(
+              offstage: _shown == destinations.length,
+              child: navigationArtwork(_destination(more)),
+            ),
+            if (action != null)
+              navigationArtwork(action!)
+            else
+              const SizedBox.shrink(),
+          ],
+        ),
+      );
       final capsuleArtwork = Align(
         alignment: AlignmentDirectional.bottomStart,
         heightFactor: 1,
+        widthFactor: 1,
         child: AnimatedContainer(
           key: const ValueKey('mobile-dock-surface'),
           duration: reduced || _spring
@@ -245,52 +276,21 @@ class _DMobileDockState extends State<DMobileDock>
                         excluding: collapsed || navOpacity < 1,
                         child: IgnorePointer(
                           ignoring: collapsed || navOpacity < 1,
-                          child: AnimatedOpacity(
-                            opacity: glass
-                                ? (navOpacity > 0 ? 1 : 0)
-                                : navOpacity,
-                            duration: reduced || _spring
-                                ? Duration.zero
-                                : const Duration(milliseconds: 100),
-                            child: OverflowBox(
-                              alignment: AlignmentDirectional.centerStart,
-                              minWidth: constraints.maxWidth - 12,
-                              maxWidth: constraints.maxWidth - 12,
-                              child: _DockRow(
-                                direction: Directionality.of(context),
-                                onOverflowChanged: _overflow,
-                                selected: destinations.indexWhere(
-                                  (item) =>
-                                      item is DMobileDockItem && item.selected,
+                          child: glass
+                              // Keep invisible controls mounted for measurement,
+                              // but collapse their capture bounds into the capsule.
+                              ? Transform.scale(
+                                  scale: navOpacity > 0 ? 1 : 0,
+                                  alignment: AlignmentDirectional.centerStart,
+                                  child: navigation,
+                                )
+                              : AnimatedOpacity(
+                                  opacity: navOpacity,
+                                  duration: reduced || _spring
+                                      ? Duration.zero
+                                      : const Duration(milliseconds: 100),
+                                  child: navigation,
                                 ),
-                                onAnchorChanged: _anchorChanged,
-                                count: destinations.length,
-                                actionExtent: action == null ? 0 : 50 + growth,
-                                children: [
-                                  for (final (index, item)
-                                      in destinations.indexed)
-                                    Offstage(
-                                      offstage:
-                                          index >=
-                                          (_shown ?? destinations.length),
-                                      child: navigationArtwork(
-                                        _destination(item),
-                                      ),
-                                    ),
-                                  Offstage(
-                                    offstage: _shown == destinations.length,
-                                    child: navigationArtwork(
-                                      _destination(more),
-                                    ),
-                                  ),
-                                  if (action != null)
-                                    navigationArtwork(action!)
-                                  else
-                                    const SizedBox.shrink(),
-                                ],
-                              ),
-                            ),
-                          ),
                         ),
                       ),
                       if (collapsed || revealOpacity > 0)
