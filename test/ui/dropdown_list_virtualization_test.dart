@@ -7,6 +7,35 @@ import 'package:flutter_test/flutter_test.dart';
 void main() => dropdownListVirtualizationTests();
 
 void dropdownListVirtualizationTests() {
+  for (final pointerFixture in [false, true]) {
+    testWidgets(
+      'dropdown fixture respects native insets, pointer fixture $pointerFixture',
+      (tester) async {
+        tester.view.padding = const FakeViewPadding(top: 186);
+        tester.view.viewPadding = const FakeViewPadding(top: 186, bottom: 102);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+        addTearDown(tester.view.reset);
+        if (pointerFixture) {
+          final focus = FocusNode();
+          final checked = ValueNotifier(false);
+          addTearDown(focus.dispose);
+          addTearDown(checked.dispose);
+          await _pumpPointerMenu(tester, focus: focus, checked: checked);
+        } else {
+          await _pumpDropdown(tester, children: _commands());
+        }
+        expect(find.byType(DDropdownMenuContent), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.end);
+        await tester.pumpAndSettle();
+        expect(
+          FocusManager.instance.primaryFocus?.debugLabel,
+          'Dropdown item Command 199',
+        );
+        expect(find.text('Command 199').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets('long dropdown mounts a bounded window at $platform $scale', (
@@ -33,6 +62,7 @@ void dropdownListVirtualizationTests() {
         debugPrint(
           'DROPDOWN_MOUNTED platform=$platform scale=$scale rows=$mounted',
         );
+        expect(mounted, greaterThan(0));
         expect(mounted, lessThan(40));
         await tester.sendKeyEvent(LogicalKeyboardKey.end);
         await tester.pumpAndSettle();
@@ -515,8 +545,8 @@ Future<void> _pumpDropdown(
   required List<Widget> children,
   ValueNotifier<List<int>>? order,
 }) async {
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
+  final pixelRatio = tester.view.devicePixelRatio;
+  tester.view.physicalSize = Size(390 * pixelRatio, 844 * pixelRatio);
   addTearDown(tester.view.reset);
   final values = order ?? ValueNotifier<List<int>>(const []);
   if (order == null) addTearDown(values.dispose);
@@ -530,28 +560,30 @@ Future<void> _pumpDropdown(
         child: child!,
       ),
       home: Scaffold(
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 50),
-            child: ValueListenableBuilder<List<int>>(
-              valueListenable: values,
-              builder: (context, values, _) => DDropdownMenu(
-                content: DDropdownMenuContent(
-                  width: 250,
-                  constraints: const BoxConstraints(maxHeight: 280),
-                  children: order == null
-                      ? children
-                      : [
-                          for (final index in values)
-                            DDropdownMenuItem(
-                              key: ValueKey(index),
-                              onPressed: () {},
-                              child: Text('Command $index'),
-                            ),
-                        ],
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 50),
+              child: ValueListenableBuilder<List<int>>(
+                valueListenable: values,
+                builder: (context, values, _) => DDropdownMenu(
+                  content: DDropdownMenuContent(
+                    width: 250,
+                    constraints: const BoxConstraints(maxHeight: 280),
+                    children: order == null
+                        ? children
+                        : [
+                            for (final index in values)
+                              DDropdownMenuItem(
+                                key: ValueKey(index),
+                                onPressed: () {},
+                                child: Text('Command $index'),
+                              ),
+                          ],
+                  ),
+                  child: DDropdownMenuTrigger.button(label: const Text('Open')),
                 ),
-                child: DDropdownMenuTrigger.button(label: const Text('Open')),
               ),
             ),
           ),
@@ -561,6 +593,7 @@ Future<void> _pumpDropdown(
   );
   await tester.tap(find.text('Open'));
   await tester.pumpAndSettle();
+  expect(find.byType(DDropdownMenuContent), findsOneWidget);
 }
 
 Future<void> _pumpPointerMenu(
@@ -572,33 +605,35 @@ Future<void> _pumpPointerMenu(
     MaterialApp(
       theme: ThemeData(platform: TargetPlatform.macOS),
       home: Scaffold(
-        body: Align(
-          alignment: Alignment.topCenter,
-          child: ValueListenableBuilder<bool>(
-            valueListenable: checked,
-            builder: (context, value, _) => DDropdownMenu(
-              content: DDropdownMenuContent(
-                width: 250,
-                constraints: const BoxConstraints(maxHeight: 280),
-                children: [
-                  DDropdownMenuItem(
-                    onPressed: () {},
-                    child: const Text('Command 0'),
-                  ),
-                  DDropdownMenuCheckboxItem(
-                    focusNode: focus,
-                    checked: value,
-                    onChanged: (next) => checked.value = next,
-                    child: const Text('Pointer checkbox'),
-                  ),
-                  for (var index = 2; index < 200; index++)
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: checked,
+              builder: (context, value, _) => DDropdownMenu(
+                content: DDropdownMenuContent(
+                  width: 250,
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  children: [
                     DDropdownMenuItem(
                       onPressed: () {},
-                      child: Text('Command $index'),
+                      child: const Text('Command 0'),
                     ),
-                ],
+                    DDropdownMenuCheckboxItem(
+                      focusNode: focus,
+                      checked: value,
+                      onChanged: (next) => checked.value = next,
+                      child: const Text('Pointer checkbox'),
+                    ),
+                    for (var index = 2; index < 200; index++)
+                      DDropdownMenuItem(
+                        onPressed: () {},
+                        child: Text('Command $index'),
+                      ),
+                  ],
+                ),
+                child: DDropdownMenuTrigger.button(label: const Text('Open')),
               ),
-              child: DDropdownMenuTrigger.button(label: const Text('Open')),
             ),
           ),
         ),
@@ -607,4 +642,5 @@ Future<void> _pumpPointerMenu(
   );
   await tester.tap(find.text('Open'));
   await tester.pumpAndSettle();
+  expect(find.byType(DDropdownMenuContent), findsOneWidget);
 }
