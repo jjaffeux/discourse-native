@@ -559,6 +559,107 @@ void optionListVirtualizationTests() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'long select cancels a pending reveal when its target is removed',
+    (tester) async {
+      late StateSetter update;
+      var count = 200;
+      await tester.pumpWidget(
+        _app(
+          StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return DSelect<int>(
+                initialValue: 190,
+                entries: [
+                  for (var value = 0; value < count; value++)
+                    DSelectItem<int>(
+                      value: value,
+                      textValue: 'Option $value',
+                      child: Text('Option $value', key: ValueKey<int>(value)),
+                    ),
+                ],
+                onChanged: (_) {},
+              );
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('d-select-trigger-visual')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      update(() => count = 180);
+      await tester.pumpAndSettle();
+      _expectSelectFocused(tester, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  for (final grouped in [false, true]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'long select retains keyboard focus after scrolling away, grouped=$grouped, scale=$scale',
+        (tester) async {
+          final rows = [
+            for (var value = 0; value < 200; value++)
+              DSelectItem<int>(
+                value: value,
+                textValue: 'Option $value',
+                child: Text('Option $value', key: ValueKey<int>(value)),
+              ),
+          ];
+          await tester.pumpWidget(
+            _app(
+              DSelect<int>(
+                initialValue: 100,
+                entries: grouped
+                    ? [
+                        for (final row in rows)
+                          DSelectGroup<int>(
+                            label: Text('Group ${row.value}'),
+                            children: [row],
+                          ),
+                      ]
+                    : rows,
+                onChanged: (_) {},
+              ),
+              scale: scale,
+            ),
+          );
+          await tester.tap(find.byKey(const Key('d-select-trigger-visual')));
+          await tester.pumpAndSettle();
+          _expectSelectFocused(tester, 100);
+          final scroll = tester
+              .widget<CustomScrollView>(find.byType(CustomScrollView))
+              .controller!;
+          scroll.jumpTo(scroll.position.maxScrollExtent);
+          await tester.pumpAndSettle();
+          expect(
+            Focus.of(
+              tester.element(
+                find.byKey(const ValueKey<int>(100), skipOffstage: false),
+              ),
+            ).hasPrimaryFocus,
+            isTrue,
+          );
+          expect(
+            find
+                .byWidgetPredicate(
+                  (widget) => widget.key is ValueKey<int>,
+                  skipOffstage: false,
+                )
+                .evaluate()
+                .length,
+            lessThan(40),
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.pumpAndSettle();
+          _expectSelectFocused(tester, 101);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
   for (final scale in [1.0, 2.0]) {
     testWidgets('long grouped select mounts bounded options at ${scale}x', (
       tester,

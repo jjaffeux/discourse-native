@@ -1339,6 +1339,10 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         slivers.add(
           _visibleSliver(
             extent,
+            retain: () => _optionFocus
+                .skip(firstIndex)
+                .take(group.items.length)
+                .any((node) => node.hasPrimaryFocus),
             () => SliverSemantics(
               container: true,
               explicitChildNodes: true,
@@ -1369,6 +1373,7 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         entryIndex++;
         continue;
       }
+      final firstIndex = selectableIndex;
       final rows = <(DSelectEntry<T>, int, double)>[];
       var extent = 0.0;
       while (entryIndex < entries.length &&
@@ -1383,9 +1388,14 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
         offset += height;
         extent += height;
       }
+      final itemCount = selectableIndex - firstIndex;
       slivers.add(
         _visibleSliver(
           extent,
+          retain: () => _optionFocus
+              .skip(firstIndex)
+              .take(itemCount)
+              .any((node) => node.hasPrimaryFocus),
           () => SliverVariedExtentList.builder(
             itemCount: rows.length,
             itemExtentBuilder: (index, _) =>
@@ -1405,14 +1415,18 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     return slivers;
   }
 
-  Widget _visibleSliver(double extent, Widget Function() build) =>
-      SliverLayoutBuilder(
-        builder: (context, constraints) =>
-            constraints.scrollOffset + constraints.cacheOrigin >= extent ||
-                constraints.remainingCacheExtent <= 0
-            ? SliverToBoxAdapter(child: SizedBox(height: extent))
-            : build(),
-      );
+  Widget _visibleSliver(
+    double extent,
+    Widget Function() build, {
+    required bool Function() retain,
+  }) => SliverLayoutBuilder(
+    builder: (context, constraints) =>
+        !retain() &&
+            (constraints.scrollOffset + constraints.cacheOrigin >= extent ||
+                constraints.remainingCacheExtent <= 0)
+        ? SliverToBoxAdapter(child: SizedBox(height: extent))
+        : build(),
+  );
 
   DPopoverContent _popup(double popupWidth) {
     final touch = _touch;
@@ -1886,11 +1900,16 @@ class _DSelectOptionRow<T> extends StatefulWidget {
   State<_DSelectOptionRow<T>> createState() => _DSelectOptionRowState<T>();
 }
 
-class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
+class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>>
+    with AutomaticKeepAliveClientMixin {
   bool _focused = false;
 
   @override
+  bool get wantKeepAlive => _focused;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     final tokens = DTokens.of(context);
     final enabled = widget.enabled && widget.item.enabled;
     // Pointer feedback remains visible even if another control takes focus.
@@ -2000,7 +2019,10 @@ class _DSelectOptionRowState<T> extends State<_DSelectOptionRow<T>> {
       child: Focus(
         focusNode: widget.focusNode,
         canRequestFocus: enabled,
-        onFocusChange: (value) => setState(() => _focused = value),
+        onFocusChange: (value) {
+          setState(() => _focused = value);
+          updateKeepAlive();
+        },
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: enabled && !widget.readOnly
