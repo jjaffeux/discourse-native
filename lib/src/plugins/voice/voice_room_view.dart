@@ -2383,68 +2383,70 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
             DDialogTitle(child: Text(context.l10n.membersOf(widget.room.name))),
           ],
         ),
-        DDialogScrollArea(
-          maxHeightFactor: .5,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final membership in _memberships)
-                DItem(
-                  children: [
-                    DItemContent(
-                      children: [
-                        DItemTitle(
-                          child: Text(
-                            membership.user?.name ??
-                                membership.user?.username ??
-                                context.l10n.user(membership.userId.toString()),
-                          ),
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .5,
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _memberships.length,
+            itemBuilder: (context, index) {
+              final membership = _memberships[index];
+              return DItem(
+                children: [
+                  DItemContent(
+                    children: [
+                      DItemTitle(
+                        child: Text(
+                          membership.user?.name ??
+                              membership.user?.username ??
+                              context.l10n.user(membership.userId.toString()),
                         ),
-                        DItemDescription(child: Text(membership.role.name)),
-                      ],
-                    ),
-                    DItemActions(
-                      children: [
-                        DDropdownMenu(
-                          content: DDropdownMenuContent(
-                            semanticLabel: context.l10n.changeRole,
-                            width: 280,
-                            children: [
-                              for (final role in VoiceRole.values)
-                                DDropdownMenuItem(
-                                  onPressed: () =>
-                                      _updateMember(membership, role),
-                                  child: Text(role.name),
-                                ),
-                            ],
-                          ),
-                          child: DDropdownMenuTrigger(
-                            builder: (triggerContext, state) =>
-                                DButton.iconOnly(
-                                  tooltip: context.l10n.changeRole,
-                                  variant: DButtonVariant.ghost,
-                                  icon: const DIcon(DIcons.ellipsisVertical),
-                                  focusNode: state.focusNode,
-                                  hasPopup: true,
-                                  expanded: state.open,
-                                  onPressed: available ? state.toggle : null,
-                                ),
-                          ),
+                      ),
+                      DItemDescription(child: Text(membership.role.name)),
+                    ],
+                  ),
+                  DItemActions(
+                    children: [
+                      DDropdownMenu(
+                        content: DDropdownMenuContent(
+                          semanticLabel: context.l10n.changeRole,
+                          width: 280,
+                          children: [
+                            for (final role in VoiceRole.values)
+                              DDropdownMenuItem(
+                                onPressed: () =>
+                                    _updateMember(membership, role),
+                                child: Text(role.name),
+                              ),
+                          ],
                         ),
-                        if (membership.userId != widget.room.creatorId)
-                          DButton.iconOnly(
-                            onPressed: available
-                                ? () => _removeMember(membership)
-                                : null,
+                        child: DDropdownMenuTrigger(
+                          builder: (triggerContext, state) => DButton.iconOnly(
+                            tooltip: context.l10n.changeRole,
                             variant: DButtonVariant.ghost,
-                            tooltip: context.l10n.removeMember,
-                            icon: const DIcon(DIcons.trashCan),
+                            icon: const DIcon(DIcons.ellipsisVertical),
+                            focusNode: state.focusNode,
+                            hasPopup: true,
+                            expanded: state.open,
+                            onPressed: available ? state.toggle : null,
                           ),
-                      ],
-                    ),
-                  ],
-                ),
-            ],
+                        ),
+                      ),
+                      if (membership.userId != widget.room.creatorId)
+                        DButton.iconOnly(
+                          onPressed: available
+                              ? () => _removeMember(membership)
+                              : null,
+                          variant: DButtonVariant.ghost,
+                          tooltip: context.l10n.removeMember,
+                          icon: const DIcon(DIcons.trashCan),
+                        ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         ),
         const DSeparator(),

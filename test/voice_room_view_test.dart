@@ -2072,6 +2072,79 @@ void main() {
   });
 
   group('membership management', () {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'member dialog mounts only its viewport at text scale $scale',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.view.reset);
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          final transport = RecordingPluginTransport(
+            responses: {
+              'GET /voice/rooms/7/memberships.json': {
+                'memberships': [
+                  for (var i = 0; i < 200; i++)
+                    {
+                      'id': 1000 + i,
+                      'room_id': 7,
+                      'user_id': i + 2,
+                      'role_name': 'participant',
+                      'user': {'id': i + 2, 'username': 'Member $i'},
+                    },
+                ],
+              },
+              'DELETE /voice/rooms/7/memberships/1199.json':
+                  <String, Object?>{},
+            },
+          );
+          final harness = _Harness(discourseApi: transport);
+          addTearDown(harness.dispose);
+          await _openMembers(tester, harness);
+          final dialog = find.byType(DDialogContent);
+          final mounted = find
+              .descendant(
+                of: dialog,
+                matching: find.byType(DItem, skipOffstage: false),
+                skipOffstage: false,
+              )
+              .evaluate()
+              .length;
+          debugPrint(
+            'LAZY_LIST voice-members scale=$scale mounted=$mounted total=200',
+          );
+          expect(mounted, lessThan(30));
+          final last = find.widgetWithText(DItem, 'Member 199');
+          final memberList = find
+              .descendant(of: dialog, matching: find.byType(ListView))
+              .first;
+          await tester.scrollUntilVisible(
+            last,
+            350,
+            scrollable: find
+                .descendant(of: memberList, matching: find.byType(Scrollable))
+                .first,
+            maxScrolls: 150,
+          );
+          await tester.tap(
+            find.descendant(
+              of: last,
+              matching: find.byTooltip('Remove member'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            transport.writes
+                .singleWhere((write) => write.method == 'DELETE')
+                .path,
+            '/voice/rooms/7/memberships/1199.json',
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('ignores a pending add after the dialog is dismissed', (
       tester,
     ) async {
