@@ -91,6 +91,76 @@ void main() {
       );
     });
 
+    testWidgets('plus fills the reference arm extents', (tester) async {
+      const key = ValueKey('reference-plus');
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Center(
+            child: DIconGlyphTheme(
+              scale: 1,
+              naturalWidth: true,
+              child: RepaintBoundary(
+                key: key,
+                child: DIcon(DIcons.plus, size: 64, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.getSize(find.byKey(key)), const Size(56, 64));
+      expect(
+        await samplePixels(tester, find.byKey(key), const [
+          Offset(1, 32),
+          Offset(28, 5),
+          Offset(55, 32),
+          Offset(28, 59),
+          Offset.zero,
+        ]),
+        const [
+          Colors.white,
+          Colors.white,
+          Colors.white,
+          Colors.white,
+          Colors.transparent,
+        ],
+      );
+    });
+
+    testWidgets('smile keeps the reference mouth weight', (tester) async {
+      const key = ValueKey('reference-smile');
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Center(
+            child: DIconGlyphTheme(
+              scale: 1,
+              child: RepaintBoundary(
+                key: key,
+                child: DIcon(DIcons.faceSmile, size: 64, color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        await samplePixels(tester, find.byKey(key), const [
+          Offset(32, 51),
+          Offset(32, 53),
+          Offset(22, 26),
+          Offset(32, 32),
+        ]),
+        const [
+          Colors.transparent,
+          Colors.white,
+          Colors.transparent,
+          Colors.white,
+        ],
+      );
+    });
+
     testWidgets('takes its size from IconTheme without a paint-time filter', (
       tester,
     ) async {

@@ -1216,9 +1216,12 @@ class _ChatComposerState extends State<ChatComposer> {
         : context.l10n.messageChatcomposer((channel.title).toString());
     final mobile = context.isTouch;
     final colors = _chatComposerColors(DTokens.of(context));
+    final fontSize = mobile
+        ? DiscourseTypography.mobileBase
+        : DiscourseTypography.base;
     final editorStyle = DInputGroup.composerTextStyleOf(
       context,
-    ).copyWith(fontSize: 13, height: 20 / 13, color: colors.text);
+    ).copyWith(fontSize: fontSize, height: 20 / fontSize, color: colors.text);
     final lineExtent = DInputGroup.composerLineExtentOf(context);
     void openLink() =>
         unawaited(showComposerLinkDialog(context: context, composer: composer));

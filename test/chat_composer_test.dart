@@ -149,8 +149,10 @@ void main() {
         final editor = tester.widget<ComposerEditor>(
           find.byType(ComposerEditor),
         );
-        expect(editor.textStyle!.fontSize, 13);
-        expect(editor.textStyle!.height, 20 / 13);
+        final fontSize = platform == TargetPlatform.macOS ? 14.0 : 17.0;
+        expect(editor.textStyle!.fontSize, fontSize);
+        expect(editor.textStyle!.height, 20 / fontSize);
+        expect(editor.hintStyle!.fontSize, fontSize);
         expect(editor.textStyle!.color, const Color(0xfff2f2f2));
         expect(
           editor.hintStyle!.color,
@@ -2031,7 +2033,9 @@ void main() {
           await tester.enterText(_composerField(), 'Draft');
           await tester.pump();
           expect(tester.getSize(bar).height, emptyHeight, reason: zoom.name);
-          const fontSize = 13.0;
+          final fontSize = defaultTargetPlatform == TargetPlatform.macOS
+              ? 14.0
+              : 17.0;
           expect(_field(tester).style!.fontSize, fontSize);
           final render = tester
               .state<EditableTextState>(
