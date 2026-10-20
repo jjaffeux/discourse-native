@@ -9,6 +9,7 @@ import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_page.dart';
 import 'package:discourse_native/src/shell/forum_theme_editor.dart';
@@ -38,6 +39,8 @@ void main() {
       await loader.load();
     }
   });
+
+  mobileSettingsPanelClipTests();
 
   testWidgets(
     'offline font roles and the accessibility switch share persisted choices',
@@ -626,6 +629,95 @@ void main() {
       );
     }
   }
+}
+
+void mobileSettingsPanelClipTests() {
+  testWidgets('mobile settings keep font cards inside the rounded body', (
+    tester,
+  ) async {
+    const notificationChannel = MethodChannel(
+      'org.discourse.native/notification_opens',
+    );
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      notificationChannel,
+      (_) async => null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        notificationChannel,
+        null,
+      ),
+    );
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+    await tester.binding.setSurfaceSize(const Size(430, 932));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await pumpShell(
+      tester,
+      const Size(430, 932),
+      instances: [instance('a.example')],
+    );
+    final shell = ShellScope.read(tester.element(find.byType(MobileForumRoot)));
+    shell.openCurrentSettings();
+    await shell.forumSettings.setThemeMode(
+      'https://a.example',
+      AppThemeMode.dark,
+    );
+    await shell.forumSettings.setThemes(
+      'https://a.example',
+      ForumThemePreferences.preset('dracula'),
+    );
+    await tester.pumpAndSettle();
+
+    final panel = find.byKey(const ValueKey('mobile-content-panel'));
+    final font = find.byKey(const ValueKey('display-font-system'));
+    final viewport = find
+        .ancestor(of: font, matching: find.byType(Scrollable))
+        .first;
+    final position = tester.state<ScrollableState>(viewport).position;
+    for (final offset in [0.0, 100.0]) {
+      position.jumpTo(offset);
+      DScrollChrome.maybeOf(
+        tester.element(find.byType(ForumSettingsPage)),
+      )!.reveal();
+      await tester.pumpAndSettle();
+      await _captureFonts(tester, 'mobile-settings-body-${offset.round()}');
+      final rect = tester.getRect(panel);
+      await tester.runAsync(() async {
+        final builder = ui.SceneBuilder();
+        tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+        final scene = builder.build();
+        final image = await scene.toImage(430, 932);
+        try {
+          final bytes = (await image.toByteData())!.buffer.asUint8List();
+          for (final (x, tolerance) in [
+            (rect.left + 16, 2),
+            // The dock's right action adds a soft glow behind this corner.
+            (rect.right - 16, 6),
+          ]) {
+            for (var channel = 0; channel < 3; channel++) {
+              final corner =
+                  ((rect.bottom.floor() - 1) * image.width + x.floor()) * 4;
+              final window =
+                  (rect.bottom.floor() * image.width + x.floor()) * 4;
+              expect(
+                bytes[corner + channel],
+                closeTo(bytes[window + channel], tolerance),
+                reason:
+                    'The window background continues through the rounded '
+                    'body corner at ($x, ${rect.bottom - 1}), '
+                    'scroll offset $offset, channel $channel.',
+              );
+            }
+          }
+        } finally {
+          image.dispose();
+          scene.dispose();
+        }
+      });
+    }
+    expect(tester.takeException(), isNull);
+  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 }
 
 Future<void> _openSection(WidgetTester tester, String label) async {
