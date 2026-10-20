@@ -3,9 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../test/progressive_html_visibility_test.dart' as visibility;
 import '../test/topic_header_scroll_motion_test.dart' as header;
 import '../test/topic_progressive_html_test.dart' as progressive;
 import '../test/topic_scroll_churn_test.dart' as churn;
+import '../test/topic_sheet_progressive_html_test.dart' as sheet;
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -13,5 +15,7 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   churn.main();
   progressive.main();
+  visibility.main();
+  sheet.main();
   header.main(shortTopicViewport: const Size(800, 400));
 }

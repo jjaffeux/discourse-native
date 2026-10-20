@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -82,6 +83,7 @@ class _ProgressiveHtmlBodyState extends State<_ProgressiveHtmlBody> {
   static const batchSize = 64;
   int _count = batchSize;
   final _completion = Completer<void>();
+  ValueListenable<TickerModeData>? _tickerMode;
 
   @override
   void initState() {
@@ -90,7 +92,47 @@ class _ProgressiveHtmlBodyState extends State<_ProgressiveHtmlBody> {
       _completion.future,
       layoutPending: false,
     ).dispatch(context);
-    _HtmlMountQueue.add(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bindTickerMode();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _bindTickerMode();
+  }
+
+  void _bindTickerMode() {
+    final mode = TickerMode.getValuesNotifier(context);
+    if (!identical(mode, _tickerMode)) {
+      _tickerMode?.removeListener(_syncMountQueue);
+      _tickerMode = mode..addListener(_syncMountQueue);
+    }
+    _syncMountQueue();
+  }
+
+  void _syncMountQueue() {
+    if (_tickerMode?.value.enabled == true && _count < widget.children.length) {
+      _HtmlMountQueue.add(this);
+    } else {
+      _HtmlMountQueue.remove(this);
+    }
+  }
+
+  void _detachTickerMode() {
+    _tickerMode?.removeListener(_syncMountQueue);
+    _tickerMode = null;
+    _HtmlMountQueue.remove(this);
+  }
+
+  @override
+  void deactivate() {
+    _detachTickerMode();
+    super.deactivate();
   }
 
   @override
@@ -102,9 +144,8 @@ class _ProgressiveHtmlBodyState extends State<_ProgressiveHtmlBody> {
     final wasComplete = _count >= oldWidget.children.length;
     _count = wasComplete ? widget.children.length : batchSize;
     _HtmlMountQueue.remove(this);
-    if (_count < widget.children.length) {
-      _HtmlMountQueue.add(this);
-    } else if (!_completion.isCompleted) {
+    _syncMountQueue();
+    if (_count >= widget.children.length && !_completion.isCompleted) {
       _completion.complete();
     }
   }
@@ -113,16 +154,15 @@ class _ProgressiveHtmlBodyState extends State<_ProgressiveHtmlBody> {
     setState(() {
       _count = math.min(_count + batchSize, widget.children.length);
     });
-    if (_count < widget.children.length) {
-      _HtmlMountQueue.add(this);
-    } else if (!_completion.isCompleted) {
+    _syncMountQueue();
+    if (_count >= widget.children.length && !_completion.isCompleted) {
       _completion.complete();
     }
   }
 
   @override
   void dispose() {
-    _HtmlMountQueue.remove(this);
+    _detachTickerMode();
     if (!_completion.isCompleted) _completion.complete();
     super.dispose();
   }
@@ -140,29 +180,25 @@ class _ProgressiveHtmlBodyState extends State<_ProgressiveHtmlBody> {
   );
 }
 
-// Retained offscreen posts and newly opened posts share the same queue. They
-// must not each schedule an entire additional batch in the same frame.
 abstract final class _HtmlMountQueue {
-  static final _pending = <_ProgressiveHtmlBodyState>{};
+  static final _active = <_ProgressiveHtmlBodyState>{};
   static int? _frame;
 
   static void add(_ProgressiveHtmlBodyState body) {
-    _pending.add(body);
+    _active.add(body);
     _frame ??= SchedulerBinding.instance.scheduleFrameCallback((_) {
       _frame = null;
-      final next = _pending.firstWhere(
-        (body) => TickerMode.getValuesNotifier(body.context).value.enabled,
-        orElse: () => _pending.first,
-      );
-      _pending.remove(next);
+      if (_active.isEmpty) return;
+      final next = _active.first;
+      _active.remove(next);
       next.mountNextBatch();
-      if (_pending.isNotEmpty) add(_pending.first);
+      if (_active.isNotEmpty) add(_active.first);
     });
   }
 
   static void remove(_ProgressiveHtmlBodyState body) {
-    _pending.remove(body);
-    if (_pending.isNotEmpty || _frame == null) return;
+    _active.remove(body);
+    if (_active.isNotEmpty || _frame == null) return;
     SchedulerBinding.instance.cancelFrameCallbackWithId(_frame!);
     _frame = null;
   }

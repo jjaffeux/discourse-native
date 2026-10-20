@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-20",
+  "baseline_commit": "3c3d0d18ed8dc14d6618af4df98dd87c129f0260",
+  "metric": "Mounted RichText paragraphs added after TickerMode is disabled and propagated, over six 16ms test pumps",
+  "workload": {
+    "html_paragraphs": 450,
+    "build_async": false,
+    "render_mode": "ProgressiveHtmlMode",
+    "environment": "Flutter headless widget test, debug",
+    "order": "five alternating baseline/candidate pairs"
+  },
+  "checks": [
+    "Each run finishes successfully",
+    "Visibility disabled after a partial prefix mounts",
+    "Counted real mounted RichText elements from HtmlWidget",
+    "Re-enabling completes all 450 paragraphs",
+    "First paragraph element is reused",
+    "No Flutter exception",
+    "No Flutter exception after unmount and old visibility update"
+  ],
+  "samples": [
+    {
+      "pair": 1,
+      "label": "baseline",
+      "before": 64,
+      "after": 256,
+      "added": 192,
+      "exit_code": 0
+    },
+    {
+      "pair": 1,
+      "label": "candidate",
+      "before": 64,
+      "after": 64,
+      "added": 0,
+      "exit_code": 0
+    },
+    {
+      "pair": 2,
+      "label": "baseline",
+      "before": 64,
+      "after": 256,
+      "added": 192,
+      "exit_code": 0
+    },
+    {
+      "pair": 2,
+      "label": "candidate",
+      "before": 64,
+      "after": 64,
+      "added": 0,
+      "exit_code": 0
+    },
+    {
+      "pair": 3,
+      "label": "baseline",
+      "before": 64,
+      "after": 256,
+      "added": 192,
+      "exit_code": 0
+    },
+    {
+      "pair": 3,
+      "label": "candidate",
+      "before": 64,
+      "after": 64,
+      "added": 0,
+      "exit_code": 0
+    },
+    {
+      "pair": 4,
+      "label": "baseline",
+      "before": 64,
+      "after": 256,
+      "added": 192,
+      "exit_code": 0
+    },
+    {
+      "pair": 4,
+      "label": "candidate",
+      "before": 64,
+      "after": 64,
+      "added": 0,
+      "exit_code": 0
+    },
+    {
+      "pair": 5,
+      "label": "baseline",
+      "before": 64,
+      "after": 256,
+      "added": 192,
+      "exit_code": 0
+    },
+    {
+      "pair": 5,
+      "label": "candidate",
+      "before": 64,
+      "after": 64,
+      "added": 0,
+      "exit_code": 0
+    }
+  ],
+  "limits": [
+    "Deterministic work count, not a timing benchmark",
+    "No claim about device FPS or latency",
+    "Does not eliminate initial HTML parsing, initial prefix construction, or work in a single nested element"
+  ],
+  "measured_candidate_source_sha256": "895affa376bb5ae29f84896f5aac7306794ff0593090d7b83cd33f257c8dd3c0",
+  "final_candidate_source_sha256": "8ef5bf5639a11955deaf3a9447c754ef0026f7262b4c9b8c67556782bb385b5f",
+  "post_measurement_source_changes": "Removed two outdated comment lines above the queue; executable code unchanged"
+}

@@ -113,6 +113,7 @@ void main() {
             () => _paragraphs('Variable').evaluate().isNotEmpty,
           );
           expect(_paragraphs('Variable').evaluate().length, lessThan(450));
+          final firstParagraph = tester.element(_paragraphs('Variable').first);
           final body = tester.widget<CookedHtml>(
             find.byWidgetPredicate(
               (widget) => widget is CookedHtml && widget.post?.id == 20,
@@ -128,10 +129,29 @@ void main() {
           final target = find.byKey(const ValueKey(41));
           expect(target, findsOneWidget);
           final before = tester.getTopLeft(target).dy;
+          if (!oversized) {
+            final retainedBody = find.byWidgetPredicate(
+              (widget) => widget is CookedHtml && widget.post?.id == 20,
+              skipOffstage: false,
+            );
+            await _until(
+              tester,
+              () => !TickerMode.getValuesNotifier(
+                tester.element(retainedBody),
+              ).value.enabled,
+            );
+            final hidden = _paragraphs('Variable', skipOffstage: false);
+            final pausedCount = hidden.evaluate().length;
+            expect(pausedCount, inExclusiveRange(0, 450));
+            for (var frame = 0; frame < 6; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expect(hidden.evaluate().length, pausedCount);
+              expect(tester.getTopLeft(target).dy, closeTo(before, 1));
+            }
+          }
           await tester.pumpAndSettle();
           expect(tester.getTopLeft(target).dy, closeTo(before, 1));
           expect(tester.takeException(), isNull);
-          // The completed retained body is still reused when returning to it.
           list.listController!.jumpToItem(
             index: 38,
             scrollController: list.controller!,
@@ -143,6 +163,12 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(_paragraphs('Variable'), findsNWidgets(450));
+          if (!oversized) {
+            expect(
+              tester.element(_paragraphs('Variable').first),
+              same(firstParagraph),
+            );
+          }
           final cooked = find.byWidgetPredicate(
             (widget) => widget is CookedHtml && widget.post?.id == 20,
           );
@@ -164,10 +190,12 @@ void main() {
   }
 }
 
-Finder _paragraphs(String prefix) => find.byWidgetPredicate(
-  (widget) =>
-      widget is RichText && widget.text.toPlainText().startsWith(prefix),
-);
+Finder _paragraphs(String prefix, {bool skipOffstage = true}) =>
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is RichText && widget.text.toPlainText().startsWith(prefix),
+      skipOffstage: skipOffstage,
+    );
 
 Future<void> _until(WidgetTester tester, bool Function() ready) async {
   for (var i = 0; i < 100 && !ready(); i++) {

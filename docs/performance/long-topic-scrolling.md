@@ -2,7 +2,7 @@
 
 Measured on October 20, 2026, against `main` at `f923bdb0f`.
 The initial CPU profile used the earlier `1d0b1de1d` baseline.
-No application optimization was accepted. The desktop workload did not reproduce
+The desktop investigation accepted no application optimization. Its workload did not reproduce
 intermittent sluggishness, and the geometry-cache candidate did not establish a
 reliable end-to-end improvement. The committed additions are profiling tools and
 evidence for further investigation.
@@ -122,4 +122,63 @@ rejected candidate's validation, 178 related context, reading, progress, churn,
 rebuild, and header tests passed. One existing reflected-link hover test failed
 at `topic_reading_integration_test.dart:3508` because its `InkWell` finder has no
 match. Running that single test on unchanged `main` reproduced the same failure.
-No application source or appearance change remains in this branch.
+That desktop investigation changed no application source or appearance.
+
+## iOS long-topic scroll follow-up
+
+The mobile investigation found avoidable mounting work after a long post leaves
+view. `ProgressiveHtmlMode` shared its frame budget between visible posts and
+retained hidden posts, but fell back to a hidden post when no visible work
+remained. A hidden post therefore kept constructing and laying out its tail
+while the reader was elsewhere.
+
+The queue now contains only visible unfinished bodies. Each body listens to its
+ambient `TickerMode`, leaves the queue when hidden, and resumes from its existing
+prefix when shown. The queue still grants one batch per frame across visible
+bodies. Initial HTML parsing, initial prefix construction, and completed-body
+edits keep their existing behavior. Paused completion futures settle on return
+or disposal. Returning to an unfinished body now requires its remaining
+progressive frames instead of relying on background completion. Already
+completed bodies keep their full content.
+
+The focused regression uses the production HTML renderer and a 450-paragraph
+body. After disabling visibility and allowing that update to propagate, it
+counts mounted paragraphs over six frames. Five alternating baseline/candidate
+pairs all produced the same counts. The baseline mounted 192 additional
+paragraphs, growing from 64 to 256. The candidate holds the count at 64, then
+reaches all 450 when visible again and reuses the first paragraph element.
+The run counts and measured/final source hashes are in
+[the mounting work report](data/topic-hidden-html-mounting.json).
+This counts eliminated hidden work. It does not measure FPS or scroll latency.
+
+The actual `TopicView` regression jumps away from an unfinished long post to
+post 41. Once the sliver's visibility update has propagated, the retained body
+must keep the same paragraph count for six frames and the reading anchor must
+stay within one pixel. Jumping back completes all paragraphs and preserves the
+prefix element. The oversized-body recycling and saved-position cases remain
+covered separately. A second regression drives the real mobile shell and topic
+sheet through the same pause, jump-anchor, and return sequence.
+
+All 45 focused widget tests and targeted analysis pass. All 45 reader geometry
+cases also pass natively on the iPhone 18 Pro simulator. An initial native width
+rebuild assertion failed once; the isolated case passed on unchanged main and
+on the candidate, and the final complete native rerun passed.
+
+An additional keyboard suite run passed 57 cases, including progressive long-post
+paging and entry at the last page. Two other cases failed at
+`keyboard_navigation_test.dart:165` and `:842`. Both short-post selection and
+independent split-view selection failures reproduce identically on unchanged
+main at `3c3d0d18e`.
+
+Physical-device profiling could not start. Xcode has no signing account or
+provisioning profile for the separate profiling bundle ID. No test app was
+installed on the physical phone. Native iPhone simulator checks verify behavior
+and rendering only. Device frame performance remains unmeasured.
+
+Reproduce the behavior checks with:
+
+```sh
+flutter test --no-pub test/progressive_html_mode_test.dart test/progressive_html_visibility_test.dart test/topic_progressive_html_test.dart
+flutter test --no-pub test/topic_offscreen_animation_test.dart test/topic_scroll_churn_test.dart test/topic_sheet_progressive_html_test.dart
+flutter test --no-pub -d <ios-simulator-id> integration_test/topic_reader_geometry_test.dart
+```

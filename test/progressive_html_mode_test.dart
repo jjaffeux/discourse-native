@@ -83,25 +83,31 @@ void main() {
     expect(tester.element(_paragraphs('First').first), same(first));
     await tester.pumpAndSettle();
     expect(count('First'), 450);
+    expect(count('Second'), hiddenCount);
+    firstVisible.value = false;
+    await tester.pumpAndSettle();
     expect(count('Second'), 450);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('hidden mounting completes and edits without a visibility wait', (
-    tester,
-  ) async {
+  testWidgets('hidden mounting and edits wait for visibility', (tester) async {
     final completions = <Future<void>>{};
-    Widget body(String label) =>
+    Widget body(String label, {bool visible = false}) =>
         NotificationListener<HtmlBodyMountingNotification>(
           onNotification: (notification) {
             completions.add(notification.completion);
             return false;
           },
           child: Offstage(
-            child: TickerMode(enabled: false, child: _host(_html(label))),
+            offstage: !visible,
+            child: TickerMode(enabled: visible, child: _host(_html(label))),
           ),
         );
     await tester.pumpWidget(body('Original'));
+    final initial = _paragraphs(
+      'Original',
+      skipOffstage: false,
+    ).evaluate().length;
     expect(completions, hasLength(1));
     var complete = false;
     unawaited(completions.single.then((_) => complete = true));
@@ -109,10 +115,18 @@ void main() {
     await tester.pumpWidget(body('Replacement'));
     expect(complete, isFalse);
     await tester.pumpAndSettle();
-    expect(complete, isTrue);
+    expect(complete, isFalse);
     expect(completions, hasLength(1));
     expect(_paragraphs('Original', skipOffstage: false), findsNothing);
-    expect(_paragraphs('Replacement', skipOffstage: false), findsNWidgets(450));
+    expect(
+      _paragraphs('Replacement', skipOffstage: false),
+      findsNWidgets(initial),
+    );
+    await tester.pumpWidget(body('Replacement', visible: true));
+    await tester.pumpAndSettle();
+    expect(complete, isTrue);
+    expect(completions, hasLength(1));
+    expect(_paragraphs('Replacement'), findsNWidgets(450));
     expect(tester.takeException(), isNull);
   });
 
@@ -149,53 +163,54 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('visible bodies take queue turns before hidden bodies', (
-    tester,
-  ) async {
-    Widget body(String label, {bool visible = true}) => Offstage(
-      offstage: !visible,
-      child: TickerMode(enabled: visible, child: _host(_html(label))),
-    );
-    await tester.pumpWidget(
-      Stack(
-        textDirection: TextDirection.ltr,
-        children: [
-          body('Hidden', visible: false),
-          body('Visible first'),
-          body('Visible second'),
-        ],
-      ),
-    );
-    int count(String label) =>
-        _paragraphs(label, skipOffstage: false).evaluate().length;
-    final initial = count('Visible first');
-    expect(count('Hidden'), initial);
-    expect(count('Visible second'), initial);
-    await tester.pump();
-    expect(count('Hidden'), initial);
-    expect(count('Visible first'), greaterThan(initial));
-    expect(count('Visible second'), initial);
-    final firstTurn = count('Visible first');
-    await tester.pump();
-    expect(count('Hidden'), initial);
-    expect(count('Visible first'), firstTurn);
-    expect(count('Visible second'), firstTurn);
-    for (var frame = 0; frame < 30; frame++) {
-      final before = count('Visible first') + count('Visible second');
-      if (before == 900) break;
-      await tester.pump();
-      final added = count('Visible first') + count('Visible second') - before;
-      expect(added, inInclusiveRange(1, 32));
+  testWidgets(
+    'visible bodies share queue turns while hidden bodies stay paused',
+    (tester) async {
+      Widget body(String label, {bool visible = true}) => Offstage(
+        offstage: !visible,
+        child: TickerMode(enabled: visible, child: _host(_html(label))),
+      );
+      await tester.pumpWidget(
+        Stack(
+          textDirection: TextDirection.ltr,
+          children: [
+            body('Hidden', visible: false),
+            body('Visible first'),
+            body('Visible second'),
+          ],
+        ),
+      );
+      int count(String label) =>
+          _paragraphs(label, skipOffstage: false).evaluate().length;
+      final initial = count('Visible first');
       expect(count('Hidden'), initial);
-    }
-    expect(count('Visible first'), 450);
-    expect(count('Visible second'), 450);
-    await tester.pumpAndSettle();
-    expect(count('Hidden'), 450);
-    expect(count('Visible first'), 450);
-    expect(count('Visible second'), 450);
-    expect(tester.takeException(), isNull);
-  });
+      expect(count('Visible second'), initial);
+      await tester.pump();
+      expect(count('Hidden'), initial);
+      expect(count('Visible first'), greaterThan(initial));
+      expect(count('Visible second'), initial);
+      final firstTurn = count('Visible first');
+      await tester.pump();
+      expect(count('Hidden'), initial);
+      expect(count('Visible first'), firstTurn);
+      expect(count('Visible second'), firstTurn);
+      for (var frame = 0; frame < 30; frame++) {
+        final before = count('Visible first') + count('Visible second');
+        if (before == 900) break;
+        await tester.pump();
+        final added = count('Visible first') + count('Visible second') - before;
+        expect(added, inInclusiveRange(1, 32));
+        expect(count('Hidden'), initial);
+      }
+      expect(count('Visible first'), 450);
+      expect(count('Visible second'), 450);
+      await tester.pumpAndSettle();
+      expect(count('Hidden'), initial);
+      expect(count('Visible first'), 450);
+      expect(count('Visible second'), 450);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'shows a prefix first and keeps its elements and final geometry',
@@ -252,9 +267,16 @@ void main() {
   testWidgets('completed bodies apply edits and palette changes as a whole', (
     tester,
   ) async {
-    await tester.pumpWidget(_host(_html('Original')));
+    Widget body(String html, {bool visible = true, bool dark = false}) =>
+        TickerMode(
+          enabled: visible,
+          child: _host(html, dark: dark),
+        );
+    await tester.pumpWidget(body(_html('Original')));
     await tester.pumpAndSettle();
-    await tester.pumpWidget(_host(_html('Edited', 460), dark: true));
+    await tester.pumpWidget(
+      body(_html('Edited', 460), visible: false, dark: true),
+    );
     expect(_paragraphs('Original'), findsNothing);
     expect(_paragraphs('Edited'), findsNWidgets(460));
     await tester.pumpAndSettle();
