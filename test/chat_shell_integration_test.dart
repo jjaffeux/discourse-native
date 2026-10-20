@@ -780,6 +780,109 @@ void _registerChatShellTests() {
 
       for (final thread in [false, true]) {
         testWidgets(
+          'mobile ${thread ? 'thread' : 'channel'} transcript continues behind its composer',
+          (tester) async {
+            final history = [
+              for (var id = 1; id <= 100; id++)
+                msg(id, cooked: '<p>Message $id in the conversation</p>'),
+            ];
+            final api = FakeDiscourseApi(
+              feeds: const {'/latest.json': []},
+              totals: withChat,
+              user: me,
+              chatChannelsBySite: {
+                site: ChatChannels(
+                  public: [channel(9, threadingEnabled: true)],
+                ),
+              },
+              chatMessagesByKey: {
+                key(9): page(history),
+                'thread-9-3': page(history),
+              },
+              chatThreadsByKey: {
+                FakeDiscourseApi.chatThreadKey(9, 3): const ChatThread(
+                  id: 3,
+                  channelId: 9,
+                  status: 'open',
+                  replyCount: 100,
+                ),
+              },
+            );
+            await pumpChat(tester, size: phone, api: api);
+            await selectChatSidebar(tester);
+            final shell = ShellScope.read(
+              tester.element(find.byKey(const ValueKey('mobile-root'))),
+            );
+            await shell.forumSettings.setShared(
+              shell.forumSettings.shared.copyWith(
+                interfaceFont: ForumFont.lato,
+              ),
+            );
+            if (thread) {
+              shell.openChatThread(siteUrl: site, channelId: 9, threadId: 3);
+            } else {
+              shell.openChatChannel(9);
+            }
+            await tester.pumpAndSettle();
+            final composer = find.byKey(const ValueKey('chat-composer'));
+            final viewport = find.byType(DMessageScrollerViewport);
+            final scrollable = find
+                .descendant(of: viewport, matching: find.byType(Scrollable))
+                .first;
+            final position = tester.state<ScrollableState>(scrollable).position;
+            final newest = find.byKey(const ValueKey('chat-message-100'));
+            expect(
+              tester.getRect(composer).top - tester.getRect(newest).bottom,
+              closeTo(14, .1),
+            );
+            position.jumpTo(position.maxScrollExtent / 2);
+            await tester.pumpAndSettle();
+            const captureDirectory = String.fromEnvironment(
+              'CHAT_DOCK_CAPTURE_DIR',
+            );
+            if (captureDirectory.isNotEmpty) {
+              final boundary = tester.renderObject<RenderRepaintBoundary>(
+                find
+                    .ancestor(
+                      of: composer,
+                      matching: find.byType(RepaintBoundary),
+                    )
+                    .last,
+              );
+              await tester.runAsync(() async {
+                final image = await boundary.toImage(pixelRatio: 2);
+                final bytes = await image.toByteData(
+                  format: ImageByteFormat.png,
+                );
+                final directory = Directory(captureDirectory)
+                  ..createSync(recursive: true);
+                await File(
+                  '${directory.path}/composer-visibility-${thread ? 'thread' : 'channel'}-${defaultTargetPlatform.name}.png',
+                ).writeAsBytes(bytes!.buffer.asUint8List());
+                image.dispose();
+              });
+            }
+            expect(
+              tester.getRect(scrollable).bottom,
+              greaterThan(tester.getRect(composer).top + 20),
+              reason:
+                  'The transcript must reach behind the composer instead of clipping above it',
+            );
+            expect(
+              tester.state<ScrollableState>(scrollable).position,
+              same(position),
+            );
+            expect(tester.takeException(), isNull);
+          },
+          variant: const TargetPlatformVariant({
+            TargetPlatform.iOS,
+            TargetPlatform.android,
+          }),
+        );
+      }
+
+      for (final thread in [false, true]) {
+        testWidgets(
           'mobile ${thread ? 'thread' : 'channel'} folds with its composer and retains its draft',
           (tester) async {
             tester.platformDispatcher.platformBrightnessTestValue =
