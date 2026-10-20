@@ -108,7 +108,7 @@ class _TopicTaxonomyPickerAnchorState extends State<TopicTaxonomyPickerAnchor> {
 }
 
 /// Shared search and independently scrolling results for topic taxonomy.
-class TopicTaxonomyPickerContent extends StatelessWidget {
+class TopicTaxonomyPickerContent extends StatefulWidget {
   const TopicTaxonomyPickerContent({
     super.key,
     required this.queryKey,
@@ -131,6 +131,21 @@ class TopicTaxonomyPickerContent extends StatelessWidget {
   final FocusNode? queryFocusNode;
 
   @override
+  State<TopicTaxonomyPickerContent> createState() =>
+      _TopicTaxonomyPickerContentState();
+}
+
+class _TopicTaxonomyPickerContentState
+    extends State<TopicTaxonomyPickerContent> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -138,25 +153,27 @@ class TopicTaxonomyPickerContent extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.all(8),
         child: DInput(
-          key: queryKey,
-          controller: queryController,
-          focusNode: queryFocusNode,
-          hintText: queryHint,
-          semanticLabel: queryHint,
+          key: widget.queryKey,
+          controller: widget.queryController,
+          focusNode: widget.queryFocusNode,
+          hintText: widget.queryHint,
+          semanticLabel: widget.queryHint,
           autofocus: true,
           textInputAction: TextInputAction.done,
-          onChanged: onQueryChanged,
-          onSubmitted: onQuerySubmitted,
+          onChanged: widget.onQueryChanged,
+          onSubmitted: widget.onQuerySubmitted,
         ),
       ),
-      DSeparator(key: separatorKey),
+      DSeparator(key: widget.separatorKey),
       Flexible(
-        child: DScrollArea(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
+        child: DScrollBar(
+          controller: _scroll,
+          child: ListView(
+            controller: _scroll,
+            primary: false,
+            shrinkWrap: true,
+            padding: const EdgeInsets.all(8),
+            children: widget.children,
           ),
         ),
       ),

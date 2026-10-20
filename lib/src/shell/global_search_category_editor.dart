@@ -225,89 +225,103 @@ class _GlobalSearchCategoryEditorState
             const SizedBox(height: 8),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 280),
-              child: DScrollArea(
+              child: DScrollBar(
                 key: const ValueKey('global-search-category-list'),
                 controller: _scroll,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final choice in _choices)
-                      DCheckbox(
-                        key: ValueKey('global-search-category-${choice.value}'),
-                        value: _selected.contains(choice.value),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                        onChanged: (_) => _toggle(choice.value),
-                        title: Row(
-                          children: [
-                            if (choice.category case final category?) ...[
-                              CategoryIcon(
-                                category: category,
-                                size: 12,
-                                siteUrl: widget.controller.siteUrl,
+                child: CustomScrollView(
+                  controller: _scroll,
+                  primary: false,
+                  shrinkWrap: true,
+                  slivers: [
+                    SliverList.builder(
+                      itemCount: _choices.length,
+                      itemBuilder: (context, index) {
+                        final choice = _choices[index];
+                        return DCheckbox(
+                          key: ValueKey(
+                            'global-search-category-${choice.value}',
+                          ),
+                          value: _selected.contains(choice.value),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 6,
+                          ),
+                          onChanged: (_) => _toggle(choice.value),
+                          title: Row(
+                            children: [
+                              if (choice.category case final category?) ...[
+                                CategoryIcon(
+                                  category: category,
+                                  size: 12,
+                                  siteUrl: widget.controller.siteUrl,
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  choice.category?.name ?? choice.label,
+                                ),
                               ),
-                              const SizedBox(width: 8),
                             ],
-                            Expanded(
-                              child: Text(
-                                choice.category?.name ?? choice.label,
-                              ),
+                          ),
+                          subtitle: choice.parentLabel == null
+                              ? null
+                              : Text(choice.parentLabel!),
+                        );
+                      },
+                    ),
+                    SliverList.list(
+                      children: [
+                        if (_loadError != null)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Column(
+                              children: [
+                                Semantics(
+                                  liveRegion: true,
+                                  child: Text(_loadError!, style: muted),
+                                ),
+                                const SizedBox(height: 8),
+                                DButton(
+                                  label: Text(context.l10n.tryAgain),
+                                  variant: DButtonVariant.outline,
+                                  onPressed: () =>
+                                      unawaited(_load(append: _page > 0)),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        subtitle: choice.parentLabel == null
-                            ? null
-                            : Text(choice.parentLabel!),
-                      ),
-                    if (_loadError != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Column(
-                          children: [
-                            Semantics(
-                              liveRegion: true,
-                              child: Text(_loadError!, style: muted),
+                          ),
+                        if (!_loading && _loadError == null && _choices.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Column(
+                              children: [
+                                Text(
+                                  _query.text.trim().isEmpty
+                                      ? context.l10n.noCategoriesAvailable
+                                      : context.l10n.noMatchingCategories,
+                                  style: muted,
+                                ),
+                                if (_query.text.trim().isNotEmpty)
+                                  DButton(
+                                    label: Text(context.l10n.showAllCategories),
+                                    variant: DButtonVariant.ghost,
+                                    onPressed: () {
+                                      _query.clear();
+                                      unawaited(_load());
+                                      _focus.requestFocus();
+                                    },
+                                  ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            DButton(
-                              label: Text(context.l10n.tryAgain),
-                              variant: DButtonVariant.outline,
-                              onPressed: () =>
-                                  unawaited(_load(append: _page > 0)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (!_loading && _loadError == null && _choices.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24),
-                        child: Column(
-                          children: [
-                            Text(
-                              _query.text.trim().isEmpty
-                                  ? context.l10n.noCategoriesAvailable
-                                  : context.l10n.noMatchingCategories,
-                              style: muted,
-                            ),
-                            if (_query.text.trim().isNotEmpty)
-                              DButton(
-                                label: Text(context.l10n.showAllCategories),
-                                variant: DButtonVariant.ghost,
-                                onPressed: () {
-                                  _query.clear();
-                                  unawaited(_load());
-                                  _focus.requestFocus();
-                                },
-                              ),
-                          ],
-                        ),
-                      ),
-                    if (_hasMore && !_loading && _loadError == null)
-                      DButton(
-                        label: Text(context.l10n.loadMoreCategories),
-                        variant: DButtonVariant.ghost,
-                        onPressed: () => unawaited(_load(append: true)),
-                      ),
+                          ),
+                        if (_hasMore && !_loading && _loadError == null)
+                          DButton(
+                            label: Text(context.l10n.loadMoreCategories),
+                            variant: DButtonVariant.ghost,
+                            onPressed: () => unawaited(_load(append: true)),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),

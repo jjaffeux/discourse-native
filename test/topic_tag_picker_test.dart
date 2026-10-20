@@ -21,6 +21,7 @@ void main() {
   Future<void> openPicker(
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.macOS,
+    double textScale = 1,
     required ValueChanged<List<TopicTag>?> onClosed,
     List<TopicTag> selectedTags = const [design, mobile],
     TopicTagNavigationCallback? onTagNavigate,
@@ -30,6 +31,12 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.dark.copyWith(platform: platform),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: Scaffold(
           body: TopicTaxonomyPickerAnchor(
             child: Builder(
@@ -63,6 +70,68 @@ void main() {
     );
     await tester.tap(find.text('Open tags'));
     await tester.pumpAndSettle();
+  }
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final textScale in [1.0, 2.0]) {
+      testWidgets('tag results mount nearby rows on $platform at $textScale', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final tags = List.generate(
+          220,
+          (index) => TopicTag(id: index + 1, name: 'tag-$index'),
+        );
+        final selections = <List<TopicTag>>[];
+        final closed = <List<TopicTag>?>[];
+        await openPicker(
+          tester,
+          platform: platform,
+          textScale: textScale,
+          selectedTags: const [],
+          search: (_) async => TopicTagSearch(tags: tags),
+          onSelectionChanged: selections.add,
+          onClosed: closed.add,
+        );
+        final rows = find.byType(DCheckbox, skipOffstage: false);
+        final mounted = rows.evaluate().length;
+        debugPrint(
+          'LAZY_PICKER editable platform=$platform scale=$textScale mounted=$mounted/220',
+        );
+        expect(mounted, greaterThan(0));
+        expect(mounted, lessThan(50));
+        expect(option('tag-219'), findsNothing);
+        final scrollable = find
+            .descendant(
+              of: find.byType(TopicTaxonomyPickerContent),
+              matching: find.byType(Scrollable),
+            )
+            .last;
+        final position = tester.state<ScrollableState>(scrollable).position;
+        expect(position.maxScrollExtent, greaterThan(1000));
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(option('tag-219'));
+        await tester.tap(option('tag-219'));
+        await tester.pumpAndSettle();
+        if (platform == TargetPlatform.iOS) {
+          expect(selections.last, [tags.last]);
+          final input = find.byType(EditableText);
+          expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
+          await tester.enterText(input, 'tag-0');
+          await tester.pumpAndSettle();
+          await tester.testTextInput.receiveAction(TextInputAction.done);
+          await tester.pumpAndSettle();
+          expect(selections.last, [tags.last, tags.first]);
+        } else {
+          expect(closed.single, [tags.last]);
+          expect(find.byType(TopicTaxonomyPickerContent), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
   }
 
   testWidgets(
@@ -358,7 +427,16 @@ void main() {
     final query = find.byKey(const ValueKey('topic-tag-picker-query'));
     final queryBounds = tester.getRect(query);
     final popupBounds = tester.getRect(find.byType(DPopoverContent));
-    await tester.ensureVisible(option('region-39'));
+    await tester.scrollUntilVisible(
+      option('region-39'),
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byType(TopicTaxonomyPickerContent),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
     await tester.pumpAndSettle();
     expect(tester.getRect(query), queryBounds);
     expect(tester.getRect(find.byType(DPopoverContent)), popupBounds);
@@ -526,7 +604,8 @@ void main() {
         expect(searches, ['', 'design']);
         expect(option('design'), findsNothing);
         expect(find.text("Couldn't load tags."), findsNothing);
-        expect(find.byType(TopicTaxonomyPickerProgress), findsOneWidget);
+        expect(option('support'), findsNothing);
+        expect(tester.widget<DInput>(query).controller!.text, 'support');
 
         await tester.pumpAndSettle(const Duration(milliseconds: 300));
         expect(searches, ['', 'design', 'support']);

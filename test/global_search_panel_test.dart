@@ -426,6 +426,58 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final textScale in [1.0, 2.0]) {
+    testWidgets('category results mount nearby rows at $textScale text', (
+      tester,
+    ) async {
+      final api = _PanelApi()..categoryCount = 220;
+      final controller = await _pump(
+        tester,
+        api: api,
+        width: 390,
+        height: 700,
+        viewport: const Size(390, 844),
+        textScale: textScale,
+        platform: TargetPlatform.iOS,
+      );
+      await _filter(tester, 'category');
+      final rows = find.byWidgetPredicate(
+        (widget) =>
+            widget is DCheckbox &&
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'global-search-category-',
+            ),
+        skipOffstage: false,
+      );
+      final mounted = rows.evaluate().length;
+      debugPrint('LAZY_PICKER category scale=$textScale mounted=$mounted/220');
+      expect(mounted, greaterThan(0));
+      expect(mounted, lessThan(50));
+      final last = _key('global-search-category-220');
+      expect(last, findsNothing);
+      final scrollable = find.descendant(
+        of: _key('global-search-category-list'),
+        matching: find.byType(Scrollable),
+      );
+      expect(scrollable, findsOneWidget);
+      await tester.scrollUntilVisible(
+        last,
+        500,
+        scrollable: scrollable,
+        maxScrolls: 100,
+      );
+      await tester.tap(last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(_key('global-search-filter-apply'));
+      await tester.pumpAndSettle();
+      await tester.tap(_key('global-search-filter-apply'));
+      await tester.pumpAndSettle();
+      expect(controller.conditions.single.value, ['220']);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'category search keeps selections, clears stale rows and retries',
     (tester) async {
@@ -1023,6 +1075,7 @@ class _PanelApi extends GlobalSearchApi {
   Future<List<GlobalSearchFilterChoice>> Function(String)? tagLookup;
   Completer<GlobalSearchCategoryPage>? categoryGate;
   bool failCategories = false, moreCategories = false;
+  int? categoryCount;
   final categoryPages = <int>[];
 
   @override
@@ -1037,7 +1090,15 @@ class _PanelApi extends GlobalSearchApi {
     if (failCategories) throw StateError('offline');
     if (categoryGate != null) return categoryGate!.future;
     return GlobalSearchCategoryPage(
-      choices: page == 1
+      choices: categoryCount != null
+          ? List.generate(
+              categoryCount!,
+              (index) => GlobalSearchFilterChoice(
+                value: '${index + 1}',
+                label: 'Category ${index + 1}',
+              ),
+            )
+          : page == 1
           ? const [
               GlobalSearchFilterChoice(value: '1', label: 'Support'),
               GlobalSearchFilterChoice(value: '2', label: 'Development'),

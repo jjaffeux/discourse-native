@@ -1,13 +1,89 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_header_tags.dart';
+import 'package:discourse_native/src/shell/topic_taxonomy_picker.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final textScale in [1.0, 2.0]) {
+      testWidgets('readonly tags mount nearby rows on $platform at $textScale', (
+        tester,
+      ) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final tags = List.generate(
+          220,
+          (index) => TopicTag(id: index + 1, name: 'tag-$index'),
+        );
+        final openings = <(TopicTag, bool)>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: platform),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: TopicHeaderTags(
+                siteUrl: 'https://meta.example',
+                topic: TopicDetail(
+                  id: 1,
+                  title: 'Many tags',
+                  stream: const [],
+                  tags: tags,
+                ),
+                onTagNavigate: (tag, {newTab = false, panel}) =>
+                    openings.add((tag, newTab)),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-header-more-tags')));
+        await tester.pumpAndSettle();
+        final rows = find.descendant(
+          of: find.byType(TopicTaxonomyPickerContent),
+          matching: find.byType(DItem, skipOffstage: false),
+          skipOffstage: false,
+        );
+        final mounted = rows.evaluate().length;
+        debugPrint(
+          'LAZY_PICKER readonly platform=$platform scale=$textScale mounted=$mounted/220',
+        );
+        expect(mounted, greaterThan(0));
+        expect(mounted, lessThan(50));
+        final last = find.byKey(
+          const ValueKey(('topic-header-tag-option', 'tag-219')),
+        );
+        expect(last, findsNothing);
+        final scrollable = find
+            .descendant(
+              of: find.byType(TopicTaxonomyPickerContent),
+              matching: find.byType(Scrollable),
+            )
+            .last;
+        await tester.scrollUntilVisible(
+          last,
+          500,
+          scrollable: scrollable,
+          maxScrolls: 100,
+        );
+        await tester.tap(last);
+        await tester.pumpAndSettle();
+        expect(openings, [(tags.last, false)]);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
   testWidgets('tag context menu chooses a panel and tab', (tester) async {
     final openings = <(bool, ForumPanel?)>[];
     await tester.pumpWidget(
