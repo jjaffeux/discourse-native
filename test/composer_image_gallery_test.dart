@@ -164,9 +164,22 @@ void main() {
         ),
       );
 
-      final rects = [for (final key in keys) tester.getRect(find.byKey(key))];
+      final rects = [
+        for (final tile in find.byType(ComposerImageGalleryTile).evaluate())
+          tester.getRect(find.byWidget(tile.widget)),
+      ];
       expect(rects.map((rect) => rect.top).toSet(), hasLength(1));
-      expect(find.byType(SingleChildScrollView), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(keys.last),
+        100,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.pumpAndSettle();
+      final lastRect = tester.getRect(find.byKey(keys.last));
+      final previewRect = tester.getRect(
+        find.byType(ComposerImageGalleryPreview),
+      );
+      expect(previewRect.contains(lastRect.center), isTrue);
       expect(
         tester.getSize(find.byType(ComposerImageGalleryPreview)).height,
         ComposerImageGalleryPreview.displayHeight(
@@ -175,6 +188,103 @@ void main() {
         ),
       );
     });
+
+    for (final textScale in [1.0, 2.0]) {
+      testWidgets(
+        'large carousel mounts nearby images and reaches its last image at ${textScale}x text',
+        (tester) async {
+          final gallery = parseComposerImageGalleries(
+            _gallerySource(200, mode: ComposerGalleryMode.carousel),
+          ).single;
+          final keys = [
+            for (var index = 0; index < gallery.images.length; index++)
+              GlobalKey(),
+          ];
+          var edits = 0;
+          ComposerImageBlock? moved;
+          int? destination;
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(textScale)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: SizedBox(
+                  width: 390,
+                  child: ComposerImageGalleryPreview(
+                    gallery: gallery,
+                    items: [
+                      for (final (index, image) in gallery.images.indexed)
+                        ComposerImageGalleryItem(
+                          image: image,
+                          url: null,
+                          imageKey: keys[index],
+                          highlighted: false,
+                        ),
+                    ],
+                    onEdit: () => edits++,
+                    onReorder: (image, newIndex) {
+                      moved = image;
+                      destination = newIndex;
+                    },
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          final mountedTiles = find.byType(
+            ComposerImageGalleryTile,
+            skipOffstage: false,
+          );
+          expect(gallery.images, hasLength(200));
+          expect(mountedTiles.evaluate().length, inInclusiveRange(1, 12));
+          expect(find.byKey(keys.last, skipOffstage: false), findsNothing);
+          expect(
+            tester.getRect(find.byKey(keys[1])).left -
+                tester.getRect(find.byKey(keys.first)).right,
+            ComposerImageGalleryPreview.gap,
+          );
+          final control = find.byType(ComposerImageGalleryControl);
+          final controlRect = tester.getRect(control);
+          await tester.tap(find.byType(DButton));
+          await tester.pump();
+          expect(edits, 1);
+
+          await tester.scrollUntilVisible(
+            find.byKey(keys.last),
+            250,
+            maxScrolls: 100,
+            duration: const Duration(milliseconds: 200),
+            scrollable: find.byType(Scrollable),
+          );
+          await tester.pumpAndSettle();
+          final lastRect = tester.getRect(find.byKey(keys.last));
+          expect(lastRect.overlaps(controlRect), isFalse);
+          expect(lastRect.right, lessThan(controlRect.left));
+          expect(tester.getRect(control), controlRect);
+          expect(mountedTiles.evaluate().length, inInclusiveRange(1, 12));
+          final gesture = await tester.startGesture(lastRect.center);
+          await tester.pump(
+            kLongPressTimeout + const Duration(milliseconds: 50),
+          );
+          await gesture.moveBy(const Offset(-20, 0));
+          await tester.pump();
+          await gesture.moveTo(tester.getCenter(find.byKey(keys[198])));
+          await tester.pump();
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(moved, same(gallery.images.last));
+          expect(destination, 198);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
 
     testWidgets('keeps the selected border inside its paint bounds', (
       tester,
@@ -983,43 +1093,48 @@ void main() {
       },
     );
 
-    testWidgets(
-      'retains gallery and tile elements when text changes after it',
-      (tester) async {
-        final controller = MarkdownEditingController(text: _source);
-        addTearDown(controller.dispose);
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AppTheme.light,
-            home: Scaffold(
-              body: TextField(controller: controller, maxLines: null),
+    for (final mode in ComposerGalleryMode.values) {
+      testWidgets(
+        'retains $mode gallery and tile elements when text changes after it',
+        (tester) async {
+          final source = mode == ComposerGalleryMode.carousel
+              ? _source.replaceFirst('[grid]', '[grid mode=carousel]')
+              : _source;
+          final controller = MarkdownEditingController(text: source);
+          addTearDown(controller.dispose);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: TextField(controller: controller, maxLines: null),
+              ),
             ),
-          ),
-        );
+          );
 
-        final preview = find.byType(ComposerImageGalleryPreview);
-        final tiles = find.byType(ComposerImageGalleryTile);
-        final previewElement = tester.element(preview);
-        final tileElements = tiles.evaluate().toList();
+          final preview = find.byType(ComposerImageGalleryPreview);
+          final tiles = find.byType(ComposerImageGalleryTile);
+          final previewElement = tester.element(preview);
+          final tileElements = tiles.evaluate().toList();
 
-        const edited = '$_source!';
-        controller.value = const TextEditingValue(
-          text: edited,
-          selection: TextSelection.collapsed(offset: edited.length),
-        );
-        await tester.pump();
+          final edited = '$source!';
+          controller.value = TextEditingValue(
+            text: edited,
+            selection: TextSelection.collapsed(offset: edited.length),
+          );
+          await tester.pump();
 
-        expect(tester.element(preview), same(previewElement));
-        final nextTileElements = tiles.evaluate().toList();
-        expect(nextTileElements, hasLength(tileElements.length));
-        for (var index = 0; index < tileElements.length; index++) {
-          expect(nextTileElements[index], same(tileElements[index]));
-        }
-        for (final image in controller.galleryBlocks.single.images) {
-          expect(controller.collapsedImageGlobalRect(image), isNotNull);
-        }
-      },
-    );
+          expect(tester.element(preview), same(previewElement));
+          final nextTileElements = tiles.evaluate().toList();
+          expect(nextTileElements, hasLength(tileElements.length));
+          for (var index = 0; index < tileElements.length; index++) {
+            expect(nextTileElements[index], same(tileElements[index]));
+          }
+          for (final image in controller.galleryBlocks.single.images) {
+            expect(controller.collapsedImageGlobalRect(image), isNotNull);
+          }
+        },
+      );
+    }
 
     testWidgets('never reveals source for selections crossing the gallery', (
       tester,
@@ -1954,13 +2069,29 @@ void main() {
           source: source,
         );
         final tiles = find.byType(ComposerImageGalleryTile);
-        final first = tester.getRect(tiles.first);
-        await tester.drag(tiles.at(1), const Offset(-100, 0));
+        final swipedImageKey = tester
+            .widget<ComposerImageGalleryTile>(tiles.at(1))
+            .item
+            .imageKey;
+        final swipedImage = find.byKey(swipedImageKey);
+        final before = tester.getRect(swipedImage);
+        await tester.drag(swipedImage, const Offset(-100, 0));
         await tester.pumpAndSettle();
-        expect(tester.getRect(tiles.first).left, lessThan(first.left));
+        expect(tester.getRect(swipedImage).left, lessThan(before.left));
+        final lastImage = find.byWidgetPredicate(
+          (widget) =>
+              widget is ComposerImageGalleryTile &&
+              widget.item.image.url == 'upload://image-7',
+        );
+        final carousel = find.descendant(
+          of: find.byType(ComposerImageGalleryPreview),
+          matching: find.byType(Scrollable),
+        );
+        await tester.scrollUntilVisible(lastImage, 150, scrollable: carousel);
+        await tester.pumpAndSettle();
+        expect(lastImage.hitTestable(), findsOneWidget);
         expect(composer.text.text, source);
         expect(composer.history.canUndo, isFalse);
-        expect(tiles, findsNWidgets(7));
         expect(find.byType(DDragHighlight), findsNothing);
         expect(tester.takeException(), isNull);
       });

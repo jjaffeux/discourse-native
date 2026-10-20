@@ -231,24 +231,18 @@ class ComposerImageGalleryPreview extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            ComposerGalleryMode.carousel =>
-                              SingleChildScrollView(
+                            ComposerGalleryMode.carousel => SizedBox(
+                              height: tileExtent,
+                              child: ListView.separated(
                                 scrollDirection: Axis.horizontal,
-                                child: SizedBox(
-                                  width: _tileStripWidth(items.length),
-                                  height: tileExtent,
-                                  child: Row(
-                                    children: [
-                                      for (final (index, item)
-                                          in items.indexed) ...[
-                                        if (index > 0)
-                                          const SizedBox(width: gap),
-                                        _galleryTile(item, index),
-                                      ],
-                                    ],
-                                  ),
-                                ),
+                                padding: EdgeInsets.zero,
+                                itemCount: items.length,
+                                itemBuilder: (context, index) =>
+                                    _galleryTile(items[index], index),
+                                separatorBuilder: (context, index) =>
+                                    const SizedBox(width: gap),
                               ),
+                            ),
                           },
                         ),
                         const SizedBox(width: gap),
