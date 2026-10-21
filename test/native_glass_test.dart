@@ -103,7 +103,6 @@ void main() {
     expect(at(find.byTooltip('New topic'))['glass'], isTrue);
     for (final element in elements) {
       expect(element['opacity'], 1.0);
-      expect(element['tint'], isNull);
       if (element['image'] != -1) {
         expect(images[element['id']], greaterThan(0));
       }
@@ -111,7 +110,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a tinted dock action takes the send button system tint', (
+  testWidgets('the dock action takes the send button system tint', (
     tester,
   ) async {
     await tester.pumpWidget(sendButtonFixture(_glass));
@@ -120,7 +119,7 @@ void main() {
     ).singleWhere((element) => element['image'] == -1);
     expect(send['tint'], isNotNull);
 
-    await tester.pumpWidget(fixture(theme: _glass, tintedAction: true));
+    await tester.pumpWidget(fixture(theme: _glass));
     final scene = await settle(tester);
     final elements = _list(_list(scene['groups']).single['elements']);
     _Scene at(Finder finder) {

@@ -573,7 +573,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         key: const ValueKey('mobile-panel-action'),
         icon: panelAction.icon,
         label: panelAction.label,
-        tinted: true,
         onPressed: panelAction.onPressed,
       );
     } else if (showNewTopic || shell.canCreateTopicFromSidebar) {
@@ -581,7 +580,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         key: const ValueKey('mobile-new-topic'),
         icon: DIcons.penToSquare,
         label: context.l10n.newTopic,
-        tinted: true,
         onPressed: () => unawaited(shell.openNewTopicFromSidebar()),
       );
     }
@@ -676,13 +674,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required String label,
     required VoidCallback? onPressed,
     bool loading = false,
-    bool tinted = false,
   }) => DMobileDockAction(
     buttonKey: key,
     icon: DIcon(icon),
     label: label,
     loading: loading,
-    tinted: tinted,
     onPressed: onPressed,
   );
 }

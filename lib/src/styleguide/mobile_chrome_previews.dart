@@ -139,7 +139,6 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                   action: DMobileDockAction(
                     icon: const DIcon(DIcons.penToSquare),
                     label: 'New topic',
-                    tinted: true,
                     onPressed: () {},
                   ),
                 ),

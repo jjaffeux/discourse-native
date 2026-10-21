@@ -44,7 +44,6 @@ class MessageCreateButton extends StatelessWidget {
           buttonKey: const ValueKey('new-message-button'),
           icon: const DIcon(DIcons.penToSquare),
           label: context.l10n.newMessage,
-          tinted: true,
           onPressed: () => _compose(context),
         );
       }

@@ -2440,34 +2440,33 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _mobileTest(
-    'creation actions take the send button colours and Reply does not',
-    (tester) async {
-      await pumpMobileShellFixture(
-        tester,
-        topic: topicPayload(id: 7, canCreatePost: true),
+  _mobileTest('every dock action takes the send button colours', (
+    tester,
+  ) async {
+    await pumpMobileShellFixture(
+      tester,
+      topic: topicPayload(id: 7, canCreatePost: true),
+    );
+    final primary = DTokens.of(tester.element(_bar)).buttonTheme.primary;
+    void expectTinted(String key) {
+      final button = tester.widget<DButton>(find.byKey(ValueKey(key)));
+      expect(
+        (button.foregroundColor, button.backgroundColor),
+        (primary.foreground, primary.background),
+        reason: key,
       );
-      final primary = DTokens.of(tester.element(_bar)).buttonTheme.primary;
-      void expectTinted(String key, {required bool tinted}) {
-        final button = tester.widget<DButton>(find.byKey(ValueKey(key)));
-        expect(
-          (button.foregroundColor, button.backgroundColor),
-          tinted ? (primary.foreground, primary.background) : (null, null),
-          reason: key,
-        );
-      }
+    }
 
-      expectTinted('mobile-new-topic', tinted: true);
-      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
-      await tester.pumpAndSettle();
-      expectTinted('mobile-topic-reply', tinted: false);
-      await _tapDockTab(tester, 'panel/chat');
-      expectTinted('mobile-panel-action', tinted: true);
-      await _tapDockTab(tester, 'messages');
-      expectTinted('new-message-button', tinted: true);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    expectTinted('mobile-new-topic');
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    expectTinted('mobile-topic-reply');
+    await _tapDockTab(tester, 'panel/chat');
+    expectTinted('mobile-panel-action');
+    await _tapDockTab(tester, 'messages');
+    expectTinted('new-message-button');
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest('leaving a topic replaces Reply with the Chat creation action', (
     tester,
