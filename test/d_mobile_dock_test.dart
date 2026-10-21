@@ -14,7 +14,6 @@ Widget fixture({
   double width = 390,
   bool collapsed = false,
   bool withAction = true,
-  bool tintedAction = false,
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
   ValueChanged<int>? onOverflow,
@@ -86,7 +85,6 @@ Widget fixture({
                       ? DMobileDockAction(
                           icon: const Icon(Icons.add),
                           label: 'New topic',
-                          tinted: tintedAction,
                           onPressed: () {},
                         )
                       : null,
@@ -389,54 +387,43 @@ void main() {
     }
   });
 
-  testWidgets(
-    'a tinted action wears the send button glass, alone in the dock',
-    (tester) async {
-      for (final brightness in Brightness.values) {
-        final theme = DMaterialTheme.apply(
-          brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
-          DAppearanceMaterial.liquidGlass,
-        );
-        LiquidGlassAppearance? glassOf(Finder control) => tester
-            .widget<LiquidGlass>(
-              find.descendant(of: control, matching: find.byType(LiquidGlass)),
+  testWidgets('the action wears the send button glass, alone in the dock', (
+    tester,
+  ) async {
+    for (final brightness in Brightness.values) {
+      final theme = DMaterialTheme.apply(
+        brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+        DAppearanceMaterial.liquidGlass,
+      );
+      LiquidGlassAppearance? glassOf(Finder control) => tester
+          .widget<LiquidGlass>(
+            find.descendant(of: control, matching: find.byType(LiquidGlass)),
+          )
+          .appearance;
+
+      await tester.pumpWidget(sendButtonFixture(theme));
+      await tester.pumpAndSettle();
+      final send = glassOf(find.byTooltip('Send'));
+
+      await tester.pumpWidget(fixture(theme: theme));
+      await tester.pumpAndSettle();
+      expect(
+        glassOf(find.byType(DMobileDockAction)),
+        send,
+        reason: '$brightness',
+      );
+      expectStockGlass(
+        tester,
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('Topics')),
+              matching: find.byType(LiquidGlass),
             )
-            .appearance;
-
-        await tester.pumpWidget(sendButtonFixture(theme));
-        await tester.pumpAndSettle();
-        final send = glassOf(find.byTooltip('Send'));
-
-        await tester.pumpWidget(fixture(theme: theme, tintedAction: true));
-        await tester.pumpAndSettle();
-        expect(
-          glassOf(find.byType(DMobileDockAction)),
-          send,
-          reason: '$brightness',
-        );
-        expectStockGlass(
-          tester,
-          find
-              .descendant(
-                of: find.byKey(const ValueKey('Topics')),
-                matching: find.byType(LiquidGlass),
-              )
-              .first,
-        );
-
-        await tester.pumpWidget(fixture(theme: theme));
-        await tester.pumpAndSettle();
-        expectStockGlass(
-          tester,
-          find.descendant(
-            of: find.byType(DMobileDockAction),
-            matching: find.byType(LiquidGlass),
-          ),
-        );
-        expect(tester.takeException(), isNull);
-      }
-    },
-  );
+            .first,
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
 
   testWidgets('glass spring reverses smoothly and reduced motion snaps', (
     tester,
@@ -496,12 +483,21 @@ void main() {
         .toList();
     await tester.pumpWidget(fixture(theme: theme, collapsed: true));
     await tester.pump(const Duration(milliseconds: 16));
+    final primary = DTokens.of(
+      tester.element(controls.last),
+    ).buttonTheme.primary.background;
     for (var item = 0; item < controls.length; item++) {
       final glass = find.descendant(
         of: controls[item],
         matching: find.byType(LiquidGlass),
       );
-      expectStockGlass(tester, glass);
+      expectStockGlass(
+        tester,
+        glass,
+        tint: controls[item] == controls.last
+            ? DMaterialSurface.glassTintFor(primary)
+            : null,
+      );
       expect(
         tester.widget<LiquidGlass>(glass).shape,
         const LiquidRoundedRectangle(borderRadius: 25),

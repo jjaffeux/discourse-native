@@ -563,7 +563,8 @@ class _RenderDockRow extends RenderBox
   }
 }
 
-/// The dock action reveals its label only when its own slot can carry it.
+/// The dock action reveals its label only when its own slot can carry it. It
+/// takes the primary button colours, as a composer's send button does.
 class DMobileDockAction extends StatelessWidget {
   const DMobileDockAction({
     super.key,
@@ -571,20 +572,16 @@ class DMobileDockAction extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.loading = false,
-    this.tinted = false,
     this.buttonKey,
   });
   final Widget icon;
   final String label;
   final VoidCallback? onPressed;
   final bool loading;
-
-  /// Takes the primary button colours, as a composer's send button does.
-  final bool tinted;
   final Key? buttonKey;
   @override
   Widget build(BuildContext context) {
-    final colors = tinted ? DTokens.of(context).buttonTheme.primary : null;
+    final colors = DTokens.of(context).buttonTheme.primary;
     return LayoutBuilder(
       builder: (context, constraints) => constraints.maxWidth >= 116
           ? SizedBox(
@@ -601,9 +598,9 @@ class DMobileDockAction extends StatelessWidget {
                 loading: loading,
                 shape: DButtonShape.pill,
                 density: DButtonDensity.mobileDockAction,
-                foregroundColor: colors?.foreground,
-                backgroundColor: colors?.background,
-                interactiveBackgroundColor: colors?.hover,
+                foregroundColor: colors.foreground,
+                backgroundColor: colors.background,
+                interactiveBackgroundColor: colors.hover,
                 onPressed: onPressed,
               ),
             )
@@ -617,9 +614,9 @@ class DMobileDockAction extends StatelessWidget {
                 loading: loading,
                 shape: DButtonShape.pill,
                 density: DButtonDensity.mobileDockAction,
-                foregroundColor: colors?.foreground,
-                backgroundColor: colors?.background,
-                interactiveBackgroundColor: colors?.hover,
+                foregroundColor: colors.foreground,
+                backgroundColor: colors.background,
+                interactiveBackgroundColor: colors.hover,
                 onPressed: onPressed,
               ),
             ),
