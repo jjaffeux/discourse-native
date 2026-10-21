@@ -150,7 +150,9 @@ transition, and while any `NativeGlassOccluder` is mounted. Every overlay in
 the app mounts one: popovers, tooltips, hover cards, the composer's
 suggestions and selection toolbar, post actions, text selection, embeds and
 YouTube players. `native_glass_test` fails when a file opens an `OverlayPortal`
-or `OverlayEntry` without one. Hosts without iOS 26 keep the Flutter glass.
+or `OverlayEntry` without one. The mobile composer sheet covers the shell
+without a route or an overlay, so it mounts one too; `composer_docking_test`
+pins it. Hosts without iOS 26 keep the Flutter glass.
 
 An earlier prototype embedded `UIGlassEffect` as a platform view instead; Flutter
 then splits its frame around the view, which cost about as much as the glass.

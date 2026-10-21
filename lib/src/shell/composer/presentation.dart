@@ -392,43 +392,47 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
             ),
           if (mobileSheet != null)
             Positioned.fill(
-              child: PopScope(
-                canPop: false,
-                onPopInvokedWithResult: (didPop, result) {
-                  if (!didPop) {
-                    unawaited(
-                      closeComposerFromPanel(
-                        context: context,
-                        composer: mobileSheet.composer,
-                      ),
-                    );
-                  }
-                },
-                child: DSheetViewport(
-                  key: ObjectKey(mobileSheet.composer),
-                  onDismiss: () => unawaited(_dismissMobile(mobileSheet)),
-                  content: DSheetContent(
-                    key: const ValueKey('composer-mobile-sheet'),
-                    side: DSheetSide.bottom,
-                    variant: DSheetVariant.menu,
-                    fillAvailableHeight: true,
-                    extendBehindKeyboard: true,
-                    scrollWholeSheet: false,
-                    showCloseButton: false,
-                    semanticLabel: context.l10n.composer,
-                    backgroundColor: Theme.of(context).shell.content,
-                    children: [
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, bounds) => _surface(
-                            mobileSheet,
-                            placement: ComposerPlacement.fullScreen,
-                            mobile: true,
-                            size: bounds.biggest,
+              // The sheet covers the shell without a route or overlay, so it
+              // must hide the system glass drawn above the Flutter view.
+              child: NativeGlassOccluder(
+                child: PopScope(
+                  canPop: false,
+                  onPopInvokedWithResult: (didPop, result) {
+                    if (!didPop) {
+                      unawaited(
+                        closeComposerFromPanel(
+                          context: context,
+                          composer: mobileSheet.composer,
+                        ),
+                      );
+                    }
+                  },
+                  child: DSheetViewport(
+                    key: ObjectKey(mobileSheet.composer),
+                    onDismiss: () => unawaited(_dismissMobile(mobileSheet)),
+                    content: DSheetContent(
+                      key: const ValueKey('composer-mobile-sheet'),
+                      side: DSheetSide.bottom,
+                      variant: DSheetVariant.menu,
+                      fillAvailableHeight: true,
+                      extendBehindKeyboard: true,
+                      scrollWholeSheet: false,
+                      showCloseButton: false,
+                      semanticLabel: context.l10n.composer,
+                      backgroundColor: Theme.of(context).shell.content,
+                      children: [
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, bounds) => _surface(
+                              mobileSheet,
+                              placement: ComposerPlacement.fullScreen,
+                              mobile: true,
+                              size: bounds.biggest,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
