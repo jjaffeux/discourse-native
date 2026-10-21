@@ -934,6 +934,7 @@ void main() {
       expect(tester.state(find.byType(ComposerEditor)), same(editor));
       expect(composer.raw, 'Keep the draft above the home indicator.');
       expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 3));
     },
   );
 
@@ -981,6 +982,7 @@ void main() {
     expect(tester.state(find.byType(ComposerEditor)), same(editor));
     expect(composer.raw, 'A draft that survives keyboard changes.');
     expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('the mobile sheet hands native glass back to Flutter', (
@@ -1455,6 +1457,7 @@ void main() {
     expect(composer.raw, 'Keep this text');
     expect(find.text('Discard'), findsNothing);
     expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('a swipe minimizes a composer during submission', (tester) async {
@@ -1740,6 +1743,7 @@ void main() {
       );
       expect(caret.dy, greaterThanOrEqualTo(tester.getBottomLeft(close).dy));
       expect(tester.takeException(), isNull);
+      await tester.pump(const Duration(seconds: 3));
     },
   );
 

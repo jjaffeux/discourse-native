@@ -805,7 +805,11 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
         ? -1
         : _lazyRows?.indexWhere((row) => row.identity == identity) ?? -1;
     _focusedIndex = next < 0 ? null : next;
-    if (hadFocus && (next < 0 || (previous == null) != (_lazyRows == null))) {
+    // Only lazy rows have identities to follow. A short menu whose focused
+    // item is disabled must not take focus back when its items re-enable.
+    if (hadFocus &&
+        ((previous != null && next < 0) ||
+            (previous == null) != (_lazyRows == null))) {
       _autofocused = false;
       _focusedIndex ??= focused;
     }

@@ -671,6 +671,70 @@ void main() {
     });
   }
 
+  testWidgets('re-enabled items leave focus where their action put it', (
+    tester,
+  ) async {
+    final enabled = ValueNotifier(true);
+    final editor = FocusNode(debugLabel: 'Editor');
+    final files = FocusNode(debugLabel: 'Files');
+    addTearDown(enabled.dispose);
+    addTearDown(editor.dispose);
+    addTearDown(files.dispose);
+    await pumpMenu(
+      tester,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Focus(focusNode: editor, child: const SizedBox.square(dimension: 8)),
+          // The owner rebuilds the whole menu, as the composer's upload
+          // button does while its picker is open.
+          ValueListenableBuilder<bool>(
+            valueListenable: enabled,
+            builder: (context, value, _) => DDropdownMenu(
+              content: DDropdownMenuContent(
+                children: [
+                  DDropdownMenuItem(
+                    focusNode: files,
+                    onPressed: value ? () {} : null,
+                    child: const Text('Files'),
+                  ),
+                  DDropdownMenuItem(
+                    onPressed: value ? () => enabled.value = false : null,
+                    child: const Text('Photos'),
+                  ),
+                ],
+              ),
+              child: DDropdownMenuTrigger(
+                builder: (context, state) => DButton(
+                  label: const Text('Open'),
+                  onPressed: state.toggle,
+                  focusNode: state.focusNode,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    await open(tester);
+    expect(files.hasFocus, isTrue);
+
+    // An action disables the menu while it awaits a dialog, then refocuses
+    // its editor and re-enables the items before the menu has finished
+    // closing.
+    await tester.tap(find.text('Photos'));
+    await tester.pump();
+    expect(files.hasFocus, isFalse);
+    editor.requestFocus();
+    enabled.value = true;
+    await tester.pump();
+    await tester.pump();
+    expect(editor.hasFocus, isTrue);
+    expect(files.hasFocus, isFalse);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('typeahead wraps from the active row', (tester) async {
     await pumpMenu(tester);
     await open(tester);
