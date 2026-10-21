@@ -88,11 +88,13 @@ abstract final class NativeGlass {
     _send({
       'visible': groups.isNotEmpty,
       'groups': [for (final group in groups) group.$2],
-      'alive': [
-        for (final group in _groups)
+      'alive': {
+        for (final group in _groups) ...[
           for (final node in group._nodes)
             if (node is _RenderNativeGlassContent) identityHashCode(node),
-      ],
+          ...group._slots.values,
+        ],
+      }.toList(),
     });
   }
 
@@ -188,6 +190,12 @@ class NativeGlassGroup extends State<NativeGlassScope> {
   _RenderNativeGlassScopeBox? _box;
   final _nodes = <_NativeGlassNode>{};
   bool _dark = false;
+  bool _shown = false;
+
+  // The content last shown at each position in this group. A control that
+  // remounts there, such as an action whose icon changed, keeps showing it
+  // until its own image arrives.
+  var _slots = <String, int>{};
 
   @override
   void initState() {
@@ -237,14 +245,33 @@ class NativeGlassGroup extends State<NativeGlassScope> {
     final box = _box;
     if (!mounted || box == null || !box.attached || !box.hasSize) return null;
     final elements = <(List<int>, Map<String, Object?>)>[];
+    final slots = <String, int>{};
+    var complete = true;
     for (final node in _nodes) {
       final scene = node.sceneOf();
       if (scene == null) continue;
-      // Show a group only once all of its visible content has arrived.
-      if (scene['image'] == 0) return null;
-      elements.add((NativeGlass._path(node as RenderObject, box), scene));
+      final path = NativeGlass._path(node as RenderObject, box);
+      if (scene['image'] != -1) {
+        final slot = path.join('.');
+        if (scene['image'] != 0) {
+          slots[slot] = scene['id']! as int;
+        } else {
+          complete = false;
+          if (_slots[slot] case final previous?) {
+            scene['fallback'] = previous;
+            slots[slot] = previous;
+          }
+        }
+      }
+      elements.add((path, scene));
     }
-    if (elements.isEmpty) return null;
+    // A group first appears with all of its content; afterwards a control
+    // still waiting for its image never hides the rest.
+    if (elements.isEmpty || (!_shown && !complete)) return null;
+    _shown = true;
+    // A position can be empty for a frame between one control leaving and
+    // the next arriving, so keep what it showed last.
+    _slots = {..._slots, ...slots};
     elements.sort((a, b) => NativeGlass._compare(a.$1, b.$1));
     Rect? clip;
     RenderObject child = box;
