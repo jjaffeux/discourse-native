@@ -927,122 +927,127 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
               constraints: BoxConstraints(
                 minHeight: _taxonomyRowHeight(context),
               ),
-              child: DControlWrap(
-                key: ValueKey(
-                  showTaxonomy ? 'topic-header-taxonomy' : 'topic-header-tools',
-                ),
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (showTaxonomy && hasCategories)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: categoryWidth),
-                      child: _TopicCategoryControl(
-                        key: const ValueKey('topic-header-parent-category'),
-                        siteUrl: siteUrl,
-                        topic: topic,
-                        category: root,
-                        subcategory: false,
-                        keepTopicListOpen: keepTopicListOpen,
-                        showBrowseButton: false,
-                      ),
-                    ),
-                  if (showTaxonomy && hasSubcategory)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: categoryWidth),
-                      child: _TopicCategoryControl(
-                        key: const ValueKey('topic-header-category'),
-                        siteUrl: siteUrl,
-                        topic: topic,
-                        category: parent == null ? null : category,
-                        subcategory: true,
-                        parentCategoryId: root?.id,
-                        keepTopicListOpen: keepTopicListOpen,
-                        showBrowseButton: false,
-                      ),
-                    ),
-                  if (showTaxonomy && hasTags)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: math.min(148 * scale, constraints.maxWidth),
-                      ),
-                      child: tags,
-                    ),
-                  if (instance?.user != null || instance?.isConnected == true)
-                    DButtonGroup(
-                      semanticLabel: context.l10n.topicReminders,
-                      children: [
-                        if (instance?.user != null)
-                          TopicBookmarkButton(
-                            siteUrl: siteUrl,
-                            topic: topic,
-                            busy: shell.bookmarkWriteInFlight(
-                              siteUrl: siteUrl,
-                              topicId: topic.id,
-                              targetType: BookmarkTargetType.topic,
-                              targetId: topic.id,
-                            ),
-                            variant: DButtonVariant.outline,
-                            size: DButtonSize.filter,
-                            buttonKey: const ValueKey(
-                              'topic-header-bookmark-button',
-                            ),
-                          ),
-                        if (instance?.isConnected == true)
-                          TopicNotificationLevelButton(
-                            showChevron: true,
-                            siteUrl: siteUrl,
-                            topic: topic,
-                            variant: DButtonVariant.outline,
-                            size: DButtonSize.filter,
-                            buttonKey: const ValueKey(
-                              'topic-header-notification-button',
-                            ),
-                          ),
-                      ],
-                    ),
-                  if (mobile &&
-                      topic.privateMessage &&
-                      instance?.isConnected == true &&
-                      instance?.user?.canSendPrivateMessages == true)
-                    DButtonGroup(
-                      children: [
-                        MessageArchiveButton(
+              child: NativeGlassScope(
+                merge: true,
+                child: DControlWrap(
+                  key: ValueKey(
+                    showTaxonomy
+                        ? 'topic-header-taxonomy'
+                        : 'topic-header-tools',
+                  ),
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (showTaxonomy && hasCategories)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: categoryWidth),
+                        child: _TopicCategoryControl(
+                          key: const ValueKey('topic-header-parent-category'),
                           siteUrl: siteUrl,
                           topic: topic,
-                          compact: true,
+                          category: root,
+                          subcategory: false,
+                          keepTopicListOpen: keepTopicListOpen,
+                          showBrowseButton: false,
                         ),
-                      ],
-                    ),
-                  for (final section in sections)
-                    DButtonGroup(
-                      key: ValueKey(('topic-header-property', section.label)),
-                      children: [
-                        _TopicPropertyPopover(
-                          siteUrl: siteUrl,
-                          topicId: topic.id,
-                          section: section,
-                          registry: registry,
-                          compact: true,
-                          navigationRevision: state.navigationRevision,
-                        ),
-                      ],
-                    ),
-                  DButtonGroup(
-                    children: [
-                      TopicStatusButton(
-                        siteUrl: siteUrl,
-                        topic: topic,
-                        topicFlags: shell.availableTopicFlagTypes(
-                          siteUrl,
-                          topic,
-                        ),
-                        variant: DButtonVariant.outline,
-                        size: DButtonSize.filter,
                       ),
-                    ],
-                  ),
-                ],
+                    if (showTaxonomy && hasSubcategory)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: categoryWidth),
+                        child: _TopicCategoryControl(
+                          key: const ValueKey('topic-header-category'),
+                          siteUrl: siteUrl,
+                          topic: topic,
+                          category: parent == null ? null : category,
+                          subcategory: true,
+                          parentCategoryId: root?.id,
+                          keepTopicListOpen: keepTopicListOpen,
+                          showBrowseButton: false,
+                        ),
+                      ),
+                    if (showTaxonomy && hasTags)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: math.min(148 * scale, constraints.maxWidth),
+                        ),
+                        child: tags,
+                      ),
+                    if (instance?.user != null || instance?.isConnected == true)
+                      DButtonGroup(
+                        semanticLabel: context.l10n.topicReminders,
+                        children: [
+                          if (instance?.user != null)
+                            TopicBookmarkButton(
+                              siteUrl: siteUrl,
+                              topic: topic,
+                              busy: shell.bookmarkWriteInFlight(
+                                siteUrl: siteUrl,
+                                topicId: topic.id,
+                                targetType: BookmarkTargetType.topic,
+                                targetId: topic.id,
+                              ),
+                              variant: DButtonVariant.outline,
+                              size: DButtonSize.filter,
+                              buttonKey: const ValueKey(
+                                'topic-header-bookmark-button',
+                              ),
+                            ),
+                          if (instance?.isConnected == true)
+                            TopicNotificationLevelButton(
+                              showChevron: true,
+                              siteUrl: siteUrl,
+                              topic: topic,
+                              variant: DButtonVariant.outline,
+                              size: DButtonSize.filter,
+                              buttonKey: const ValueKey(
+                                'topic-header-notification-button',
+                              ),
+                            ),
+                        ],
+                      ),
+                    if (mobile &&
+                        topic.privateMessage &&
+                        instance?.isConnected == true &&
+                        instance?.user?.canSendPrivateMessages == true)
+                      DButtonGroup(
+                        children: [
+                          MessageArchiveButton(
+                            siteUrl: siteUrl,
+                            topic: topic,
+                            compact: true,
+                          ),
+                        ],
+                      ),
+                    for (final section in sections)
+                      DButtonGroup(
+                        key: ValueKey(('topic-header-property', section.label)),
+                        children: [
+                          _TopicPropertyPopover(
+                            siteUrl: siteUrl,
+                            topicId: topic.id,
+                            section: section,
+                            registry: registry,
+                            compact: true,
+                            navigationRevision: state.navigationRevision,
+                          ),
+                        ],
+                      ),
+                    DButtonGroup(
+                      children: [
+                        TopicStatusButton(
+                          siteUrl: siteUrl,
+                          topic: topic,
+                          topicFlags: shell.availableTopicFlagTypes(
+                            siteUrl,
+                            topic,
+                          ),
+                          variant: DButtonVariant.outline,
+                          size: DButtonSize.filter,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           }

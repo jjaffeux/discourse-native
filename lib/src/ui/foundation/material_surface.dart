@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'glass_presets.dart';
 import 'joined_control.dart';
 import 'material_theme.dart';
+import 'native_glass.dart';
 import 'tokens.dart';
 
 /// Internal painting roles. This adds no targets, padding or gesture listeners.
@@ -141,8 +143,21 @@ class DMaterialSurface extends StatelessWidget {
         ? color.withValues(alpha: color.a * (recessed ? .42 : alpha))
         : color;
     final light = Colors.white.withValues(alpha: dark ? .08 : .8);
+    final nativeGlass = lens ? NativeGlass.of(context) : null;
     Widget background;
-    if (lens) {
+    if (nativeGlass != null) {
+      background = NativeGlassShape(
+        group: nativeGlass,
+        radius: radius,
+        tint: _glassTintOf(
+          context,
+          depth,
+          paintedColor,
+          depth == DSurfaceDepth.raised ? glassTint : null,
+        ),
+        child: const SizedBox.expand(),
+      );
+    } else if (lens) {
       background = _GlassPaint(
         radius: radius,
         depth: depth,
@@ -183,6 +198,8 @@ class DMaterialSurface extends StatelessWidget {
         !lens && !recessed && !panel && color.a > 0 && (!menu || glass);
     final content = panel
         ? DGlassBackdrop(backdropKey: null, captureSurface: glass, child: child)
+        : nativeGlass != null
+        ? NativeGlassContent(group: nativeGlass, child: child)
         : child;
     final surface = CustomPaint(
       painter: castsShadow && joined != null
@@ -453,6 +470,22 @@ bool _escapesPanel(DSurfaceDepth depth) => switch (depth) {
   _ => false,
 };
 
+/// The tint Native glass mixes into a surface: a floating date takes the
+/// surface colour, an explicit raised tint keeps most of its strength, and
+/// surfaces outside a panel take their own colour.
+Color? _glassTintOf(
+  BuildContext context,
+  DSurfaceDepth depth,
+  Color? color,
+  Color? glassTint,
+) {
+  if (depth == DSurfaceDepth.floatingDate) {
+    return DTokens.of(context).surface.withValues(alpha: .68);
+  }
+  return glassTint?.withValues(alpha: glassTint.a * .76) ??
+      (_escapesPanel(depth) ? color : null);
+}
+
 class _GlassPaint extends StatelessWidget {
   const _GlassPaint({
     required this.radius,
@@ -478,14 +511,10 @@ class _GlassPaint extends StatelessWidget {
     ].reduce((a, b) => a > b ? a : b);
     final date = depth == DSurfaceDepth.floatingDate;
     final floating = date || _escapesPanel(depth);
-    final explicitTint = glassTint?.withValues(alpha: glassTint!.a * .76);
-    final tint = date
-        ? DTokens.of(context).surface.withValues(alpha: .68)
-        : explicitTint ?? (floating ? color : null);
     Widget glass = DGlassSurface(
       radius: cornerRadius,
       brightness: Theme.of(context).brightness,
-      tint: tint,
+      tint: _glassTintOf(context, depth, color, glassTint),
       frost: floating ? 16 : null,
       saturation: date ? 1.85 : 1.4,
       child: const SizedBox.expand(),
@@ -602,15 +631,35 @@ class _PanelEdge extends CustomPainter {
     );
     // CSS inset 0 1px 1px white: light from the shifted shape's outside is
     // blurred through the panel clip, following rounded sheet corners too.
-    canvas.drawPath(
-      Path()
-        ..fillType = PathFillType.evenOdd
-        ..addRect(rect.inflate(8))
-        ..addRRect(radius.toRRect(rect).shift(const Offset(0, 1))),
-      Paint()
-        ..color = Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .5),
+    // Impeller reruns a mask blur over its path's bounds on every frame, so
+    // that outside is drawn as disjoint bands along the edges rather than as
+    // one path the size of the panel.
+    final outside = rect.inflate(8);
+    final shifted = Path()
+      ..addRRect(radius.toRRect(rect).shift(const Offset(0, 1)));
+    final top = math.min(
+      rect.bottom,
+      rect.top + math.max(radius.topLeft.y, radius.topRight.y) + 4,
     );
+    final bottom = math.max(
+      top,
+      rect.bottom - math.max(radius.bottomLeft.y, radius.bottomRight.y) - 4,
+    );
+    final light = Paint()
+      ..color = Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .5);
+    for (final band in [
+      Rect.fromLTRB(outside.left, outside.top, outside.right, top),
+      Rect.fromLTRB(outside.left, bottom, outside.right, outside.bottom),
+      Rect.fromLTRB(outside.left, top, rect.left + 4, bottom),
+      Rect.fromLTRB(rect.right - 4, top, outside.right, bottom),
+    ]) {
+      if (band.isEmpty) continue;
+      canvas.drawPath(
+        Path.combine(PathOperation.difference, Path()..addRect(band), shifted),
+        light,
+      );
+    }
     canvas.restore();
   }
 

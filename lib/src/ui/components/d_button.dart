@@ -13,6 +13,7 @@ import '../foundation/glass_presets.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
+import '../foundation/native_glass.dart';
 import '../foundation/post_action_surface.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
@@ -1236,7 +1237,14 @@ class DButton extends StatelessWidget {
           final foreground = enabled
               ? child
               : Opacity(opacity: buttons.disabledOpacity, child: child);
-          final content = selected
+          final nativeGlass = NativeGlass.of(context);
+          final content = nativeGlass != null
+              ? NativeGlassContent(
+                  group: nativeGlass,
+                  pill: selected,
+                  child: foreground ?? const SizedBox.shrink(),
+                )
+              : selected
               ? DGlassSurface(
                   radius: visualDimension / 2,
                   brightness: theme.brightness,

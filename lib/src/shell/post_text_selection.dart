@@ -183,20 +183,24 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     ),
     builder: (context, actions, _) => OverlayPortal(
       controller: _portal,
-      overlayChildBuilder: (context) {
-        final anchors = _anchors;
-        if (anchors == null || _selection.markdown.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return _PostTextSelectionToolbar(
-          anchors: anchors,
-          canQuote: actions.canQuote,
-          canEdit: actions.canEdit,
-          onQuote: _insertQuote,
-          onEdit: () => unawaited(_editSelection()),
-          onCopyQuote: _copyQuote,
-        );
-      },
+      overlayChildBuilder: (context) => NativeGlassOccluder(
+        child: Builder(
+          builder: (context) {
+            final anchors = _anchors;
+            if (anchors == null || _selection.markdown.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return _PostTextSelectionToolbar(
+              anchors: anchors,
+              canQuote: actions.canQuote,
+              canEdit: actions.canEdit,
+              onQuote: _insertQuote,
+              onEdit: () => unawaited(_editSelection()),
+              onCopyQuote: _copyQuote,
+            );
+          },
+        ),
+      ),
       child: CallbackShortcuts(
         bindings: {
           if (actions.canEdit)

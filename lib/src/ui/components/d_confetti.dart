@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../foundation/native_glass.dart';
 import '../foundation/tokens.dart';
 
 /// Celebrates when its visible anchor is first seen. The host owns session memory.
@@ -82,13 +83,15 @@ class _DConfettiState extends State<DConfetti>
         tokens.foreground,
       ];
       _entry = OverlayEntry(
-        builder: (_) => Positioned.fill(
-          child: IgnorePointer(
-            child: ExcludeSemantics(
-              child: AnimatedBuilder(
-                animation: _animation,
-                builder: (_, _) => CustomPaint(
-                  painter: _ConfettiPaint(origin, colors, _animation.value),
+        builder: (_) => NativeGlassOccluder(
+          child: Positioned.fill(
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: AnimatedBuilder(
+                  animation: _animation,
+                  builder: (_, _) => CustomPaint(
+                    painter: _ConfettiPaint(origin, colors, _animation.value),
+                  ),
                 ),
               ),
             ),

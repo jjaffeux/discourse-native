@@ -1188,6 +1188,7 @@ class _ComboboxTextEditor<T> extends StatelessWidget {
         textInputAction: TextInputAction.done,
         style: style,
         cursorColor: tokens.foreground,
+        cursorOpacityAnimates: DControlStyle.caretOpacityAnimates,
         decoration: InputDecoration.collapsed(
           hintText: placeholder,
           hintStyle: style.copyWith(color: tokens.mutedForeground),
@@ -1965,6 +1966,7 @@ class DComboboxChipsInput<T> extends StatelessWidget {
         enableSuggestions: false,
         textInputAction: TextInputAction.done,
         style: style,
+        cursorOpacityAnimates: DControlStyle.caretOpacityAnimates,
         decoration: InputDecoration(
           isCollapsed: true,
           border: InputBorder.none,

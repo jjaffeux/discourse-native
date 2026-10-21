@@ -8,6 +8,7 @@ import UserNotifications
   private var materialAccessibilityChannel: FlutterMethodChannel?
   private var materialAccessibilityObserver: NSObjectProtocol?
   private var keyboardChannel: FlutterMethodChannel?
+  private var glass: GlassRenderer?
   private var keyboardObservers: [NSObjectProtocol] = []
   private var keyboardReady = false
   private var keyboardTransition: [String: Any]?
@@ -25,6 +26,9 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeGlass") {
+      glass = GlassRenderer(registrar: registrar)
+    }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeKeyboardTransitions") {
       let channel = FlutterMethodChannel(
         name: "org.discourse.native/keyboard", binaryMessenger: registrar.messenger()

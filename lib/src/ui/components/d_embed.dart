@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_all/webview_all.dart';
 
 import '../foundation/embed_document.dart';
+import '../foundation/native_glass.dart';
 import '../foundation/native_webview_scroll.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
@@ -479,26 +480,28 @@ class _EmbedViewportState extends State<_EmbedViewport> {
         return OverlayPortal(
           controller: _overlay,
           overlayLocation: OverlayChildLocation.rootOverlay,
-          overlayChildBuilder: (context) => Positioned.fill(
-            child: ClipRect(
-              clipper: _EmbedViewportClipper(_viewport),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    child: CompositedTransformFollower(
-                      link: _link,
-                      showWhenUnlinked: false,
-                      child: SizedBox.fromSize(
-                        key: _surface,
-                        size: _size,
-                        child: content,
+          overlayChildBuilder: (context) => NativeGlassOccluder(
+            child: Positioned.fill(
+              child: ClipRect(
+                clipper: _EmbedViewportClipper(_viewport),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      child: CompositedTransformFollower(
+                        link: _link,
+                        showWhenUnlinked: false,
+                        child: SizedBox.fromSize(
+                          key: _surface,
+                          size: _size,
+                          child: content,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

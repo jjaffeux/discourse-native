@@ -67,6 +67,12 @@ abstract final class DControlStyle {
   static const focusWidth = 1.0;
   static const focusOffset = 2.0;
 
+  /// Text carets blink on and off every half period instead of fading.
+  /// Flutter's iOS fade requests every vsync while a field has focus, and each
+  /// of those frames re-renders every live glass backdrop on screen.
+  static const caretOpacityAnimates = false;
+  static const caretBlinkHalfPeriod = Duration(milliseconds: 500);
+
   /// Flutter rounds a paragraph's layout height up to whole logical pixels.
   /// Balance that extra leading across the insets to retain the CSS row size.
   static double menuVerticalInset(BuildContext context) {

@@ -469,6 +469,7 @@ class _DInputState extends FormFieldState<String> {
                     counterText: '',
                   ),
                   cursorColor: t.foreground,
+                  cursorOpacityAnimates: DControlStyle.caretOpacityAnimates,
                   keyboardType: input.keyboardType,
                   textInputAction: input.textInputAction,
                   textCapitalization: input.textCapitalization,

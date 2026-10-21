@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
+import '../foundation/native_glass.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 
@@ -716,7 +717,8 @@ class DTooltipState extends State<DTooltip>
     );
     child = OverlayPortal.overlayChildLayoutBuilder(
       controller: _portal,
-      overlayChildBuilder: _overlay,
+      overlayChildBuilder: (context, info) =>
+          NativeGlassOccluder(child: _overlay(context, info)),
       child: _TooltipMouseRegion(
         onEnter: _enter,
         onExit: _exit,
