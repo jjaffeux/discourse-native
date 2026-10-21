@@ -18,49 +18,7 @@ void main({bool profile = false}) {
   testWidgets('mobile composer keyboard retains the covered reader viewport', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
-    const channel = MethodChannel('org.discourse.native/notification_opens');
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    messenger.setMockMethodCallHandler(channel, (_) async => null);
-    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
-    const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
-    final shell = ShellController(
-      mobileNavigationEnabled: true,
-      forumTabsEnabled: false,
-      instanceStore: FakeInstanceStore([
-        instance('meta.discourse.org').copyWith(user: user),
-      ]),
-      api: FakeDiscourseApi(
-        user: user,
-        feeds: const {'/latest.json': []},
-        creatableFeedPaths: const {'/latest.json'},
-      ),
-      authenticator: FakeAuthenticator()
-        ..keys['https://meta.discourse.org'] = 'key',
-      drafts: FakeDraftStore(),
-      trackers: FakeSiteTracker.reset(),
-      updateStore: FakeUpdateStore(),
-    );
-    addTearDown(shell.dispose);
-    await shell.load();
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
-    tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
-    addTearDown(tester.view.reset);
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-          home: const AdaptiveShell(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    final shell = await _pumpMobileShell(tester);
     await shell.openNewTopicFromSidebar();
     await tester.pumpAndSettle();
     final reader = find.byKey(const ValueKey('mobile-content-panel'));
@@ -106,7 +64,7 @@ void main({bool profile = false}) {
     shell.closeComposer();
     await tester.pumpAndSettle();
     expect(tester.element(reader), same(readerElement));
-    expect(tester.getRect(reader).height, lessThan(resized.height));
+    expect(tester.getRect(reader), resized);
     tester.view.viewInsets = const FakeViewPadding();
     tester.view.padding = const FakeViewPadding(top: 62, bottom: 21);
     await tester.pumpAndSettle();
@@ -117,6 +75,78 @@ void main({bool profile = false}) {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  for (final dismissal in ['swipe', 'close']) {
+    testWidgets(
+      'mobile composer $dismissal keeps the dock down while its keyboard retracts',
+      (tester) async {
+        final shell = await _pumpMobileShell(tester);
+        await shell.openNewTopicFromSidebar();
+        await tester.pumpAndSettle();
+        final composer = shell.visibleComposer!;
+        composer.title.text = 'A topic with enough title text';
+        composer.text.text = 'A draft that minimizes.';
+        await tester.runAsync(composer.flushDraft);
+        tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+        tester.view.padding = const FakeViewPadding(top: 59);
+        await tester.pumpAndSettle();
+        final reader = find.byKey(const ValueKey('mobile-content-panel'));
+        final covered = tester.getRect(reader);
+        expect(covered.bottom, 844);
+
+        if (dismissal == 'swipe') {
+          await tester.dragFrom(
+            tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+            const Offset(0, 300),
+          );
+        } else {
+          shell.closeComposer();
+        }
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('composer-mobile-sheet')),
+          findsNothing,
+        );
+        final dock = find.byKey(const ValueKey('mobile-bottom-bar'));
+        final docked = tester.getRect(dock);
+        for (final inset in [320.0, 240.0, 160.0, 80.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump();
+          expect(tester.getRect(reader), covered, reason: 'keyboard $inset');
+          expect(tester.getRect(dock), docked, reason: 'keyboard $inset');
+        }
+        tester.view.viewInsets = const FakeViewPadding();
+        tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+        await tester.pumpAndSettle();
+        expect(tester.getRect(reader).bottom, 844 - 34);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets(
+    'a keyboard raised again after the mobile composer resizes the shell',
+    (tester) async {
+      final shell = await _pumpMobileShell(tester);
+      await shell.openNewTopicFromSidebar();
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      tester.view.padding = const FakeViewPadding(top: 59);
+      await tester.pumpAndSettle();
+      shell.closeComposer();
+      await tester.pumpAndSettle();
+      final reader = find.byKey(const ValueKey('mobile-content-panel'));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 160);
+      await tester.pump();
+      expect(tester.getRect(reader).bottom, 844);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+      await tester.pump();
+      expect(tester.getRect(reader).bottom, 844 - 240);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets(
     'opening and closing the composer retains reader panels and builds the editor once',
@@ -222,4 +252,51 @@ void main({bool profile = false}) {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+}
+
+Future<ShellController> _pumpMobileShell(WidgetTester tester) async {
+  SharedPreferences.setMockInitialValues({});
+  const channel = MethodChannel('org.discourse.native/notification_opens');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(channel, (_) async => null);
+  addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+  const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
+  final shell = ShellController(
+    mobileNavigationEnabled: true,
+    forumTabsEnabled: false,
+    instanceStore: FakeInstanceStore([
+      instance('meta.discourse.org').copyWith(user: user),
+    ]),
+    api: FakeDiscourseApi(
+      user: user,
+      feeds: const {'/latest.json': []},
+      creatableFeedPaths: const {'/latest.json'},
+    ),
+    authenticator: FakeAuthenticator()
+      ..keys['https://meta.discourse.org'] = 'key',
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    updateStore: FakeUpdateStore(),
+  );
+  addTearDown(shell.dispose);
+  await shell.load();
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(390, 844);
+  tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+  tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+  addTearDown(tester.view.reset);
+  await tester.binding.setSurfaceSize(const Size(390, 844));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  await tester.pumpWidget(
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: const AdaptiveShell(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return shell;
 }

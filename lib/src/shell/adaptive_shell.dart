@@ -530,13 +530,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     bool diagnosticsOpen,
   ) {
     final mobile = ShellScope.read(context).mobileNavigationEnabled;
-    return Scaffold(
-      resizeToAvoidBottomInset:
-          !mobile || !ComposerPresentationHost.hasMobileSheetOf(context),
-      // iOS exposes this surface around the keyboard's rounded upper corners.
-      backgroundColor: mobile
-          ? Theme.of(context).shell.content
-          : Colors.transparent,
+    return _ShellScaffold(
+      mobile: mobile,
       body: ForumWindowBackground(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -654,6 +649,48 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         }
       },
       child: child,
+    );
+  }
+}
+
+/// On phones, leaves the composer sheet's keyboard to the sheet, which covers
+/// a full-height shell.
+class _ShellScaffold extends StatefulWidget {
+  const _ShellScaffold({required this.mobile, required this.body});
+
+  final bool mobile;
+  final Widget body;
+
+  @override
+  State<_ShellScaffold> createState() => _ShellScaffoldState();
+}
+
+class _ShellScaffoldState extends State<_ShellScaffold> {
+  // The sheet's keyboard outlives the sheet: a swipe or close removes the
+  // sheet first and the keyboard retracts after. Avoiding that keyboard would
+  // lift the dock onto its top edge for the whole retraction, so the shell
+  // ignores it until it is gone, or until it rises again for a shell field.
+  double? _sheetKeyboard;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.mobile) {
+      final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+      final retracting = keyboard > 0 && keyboard <= (_sheetKeyboard ?? 0);
+      _sheetKeyboard =
+          ComposerPresentationHost.hasMobileSheetOf(context) || retracting
+          ? keyboard
+          : null;
+    } else {
+      _sheetKeyboard = null;
+    }
+    return Scaffold(
+      resizeToAvoidBottomInset: _sheetKeyboard == null,
+      // iOS exposes this surface around the keyboard's rounded upper corners.
+      backgroundColor: widget.mobile
+          ? Theme.of(context).shell.content
+          : Colors.transparent,
+      body: widget.body,
     );
   }
 }

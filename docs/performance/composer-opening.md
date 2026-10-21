@@ -4,8 +4,15 @@ The mobile composer sheet owns keyboard avoidance. While that sheet covers the
 shell, the shell Scaffold keeps its full available height. This avoids resizing
 the covered reader, sidebar, and navigation for every keyboard inset update.
 The sheet continues to receive the real keyboard insets and screen size.
-Closing or minimizing the sheet restores the shell's normal keyboard avoidance.
 Desktop behavior is unchanged.
+
+The sheet's keyboard outlives the sheet. A swipe slides the sheet off-screen
+before the composer minimizes and unfocuses, and a close removes the sheet in
+the same frame, so the keyboard starts retracting with the shell already
+uncovered. The shell keeps ignoring that keyboard until it is gone. Resizing
+for it would lift the dock onto the keyboard's top edge, mid-screen, for the
+whole retraction. A keyboard that rises again, for a field in the shell,
+restores normal keyboard avoidance at once.
 
 An iPhone CPU capture identified covered reader chrome, header measurement,
 sidebar, and navigation work during keyboard reveal. Category and tag searches
@@ -20,8 +27,10 @@ Scaffold's existing resize option. It introduces no control or UI-kit API.
 `test/composer_opening_test.dart` drives intermediate keyboard insets, screen and
 safe-area changes, close, and keyboard dismissal. It checks that the covered
 reader retains full screen constraints, the editor and reader retain identity,
-the toolbar stays above the keyboard, and normal reader resizing resumes on
-close. The docking and mobile viewport suites cover picker focus, swipes,
+the toolbar stays above the keyboard, and normal reader resizing resumes once
+the keyboard is gone. Swipe and close cases check that the reader and dock stay
+put while the keyboard retracts, and that a keyboard rising again resizes the
+reader. The docking and mobile viewport suites cover picker focus, swipes,
 minimizing, restoring, long drafts, and large text.
 The new viewport regression fails with the previous resize behavior. The native
 iPhone 17e simulator also completed six openings with category and tag controls,
