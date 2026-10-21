@@ -365,6 +365,7 @@ void main() {
     DSheetSide side = DSheetSide.bottom,
     ScrollController? scroll,
     ValueChanged<DSheetChangeDetails<void>>? onOpenChanged,
+    ValueNotifier<bool>? covering,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -404,6 +405,7 @@ void main() {
                         onSwipeDismissRequested: dismissOnSwipe
                             ? onSwipeDismissRequested
                             : null,
+                        covering: covering,
                         content: content(),
                       )
                     : const SizedBox.shrink()
@@ -1012,6 +1014,34 @@ void main() {
       );
     }
   }
+
+  testWidgets('a retained sheet covers its host until a swipe reveals it', (
+    tester,
+  ) async {
+    final covering = ValueNotifier(false);
+    addTearDown(covering.dispose);
+    await openSwipeSheet(tester, retained: true, covering: covering);
+    expect(backdropOpacity(tester), 1);
+    expect(covering.value, isTrue);
+
+    final title = find.text('Swipe sheet');
+    final gesture = await tester.startGesture(tester.getCenter(title));
+    await gesture.moveBy(const Offset(0, 30));
+    await gesture.moveBy(const Offset(0, 120));
+    await tester.pump();
+    expect(backdropOpacity(tester), lessThan(1));
+    expect(covering.value, isFalse);
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(backdropOpacity(tester), 1);
+    expect(covering.value, isTrue);
+
+    await tester.drag(title, const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    expect(covering.value, isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('retained sheets without a close callback do not swipe', (
     tester,

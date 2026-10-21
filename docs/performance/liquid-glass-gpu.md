@@ -173,6 +173,33 @@ with or without the header and progress pill on system glass.
 `NativeGlass.disabled` switches every scope back to Flutter glass at runtime
 for side-by-side measurement.
 
+## Shell under the reply sheet
+
+The mobile reply sheet is a retained `DSheetViewport` above the whole shell.
+Its full-height backdrop is an opaque canvas until a swipe fades it, yet
+Flutter kept painting the reader underneath on every frame: its posts, panel
+edges and, behind the sheet's occluder, the header, progress pill and dock as
+Flutter glass. `DSheetViewport.covering` now reports while the canvas hides
+everything beneath it, and the composer host skips painting the shell then. A
+swipe paints it again in the same frame.
+
+Interleaved on the phone, profile build, typing about 10 characters per second
+into the reply sheet over a topic, 2-second windows, 5 per variant. The skipped
+row was measured with a prototype that took the shell offstage:
+
+| Variant | Raster thread per frame | Frames drawn per second |
+| --- | ---: | ---: |
+| Shell painted | 15.6 ms (15.2-17.2) | 62.5 |
+| Shell skipped | 5.1 ms (4.7-7.6) | 101.9 |
+| High contrast | 1.6 ms (1.4-2.0) | 99.7 |
+
+The live binding draws every vsync, so frames drawn shows where the raster
+thread saturates; the app requested about 12.5 frames per second in every
+variant. On the simulator the shipped change measured the same as the
+prototype, 221 against about 800 ms of raster time per second. Metal System
+Trace recordings of these runs came back empty (Xcode 27.1, iOS 26.6.2), so
+the GPU share is not measured.
+
 ## Open costs
 
 - With the system dock, the topic list still measures about 524 ms/s against

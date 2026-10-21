@@ -159,6 +159,7 @@ class DSheetViewport extends StatelessWidget {
     this.onDismiss,
     this.onSwipeDismissRequested,
     this.underlay,
+    this.covering,
   });
 
   final DSheetContent content;
@@ -179,6 +180,13 @@ class DSheetViewport extends StatelessWidget {
   /// of the gesture. This callback runs after layout, allowing the host to open
   /// an anchored confirmation or action menu. Takes precedence over [onDismiss].
   final VoidCallback? onSwipeDismissRequested;
+
+  /// True while a full-height sheet's opaque canvas hides everything beneath
+  /// it, false while a swipe reveals it and once the sheet is gone. A host
+  /// that draws the covered content outside this viewport can skip painting
+  /// it while this is true. It changes during the frame that changes it,
+  /// including while the sheet builds and unmounts, so read it when painting.
+  final ValueNotifier<bool>? covering;
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +216,7 @@ class DSheetViewport extends StatelessWidget {
         onRetainedDismiss: onDismiss,
         onRetainedSwipeDismissRequested: onSwipeDismissRequested,
         underlay: underlay,
+        covering: covering,
       ),
     );
   }
@@ -305,9 +314,18 @@ class _DSheetSideScope extends InheritedWidget {
 // is disposed, so the sheet's curves are owned by a State rather than rebuilt
 // with every inset or configuration change of the open sheet.
 class _DSheetCurves extends StatefulWidget {
-  const _DSheetCurves({required this.animation, required this.builder});
+  const _DSheetCurves({
+    required this.animation,
+    required this.opaque,
+    this.covering,
+    required this.builder,
+  });
 
   final Animation<double> animation;
+
+  /// Whether the backdrop is an opaque canvas until a swipe fades it.
+  final bool opaque;
+  final ValueNotifier<bool>? covering;
   final Widget Function(
     BuildContext context,
     Animation<double> popupCurve,
@@ -331,6 +349,12 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
   void initState() {
     super.initState();
     _create();
+    _swipeProgress.addListener(_syncCovering);
+    _syncCovering();
+  }
+
+  void _syncCovering() {
+    widget.covering?.value = widget.opaque && _swipeProgress.value == 0;
   }
 
   void _create() {
@@ -354,6 +378,10 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
   @override
   void didUpdateWidget(_DSheetCurves oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.covering != widget.covering) {
+      oldWidget.covering?.value = false;
+    }
+    _syncCovering();
     if (identical(oldWidget.animation, widget.animation)) return;
     _dispose();
     _create();
@@ -361,6 +389,7 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
 
   @override
   void dispose() {
+    widget.covering?.value = false;
     _dispose();
     _swipeProgress.dispose();
     super.dispose();
@@ -390,6 +419,7 @@ Widget _sheetPresentation(
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
   Widget? underlay,
+  ValueNotifier<bool>? covering,
 }) {
   if (variant == DSheetVariant.adaptiveMenu &&
       requestedSide == DSheetSide.bottom) {
@@ -409,6 +439,12 @@ Widget _sheetPresentation(
   }
   return _DSheetCurves(
     animation: presentation.animation,
+    // Matches the backdrop _sheetLayout draws for full-height sheets.
+    opaque:
+        presentation.modal &&
+        fillAvailableHeight &&
+        variant != DSheetVariant.page,
+    covering: covering,
     builder: (context, popupCurve, backdropCurve, swipeProgress, swipeKey) =>
         _sheetLayout(
           context,

@@ -1043,6 +1043,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the mobile sheet stops painting the shell it covers', (
+    tester,
+  ) async {
+    final repaint = ValueNotifier(0);
+    addTearDown(repaint.dispose);
+    var paints = 0;
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+      reader: CustomPaint(
+        painter: _CountingPainter(repaint, () => paints++),
+        child: const SizedBox.expand(),
+      ),
+    );
+    Future<bool> painted() async {
+      final before = paints;
+      repaint.value++;
+      await tester.pump();
+      return paints > before;
+    }
+
+    expect(await painted(), isFalse);
+    final header = tester.getCenter(
+      find.byKey(const ValueKey('composer-header')),
+    );
+    final gesture = await tester.startGesture(header);
+    await gesture.moveBy(const Offset(0, 30));
+    await gesture.moveBy(const Offset(0, 60));
+    await tester.pump();
+    expect(await painted(), isTrue);
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(await painted(), isFalse);
+
+    final composer = harness.shell.visibleComposer!;
+    composer.title.text = 'A topic with enough title text';
+    composer.text.text = 'A draft that minimizes.';
+    await tester.runAsync(composer.flushDraft);
+    await tester.pumpAndSettle();
+    await tester.dragFrom(header, const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('composer-mobile-sheet')), findsNothing);
+    expect(await painted(), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final origin in ['handle', 'header', 'body', 'bottom']) {
       for (final keyboard in [0.0, 300.0]) {
@@ -1844,4 +1891,16 @@ Future<void> _pickPosition(
   await tester.pumpAndSettle();
   await tester.tap(find.byTooltip(placement.label));
   await tester.pumpAndSettle();
+}
+
+class _CountingPainter extends CustomPainter {
+  _CountingPainter(Listenable repaint, this.onPaint) : super(repaint: repaint);
+
+  final VoidCallback onPaint;
+
+  @override
+  void paint(Canvas canvas, Size size) => onPaint();
+
+  @override
+  bool shouldRepaint(_CountingPainter oldDelegate) => false;
 }

@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../diagnostics/surface_opening_trace.dart';
 import '../../models/composer_placement.dart';
@@ -105,6 +106,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   ComposerController? _knownVisibleComposer;
   int _knownRevealRevision = 0;
   GlobalKey _surfacesKey = GlobalKey();
+  final _sheetCovers = ValueNotifier(false);
 
   ComposerController? get _presentableComposer => _shell!.visibleComposer;
 
@@ -376,7 +378,10 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
               excluding: mobileSheet != null,
               child: ExcludeSemantics(
                 excluding: mobileSheet != null,
-                child: widget.child,
+                child: _CoveredContent(
+                  covering: _sheetCovers,
+                  child: widget.child,
+                ),
               ),
             ),
           ),
@@ -409,6 +414,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
                   },
                   child: DSheetViewport(
                     key: ObjectKey(mobileSheet.composer),
+                    covering: _sheetCovers,
                     onDismiss: () => unawaited(_dismissMobile(mobileSheet)),
                     content: DSheetContent(
                       key: const ValueKey('composer-mobile-sheet'),
@@ -448,7 +454,58 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     _shell?.removeListener(_shellChanged);
     _presentation.removeListener(_changed);
     if (widget.controller == null) _presentation.dispose();
+    _sheetCovers.dispose();
     super.dispose();
+  }
+}
+
+/// Lays out the shell under the mobile sheet but skips painting it while the
+/// sheet's opaque canvas hides it, so typing does not redraw what no one sees.
+class _CoveredContent extends SingleChildRenderObjectWidget {
+  const _CoveredContent({required this.covering, required super.child});
+
+  final ValueListenable<bool> covering;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderCoveredContent(covering);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderCoveredContent renderObject,
+  ) => renderObject.covering = covering;
+}
+
+class _RenderCoveredContent extends RenderProxyBox {
+  _RenderCoveredContent(this._covering);
+
+  ValueListenable<bool> _covering;
+  set covering(ValueListenable<bool> value) {
+    if (value == _covering) return;
+    if (attached) {
+      _covering.removeListener(markNeedsPaint);
+      value.addListener(markNeedsPaint);
+    }
+    _covering = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    _covering.addListener(markNeedsPaint);
+  }
+
+  @override
+  void detach() {
+    _covering.removeListener(markNeedsPaint);
+    super.detach();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (!_covering.value) super.paint(context, offset);
   }
 }
 
