@@ -14,6 +14,7 @@ Widget fixture({
   double width = 390,
   bool collapsed = false,
   bool withAction = true,
+  bool tintedAction = false,
   TextDirection direction = TextDirection.ltr,
   double scale = 1,
   ValueChanged<int>? onOverflow,
@@ -85,6 +86,7 @@ Widget fixture({
                       ? DMobileDockAction(
                           icon: const Icon(Icons.add),
                           label: 'New topic',
+                          tinted: tintedAction,
                           onPressed: () {},
                         )
                       : null,
@@ -92,6 +94,31 @@ Widget fixture({
               ),
             ),
           ),
+        ),
+      ),
+    ),
+  ),
+);
+
+/// A primary-filled control built as the chat composer's send button is.
+Widget sendButtonFixture(ThemeData theme) => MaterialApp(
+  theme: theme,
+  home: Scaffold(
+    body: Center(
+      child: NativeGlassScope(
+        child: Builder(
+          builder: (context) {
+            final colors = DTokens.of(context).buttonTheme.primary;
+            return DButton.iconOnly(
+              size: DButtonSize.toolbar,
+              foregroundColor: colors.foreground,
+              backgroundColor: colors.background,
+              interactiveBackgroundColor: colors.hover,
+              icon: const Icon(Icons.send),
+              tooltip: 'Send',
+              onPressed: () {},
+            );
+          },
         ),
       ),
     ),
@@ -361,6 +388,55 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+
+  testWidgets(
+    'a tinted action wears the send button glass, alone in the dock',
+    (tester) async {
+      for (final brightness in Brightness.values) {
+        final theme = DMaterialTheme.apply(
+          brightness == Brightness.dark ? AppTheme.dark : AppTheme.light,
+          DAppearanceMaterial.liquidGlass,
+        );
+        LiquidGlassAppearance? glassOf(Finder control) => tester
+            .widget<LiquidGlass>(
+              find.descendant(of: control, matching: find.byType(LiquidGlass)),
+            )
+            .appearance;
+
+        await tester.pumpWidget(sendButtonFixture(theme));
+        await tester.pumpAndSettle();
+        final send = glassOf(find.byTooltip('Send'));
+
+        await tester.pumpWidget(fixture(theme: theme, tintedAction: true));
+        await tester.pumpAndSettle();
+        expect(
+          glassOf(find.byType(DMobileDockAction)),
+          send,
+          reason: '$brightness',
+        );
+        expectStockGlass(
+          tester,
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('Topics')),
+                matching: find.byType(LiquidGlass),
+              )
+              .first,
+        );
+
+        await tester.pumpWidget(fixture(theme: theme));
+        await tester.pumpAndSettle();
+        expectStockGlass(
+          tester,
+          find.descendant(
+            of: find.byType(DMobileDockAction),
+            matching: find.byType(LiquidGlass),
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
 
   testWidgets('glass spring reverses smoothly and reduced motion snaps', (
     tester,

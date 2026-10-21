@@ -1234,6 +1234,12 @@ class DButton extends StatelessWidget {
               mobileDockAction ||
               mobileDockCollapsed ||
               state.backgroundColor.a > 0;
+          // An action's fill tints its pill as a filled control tints its
+          // glass. A destination's fill only marks it selected.
+          final fill = mobileDockAction ? backgroundColor : null;
+          final tint = fill == null
+              ? null
+              : DMaterialSurface.glassTintFor(materialColor(fill));
           final foreground = enabled
               ? child
               : Opacity(opacity: buttons.disabledOpacity, child: child);
@@ -1242,12 +1248,14 @@ class DButton extends StatelessWidget {
               ? NativeGlassContent(
                   group: nativeGlass,
                   pill: selected,
+                  tint: tint,
                   child: foreground ?? const SizedBox.shrink(),
                 )
               : selected
               ? DGlassSurface(
                   radius: visualDimension / 2,
                   brightness: theme.brightness,
+                  tint: tint,
                   child: foreground ?? const SizedBox.shrink(),
                 )
               : foreground;

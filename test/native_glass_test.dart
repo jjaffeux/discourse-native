@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
-import 'd_mobile_dock_test.dart' show fixture;
+import 'd_mobile_dock_test.dart' show fixture, sendButtonFixture;
 
 final _glass = DMaterialTheme.apply(
   AppTheme.light.copyWith(platform: TargetPlatform.iOS),
@@ -103,10 +103,43 @@ void main() {
     expect(at(find.byTooltip('New topic'))['glass'], isTrue);
     for (final element in elements) {
       expect(element['opacity'], 1.0);
+      expect(element['tint'], isNull);
       if (element['image'] != -1) {
         expect(images[element['id']], greaterThan(0));
       }
     }
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a tinted dock action takes the send button system tint', (
+    tester,
+  ) async {
+    await tester.pumpWidget(sendButtonFixture(_glass));
+    final send = _list(
+      _list((await settle(tester))['groups']).single['elements'],
+    ).singleWhere((element) => element['image'] == -1);
+    expect(send['tint'], isNotNull);
+
+    await tester.pumpWidget(fixture(theme: _glass, tintedAction: true));
+    final scene = await settle(tester);
+    final elements = _list(_list(scene['groups']).single['elements']);
+    _Scene at(Finder finder) {
+      final center = tester.getCenter(finder);
+      return elements.singleWhere(
+        (element) =>
+            element['image'] != -1 && _rect(element['rect']).contains(center),
+      );
+    }
+
+    final action = at(find.byTooltip('New topic'));
+    expect(action['glass'], isTrue);
+    expect(action['tint'], send['tint']);
+    // Only the action is tinted: the capsule and the selected destination
+    // keep the stock material.
+    for (final element in elements.where((e) => !identical(e, action))) {
+      expect(element['tint'], isNull);
+    }
+    expect(at(find.byKey(const ValueKey('Topics')))['glass'], isTrue);
     expect(tester.takeException(), isNull);
   });
 

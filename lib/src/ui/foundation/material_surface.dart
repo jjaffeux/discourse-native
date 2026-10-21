@@ -59,6 +59,10 @@ class DMaterialSurface extends StatelessWidget {
       DMaterialTheme.of(context) != null;
   static Color fill(BuildContext context, Color color) =>
       active(context) ? Colors.transparent : color;
+
+  /// The tint Liquid Glass mixes in for a control's explicit fill: most of its
+  /// strength, so the control still reads as glass.
+  static Color glassTintFor(Color fill) => fill.withValues(alpha: fill.a * .76);
   static Clip panelClipOf(BuildContext context) =>
       !kIsWeb &&
           Theme.of(context).platform == TargetPlatform.iOS &&
@@ -482,8 +486,8 @@ Color? _glassTintOf(
   if (depth == DSurfaceDepth.floatingDate) {
     return DTokens.of(context).surface.withValues(alpha: .68);
   }
-  return glassTint?.withValues(alpha: glassTint.a * .76) ??
-      (_escapesPanel(depth) ? color : null);
+  if (glassTint != null) return DMaterialSurface.glassTintFor(glassTint);
+  return _escapesPanel(depth) ? color : null;
 }
 
 class _GlassPaint extends StatelessWidget {
