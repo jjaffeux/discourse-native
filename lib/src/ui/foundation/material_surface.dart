@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'glass_presets.dart';
 import 'joined_control.dart';
 import 'material_theme.dart';
+import 'native_glass.dart';
 import 'tokens.dart';
 
 /// Internal painting roles. This adds no targets, padding or gesture listeners.
@@ -142,8 +143,21 @@ class DMaterialSurface extends StatelessWidget {
         ? color.withValues(alpha: color.a * (recessed ? .42 : alpha))
         : color;
     final light = Colors.white.withValues(alpha: dark ? .08 : .8);
+    final nativeGlass = lens ? NativeGlass.of(context) : null;
     Widget background;
-    if (lens) {
+    if (nativeGlass != null) {
+      background = NativeGlassShape(
+        group: nativeGlass,
+        radius: radius,
+        tint: _glassTintOf(
+          context,
+          depth,
+          paintedColor,
+          depth == DSurfaceDepth.raised ? glassTint : null,
+        ),
+        child: const SizedBox.expand(),
+      );
+    } else if (lens) {
       background = _GlassPaint(
         radius: radius,
         depth: depth,
@@ -184,6 +198,8 @@ class DMaterialSurface extends StatelessWidget {
         !lens && !recessed && !panel && color.a > 0 && (!menu || glass);
     final content = panel
         ? DGlassBackdrop(backdropKey: null, captureSurface: glass, child: child)
+        : nativeGlass != null
+        ? NativeGlassContent(group: nativeGlass, child: child)
         : child;
     final surface = CustomPaint(
       painter: castsShadow && joined != null
@@ -454,6 +470,22 @@ bool _escapesPanel(DSurfaceDepth depth) => switch (depth) {
   _ => false,
 };
 
+/// The tint Native glass mixes into a surface: a floating date takes the
+/// surface colour, an explicit raised tint keeps most of its strength, and
+/// surfaces outside a panel take their own colour.
+Color? _glassTintOf(
+  BuildContext context,
+  DSurfaceDepth depth,
+  Color? color,
+  Color? glassTint,
+) {
+  if (depth == DSurfaceDepth.floatingDate) {
+    return DTokens.of(context).surface.withValues(alpha: .68);
+  }
+  return glassTint?.withValues(alpha: glassTint.a * .76) ??
+      (_escapesPanel(depth) ? color : null);
+}
+
 class _GlassPaint extends StatelessWidget {
   const _GlassPaint({
     required this.radius,
@@ -479,14 +511,10 @@ class _GlassPaint extends StatelessWidget {
     ].reduce((a, b) => a > b ? a : b);
     final date = depth == DSurfaceDepth.floatingDate;
     final floating = date || _escapesPanel(depth);
-    final explicitTint = glassTint?.withValues(alpha: glassTint!.a * .76);
-    final tint = date
-        ? DTokens.of(context).surface.withValues(alpha: .68)
-        : explicitTint ?? (floating ? color : null);
     Widget glass = DGlassSurface(
       radius: cornerRadius,
       brightness: Theme.of(context).brightness,
-      tint: tint,
+      tint: _glassTintOf(context, depth, color, glassTint),
       frost: floating ? 16 : null,
       saturation: date ? 1.85 : 1.4,
       child: const SizedBox.expand(),

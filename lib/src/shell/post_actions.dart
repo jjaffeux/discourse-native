@@ -1009,27 +1009,30 @@ class _PostActionsState extends State<PostActions> {
       onExit: (_) => _pointerExited(_PostActionsHoverTarget.post),
       child: OverlayPortal(
         controller: _portal,
-        overlayChildBuilder: (context) => ValueListenableBuilder<Rect?>(
-          valueListenable: _anchor,
-          builder: (context, anchor, child) {
-            if (anchor == null) return const SizedBox.shrink();
-            return Positioned(
-              // Clamped to the visible rectangle, so a post taller than the
-              // viewport keeps its menu on screen instead of above the fold.
-              top: anchor.top + _inset,
-              left: anchor.right - _PostActionsMenu.widthFor(actions) - _inset,
-              child: child!,
-            );
-          },
-          child: MouseRegion(
-            onEnter: (_) => _pointerEntered(_PostActionsHoverTarget.toolbar),
-            onHover: (_) => _pointerMoved(_PostActionsHoverTarget.toolbar),
-            onExit: (_) => _pointerExited(_PostActionsHoverTarget.toolbar),
-            child: _PostActionsMenu(
-              actions: actions,
-              firstActionFocus: _firstActionFocus,
-              onOverflowChanged: _overflowChanged,
-              onInvoke: invoke,
+        overlayChildBuilder: (context) => NativeGlassOccluder(
+          child: ValueListenableBuilder<Rect?>(
+            valueListenable: _anchor,
+            builder: (context, anchor, child) {
+              if (anchor == null) return const SizedBox.shrink();
+              return Positioned(
+                // Clamped to the visible rectangle, so a post taller than the
+                // viewport keeps its menu on screen instead of above the fold.
+                top: anchor.top + _inset,
+                left:
+                    anchor.right - _PostActionsMenu.widthFor(actions) - _inset,
+                child: child!,
+              );
+            },
+            child: MouseRegion(
+              onEnter: (_) => _pointerEntered(_PostActionsHoverTarget.toolbar),
+              onHover: (_) => _pointerMoved(_PostActionsHoverTarget.toolbar),
+              onExit: (_) => _pointerExited(_PostActionsHoverTarget.toolbar),
+              child: _PostActionsMenu(
+                actions: actions,
+                firstActionFocus: _firstActionFocus,
+                onOverflowChanged: _overflowChanged,
+                onInvoke: invoke,
+              ),
             ),
           ),
         ),

@@ -9,6 +9,7 @@ import '../foundation/app_text_scaler.dart';
 import '../foundation/glass_presets.dart';
 import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
+import '../foundation/native_glass.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_mobile_dock_item.dart';
@@ -167,9 +168,11 @@ class _DMobileDockState extends State<DMobileDock>
   );
 
   @override
-  Widget build(BuildContext context) => widget.referenceTextScale
-      ? DReferenceTextScale(child: Builder(builder: _buildDock))
-      : _buildDock(context);
+  Widget build(BuildContext context) => NativeGlassScope(
+    child: widget.referenceTextScale
+        ? DReferenceTextScale(child: Builder(builder: _buildDock))
+        : Builder(builder: _buildDock),
+  );
 
   Widget _buildDock(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
@@ -188,6 +191,7 @@ class _DMobileDockState extends State<DMobileDock>
       final radius = BorderRadius.circular(999);
       final tokens = DTokens.of(context);
       final glass = DMaterialTheme.glassOf(context);
+      final nativeGlass = NativeGlass.of(context);
       // Opacity creates an empty offscreen layer around a live backdrop lens.
       // Keep glass on the dock's painted backdrop and dissolve the row through
       // geometry instead. Each control keeps its slot throughout the morph.
@@ -198,7 +202,9 @@ class _DMobileDockState extends State<DMobileDock>
         tokens.foreground,
         .12,
       )!.withValues(alpha: DMaterialTheme.reducedOf(context) ? 1 : .94);
-      Widget dockSurface(Widget child) => glass
+      Widget dockSurface(Widget child) => nativeGlass != null
+          ? NativeGlassShape(group: nativeGlass, child: child)
+          : glass
           ? DGlassSurface(
               radius: (expandedExtent - 14 * phase) / 2,
               brightness: Theme.of(context).brightness,
@@ -329,7 +335,7 @@ class _DMobileDockState extends State<DMobileDock>
           ),
         ),
       );
-      final capsule = glass
+      final capsule = glass && nativeGlass == null
           ? DGlassBackdrop(
               backdropKey: null,
               child: LiquidGlassCapture(child: capsuleArtwork),

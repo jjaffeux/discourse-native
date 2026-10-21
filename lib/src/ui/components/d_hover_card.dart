@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/native_glass.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
 
@@ -812,7 +813,8 @@ class _DHoverCardState extends State<DHoverCard>
     );
     return OverlayPortal.overlayChildLayoutBuilder(
       controller: _portal,
-      overlayChildBuilder: _overlay,
+      overlayChildBuilder: (context, info) =>
+          NativeGlassOccluder(child: _overlay(context, info)),
       child: trigger,
     );
   }

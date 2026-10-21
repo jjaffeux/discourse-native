@@ -125,32 +125,59 @@ frames per second unchanged and 119.7 with the bands.
 | Native `UIGlassEffect` dock as a platform view | About the same GPU per frame | Flutter splits the frame around the view |
 | 60 Hz cap | Not adopted | Halves frames; the product keeps 120 Hz |
 
-## A native tab bar
+## System glass
 
-A prototype drew the dock's glass as a `UIGlassEffect` view added above the
-Flutter view in UIKit, not inside Flutter's frame, with the dock drawing no
-glass of its own. Interleaved on the phone:
+`NativeGlass` (`lib/src/ui/foundation/native_glass.dart`) draws opted-in glass
+with iOS 26 `UIGlassEffect` views that `GlassRenderer`
+(`ios/Runner/GlassRenderer.swift`) adds above the Flutter view. The render
+server composites them outside Flutter's frame, so that glass costs Flutter no
+backdrop reads. Five `NativeGlassScope`s opt in: the mobile dock, the reader's
+header row, the topic progress pill, the floating date in chat and topics, and
+the chat composer's send button.
 
-| Screen | `7ab351f43` app GPU | Native glass app GPU | Render server |
+Flutter keeps the widgets, their layout, animations, gestures and semantics.
+After each frame it reports every glass shape's frame, corners, tint and
+opacity, and each scope's clip and paint order, and only sends when they
+changed. The content drawn above the glass is captured as an image when it
+repaints; Flutter composites its own copy at 1/255 opacity, so touches and
+semantics still land on it. The native views never take touches. A merging
+scope renders touching shapes as one through `UIGlassContainerEffect`, as the
+header's joined bookmark and notification controls look in Flutter glass.
+
+UIKit draws above everything Flutter shows. A scope therefore draws Flutter
+glass while its route is covered, while a sheet covers it through its closing
+transition, and while any `NativeGlassOccluder` is mounted. Every overlay in
+the app mounts one: popovers, tooltips, hover cards, the composer's
+suggestions and selection toolbar, post actions, text selection, embeds and
+YouTube players. `native_glass_test` fails when a file opens an `OverlayPortal`
+or `OverlayEntry` without one. Hosts without iOS 26 keep the Flutter glass.
+
+An earlier prototype embedded `UIGlassEffect` as a platform view instead; Flutter
+then splits its frame around the view, which cost about as much as the glass.
+
+Interleaved on the phone, both sides with the edge bands, 120 fps throughout:
+
+| Screen | Flutter glass | System glass | Render server change |
 | --- | ---: | ---: | ---: |
-| Topic list | 804 ms/s | 638 ms/s | +24 ms/s |
-| Topic reader | 842 ms/s | 682 ms/s | +15 ms/s |
+| Topic list | 670 ms/s | 513 ms/s | +46 ms/s |
+| Topic reader | 718 ms/s | 552 ms/s | +36 ms/s |
+| Chat, dock only | 736 ms/s | 524 ms/s | about 0 |
 
-With the edge bands as well, the topic list measured 561 ms/s against 790,
-and the render server 68 against 19. In the prototype the icons sat under
-the native glass. Shipping it means drawing the dock's items natively, as
-iOS 26 `UITabBar` does, and driving selection, badges and the fold over a
-channel.
+The chat row comes from an earlier run with only the dock on system glass; the
+run with every scope lost its chat trace. The reader's header retracts while it
+scrolls, which already removes its glass, so the reader saves about the same
+with or without the header and progress pill on system glass.
+
+`NativeGlass.disabled` switches every scope back to Flutter glass at runtime
+for side-by-side measurement.
 
 ## Open costs
 
-- The dock's fold puts a fractional `Opacity` above live glass. The package
-  seeds that opacity with a second backdrop read (`_OpacitySeedLayer`), and the
-  reader and chat drop frames while the dock folds during a scroll.
-- With the dock's glass and the edge blur gone, the topic list still measured
-  561 ms/s against 361 under high contrast. Glass mode also adds translucent
-  panels, three anti-aliased clips and the panel `saveLayer`; the last one
-  measured no cost.
+- With the system dock, the topic list still measures about 524 ms/s against
+  350 under high contrast. Glass mode also adds translucent panels,
+  anti-aliased clips and the panel `saveLayer`; the last one measured no cost.
+- With the Flutter dock, its fold puts a fractional `Opacity` above live glass,
+  which the package seeds with a second backdrop read (`_OpacitySeedLayer`).
 
 ## Reproducing
 

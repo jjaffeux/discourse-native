@@ -14,6 +14,7 @@ import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/material_surface.dart';
 import '../foundation/material_theme.dart';
+import '../foundation/native_glass.dart';
 import '../foundation/tokens.dart';
 import 'd_sheet.dart';
 
@@ -964,7 +965,8 @@ class _DPopoverState extends State<DPopover>
       open: _open,
       child: OverlayPortal.overlayChildLayoutBuilder(
         controller: _portal,
-        overlayChildBuilder: _overlay,
+        overlayChildBuilder: (context, info) =>
+            NativeGlassOccluder(child: _overlay(context, info)),
         child: widget.child,
       ),
     );

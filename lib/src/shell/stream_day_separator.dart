@@ -66,6 +66,7 @@ class StreamDaySeparator extends StatelessWidget {
         foregroundColor: foreground,
         borderColor: border,
       );
+      if (floating) date = NativeGlassScope(child: date);
     } else {
       date = DBadge(
         variant: DBadgeVariant.outline,

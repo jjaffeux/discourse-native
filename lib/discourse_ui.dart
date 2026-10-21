@@ -122,6 +122,8 @@ export 'src/ui/foundation/focus_highlight.dart';
 export 'src/ui/foundation/header_motion.dart'
     show DHeaderTuning, DHeaderSettle, DHeaderMotionSettings;
 export 'src/ui/foundation/material_theme.dart';
+export 'src/ui/foundation/native_glass.dart'
+    show NativeGlassOccluder, NativeGlassScope;
 export 'src/ui/foundation/native_webview_scroll.dart'
     show NativeWebViewScrollBridge;
 export 'src/ui/foundation/tokens.dart';
