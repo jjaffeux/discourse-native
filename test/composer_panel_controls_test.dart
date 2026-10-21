@@ -95,27 +95,34 @@ void main() {
                     name:
                         '${dark ? 'dark' : 'light'}-${material.name}-$width-$key',
                   );
+                  // Glass surfaces draw no outer shadow; their lens lightens
+                  // the target to its edges instead.
+                  final glass = material == DAppearanceMaterial.liquidGlass;
+                  final edge = glass ? -2.0 : 2.0;
                   for (final point in [
-                    bounds.topCenter - const Offset(0, 2),
-                    bounds.bottomCenter + const Offset(0, 3),
+                    bounds.topCenter - Offset(0, edge),
+                    bounds.bottomCenter + Offset(0, edge + (glass ? 0 : 1)),
                     Offset(
                       key == 'composer-mention'
-                          ? bounds.left - 2
-                          : bounds.right + 2,
+                          ? bounds.left - edge
+                          : bounds.right + edge,
                       bounds.center.dy,
                     ),
                   ]) {
                     final offset =
                         (point.dy.floor() * width.toInt() + point.dx.floor()) *
                         4;
+                    final darkened = [
+                      for (var c = 0; c < 3; c++)
+                        before.getUint8(offset + c) -
+                            after.getUint8(offset + c),
+                    ].reduce((a, b) => a + b);
                     expect(
-                      [
-                        for (var c = 0; c < 3; c++)
-                          before.getUint8(offset + c) -
-                              after.getUint8(offset + c),
-                      ].reduce((a, b) => a + b),
+                      glass ? -darkened : darkened,
                       greaterThan(2),
-                      reason: 'The hovered button shadow must reach $point',
+                      reason: glass
+                          ? 'The hovered glass must fill $point'
+                          : 'The hovered button shadow must reach $point',
                     );
                   }
                   final source = composer.raw;
