@@ -257,6 +257,7 @@ class _DTextareaState extends FormFieldState<String> {
           counterText: '',
         ),
         cursorColor: t.foreground,
+        cursorOpacityAnimates: DControlStyle.caretOpacityAnimates,
         keyboardType: input.keyboardType,
         textInputAction: TextInputAction.newline,
         textCapitalization: input.textCapitalization,

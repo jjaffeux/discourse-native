@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsValidationResult;
 
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/tokens.dart';
 
@@ -631,39 +633,35 @@ class _DInputOTPCaret extends StatefulWidget {
   State<_DInputOTPCaret> createState() => _DInputOTPCaretState();
 }
 
-class _DInputOTPCaretState extends State<_DInputOTPCaret>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-      value: 1,
-    );
-  }
+class _DInputOTPCaretState extends State<_DInputOTPCaret> {
+  Timer? _blink;
+  var _visible = true;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _controller.stop();
-      _controller.value = 1;
-    } else if (!_controller.isAnimating) {
-      _controller.repeat(reverse: true);
+    if (MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _blink?.cancel();
+      _blink = null;
+      _visible = true;
+    } else {
+      _blink ??= Timer.periodic(
+        DControlStyle.caretBlinkHalfPeriod,
+        (_) => setState(() => _visible = !_visible),
+      );
     }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _blink?.cancel();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => FadeTransition(
-    opacity: _controller,
+  Widget build(BuildContext context) => Opacity(
+    opacity: _visible ? 1 : 0,
     child: SizedBox(
       width: 1,
       height: 16,
