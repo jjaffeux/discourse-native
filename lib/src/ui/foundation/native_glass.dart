@@ -498,11 +498,15 @@ class NativeGlassContent extends StatelessWidget {
     super.key,
     required this.group,
     this.pill = false,
+    this.tint,
     required this.child,
   });
 
   final NativeGlassGroup group;
   final bool pill;
+
+  /// Colours the [pill]; null keeps the stock material.
+  final Color? tint;
   final Widget child;
 
   @override
@@ -510,6 +514,7 @@ class NativeGlassContent extends StatelessWidget {
     child: _NativeGlassContentSlot(
       group: group,
       pill: pill,
+      tint: tint,
       pixelRatio: MediaQuery.devicePixelRatioOf(context),
       child: child,
     ),
@@ -545,17 +550,19 @@ class _NativeGlassContentSlot extends SingleChildRenderObjectWidget {
   const _NativeGlassContentSlot({
     required this.group,
     required this.pill,
+    required this.tint,
     required this.pixelRatio,
     required super.child,
   });
 
   final NativeGlassGroup group;
   final bool pill;
+  final Color? tint;
   final double pixelRatio;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderNativeGlassContent(group, pill, pixelRatio);
+      _RenderNativeGlassContent(group, pill, tint, pixelRatio);
 
   @override
   void updateRenderObject(
@@ -565,13 +572,14 @@ class _NativeGlassContentSlot extends SingleChildRenderObjectWidget {
     renderObject
       ..group = group
       ..pill = pill
+      ..tint = tint
       ..pixelRatio = pixelRatio;
   }
 }
 
 class _RenderNativeGlassContent extends RenderRepaintBoundary
     implements _NativeGlassNode {
-  _RenderNativeGlassContent(this._group, this.pill, this.pixelRatio);
+  _RenderNativeGlassContent(this._group, this.pill, this.tint, this.pixelRatio);
 
   NativeGlassGroup _group;
   set group(NativeGlassGroup value) {
@@ -585,6 +593,7 @@ class _RenderNativeGlassContent extends RenderRepaintBoundary
   }
 
   bool pill;
+  Color? tint;
   double pixelRatio;
 
   @override
@@ -614,7 +623,7 @@ class _RenderNativeGlassContent extends RenderRepaintBoundary
     this,
     glass: pill,
     radius: null,
-    tint: null,
+    tint: tint,
     image: NativeGlass._images[this] ?? 0,
   );
 }

@@ -571,41 +571,58 @@ class DMobileDockAction extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.loading = false,
+    this.tinted = false,
     this.buttonKey,
   });
   final Widget icon;
   final String label;
   final VoidCallback? onPressed;
   final bool loading;
+
+  /// Takes the primary button colours, as a composer's send button does.
+  final bool tinted;
   final Key? buttonKey;
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => constraints.maxWidth >= 116
-        ? SizedBox(
-            width: constraints.maxWidth,
-            child: DButton(
-              key: buttonKey,
-              icon: icon,
-              label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-              tooltip: label,
-              loading: loading,
-              shape: DButtonShape.pill,
-              density: DButtonDensity.mobileDockAction,
-              onPressed: onPressed,
+  Widget build(BuildContext context) {
+    final colors = tinted ? DTokens.of(context).buttonTheme.primary : null;
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth >= 116
+          ? SizedBox(
+              width: constraints.maxWidth,
+              child: DButton(
+                key: buttonKey,
+                icon: icon,
+                label: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                tooltip: label,
+                loading: loading,
+                shape: DButtonShape.pill,
+                density: DButtonDensity.mobileDockAction,
+                foregroundColor: colors?.foreground,
+                backgroundColor: colors?.background,
+                interactiveBackgroundColor: colors?.hover,
+                onPressed: onPressed,
+              ),
+            )
+          : Align(
+              heightFactor: 1,
+              alignment: AlignmentDirectional.centerEnd,
+              child: DButton.iconOnly(
+                key: buttonKey,
+                icon: icon,
+                tooltip: label,
+                loading: loading,
+                shape: DButtonShape.pill,
+                density: DButtonDensity.mobileDockAction,
+                foregroundColor: colors?.foreground,
+                backgroundColor: colors?.background,
+                interactiveBackgroundColor: colors?.hover,
+                onPressed: onPressed,
+              ),
             ),
-          )
-        : Align(
-            heightFactor: 1,
-            alignment: AlignmentDirectional.centerEnd,
-            child: DButton.iconOnly(
-              key: buttonKey,
-              icon: icon,
-              tooltip: label,
-              loading: loading,
-              shape: DButtonShape.pill,
-              density: DButtonDensity.mobileDockAction,
-              onPressed: onPressed,
-            ),
-          ),
-  );
+    );
+  }
 }
