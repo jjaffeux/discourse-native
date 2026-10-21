@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -602,15 +603,35 @@ class _PanelEdge extends CustomPainter {
     );
     // CSS inset 0 1px 1px white: light from the shifted shape's outside is
     // blurred through the panel clip, following rounded sheet corners too.
-    canvas.drawPath(
-      Path()
-        ..fillType = PathFillType.evenOdd
-        ..addRect(rect.inflate(8))
-        ..addRRect(radius.toRRect(rect).shift(const Offset(0, 1))),
-      Paint()
-        ..color = Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .5),
+    // Impeller reruns a mask blur over its path's bounds on every frame, so
+    // that outside is drawn as disjoint bands along the edges rather than as
+    // one path the size of the panel.
+    final outside = rect.inflate(8);
+    final shifted = Path()
+      ..addRRect(radius.toRRect(rect).shift(const Offset(0, 1)));
+    final top = math.min(
+      rect.bottom,
+      rect.top + math.max(radius.topLeft.y, radius.topRight.y) + 4,
     );
+    final bottom = math.max(
+      top,
+      rect.bottom - math.max(radius.bottomLeft.y, radius.bottomRight.y) - 4,
+    );
+    final light = Paint()
+      ..color = Colors.white.withValues(alpha: (dark ? .12 : .55) * 1.6)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, .5);
+    for (final band in [
+      Rect.fromLTRB(outside.left, outside.top, outside.right, top),
+      Rect.fromLTRB(outside.left, bottom, outside.right, outside.bottom),
+      Rect.fromLTRB(outside.left, top, rect.left + 4, bottom),
+      Rect.fromLTRB(rect.right - 4, top, outside.right, bottom),
+    ]) {
+      if (band.isEmpty) continue;
+      canvas.drawPath(
+        Path.combine(PathOperation.difference, Path()..addRect(band), shifted),
+        light,
+      );
+    }
     canvas.restore();
   }
 
