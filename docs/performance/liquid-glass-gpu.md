@@ -150,7 +150,9 @@ transition, and while any `NativeGlassOccluder` is mounted. Every overlay in
 the app mounts one: popovers, tooltips, hover cards, the composer's
 suggestions and selection toolbar, post actions, text selection, embeds and
 YouTube players. `native_glass_test` fails when a file opens an `OverlayPortal`
-or `OverlayEntry` without one. Hosts without iOS 26 keep the Flutter glass.
+or `OverlayEntry` without one. The mobile composer sheet covers the shell
+without a route or an overlay, so it mounts one too; `composer_docking_test`
+pins it. Hosts without iOS 26 keep the Flutter glass.
 
 An earlier prototype embedded `UIGlassEffect` as a platform view instead; Flutter
 then splits its frame around the view, which cost about as much as the glass.
@@ -170,6 +172,33 @@ with or without the header and progress pill on system glass.
 
 `NativeGlass.disabled` switches every scope back to Flutter glass at runtime
 for side-by-side measurement.
+
+## Shell under the reply sheet
+
+The mobile reply sheet is a retained `DSheetViewport` above the whole shell.
+Its full-height backdrop is an opaque canvas until a swipe fades it, yet
+Flutter kept painting the reader underneath on every frame: its posts, panel
+edges and, behind the sheet's occluder, the header, progress pill and dock as
+Flutter glass. `DSheetViewport.covering` now reports while the canvas hides
+everything beneath it, and the composer host skips painting the shell then. A
+swipe paints it again in the same frame.
+
+Interleaved on the phone, profile build, typing about 10 characters per second
+into the reply sheet over a topic, 2-second windows, 5 per variant. The skipped
+row was measured with a prototype that took the shell offstage:
+
+| Variant | Raster thread per frame | Frames drawn per second |
+| --- | ---: | ---: |
+| Shell painted | 15.6 ms (15.2-17.2) | 62.5 |
+| Shell skipped | 5.1 ms (4.7-7.6) | 101.9 |
+| High contrast | 1.6 ms (1.4-2.0) | 99.7 |
+
+The live binding draws every vsync, so frames drawn shows where the raster
+thread saturates; the app requested about 12.5 frames per second in every
+variant. On the simulator the shipped change measured the same as the
+prototype, 221 against about 800 ms of raster time per second. Metal System
+Trace recordings of these runs came back empty (Xcode 27.1, iOS 26.6.2), so
+the GPU share is not measured.
 
 ## Open costs
 

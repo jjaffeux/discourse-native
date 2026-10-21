@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_panel.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/native_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -982,6 +983,113 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the mobile sheet hands native glass back to Flutter', (
+    tester,
+  ) async {
+    final messenger = tester.binding.defaultBinaryMessenger;
+    final scenes = <Map<Object?, Object?>>[];
+    NativeGlass.available.value = true;
+    addTearDown(() => NativeGlass.available.value = false);
+    messenger.setMockMethodCallHandler(NativeGlass.channel, (call) async {
+      if (call.method == 'scene') {
+        scenes.add(call.arguments as Map<Object?, Object?>);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(NativeGlass.channel, null),
+    );
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+      reader: Theme(
+        data: DMaterialTheme.apply(
+          AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+          DAppearanceMaterial.liquidGlass,
+        ),
+        child: NativeGlassScope(
+          child: Builder(
+            builder: (context) => Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 120,
+                height: 44,
+                child: switch (NativeGlass.of(context)) {
+                  final group? => NativeGlassShape(group: group),
+                  null => null,
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.byKey(const ValueKey('composer-mobile-sheet')), findsOneWidget);
+    expect(scenes.last['visible'], isFalse);
+
+    final composer = harness.shell.visibleComposer!;
+    composer.title.text = 'A topic with enough title text';
+    composer.text.text = 'A draft that minimizes.';
+    await tester.runAsync(composer.flushDraft);
+    await tester.pumpAndSettle();
+    await tester.dragFrom(
+      tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+      const Offset(0, 300),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('composer-mobile-sheet')), findsNothing);
+    expect(scenes.last['visible'], isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the mobile sheet stops painting the shell it covers', (
+    tester,
+  ) async {
+    final repaint = ValueNotifier(0);
+    addTearDown(repaint.dispose);
+    var paints = 0;
+    final harness = await _Harness.create(
+      tester,
+      mobile: true,
+      size: const Size(390, 800),
+      reader: CustomPaint(
+        painter: _CountingPainter(repaint, () => paints++),
+        child: const SizedBox.expand(),
+      ),
+    );
+    Future<bool> painted() async {
+      final before = paints;
+      repaint.value++;
+      await tester.pump();
+      return paints > before;
+    }
+
+    expect(await painted(), isFalse);
+    final header = tester.getCenter(
+      find.byKey(const ValueKey('composer-header')),
+    );
+    final gesture = await tester.startGesture(header);
+    await gesture.moveBy(const Offset(0, 30));
+    await gesture.moveBy(const Offset(0, 60));
+    await tester.pump();
+    expect(await painted(), isTrue);
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(await painted(), isFalse);
+
+    final composer = harness.shell.visibleComposer!;
+    composer.title.text = 'A topic with enough title text';
+    composer.text.text = 'A draft that minimizes.';
+    await tester.runAsync(composer.flushDraft);
+    await tester.pumpAndSettle();
+    await tester.dragFrom(header, const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('composer-mobile-sheet')), findsNothing);
+    expect(await painted(), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final origin in ['handle', 'header', 'body', 'bottom']) {
       for (final keyboard in [0.0, 300.0]) {
@@ -1783,4 +1891,16 @@ Future<void> _pickPosition(
   await tester.pumpAndSettle();
   await tester.tap(find.byTooltip(placement.label));
   await tester.pumpAndSettle();
+}
+
+class _CountingPainter extends CustomPainter {
+  _CountingPainter(Listenable repaint, this.onPaint) : super(repaint: repaint);
+
+  final VoidCallback onPaint;
+
+  @override
+  void paint(Canvas canvas, Size size) => onPaint();
+
+  @override
+  bool shouldRepaint(_CountingPainter oldDelegate) => false;
 }
