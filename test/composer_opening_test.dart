@@ -64,7 +64,7 @@ void main({bool profile = false}) {
     shell.closeComposer();
     await tester.pumpAndSettle();
     expect(tester.element(reader), same(readerElement));
-    expect(tester.getRect(reader).height, lessThan(resized.height));
+    expect(tester.getRect(reader), resized);
     tester.view.viewInsets = const FakeViewPadding();
     tester.view.padding = const FakeViewPadding(top: 62, bottom: 21);
     await tester.pumpAndSettle();
