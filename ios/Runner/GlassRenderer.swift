@@ -162,7 +162,10 @@ final class GlassGroupView: UIView {
           contents[id] = view
           return view
         }()
+        // A remounted control shows what its position showed until its own
+        // image arrives.
         view.image = images[id]?.image
+          ?? (element["fallback"] as? Int).flatMap { images[$0]?.image }
         view.frame = local
         view.alpha = opacity
         imageOrder.append(view)

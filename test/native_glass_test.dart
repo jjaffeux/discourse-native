@@ -110,6 +110,88 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a remounted control never hides the glass or empties it', (
+    tester,
+  ) async {
+    final icon = ValueNotifier(Icons.add);
+    addTearDown(icon.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _glass,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              width: 390,
+              child: ValueListenableBuilder<IconData>(
+                valueListenable: icon,
+                builder: (context, value, _) => DMobileDock(
+                  onOverflowChanged: (_) {},
+                  destinations: [
+                    DMobileDockItem(
+                      icon: const Icon(Icons.forum),
+                      label: 'Topics',
+                      selected: true,
+                      onPressed: () {},
+                    ),
+                  ],
+                  more: DMobileDockItem(
+                    bare: true,
+                    icon: const Icon(Icons.more_vert),
+                    label: 'More',
+                    onPressed: () {},
+                  ),
+                  collapsedDestination: DMobileDockItem(
+                    collapsed: true,
+                    icon: const Icon(Icons.forum),
+                    label: 'Reveal',
+                    onPressed: () {},
+                  ),
+                  // A new action icon remounts the action, as the shell does
+                  // when the destination changes.
+                  action: KeyedSubtree(
+                    key: ValueKey(value),
+                    child: DMobileDockAction(
+                      icon: Icon(value),
+                      label: 'Act',
+                      onPressed: () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect((await settle(tester))['visible'], isTrue);
+    final shown = scenes.length;
+
+    icon.value = Icons.edit;
+    // Frames only: the new action's image cannot arrive yet.
+    for (var frame = 0; frame < 5; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    final waiting = scenes.skip(shown).toList();
+    expect(waiting, isNotEmpty);
+    for (final scene in waiting) {
+      expect(scene['visible'], isTrue);
+      for (final element in _list(_list(scene['groups']).single['elements'])) {
+        if (element['image'] == 0) expect(element['fallback'], isNotNull);
+      }
+    }
+    final remounted = _list(
+      _list(scenes.last['groups']).single['elements'],
+    ).where((element) => element['fallback'] != null);
+    expect(remounted, hasLength(1));
+
+    final settled = await settle(tester);
+    for (final element in _list(_list(settled['groups']).single['elements'])) {
+      expect(element['image'], isNot(0));
+      expect(element['fallback'], isNull);
+    }
+  });
+
   testWidgets('taps still reach the Flutter controls under system glass', (
     tester,
   ) async {
