@@ -215,7 +215,7 @@ final class _PluginBookmarkTargetHost implements PluginBookmarkHost {
   }) => _owner
       .forSite(siteUrl)
       ._createBookmark(
-        context: _pluginBookmarkWriteContext,
+        topicId: null,
         targetType: _targetType,
         targetId: targetId,
         name: name,
@@ -235,7 +235,7 @@ final class _PluginBookmarkTargetHost implements PluginBookmarkHost {
     return _owner
         .forSite(siteUrl)
         ._updateBookmark(
-          context: _pluginBookmarkWriteContext,
+          topicId: null,
           bookmark: bookmark,
           name: name,
           reminderAt: reminderAt,
@@ -252,7 +252,7 @@ final class _PluginBookmarkTargetHost implements PluginBookmarkHost {
     return _owner
         .forSite(siteUrl)
         ._updateBookmark(
-          context: _pluginBookmarkWriteContext,
+          topicId: null,
           bookmark: bookmark,
           name: bookmark.name,
           autoDeletePreference: bookmark.autoDeletePreference,
@@ -267,10 +267,7 @@ final class _PluginBookmarkTargetHost implements PluginBookmarkHost {
     if (!_owns(bookmark)) return Future.value(_foreignBookmark());
     return _owner
         .forSite(siteUrl)
-        ._deleteBookmark(
-          context: _pluginBookmarkWriteContext,
-          bookmark: bookmark,
-        );
+        ._deleteBookmark(topicId: null, bookmark: bookmark);
   }
 
   void dispose() {

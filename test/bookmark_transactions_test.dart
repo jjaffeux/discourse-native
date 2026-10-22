@@ -9,6 +9,8 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
+import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/shell/account_activity_controller.dart';
 import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:flutter/foundation.dart';
@@ -32,8 +34,13 @@ const _post = Post(
 final class _TopicData implements BookmarkTopicData {
   final reads = <Completer<BookmarkTopicSnapshot?>>[];
   int holds = 0;
+  void Function()? onPostWriting;
   @override
-  bool postWriting(int postId) => holds > 0;
+  bool postWriting(int postId) {
+    onPostWriting?.call();
+    return holds > 0;
+  }
+
   @override
   void Function() holdPostWrite(int postId, {bool notifyOnRelease = true}) {
     holds++;
@@ -72,9 +79,110 @@ final class _FeedApi extends FakeDiscourseApi {
   }
 }
 
+const _pluginTarget = BookmarkTargetType(
+  owner: PluginId('test'),
+  name: 'message',
+  wireName: 'TestMessage',
+  refreshLabel: 'message',
+);
+const _pluginBookmark = Bookmark(
+  id: 91,
+  bookmarkableId: 12,
+  bookmarkableType: 'TestMessage',
+);
+
+final class _Strategy implements PluginBookmarkTargetStrategy {
+  _Strategy({this.onReconcile});
+  final void Function()? onReconcile;
+  final puts = <(String, int, Bookmark)>[];
+  final removes = <(String, int)>[];
+  final repairs = <(String, int)>[];
+  @override
+  BookmarkTargetType get pluginBookmarkTarget => _pluginTarget;
+  @override
+  void putPluginBookmark(String siteUrl, int targetId, Bookmark bookmark) =>
+      puts.add((siteUrl, targetId, bookmark));
+  @override
+  void removePluginBookmark(String siteUrl, int targetId) =>
+      removes.add((siteUrl, targetId));
+  @override
+  void reconcilePluginBookmark(String siteUrl, int targetId) {
+    repairs.add((siteUrl, targetId));
+    onReconcile?.call();
+  }
+}
+
+final class _PendingWriteApi extends FakeDiscourseApi {
+  final ready = Completer<void>();
+  @override
+  Future<int> createBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    String? name,
+    DateTime? reminderAt,
+    BookmarkAutoDeletePreference? autoDeletePreference,
+    String? clientId,
+  }) async {
+    await ready.future;
+    return super.createBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      targetType: targetType,
+      targetId: targetId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+    );
+  }
+
+  @override
+  Future<void> updateBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    String? name,
+    DateTime? reminderAt,
+    required BookmarkAutoDeletePreference autoDeletePreference,
+    String? clientId,
+  }) async {
+    await ready.future;
+    return super.updateBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      bookmarkId: bookmarkId,
+      name: name,
+      reminderAt: reminderAt,
+      autoDeletePreference: autoDeletePreference,
+    );
+  }
+
+  @override
+  Future<bool?> deleteBookmark({
+    required String siteUrl,
+    required String apiKey,
+    required int bookmarkId,
+    required BookmarkTargetType targetType,
+    String? clientId,
+  }) async {
+    await ready.future;
+    return super.deleteBookmark(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      bookmarkId: bookmarkId,
+      targetType: targetType,
+    );
+  }
+}
+
 final class _Fixture {
-  _Fixture({this.onMenu, this.onChanged, FakeDiscourseApi? api})
-    : api = api ?? FakeDiscourseApi() {
+  _Fixture({
+    this.onMenu,
+    this.onChanged,
+    FakeDiscourseApi? api,
+    Iterable<PluginBookmarkTargetStrategy> Function()? strategies,
+  }) : api = api ?? FakeDiscourseApi() {
     bookmarks = BookmarkTransactions(
       api: this.api,
       store: store,
@@ -85,7 +193,7 @@ final class _Fixture {
       ).copyWith(user: const DiscourseUser(username: 'reader')),
       siteContextFor: (_) =>
           const BookmarkSiteContext(suggestWeekendsInDatePickers: true),
-      pluginStrategies: () => const [],
+      pluginStrategies: strategies ?? () => const [],
       topicData: (_, _) => data,
       checklistWriting: (_, _) => false,
       topicSlug: (_, _) => 'topic',
@@ -295,6 +403,115 @@ void main() {
       expect(f.data.holds, 0);
     },
   );
+
+  test(
+    'retirement during the post busy probe still releases the admitted hold',
+    () async {
+      final f = _Fixture();
+      f.data.onPostWriting = () => f.lifecycle.invalidate(_site);
+      final result = await f.create();
+      expect(result.reconciled, isTrue);
+      expect(f.api.createdBookmarks, isEmpty);
+      expect(f.data.holds, 0);
+    },
+  );
+
+  for (final operation in ['create', 'update', 'delete']) {
+    test(
+      'pending plugin $operation retains its target and busy hold',
+      () async {
+        final original = _Strategy();
+        final replacement = _Strategy();
+        var strategies = <PluginBookmarkTargetStrategy>[original];
+        final api = _PendingWriteApi();
+        final f = _Fixture(api: api, strategies: () => strategies);
+        final host = f.bookmarks.pluginTarget(_pluginTarget);
+        final pending = switch (operation) {
+          'create' => host.createBookmark(siteUrl: _site, targetId: 12),
+          'update' => host.updateBookmark(
+            siteUrl: _site,
+            bookmark: _pluginBookmark,
+            name: 'changed',
+            autoDeletePreference: BookmarkAutoDeletePreference.never,
+          ),
+          _ => host.deleteBookmark(siteUrl: _site, bookmark: _pluginBookmark),
+        };
+        await pumpEventQueue();
+        expect(
+          host.bookmarkWriteInFlight(siteUrl: _site, targetId: 12),
+          isTrue,
+        );
+        final duplicate = await host.createBookmark(
+          siteUrl: _site,
+          targetId: 12,
+        );
+        expect(duplicate.saved, isFalse);
+        expect(
+          duplicate.message,
+          'Another action on this bookmark is still finishing.',
+        );
+        strategies = [replacement];
+        api.ready.complete();
+        final result = await pending;
+        expect(result.saved, isTrue);
+        expect(original.repairs, [(_site, 12)]);
+        expect(
+          original.removes,
+          operation == 'delete' ? [(_site, 12)] : isEmpty,
+        );
+        expect(original.puts, operation == 'delete' ? isEmpty : hasLength(1));
+        if (original.puts.isNotEmpty) {
+          expect(original.puts.single.$1, _site);
+          expect(original.puts.single.$2, 12);
+          expect(original.puts.single.$3.bookmarkableType, 'TestMessage');
+        }
+        expect(replacement.puts, isEmpty);
+        expect(replacement.removes, isEmpty);
+        expect(replacement.repairs, isEmpty);
+        expect(f.data.reads, isEmpty);
+        expect(
+          host.bookmarkWriteInFlight(siteUrl: _site, targetId: 12),
+          isFalse,
+        );
+      },
+    );
+  }
+
+  test('plugin repair retirement suppresses menu and list refresh', () async {
+    late final _Fixture f;
+    final strategy = _Strategy(
+      onReconcile: () => f.lifecycle.invalidate(_site),
+    );
+    f = _Fixture(strategies: () => [strategy]);
+    final result = await f.bookmarks
+        .pluginTarget(_pluginTarget)
+        .createBookmark(siteUrl: _site, targetId: 12);
+    expect(result.saved, isTrue);
+    expect(strategy.repairs, [(_site, 12)]);
+    expect(f.menu, 0);
+    expect(f.list, 0);
+  });
+
+  for (final delete in [false, true]) {
+    test(
+      'retirement during post ${delete ? 'delete' : 'update'} releases its hold',
+      () async {
+        late final _Fixture f;
+        f = _Fixture(onChanged: () => f.lifecycle.invalidate(_site));
+        final result = await (delete
+            ? f.account.deleteBookmark(topicId: 7, bookmark: _bookmark)
+            : f.account.updateBookmark(
+                topicId: 7,
+                bookmark: _bookmark,
+                autoDeletePreference: BookmarkAutoDeletePreference.never,
+              ));
+        expect(result.reconciled, isTrue);
+        expect(f.api.updatedBookmarks, isEmpty);
+        expect(f.api.deletedBookmarks, isEmpty);
+        expect(f.data.holds, 0);
+      },
+    );
+  }
 
   test(
     'an uncertain create schedules a read without issuing another create',

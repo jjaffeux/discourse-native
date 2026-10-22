@@ -177,21 +177,112 @@ final class BookmarkTransactions {
   }
 }
 
-sealed class _BookmarkWriteContext {
-  const _BookmarkWriteContext();
+sealed class _AdmittedBookmarkTarget {
+  _AdmittedBookmarkTarget(this.account, this.type, this.id, this._release);
+
+  final BookmarkAccountSession account;
+  final BookmarkTargetType type;
+  final int id;
+  final void Function() _release;
+  bool _released = false;
+
+  int? get postNumber => null;
+
+  void apply(Bookmark bookmark);
+  void remove(Bookmark bookmark, bool? topicBookmarked);
+  void reconcileTarget();
+
+  void reconcile(DiscourseInstance instance) {
+    if (!account.isCurrent) return;
+    reconcileTarget();
+    if (!account.isCurrent) return;
+    unawaited(account._owner.refreshMenu(instance));
+    if (!account.isCurrent) return;
+    unawaited(account._owner.refreshList(instance));
+  }
+
+  void release() {
+    if (_released) return;
+    _released = true;
+    _release();
+  }
 }
 
-final class _TopicBookmarkWriteContext extends _BookmarkWriteContext {
-  const _TopicBookmarkWriteContext(this.topicId);
+final class _AdmittedCoreBookmarkTarget extends _AdmittedBookmarkTarget {
+  _AdmittedCoreBookmarkTarget(
+    BookmarkAccountSession account,
+    BookmarkTargetType type,
+    int id,
+    this.topicId,
+    void Function() release,
+  ) : super(account, type, id, release);
 
   final int topicId;
+  bool get isPost => type == BookmarkTargetType.post;
+
+  @override
+  int? get postNumber => isPost
+      ? account._store.read<Post>(account.siteUrl, id)?.postNumber
+      : null;
+
+  @override
+  void apply(Bookmark bookmark) =>
+      account.acceptBookmark(topicId, bookmark, isPost: isPost);
+
+  @override
+  void remove(Bookmark bookmark, bool? topicBookmarked) =>
+      account._removeCoreBookmark(
+        topicId,
+        bookmark,
+        isPost: isPost,
+        topicBookmarked: topicBookmarked,
+      );
+
+  @override
+  void reconcileTarget() {
+    unawaited(
+      account.refreshBookmarks(
+        topicId,
+        account._owner.topicSlug(account.siteUrl, topicId),
+      ),
+    );
+  }
 }
 
-final class _PluginBookmarkWriteContext extends _BookmarkWriteContext {
-  const _PluginBookmarkWriteContext();
-}
+final class _AdmittedPluginBookmarkTarget extends _AdmittedBookmarkTarget {
+  _AdmittedPluginBookmarkTarget(
+    super.account,
+    super.type,
+    super.id,
+    super.release,
+    this.strategy,
+  );
 
-const _pluginBookmarkWriteContext = _PluginBookmarkWriteContext();
+  final PluginBookmarkTargetStrategy strategy;
+
+  @override
+  void apply(Bookmark bookmark) {
+    if (!account.isCurrent) return;
+    strategy.putPluginBookmark(account.siteUrl, id, bookmark);
+    account._notify();
+  }
+
+  @override
+  void remove(Bookmark bookmark, bool? topicBookmarked) {
+    if (!account.isCurrent) return;
+    strategy.removePluginBookmark(account.siteUrl, id);
+    account._notify();
+  }
+
+  @override
+  void reconcileTarget() {
+    unawaited(
+      Future<void>.sync(
+        () => strategy.reconcilePluginBookmark(account.siteUrl, id),
+      ).catchError((Object error, StackTrace stackTrace) {}),
+    );
+  }
+}
 
 final class BookmarkAccountSession implements BookmarkReadProjection {
   BookmarkAccountSession._(this._owner, this.siteUrl, this.lease);
@@ -409,7 +500,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     required BookmarkTargetType targetType,
     required int targetId,
   }) => _bookmarkWriteInFlight(
-    context: _TopicBookmarkWriteContext(topicId),
+    topicId: topicId,
     targetType: targetType,
     targetId: targetId,
   );
@@ -418,13 +509,13 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     required BookmarkTargetType targetType,
     required int targetId,
   }) => _bookmarkWriteInFlight(
-    context: _pluginBookmarkWriteContext,
+    topicId: null,
     targetType: targetType,
     targetId: targetId,
   );
 
   bool _bookmarkWriteInFlight({
-    required _BookmarkWriteContext context,
+    required int? topicId,
     required BookmarkTargetType targetType,
     required int targetId,
   }) {
@@ -433,10 +524,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
       return _postBookmarkWriteInFlight(targetId);
     }
     if (targetType == BookmarkTargetType.topic) {
-      if (context case _TopicBookmarkWriteContext(:final topicId)) {
-        return _topicBookmarkWritesInFlight.contains(topicId);
-      }
-      return false;
+      return topicId != null && _topicBookmarkWritesInFlight.contains(topicId);
     }
     return _pluginBookmarkWritesInFlight.contains((targetType, targetId));
   }
@@ -455,19 +543,6 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
   BookmarkTargetType? _bookmarkTargetFor(Bookmark bookmark) =>
       _owner._bookmarkTargetFor(bookmark);
 
-  bool _bookmarkContextMatches(
-    BookmarkTargetType targetType,
-    _BookmarkWriteContext context,
-  ) {
-    final coreTarget =
-        targetType == BookmarkTargetType.post ||
-        targetType == BookmarkTargetType.topic;
-    return switch (context) {
-      _TopicBookmarkWriteContext(:final topicId) => coreTarget && topicId > 0,
-      _PluginBookmarkWriteContext() => !coreTarget,
-    };
-  }
-
   Future<BookmarkWriteResult> createBookmark({
     required int topicId,
     required BookmarkTargetType targetType,
@@ -476,7 +551,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     DateTime? reminderAt,
     BookmarkAutoDeletePreference? autoDeletePreference,
   }) => _createBookmark(
-    context: _TopicBookmarkWriteContext(topicId),
+    topicId: topicId,
     targetType: targetType,
     targetId: targetId,
     name: name,
@@ -485,7 +560,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
   );
 
   Future<BookmarkWriteResult> _createBookmark({
-    required _BookmarkWriteContext context,
+    required int? topicId,
     required BookmarkTargetType targetType,
     required int targetId,
     String? name,
@@ -494,30 +569,20 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
   }) async {
     if (!isCurrent) return _retiredResult();
     final instance = _owner.instanceAt(siteUrl);
-    final refreshTarget = targetType.refreshLabel;
     if (instance == null || !instance.isConnected) {
       return BookmarkWriteResult.refused(
         appL10n.reconnectToThisForumToBookmarkIt,
       );
     }
-    if (!_bookmarkContextMatches(targetType, context)) {
-      return BookmarkWriteResult.refused(
-        appL10n.thisBookmarkTargetRequiresItsOwningContext,
-      );
-    }
-    if (targetType != BookmarkTargetType.post &&
-        targetType != BookmarkTargetType.topic &&
-        _pluginBookmarkStrategy(targetType) == null) {
-      return BookmarkWriteResult.refused(
-        appL10n.thisBookmarkTargetIsNotAvailableInThisBuild,
-      );
-    }
-    final releaseBookmark = _beginBookmarkWrite(context, targetType, targetId);
-    if (releaseBookmark == null) {
-      return BookmarkWriteResult.refused(
-        appL10n.anotherActionOnThisBookmarkIsStillFinishing,
-      );
-    }
+    final admission = _admitBookmarkTarget(
+      topicId: topicId,
+      targetType: targetType,
+      targetId: targetId,
+      creating: true,
+    );
+    if (admission.refusal case final refusal?) return refusal;
+    final target = admission.target!;
+    final refreshTarget = target.type.refreshLabel;
     try {
       final credential = await _credentialForWrite();
       if (!isCurrent) {
@@ -538,8 +603,8 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           () => _owner.api.createBookmark(
             siteUrl: siteUrl,
             apiKey: credential.apiKey!,
-            targetType: targetType,
-            targetId: targetId,
+            targetType: target.type,
+            targetId: target.id,
             name: name,
             reminderAt: reminderAt,
             autoDeletePreference: preference,
@@ -547,12 +612,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(
-            instance,
-            context,
-            targetType: targetType,
-            targetId: targetId,
-          );
+          target.reconcile(instance);
           return BookmarkWriteResult.reconciled(
             appL10n.couldnTConfirmWhetherTheBookmarkWasCreatedTheIsBeing(
               (refreshTarget).toString(),
@@ -562,12 +622,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         return BookmarkWriteResult.refused(error.message);
       } catch (error) {
         if (isCurrent) {
-          _reconcileBookmarks(
-            instance,
-            context,
-            targetType: targetType,
-            targetId: targetId,
-          );
+          target.reconcile(instance);
         }
         return BookmarkWriteResult.reconciled(
           appL10n.couldnTConfirmWhetherTheBookmarkWasCreatedTheIsBeing(
@@ -575,35 +630,27 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           ),
         );
       }
-      final postNumber = targetType == BookmarkTargetType.post
-          ? _store.read<Post>(siteUrl, targetId)?.postNumber
-          : null;
       final bookmark = Bookmark(
         id: id,
-        bookmarkableId: targetId,
-        bookmarkableType: targetType.wireName,
-        postNumber: postNumber,
+        bookmarkableId: target.id,
+        bookmarkableType: target.type.wireName,
+        postNumber: target.postNumber,
         name: name,
         reminderAt: reminderAt?.toUtc(),
         autoDeletePreference: preference,
       );
       final applied = lease.commit(() {
-        _applyBookmark(context, bookmark, targetType);
+        target.apply(bookmark);
       });
       if (!applied || !isCurrent) {
         return BookmarkWriteResult.reconciled(
           appL10n.theBookmarkWasSavedOnTheForum,
         );
       }
-      _reconcileBookmarks(
-        instance,
-        context,
-        targetType: targetType,
-        targetId: targetId,
-      );
+      target.reconcile(instance);
       return BookmarkWriteResult.saved(bookmark);
     } finally {
-      releaseBookmark();
+      target.release();
     }
   }
 
@@ -614,7 +661,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     DateTime? reminderAt,
     required BookmarkAutoDeletePreference autoDeletePreference,
   }) => _updateBookmark(
-    context: _TopicBookmarkWriteContext(topicId),
+    topicId: topicId,
     bookmark: bookmark,
     name: name,
     reminderAt: reminderAt,
@@ -622,7 +669,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
   );
 
   Future<BookmarkWriteResult> _updateBookmark({
-    required _BookmarkWriteContext context,
+    required int? topicId,
     required Bookmark bookmark,
     String? name,
     DateTime? reminderAt,
@@ -640,18 +687,14 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         appL10n.thisBookmarkCannotBeEditedHere,
       );
     }
-    if (!_bookmarkContextMatches(targetType, context)) {
-      return BookmarkWriteResult.refused(
-        appL10n.thisBookmarkTargetRequiresItsOwningContext,
-      );
-    }
-    final refreshTarget = targetType.refreshLabel;
-    final releaseBookmark = _beginBookmarkWrite(context, targetType, targetId);
-    if (releaseBookmark == null) {
-      return BookmarkWriteResult.refused(
-        appL10n.anotherActionOnThisBookmarkIsStillFinishing,
-      );
-    }
+    final admission = _admitBookmarkTarget(
+      topicId: topicId,
+      targetType: targetType,
+      targetId: targetId,
+    );
+    if (admission.refusal case final refusal?) return refusal;
+    final target = admission.target!;
+    final refreshTarget = target.type.refreshLabel;
     try {
       final credential = await _credentialForWrite();
       if (!isCurrent) {
@@ -675,12 +718,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(
-            instance,
-            context,
-            targetType: targetType,
-            targetId: targetId,
-          );
+          target.reconcile(instance);
           return BookmarkWriteResult.reconciled(
             appL10n.couldnTConfirmTheBookmarkChangesTheIsBeingRefreshed(
               (refreshTarget).toString(),
@@ -690,12 +728,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         return BookmarkWriteResult.refused(error.message);
       } catch (error) {
         if (isCurrent) {
-          _reconcileBookmarks(
-            instance,
-            context,
-            targetType: targetType,
-            targetId: targetId,
-          );
+          target.reconcile(instance);
         }
         return BookmarkWriteResult.reconciled(
           appL10n.couldnTConfirmTheBookmarkChangesTheIsBeingRefreshed(
@@ -711,22 +744,17 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         autoDeletePreference: autoDeletePreference,
       );
       final applied = lease.commit(() {
-        _applyBookmark(context, updated, targetType);
+        target.apply(updated);
       });
       if (!applied || !isCurrent) {
         return BookmarkWriteResult.reconciled(
           appL10n.theBookmarkWasUpdatedOnTheForum,
         );
       }
-      _reconcileBookmarks(
-        instance,
-        context,
-        targetType: targetType,
-        targetId: targetId,
-      );
+      target.reconcile(instance);
       return BookmarkWriteResult.saved(updated);
     } finally {
-      releaseBookmark();
+      target.release();
     }
   }
 
@@ -743,13 +771,10 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
   Future<BookmarkWriteResult> deleteBookmark({
     required int topicId,
     required Bookmark bookmark,
-  }) => _deleteBookmark(
-    context: _TopicBookmarkWriteContext(topicId),
-    bookmark: bookmark,
-  );
+  }) => _deleteBookmark(topicId: topicId, bookmark: bookmark);
 
   Future<BookmarkWriteResult> _deleteBookmark({
-    required _BookmarkWriteContext context,
+    required int? topicId,
     required Bookmark bookmark,
   }) async {
     if (!isCurrent) return _retiredResult();
@@ -764,18 +789,14 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         appL10n.thisBookmarkCannotBeDeletedHere,
       );
     }
-    if (!_bookmarkContextMatches(targetType, context)) {
-      return BookmarkWriteResult.refused(
-        appL10n.thisBookmarkTargetRequiresItsOwningContext,
-      );
-    }
-    final refreshTarget = targetType.refreshLabel;
-    final releaseBookmark = _beginBookmarkWrite(context, targetType, targetId);
-    if (releaseBookmark == null) {
-      return BookmarkWriteResult.refused(
-        appL10n.anotherActionOnThisBookmarkIsStillFinishing,
-      );
-    }
+    final admission = _admitBookmarkTarget(
+      topicId: topicId,
+      targetType: targetType,
+      targetId: targetId,
+    );
+    if (admission.refusal case final refusal?) return refusal;
+    final target = admission.target!;
+    final refreshTarget = target.type.refreshLabel;
     try {
       final credential = await _credentialForWrite();
       if (!isCurrent) {
@@ -793,20 +814,15 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
             siteUrl: siteUrl,
             apiKey: credential.apiKey!,
             bookmarkId: bookmark.id,
-            targetType: targetType,
+            targetType: target.type,
           ),
         );
-        if (targetType.updatesTopicBookmarkState && topicBookmarked == null) {
+        if (target.type.updatesTopicBookmarkState && topicBookmarked == null) {
           throw const WriteException(WriteFailure.unreachable);
         }
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(
-            instance,
-            context,
-            targetType: targetType,
-            targetId: targetId,
-          );
+          target.reconcile(instance);
           return BookmarkWriteResult.reconciled(
             appL10n.couldnTConfirmTheDeletionTheIsBeingRefreshed(
               (refreshTarget).toString(),
@@ -816,12 +832,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         return BookmarkWriteResult.refused(error.message);
       } catch (error) {
         if (isCurrent) {
-          _reconcileBookmarks(
-            instance,
-            context,
-            targetType: targetType,
-            targetId: targetId,
-          );
+          target.reconcile(instance);
         }
         return BookmarkWriteResult.reconciled(
           appL10n.couldnTConfirmTheDeletionTheIsBeingRefreshed(
@@ -830,34 +841,23 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         );
       }
       final applied = lease.commit(() {
-        _removeBookmark(
-          context,
-          bookmark,
-          topicBookmarked: topicBookmarked,
-          targetType: targetType,
-        );
+        target.remove(bookmark, topicBookmarked);
       });
       if (!applied || !isCurrent) {
         return BookmarkWriteResult.reconciled(
           appL10n.theBookmarkWasDeletedOnTheForum,
         );
       }
-      _reconcileBookmarks(
-        instance,
-        context,
-        targetType: targetType,
-        targetId: targetId,
-      );
+      target.reconcile(instance);
       return const BookmarkWriteResult.saved();
     } finally {
-      releaseBookmark();
+      target.release();
     }
   }
 
   Future<BookmarkWriteResult> deleteAllTopicBookmarks({
     required int topicId,
   }) async {
-    final context = _TopicBookmarkWriteContext(topicId);
     if (!isCurrent) return _retiredResult();
     final instance = _owner.instanceAt(siteUrl);
     if (instance == null || !instance.isConnected) {
@@ -886,6 +886,22 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     final releases = [
       for (final id in postIds) data.holdPostWrite(id, notifyOnRelease: false),
     ];
+    final target = _AdmittedCoreBookmarkTarget(
+      this,
+      BookmarkTargetType.topic,
+      topicId,
+      topicId,
+      () {
+        _topicBookmarkWritesInFlight.remove(key);
+        for (final postId in postIds) {
+          _postBookmarkWritesInFlight.remove(postId);
+        }
+        for (final release in releases) {
+          release();
+        }
+        _notify();
+      },
+    );
     _notify();
     try {
       final credential = await _credentialForWrite();
@@ -907,7 +923,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         );
       } on WriteException catch (error) {
         if (error.failure == WriteFailure.unreachable) {
-          _reconcileBookmarks(instance, context);
+          target.reconcile(instance);
           return BookmarkWriteResult.reconciled(
             appL10n.couldnTConfirmTheDeletionTheTopicIsBeingRefreshed,
           );
@@ -915,143 +931,102 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         return BookmarkWriteResult.refused(error.message);
       } catch (error) {
         if (isCurrent) {
-          _reconcileBookmarks(instance, context);
+          target.reconcile(instance);
         }
         return BookmarkWriteResult.reconciled(
           appL10n.couldnTConfirmTheDeletionTheTopicIsBeingRefreshed,
         );
       }
       lease.commit(() => _clearBookmarks(topicId));
-      _reconcileBookmarks(instance, context);
+      target.reconcile(instance);
       return const BookmarkWriteResult.saved();
     } finally {
-      _topicBookmarkWritesInFlight.remove(key);
-      for (final postId in postIds) {
-        _postBookmarkWritesInFlight.remove(postId);
-      }
-      for (final release in releases) {
-        release();
-      }
-      _notify();
+      target.release();
     }
   }
 
-  void Function()? _beginBookmarkWrite(
-    _BookmarkWriteContext context,
-    BookmarkTargetType targetType,
-    int targetId,
-  ) {
-    if (!isCurrent) return null;
+  ({_AdmittedBookmarkTarget? target, BookmarkWriteResult? refusal})
+  _admitBookmarkTarget({
+    required int? topicId,
+    required BookmarkTargetType targetType,
+    required int targetId,
+    bool creating = false,
+  }) {
+    final core =
+        targetType == BookmarkTargetType.post ||
+        targetType == BookmarkTargetType.topic;
+    if (core ? topicId == null || topicId <= 0 : topicId != null) {
+      return (
+        target: null,
+        refusal: BookmarkWriteResult.refused(
+          appL10n.thisBookmarkTargetRequiresItsOwningContext,
+        ),
+      );
+    }
+    final strategy = !core && creating
+        ? _pluginBookmarkStrategy(targetType)
+        : null;
+    if (creating && !core && strategy == null) {
+      return (
+        target: null,
+        refusal: BookmarkWriteResult.refused(
+          appL10n.thisBookmarkTargetIsNotAvailableInThisBuild,
+        ),
+      );
+    }
+    final busy = (
+      target: null,
+      refusal: BookmarkWriteResult.refused(
+        appL10n.anotherActionOnThisBookmarkIsStillFinishing,
+      ),
+    );
+    if (!isCurrent) return busy;
+    final _AdmittedBookmarkTarget target;
     if (targetType == BookmarkTargetType.post) {
-      final key = targetId;
-      if (_postBookmarkWriteInFlight(targetId)) return null;
-      _postBookmarkWritesInFlight.add(key);
+      if (_postBookmarkWriteInFlight(targetId)) return busy;
+      _postBookmarkWritesInFlight.add(targetId);
       final data = _topicData;
       if (data == null) {
-        _postBookmarkWritesInFlight.remove(key);
-        return null;
+        _postBookmarkWritesInFlight.remove(targetId);
+        return busy;
       }
       final release = data.holdPostWrite(targetId);
-      _notify();
-      var released = false;
-      return () {
-        if (released) return;
-        released = true;
-        _postBookmarkWritesInFlight.remove(key);
-        release();
-      };
-    }
-    if (targetType == BookmarkTargetType.topic) {
-      final topicId = (context as _TopicBookmarkWriteContext).topicId;
-      final key = topicId;
-      if (!_topicBookmarkWritesInFlight.add(key)) return null;
-      _notify();
-      var released = false;
-      return () {
-        if (released) return;
-        released = true;
-        _topicBookmarkWritesInFlight.remove(key);
-        _notify();
-      };
-    }
-    if (_pluginBookmarkStrategy(targetType) == null) return null;
-    final key = (targetType, targetId);
-    if (!_pluginBookmarkWritesInFlight.add(key)) return null;
-    _notify();
-    var released = false;
-    return () {
-      if (released) return;
-      released = true;
-      _pluginBookmarkWritesInFlight.remove(key);
-      _notify();
-    };
-  }
-
-  void _applyBookmark(
-    _BookmarkWriteContext context,
-    Bookmark bookmark,
-    BookmarkTargetType targetType,
-  ) {
-    if (!isCurrent) return;
-    final targetId = bookmark.bookmarkableId;
-    final plugin = _pluginBookmarkStrategy(targetType);
-    if (plugin != null) {
-      if (targetId != null) {
-        plugin.putPluginBookmark(siteUrl, targetId, bookmark);
-      }
-      _notify();
-      return;
-    }
-    acceptBookmark(
-      (context as _TopicBookmarkWriteContext).topicId,
-      bookmark,
-      isPost: targetType == BookmarkTargetType.post,
-    );
-  }
-
-  void _removeBookmark(
-    _BookmarkWriteContext context,
-    Bookmark bookmark, {
-    required bool? topicBookmarked,
-    required BookmarkTargetType targetType,
-  }) {
-    if (!isCurrent) return;
-    final targetId = bookmark.bookmarkableId;
-    final plugin = _pluginBookmarkStrategy(targetType);
-    if (plugin != null) {
-      if (targetId != null) plugin.removePluginBookmark(siteUrl, targetId);
-      _notify();
-      return;
-    }
-    _removeCoreBookmark(
-      (context as _TopicBookmarkWriteContext).topicId,
-      bookmark,
-      isPost: targetType == BookmarkTargetType.post,
-      topicBookmarked: topicBookmarked,
-    );
-  }
-
-  void _reconcileBookmarks(
-    DiscourseInstance instance,
-    _BookmarkWriteContext context, {
-    BookmarkTargetType targetType = BookmarkTargetType.topic,
-    int? targetId,
-  }) {
-    if (!isCurrent) return;
-    final plugin = _pluginBookmarkStrategy(targetType);
-    if (plugin != null && targetId != null) {
-      unawaited(
-        Future<void>.sync(
-          () => plugin.reconcilePluginBookmark(siteUrl, targetId),
-        ).catchError((Object error, StackTrace stackTrace) {}),
+      target = _AdmittedCoreBookmarkTarget(
+        this,
+        targetType,
+        targetId,
+        topicId!,
+        () {
+          _postBookmarkWritesInFlight.remove(targetId);
+          release();
+        },
+      );
+    } else if (targetType == BookmarkTargetType.topic) {
+      if (!_topicBookmarkWritesInFlight.add(topicId!)) return busy;
+      target = _AdmittedCoreBookmarkTarget(
+        this,
+        targetType,
+        targetId,
+        topicId,
+        () {
+          _topicBookmarkWritesInFlight.remove(topicId);
+          _notify();
+        },
       );
     } else {
-      final topicId = (context as _TopicBookmarkWriteContext).topicId;
-      unawaited(refreshBookmarks(topicId, _owner.topicSlug(siteUrl, topicId)));
+      final admittedStrategy = creating
+          ? strategy
+          : _pluginBookmarkStrategy(targetType);
+      final key = (targetType, targetId);
+      if (admittedStrategy == null || !_pluginBookmarkWritesInFlight.add(key)) {
+        return busy;
+      }
+      target = _AdmittedPluginBookmarkTarget(this, targetType, targetId, () {
+        _pluginBookmarkWritesInFlight.remove(key);
+        _notify();
+      }, admittedStrategy);
     }
-    if (!isCurrent) return;
-    unawaited(_owner.refreshMenu(instance));
-    if (!isCurrent) return;
-    unawaited(_owner.refreshList(instance));
+    _notify();
+    return (target: target, refusal: null);
   }
 }
