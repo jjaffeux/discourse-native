@@ -574,6 +574,161 @@ void main() {
     },
   );
 
+  testWidgets('invalid submission retains settled results and pagination', (
+    tester,
+  ) async {
+    final api = _EngineApi()..hold = true;
+    final controller = _controller(api)
+      ..setScope(GlobalSearchScope.forum)
+      ..setQuery('design order:bogus');
+    addTearDown(controller.dispose);
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(api.requests.single.query, 'design');
+    api.pending.single.complete(_page('first', hasMore: true));
+    await tester.pump();
+    controller.submit();
+    expect(controller.phase, GlobalSearchPhase.failed);
+    expect(controller.error, isNotNull);
+    expect(controller.results.single.title, 'first');
+    expect(controller.hasMore, isTrue);
+    controller.loadMore();
+    await tester.pump();
+    expect(api.requests, hasLength(2));
+    expect(api.requests.last.query, 'design');
+    expect(api.requests.last.page, 1);
+    expect(api.requests.last.offset, 1);
+    api.pending.last.complete(_page('second'));
+    await tester.pump();
+    expect(controller.results.map((result) => result.title), [
+      'first',
+      'second',
+    ]);
+    expect(controller.loadingMore, isFalse);
+    expect(controller.error, isNull);
+  });
+
+  testWidgets('superseded credential reads retain slots until they drain', (
+    tester,
+  ) async {
+    final api = _EngineApi()..hold = true;
+    final credentials = _DeferredSearchCredentials()..keys[_site] = 'key';
+    final controller = GlobalSearchController(
+      api: api,
+      credentials: credentials,
+      lifecycle: SiteLifecycle(),
+      debounceDuration: const Duration(milliseconds: 1),
+    )..configure(siteUrl: _site, capabilities: _caps);
+    addTearDown(controller.dispose);
+    await tester.pump();
+    credentials.hold = true;
+    for (final query in ['first', 'second', 'newest']) {
+      controller.setQuery(query);
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    expect(credentials.pending, hasLength(2));
+    expect(api.requests, isEmpty);
+    credentials.pending[0].complete('key');
+    await tester.pump();
+    expect(credentials.pending, hasLength(3));
+    expect(api.requests, isEmpty);
+    credentials.pending[2].complete('key');
+    await tester.pump();
+    expect(api.requests.single.query, 'newest');
+    api.pending.single.complete(_page('Newest result'));
+    credentials.pending[1].complete('key');
+    await tester.pump();
+    expect(api.requests, hasLength(1));
+    expect(controller.results.single.title, 'Newest result');
+  });
+
+  testWidgets('a result listener loads the next settled cursor once', (
+    tester,
+  ) async {
+    final api = _EngineApi()..hold = true;
+    final controller = _controller(api)
+      ..setScope(GlobalSearchScope.forum)
+      ..setQuery('design');
+    addTearDown(controller.dispose);
+    var requestedNext = false;
+    controller.addListener(() {
+      if (requestedNext || !controller.hasMore) return;
+      requestedNext = true;
+      controller.loadMore();
+    });
+    await tester.pump(const Duration(milliseconds: 10));
+    api.pending.single.complete(
+      GlobalSearchPage(
+        sections: _page('first').sections,
+        consumedCount: 5,
+        hasMore: true,
+      ),
+    );
+    await tester.pump();
+    expect(api.requests, hasLength(2));
+    expect(api.requests.last.page, 1);
+    expect(api.requests.last.offset, 5);
+    expect(controller.loadingMore, isTrue);
+    api.pending.last.complete(_page('second'));
+    await tester.pump();
+    expect(controller.results.map((result) => result.title), [
+      'first',
+      'second',
+    ]);
+    expect(controller.loadingMore, isFalse);
+  });
+
+  testWidgets(
+    'failed pages retry the same cursor and consumed rows advance without results',
+    (tester) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api)
+        ..setScope(GlobalSearchScope.forum)
+        ..setQuery('design');
+      addTearDown(controller.dispose);
+      await tester.pump(const Duration(seconds: 1));
+      api.pending[0].complete(
+        GlobalSearchPage(
+          sections: _page('first').sections,
+          hasMore: true,
+          consumedCount: 5,
+        ),
+      );
+      await tester.pump();
+      controller.loadMore();
+      await tester.pump();
+      controller.loadMore();
+      expect(api.requests, hasLength(2));
+      expect(api.requests.last.page, 1);
+      expect(api.requests.last.offset, 5);
+      api.pending[1].completeError(StateError('page failed'));
+      await tester.pump();
+      expect(controller.loadingMore, isFalse);
+      expect(controller.results.single.title, 'first');
+      expect(controller.hasMore, isTrue);
+      expect(controller.error, isNotNull);
+      controller.loadMore();
+      await tester.pump();
+      expect(controller.error, isNull);
+      expect(api.requests.last.page, 1);
+      expect(api.requests.last.offset, 5);
+      api.pending[2].complete(
+        const GlobalSearchPage(hasMore: true, consumedCount: 3),
+      );
+      await tester.pump();
+      expect(controller.results.single.title, 'first');
+      expect(controller.hasMore, isTrue);
+      controller.loadMore();
+      await tester.pump();
+      expect(api.requests.last.page, 2);
+      expect(api.requests.last.offset, 8);
+      api.pending[3].complete(const GlobalSearchPage(hasMore: true));
+      await tester.pump();
+      expect(controller.loadingMore, isFalse);
+      expect(controller.hasMore, isFalse);
+      expect(controller.results.single.title, 'first');
+    },
+  );
+
   testWidgets(
     'pagination preserves prior results and deduplicates overlapping pages',
     (tester) async {
@@ -1544,5 +1699,18 @@ class _Transport extends FakeDiscourseApi {
     }
     if (failures[uri.path] case final error?) throw error;
     return responses[uri.path] ?? response;
+  }
+}
+
+final class _DeferredSearchCredentials extends FakeApiCredentialReader {
+  bool hold = false;
+  final pending = <Completer<String?>>[];
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    if (!hold) return super.apiKeyFor(siteUrl);
+    final result = Completer<String?>();
+    pending.add(result);
+    return result.future;
   }
 }

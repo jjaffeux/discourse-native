@@ -12,6 +12,8 @@ import 'global_search_filters.dart';
 import 'global_search_models.dart';
 import 'recent_search_history.dart';
 
+part 'global_search_execution.dart';
+
 /// Owns a search session independently of the editor and its presentation.
 /// Scope banks survive tab changes; requests only receive the active bank.
 class GlobalSearchController extends ChangeNotifier {
@@ -29,6 +31,19 @@ class GlobalSearchController extends ChangeNotifier {
              lifecycle: lifecycle,
            ),
        _ownsHistory = history == null {
+    _execution = _GlobalSearchExecution(
+      api: api,
+      credentials: credentials,
+      currentSite: () => siteUrl,
+      notify: _notify,
+      updateCapabilities: (page) {
+        _capabilities = capabilities.copyWith(
+          groupMemberOrder: page.groupMemberOrder,
+          userOrders: page.userOrders,
+        );
+        _sanitize();
+      },
+    );
     this.history.addListener(_notify);
   }
 
@@ -60,16 +75,11 @@ class GlobalSearchController extends ChangeNotifier {
     GlobalSearchDisplayProperty.category,
     GlobalSearchDisplayProperty.replies,
   };
-  List<GlobalSearchSection> _sections = const [];
   final _choiceLabels = <String, Map<String, GlobalSearchFilterChoice>>{};
   final _tagChoices = <String, GlobalSearchFilterChoice>{};
-  GlobalSearchPhase _phase = GlobalSearchPhase.idle;
-  String? _error;
-  bool _hasMore = false, _loadingMore = false, _disposed = false;
-  int _revision = 0, _configuration = 0, _page = 0, _offset = 0;
-  final _inFlight = <Object, Set<Completer<void>>>{};
-  Timer? _debounce;
-  VoidCallback? _queued;
+  late final _GlobalSearchExecution _execution;
+  bool _disposed = false;
+  int _configuration = 0;
 
   String? get siteUrl => _siteUrl;
   Object? get categoryLookupSession => _lease?.session;
@@ -179,7 +189,7 @@ class GlobalSearchController extends ChangeNotifier {
   Set<GlobalSearchDisplayProperty> get properties =>
       Set.unmodifiable(_properties);
   List<GlobalSearchSection> get sections {
-    final ordered = _sections.toList();
+    final ordered = _execution.sections.toList();
     int rank(GlobalSearchSection section) => section.topicId != null
         ? -2
         : section.scope == _preferredScope
@@ -290,10 +300,10 @@ class GlobalSearchController extends ChangeNotifier {
 
   List<GlobalSearchResult> get results =>
       List.unmodifiable([for (final section in sections) ...section.results]);
-  GlobalSearchPhase get phase => _phase;
-  String? get error => _error;
-  bool get hasMore => _hasMore;
-  bool get loadingMore => _loadingMore;
+  GlobalSearchPhase get phase => _execution.phase;
+  String? get error => _execution.error;
+  bool get hasMore => _execution.hasMore;
+  bool get loadingMore => _execution.loadingMore;
   List<String> get recentSearches => history.terms;
 
   void configure({
@@ -655,12 +665,7 @@ class GlobalSearchController extends ChangeNotifier {
       _remember();
       _schedule(immediate: true);
     } on FormatException catch (exception) {
-      _revision++;
-      _debounce?.cancel();
-      _queued = null;
-      _cancelSearches();
-      _error = exception.message;
-      _phase = GlobalSearchPhase.failed;
+      _execution.failQuery(exception.message);
       _notify();
     }
   }
@@ -717,7 +722,7 @@ class GlobalSearchController extends ChangeNotifier {
 
   Future<void> clearHistory() async {
     final epoch = _configuration;
-    _error = null;
+    _execution.error = null;
     _notify();
     final outcome = await history.clear();
     if (_disposed ||
@@ -725,7 +730,7 @@ class GlobalSearchController extends ChangeNotifier {
         outcome != RecentSearchClearOutcome.failed) {
       return;
     }
-    _error = appL10n.recentSearchesCouldNotBeClearedPleaseTryAgain;
+    _execution.error = appL10n.recentSearchesCouldNotBeClearedPleaseTryAgain;
     _notify();
   }
 
@@ -877,20 +882,9 @@ class GlobalSearchController extends ChangeNotifier {
 
   void retry() => _schedule(immediate: true);
 
-  void loadMore() {
-    if (_disposed ||
-        !_hasMore ||
-        _loadingMore ||
-        _phase == GlobalSearchPhase.loading) {
-      return;
-    }
-    _loadingMore = true;
-    _error = null;
-    _notify();
-    _dispatch(_revision, append: true);
-  }
+  void loadMore() => _execution.loadMore();
 
-  GlobalSearchRequest _request({bool append = false}) {
+  GlobalSearchRequest _request({int page = 0, int offset = 0}) {
     GlobalSearchExpression parsed;
     try {
       parsed = parseGlobalSearchExpression(wordsQuery, scope, capabilities);
@@ -914,8 +908,8 @@ class GlobalSearchController extends ChangeNotifier {
       conditions: merged,
       order: parsed.order ?? order,
       ascending: ascending,
-      page: append ? _page + 1 : 0,
-      offset: append ? _offset : 0,
+      page: page,
+      offset: offset,
       contextTopicId: _contextTopicId,
       contextTopicTitle: _contextTopicTitle,
     );
@@ -944,163 +938,24 @@ class GlobalSearchController extends ChangeNotifier {
 
   void _schedule({bool immediate = false}) {
     if (_disposed) return;
-    _debounce?.cancel();
-    _queued = null;
-    final revision = ++_revision;
-    _cancelSearches();
-    _page = 0;
-    _offset = 0;
-    _loadingMore = false;
-    _hasMore = false;
-    _error = null;
-    _sections = const [];
+    _execution.reset();
     if (siteUrl == null || !_hasInput) {
-      _phase = GlobalSearchPhase.idle;
+      _execution.phase = GlobalSearchPhase.idle;
     } else if (query.length > 2048 ||
         globalSearchTerm(_request()).length > 2048) {
-      _phase = GlobalSearchPhase.failed;
-      _error = appL10n.searchesCanBeAtMost2048Characters;
+      _execution.phase = GlobalSearchPhase.failed;
+      _execution.error = appL10n.searchesCanBeAtMost2048Characters;
     } else if (_tooShort) {
-      _phase = GlobalSearchPhase.tooShort;
+      _execution.phase = GlobalSearchPhase.tooShort;
     } else {
-      _phase = GlobalSearchPhase.loading;
-      if (immediate) {
-        _dispatch(revision);
-      } else {
-        _debounce = Timer(debounceDuration, () => _dispatch(revision));
-      }
+      _execution.start(
+        siteUrl!,
+        _lease!,
+        (page, offset) => _request(page: page, offset: offset),
+        delay: immediate ? null : debounceDuration,
+      );
     }
     _notify();
-  }
-
-  void _dispatch(int revision, {bool append = false}) {
-    if (_disposed || revision != _revision) return;
-    final site = siteUrl, lease = _lease;
-    if (site == null || lease == null || !lease.isCurrent) return;
-    final active = _inFlight.putIfAbsent(lease.session, () => {});
-    if (active.length >= 2) {
-      _queued = () => _dispatch(revision, append: append);
-      return;
-    }
-    final request = _request(append: append);
-    final abort = Completer<void>();
-    active.add(abort);
-    unawaited(_execute(site, lease, revision, request, append, abort));
-  }
-
-  void _cancelSearches() {
-    for (final active in _inFlight.values) {
-      for (final abort in active) {
-        if (!abort.isCompleted) abort.complete();
-      }
-    }
-  }
-
-  Future<void> _execute(
-    String site,
-    SiteLease lease,
-    int revision,
-    GlobalSearchRequest request,
-    bool append,
-    Completer<void> abort,
-  ) async {
-    bool current() =>
-        !_disposed &&
-        lease.isCurrent &&
-        revision == _revision &&
-        site == siteUrl;
-    try {
-      final auth = await AccountRequestSession(
-        site,
-        lease,
-      ).credentials(credentials);
-      final key = auth.apiKey;
-      if (!current()) return;
-      final client = key == null ? null : auth.clientId;
-      if (!current()) return;
-      final page = await auth.run(
-        () => api.search(
-          siteUrl: site,
-          apiKey: key,
-          clientId: client,
-          request: request,
-          abortTrigger: abort.future,
-          onProgress: request.scope == GlobalSearchScope.all && !append
-              ? (sections) {
-                  if (!current() || abort.isCompleted) return;
-                  _sections = sections;
-                  _error = _sections
-                      .where((s) => s.error != null)
-                      .map((s) => s.error)
-                      .firstOrNull;
-                  _phase = GlobalSearchPhase.loading;
-                  _notify();
-                }
-              : null,
-        ),
-      );
-      if (!current() || abort.isCompleted) return;
-      if (append) {
-        final all = <GlobalSearchScope, GlobalSearchSection>{
-          for (final s in _sections) s.scope: s,
-        };
-        for (final section in page.sections) {
-          final previous =
-              all[section.scope]?.results ?? const <GlobalSearchResult>[];
-          final rows = {
-            for (final row in previous) row.id: row,
-            for (final row in section.results) row.id: row,
-          };
-          all[section.scope] = GlobalSearchSection(
-            scope: section.scope,
-            results: List.unmodifiable(rows.values),
-            hasMore: section.hasMore,
-            error: section.error,
-          );
-        }
-        _sections = List.unmodifiable(all.values);
-      } else {
-        _sections = List.unmodifiable(page.sections);
-      }
-      _page = request.page;
-      _offset = request.offset + page.consumedCount;
-      _hasMore = page.hasMore && (!append || page.consumedCount > 0);
-      _loadingMore = false;
-      if (page.groupMemberOrder != null || page.userOrders != null) {
-        _capabilities = capabilities.copyWith(
-          groupMemberOrder: page.groupMemberOrder,
-          userOrders: page.userOrders,
-        );
-        _sanitize();
-      }
-      _error = _sections
-          .where((s) => s.error != null)
-          .map((s) => s.error)
-          .firstOrNull;
-      _phase = results.isNotEmpty
-          ? GlobalSearchPhase.results
-          : _error != null
-          ? GlobalSearchPhase.failed
-          : GlobalSearchPhase.empty;
-      _notify();
-    } catch (exception) {
-      if (!current()) return;
-      _error = GlobalSearchApi.failureMessage(exception);
-      _phase = results.isEmpty
-          ? GlobalSearchPhase.failed
-          : GlobalSearchPhase.results;
-      _loadingMore = false;
-      _notify();
-    } finally {
-      final active = _inFlight[lease.session];
-      active?.remove(abort);
-      if (active?.isEmpty == true) {
-        _inFlight.remove(lease.session);
-      }
-      final queued = _queued;
-      _queued = null;
-      if (!_disposed) queued?.call();
-    }
   }
 
   void _notify() {
@@ -1111,10 +966,7 @@ class GlobalSearchController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _configuration++;
-    _revision++;
-    _debounce?.cancel();
-    _queued = null;
-    _cancelSearches();
+    _execution.dispose();
     history.removeListener(_notify);
     if (_ownsHistory) history.dispose();
     super.dispose();

@@ -16,6 +16,44 @@ const _pluginScope = GlobalSearchScope.plugin(
 );
 
 void main() {
+  testWidgets('site changes reject progress during history notification', (
+    tester,
+  ) async {
+    final api = _DeferredApi();
+    final search =
+        GlobalSearchController(
+          api: api,
+          credentials: FakeApiCredentialReader(),
+          lifecycle: SiteLifecycle(),
+          debounceDuration: const Duration(milliseconds: 1),
+        )..configure(
+          siteUrl: _site,
+          capabilities: const GlobalSearchCapabilities(),
+        );
+    addTearDown(search.dispose);
+    search.setQuery('first');
+    await tester.pump(const Duration(milliseconds: 10));
+    final first = api.calls.single;
+    const replacementSite = 'https://replacement.test';
+    var delivered = false;
+    List<GlobalSearchResult>? observed;
+    search.addListener(() {
+      if (delivered || search.siteUrl != replacementSite) return;
+      delivered = true;
+      first.progress!(_pluginPage().sections);
+      observed = search.results;
+    });
+    search.configure(
+      siteUrl: replacementSite,
+      capabilities: const GlobalSearchCapabilities(),
+    );
+    expect(delivered, isTrue);
+    expect(observed, isEmpty);
+    first.pending.complete(_pluginPage());
+    await tester.pump();
+    expect(search.results, isEmpty);
+  });
+
   for (final retireAccount in [false, true]) {
     testWidgets(
       'a progress listener can ${retireAccount ? 'retire its account' : 'replace its query'} reentrantly',
