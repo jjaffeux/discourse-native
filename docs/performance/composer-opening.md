@@ -1,37 +1,45 @@
 # Mobile composer opening
 
-The mobile composer sheet owns keyboard avoidance. While that sheet covers the
-shell, the shell Scaffold keeps its full available height. This avoids resizing
-the covered reader, sidebar, and navigation for every keyboard inset update.
-The sheet continues to receive the real keyboard insets and screen size.
-Desktop behavior is unchanged.
+The mobile composer sheet owns its keyboard. While that sheet covers the shell,
+the shell sees no keyboard: its bottom view inset is zero and its bottom safe
+area is the device's. The covered reader, sidebar, and navigation keep the
+layout they have without a keyboard and are not rebuilt for keyboard inset
+updates. The sheet continues to receive the real keyboard insets and screen
+size. Desktop behavior is unchanged.
 
 The sheet's keyboard outlives the sheet. A swipe slides the sheet off-screen
 before the composer minimizes and unfocuses, and a close removes the sheet in
 the same frame, so the keyboard starts retracting with the shell already
 uncovered. The shell keeps ignoring that keyboard until it is gone. Resizing
 for it would lift the dock onto the keyboard's top edge, mid-screen, for the
-whole retraction. A keyboard that rises again, for a field in the shell,
-restores normal keyboard avoidance at once.
+whole retraction. Chrome that changes for a keyboard of its own, such as the
+chat composer, which drops to the screen edge and hides the dock, would make
+that change under the sheet and undo it after the retraction. A keyboard that
+rises again, for a field in the shell, restores normal keyboard avoidance at
+once.
 
 An iPhone CPU capture identified covered reader chrome, header measurement,
 sidebar, and navigation work during keyboard reveal. Category and tag searches
 already start when their menus open. A trial that clipped the footer blur at the
 keyboard edge showed no clear raster improvement and was discarded.
 
-The change uses the presentation host's existing mobile-sheet state and the
-Scaffold's existing resize option. It introduces no control or UI-kit API.
+The change uses the presentation host's existing mobile-sheet state and a
+`MediaQuery` override around the shell Scaffold. It introduces no control or
+UI-kit API.
 
 ## Verification
 
 `test/composer_opening_test.dart` drives intermediate keyboard insets, screen and
 safe-area changes, close, and keyboard dismissal. It checks that the covered
-reader retains full screen constraints, the editor and reader retain identity,
+reader keeps its resting bounds, the editor and reader retain identity,
 the toolbar stays above the keyboard, and normal reader resizing resumes once
 the keyboard is gone. Swipe and close cases check that the reader and dock stay
 put while the keyboard retracts, and that a keyboard rising again resizes the
-reader. The docking and mobile viewport suites cover picker focus, swipes,
-minimizing, restoring, long drafts, and large text.
+reader. `test/chat_shell_integration_test.dart` opens the sheet over a phone
+chat channel and checks that the chat composer and dock keep their resting
+bounds under the sheet, after a swipe, and through the retraction. The docking
+and mobile viewport suites cover picker focus, swipes, minimizing, restoring,
+long drafts, and large text.
 The new viewport regression fails with the previous resize behavior. The native
 iPhone 17e simulator also completed six openings with category and tag controls,
 the toolbar, and Liquid Glass enabled.

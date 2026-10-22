@@ -31,15 +31,7 @@ void main({bool profile = false}) {
       tester.view.viewInsets = FakeViewPadding(bottom: inset);
       tester.view.padding = const FakeViewPadding(top: 59);
       await tester.pumpAndSettle();
-      expect(
-        tester.getRect(reader),
-        Rect.fromLTRB(
-          readerBounds.left,
-          readerBounds.top,
-          readerBounds.right,
-          844,
-        ),
-      );
+      expect(tester.getRect(reader), readerBounds);
       expect(tester.element(reader), same(readerElement));
       expect(shell.visibleComposer, same(composer));
       expect(tester.element(find.byType(ComposerEditor)), same(editor));
@@ -92,7 +84,7 @@ void main({bool profile = false}) {
         await tester.pumpAndSettle();
         final reader = find.byKey(const ValueKey('mobile-content-panel'));
         final covered = tester.getRect(reader);
-        expect(covered.bottom, 844);
+        expect(covered.bottom, 844 - 34);
 
         if (dismissal == 'swipe') {
           await tester.dragFrom(
@@ -139,7 +131,7 @@ void main({bool profile = false}) {
       final reader = find.byKey(const ValueKey('mobile-content-panel'));
       tester.view.viewInsets = const FakeViewPadding(bottom: 160);
       await tester.pump();
-      expect(tester.getRect(reader).bottom, 844);
+      expect(tester.getRect(reader).bottom, 844 - 34);
       tester.view.viewInsets = const FakeViewPadding(bottom: 240);
       await tester.pump();
       expect(tester.getRect(reader).bottom, 844 - 240);
