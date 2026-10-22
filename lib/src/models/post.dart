@@ -289,6 +289,9 @@ class Post with Storable<Post> {
   @override
   Object get storeId => id;
 
+  @override
+  Object get storeStructureKey => postNumber;
+
   /// A copy without `raw` was read without asking for it, so the held markdown
   /// survives — but only while it is the source of the incoming revision. An
   /// edit inside Discourse's grace period keeps the version and moves only

@@ -25,12 +25,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test('late loaded window remains correct after post updates', () async {
     final reports = <Map<String, Object?>>[];
-    for (final streamLength in [2000, 16000]) {
-      final start = streamLength - 300;
+    for (final streamLength in [20, 2000, 16000]) {
+      final loaded = streamLength == 20 ? 20 : 200;
+      final start = streamLength == 20 ? 1 : streamLength - 300;
+      final target = start + (streamLength == 20 ? 7 : 70);
       final store = _CountingStore();
       final site = instance('scroll.example');
       final posts = [
-        for (var id = start; id < start + 200; id++)
+        for (var id = start; id < start + loaded; id++)
           Post(
             id: id,
             postNumber: id,
@@ -66,48 +68,75 @@ void main() {
           topicId: 7,
           slug: 'long',
           title: 'Long',
-          postNumber: start + 70,
+          postNumber: target,
         ),
       );
-      await shell.loadTopic(7, 'long', postNumber: start + 70);
+      await shell.loadTopic(7, 'long', postNumber: target);
       final expected = posts.map((p) => p.id).toList();
       expect(shell.currentPostIds, expected);
-      final samples = <int>[];
-      for (var round = 0; round < 6; round++) {
-        store.postReads = 0;
-        var resolved = 0;
-        final clock = Stopwatch()..start();
-        for (var repeat = 0; repeat < 200; repeat++) {
-          store.put(
-            site.url,
-            Post(
-              id: start + 100,
-              postNumber: start + 100,
-              username: 'reader',
-              cooked: '<p>Update $round $repeat</p>',
-            ),
-          );
-          final snapshot = TopicViewportSnapshot.from(shell);
-          resolved += snapshot.postIds.length;
-          if (snapshot.postIds.first != expected.first ||
-              snapshot.postIds.last != expected.last ||
-              snapshot.initialPostIndex == null) {
-            fail('Loaded window or saved position changed');
+      final initialIndex = TopicViewportSnapshot.from(shell).initialPostIndex;
+      final unrelatedId = streamLength + 1;
+      store.put(
+        site.url,
+        Post(
+          id: unrelatedId,
+          postNumber: 1,
+          username: 'reader',
+          cooked: '<p>Other topic</p>',
+        ),
+      );
+      for (final workload in [
+        'current-content',
+        'unrelated-content',
+        'topic-metadata',
+      ]) {
+        final samples = <int>[];
+        for (var round = 0; round < 6; round++) {
+          store.postReads = 0;
+          var resolved = 0;
+          final clock = Stopwatch()..start();
+          for (var repeat = 0; repeat < 200; repeat++) {
+            if (workload == 'topic-metadata') {
+              store.update<TopicDetail>(
+                site.url,
+                7,
+                (topic) => topic.copyWith(title: 'Update $round $repeat'),
+              );
+            } else {
+              final current = workload == 'current-content';
+              store.put(
+                site.url,
+                Post(
+                  id: current ? start + (loaded ~/ 2) : unrelatedId,
+                  postNumber: current ? start + (loaded ~/ 2) : 1,
+                  username: 'reader',
+                  cooked: '<p>Update $round $repeat</p>',
+                ),
+              );
+            }
+            final snapshot = TopicViewportSnapshot.from(shell);
+            resolved += snapshot.postIds.length;
+            if (snapshot.postIds.first != expected.first ||
+                snapshot.postIds.last != expected.last ||
+                snapshot.initialPostIndex != initialIndex) {
+              fail('Loaded window or saved position changed');
+            }
           }
+          clock.stop();
+          expect(resolved, loaded * 200);
+          if (round > 0) samples.add(clock.elapsedMicroseconds);
         }
-        clock.stop();
-        expect(resolved, 40000);
-        if (round > 0) samples.add(clock.elapsedMicroseconds);
+        expect(shell.currentPostIds, expected);
+        reports.add({
+          'streamLength': streamLength,
+          'loaded': loaded,
+          'workload': workload,
+          'updatesPerSample': 200,
+          'microseconds': samples,
+          'postReadsLastSample': store.postReads,
+          'errors': 0,
+        });
       }
-      expect(shell.currentPostIds, expected);
-      reports.add({
-        'streamLength': streamLength,
-        'loaded': 200,
-        'updatesPerSample': 200,
-        'microseconds': samples,
-        'postReadsLastSample': store.postReads,
-        'errors': 0,
-      });
     }
     final encoded = jsonEncode(reports);
     debugPrint('TOPIC_WINDOW_UPDATE_PROFILE $encoded', wrapWidth: 2048);

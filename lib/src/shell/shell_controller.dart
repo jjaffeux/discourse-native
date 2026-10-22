@@ -4883,7 +4883,7 @@ class ShellController extends FrameSafeNotifier
   );
   final _postWindowCaches = <(String, String?), _PostWindow>{};
   final _postWindowCacheKeys =
-      <(String, String?), (String, TopicDetail, List<int>, int?, int)>{};
+      <(String, String?), (String, List<int>, int?, Object?)>{};
 
   /// Where the topic's saved reading position falls in the loaded window,
   /// counting the "earlier" row that precedes the window when there is one.

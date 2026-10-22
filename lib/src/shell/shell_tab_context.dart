@@ -316,19 +316,17 @@ final class ShellTabContext {
     final stream = shell._topicData.forSite(instance.url).streamFor(detail);
     final key = (
       instance.url,
-      detail,
       stream,
       currentContent?.postNumber,
-      shell.store.generationOf<Post>(instance.url),
+      shell.store.structureGenerationOf<Post>(instance.url),
     );
     final cacheId = (instance.url, activeTabId);
     final cachedKey = shell._postWindowCacheKeys[cacheId];
     if (cachedKey != null &&
         cachedKey.$1 == key.$1 &&
         identical(cachedKey.$2, key.$2) &&
-        identical(cachedKey.$3, key.$3) &&
-        cachedKey.$4 == key.$4 &&
-        cachedKey.$5 == key.$5) {
+        cachedKey.$3 == key.$3 &&
+        identical(cachedKey.$4, key.$4)) {
       return shell._postWindowCaches[cacheId]!;
     }
     final range = _loadedPostRange(instance.url, detail, stream: stream);

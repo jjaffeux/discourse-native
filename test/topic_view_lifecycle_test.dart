@@ -2560,7 +2560,7 @@ void main() {
         expect(controller.currentTopicHasEarlier, isFalse);
       });
 
-      testWidgets('derives the loaded post window once per change', (
+      testWidgets('keeps window IDs while post content updates', (
         tester,
       ) async {
         final site = instance('meta.example');
@@ -2591,6 +2591,8 @@ void main() {
           ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
         );
 
+        await tester.pumpWidget(_topicView(controller));
+        await tester.pumpAndSettle();
         final first = controller.currentPostIds;
         expect(first, [1, 2, 3, 4, 5, 6]);
         expect(identical(controller.currentPostIds, first), isTrue);
@@ -2605,8 +2607,10 @@ void main() {
           ),
         );
         final replaced = controller.currentPostIds;
-        expect(identical(replaced, first), isFalse);
+        expect(replaced, same(first));
         expect(replaced, [1, 2, 3, 4, 5, 6]);
+        await tester.pumpAndSettle();
+        expect(find.text('New'), findsOneWidget);
       });
 
       testWidgets('retries a failed next page only after the reader scrolls', (

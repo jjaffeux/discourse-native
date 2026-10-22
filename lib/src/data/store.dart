@@ -5,6 +5,9 @@ import 'package:flutter/foundation.dart';
 abstract mixin class Storable<T extends Storable<T>> {
   Object get storeId;
 
+  /// The record fields used to derive its place in a loaded window.
+  Object get storeStructureKey => this;
+
   T merge(covariant T incoming) => incoming;
 }
 
@@ -122,6 +125,7 @@ class Store {
   int _uses = 0;
 
   final Map<(String, Type), int> _generations = {};
+  final Map<(String, Type), Object> _structureGenerations = {};
   final Map<String, int> _entriesBySite = {};
 
   int _evictions = 0;
@@ -129,6 +133,14 @@ class Store {
 
   int generationOf<T extends Storable<T>>(String siteUrl) =>
       _generations[(siteUrl, T)] ?? 0;
+
+  /// Changes when records arrive, leave, or change their structure key.
+  Object? structureGenerationOf<T extends Storable<T>>(String siteUrl) =>
+      _structureGenerations[(siteUrl, T)];
+
+  void _bumpStructure(String siteUrl, Type type) {
+    _structureGenerations[(siteUrl, type)] = Object();
+  }
 
   void _bump(String siteUrl, Type type) {
     final key = (siteUrl, type);
@@ -170,7 +182,12 @@ class Store {
     final cell = _cell<T>(siteUrl, record.storeId);
     final held = cell.value;
     final merged = held == null ? record : held.merge(record);
-    if (!identical(held, merged)) _bump(siteUrl, T);
+    if (!identical(held, merged)) {
+      _bump(siteUrl, T);
+      if (held == null || held.storeStructureKey != merged.storeStructureKey) {
+        _bumpStructure(siteUrl, T);
+      }
+    }
     cell._set(merged);
     _trim(keep: (siteUrl, T, record.storeId));
     return merged;
@@ -188,14 +205,22 @@ class Store {
     final held = cell?.value;
     if (cell == null || held == null) return;
     final next = change(held);
-    if (!identical(held, next)) _bump(siteUrl, T);
+    if (!identical(held, next)) {
+      _bump(siteUrl, T);
+      if (held.storeStructureKey != next.storeStructureKey) {
+        _bumpStructure(siteUrl, T);
+      }
+    }
     cell._set(next);
   }
 
   void remove<T extends Storable<T>>(String siteUrl, Object id) {
     final key = (siteUrl, T, id);
     final cell = _refs[key]?.ref as Ref<T>?;
-    if (cell?.value != null) _bump(siteUrl, T);
+    if (cell?.value != null) {
+      _bump(siteUrl, T);
+      _bumpStructure(siteUrl, T);
+    }
     cell?._set(null);
     if (cell != null && !cell._isObserved) _removeRef(key);
   }
@@ -342,6 +367,7 @@ class Store {
     if (evicted.value != null) {
       _recordEvictions++;
       _bump(key.$1, key.$2);
+      _bumpStructure(key.$1, key.$2);
     }
     return true;
   }
@@ -372,6 +398,7 @@ class Store {
 
   void forget(String siteUrl) {
     final _ = _generations.removeWhere((key, _) => key.$1 == siteUrl);
+    _structureGenerations.removeWhere((key, _) => key.$1 == siteUrl);
     _entriesBySite.remove(siteUrl);
     _partitions.remove(siteUrl);
     final forgotten = <Ref<Object>>[];

@@ -2,6 +2,7 @@ import 'dart:collection';
 import 'dart:math';
 
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -169,6 +170,99 @@ void main() {
       expect(afterRemove, greaterThan(afterUpdate));
       store.remove<_Record>(_site, 1);
       expect(store.generationOf<_Record>(_site), afterRemove);
+    });
+
+    test(
+      'tracks structure separately from content and before notification',
+      () {
+        final store = Store();
+        expect(store.structureGenerationOf<Post>(_site), isNull);
+        const first = Post(id: 1, postNumber: 1, username: 'a', cooked: 'one');
+        store.put(_site, first);
+        final arrived = store.structureGenerationOf<Post>(_site);
+        final generation = store.generationOf<Post>(_site);
+        expect(arrived, isNotNull);
+        expect(store.structureGenerationOf<Post>(_otherSite), isNull);
+        expect(store.structureGenerationOf<_Record>(_site), isNull);
+
+        final ref = store.ref<Post>(_site, 1);
+        final notifiedTokens = <Object?>[];
+        void listener() =>
+            notifiedTokens.add(store.structureGenerationOf<Post>(_site));
+        ref.addListener(listener);
+        addTearDown(() => ref.removeListener(listener));
+        store.put(_site, first.copyWith(cooked: 'two'));
+        store.update<Post>(_site, 1, (post) => post.withLike(true));
+        expect(store.structureGenerationOf<Post>(_site), same(arrived));
+        expect(store.generationOf<Post>(_site), generation + 2);
+        expect(notifiedTokens, [arrived, arrived]);
+        expect(ref.value?.cooked, 'two');
+        expect(ref.value?.liked, isTrue);
+
+        store.put(
+          _site,
+          const Post(id: 1, postNumber: 2, username: 'a', cooked: 'two'),
+        );
+        final renumbered = store.structureGenerationOf<Post>(_site);
+        expect(renumbered, isNot(same(arrived)));
+        expect(notifiedTokens.last, same(renumbered));
+        store.update<Post>(
+          _site,
+          1,
+          (_) => const Post(id: 1, postNumber: 3, username: 'a', cooked: 'two'),
+        );
+        final updated = store.structureGenerationOf<Post>(_site);
+        expect(updated, isNot(same(renumbered)));
+        expect(notifiedTokens.last, same(updated));
+        store.remove<Post>(_site, 1);
+        final removed = store.structureGenerationOf<Post>(_site);
+        expect(removed, isNot(same(updated)));
+        expect(notifiedTokens.last, same(removed));
+        store.remove<Post>(_site, 1);
+        expect(store.structureGenerationOf<Post>(_site), same(removed));
+      },
+    );
+
+    test('default structure follows canonical replacement identity', () {
+      final store = Store();
+      const first = _Record(1, 'one');
+      store.put(_site, first);
+      final arrived = store.structureGenerationOf<_Record>(_site);
+      store.put(_site, first);
+      store.update<_Record>(_site, 1, (record) => record);
+      expect(store.structureGenerationOf<_Record>(_site), same(arrived));
+      store.update<_Record>(_site, 1, (record) => _Record(record.id, 'two'));
+      expect(store.structureGenerationOf<_Record>(_site), isNot(same(arrived)));
+    });
+
+    test('structure tokens survive eviction and forget without reuse', () {
+      final store = Store(maxEntries: 1);
+      store.put(_site, const _Record(1, 'one'));
+      final arrived = store.structureGenerationOf<_Record>(_site);
+      store.ref<_OtherRecord>(_site, 1);
+      final evicted = store.structureGenerationOf<_Record>(_site);
+      expect(evicted, isNot(same(arrived)));
+      expect(store.structureGenerationOf<_OtherRecord>(_site), isNull);
+      store.ref<_OtherRecord>(_site, 2);
+      expect(store.structureGenerationOf<_Record>(_site), same(evicted));
+      expect(store.structureGenerationOf<_OtherRecord>(_site), isNull);
+      store.put(_site, const _Record(1, 'one'));
+      final reloaded = store.structureGenerationOf<_Record>(_site);
+      expect(reloaded, isNot(same(evicted)));
+      store.put(_otherSite, const _OtherRecord(1));
+      final otherSite = store.structureGenerationOf<_OtherRecord>(_otherSite);
+      store.forget(_site);
+      expect(store.structureGenerationOf<_Record>(_site), isNull);
+      expect(
+        store.structureGenerationOf<_OtherRecord>(_otherSite),
+        same(otherSite),
+      );
+      store.put(_site, const _Record(1, 'one'));
+      expect(
+        store.structureGenerationOf<_Record>(_site),
+        isNot(same(reloaded)),
+      );
+      expect(store.generationOf<_Record>(_site), 1);
     });
 
     test('absent updates and removals do not allocate refs', () {
