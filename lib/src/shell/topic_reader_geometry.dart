@@ -3,8 +3,8 @@ part of 'topic_post_sliver.dart';
 typedef _RetainedTopicPostExtent = ({
   double width,
   double height,
-  Post post,
-  TopicDetail topic,
+  WeakReference<Post> post,
+  WeakReference<TopicDetail> topic,
   bool summary,
   bool summaryLoading,
   int readTimeWordCount,
@@ -344,21 +344,12 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     }
     final width = postWidth;
     final height = extent.$1;
-    final retained = (
-      width: width,
-      height: height,
-      post: post,
-      topic: topic,
-      summary: snapshot.summary,
-      summaryLoading: snapshot.summaryLoading,
-      readTimeWordCount: snapshot.readTimeWordCount,
-    );
     final previous = _retainedPostExtents[postId];
     // Do not let the asynchronous loading frame replace a settled extent for
     // the same post. A changed post or topic gets a fresh measurement instead.
     if (previous != null &&
-        identical(previous.post, post) &&
-        identical(previous.topic, topic) &&
+        identical(previous.post.target, post) &&
+        identical(previous.topic.target, topic) &&
         previous.summary == snapshot.summary &&
         previous.summaryLoading == snapshot.summaryLoading &&
         previous.readTimeWordCount == snapshot.readTimeWordCount &&
@@ -366,7 +357,15 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
         previous.height >= height - 0.5) {
       return false;
     }
-    _retainedPostExtents[postId] = retained;
+    _retainedPostExtents[postId] = (
+      width: width,
+      height: height,
+      post: WeakReference(post),
+      topic: WeakReference(topic),
+      summary: snapshot.summary,
+      summaryLoading: snapshot.summaryLoading,
+      readTimeWordCount: snapshot.readTimeWordCount,
+    );
     return true;
   }
 
@@ -378,8 +377,9 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     final retained = _retainedPostExtents[postId];
     if (retained == null ||
         post == null ||
-        !identical(retained.post, post) ||
-        !identical(retained.topic, snapshot.topic) ||
+        snapshot.topic == null ||
+        !identical(retained.post.target, post) ||
+        !identical(retained.topic.target, snapshot.topic) ||
         retained.summary != snapshot.summary ||
         retained.summaryLoading != snapshot.summaryLoading ||
         retained.readTimeWordCount != snapshot.readTimeWordCount ||
