@@ -23,7 +23,6 @@ void main() {
   late Map<int, int> responseStatuses;
   late Store store;
   late TopicReadController controller;
-  late List<Object> errors;
   late int activeRequests;
   late int maximumActiveRequests;
 
@@ -45,7 +44,6 @@ void main() {
           unreadPosts: 1000,
         ),
       );
-    errors = [];
     activeRequests = 0;
     maximumActiveRequests = 0;
     final api = DiscourseApi(
@@ -104,7 +102,6 @@ void main() {
       {'2': 500, '3': 500},
     ]);
     expect(maximumActiveRequests, 1);
-    expect(errors, isEmpty);
 
     for (final post in [1, 2, 3]) {
       await controller.mark(siteUrl, 1, post, caughtUp: false);
@@ -131,7 +128,6 @@ void main() {
 
         expect(confirmedPosts, {3});
         expect(requests, hasLength(2), reason: 'failure alone must not retry');
-        expect(errors, hasLength(1));
 
         await controller.mark(siteUrl, 1, retryPost, caughtUp: false);
 
@@ -165,7 +161,6 @@ void main() {
     expect(confirmedPosts, {1, 2, 3, 5});
     expect(_timings(requests.last), {'1': 500, '2': 500, '3': 500, '5': 500});
     expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 5);
-    expect(errors, hasLength(2));
     for (final post in [1, 2, 3, 5]) {
       await controller.mark(siteUrl, 1, post, caughtUp: false);
     }
@@ -217,7 +212,6 @@ void main() {
       await pumpEventQueue();
       expect(credentials.lookups, 2);
       expect(requests, isEmpty);
-      expect(errors, isEmpty);
 
       credentials.keys[siteUrl] = 'restored-key';
       firstResponse.complete(http.Response('', 200));

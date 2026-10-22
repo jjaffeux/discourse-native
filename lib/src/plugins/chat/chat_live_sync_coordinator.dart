@@ -215,7 +215,7 @@ final class ChatLiveSyncCoordinator {
         tracker: channels,
       );
       _sites[siteUrl] = replacement;
-      site.cancelAll(this);
+      site.cancelAll();
       site = replacement;
     } else {
       site.tracker = channels;
@@ -240,8 +240,8 @@ final class ChatLiveSyncCoordinator {
   }) {
     if (_disposed || _host.isDisposed()) return;
     final site = _siteFor(siteUrl);
-    site.cancelPersistent(this);
-    site.cancelPresence(this);
+    site.cancelPersistent();
+    site.cancelPresence();
     site.hasChannelSnapshot = true;
 
     final all = [...channels.public, ...channels.direct];
@@ -369,9 +369,7 @@ final class ChatLiveSyncCoordinator {
     if (site == null) return;
     site.newMessageCursors.remove(channelId);
     site.awaitingFirstMessage.remove(channelId);
-    site.newMessageSubscriptions
-        .remove(channelId)
-        ?.cancel(this, 'chat.channelMute.unsubscribe');
+    site.newMessageSubscriptions.remove(channelId)?.cancel();
   }
 
   /// Whether [channelId] owns a new-messages stream, or will once a tracker
@@ -400,7 +398,7 @@ final class ChatLiveSyncCoordinator {
     site.kickCursors.remove(channelId);
     site.rootMessageCursors.remove(channelId);
     site.awaitingFirstMessage.remove(channelId);
-    site.cancelActivity(channelId, this, operation: 'chat.channelFollow');
+    site.cancelActivity(channelId);
   }
 
   /// Removes every live owner for a channel after an authoritative kick.
@@ -414,18 +412,14 @@ final class ChatLiveSyncCoordinator {
     site.awaitingFirstMessage.remove(channelId);
     site.activeChannelViews.remove(channelId);
     site.rootViewTokens.remove(channelId);
-    site.cancelActivity(channelId, this, operation: 'chat.kick');
-    site.rootSubscriptions
-        .remove(channelId)
-        ?.cancel(this, 'chat.kick.unsubscribe');
+    site.cancelActivity(channelId);
+    site.rootSubscriptions.remove(channelId)?.cancel();
     final targets = [
       for (final target in site.threadSubscriptions.keys)
         if (target.channelId == channelId) target,
     ];
     for (final target in targets) {
-      site.threadSubscriptions
-          .remove(target)
-          ?.cancel(this, 'chat.kick.unsubscribe');
+      site.threadSubscriptions.remove(target)?.cancel();
       site.threadViewTokens.remove(target);
       site.threadMessageCursors.remove(target);
     }
@@ -496,9 +490,7 @@ final class ChatLiveSyncCoordinator {
     tokens?.remove(token);
     if (tokens != null && tokens.isEmpty) {
       site.threadViewTokens.remove(target);
-      site.threadSubscriptions
-          .remove(target)
-          ?.cancel(this, 'chat.thread.unsubscribe');
+      site.threadSubscriptions.remove(target)?.cancel();
     }
   }
 
@@ -538,9 +530,7 @@ final class ChatLiveSyncCoordinator {
     tokens?.remove(token);
     if (tokens != null && tokens.isEmpty) {
       site.rootViewTokens.remove(channelId);
-      site.rootSubscriptions
-          .remove(channelId)
-          ?.cancel(this, 'chat.channel.unsubscribe');
+      site.rootSubscriptions.remove(channelId)?.cancel();
     }
   }
 
@@ -556,7 +546,7 @@ final class ChatLiveSyncCoordinator {
       tracker,
       '/chat/$channelId',
       lastId: site.rootMessageCursors[channelId],
-      operation: 'chat.channel.subscribe',
+
       onMessage: (data, messageId) {
         _applyRootEvent(site.siteUrl, channelId, data);
       },
@@ -589,7 +579,7 @@ final class ChatLiveSyncCoordinator {
       tracker,
       '/chat/${target.channelId}/thread/${target.threadId}',
       lastId: cursor,
-      operation: 'chat.thread.subscribe',
+
       onMessage: (data, messageId) {
         _applyThreadEvent(site.siteUrl, target, data);
       },
@@ -822,7 +812,7 @@ final class ChatLiveSyncCoordinator {
       tracker,
       '/presence/chat/online',
       lastId: presence.lastMessageId,
-      operation: 'chat.presence.subscribe',
+
       onMessage: (data, messageId) {
         final held = site.presence;
         if (held == null || site.presenceResyncing) return;
@@ -858,7 +848,7 @@ final class ChatLiveSyncCoordinator {
         tracker,
         '/chat/new-channel',
         lastId: site.newChannelCursor,
-        operation: 'chat.newChannel.subscribe',
+
         onMessage: (data, messageId) {
           _applyNewChannel(site, data);
         },
@@ -879,7 +869,7 @@ final class ChatLiveSyncCoordinator {
       bool add(
         String channel,
         int? lastId,
-        String operation,
+
         void Function(Object? data) apply,
         void Function(int messageId) advance,
       ) {
@@ -888,7 +878,7 @@ final class ChatLiveSyncCoordinator {
           tracker,
           channel,
           lastId: lastId,
-          operation: operation,
+
           onMessage: (data, messageId) {
             apply(data);
           },
@@ -900,7 +890,7 @@ final class ChatLiveSyncCoordinator {
       var complete = add(
         '/chat/channel-metadata',
         site.channelMetadataCursor,
-        'chat.channelMetadata.subscribe',
+
         (data) => _applyChannelMetadata(site.siteUrl, data),
         (messageId) => site.channelMetadataCursor = _newerCursor(
           site.channelMetadataCursor,
@@ -911,7 +901,7 @@ final class ChatLiveSyncCoordinator {
           add(
             '/chat/channel-edits',
             site.channelEditCursor,
-            'chat.channelEdits.subscribe',
+
             (data) => _applyChannelEdit(site.siteUrl, data),
             (messageId) => site.channelEditCursor = _newerCursor(
               site.channelEditCursor,
@@ -923,7 +913,7 @@ final class ChatLiveSyncCoordinator {
           add(
             '/chat/channel-status',
             site.channelStatusCursor,
-            'chat.channelStatus.subscribe',
+
             (data) => _applyChannelStatus(site.siteUrl, data),
             (messageId) => site.channelStatusCursor = _newerCursor(
               site.channelStatusCursor,
@@ -935,7 +925,7 @@ final class ChatLiveSyncCoordinator {
         site.channelStateSubscriptions.addAll(subscriptions);
       } else {
         for (final subscription in subscriptions) {
-          subscription.cancel(this, 'chat.channelState.unsubscribe');
+          subscription.cancel();
         }
       }
     }
@@ -955,7 +945,7 @@ final class ChatLiveSyncCoordinator {
               tracker,
               channel,
               lastId: site.userTrackingCursor,
-              operation: 'chat.userTracking.subscribe',
+
               onMessage: (data, messageId) {
                 if (channel.contains('/bulk-')) {
                   _applyBulkUserTrackingState(site.siteUrl, data);
@@ -977,7 +967,7 @@ final class ChatLiveSyncCoordinator {
         site.userTrackingSubscriptions.addAll(subscriptions);
       } else {
         for (final subscription in subscriptions) {
-          subscription.cancel(this, 'chat.userTracking.unsubscribe');
+          subscription.cancel();
         }
       }
     }
@@ -990,7 +980,7 @@ final class ChatLiveSyncCoordinator {
         tracker,
         '/chat/user-has-threads/$userId',
         lastId: site.userHasThreadsCursor,
-        operation: 'chat.userHasThreads.subscribe',
+
         onMessage: (data, messageId) {
           if (data is Map<String, dynamic> &&
               data['has_threads'] == true &&
@@ -1018,7 +1008,7 @@ final class ChatLiveSyncCoordinator {
         tracker,
         '/chat/$channelId/new-messages',
         lastId: entry.value,
-        operation: 'chat.newMessages.subscribe',
+
         onMessage: (data, messageId) {
           _applyNewMessage(site.siteUrl, channelId, data);
         },
@@ -1045,7 +1035,7 @@ final class ChatLiveSyncCoordinator {
         tracker,
         '/chat/$channelId/new-mentions',
         lastId: entry.value,
-        operation: 'chat.newMentions.subscribe',
+
         onMessage: (data, messageId) {
           _applyNewMention(site.siteUrl, channelId, data);
         },
@@ -1071,7 +1061,7 @@ final class ChatLiveSyncCoordinator {
         tracker,
         '/chat/$channelId/kick',
         lastId: entry.value,
-        operation: 'chat.kick.subscribe',
+
         onMessage: (data, messageId) {
           if (data is Map<String, dynamic> &&
               jsonIntOrNull(data['channel_id']) == channelId &&
@@ -1532,7 +1522,7 @@ final class ChatLiveSyncCoordinator {
     PluginLiveChannelHandle tracker,
     String channel, {
     required int? lastId,
-    required String operation,
+
     required void Function(Object? data, int messageId) onMessage,
     void Function(int messageId)? onDelivered,
     required void Function(_OwnedLiveSubscription subscription) install,
@@ -1553,11 +1543,11 @@ final class ChatLiveSyncCoordinator {
         install(owned);
         return true;
       } else {
-        owned.cancel(this, '$operation.unsubscribe');
+        owned.cancel();
         return false;
       }
     } catch (error) {
-      owned.cancel(this, '$operation.unsubscribe');
+      owned.cancel();
 
       return false;
     }
@@ -1565,7 +1555,7 @@ final class ChatLiveSyncCoordinator {
 
   void forget(String siteUrl) {
     final site = _sites.remove(siteUrl);
-    site?.cancelAll(this);
+    site?.cancelAll();
     _host.forgetReconciliation(siteUrl);
     final ref = _presenceRefs.remove(siteUrl);
     if (ref != null) ref.value = const {};
@@ -1577,7 +1567,7 @@ final class ChatLiveSyncCoordinator {
     final sites = _sites.values.toList(growable: false);
     _sites.clear();
     for (final site in sites) {
-      site.cancelAll(this);
+      site.cancelAll();
     }
     _host.disposeReconciliation();
     for (final ref in _presenceRefs.values) {
@@ -1664,63 +1654,53 @@ final class _ChatLiveSite {
     return replacement;
   }
 
-  void cancelActivity(
-    int channelId,
-    ChatLiveSyncCoordinator owner, {
-    required String operation,
-  }) {
-    newMessageSubscriptions
-        .remove(channelId)
-        ?.cancel(owner, '$operation.unsubscribe');
-    newMentionSubscriptions
-        .remove(channelId)
-        ?.cancel(owner, '$operation.unsubscribe');
-    kickSubscriptions
-        .remove(channelId)
-        ?.cancel(owner, '$operation.unsubscribe');
+  void cancelActivity(int channelId) {
+    newMessageSubscriptions.remove(channelId)?.cancel();
+    newMentionSubscriptions.remove(channelId)?.cancel();
+    kickSubscriptions.remove(channelId)?.cancel();
   }
 
-  void cancelPresence(ChatLiveSyncCoordinator owner) {
-    presenceSubscription?.cancel(owner, 'chat.presence.unsubscribe');
+  void cancelPresence() {
+    presenceSubscription?.cancel();
     presenceSubscription = null;
   }
 
-  void cancelPersistent(ChatLiveSyncCoordinator owner) {
+  void cancelPersistent() {
     for (final subscription in newMessageSubscriptions.values) {
-      subscription.cancel(owner, 'chat.live.unsubscribe');
+      subscription.cancel();
     }
     newMessageSubscriptions.clear();
     for (final subscription in newMentionSubscriptions.values) {
-      subscription.cancel(owner, 'chat.live.unsubscribe');
+      subscription.cancel();
     }
     newMentionSubscriptions.clear();
     for (final subscription in kickSubscriptions.values) {
-      subscription.cancel(owner, 'chat.live.unsubscribe');
+      subscription.cancel();
     }
     kickSubscriptions.clear();
-    newChannelSubscription?.cancel(owner, 'chat.live.unsubscribe');
+    newChannelSubscription?.cancel();
     newChannelSubscription = null;
     for (final subscription in channelStateSubscriptions) {
-      subscription.cancel(owner, 'chat.live.unsubscribe');
+      subscription.cancel();
     }
     channelStateSubscriptions.clear();
     for (final subscription in userTrackingSubscriptions) {
-      subscription.cancel(owner, 'chat.live.unsubscribe');
+      subscription.cancel();
     }
     userTrackingSubscriptions.clear();
-    userHasThreadsSubscription?.cancel(owner, 'chat.live.unsubscribe');
+    userHasThreadsSubscription?.cancel();
     userHasThreadsSubscription = null;
   }
 
-  void cancelAll(ChatLiveSyncCoordinator owner) {
-    cancelPresence(owner);
-    cancelPersistent(owner);
+  void cancelAll() {
+    cancelPresence();
+    cancelPersistent();
     for (final subscription in rootSubscriptions.values) {
-      subscription.cancel(owner, 'chat.stream.unsubscribe');
+      subscription.cancel();
     }
     rootSubscriptions.clear();
     for (final subscription in threadSubscriptions.values) {
-      subscription.cancel(owner, 'chat.stream.unsubscribe');
+      subscription.cancel();
     }
     threadSubscriptions.clear();
   }
@@ -1739,7 +1719,7 @@ final class _OwnedLiveSubscription {
     if (!_active) _cancelUnderlying();
   }
 
-  void cancel(ChatLiveSyncCoordinator owner, String operation) {
+  void cancel() {
     if (!_active) return;
     _active = false;
     try {

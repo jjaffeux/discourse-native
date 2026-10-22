@@ -380,5 +380,3 @@ final class MemoryDraftPersistence implements DraftPersistence {
     values[key] = value;
   }
 }
-
-

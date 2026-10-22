@@ -116,7 +116,7 @@ final class _VoiceCallSession {
     return completion.future;
   }
 
-  Future<void> disposeMedia(String operation) {
+  Future<void> disposeMedia() {
     final active = _mediaDisposal;
     if (active != null) return active;
     _signals?.close();
@@ -283,7 +283,7 @@ final class _VoiceCallSession {
           () => _leaveMembership(apiKey: apiKey, clientId: clientId),
         );
         _serverJoinActive = false;
-        await disposeMedia('voice.media.disposeAfterCancelledJoin');
+        await disposeMedia();
         return;
       }
       _mediaViewSeen = VoiceController._mediaView(media);
@@ -365,7 +365,7 @@ final class _VoiceCallSession {
       _restorePreferredCamera();
     } catch (error) {
       if (media != null) {
-        await disposeMedia('voice.media.disposeAfterJoin');
+        await disposeMedia();
       }
       if (_serverJoinActive) {
         await controller._runHandled(
@@ -1273,14 +1273,14 @@ final class _VoiceCallSession {
   }
 
   Future<void> _finishUnpublishedClose(Completer<void> completion) async {
-    final mediaDisposal = disposeMedia('voice.media.disposeUnpublished');
+    final mediaDisposal = disposeMedia();
     try {
       final start = _startOperation;
       if (start != null) {
         await controller._runHandled(() => start);
       }
       await mediaDisposal;
-      await disposeMedia('voice.media.disposeUnpublished');
+      await disposeMedia();
     } finally {
       if (!completion.isCompleted) completion.complete();
       manager.release(this);
@@ -1295,7 +1295,7 @@ final class _VoiceCallSession {
     required Completer<void> completion,
   }) async {
     try {
-      final mediaDisposal = disposeMedia('voice.media.dispose');
+      final mediaDisposal = disposeMedia();
       if (notifyServer) {
         try {
           final credentials = await controller._requestCredentials(

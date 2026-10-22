@@ -571,7 +571,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
             siteUrl: siteUrl,
             target: target,
           ))) {
-        _cancelSubscription(subscription, 'chat.sendMessage.unsubscribe');
+        _cancelSubscription(subscription);
         return;
       }
       _subscriptions[key] = subscription;
@@ -608,10 +608,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
 
     final key = _targetKey(siteUrl, target);
     _reconciliationTargets.remove((siteUrl: siteUrl, target: target));
-    _cancelSubscription(
-      _subscriptions.remove(key),
-      'chat.sendMessage.unsubscribe',
-    );
+    _cancelSubscription(_subscriptions.remove(key));
   }
 
   @override
@@ -634,7 +631,6 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       _reconciliationTargets.remove(target);
       _cancelSubscription(
         _subscriptions.remove(_targetKey(siteUrl, target.target)),
-        'chat.kick.unsubscribe',
       );
     }
   }
@@ -675,14 +671,11 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
       _reconciliationTargets.removeWhere((target) => target.siteUrl == siteUrl);
     }
     for (final subscription in cancelled) {
-      _cancelSubscription(subscription, 'chat.sendMessage.unsubscribe');
+      _cancelSubscription(subscription);
     }
   }
 
-  void _cancelSubscription(
-    PluginLiveChannelSubscription? subscription,
-    String operation,
-  ) {
+  void _cancelSubscription(PluginLiveChannelSubscription? subscription) {
     if (subscription == null) return;
     try {
       subscription.cancel();

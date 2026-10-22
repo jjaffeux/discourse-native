@@ -90,7 +90,6 @@ void main() {
   late FakeApiCredentialReader credentials;
   late SiteLifecycle lifecycle;
   late Store store;
-  late List<({Object error, String operation})> errors;
   late TopicReadController controller;
 
   setUp(() {
@@ -98,7 +97,6 @@ void main() {
     credentials = FakeApiCredentialReader();
     lifecycle = SiteLifecycle();
     store = Store();
-    errors = [];
     controller = TopicReadController(
       api: api,
       credentials: credentials,
@@ -688,38 +686,31 @@ void main() {
           'postNumbers': [2, 3],
         },
       ]);
-      expect(errors, isEmpty);
     });
 
-    test(
-      'reports a failed write and still sends the newest position',
-      () async {
-        const siteUrl = 'https://one.example';
-        credentials.keys[siteUrl] = 'key';
-        store.put(siteUrl, _topic());
-        final failure = StateError('offline');
+    test('a failed write still sends the newest position', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic());
+      final failure = StateError('offline');
 
-        final first = controller.mark(siteUrl, 1, 1, caughtUp: false);
-        await pumpEventQueue();
-        final newer = controller.mark(siteUrl, 1, 4, caughtUp: false);
-        api.requests.first.response.completeError(failure);
-        await pumpEventQueue();
+      final first = controller.mark(siteUrl, 1, 1, caughtUp: false);
+      await pumpEventQueue();
+      final newer = controller.mark(siteUrl, 1, 4, caughtUp: false);
+      api.requests.first.response.completeError(failure);
+      await pumpEventQueue();
 
-        expect(
-          [for (final request in api.requests) request.postNumbers],
-          [
-            [1],
-            [4],
-          ],
-        );
-        expect(errors, hasLength(1));
-        expect(errors.single.error, same(failure));
-        expect(errors.single.operation, 'topic.markRead');
+      expect(
+        [for (final request in api.requests) request.postNumbers],
+        [
+          [1],
+          [4],
+        ],
+      );
 
-        api.requests.last.response.complete();
-        await Future.wait([first, newer]);
-      },
-    );
+      api.requests.last.response.complete();
+      await Future.wait([first, newer]);
+    });
   });
 
   group('read reset ownership', () {
@@ -1093,7 +1084,6 @@ void main() {
       await controller.mark(siteUrl, 1, 6, caughtUp: false);
       expect(api.requests, hasLength(3));
       expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 6);
-      expect(errors, isEmpty);
     });
 
     for (final dispose in [false, true]) {
@@ -1111,7 +1101,6 @@ void main() {
 
           await controller.mark(siteUrl, 1, 1, caughtUp: false);
           expect(api.requests, isEmpty);
-          expect(errors, isEmpty);
         },
       );
     }
@@ -1186,7 +1175,6 @@ void main() {
       await read;
 
       expect(api.requests, isEmpty);
-      expect(errors, isEmpty);
     });
 
     test('account invalidation rejects a late credential response', () async {
@@ -1213,7 +1201,6 @@ void main() {
       await read;
 
       expect(api.requests, isEmpty);
-      expect(errors, isEmpty);
     });
 
     test(
@@ -1259,7 +1246,6 @@ void main() {
             'postNumbers': [2],
           },
         ]);
-        expect(errors, isEmpty);
       },
     );
   });
@@ -1280,7 +1266,6 @@ void main() {
       await Future.wait([first, ...queued]);
 
       expect(api.requests, hasLength(1));
-      expect(errors, isEmpty);
     });
 
     test('cancels credential waits and ignores later marks', () async {
@@ -1309,7 +1294,6 @@ void main() {
 
       expect(api.requests, isEmpty);
       expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 2);
-      expect(errors, isEmpty);
     });
   });
 }

@@ -158,7 +158,6 @@ final class _Harness {
   final api = _Api();
   final credentials = _Credentials();
   final lifecycle = SiteLifecycle();
-  final failures = <Object>[];
   late DiscourseInstance instance;
   late final CustomSidebarSections owner;
   String? selected = _site;
@@ -231,7 +230,6 @@ void main() {
         expect(h.api.reads, hasLength(1));
         expect(h.sections, isEmpty);
         expect(h.changes, 1);
-        expect(h.failures, isEmpty);
       },
     );
 
@@ -328,7 +326,6 @@ void main() {
         await _flush();
         h.api.reads.single.result.completeError(failure);
         await first;
-        expect(h.failures, [same(failure)]);
         await h.owner.ensure(_site);
         h.now = h.now.add(const Duration(minutes: 4, seconds: 59));
         await h.owner.ensure(_site);
@@ -354,7 +351,6 @@ void main() {
       final failure = StateError('storage unavailable');
       h.credentials.readKey = () => Future.error(failure);
       await h.owner.ensure(_site);
-      expect(h.failures, [same(failure)]);
       expect(h.api.reads, isEmpty);
       h.credentials.readKey = null;
       await h.load([
@@ -426,7 +422,6 @@ void main() {
         expect(h.api.reads, hasLength(1));
         expect(_order(h.sections.single), [21, 22]);
         expect(h.changes, 1);
-        expect(h.failures, isEmpty);
       },
     );
 
@@ -476,7 +471,6 @@ void main() {
           expect(h.api.reads, hasLength(duringCredentials ? 0 : 1));
           expect(h.sections, isEmpty);
           expect(h.changes, 0);
-          expect(h.failures, isEmpty);
         },
       );
     }
@@ -577,7 +571,6 @@ void main() {
           h.api.reads.last.result.complete(updated);
           await h.owner.ensure(_site);
           expect(_order(h.sections[1]), moving ? [21, 11, 22] : [21, 22]);
-          expect(h.failures, isEmpty);
         },
       );
     }
@@ -858,7 +851,6 @@ void main() {
         h.api.reorders.last.result.complete(_section(9, [12, 11]));
         await retry;
         expect(_order(h.sections.single), [12, 11]);
-        expect(h.failures, isEmpty);
       },
     );
 

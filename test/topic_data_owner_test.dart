@@ -201,7 +201,6 @@ final class _Fixture {
   final store = Store();
   final lifecycle = SiteLifecycle();
   final credentials = _Credentials();
-  final errors = <String>[];
   int changes = 0;
   void Function()? onChange;
   late final TopicDataOwner owner;
@@ -271,7 +270,6 @@ void main() {
     await oldPage;
     expect(successor.paging(7, newer: true), isTrue);
     expect(f.store.read<Post>(_site, 2), isNull);
-    expect(f.errors, isEmpty);
     f.api.postReads[1].result.complete([_post(2, 'successor')]);
     await newPage;
     expect(f.store.read<Post>(_site, 2)?.cooked, '<p>successor</p>');
@@ -303,7 +301,6 @@ void main() {
       expect(f.store.read<Post>(_site, 2), isNull);
       expect(f.store.read<TopicDetail>(_site, 7), isNull);
       expect(old.isCurrent, isFalse);
-      expect(f.errors, isEmpty);
     },
   );
 
@@ -366,7 +363,6 @@ void main() {
       for (final id in ids) {
         expect(f.store.read<Post>(_site, id)?.cooked, '<p>initial</p>');
       }
-      expect(f.errors, ['topic.selectedPosts.refreshAfterWrite']);
     },
   );
 
@@ -918,7 +914,6 @@ void main() {
         await navigation;
         expect(numbers, [null, 90]);
         expect(f.store.read<Post>(_site, 90)!.cooked, '<p>fresh</p>');
-        expect(f.errors, isEmpty);
       },
     );
   }
