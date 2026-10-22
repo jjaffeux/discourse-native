@@ -10,6 +10,7 @@ import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
 import '../models/content_route.dart';
 import '../models/json.dart';
+import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
@@ -136,48 +137,28 @@ class _CategoriesPageState extends State<CategoriesPage> {
       ...?user?.mutedCategoryIds,
       ...?user?.indirectlyMutedCategoryIds,
     };
-    final roots = categoryDirectoryEntries(
+    final directory = CategoryDirectory(
       rootCategoryIds: feed.categoryIds,
       categories: categories,
-      unreadTopicCounts: counts ?? const {},
-      mutedCategoryIds: muted,
     );
-    // Limit navigation/search to the server-listed directory and its accessible
-    // descendants. Sidebar-only cached categories are not directory entries.
-    final accessible = {
-      for (final entry in roots)
-        for (final category in [entry.category, ...entry.subcategories])
-          category.id: category,
-    };
-    final parentId = accessible.containsKey(_parentCategoryId)
+    final parentId = directory.containsCategory(_parentCategoryId)
         ? _parentCategoryId
         : null;
     final words = SearchWords.of(context);
-    final searching = searchWords(words).isNotEmpty;
-    final visibleIds = searching
-        ? accessible.keys.toList()
-        : parentId == null
-        ? feed.categoryIds
-        : [
-            for (final category in accessible.values)
-              if (category.parentCategoryId == parentId) category.id,
-          ];
-    final entries =
-        categoryDirectoryEntries(
-              rootCategoryIds: visibleIds,
-              categories: accessible.values,
-              unreadTopicCounts: counts ?? const {},
-              mutedCategoryIds: muted,
-            )
-            .where(
-              (entry) =>
-                  entry.matches(scope) &&
-                  searchWordsMatch(words, [
-                    entry.category.name,
-                    jsonHtmlText(entry.category.descriptionExcerpt) ?? '',
-                  ]),
-            )
-            .toList();
+    final queryWords = searchWords(
+      words,
+    ).map((word) => word.toLowerCase()).toList();
+    final searching = queryWords.isNotEmpty;
+    final entries = directory.entries(
+      parentCategoryId: parentId,
+      searching: searching,
+      scope: scope,
+      matchesCategory: searching
+          ? (category) => _matchesCategorySearch(category, queryWords)
+          : null,
+      unreadTopicCounts: counts ?? const {},
+      mutedCategoryIds: muted,
+    );
     _scheduleVisibleEndCheck();
 
     final loadingFilteredResults =
@@ -205,7 +186,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
               final path = TopicCategoryPathSelector(
                 keyPrefix: 'categories',
                 siteUrl: widget.siteUrl,
-                categories: accessible.values.toList(),
+                categories: directory.accessibleCategories.toList(),
                 selectedCategoryId: parentId,
                 maxCategoryNesting: controller
                     .siteConfigFor(widget.siteUrl)
@@ -358,6 +339,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                             ),
                             siteUrl: widget.siteUrl,
                             entry: entries[index],
+                            categoriesById: directory.categoriesById,
                           ),
                         ),
                         if (entries.isEmpty && feed.error == null)
@@ -404,10 +386,25 @@ class _CategoriesPageState extends State<CategoriesPage> {
       };
 }
 
+bool _matchesCategorySearch(TopicCategory category, List<String> queryWords) {
+  final name = category.name.toLowerCase();
+  final description = (jsonHtmlText(category.descriptionExcerpt) ?? '')
+      .toLowerCase();
+  return queryWords.every(
+    (word) => name.contains(word) || description.contains(word),
+  );
+}
+
 class _CategoryCard extends StatelessWidget {
-  const _CategoryCard({super.key, required this.siteUrl, required this.entry});
+  const _CategoryCard({
+    super.key,
+    required this.siteUrl,
+    required this.entry,
+    required this.categoriesById,
+  });
   final String siteUrl;
   final CategoryDirectoryEntry entry;
+  final Map<int, TopicCategory> categoriesById;
 
   @override
   Widget build(BuildContext context) {
@@ -417,12 +414,8 @@ class _CategoryCard extends StatelessWidget {
     final unread = entry.unreadTopicCount > 0;
     final latest = entry.latestTopic?.activityAt;
     final description = jsonHtmlText(category.descriptionExcerpt);
-    final byId = {
-      for (final category in controller.filterCategoriesFor(siteUrl))
-        category.id: category,
-    };
     final route = ContentRoute.fromDestination(
-      buildCategoryDestination(category, categoriesById: byId),
+      buildCategoryDestination(category, categoriesById: categoriesById),
     );
     return LinkTarget.content(
       content: route,

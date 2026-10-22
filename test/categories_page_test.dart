@@ -548,6 +548,51 @@ void main() {
       },
     );
 
+    testWidgets('search keeps decoded emoji and ignored-token navigation', (
+      tester,
+    ) async {
+      final controller = await _loadCategories(
+        FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryList: const [
+            TopicCategory(id: 1, name: 'Parent', color: '111111'),
+            TopicCategory(
+              id: 2,
+              name: 'Child',
+              parentCategoryId: 1,
+              color: '222222',
+              descriptionExcerpt:
+                  '<p>Café &amp; calm <img class="emoji" alt=":sailboat:" /></p>',
+            ),
+          ],
+        ),
+      );
+      final site = controller.currentInstance!.url;
+      await _pumpPage(tester, controller);
+      for (final query in ['"sailboat" in:all @reader', 'CHILD CAFÉ']) {
+        controller.search.setPageWords(
+          site,
+          controller.activeTabId,
+          'all-categories',
+          query,
+        );
+        await tester.pumpAndSettle();
+        expect(_row(1), findsNothing);
+        expect(_row(2), findsOneWidget);
+        expect(find.text('Café & calm :sailboat:'), findsOneWidget);
+      }
+      controller.search.setPageWords(
+        site,
+        controller.activeTabId,
+        'all-categories',
+        'in:all @reader',
+      );
+      await tester.pumpAndSettle();
+      expect(_row(1), findsOneWidget);
+      expect(_row(2), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
       testWidgets(
         'owns its page heading on $platform without a duplicate shell header',
