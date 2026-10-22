@@ -165,6 +165,7 @@ part 'selected_post_moderation.dart';
 part 'shell_tab_context.dart';
 part 'taxonomy_directory_controller.dart';
 part 'workspace_controller.dart';
+part 'site_live_sessions.dart';
 
 enum MobilePane { sidebar, content }
 
@@ -919,7 +920,7 @@ class ShellController extends FrameSafeNotifier
 
   PluginHostPort<Object> _pluginTrackerHostPort() {
     PluginTrackerReader scopedReader(PluginId consumer) => (siteUrl) {
-      final tracker = _trackers[siteUrl];
+      final tracker = _liveSessions.trackerFor(siteUrl);
       if (tracker == null) return null;
       return tracker.pluginLiveChannels(plugins.liveChannelScopesFor(consumer));
     };
@@ -938,8 +939,6 @@ class ShellController extends FrameSafeNotifier
         scopeToConsumer: _backgroundRetention.scopedTo,
         revokeConsumer: _backgroundRetention.releaseOwner,
       );
-
-  Set<String> get _pluginBackgroundSiteUrls => _backgroundRetention.siteUrls;
 
   Future<PluginWriteCredential> pluginWriteCredential(String siteUrl) async {
     try {
@@ -2686,7 +2685,7 @@ class ShellController extends FrameSafeNotifier
       // The tracker installs the root document's snapshot before opening its
       // matching MessageBus cursors. Let later JSON refreshes run second so a
       // slow HTML response cannot overwrite a newer totals response.
-      await _trackerStartRequests[instance.url];
+      await _liveSessions.starting(instance.url);
       if (isDisposed || !contains(instance.url)) return;
       await Future.wait([
         _refreshOne(instance),
@@ -3287,15 +3286,6 @@ class ShellController extends FrameSafeNotifier
   }
 
   final Map<String, TopicTrackingReconciler> _topicTrackingBySite = {};
-  final Map<
-    String,
-    ({
-      SiteLease lease,
-      TopicTrackingReconciler tracking,
-      Future<void> Function(TopicTrackingSnapshot) load,
-    })
-  >
-  _topicTrackingRetries = {};
   bool _liveChangeNotifyPending = false;
 
   TopicTrackingReconciler _trackingFor(String siteUrl) =>
@@ -3746,7 +3736,7 @@ class ShellController extends FrameSafeNotifier
       instance: instance,
       destinationId: destinationId,
       path: path,
-      incoming: _trackers[instance.url]?.incoming,
+      incoming: _liveSessions.trackerFor(instance.url)?.incoming,
       force: force,
     );
   }
@@ -3978,9 +3968,7 @@ class ShellController extends FrameSafeNotifier
     _workspace.schedulePersistAnchors();
   }
 
-  final Map<String, SiteTracker> _trackers = {};
-  final Set<String> _trackersStarting = {};
-  final Map<String, Future<void>> _trackerStartRequests = {};
+  late final _liveSessions = _SiteLiveSessions(this);
   late final _profileWrites = _ProfileWriteTransactions(this);
   final Map<String, CurrentUserReconciler> _currentUserReconcilers = {};
 
@@ -4017,14 +4005,18 @@ class ShellController extends FrameSafeNotifier
   int incomingCount(String destinationId) {
     final instance = currentInstance;
     if (instance == null) return 0;
-    return _trackers[instance.url]?.incoming.count(destinationId) ?? 0;
+    return _liveSessions
+            .trackerFor(instance.url)
+            ?.incoming
+            .count(destinationId) ??
+        0;
   }
 
   Future<void> showIncoming(String destinationId) async {
     final instance = currentInstance;
     if (instance == null) return;
 
-    final tracker = _trackers[instance.url];
+    final tracker = _liveSessions.trackerFor(instance.url);
     final path = _feedPath(destinationId, instance);
     if (tracker == null || path == null) return;
     await topicFeeds.showIncoming(
@@ -4092,66 +4084,22 @@ class ShellController extends FrameSafeNotifier
   /// Gives the site's tracker every list loaded so far, including those that
   /// finished loading before its connection opened.
   void _trackIncomingLists(String siteUrl) {
-    _trackers[siteUrl]?.incoming.track(
-      topicFeeds.incomingFiltersFor(siteUrl),
-      parentCategoryOf: (categoryId) =>
-          categoryFor(categoryId, siteUrl: siteUrl)?.parentCategoryId,
-    );
+    _liveSessions
+        .trackerFor(siteUrl)
+        ?.incoming
+        .track(
+          topicFeeds.incomingFiltersFor(siteUrl),
+          parentCategoryOf: (categoryId) =>
+              categoryFor(categoryId, siteUrl: siteUrl)?.parentCategoryId,
+        );
   }
 
-  void _syncTracking() {
-    final instance = currentInstance;
-    final retainedSiteUrls = _pluginBackgroundSiteUrls;
-
-    for (final entry in _trackers.entries) {
-      if (entry.key != instance?.url) entry.value.unwatchTopic();
-      final site = _instanceAt(entry.key);
-      // An anonymous tracker outlives its forum turning private, and then
-      // every poll it makes is refused.
-      final refused = site != null && site.loginRequired && !site.isConnected;
-      final selectedAndVisible = _foreground && entry.key == instance?.url;
-      final connectedAndVisible = _foreground && (site?.isConnected ?? false);
-      if (refused) {
-        entry.value.stop();
-      } else if (selectedAndVisible ||
-          connectedAndVisible ||
-          retainedSiteUrls.contains(entry.key)) {
-        entry.value.start();
-      } else {
-        entry.value.stop();
-      }
-    }
-
-    for (final candidate in _instances) {
-      final selected = candidate.url == instance?.url;
-      final retained = retainedSiteUrls.contains(candidate.url);
-      if (!_foreground && !retained) continue;
-      if (!selected && !candidate.isConnected && !retained) continue;
-
-      // Core never starts MessageBus for an anonymous reader on a private site.
-      // Such a poll can only be refused, and retrying that refusal adds traffic
-      // without a channel the reader is allowed to consume.
-      if (candidate.loginRequired && !candidate.isConnected) continue;
-
-      final tracker = _trackers[candidate.url];
-      if (tracker == null) {
-        unawaited(_ensureTrackerStarted(candidate));
-      } else {
-        tracker.start();
-      }
-    }
-
-    if (_foreground && instance != null) {
-      final selected = instance;
-      final tracker = _trackers[selected.url];
-      if (tracker != null) _syncTopicWatch(selected.url, tracker);
-    }
-  }
+  void _syncTracking() => _liveSessions.synchronize();
 
   void _syncTopicChannels() {
     final instance = currentInstance;
     if (instance == null) return;
-    final tracker = _trackers[instance.url];
+    final tracker = _liveSessions.trackerFor(instance.url);
     if (tracker == null) return;
     _syncTopicWatch(instance.url, tracker);
   }
@@ -4186,7 +4134,7 @@ class ShellController extends FrameSafeNotifier
       (channel, data) {
         if (isDisposed ||
             !lease.isCurrent ||
-            !identical(_trackers[siteUrl], tracker)) {
+            !identical(_liveSessions.trackerFor(siteUrl), tracker)) {
           return;
         }
         for (final entry in channelsByTopic.entries) {
@@ -4325,428 +4273,15 @@ class ShellController extends FrameSafeNotifier
     _pluginNotificationFeedRefreshTimers[siteUrl] = timer;
   }
 
-  Future<void> _ensureTrackerStarted(DiscourseInstance instance) {
-    final active = _trackerStartRequests[instance.url];
-    if (active != null) return active;
-
-    late final Future<void> request;
-    request = _startTracking(instance).whenComplete(() {
-      if (identical(_trackerStartRequests[instance.url], request)) {
-        final removed = _trackerStartRequests.remove(instance.url);
-        assert(identical(removed, request));
-      }
-    });
-    _trackerStartRequests[instance.url] = request;
-    return request;
-  }
-
-  Future<void> _startTracking(DiscourseInstance instance) async {
-    final siteUrl = instance.url;
-    if (instance.loginRequired && !instance.isConnected) return;
-    if (_trackers.containsKey(siteUrl) || !_trackersStarting.add(siteUrl)) {
-      return;
-    }
-    final lease = lifecycle.capture(siteUrl);
-
-    final String? apiKey;
-    final String? clientId;
-    final AccountRequestCredentials requestCredentials;
-    try {
-      // The persisted account state, not a credential that may have failed
-      // to delete, decides whether this session may open private channels.
-      final requestSession = AccountRequestSession(siteUrl, lease);
-      requestCredentials = instance.isConnected
-          ? await requestSession.credentials(credentials)
-          : requestSession.anonymousCredentials();
-      apiKey = requestCredentials.apiKey;
-      // An anonymous bus sends no client id, and a signed-out forum must not
-      // raise the platform's notification prompt by reading one.
-      clientId = apiKey == null ? null : requestCredentials.clientId;
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(error, stackTrace, 'messageBus.readCredentials');
-      lease.commit(() => _trackersStarting.remove(siteUrl));
-      return;
-    }
-
-    if (isDisposed || !lease.isCurrent) return;
-
-    final currentUserOwner = _currentUserReconcilerFor(siteUrl);
-    final userSnapshot = currentUserOwner.beginSnapshot();
-    final bootstrapTrackingOwner = apiKey == null || clientId == null
-        ? null
-        : _trackingFor(siteUrl);
-    final bootstrapTicket = bootstrapTrackingOwner?.beginBootstrap();
-    final bootstrap = apiKey == null || clientId == null
-        ? null
-        : await _messageBusBootstrap(
-            siteUrl: siteUrl,
-            lease: lease,
-            requestCredentials: requestCredentials,
-          );
-    final bootstrapUser = bootstrap?.currentUser;
-    final freshBootstrapUser = bootstrapUser == null
-        ? null
-        : _acceptFreshCurrentUserSnapshot(
-            siteUrl,
-            bootstrapUser,
-            lease,
-            userSnapshot,
-          );
-
-    final userId = apiKey == null
-        ? null
-        : freshBootstrapUser?.id ??
-              await _accountId(siteUrl, apiKey: apiKey, lease: lease);
-    final initialLastIds =
-        bootstrap?.initialLastIds(userId: userId) ?? const {};
-
-    lease.commit(() {
-      _trackersStarting.remove(siteUrl);
-      final current = _instanceAt(siteUrl);
-      if (isDisposed || current == null) {
-        if (bootstrapTicket != null) {
-          bootstrapTrackingOwner?.cancelBootstrap(bootstrapTicket);
-        }
-        return;
-      }
-
-      // A site that is neither visible nor retained by a plugin lease gets no
-      // tracker, subscriptions or plugin attachments; _syncTracking builds
-      // them once it qualifies.
-      final selectedAndVisible = _foreground && currentInstance?.url == siteUrl;
-      final connectedAndVisible =
-          _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
-      if (!selectedAndVisible &&
-          !connectedAndVisible &&
-          !_backgroundRetention.retains(siteUrl)) {
-        if (bootstrapTicket != null) {
-          bootstrapTrackingOwner?.cancelBootstrap(bootstrapTicket);
-        }
-        return;
-      }
-
-      void commit(SiteMutation mutation) {
-        if (!isDisposed) lease.commit(mutation);
-      }
-
-      final bootstrapState = bootstrap?.currentUserState;
-      if (bootstrapState != null) {
-        _acceptLiveNotificationState(siteUrl, bootstrapState, lease);
-        accountActivity.applyReviewableCounts(siteUrl, bootstrapState);
-      }
-
-      final trackingUsername = apiKey == null
-          ? null
-          : freshBootstrapUser?.username ?? current.user?.username;
-      final tracking = _trackingFor(siteUrl);
-      final currentBootstrapTicket = identical(tracking, bootstrapTrackingOwner)
-          ? bootstrapTicket
-          : tracking.beginBootstrap();
-      final bootstrapTracking = bootstrap?.topicTrackingState;
-      if (trackingUsername != null &&
-          userId != null &&
-          bootstrapTracking != null &&
-          currentBootstrapTicket != null &&
-          currentUserOwner.categoryPreferencesAreCurrent(userSnapshot) &&
-          bootstrap!.hasCompleteTopicTrackingSnapshot(userId) &&
-          tracking.completeBootstrap(
-            currentBootstrapTicket,
-            bootstrapTracking,
-          )) {
-        _topicTrackingRetries.remove(siteUrl);
-        if (currentInstance?.url == siteUrl) _notify();
-      } else if (currentBootstrapTicket != null) {
-        tracking.cancelBootstrap(currentBootstrapTicket);
-      }
-      final loadTicket = trackingUsername == null || tracking.hasSnapshot
-          ? null
-          : tracking.beginSnapshot();
-      final shouldLoadTopicTracking = loadTicket != null;
-      if (shouldLoadTopicTracking) {
-        _topicTrackingRetries.remove(siteUrl);
-      }
-
-      final SiteTracker tracker;
-      try {
-        tracker = trackers(
-          siteUrl: siteUrl,
-          userId: userId,
-          apiKey: apiKey,
-          clientId: clientId,
-          initialLastIds: initialLastIds,
-          shouldLongPoll: () =>
-              _foreground || _backgroundRetention.retains(siteUrl),
-          onIncomingTopics: () => commit(() {
-            if (currentInstance?.url == siteUrl) _notifyLiveChange();
-          }),
-          // A superseded account's tracker must not judge by, or leave hints
-          // in, the filter its successor now owns at the same URL.
-          admitIncoming: (data) =>
-              !isDisposed &&
-              lease.isCurrent &&
-              _admitsIncomingTopic(siteUrl, data),
-          onNotifications: (data) =>
-              commit(() => _acceptLiveNotificationState(siteUrl, data, lease)),
-          onReviewableCounts: (data) => commit(
-            () => accountActivity.applyReviewableCounts(siteUrl, data),
-          ),
-        );
-      } catch (error, stackTrace) {
-        if (loadTicket != null) tracking.cancelSnapshot(loadTicket);
-        _reportOperationalError(error, stackTrace, 'messageBus.start');
-        return;
-      }
-      _trackers[siteUrl] = tracker;
-      _trackIncomingLists(siteUrl);
-      if (apiKey != null && clientId != null) {
-        if (userId != null) {
-          try {
-            tracker.watchTopicTrackingState(
-              userId,
-              (data) => commit(() => _applyTopicTrackingMessage(siteUrl, data)),
-              lastIds: initialLastIds,
-            );
-          } catch (error, stackTrace) {
-            _reportOperationalError(
-              error,
-              stackTrace,
-              'messageBus.subscribeTopicTracking',
-              severity: DiagnosticSeverity.warning,
-            );
-          }
-        }
-        if (shouldLoadTopicTracking) {
-          unawaited(
-            _loadTopicTrackingState(
-              siteUrl: siteUrl,
-              username: trackingUsername!,
-              lease: lease,
-              tracking: tracking,
-              ticket: loadTicket,
-              requestCredentials: requestCredentials,
-            ),
-          );
-        }
-        try {
-          tracker.watchPluginChannel(
-            '/user-status',
-            (data) => commit(() => _applyUserStatusMessage(siteUrl, data)),
-            lastId:
-                bootstrap?.currentUser?.status?.messageBusLastId ??
-                _instanceAt(siteUrl)?.user?.status?.messageBusLastId,
-          );
-        } catch (error, stackTrace) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'messageBus.subscribeUserStatus',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-        try {
-          tracker.watchPluginChannel(
-            '/refresh-sidebar-sections',
-            (_) => commit(
-              () => _customSidebar.invalidate(siteUrl, account: lease),
-            ),
-          );
-        } catch (error, stackTrace) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'messageBus.subscribeSidebarSections',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-        if (userId != null) {
-          try {
-            tracker.watchPluginChannel(
-              '/user-drafts/$userId',
-              (data) => commit(() => _applyUserDraftsMessage(siteUrl, data)),
-            );
-          } catch (error, stackTrace) {
-            _reportOperationalError(
-              error,
-              stackTrace,
-              'messageBus.subscribeUserDrafts',
-              severity: DiagnosticSeverity.warning,
-            );
-          }
-          try {
-            final user = _instanceAt(siteUrl)?.user;
-            tracker.watchPluginChannel(
-              '/do-not-disturb/$userId',
-              (data) => commit(() => doNotDisturb.applyMessage(siteUrl, data)),
-              lastId:
-                  bootstrap?.currentUser?.doNotDisturbChannelPosition ??
-                  user?.doNotDisturbChannelPosition,
-            );
-          } catch (error, stackTrace) {
-            _reportOperationalError(
-              error,
-              stackTrace,
-              'messageBus.subscribeDoNotDisturb',
-              severity: DiagnosticSeverity.warning,
-            );
-          }
-        }
-      }
-      for (final owned
-          in _pluginSession.ownedCapabilities<PluginTrackerAttachment>()) {
-        try {
-          owned.capability.attachPluginTracker(
-            siteUrl,
-            tracker.pluginLiveChannels(
-              plugins.liveChannelScopesFor(owned.owner),
-            ),
-          );
-        } catch (error, stackTrace) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'plugins.attachTracker.${owned.owner.value}',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-      }
-      final stillSelectedAndVisible =
-          _foreground && currentInstance?.url == siteUrl;
-      final stillConnectedAndVisible =
-          _foreground && (_instanceAt(siteUrl)?.isConnected ?? false);
-      if (stillSelectedAndVisible) _syncTopicWatch(siteUrl, tracker);
-      // Last, so the first poll carries every channel registered above.
-      if (stillSelectedAndVisible ||
-          stillConnectedAndVisible ||
-          _backgroundRetention.retains(siteUrl)) {
-        tracker.start();
-      }
-    });
-  }
-
-  Future<SiteMessageBusBootstrap?> _messageBusBootstrap({
-    required String siteUrl,
-    required SiteLease lease,
-    required AccountRequestCredentials requestCredentials,
-  }) async {
-    try {
-      final bootstrap = await RequestIntent.background().run(
-        () => requestCredentials.run(
-          () => api.site.messageBusBootstrap(
-            siteUrl: siteUrl,
-            apiKey: requestCredentials.apiKey!,
-            clientId: requestCredentials.clientId,
-          ),
-        ),
-      );
-      if (isDisposed || !lease.isCurrent) return null;
-      if (bootstrap != null) {
-        _serverPluginNames[siteUrl] = bootstrap.serverPluginNames;
-        _notify();
-      }
-      return bootstrap;
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        // The endpoint is the ordinary application document, so older and
-        // customized sites may not expose every preload entry. Existing JSON
-        // snapshots remain the compatibility path.
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'messageBus.preload',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-      return null;
-    }
-  }
-
   final Map<String, Set<String>> _serverPluginNames = {};
 
   bool supportsComposerColors(String siteUrl) =>
       _serverPluginNames[siteUrl]?.contains('discourse-bbcode-color') ?? false;
 
-  Future<void> _loadTopicTrackingState({
-    required String siteUrl,
-    required String username,
-    required SiteLease lease,
-    required TopicTrackingReconciler tracking,
-    required TopicTrackingSnapshot ticket,
-    Future<void> Function()? refreshCategoryPreferences,
-    AccountRequestCredentials? requestCredentials,
-  }) async {
-    bool ownsLoad() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_topicTrackingBySite[siteUrl], tracking) &&
-        tracking.owns(ticket);
-    AccountRequestCredentials? heldCredentials = requestCredentials;
-    try {
-      if (!ownsLoad()) return;
-      if (refreshCategoryPreferences != null) {
-        await refreshCategoryPreferences();
-        if (!ownsLoad() || !tracking.preferencesReady(ticket)) return;
-      }
-      final credential =
-          heldCredentials ??
-          await AccountRequestSession(siteUrl, lease).credentials(credentials);
-      heldCredentials = credential;
-      if (!ownsLoad()) return;
-      if (credential.apiKey == null) {
-        tracking.cancelSnapshot(ticket);
-        return;
-      }
-      final snapshot = await RequestIntent.background().run(
-        () => credential.run(
-          () => api.site.topicTrackingState(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            username: username,
-            clientId: credential.clientId,
-          ),
-        ),
-      );
-      if (!ownsLoad()) return;
-      final currentUsername = _instanceAt(siteUrl)?.user?.username;
-      if (currentUsername?.toLowerCase() != username.toLowerCase()) return;
-      lease.commit(() {
-        if (ownsLoad() && tracking.completeSnapshot(ticket, snapshot)) {
-          _topicTrackingRetries.remove(siteUrl);
-          if (currentInstance?.url == siteUrl) _notify();
-        }
-      });
-    } catch (error, stackTrace) {
-      if (ownsLoad()) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'topicTracking.load',
-          severity: DiagnosticSeverity.warning,
-        );
-        tracking.failSnapshot(ticket);
-        _topicTrackingRetries[siteUrl] = (
-          lease: lease,
-          tracking: tracking,
-          load: (nextTicket) => _loadTopicTrackingState(
-            siteUrl: siteUrl,
-            username: username,
-            lease: lease,
-            tracking: tracking,
-            ticket: nextTicket,
-            refreshCategoryPreferences: refreshCategoryPreferences,
-            requestCredentials: heldCredentials,
-          ),
-        );
-      }
-    } finally {
-      if (ownsLoad()) tracking.cancelSnapshot(ticket);
-    }
-  }
-
   void _applyTopicTrackingMessage(String siteUrl, Object? data) {
     // A message proves the site reachable again. A snapshot whose load failed
     // is fetched before this message is buffered, so the replay covers it.
-    _retryTopicTrackingLoad(siteUrl);
+    _liveSessions.retryTracking(siteUrl);
     final tracking = _trackingFor(siteUrl);
     final changed = tracking.accept(
       data,
@@ -4849,74 +4384,6 @@ class ShellController extends FrameSafeNotifier
       _liveChangeNotifyPending = false;
       if (!isDisposed) _notify();
     });
-  }
-
-  /// Category and tag badges stay dark until a snapshot lands, because the bus
-  /// alone cannot seed them. A load that failed is retried once the site is
-  /// reachable or looked at again: on a tracking message, on foreground, and
-  /// on selection. The retry keeps the failed load's account and lease, so a
-  /// site tracked again since then owns its own load instead.
-  void _retryTopicTrackingLoad(String siteUrl) {
-    final retry = _topicTrackingRetries.remove(siteUrl);
-    if (retry == null ||
-        isDisposed ||
-        !retry.lease.isCurrent ||
-        !identical(_topicTrackingBySite[siteUrl], retry.tracking)) {
-      return;
-    }
-    final ticket = retry.tracking.beginSnapshot();
-    if (ticket != null) unawaited(retry.load(ticket));
-  }
-
-  /// Re-reads a held snapshot after an absence the bus backlog may not
-  /// cover. A load already in flight serves as this resume's read. The
-  /// buffer opens before the request, as for any load, so what the resume
-  /// poll delivers meanwhile reaches the new snapshot too, and
-  /// [TopicTrackingReconciler] ignores a message it has passed.
-  void _resyncTopicTracking(String siteUrl) {
-    final username = _instanceAt(siteUrl)?.user?.username;
-    final tracking = _topicTrackingBySite[siteUrl];
-    if (username == null || tracking?.hasSnapshot != true) return;
-    final ticket = tracking!.beginSnapshot();
-    if (ticket == null) return;
-    _topicTrackingRetries.remove(siteUrl);
-    final lease = lifecycle.capture(siteUrl);
-    bool ownsResync() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_topicTrackingBySite[siteUrl], tracking) &&
-        tracking.owns(ticket);
-    unawaited(() async {
-      try {
-        final requestCredentials = await AccountRequestSession(
-          siteUrl,
-          lease,
-        ).credentials(credentials);
-        if (!ownsResync()) return;
-        if (requestCredentials.apiKey == null) {
-          tracking.cancelSnapshot(ticket);
-          return;
-        }
-        await _loadTopicTrackingState(
-          siteUrl: siteUrl,
-          username: username,
-          lease: lease,
-          tracking: tracking,
-          ticket: ticket,
-          requestCredentials: requestCredentials,
-        );
-      } catch (error, stackTrace) {
-        if (ownsResync()) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'topicTracking.readCredentials',
-            severity: DiagnosticSeverity.warning,
-          );
-          tracking.cancelSnapshot(ticket);
-        }
-      }
-    }());
   }
 
   Future<int?> _accountId(
@@ -5104,7 +4571,7 @@ class ShellController extends FrameSafeNotifier
           userDirectory.forget(siteUrl);
           badges.forget(siteUrl);
           _topicTrackingBySite.remove(siteUrl)?.retire();
-          _topicTrackingRetries.remove(siteUrl);
+          _liveSessions.clearRetry(siteUrl);
         }
         _replaceInstance(
           fresh,
@@ -5273,11 +4740,6 @@ class ShellController extends FrameSafeNotifier
         const _ClearProfileStatus(),
       )).message;
 
-  void _disposeTracking(String siteUrl) {
-    final tracker = _trackers.remove(siteUrl);
-    tracker?.dispose().ignore();
-  }
-
   /// Writes what a quit would otherwise lose — a tab selection or anchor
   /// still inside its debounce, and each composer's pending draft — and
   /// completes once it is on this device. A desktop quit ends the process
@@ -5323,16 +4785,7 @@ class ShellController extends FrameSafeNotifier
         backgroundedAt != null &&
         _clock().difference(backgroundedAt) >= _topicTrackingResyncAfter;
     final instance = currentInstance;
-    final retainedSiteUrls = _pluginBackgroundSiteUrls;
-    for (final entry in _trackers.entries) {
-      final selected = entry.key == instance?.url;
-      final connected = _instanceAt(entry.key)?.isConnected ?? false;
-      if (selected || connected || retainedSiteUrls.contains(entry.key)) {
-        entry.value.pollNow();
-        _retryTopicTrackingLoad(entry.key);
-        if (resyncTracking) _resyncTopicTracking(entry.key);
-      }
-    }
+    _liveSessions.resume(resyncTracking: resyncTracking);
     // A reader with one forum never reselects it, so returning to the app is
     // its recovery point. Held values answer without a request.
     if (instance != null && (!instance.loginRequired || instance.isConnected)) {
@@ -7272,9 +6725,9 @@ class ShellController extends FrameSafeNotifier
     final tracking = _trackingFor(queue.account.siteUrl);
     final ticket = tracking.beginSnapshot(replace: true);
     if (ticket == null) return;
-    _topicTrackingRetries.remove(queue.account.siteUrl);
+    _liveSessions.clearRetry(queue.account.siteUrl);
     unawaited(
-      _loadTopicTrackingState(
+      _liveSessions.loadTracking(
         siteUrl: queue.account.siteUrl,
         username: username,
         lease: queue.account.lease,
@@ -12594,7 +12047,7 @@ class ShellController extends FrameSafeNotifier
 
     _taxonomy.forget(siteUrl);
     _topicTrackingBySite.remove(siteUrl)?.retire();
-    _topicTrackingRetries.remove(siteUrl);
+    _liveSessions.clearRetry(siteUrl);
     _topicComposerCapabilities.remove(siteUrl);
     _postActionCatalogs.remove(siteUrl);
     _customSidebar.forget(siteUrl);
@@ -12617,15 +12070,13 @@ class ShellController extends FrameSafeNotifier
         .whenComplete(() => _backgroundRetention.releaseSite(siteUrl));
     _observePluginLifecycle(forgetPlugins, 'plugins.session.forget');
     topicFeeds.forget(siteUrl);
-    _trackersStarting.remove(siteUrl);
-    _trackerStartRequests.remove(siteUrl)?.ignore();
     _sessionUsersRefreshed.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.ignore();
     doNotDisturb.forget(siteUrl);
     userStatuses.forget(siteUrl);
     _profileWrites.forget(siteUrl);
     _pluginNotificationFeedRefreshTimers.remove(siteUrl)?.cancel();
-    _disposeTracking(siteUrl);
+    _liveSessions.forget(siteUrl);
     _notify();
   }
 
@@ -12726,7 +12177,7 @@ class ShellController extends FrameSafeNotifier
     }
     _syncTracking();
     _syncTopicChannels();
-    _retryTopicTrackingLoad(instance.url);
+    _liveSessions.retryTracking(instance.url);
     // Totals may have landed while this site was inactive. The ordinary
     // refresh on reselection can legitimately reuse that five-minute snapshot,
     // so activation itself must notify totals observers instead of relying on
@@ -13557,7 +13008,7 @@ class ShellController extends FrameSafeNotifier
       tracking.retire();
     }
     _topicTrackingBySite.clear();
-    _topicTrackingRetries.clear();
+    _liveSessions.dispose();
     updates.dispose();
     accountActivity.dispose();
     doNotDisturb.dispose();
@@ -13607,11 +13058,6 @@ class ShellController extends FrameSafeNotifier
     _composers.clear();
     _selectedComposers.clear();
     _composerRevealTarget = null;
-    for (final tracker in _trackers.values) {
-      tracker.dispose().ignore();
-    }
-    _trackers.clear();
-    _trackerStartRequests.clear();
     _readerContentBounds.dispose();
     if (ownsApi) api.close();
     super.dispose();

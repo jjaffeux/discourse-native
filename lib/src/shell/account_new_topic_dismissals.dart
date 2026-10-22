@@ -99,7 +99,7 @@ final class _AccountNewTopicDismissals {
         instance: scope.instance,
         destinationId: route.id,
         path: route.feedPath!,
-        incoming: _shell._trackers[siteUrl]?.incoming,
+        incoming: _shell._liveSessions.trackerFor(siteUrl)?.incoming,
         force: true,
       );
       return null;

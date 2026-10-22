@@ -1,6 +1,6 @@
 # Topic tracking reconciliation
 
-`TopicTrackingReconciler` owns the tracking protocol for one account at one site. `ShellController` retains HTTP requests, message subscriptions, write queues, navigation, store updates, and notification scheduling.
+`TopicTrackingReconciler` owns the tracking protocol for one account at one site. Private site live sessions own MessageBus startup, subscriptions, snapshot transport, and retry capabilities. `ShellController` retains notification write queues, current-user preference merging, navigation, store updates, and notification scheduling.
 
 ## Usage
 
@@ -15,7 +15,11 @@ Bootstrap capture starts before its transport request. Category changes replace 
 
 A native notification choice has an opaque `TopicTrackingChoice`. The shell serializes its HTTP write, then settles that token. Older successful writes advance the latest choice's rollback baseline without settling its overlay. Topic-channel echoes update the baseline while preserving the pending selection. Rejection changes only notification level on the current row. The shell releases a choice when its write tail finishes.
 
-The shell groups notification transaction state into private typed entries. Each topic queue keeps its account lease, latest attempt and finishing tail together. A category account keeps one shared write tail because category responses include account-wide inherited mute lists. Its category queues retain each latest attempt, finishing tail and last confirmed level. Admission installs queue ownership before optimistic Store publication. Retirement removes these entries before retiring the shared reconcilers, so old completions cannot clear replacement-account state. HTTP, current-user preference merging and tracking refresh remain in the shell.
+The shell groups notification transaction state into private typed entries. Each topic queue keeps its account lease, latest attempt and finishing tail together. A category account keeps one shared write tail because category responses include account-wide inherited mute lists. Its category queues retain each latest attempt, finishing tail and last confirmed level. Admission installs queue ownership before optimistic Store publication. Retirement removes these entries before retiring the shared reconcilers, so old completions cannot clear replacement-account state. Notification HTTP and current-user preference merging remain in the shell. Accepted category writes request a tracking snapshot from their live session.
+
+## Live connection lifetime
+
+Each live session holds startup completion until HTML bootstrap settles, so later JSON account refreshes run second. An assembling tracker is available for scoped plugin handles, while polling requires a ready tracker with all core, plugin, and visible-topic channels registered. One desired-state policy governs startup, foreground changes, retention, and resume. Anonymous readers on private forums never qualify, even with retention. Retirement closes the assembling or ready tracker and releases its retry capability. Callbacks require the captured startup attempt or exact ready tracker as well as the account lease.
 
 ## Ordering contract
 
@@ -33,7 +37,7 @@ The mutable session candidate is the base. It retains `TopicTrackingState` as th
 
 The competing reducer design separated observed and effective row tables. It scored well for explicit overlays, but required extracting shared row storage and indexes before migrating production. The independent comparison preferred the session design for its smaller migration and preserved row behavior. The selected design takes the reducer's distinct pending and completed-choice lifetimes and opaque settlement tokens, without duplicating aggregate storage.
 
-Transport retry closures remain shell-owned because they capture credentials and API arguments. `failSnapshot` records retry phase and rejects stale failures. The shell opens the next ticket before admitting its triggering message. This keeps transport concerns outside the reconciler while concentrating load authority inside it.
+Transport retry closures belong to each live session because they capture credentials and API arguments. `failSnapshot` records retry phase and rejects stale failures. The live session opens the next ticket before the shell admits its triggering message. This keeps transport concerns outside the reconciler while concentrating load authority inside it.
 
 ## Implementation reconciliation
 
@@ -43,4 +47,4 @@ The existing partial-report policy and explicit acknowledged mark-unread reset a
 
 ## Validation
 
-`topic_tracking_reconciler_test.dart` pins pure delayed report reconciliation, choice settlement, category barriers, admission-time replay, retry, truncation, and retirement. The owning shell notification, muted tracking, async ordering, unread, and rebuild-isolation tests exercise production adapters and publication.
+`topic_tracking_reconciler_test.dart` pins pure delayed report reconciliation, choice settlement, category barriers, admission-time replay, retry, truncation, and retirement. `site_live_sessions_test.dart` pins reentrant retention before the first poll, hidden bootstrap ordering, replacement during bootstrap, failed registration cleanup, and retirement during attachment. The owning shell notification, muted tracking, async ordering, unread, and rebuild-isolation tests exercise production adapters and publication.
