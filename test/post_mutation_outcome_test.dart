@@ -59,6 +59,152 @@ void main() {
     );
   }
 
+  test(
+    'invalid deletion remains invalid when disposed before awaiting',
+    () async {
+      final (:shell, :api) = await _fixture();
+      final deleting = shell.deletePost(
+        const Post(
+          id: 2,
+          postNumber: 2,
+          username: 'author',
+          cooked: '<p>2</p>',
+        ),
+      );
+      shell.dispose();
+      expect(
+        await deleting,
+        isA<PostMutationNotSent>().having(
+          (result) => result.problem.kind,
+          'problem',
+          PostMutationProblemKind.invalidTarget,
+        ),
+      );
+      expect(api.writes, 0);
+      expect(api.reads, isEmpty);
+    },
+  );
+
+  test('an in-flight single-post command excludes another write', () async {
+    final (:shell, :api) = await _fixture();
+    final hold = api.writeGate = Completer<void>();
+    final deleting = shell.deletePost(api.post(2));
+    await pumpEventQueue();
+    expect(shell.postWriteInFlight(2, siteUrl: _site), isTrue);
+    expect(
+      await shell.recoverPost(api.post(2)),
+      isA<PostMutationNotSent>().having(
+        (result) => result.problem.kind,
+        'problem',
+        PostMutationProblemKind.busyPost,
+      ),
+    );
+    expect(api.writes, 1);
+    expect(api.reads, isEmpty);
+    hold.complete();
+    expect(await deleting, isA<PostMutationAccepted>());
+    expect(shell.postWriteInFlight(2, siteUrl: _site), isFalse);
+    expect(api.writes, 1);
+  });
+
+  test('retirement preserves accepted and uncertain write outcomes', () async {
+    for (final uncertain in [false, true]) {
+      final (:shell, :api) = await _fixture();
+      if (uncertain) {
+        api._mutationError = const WriteException(WriteFailure.unreachable);
+      }
+      final hold = api.writeGate = Completer<void>();
+      final deleting = shell.deletePost(api.post(2));
+      await pumpEventQueue();
+      expect(api.writes, 1);
+      await shell.disconnectCurrentInstance();
+      hold.complete();
+      final outcome = await deleting;
+      if (uncertain) {
+        expect(outcome, isA<PostMutationUncertain>());
+        final result = outcome as PostMutationUncertain;
+        expect(result.projection, PostProjectionFreshness.retired);
+        expect(
+          await result.recovery.refresh(),
+          PostProjectionFreshness.retired,
+        );
+      } else {
+        expect(
+          outcome,
+          isA<PostMutationAccepted>().having(
+            (result) => result.projection,
+            'projection',
+            PostProjectionFreshness.retired,
+          ),
+        );
+      }
+      expect(api.reads, isEmpty);
+      expect(api.writes, 1);
+    }
+  });
+
+  test(
+    'accepted first-post recovery updates a topic before failed repair',
+    () async {
+      final (:shell, :api) = await _fixture(initiallyDeleted: true);
+      expect(shell.currentTopic?.deletedAt, isNotNull);
+      api.readFailure = StateError('Post refresh unavailable');
+      api.topicFailure = StateError('Topic refresh unavailable');
+      final result =
+          await shell.recoverPost(api.post(1)) as PostMutationAccepted;
+      expect(result.projection, PostProjectionFreshness.stale);
+      expect(shell.currentTopic?.deletedAt, isNull);
+      expect(shell.currentTopic?.canRecoverTopic, isFalse);
+      expect(api.writes, 1);
+      expect(api.reads, [
+        [1],
+      ]);
+    },
+  );
+
+  test('explicit targets are revalidated after credential admission', () async {
+    for (final permanent in [false, true]) {
+      final authenticator = _DeferredAuthenticator();
+      final (:shell, :api) = await _fixture(
+        initiallyDeleted: permanent,
+        authenticator: authenticator,
+      );
+      final ownerTarget = shell.captureTopicPostOwnerTarget(
+        siteUrl: _site,
+        topicId: 7,
+        postId: 2,
+      );
+      final permanentTarget = shell.capturePostPermanentDeleteTarget(
+        siteUrl: _site,
+        topicId: 7,
+        post: api.post(2),
+      );
+      final hold = authenticator.keyReadGate = Completer<void>();
+      final changing = permanent
+          ? shell.permanentlyDeletePost(permanentTarget)
+          : shell.changeTopicPostOwner(ownerTarget, 'recipient');
+      await pumpEventQueue();
+      expect(shell.postWriteInFlight(2, siteUrl: _site), isTrue);
+      expect(api.writes, 0);
+      if (!permanent) api.username = 'recipient';
+      shell.store.put(_site, api.post(2, deleted: false));
+      hold.complete();
+      expect(
+        await changing,
+        isA<PostMutationNotSent>().having(
+          (result) => result.problem.kind,
+          'problem',
+          permanent
+              ? PostMutationProblemKind.permanentDeletionUnavailable
+              : PostMutationProblemKind.forbidden,
+        ),
+      );
+      expect(api.writes, 0);
+      expect(api.reads, isEmpty);
+      expect(shell.postWriteInFlight(2, siteUrl: _site), isFalse);
+    }
+  });
+
   test('accepted deletion remains accepted when repair fails', () async {
     final (:shell, :api) = await _fixture();
     api.readFailure = StateError('Refresh unavailable');
@@ -353,6 +499,7 @@ void main() {
 
 Future<({ShellController shell, _MutationApi api})> _fixture({
   bool initiallyDeleted = false,
+  FakeAuthenticator? authenticator,
 }) async {
   final api = _MutationApi(initiallyDeleted: initiallyDeleted);
   final shell = ShellController(
@@ -360,7 +507,7 @@ Future<({ShellController shell, _MutationApi api})> _fixture({
       instance('meta.discourse.org').copyWith(user: _user),
     ]),
     api: api,
-    authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    authenticator: (authenticator ?? FakeAuthenticator())..keys[_site] = 'key',
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
@@ -453,7 +600,7 @@ class _MutationApi extends FakeDiscourseApi {
   String username = 'author';
   final reads = <List<int>>[];
 
-  Post post(int id, {String version = 'initial'}) => Post(
+  Post post(int id, {String version = 'initial', bool? deleted}) => Post(
     id: id,
     postNumber: id,
     username: username,
@@ -462,7 +609,7 @@ class _MutationApi extends FakeDiscourseApi {
     canDelete: true,
     canRecover: true,
     canPermanentlyDelete: true,
-    deletedAt: initiallyDeleted ? DateTime.utc(2026) : null,
+    deletedAt: (deleted ?? initiallyDeleted) ? DateTime.utc(2026) : null,
   );
 
   TopicPayload payload() => topicPayload(
@@ -485,6 +632,14 @@ class _MutationApi extends FakeDiscourseApi {
 
   @override
   Future<void> deletePost({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    String? clientId,
+  }) => _write();
+
+  @override
+  Future<void> recoverPost({
     required String siteUrl,
     required String apiKey,
     required int postId,
@@ -572,5 +727,15 @@ class _MutationApi extends FakeDiscourseApi {
     reads.add(List.of(ids));
     if (readFailure case final error?) throw error;
     return [for (final id in ids) post(id, version: 'fresh')];
+  }
+}
+
+class _DeferredAuthenticator extends FakeAuthenticator {
+  Completer<void>? keyReadGate;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    await keyReadGate?.future;
+    return super.apiKeyFor(siteUrl);
   }
 }

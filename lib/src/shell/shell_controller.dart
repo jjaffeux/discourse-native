@@ -163,6 +163,7 @@ part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'instance_rail_transactions.dart';
 part 'notification_preference_transactions.dart';
+part 'post_commands.dart';
 part 'profile_write_transactions.dart';
 part 'selected_post_moderation.dart';
 part 'topic_metadata_transactions.dart';
@@ -8932,44 +8933,15 @@ class ShellController extends FrameSafeNotifier
     return _ownsTopicPostOwnerTarget(target) ? users : const [];
   }
 
+  late final _PostCommandOwner _postCommands = _PostCommandOwner(this);
+
   Future<PostMutationOutcome> changeTopicPostOwner(
     TopicPostOwnerTarget target,
     String username,
-  ) async {
-    final postId = target.postId;
-    if (postId == null) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.forbidden),
-      );
-    }
-    final trimmed = username.trim();
-    PostMutationOutcome? validate() =>
-        _topicPostOwnerRefusal(target, [postId], trimmed);
-    if (validate() case final refusal?) return refusal;
-    return _mutatePost(
-      store.read<Post>(target.siteUrl, postId)!,
-      (siteUrl, apiKey) => api.postMutations.changePostOwners(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        topicId: target.topicId,
-        postIds: [postId],
-        username: trimmed,
-      ),
-      target: (
-        siteUrl: target.siteUrl,
-        topicId: target.topicId,
-        lease: target._lease,
-      ),
-      validate: validate,
-    );
-  }
+  ) => _postCommands.run(_ChangePostOwner(target, username));
 
   Future<PostMutationOutcome> deletePost(Post post) async {
-    if (!post.canDelete) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.invalidTarget),
-      );
-    }
+    if (!post.canDelete) return _PostCommandOwner._invalidTarget;
     final siteUrl = currentInstance?.url;
     final lease = siteUrl == null ? null : lifecycle.capture(siteUrl);
     final editing = switch (_composer?.target) {
@@ -8982,14 +8954,7 @@ class ShellController extends FrameSafeNotifier
       _ => null,
     };
 
-    final outcome = await _mutatePost(
-      post,
-      (siteUrl, apiKey) => api.postMutations.deletePost(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postId: post.id,
-      ),
-    );
+    final outcome = await _postCommands.run(_DeletePost(post));
 
     if (outcome is PostMutationAccepted &&
         lease?.isCurrent == true &&
@@ -9094,6 +9059,9 @@ class ShellController extends FrameSafeNotifier
   Future<PostMutationOutcome> permanentlyDeletePost(
     PostPermanentDeleteTarget target,
   ) async {
+    if (!target.deletesTopic) {
+      return _postCommands.run(_PermanentlyDeleteReply(target));
+    }
     if (_permanentPostDeletionBlock(target) case final refusal?) return refusal;
     final siteUrl = target.siteUrl;
     final topicId = target.topicId;
@@ -9106,19 +9074,6 @@ class ShellController extends FrameSafeNotifier
     ], wholeTopic: target.deletesTopic);
     if (unresolved != null) {
       return PostMutationNotSent.recoveryRequired(unresolved);
-    }
-    if (!target.deletesTopic) {
-      return _mutatePost(
-        store.read<Post>(siteUrl, postId)!,
-        (siteUrl, apiKey) => api.postMutations.permanentlyDeletePost(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          topicId: topicId,
-          postId: postId,
-        ),
-        target: (siteUrl: siteUrl, topicId: topicId, lease: lease),
-        validate: () => _permanentPostDeletionBlock(target),
-      );
     }
     final topicKey = _topicKey(siteUrl, topicId);
     if (!_topicDeletionWrites.add(topicKey)) {
@@ -9192,119 +9147,29 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<PostMutationOutcome> recoverPost(Post post) async {
-    if (!post.canRecover) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.invalidTarget),
-      );
-    }
-    return _mutatePost(
-      post,
-      (siteUrl, apiKey) => api.postMutations.recoverPost(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postId: post.id,
-      ),
-      // PostDestroyer#recover also recovers the topic of a first post, and the
-      // only topic message it publishes is a stats one, so the held topic has
-      // to be recovered here, as after the header's recover.
-      accepted: post.postNumber == 1
-          ? (siteUrl, topicId, lease) =>
-                _applyTopicDeletion(siteUrl, topicId, false, lease)
-          : null,
-    );
-  }
+  Future<PostMutationOutcome> recoverPost(Post post) =>
+      _postCommands.run(_RecoverPost(post));
 
-  Future<PostMutationOutcome> setPostWiki(Post post, bool wiki) {
-    if (!post.canWiki) {
-      return Future.value(
-        const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.invalidTarget),
-        ),
-      );
-    }
-    if (post.wiki == wiki) return Future.value(const PostMutationNoChange());
-    return _mutatePost(
-      post,
-      (siteUrl, apiKey) => api.postMutations.updatePostWiki(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postId: post.id,
-        wiki: wiki,
-      ),
-    );
-  }
+  Future<PostMutationOutcome> setPostWiki(Post post, bool wiki) =>
+      _postCommands.run(_SetPostWiki(post, wiki));
 
   bool canLockPost(Post post) =>
       currentInstance?.user?.staff == true && post.userId != null;
 
-  Future<PostMutationOutcome> setPostLocked(Post post, bool locked) {
-    if (!canLockPost(post)) {
-      return Future.value(
-        const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.invalidTarget),
-        ),
-      );
-    }
-    if (post.locked == locked) {
-      return Future.value(const PostMutationNoChange());
-    }
-    return _mutatePost(
-      post,
-      (siteUrl, apiKey) => api.postMutations.updatePostLocked(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postId: post.id,
-        locked: locked,
-      ),
-    );
-  }
+  Future<PostMutationOutcome> setPostLocked(Post post, bool locked) =>
+      _postCommands.run(_SetPostLocked(post, locked));
 
   bool canUnhidePost(Post post) =>
       currentInstance?.user?.staff == true && post.hidden;
 
-  Future<PostMutationOutcome> unhidePost(Post post) {
-    if (!canUnhidePost(post)) {
-      return Future.value(
-        const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.invalidTarget),
-        ),
-      );
-    }
-    return _mutatePost(
-      post,
-      (siteUrl, apiKey) => api.postMutations.unhidePost(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postId: post.id,
-      ),
-    );
-  }
+  Future<PostMutationOutcome> unhidePost(Post post) =>
+      _postCommands.run(_UnhidePost(post));
 
   bool canTogglePostType(Post post) =>
       currentInstance?.user?.staff == true && !post.isWhisper;
 
-  Future<PostMutationOutcome> togglePostType(Post post) {
-    if (!canTogglePostType(post)) {
-      return Future.value(
-        const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.invalidTarget),
-        ),
-      );
-    }
-    final nextType = post.isModeratorAction
-        ? Post.regularPostType
-        : Post.moderatorPostType;
-    return _mutatePost(
-      post,
-      (siteUrl, apiKey) => api.postMutations.updatePostType(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postId: post.id,
-        postType: nextType,
-      ),
-    );
-  }
+  Future<PostMutationOutcome> togglePostType(Post post) =>
+      _postCommands.run(_TogglePostType(post));
 
   bool canEditPostNotice({
     required String siteUrl,
@@ -9971,91 +9836,6 @@ class ShellController extends FrameSafeNotifier
       wholeTopic: wholeTopic,
       alreadyHeld: alreadyHeld,
     );
-  }
-
-  Future<PostMutationOutcome> _mutatePost(
-    Post post,
-    Future<void> Function(String siteUrl, String apiKey) write, {
-    ({String siteUrl, int topicId, SiteLease lease})? target,
-    PostMutationOutcome? Function()? validate,
-    void Function(String siteUrl, int topicId, SiteLease lease)? accepted,
-  }) async {
-    if (target == null) {
-      final siteUrl = currentInstance?.url;
-      final topicId = currentContent?.topicId;
-      if (siteUrl == null || topicId == null) {
-        return const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.invalidTarget),
-        );
-      }
-      target = (
-        siteUrl: siteUrl,
-        topicId: topicId,
-        lease: lifecycle.capture(siteUrl),
-      );
-    }
-    final (:siteUrl, :topicId, :lease) = target;
-    final data = _topicData.forLease(siteUrl, lease);
-    if (data == null || isDisposed) return const PostMutationRetired();
-    if (validate?.call() case final refusal?) return refusal;
-    final unresolved = data.moderationRecoveryFor(topicId, [post.id]);
-    if (unresolved != null) {
-      return PostMutationNotSent.recoveryRequired(unresolved);
-    }
-    final release = data.beginPostWrite(post.id);
-    if (release == null) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.busyPost),
-      );
-    }
-    try {
-      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
-      if (validate?.call() case final refusal?) return refusal;
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
-      if (validate?.call() case final refusal?) return refusal;
-      if (credential.failure case final failure?) {
-        return PostMutationNotSent(_postMutationProblem(failure));
-      }
-      var sent = false;
-      try {
-        await credential.request!.run(() {
-          sent = true;
-          return write(siteUrl, credential.apiKey!);
-        });
-      } catch (error, stackTrace) {
-        return await _failedPostMutation(
-          data,
-          topicId,
-          [post.id],
-          credential.apiKey,
-          error,
-          stackTrace,
-          sent: sent,
-        );
-      }
-      if (!data.isCurrent || isDisposed) {
-        return const PostMutationAccepted.retired();
-      }
-      if (accepted != null) {
-        lease.commit(() {
-          accepted(siteUrl, topicId, lease);
-          _notify();
-        });
-      }
-      final projection = await data.repairPost(
-        topicId,
-        post.id,
-        credential.apiKey,
-        lease,
-      );
-      return _acceptedPostMutation(
-        projection,
-        data.postMutationRecovery(topicId, [post.id], credential.apiKey),
-      );
-    } finally {
-      lease.commit(release);
-    }
   }
 
   PostMutationOutcome? _selectedPostsDispatchBlock(
