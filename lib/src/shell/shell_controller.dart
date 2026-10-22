@@ -157,6 +157,7 @@ import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
 part 'account_new_topic_dismissals.dart';
+part 'composer_identity_resolution.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'instance_rail_transactions.dart';
@@ -457,23 +458,8 @@ class ShellController extends FrameSafeNotifier
         cachedMetadata: cachedMetadata ?? _cachedCookingMetadata(siteUrl, raw),
         config: siteConfigFor(siteUrl),
         staleSettings: _presentation.cookingSettingsAreStale(siteUrl),
-        mentions: _mentioned[siteUrl]?.snapshot ?? const {},
-        hashtags: {
-          for (final entry in (_hashtags[siteUrl]?.snapshot ?? {}).entries)
-            if (entry.value case final FoundHashtag hashtag)
-              entry.key: {
-                'type': hashtag.type,
-                'ref': hashtag.ref,
-                'slug': hashtag.slug,
-                'text': hashtag.text,
-                'relative_url': hashtag.relativeUrl,
-                'icon': hashtag.icon,
-                'id': hashtag.id,
-                'style_type': hashtag.styleType,
-                'emoji': hashtag.emoji,
-                'colors': hashtag.colors,
-              },
-        },
+        mentions: _composerIdentities[siteUrl]?.mentions ?? const {},
+        hashtags: _composerIdentities[siteUrl]?.hashtags ?? const {},
         customEmoji: _presentation.cachedCustomEmojiFor(siteUrl),
       ),
     );
@@ -10739,174 +10725,39 @@ class ShellController extends FrameSafeNotifier
 
   static const int composerIdentityCacheCapacity = 2048;
 
-  final Map<String, BoundedLruCache<String, FoundHashtag?>> _hashtags = {};
-  final Map<String, Set<String>> _hashtagsInFlight = {};
+  final Map<String, _ComposerIdentityResolution> _composerIdentities = {};
 
-  final Map<String, BoundedLruCache<String, bool>> _mentioned = {};
-  final Map<String, Set<String>> _mentionsInFlight = {};
-
-  List<String> _composerHashtagTypes() {
-    final types = <String>{
-      ...defaultDiscourseHashtagOrder,
-      ...plugins.registry.pluginHashtagWireTypes,
-    };
-    // The endpoint rejects the entire request above its fixed bound. Core
-    // kinds stay first; installed registrations retain manifest order after
-    // them. Servers without one of those data sources simply filter it out.
-    return types
-        .take(maximumDiscourseHashtagsPerRequest)
-        .toList(growable: false);
+  _ComposerIdentityResolution _composerIdentityFor(String siteUrl) {
+    final existing = _composerIdentities[siteUrl];
+    if (existing != null && existing.isCurrent) return existing;
+    existing?.retire();
+    final owner = _ComposerIdentityResolution(
+      session: AccountRequestSession(siteUrl, lifecycle.capture(siteUrl)),
+      credentials: credentials,
+      authenticated: _instanceAt(siteUrl)?.isConnected == true,
+      search: api.search,
+      lookups: api.lookups,
+      pluginHashtagTypes: plugins.registry.pluginHashtagWireTypes,
+      onChanged: (artwork) {
+        cooking.contextChanged(siteUrl);
+        if (artwork) {
+          for (final composer in _composersForSite(siteUrl)) {
+            composer.text.artworkArrived();
+          }
+        }
+      },
+    );
+    if (isDisposed) owner.retire();
+    return _composerIdentities[siteUrl] = owner;
   }
 
   Future<List<FoundHashtag>> searchHashtags({
     required String siteUrl,
     required String term,
-  }) async {
-    final lease = lifecycle.capture(siteUrl);
-    final List<FoundHashtag> found;
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final credential = _instanceAt(siteUrl)?.isConnected == true
-          ? await session.credentials(credentials)
-          : session.anonymousCredentials();
-      if (!lease.isCurrent) return const [];
-      found = await credential.run(
-        () => api.search.searchHashtags(
-          siteUrl: siteUrl,
-          term: term,
-          order: _composerHashtagTypes(),
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-    } catch (error) {
-      return const [];
-    }
+  }) => _composerIdentityFor(siteUrl).searchHashtags(term);
 
-    // Everything offered is now known, so accepting a suggestion draws its
-    // pill without a second round trip. This is the path almost every hashtag
-    // in a post takes.
-    final accepted = lease.commit(() {
-      final known = _hashtags.putIfAbsent(
-        siteUrl,
-        () => BoundedLruCache(composerIdentityCacheCapacity),
-      );
-      for (final hashtag in found) {
-        known.put(hashtag.ref, hashtag);
-      }
-      if (found.isNotEmpty) cooking.contextChanged(siteUrl);
-    });
-    return accepted ? found : const [];
-  }
-
-  ComposerPills _composerPills(ComposerTarget target) {
-    final siteUrl = target.siteUrl;
-    return (
-      hashtag: (ref) => _hashtags[siteUrl]?.read(ref),
-      mention: (username) => _mentioned[siteUrl]?.read(username),
-      resolve: (refs, usernames) {
-        unawaited(_resolveHashtags(siteUrl, refs));
-        unawaited(_resolveMentions(siteUrl, target.mentionTopicId, usernames));
-      },
-    );
-  }
-
-  Future<void> _resolveHashtags(String siteUrl, Set<String> refs) async {
-    final known = _hashtags.putIfAbsent(
-      siteUrl,
-      () => BoundedLruCache(composerIdentityCacheCapacity),
-    );
-    final inFlight = _hashtagsInFlight.putIfAbsent(siteUrl, () => {});
-
-    final ask = [
-      for (final ref in refs)
-        if (!known.containsKey(ref) && inFlight.add(ref)) ref,
-    ];
-    if (ask.isEmpty) return;
-
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final credential = _instanceAt(siteUrl)?.isConnected == true
-          ? await session.credentials(credentials)
-          : session.anonymousCredentials();
-      if (!lease.isCurrent) return;
-      final found = await credential.run(
-        () => api.lookups.lookupHashtags(
-          siteUrl: siteUrl,
-          refs: ask,
-          order: _composerHashtagTypes(),
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      if (isDisposed) return;
-      lease.commit(() {
-        for (final ref in ask) {
-          known.put(ref, null);
-        }
-        for (final hashtag in found) {
-          known.put(hashtag.ref, hashtag);
-        }
-        cooking.contextChanged(siteUrl);
-        for (final composer in _composersForSite(siteUrl)) {
-          composer.text.artworkArrived();
-        }
-      });
-    } catch (_) {
-    } finally {
-      if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
-    }
-  }
-
-  Future<void> _resolveMentions(
-    String siteUrl,
-    int? topicId,
-    Set<String> usernames,
-  ) async {
-    final known = _mentioned.putIfAbsent(
-      siteUrl,
-      () => BoundedLruCache(composerIdentityCacheCapacity),
-    );
-    final inFlight = _mentionsInFlight.putIfAbsent(siteUrl, () => {});
-
-    final ask = [
-      for (final name in usernames)
-        if (!known.containsKey(name) && inFlight.add(name)) name,
-    ];
-    if (ask.isEmpty) return;
-
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final credential = _instanceAt(siteUrl)?.isConnected == true
-          ? await session.credentials(credentials)
-          : session.anonymousCredentials();
-      if (!lease.isCurrent) return;
-      final real = await credential.run(
-        () => api.lookups.checkMentions(
-          siteUrl: siteUrl,
-          names: ask,
-          topicId: topicId,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-      if (isDisposed) return;
-      lease.commit(() {
-        for (final name in ask) {
-          known.put(name, real.contains(name));
-        }
-        cooking.contextChanged(siteUrl);
-        for (final composer in _composersForSite(siteUrl)) {
-          composer.text.artworkArrived();
-        }
-      });
-    } catch (_) {
-    } finally {
-      if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
-    }
-  }
+  ComposerPills _composerPills(ComposerTarget target) =>
+      _composerIdentityFor(target.siteUrl).pills(target.mentionTopicId);
 
   Future<FoundUsersAndGroups> searchMessageRecipients({
     required String siteUrl,
@@ -10941,92 +10792,13 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int? topicId,
     required String term,
-  }) async {
-    final lease = lifecycle.capture(siteUrl);
-    final FoundUsersAndGroups found;
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final credential = _instanceAt(siteUrl)?.isConnected == true
-          ? await session.credentials(credentials)
-          : session.anonymousCredentials();
-      if (!lease.isCurrent) return const FoundUsersAndGroups();
-      if (!lease.isCurrent) {
-        return const FoundUsersAndGroups();
-      }
-      found = await credential.run(
-        () => api.search.searchMentions(
-          siteUrl: siteUrl,
-          term: term,
-          topicId: topicId,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-    } catch (error) {
-      if (lease.isCurrent) rethrow;
-      return const FoundUsersAndGroups();
-    }
-
-    // The site just named these, so they exist — accepting one draws its pill
-    // without asking again.
-    final accepted = lease.commit(() {
-      final known = _mentioned.putIfAbsent(
-        siteUrl,
-        () => BoundedLruCache(composerIdentityCacheCapacity),
-      );
-      for (final user in found.users) {
-        known.put(user.username, true);
-      }
-      for (final group in found.groups) {
-        known.put(group.name, true);
-      }
-      if (found.users.isNotEmpty || found.groups.isNotEmpty) {
-        cooking.contextChanged(siteUrl);
-      }
-    });
-    return accepted ? found : const FoundUsersAndGroups();
-  }
+  }) => _composerIdentityFor(siteUrl).searchMentions(term, topicId);
 
   Future<List<FoundUser>> searchUsers({
     required String siteUrl,
     required int? topicId,
     required String term,
-  }) async {
-    final lease = lifecycle.capture(siteUrl);
-    final List<FoundUser> found;
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final credential = _instanceAt(siteUrl)?.isConnected == true
-          ? await session.credentials(credentials)
-          : session.anonymousCredentials();
-      if (!lease.isCurrent) return const [];
-      found = await credential.run(
-        () => api.lookups.searchUsers(
-          siteUrl: siteUrl,
-          term: term,
-          topicId: topicId,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-        ),
-      );
-    } catch (error) {
-      return const [];
-    }
-
-    // The site just named these, so they exist — accepting one draws its pill
-    // without asking again.
-    final accepted = lease.commit(() {
-      final known = _mentioned.putIfAbsent(
-        siteUrl,
-        () => BoundedLruCache(composerIdentityCacheCapacity),
-      );
-      for (final user in found) {
-        known.put(user.username, true);
-      }
-      if (found.isNotEmpty) cooking.contextChanged(siteUrl);
-    });
-    return accepted ? found : const [];
-  }
+  }) => _composerIdentityFor(siteUrl).searchUsers(term, topicId);
 
   String emojiUrlFor(String siteUrl, String name) =>
       _presentation.emojiUrlFor(siteUrl, name);
@@ -11357,10 +11129,7 @@ class ShellController extends FrameSafeNotifier
     _siteNotificationTypeRequests.remove(siteUrl)?.ignore();
     _sitePresentation?.forget(siteUrl);
     _pluginSiteConfigListenables.remove(siteUrl)?.dispose();
-    _hashtags.remove(siteUrl);
-    _hashtagsInFlight.remove(siteUrl);
-    _mentioned.remove(siteUrl);
-    _mentionsInFlight.remove(siteUrl);
+    _composerIdentities.remove(siteUrl)?.retire();
     _connectErrors.remove(siteUrl);
     _unavailableForums.remove(siteUrl);
     _retryingUnavailableForums.remove(siteUrl);
@@ -12253,6 +12022,10 @@ class ShellController extends FrameSafeNotifier
       watch.retire();
     }
     _cookingWatches.clear();
+    for (final owner in _composerIdentities.values) {
+      owner.retire();
+    }
+    _composerIdentities.clear();
     unawaited(cooking.dispose());
 
     // A window can close in the frame immediately after a selection or a
