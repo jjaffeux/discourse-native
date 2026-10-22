@@ -1354,12 +1354,24 @@ void main() {
             )
             .borderRadius;
 
-        expect(tester.widget<DMobileDock>(_bar).referenceTextScale, isFalse);
+        final start = find.byKey(const ValueKey('mobile-mode-start'));
+        final label = find.descendant(of: start, matching: find.text('Start'));
+        final glyph = find.descendant(of: start, matching: find.byType(DIcon));
+        final button = find.descendant(of: start, matching: find.byType(DButton));
+        final before = (
+          dockHeight: tester.getSize(_bar).height,
+          buttonHeight: tester.getSize(button).height,
+          labelSize: tester.getSize(label),
+          glyphSize: tester.getSize(glyph),
+        );
         _expectPageRadiusForDock(tester, bodyRadius());
         shell.openChatChannel(10);
         await tester.pumpAndSettle();
         expect(tester.element(body), same(bodyElement));
-        expect(tester.widget<DMobileDock>(_bar).referenceTextScale, isTrue);
+        expect(tester.getSize(_bar).height, before.dockHeight);
+        expect(tester.getSize(button).height, before.buttonHeight);
+        expect(tester.getSize(label), before.labelSize);
+        expect(tester.getSize(glyph), before.glyphSize);
         _expectPageRadiusForDock(tester, bodyRadius());
         final sheet = find
             .descendant(
