@@ -331,59 +331,212 @@ void main() {
       await first;
     });
 
-    test('a retained offer can download while another check is pending', () async {
+    test(
+      'a retained offer can download while another check is pending',
+      () async {
+        final updater = _ControlledUpdater();
+        final controller = controllerWith(updater: updater);
+        final offer = release('1.4.0');
+        final first = controller.check();
+        updater.checks.single.complete(offer);
+        await first;
+
+        final checking = controller.check(silent: true);
+        expect(controller.status, UpdateStatus.checking);
+        expect(controller.available, same(offer));
+        final downloading = controller.download();
+        expect(updater.downloadCount, 1);
+        expect(updater.lastDownloaded, same(offer));
+        expect(controller.status, UpdateStatus.downloading);
+
+        await controller.check();
+        await controller.setChannel(UpdateChannel.canary);
+        await controller.installAndRestart();
+        await controller.download();
+        expect(updater.checkCount, 2);
+        expect(updater.downloadCount, 1);
+        expect(updater.installCount, 0);
+        expect(controller.channel, UpdateChannel.stable);
+
+        updater.checks.last.complete(offer);
+        await checking;
+        updater.downloads.single.complete();
+        await downloading;
+        expect(controller.status, UpdateStatus.readyToInstall);
+      },
+    );
+
+    test(
+      'download remains admitted during installation with a retained offer',
+      () async {
+        final updater = _ControlledUpdater();
+        final controller = controllerWith(updater: updater);
+        final checking = controller.check();
+        updater.checks.single.complete(release('1.4.0'));
+        await checking;
+        final downloading = controller.download();
+        updater.downloads.single.complete();
+        await downloading;
+
+        final installing = controller.installAndRestart();
+        expect(controller.status, UpdateStatus.installing);
+        final downloadingAgain = controller.download();
+        expect(updater.downloadCount, 2);
+        expect(controller.status, UpdateStatus.downloading);
+        updater.installs.single.complete();
+        await installing;
+        updater.downloads.last.complete();
+        await downloadingAgain;
+        expect(controller.status, UpdateStatus.readyToInstall);
+      },
+    );
+
+    test(
+      'a superseded check cannot replace the release being downloaded',
+      () async {
+        final updater = _ControlledUpdater();
+        final controller = controllerWith(updater: updater);
+        final offer = release('1.4.0');
+        final first = controller.check();
+        updater.checks.single.complete(offer);
+        await first;
+        final checking = controller.check(silent: true);
+        final downloading = controller.download();
+
+        updater.checks.last.complete(release('1.5.0'));
+        await checking;
+        expect(controller.status, UpdateStatus.downloading);
+        expect(controller.available, same(offer));
+        updater.progressCallbacks.single?.call(0.5);
+        expect(controller.progress, 0.5);
+        updater.downloads.single.complete();
+        await downloading;
+        expect(controller.status, UpdateStatus.readyToInstall);
+        expect(controller.available, same(offer));
+      },
+    );
+
+    test('a failed superseded check cannot roll back a download', () async {
       final updater = _ControlledUpdater();
       final controller = controllerWith(updater: updater);
-      final offer = release('1.4.0');
       final first = controller.check();
-      updater.checks.single.complete(offer);
+      updater.checks.single.complete(release('1.4.0'));
       await first;
-
       final checking = controller.check(silent: true);
-      expect(controller.status, UpdateStatus.checking);
-      expect(controller.available, same(offer));
       final downloading = controller.download();
-      expect(updater.downloadCount, 1);
-      expect(updater.lastDownloaded, same(offer));
-      expect(controller.status, UpdateStatus.downloading);
-
-      await controller.check();
-      await controller.setChannel(UpdateChannel.canary);
-      await controller.installAndRestart();
-      await controller.download();
-      expect(updater.checkCount, 2);
-      expect(updater.downloadCount, 1);
-      expect(updater.installCount, 0);
-      expect(controller.channel, UpdateChannel.stable);
-
-      updater.checks.last.complete(offer);
+      updater.checks.last.completeError(
+        const UpdateException(UpdateFailure.unreachable),
+      );
       await checking;
+      expect(controller.status, UpdateStatus.downloading);
+      expect(controller.error, isNull);
       updater.downloads.single.complete();
       await downloading;
-      expect(controller.status, UpdateStatus.readyToInstall);
     });
 
-    test('download remains admitted during installation with a retained offer', () async {
+    test(
+      'completed and superseded downloads cannot publish late progress',
+      () async {
+        final updater = _ControlledUpdater();
+        final controller = controllerWith(updater: updater);
+        final checking = controller.check();
+        updater.checks.single.complete(release('1.4.0'));
+        await checking;
+        final first = controller.download();
+        updater.downloads.single.complete();
+        await first;
+        updater.progressCallbacks.first?.call(0.25);
+        expect(controller.progress, 1);
+
+        final retry = controller.download();
+        updater.progressCallbacks.last?.call(0.5);
+        updater.progressCallbacks.first?.call(0.75);
+        expect(controller.progress, 0.5);
+        controller.dispose();
+        updater.progressCallbacks.last?.call(0.9);
+        updater.downloads.last.complete();
+        await retry;
+        expect(controller.progress, 0.5);
+      },
+    );
+
+    test('an old install failure cannot replace a newer download', () async {
       final updater = _ControlledUpdater();
       final controller = controllerWith(updater: updater);
       final checking = controller.check();
       updater.checks.single.complete(release('1.4.0'));
       await checking;
-      final downloading = controller.download();
+      final first = controller.download();
       updater.downloads.single.complete();
-      await downloading;
-
+      await first;
       final installing = controller.installAndRestart();
-      expect(controller.status, UpdateStatus.installing);
-      final downloadingAgain = controller.download();
-      expect(updater.downloadCount, 2);
-      expect(controller.status, UpdateStatus.downloading);
-      updater.installs.single.complete();
+      final retry = controller.download();
+      updater.installs.single.completeError(
+        const UpdateException(UpdateFailure.install),
+      );
       await installing;
+      expect(controller.status, UpdateStatus.downloading);
+      expect(controller.error, isNull);
       updater.downloads.last.complete();
-      await downloadingAgain;
+      await retry;
       expect(controller.status, UpdateStatus.readyToInstall);
     });
+
+    test(
+      'quiet check rollback preserves staged-artifact install retry',
+      () async {
+        final updater = _ControlledUpdater();
+        final controller = controllerWith(updater: updater);
+        final checking = controller.check();
+        updater.checks.single.complete(release('1.4.0'));
+        await checking;
+        final downloading = controller.download();
+        updater.downloads.single.complete();
+        await downloading;
+        final rechecking = controller.check(silent: true);
+        updater.checks.last.completeError(
+          const UpdateException(UpdateFailure.unreachable),
+        );
+        await rechecking;
+        expect(controller.status, UpdateStatus.readyToInstall);
+        expect(controller.progress, 1);
+        final installing = controller.installAndRestart();
+        expect(updater.installCount, 1);
+        updater.installs.single.completeError(
+          const UpdateException(UpdateFailure.install),
+        );
+        await installing;
+        expect(controller.status, UpdateStatus.readyToInstall);
+        final retry = controller.installAndRestart();
+        expect(updater.installCount, 2);
+        updater.installs.last.complete();
+        await retry;
+        expect(updater.downloadCount, 1);
+      },
+    );
+
+    test(
+      'listener-started download supersedes check before adapter admission',
+      () async {
+        final updater = _ControlledUpdater();
+        final controller = controllerWith(updater: updater);
+        final checking = controller.check();
+        updater.checks.single.complete(release('1.4.0'));
+        await checking;
+        Future<void>? downloading;
+        controller.addListener(() {
+          if (controller.status == UpdateStatus.checking) {
+            downloading = controller.download();
+          }
+        });
+        await controller.check();
+        expect(updater.checkCount, 1);
+        expect(updater.downloadCount, 1);
+        updater.downloads.single.complete();
+        await downloading;
+        expect(controller.status, UpdateStatus.readyToInstall);
+      },
+    );
 
     test('load prefers a stored channel over the one built in', () async {
       final updater = FakeUpdater(isSupported: true);
