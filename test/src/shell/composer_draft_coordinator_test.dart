@@ -603,6 +603,79 @@ void main() {
     expect(harness.coordinator.sequenceFor(_replyTarget), 4);
   });
 
+  test('a forgotten save cannot clear a replacement recovery copy', () async {
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final harness = _Harness(
+      cachedSequence: 4,
+      api: FakeDiscourseApi(draftGate: gate),
+    );
+    addTearDown(harness.dispose);
+    final first = harness.open(_replyTarget);
+    final saving = first.session.save(
+      ComposerDraftSave(
+        target: _replyTarget,
+        draft: const ComposerDraft(reply: 'Earlier save'),
+        sequence: 4,
+        localOnly: false,
+        isCurrent: () => true,
+      ),
+    );
+    await pumpEventQueue();
+    expect(harness.api.draftsSaved, hasLength(1));
+
+    harness.coordinator.forgetSite(_siteUrl);
+    final replacement = harness.open(_replyTarget);
+    await replacement.session.save(
+      ComposerDraftSave(
+        target: _replyTarget,
+        draft: const ComposerDraft(reply: 'Replacement recovery'),
+        sequence: 4,
+        localOnly: true,
+        isCurrent: () => true,
+      ),
+    );
+    gate.complete();
+    expect(await saving, 5);
+
+    expect(harness.cachedDraft, isNull);
+    expect(harness.coordinator.sequenceFor(_replyTarget), 5);
+    expect(
+      ComposerDraft.decode(await harness.localStore.read(_siteUrl, 'topic_7'))
+          ?.reply,
+      'Replacement recovery',
+    );
+  });
+
+  for (final restored in [false, true]) {
+    test(
+      'repeated saves preserve cached-count accounting for a ${restored ? 'restored' : 'new'} draft',
+      () async {
+        final harness = _Harness(cachedSequence: 4)
+          ..cachedDraft = restored ? _listedDraft.data : null;
+        addTearDown(harness.dispose);
+        final composer = harness.open(_replyTarget).composer;
+        harness.coordinator.startRestore(composer);
+        expect(await harness.coordinator.finishRestore(composer), isTrue);
+
+        composer.text.text = 'First saved edit';
+        await composer.flushDraft();
+        composer.text.text = 'Second saved edit';
+        await composer.flushDraft();
+        composer.text.clear();
+        await composer.flushDraft();
+
+        expect(harness.api.draftsSaved, hasLength(2));
+        expect(harness.api.userDraftsDeleted, hasLength(1));
+        expect(harness.destroyed, [
+          (siteUrl: _siteUrl, draftKey: 'topic_7', knownToExist: restored),
+        ]);
+      },
+    );
+  }
+
   test(
     'a retained older composer can save the shared draft key again',
     () async {
