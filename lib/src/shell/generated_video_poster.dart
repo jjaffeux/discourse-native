@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../data/site_video_thumbnail_repository.dart';
 import 'image_decode.dart';
@@ -25,6 +26,9 @@ class GeneratedVideoPoster extends StatefulWidget {
 class _GeneratedVideoPosterState extends State<GeneratedVideoPoster> {
   Object? _identity;
   VideoThumbnailRequest? _request;
+  bool _enabled = true;
+  bool _hasPoster = false;
+  bool _viewportCheckScheduled = false;
 
   @override
   void didChangeDependencies() {
@@ -41,25 +45,89 @@ class _GeneratedVideoPosterState extends State<GeneratedVideoPoster> {
   void _updateRequest() {
     final shell = ShellScope.maybeIdentityOf(context);
     final siteUrl = widget.siteUrl ?? widget.source.origin;
-    final enabled = TickerMode.valuesOf(context).enabled;
+    _enabled = TickerMode.valuesOf(context).enabled;
     final identity = (
       shell?.videoThumbnails,
       shell?.lifecycle.capture(siteUrl).session,
       siteUrl,
       widget.source,
-      enabled,
+      _enabled,
     );
     if (_identity == identity) return;
     _identity = identity;
-    _request?.dispose();
-    _request = enabled
-        ? shell?.videoThumbnails.acquire(siteUrl: siteUrl, url: widget.source)
-        : null;
+    _releaseRequest();
+    _hasPoster = false;
+    _scheduleViewportCheck();
+  }
+
+  void _releaseRequest() {
+    final request = _request;
+    _request = null;
+    request?.dispose();
+  }
+
+  void _scheduleViewportCheck() {
+    if (_viewportCheckScheduled || !_enabled || _hasPoster) return;
+    _viewportCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _viewportCheckScheduled = false;
+      if (!mounted || !_enabled || _hasPoster) return;
+      if (_inViewport()) {
+        if (_request == null) {
+          final shell = ShellScope.maybeIdentityOf(context);
+          final request = shell?.videoThumbnails.acquire(
+            siteUrl: widget.siteUrl ?? widget.source.origin,
+            url: widget.source,
+          );
+          if (request != null) {
+            setState(() => _request = request);
+            request.result.then((bytes) {
+              if (mounted && identical(_request, request) && bytes != null) {
+                _hasPoster = true;
+              }
+            }).ignore();
+          }
+        }
+      } else if (_request != null) {
+        setState(_releaseRequest);
+      }
+      // Observe ancestor layout and scrolling on natural frames without
+      // requesting frames for previews that remain outside the viewport.
+      _scheduleViewportCheck();
+    });
+  }
+
+  bool _inViewport() {
+    final source = context.findRenderObject();
+    if (source is! RenderBox || !source.attached || !source.hasSize) {
+      return false;
+    }
+    final view = View.of(context);
+    var viewport = Offset.zero & (view.physicalSize / view.devicePixelRatio);
+    RenderObject child = source;
+    for (var parent = child.parent; parent != null; parent = child.parent) {
+      if (!parent.paintsChild(child)) return false;
+      if (parent is RenderAbstractViewport && parent is RenderBox) {
+        viewport = viewport.intersect(
+          MatrixUtils.transformRect(
+            parent.getTransformTo(null),
+            parent.paintBounds,
+          ),
+        );
+      }
+      child = parent;
+    }
+    if (!viewport.isFinite || viewport.isEmpty) return false;
+    final bounds = MatrixUtils.transformRect(
+      source.getTransformTo(null),
+      source.paintBounds,
+    );
+    return bounds.isFinite && !bounds.isEmpty && bounds.overlaps(viewport);
   }
 
   @override
   void dispose() {
-    _request?.dispose();
+    _releaseRequest();
     super.dispose();
   }
 
