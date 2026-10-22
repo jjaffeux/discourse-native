@@ -163,18 +163,18 @@ void main() {
         final api = FakeDiscourseApi(
           chatSearchPagesByKey: {
             FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage.fromJson({
-              'messages': [row(1), <String, dynamic>{}],
-              'meta': {'has_more': true},
+              'messages': [row(1), const <String, dynamic>{}],
+              'meta': const {'has_more': true},
             }, site),
             FakeDiscourseApi.chatSearchKey(
               'needle',
               offset: 2,
             ): ChatSearchPage.fromJson({
               'messages': [
-                <String, dynamic>{},
+                const <String, dynamic>{},
                 {...row(2), 'chat_channel_id': 10},
               ],
-              'meta': {'has_more': true},
+              'meta': const {'has_more': true},
             }, site),
             FakeDiscourseApi.chatSearchKey(
               'needle',

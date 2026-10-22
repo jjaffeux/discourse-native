@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_search_response.dart';
 
 enum ChatSearchSort { relevance, latest }
 
@@ -33,25 +34,16 @@ final class ChatSearchPage {
     this._consumedCount,
   });
 
-  static const int defaultPageSize = 20;
-  static const int maximumPageSize = 40;
+  static const int defaultPageSize = ChatSearchResponse.defaultPageSize;
+  static const int maximumPageSize = ChatSearchResponse.maximumPageSize;
 
   factory ChatSearchPage.fromJson(Map<String, dynamic> json, String siteUrl) {
+    final response = ChatSearchResponse.fromJson(json);
     final hits = <ChatSearchHit>[];
-    final records = jsonObjects(
-      json['messages'],
-    ).take(maximumPageSize).toList(growable: false);
-    for (final entry in records) {
-      final channelJson = entry['channel'];
-      if (channelJson is! Map<String, dynamic>) continue;
+    for (final record in response.records) {
+      final entry = record.message;
       final message = ChatMessage.fromJson(entry, siteUrl);
-      final channel = ChatChannel.fromJson(channelJson, siteUrl);
-      if (message.id <= 0 ||
-          message.channelId <= 0 ||
-          channel.id <= 0 ||
-          channel.id != message.channelId) {
-        continue;
-      }
+      final channel = ChatChannel.fromJson(record.channel, siteUrl);
       hits.add(
         ChatSearchHit(
           message: message,
@@ -62,18 +54,12 @@ final class ChatSearchPage {
       );
     }
 
-    final meta = jsonObject(json['meta']);
     return ChatSearchPage(
       hits: List.unmodifiable(hits),
-      hasMore: meta['has_more'] == true,
-      limit:
-          jsonIntOrNull(meta['limit'])?.clamp(1, maximumPageSize) ??
-          defaultPageSize,
-      offset: switch (jsonIntOrNull(meta['offset'])) {
-        final value? when value >= 0 => value,
-        _ => 0,
-      },
-      consumedCount: records.length,
+      hasMore: response.hasMore,
+      limit: response.limit,
+      offset: response.offset,
+      consumedCount: response.consumedCount,
     );
   }
 

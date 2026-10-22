@@ -202,7 +202,7 @@ void main() {
           },
           {
             ...result(4),
-            'user': {},
+            'user': <String, dynamic>{},
             'channel': {'id': 9},
             'thread_id': null,
             'excerpt': null,

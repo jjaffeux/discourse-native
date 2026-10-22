@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/l10n/strings.dart';
 
 import 'chat_route.dart';
+import 'chat_search_response.dart';
 
 GlobalSearchScope get chatSearchScope => GlobalSearchScope.plugin(
   owner: 'chat',
@@ -138,20 +139,13 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
     final body = await context.get(
       Uri(path: '/chat/api/search.json', queryParameters: params).toString(),
     );
-    final records = jsonObjects(body['messages']).take(40).toList(),
-        results = <GlobalSearchResult>[];
-    for (final row in records) {
-      final channel = jsonObject(row['channel']),
+    final response = ChatSearchResponse.fromJson(body);
+    final results = <GlobalSearchResult>[];
+    for (final record in response.records) {
+      final row = record.message,
+          channel = record.channel,
           user = jsonObject(row['user']);
-      final id = jsonIntOrNull(row['id']),
-          channelId = jsonIntOrNull(channel['id']);
-      if (id == null ||
-          id <= 0 ||
-          channelId == null ||
-          channelId <= 0 ||
-          jsonInt(row['chat_channel_id']) != channelId) {
-        continue;
-      }
+      final id = record.id, channelId = record.channelId;
       final username =
               jsonText(user['username']) ?? jsonText(row['username']) ?? '',
           threadId = switch (jsonIntOrNull(row['thread_id'])) {
@@ -188,17 +182,16 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
         ),
       );
     }
-    final more = jsonObject(body['meta'])['has_more'] == true;
     return GlobalSearchPage(
       sections: [
         GlobalSearchSection(
           scope: chatSearchScope,
           results: List.unmodifiable(results),
-          hasMore: more,
+          hasMore: response.hasMore,
         ),
       ],
-      hasMore: more,
-      consumedCount: records.length,
+      hasMore: response.hasMore,
+      consumedCount: response.consumedCount,
     );
   }
 
