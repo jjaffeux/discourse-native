@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -174,6 +175,86 @@ void main() {
         expect(shell.userStatusWriteInFlight(_site), isFalse);
       },
     );
+
+    for (final clear in [false, true]) {
+      test('keeps ${clear ? 'clear' : 'set'} success when DND fails', () async {
+        final previousPause = _start.add(const Duration(hours: 2));
+        final api = _StatusApi(initialPause: previousPause, failDnd: true);
+        final shell = await _load(api, clock: () => _start);
+        final write = clear ? shell.clearUserStatus(_site) : _setStatus(shell);
+        if (!clear) {
+          await api.statusStarted.future;
+          api.statusReply.complete();
+        }
+
+        expect(
+          await write,
+          const WriteException(WriteFailure.forbidden).message,
+        );
+        expect(api.calls, clear ? ['resume'] : ['status', 'pause']);
+        final expected = clear
+            ? null
+            : const UserStatus(description: 'Working', emoji: 'house');
+        expect(shell.currentInstance?.user?.status, expected);
+        expect(shell.doNotDisturb.stateFor(_site).until, previousPause);
+        expect(shell.userStatusWriteInFlight(_site), isFalse);
+        expect(
+          (await shell.instanceStore.load()).single.user?.status,
+          expected,
+        );
+      });
+    }
+
+    test(
+      'rechecks expiry after credential IO before status dispatch',
+      () async {
+        var now = _start;
+        final api = _StatusApi();
+        final auth = _GatedAuthenticator()..keys[_site] = 'key';
+        final shell = await _load(api, clock: () => now, auth: auth);
+        auth.gate = Completer<void>();
+        final write = _setStatus(
+          shell,
+          endsAt: _start.add(const Duration(seconds: 10)),
+        );
+        await pumpEventQueue();
+        expect(shell.userStatusWriteInFlight(_site), isTrue);
+        expect(api.calls, isEmpty);
+        now = now.add(const Duration(seconds: 10));
+        auth.gate!.complete();
+
+        expect(await write, 'Choose a time in the future.');
+        expect(api.calls, isEmpty);
+        expect(shell.currentInstance?.user?.status, _initialStatus);
+        expect(shell.userStatusWriteInFlight(_site), isFalse);
+      },
+    );
+
+    test('presence can settle while a status operation remains busy', () async {
+      final presence = Completer<void>();
+      final api = _StatusApi(
+        presenceGate: presence,
+        pauseUntil: _start.add(const Duration(hours: 1)),
+      );
+      final shell = await _load(api, clock: () => _start);
+      final statusWrite = _setStatus(shell);
+      await api.statusStarted.future;
+      final presenceWrite = shell.toggleHidePresence(_site);
+      await pumpEventQueue();
+      expect(shell.hidePresenceFor(_site), isTrue);
+      expect(shell.hidePresenceWriteInFlight(_site), isTrue);
+      expect(shell.userStatusWriteInFlight(_site), isTrue);
+
+      presence.complete();
+      await presenceWrite;
+      expect(shell.hidePresenceWriteInFlight(_site), isFalse);
+      expect(shell.hidePresenceFor(_site), isTrue);
+      expect(shell.userStatusWriteInFlight(_site), isTrue);
+      api.statusReply.complete();
+      expect(await statusWrite, isNull);
+      expect(shell.currentInstance?.user?.hidePresence, isTrue);
+      expect(shell.currentInstance?.user?.status?.description, 'Working');
+    });
   });
 }
 
@@ -189,6 +270,7 @@ Future<String?> _setStatus(ShellController shell, {DateTime? endsAt}) =>
 Future<ShellController> _load(
   _StatusApi api, {
   required DateTime Function() clock,
+  FakeAuthenticator? auth,
 }) async {
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
@@ -198,7 +280,7 @@ Future<ShellController> _load(
       ),
     ]),
     api: api,
-    authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    authenticator: auth ?? (FakeAuthenticator()..keys[_site] = 'key'),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     clock: clock,
@@ -213,22 +295,28 @@ Future<ShellController> _load(
 }
 
 class _StatusApi extends FakeDiscourseApi {
-  _StatusApi({DateTime? initialPause, DateTime? pauseUntil})
-    : super(
-        user: DiscourseUser(
-          id: 7,
-          username: 'reader',
-          status: _initialStatus,
-          doNotDisturbUntil: initialPause,
-        ),
-        doNotDisturbUntil: pauseUntil,
-        feeds: const {'/latest.json': <Topic>[]},
-        siteConfigs: const {_site: SiteConfig(userStatusEnabled: true)},
-      );
+  _StatusApi({
+    DateTime? initialPause,
+    DateTime? pauseUntil,
+    this.failDnd = false,
+    super.presenceGate,
+  }) : super(
+         user: DiscourseUser(
+           id: 7,
+           username: 'reader',
+           hidePresence: false,
+           status: _initialStatus,
+           doNotDisturbUntil: initialPause,
+         ),
+         doNotDisturbUntil: pauseUntil,
+         feeds: const {'/latest.json': <Topic>[]},
+         siteConfigs: const {_site: SiteConfig(userStatusEnabled: true)},
+       );
 
   final calls = <String>[];
   final statusStarted = Completer<void>();
   final statusReply = Completer<void>();
+  final bool failDnd;
 
   @override
   Future<void> setUserStatus({
@@ -260,6 +348,7 @@ class _StatusApi extends FakeDiscourseApi {
     String? clientId,
   }) {
     calls.add('pause');
+    if (failDnd) throw const WriteException(WriteFailure.forbidden);
     return super.enterDoNotDisturb(
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -275,10 +364,21 @@ class _StatusApi extends FakeDiscourseApi {
     String? clientId,
   }) {
     calls.add('resume');
+    if (failDnd) throw const WriteException(WriteFailure.forbidden);
     return super.leaveDoNotDisturb(
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
+  }
+}
+
+class _GatedAuthenticator extends FakeAuthenticator {
+  Completer<void>? gate;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async {
+    await gate?.future;
+    return super.apiKeyFor(siteUrl);
   }
 }

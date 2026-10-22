@@ -218,6 +218,48 @@ void main() {
       expect(fixture.shell.hidePresenceErrorFor(_siteUrl), isNull);
     },
   );
+
+  for (final failure in [false, true]) {
+    test(
+      'a late retry ${failure ? 'failure' : 'missing key'} keeps a toggle',
+      () async {
+        final api = _RetryCurrentUserApi();
+        final auth = _DelayedPresenceCredentials();
+        final fixture = await _shell(
+          api: api,
+          auth: auth,
+          user: const DiscourseUser(id: 7, username: 'reader'),
+        );
+        addTearDown(fixture.shell.dispose);
+        final credential = Completer<String?>();
+        auth.nextRead = credential;
+        final delayedRetry = fixture.shell.retryHidePresence(_siteUrl);
+        await pumpEventQueue();
+
+        await fixture.shell.retryHidePresence(_siteUrl);
+        expect(fixture.shell.hidePresenceFor(_siteUrl), isFalse);
+        final toggle = fixture.shell.toggleHidePresence(_siteUrl);
+        await api.presenceStarted.future;
+        if (failure) {
+          credential.completeError(StateError('storage unavailable'));
+        } else {
+          credential.complete(null);
+        }
+        await delayedRetry;
+
+        expect(fixture.shell.hidePresenceWriteInFlight(_siteUrl), isTrue);
+        expect(fixture.shell.hidePresenceFor(_siteUrl), isTrue);
+        expect(fixture.shell.hidePresenceErrorFor(_siteUrl), isNotNull);
+        api.presenceReply.complete();
+        await toggle;
+        expect(fixture.shell.hidePresenceWriteInFlight(_siteUrl), isFalse);
+        expect(fixture.shell.hidePresenceFor(_siteUrl), isTrue);
+        expect(fixture.shell.currentInstance?.user?.hidePresence, isTrue);
+        expect(fixture.shell.hidePresenceErrorFor(_siteUrl), isNull);
+        expect((await fixture.store.load()).single.user?.hidePresence, isTrue);
+      },
+    );
+  }
 }
 
 final class _PendingCurrentUserApi extends FakeDiscourseApi {
@@ -241,6 +283,20 @@ final class _RetryCurrentUserApi extends FakeDiscourseApi {
   _RetryCurrentUserApi() : super(feeds: const {'/latest.json': <Topic>[]});
 
   int currentUserCalls = 0;
+  final presenceStarted = Completer<void>();
+  final presenceReply = Completer<void>();
+
+  @override
+  Future<void> updateHidePresence({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required bool hidePresence,
+    String? clientId,
+  }) async {
+    presenceStarted.complete();
+    await presenceReply.future;
+  }
 
   @override
   Future<DiscourseUser> currentUser({
@@ -267,24 +323,36 @@ Future<_ShellFixture> _shell({
   DiscourseUser user = _user,
   List<DiscourseInstance>? instances,
   bool settle = true,
+  FakeAuthenticator? auth,
 }) async {
   final store = FakeInstanceStore(
     instances ?? [_instance('meta.discourse.org', user)],
   );
-  final auth = FakeAuthenticator()
+  final credentials = (auth ?? FakeAuthenticator())
     ..keys[_siteUrl] = 'meta-key'
     ..keys[_otherSiteUrl] = 'team-key';
   final shell = ShellController(
     plugins: installedPlugins,
     instanceStore: store,
     api: api,
-    authenticator: auth,
+    authenticator: credentials,
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
   );
   await shell.load();
   if (settle) await pumpEventQueue();
-  return (shell: shell, store: store, auth: auth);
+  return (shell: shell, store: store, auth: credentials);
+}
+
+class _DelayedPresenceCredentials extends FakeAuthenticator {
+  Completer<String?>? nextRead;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    final read = nextRead;
+    nextRead = null;
+    return read?.future ?? super.apiKeyFor(siteUrl);
+  }
 }
 
 DiscourseInstance _instance(String host, DiscourseUser user) =>

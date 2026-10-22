@@ -160,6 +160,7 @@ import 'user_summary_controller.dart';
 part 'account_new_topic_dismissals.dart';
 part 'composer_submission.dart';
 part 'notification_preference_transactions.dart';
+part 'profile_write_transactions.dart';
 part 'shell_tab_context.dart';
 part 'taxonomy_directory_controller.dart';
 part 'workspace_controller.dart';
@@ -3979,11 +3980,7 @@ class ShellController extends FrameSafeNotifier
   final Map<String, SiteTracker> _trackers = {};
   final Set<String> _trackersStarting = {};
   final Map<String, Future<void>> _trackerStartRequests = {};
-  // Each captured lease identifies both one write and its account lifetime.
-  final Map<String, SiteLease> _userStatusWrites = {};
-  final Map<String, bool> _optimisticHidePresence = {};
-  final Map<String, Object> _hidePresenceWrites = {};
-  final Map<String, String> _hidePresenceErrors = {};
+  late final _profileWrites = _ProfileWriteTransactions(this);
   final Map<String, CurrentUserReconciler> _currentUserReconcilers = {};
 
   CurrentUserReconciler _currentUserReconcilerFor(String siteUrl) {
@@ -5008,12 +5005,7 @@ class ShellController extends FrameSafeNotifier
         return null;
       }
       lease.commit(() {
-        if (_instanceAt(siteUrl)?.user?.hidePresence == null &&
-            !_hidePresenceWrites.containsKey(siteUrl)) {
-          _hidePresenceErrors[siteUrl] =
-              appL10n.couldnTLoadThePresenceSettingTryAgain;
-          _notify();
-        }
+        _profileWrites.currentUserReadFailed(siteUrl);
       });
       return null;
     }
@@ -5102,7 +5094,7 @@ class ShellController extends FrameSafeNotifier
       final reconciledUser = reconciliation.user;
       committedUser = reconciledUser;
       _sessionUsersRefreshed.add(siteUrl);
-      _hidePresenceErrors.remove(siteUrl);
+      _profileWrites.currentUserAccepted(siteUrl);
       if (previousUser != committedUser || accountChanged) {
         changed = true;
         if (accountChanged) {
@@ -5241,179 +5233,22 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool? hidePresenceFor(String siteUrl) =>
-      _optimisticHidePresence.containsKey(siteUrl)
-      ? _optimisticHidePresence[siteUrl]
-      : _instanceAt(siteUrl)?.user?.hidePresence;
+      _profileWrites.hidePresenceFor(siteUrl);
 
   bool hidePresenceWriteInFlight(String siteUrl) =>
-      _hidePresenceWrites.containsKey(siteUrl);
+      _profileWrites.presenceInFlight(siteUrl);
 
-  String? hidePresenceErrorFor(String siteUrl) => _hidePresenceErrors[siteUrl];
+  String? hidePresenceErrorFor(String siteUrl) =>
+      _profileWrites.presenceErrorFor(siteUrl);
 
-  Future<void> retryHidePresence(String siteUrl) async {
-    final instance = _instanceAt(siteUrl);
-    if (instance?.user == null || hidePresenceFor(siteUrl) != null) return;
-    final lease = lifecycle.capture(siteUrl);
-    _hidePresenceErrors.remove(siteUrl);
-    _notify();
+  Future<void> retryHidePresence(String siteUrl) =>
+      _profileWrites.retryPresence(siteUrl);
 
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).keyCredentials(credentials);
-      if (!lease.isCurrent) return;
-      final apiKey = credential.apiKey;
-      if (apiKey == null) {
-        lease.commit(() {
-          _hidePresenceErrors[siteUrl] =
-              appL10n.reconnectThisAccountToLoadItsPresenceSetting;
-          _notify();
-        });
-        return;
-      }
-      await _sessionUser(siteUrl, apiKey, lease: lease);
-    } catch (error, stackTrace) {
-      if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'presence.read',
-        severity: DiagnosticSeverity.warning,
-      );
-      lease.commit(() {
-        _hidePresenceErrors[siteUrl] =
-            appL10n.couldnTLoadThePresenceSettingTryAgain;
-        _notify();
-      });
-    }
-  }
-
-  Future<void> toggleHidePresence(String siteUrl) async {
-    final instance = _instanceAt(siteUrl);
-    final user = instance?.user;
-    final held = hidePresenceFor(siteUrl);
-    if (instance == null || user == null || held == null) return;
-    if (_hidePresenceWrites.containsKey(siteUrl)) return;
-
-    final desired = !held;
-    final request = Object();
-    final lease = lifecycle.capture(siteUrl);
-    _hidePresenceWrites[siteUrl] = request;
-    _optimisticHidePresence[siteUrl] = desired;
-    _hidePresenceErrors.remove(siteUrl);
-    _currentUserReconcilerFor(siteUrl).presenceWriteStarted();
-    _notify();
-
-    bool isCurrent() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_hidePresenceWrites[siteUrl], request);
-
-    try {
-      final credential = await _credentialForWrite(
-        siteUrl,
-        lease: lease,
-        withClientId: true,
-      );
-      if (!isCurrent()) return;
-      if (credential.failure case final failure?) {
-        _finishHidePresenceWrite(
-          siteUrl,
-          request,
-          lease,
-          error: _hidePresenceError(failure),
-        );
-        return;
-      }
-      if (!isCurrent()) return;
-      await credential.request!.run(
-        () => api.site.updateHidePresence(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          username: user.username,
-          hidePresence: desired,
-          clientId: credential.request!.clientId,
-        ),
-      );
-      if (!isCurrent()) return;
-      _finishHidePresenceWrite(siteUrl, request, lease, confirmed: desired);
-    } on WriteException catch (error) {
-      _finishHidePresenceWrite(
-        siteUrl,
-        request,
-        lease,
-        error: _hidePresenceError(error),
-      );
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _reportOperationalError(error, stackTrace, 'presence.update');
-      }
-      _finishHidePresenceWrite(
-        siteUrl,
-        request,
-        lease,
-        error: appL10n.couldnTUpdatePresenceCheckTheConnectionAndTryAgain,
-      );
-    }
-  }
-
-  void _finishHidePresenceWrite(
-    String siteUrl,
-    Object request,
-    SiteLease lease, {
-    bool? confirmed,
-    String? error,
-  }) {
-    if (isDisposed ||
-        !lease.isCurrent ||
-        !identical(_hidePresenceWrites[siteUrl], request)) {
-      return;
-    }
-    lease.commit(() {
-      _hidePresenceWrites.remove(siteUrl);
-      _optimisticHidePresence.remove(siteUrl);
-      _currentUserReconcilerFor(siteUrl).presenceWriteSettled();
-
-      if (error != null) {
-        _hidePresenceErrors[siteUrl] = error;
-      } else {
-        _hidePresenceErrors.remove(siteUrl);
-        final instance = _instanceAt(siteUrl);
-        final user = instance?.user;
-        if (instance != null && user != null && confirmed != null) {
-          _replaceInstance(
-            instance,
-            instance.copyWith(user: user.withHidePresence(confirmed)),
-          );
-          instanceStore.save(List.of(_instances)).ignore();
-        }
-      }
-      _notify();
-    });
-  }
-
-  String _hidePresenceError(WriteException error) {
-    if (error.errors.isNotEmpty) return error.errors.join('\n');
-    return switch (error.failure) {
-      WriteFailure.validation => appL10n.theSiteDidnTAcceptThatPresenceSetting,
-      WriteFailure.rateLimited => switch (error.retryAfter) {
-        final wait? => appL10n.tooFastTryChangingPresenceAgainInS(
-          (wait.inSeconds).toString(),
-        ),
-        null => appL10n.tooFastTryChangingPresenceAgainInAMoment,
-      },
-      WriteFailure.forbidden =>
-        appL10n.presenceCouldNotBeChangedReconnectThisAccountAndTryAgain,
-      WriteFailure.conflict =>
-        appL10n.presenceChangedSomewhereElseTryAgainToUseThisSetting,
-      WriteFailure.unreachable =>
-        appL10n.couldnTUpdatePresenceCheckTheConnectionAndTryAgain,
-    };
-  }
+  Future<void> toggleHidePresence(String siteUrl) =>
+      _profileWrites.togglePresence(siteUrl);
 
   bool userStatusWriteInFlight(String siteUrl) =>
-      _userStatusWrites[siteUrl]?.isCurrent ?? false;
+      _profileWrites.statusInFlight(siteUrl);
 
   Future<String?> setUserStatus(
     String siteUrl, {
@@ -5421,159 +5256,21 @@ class ShellController extends FrameSafeNotifier
     required String emoji,
     DateTime? endsAt,
     bool? pauseNotifications,
-  }) async {
-    final instance = _instanceAt(siteUrl);
-    final user = instance?.user;
-    if (instance == null ||
-        user?.id == null ||
-        !instance.config.userStatusEnabled) {
-      return appL10n.customStatusIsNotAvailableForThisAccount;
-    }
-    if (userStatusWriteInFlight(siteUrl)) {
-      return appL10n.anotherStatusChangeIsStillFinishing;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    _userStatusWrites[siteUrl] = lease;
-    bool ownsWrite() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_userStatusWrites[siteUrl], lease);
-    _notify();
-    try {
-      if (!ownsWrite()) return null;
-      final credential = await _credentialForWrite(
-        siteUrl,
-        lease: lease,
-        withClientId: true,
-      );
-      if (!ownsWrite()) return null;
-      if (credential.failure case final failure?) return failure.message;
-      final clientId = credential.request!.clientId;
-      if (!ownsWrite()) return null;
-      if (endsAt != null && !endsAt.isAfter(_clock())) {
-        return appL10n.chooseATimeInTheFuture;
-      }
-      await credential.request!.run(
-        () => api.site.setUserStatus(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          description: description,
-          emoji: emoji,
-          endsAt: endsAt,
-          clientId: clientId,
-        ),
-      );
-      if (!ownsWrite()) return null;
-      final status = UserStatus(
-        description: description.trim(),
-        emoji: emoji
-            .trim()
-            .replaceFirst(RegExp(r'^:'), '')
-            .replaceFirst(RegExp(r':$'), ''),
-        endsAt: endsAt?.toUtc(),
-      );
-      lease.commit(() {
-        userStatuses.record(siteUrl, user!.id!, status);
-        _applyOwnUserStatus(siteUrl, user.id!, status);
-        _notify();
-        instanceStore.save(List.of(_instances)).ignore();
-      });
-      if (!ownsWrite()) return null;
-      if (pauseNotifications case final pause?) {
-        final now = _clock();
-        // The status is saved. If it expired during the request, there is no
-        // remaining time to pause and no failure to report for that write.
-        if (pause && endsAt != null && !endsAt.isAfter(now)) return null;
-        final error = pause
-            ? await doNotDisturb.pause(
-                siteUrl,
-                doNotDisturbDurationUntil(
-                  endsAt ?? eternalDoNotDisturbUntil,
-                  now: now,
-                ),
-              )
-            : await doNotDisturb.resume(siteUrl);
-        if (!ownsWrite()) return null;
-        if (error != null) return error;
-      }
-      return null;
-    } on WriteException catch (error) {
-      if (!ownsWrite()) return null;
-      return error.message;
-    } catch (error, stackTrace) {
-      if (!ownsWrite()) return null;
-      _reportOperationalError(error, stackTrace, 'userStatus.set');
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_userStatusWrites[siteUrl], lease)) {
-        _userStatusWrites.remove(siteUrl);
-        if (lease.isCurrent && !isDisposed) _notify();
-      }
-    }
-  }
+  }) async => (await _profileWrites.writeStatus(
+    siteUrl,
+    _SetProfileStatus(
+      description: description,
+      emoji: emoji,
+      endsAt: endsAt,
+      pauseNotifications: pauseNotifications,
+    ),
+  )).message;
 
-  Future<String?> clearUserStatus(String siteUrl) async {
-    final instance = _instanceAt(siteUrl);
-    final user = instance?.user;
-    if (instance == null ||
-        user?.id == null ||
-        !instance.config.userStatusEnabled) {
-      return appL10n.customStatusIsNotAvailableForThisAccount;
-    }
-    if (userStatusWriteInFlight(siteUrl)) {
-      return appL10n.anotherStatusChangeIsStillFinishing;
-    }
-    final lease = lifecycle.capture(siteUrl);
-    _userStatusWrites[siteUrl] = lease;
-    bool ownsWrite() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_userStatusWrites[siteUrl], lease);
-    _notify();
-    try {
-      if (!ownsWrite()) return null;
-      final credential = await _credentialForWrite(
+  Future<String?> clearUserStatus(String siteUrl) async =>
+      (await _profileWrites.writeStatus(
         siteUrl,
-        lease: lease,
-        withClientId: true,
-      );
-      if (!ownsWrite()) return null;
-      if (credential.failure case final failure?) return failure.message;
-      final clientId = credential.request!.clientId;
-      if (!ownsWrite()) return null;
-      await credential.request!.run(
-        () => api.site.clearUserStatus(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          clientId: clientId,
-        ),
-      );
-      if (!ownsWrite()) return null;
-      lease.commit(() {
-        userStatuses.record(siteUrl, user!.id!, null);
-        _applyOwnUserStatus(siteUrl, user.id!, null);
-        _notify();
-        instanceStore.save(List.of(_instances)).ignore();
-      });
-      if (!ownsWrite()) return null;
-      final doNotDisturbError = await doNotDisturb.resume(siteUrl);
-      if (!ownsWrite()) return null;
-      if (doNotDisturbError != null) return doNotDisturbError;
-      return null;
-    } on WriteException catch (error) {
-      if (!ownsWrite()) return null;
-      return error.message;
-    } catch (error, stackTrace) {
-      if (!ownsWrite()) return null;
-      _reportOperationalError(error, stackTrace, 'userStatus.clear');
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_userStatusWrites[siteUrl], lease)) {
-        _userStatusWrites.remove(siteUrl);
-        if (lease.isCurrent && !isDisposed) _notify();
-      }
-    }
-  }
+        const _ClearProfileStatus(),
+      )).message;
 
   void _disposeTracking(String siteUrl) {
     final tracker = _trackers.remove(siteUrl);
@@ -12852,10 +12549,7 @@ class ShellController extends FrameSafeNotifier
     _sessionUserRequests.remove(siteUrl)?.ignore();
     doNotDisturb.forget(siteUrl);
     userStatuses.forget(siteUrl);
-    _userStatusWrites.remove(siteUrl);
-    _optimisticHidePresence.remove(siteUrl);
-    _hidePresenceWrites.remove(siteUrl);
-    _hidePresenceErrors.remove(siteUrl);
+    _profileWrites.forget(siteUrl);
     _pluginNotificationFeedRefreshTimers.remove(siteUrl)?.cancel();
     _disposeTracking(siteUrl);
     _notify();
@@ -13765,10 +13459,7 @@ class ShellController extends FrameSafeNotifier
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
     _messageArchiveWrites.clear();
-    _userStatusWrites.clear();
-    _optimisticHidePresence.clear();
-    _hidePresenceWrites.clear();
-    _hidePresenceErrors.clear();
+    _profileWrites.dispose();
     for (final timer in _pluginNotificationFeedRefreshTimers.values) {
       timer.cancel();
     }
