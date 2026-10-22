@@ -324,6 +324,12 @@ void main() {
           sizes.add(Size(image.width.toDouble(), image.height.toDouble()));
         };
         addTearDown(() => ui.Image.onCreate = previousOnCreate);
+        // An explicit load owns the transfer, so the late response still
+        // reaches the repository after the widget releases its own demand.
+        final saved = harness.repository.load(
+          siteUrl: _siteUrl,
+          url: _posterUrl,
+        );
         await tester.pumpWidget(harness.app(youtube: youtube));
         await firstRequested.future;
         expect(find.byType(RawImage), findsNothing);
@@ -337,7 +343,12 @@ void main() {
         );
         await _waitForImage(tester, expected: const Size(80, 40));
         oldResponse.complete(http.Response.bytes(first, 200));
-        await harness.repository.load(siteUrl: _siteUrl, url: _posterUrl);
+        expect(await saved, isNotNull);
+        await _waitUntil(
+          tester,
+          () => PaintingBinding.instance.imageCache.pendingImageCount == 0,
+          'the late poster response to settle',
+        );
         await tester.pumpAndSettle();
         expect(sizes, isNotEmpty);
         expect(sizes.toSet(), {const Size(80, 40)});
