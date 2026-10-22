@@ -96,6 +96,106 @@ void main() {
     },
   );
 
+  test('clearing color keeps whitespace outside reopened emphasis', () {
+    final result = clearComposerInlineFormatting(
+      selection('[color=red]**hello \t world**[/color]', ' \t '),
+      kind: 'color',
+    );
+    const expected =
+        '[color=red]**hello**[/color] \t [color=red]**world**[/color]';
+    expect(result.text, expected);
+    final start = expected.indexOf(' \t ');
+    expect(
+      result.selection,
+      TextSelection(baseOffset: start, extentOffset: start + 3),
+    );
+  });
+
+  test('clear formatting splits adjacent wrappers at selection edges', () {
+    final result = clearComposerInlineFormatting(
+      selection('<ins>one</ins><ins>two</ins>', 'e</ins><ins>t'),
+    );
+    expect(result.text, '<ins>on</ins>et<ins>wo</ins>');
+    expect(
+      result.selection,
+      const TextSelection(baseOffset: 13, extentOffset: 15),
+    );
+  });
+
+  test('clear formatting maps selection edges inside delimiters', () {
+    final result = clearComposerInlineFormatting(
+      const TextEditingValue(
+        text: '**one** and **two**',
+        selection: TextSelection(baseOffset: 1, extentOffset: 18),
+      ),
+    );
+    expect(result.text, 'one and two');
+    expect(
+      result.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 11),
+    );
+  });
+
+  test('clear formatting preserves reversed Unicode selection metadata', () {
+    const source = '<ins>😀é one 🧭 fin</ins>';
+    final before = selection(source, 'one 🧭', reversed: true);
+    final result = clearComposerInlineFormatting(
+      before.copyWith(
+        selection: before.selection.copyWith(
+          affinity: TextAffinity.upstream,
+          isDirectional: true,
+        ),
+        composing: const TextRange(start: 0, end: source.length),
+      ),
+    );
+    expect(result.text, '<ins>😀é </ins>one 🧭<ins> fin</ins>');
+    expect(
+      result.selection,
+      const TextSelection(
+        baseOffset: 21,
+        extentOffset: 15,
+        affinity: TextAffinity.upstream,
+        isDirectional: true,
+      ),
+    );
+    expect(result.composing, TextRange.empty);
+  });
+
+  test(
+    'clear formatting preserves unselected wrappers in a long mixed draft',
+    () {
+      const paragraphs = 120;
+      final source = [
+        for (var i = 0; i < paragraphs; i++)
+          'Line $i **bold** <ins>under</ins> '
+              '[link](https://example.com/$i) `code` [color=red]red[/color] '
+              '[bgcolor=yellow]yellow[/bgcolor] *ital* ~~gone~~.',
+      ].join('\n\n');
+      final expected = [
+        for (var i = 0; i < paragraphs; i++)
+          'Line $i ${i == 0 ? '**bold**' : 'bold'} under link code red '
+              '${i == paragraphs - 1 ? '[bgcolor=yellow]yellow[/bgcolor] *ital* ~~gone~~' : 'yellow ital gone'}.',
+      ].join('\n\n');
+      final result = clearComposerInlineFormatting(
+        TextEditingValue(
+          text: source,
+          selection: TextSelection(
+            baseOffset: source.indexOf('under'),
+            extentOffset: source.lastIndexOf('red[/color]') + 3,
+          ),
+        ),
+      );
+      expect(result.text, expected);
+      expect(
+        result.selection,
+        TextSelection(
+          baseOffset: expected.indexOf('under'),
+          extentOffset: expected.lastIndexOf('red ') + 3,
+        ),
+      );
+    },
+  );
+
   test('clear formatting preserves literal inline code contents', () {
     final result = clearComposerInlineFormatting(
       selection(

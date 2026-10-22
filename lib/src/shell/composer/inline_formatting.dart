@@ -349,8 +349,8 @@ TextEditingValue clearComposerInlineFormatting(
     return count;
   }
 
-  void emit(int i, List<ComposerInlineFormat> next) {
-    if (i == end) newEnd = output.length;
+  void emit(int from, int to, List<ComposerInlineFormat> next) {
+    if (from == end) newEnd = output.length;
     final shared = common(active, next);
     for (final format in active.skip(shared).toList().reversed) {
       output.write(value.text.substring(format.contentEnd, format.end));
@@ -358,23 +358,48 @@ TextEditingValue clearComposerInlineFormatting(
     for (final format in next.skip(shared)) {
       output.write(value.text.substring(format.start, format.contentStart));
     }
-    if (i == start) newStart = output.length;
-    if (i < text.length) output.writeCharCode(text.codeUnitAt(i));
+    if (from == start) newStart = output.length;
+    output.write(text.substring(from, to));
     active = next;
   }
 
+  final events = <({int at, int ordinal, bool opening})>[];
+  for (var ordinal = 0; ordinal < retained.length; ordinal++) {
+    final range = retained[ordinal];
+    if (range.end <= range.start) continue;
+    events.add((at: range.start, ordinal: ordinal, opening: true));
+    events.add((at: range.end, ordinal: ordinal, opening: false));
+  }
+  events.sort((a, b) => a.at.compareTo(b.at));
   final cuts = <int>{
     0,
     text.length,
     for (final r in retained) ...[r.start, r.end],
   }.toList()..sort();
-  final stacks = [
-    for (final at in cuts)
-      retained
-          .where((r) => r.start <= at && r.end > at)
-          .map((r) => r.format)
-          .toList(),
-  ];
+  final stacks = <List<ComposerInlineFormat>>[];
+  final ordinals = <int>[];
+  var eventIndex = 0;
+  for (final at in cuts) {
+    while (eventIndex < events.length && events[eventIndex].at == at) {
+      final event = events[eventIndex++];
+      var low = 0;
+      var high = ordinals.length;
+      while (low < high) {
+        final middle = low + ((high - low) >> 1);
+        if (ordinals[middle] < event.ordinal) {
+          low = middle + 1;
+        } else {
+          high = middle;
+        }
+      }
+      if (event.opening) {
+        ordinals.insert(low, event.ordinal);
+      } else {
+        ordinals.removeAt(low);
+      }
+    }
+    stacks.add([for (final ordinal in ordinals) retained[ordinal].format]);
+  }
   for (var segment = 0; segment + 1 < cuts.length; segment++) {
     final stack = stacks[segment];
     final previous = segment == 0
@@ -390,21 +415,30 @@ TextEditingValue clearComposerInlineFormatting(
     while (lastText > firstText && text[lastText - 1].trim().isEmpty) {
       lastText--;
     }
-    for (var i = cuts[segment]; i < cuts[segment + 1]; i++) {
+    final spans = <int>{
+      cuts[segment],
+      cuts[segment + 1],
+      firstText,
+      lastText,
+      if (start > cuts[segment] && start < cuts[segment + 1]) start,
+      if (end > cuts[segment] && end < cuts[segment + 1]) end,
+    }.toList()..sort();
+    for (var span = 0; span + 1 < spans.length; span++) {
+      final from = spans[span];
       // Splitting an outer color/tag may also reopen nested emphasis. Keep
       // whitespace outside those new Markdown delimiters so it still cooks.
       final next = stack
           .where(
             (format) =>
                 !['*', '**', '~~'].contains(format.kind) ||
-                !((i < firstText && opening.contains(format)) ||
-                    (i >= lastText && closing.contains(format))),
+                !((from < firstText && opening.contains(format)) ||
+                    (from >= lastText && closing.contains(format))),
           )
           .toList();
-      emit(i, next);
+      emit(from, spans[span + 1], next);
     }
   }
-  emit(text.length, const []);
+  emit(text.length, text.length, const []);
   final reversed = value.selection.baseOffset > value.selection.extentOffset;
   return TextEditingValue(
     text: output.toString(),
