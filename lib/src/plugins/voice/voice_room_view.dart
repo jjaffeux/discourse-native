@@ -2277,46 +2277,43 @@ Future<void> _showVoiceMembers(
   required String siteUrl,
   required VoiceRoom room,
 }) async {
-  final ownsAccount = controller.captureSiteSession(siteUrl);
-  final memberships = await controller.memberships(siteUrl, room.id);
-  if (!context.mounted || !ownsAccount()) return;
-  if (memberships == null) {
-    DToast.show(
-      context,
-      appL10n.couldnTLoadTheRoomSMembers,
-      type: DToastType.error,
-    );
-    return;
+  final result = await controller.openMembershipEditor(siteUrl, room.id);
+  switch (result) {
+    case VoiceMembershipOpenFailure():
+      if (context.mounted && result.isCurrent) {
+        DToast.show(
+          context,
+          appL10n.couldnTLoadTheRoomSMembers,
+          type: DToastType.error,
+        );
+      }
+    case VoiceMembershipOpened(:final editor):
+      if (!context.mounted || !editor.isCurrent) {
+        editor.dispose();
+        return;
+      }
+      try {
+        await showDDialog<void>(
+          context: context,
+          useRootNavigator: true,
+          builder: (context, dialog) =>
+              _VoiceMembersDialog(editor: editor, room: room, dialog: dialog),
+        );
+      } finally {
+        editor.retire();
+      }
   }
-  await showDDialog<void>(
-    context: context,
-    useRootNavigator: true,
-    builder: (context, dialog) => _VoiceMembersDialog(
-      controller: controller,
-      siteUrl: siteUrl,
-      room: room,
-      initialMemberships: memberships,
-      ownsAccount: ownsAccount,
-      dialog: dialog,
-    ),
-  );
 }
 
 class _VoiceMembersDialog extends StatefulWidget {
   const _VoiceMembersDialog({
-    required this.controller,
-    required this.siteUrl,
+    required this.editor,
     required this.room,
-    required this.initialMemberships,
-    required this.ownsAccount,
     required this.dialog,
   });
 
-  final VoiceController controller;
-  final String siteUrl;
+  final VoiceMembershipEditor editor;
   final VoiceRoom room;
-  final List<VoiceMembership> initialMemberships;
-  final bool Function() ownsAccount;
   final DDialogController<void> dialog;
 
   @override
@@ -2325,96 +2322,62 @@ class _VoiceMembersDialog extends StatefulWidget {
 
 class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
   final TextEditingController _username = TextEditingController();
-  late List<VoiceMembership> _memberships = widget.initialMemberships;
   VoiceRole _newRole = VoiceRole.participant;
 
-  /// Spans a write and the roster read after it, so no second change starts
-  /// against rows that are about to be replaced.
-  bool _writing = false;
+  @override
+  void initState() {
+    super.initState();
+    widget.editor.addListener(_onEditorChanged);
+  }
+
+  void _onEditorChanged() => setState(() {});
 
   @override
   void dispose() {
+    widget.editor.removeListener(_onEditorChanged);
+    widget.editor.dispose();
     _username.dispose();
     super.dispose();
   }
 
   Future<void> _updateMember(VoiceMembership membership, VoiceRole role) =>
-      _write(
-        () => widget.controller.updateMember(
-          widget.siteUrl,
-          widget.room.id,
-          membership.id,
-          role,
-        ),
-      );
+      _showResult(widget.editor.changeRole(membership.id, role));
 
-  Future<void> _removeMember(VoiceMembership membership) => _write(
-    () => widget.controller.removeMember(
-      widget.siteUrl,
-      widget.room.id,
-      membership.id,
-    ),
-  );
+  Future<void> _removeMember(VoiceMembership membership) =>
+      _showResult(widget.editor.remove(membership.id));
 
   Future<void> _addMember() async {
     final typed = _username.text;
     final value = typed.trim();
     if (value.isEmpty) return;
-    await _write(
-      () => widget.controller.addMember(
-        widget.siteUrl,
-        widget.room.id,
+    await _showResult(
+      widget.editor.add(
         value,
         _newRole,
+        onAccepted: () {
+          if (_username.text == typed) _username.clear();
+        },
       ),
-      onSuccess: () {
-        // Cleared only once added, and never over a name typed since.
-        if (_username.text == typed) _username.clear();
-      },
     );
   }
 
-  Future<void> _write(
-    Future<String?> Function() write, {
-    VoidCallback? onSuccess,
-  }) async {
-    if (!mounted || !widget.ownsAccount() || _writing) return;
-    setState(() => _writing = true);
-    try {
-      final error = await write();
-      if (!mounted || !widget.ownsAccount()) return;
-      if (error != null) {
-        DToast.show(context, error, type: DToastType.error);
-        return;
-      }
-      onSuccess?.call();
-      await _refreshMemberships();
-    } finally {
-      if (mounted) setState(() => _writing = false);
-    }
-  }
-
-  Future<void> _refreshMemberships() async {
-    if (!mounted || !widget.ownsAccount()) return;
-    final memberships = await widget.controller.memberships(
-      widget.siteUrl,
-      widget.room.id,
-    );
-    if (!mounted || !widget.ownsAccount()) return;
-    if (memberships == null) {
-      DToast.show(
-        context,
+  Future<void> _showResult(Future<VoiceMembershipEditResult> operation) async {
+    final result = await operation;
+    if (!mounted || !widget.editor.isCurrent) return;
+    final message = switch (result) {
+      VoiceMembershipEditRefused(:final message) => message,
+      VoiceMembershipEditStatus.refreshFailed =>
         appL10n.couldnTRefreshTheRoomSMembers,
-        type: DToastType.error,
-      );
-      return;
-    }
-    setState(() => _memberships = memberships);
+      VoiceMembershipEditStatus.accepted ||
+      VoiceMembershipEditStatus.busy ||
+      VoiceMembershipEditStatus.retired => null,
+    };
+    if (message != null) DToast.show(context, message, type: DToastType.error);
   }
 
   @override
   Widget build(BuildContext context) {
-    final available = widget.ownsAccount() && !_writing;
+    final available = widget.editor.available;
     return DDialogContent(
       showCloseButton: false,
       maxWidth: 560,
@@ -2431,9 +2394,9 @@ class _VoiceMembersDialogState extends State<_VoiceMembersDialog> {
           ),
           child: ListView.builder(
             shrinkWrap: true,
-            itemCount: _memberships.length,
+            itemCount: widget.editor.memberships.length,
             itemBuilder: (context, index) {
-              final membership = _memberships[index];
+              final membership = widget.editor.memberships[index];
               return DItem(
                 children: [
                   DItemContent(

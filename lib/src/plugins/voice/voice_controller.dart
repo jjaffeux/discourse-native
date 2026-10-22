@@ -25,6 +25,7 @@ part 'voice_call_manager.dart';
 part 'voice_call_session.dart';
 part 'voice_chat_association.dart';
 part 'voice_device_preferences.dart';
+part 'voice_membership_editor.dart';
 part 'voice_room_directory.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
@@ -2328,145 +2329,18 @@ final class VoiceController extends ChangeNotifier {
     fallback: const [],
   );
 
-  /// Null when the roster could not be read, so the members dialog keeps
-  /// what it shows rather than reading the failure as an empty room.
-  Future<List<VoiceMembership>?> memberships(String siteUrl, int roomId) =>
-      _runPublicValueOperation<List<VoiceMembership>?>(
-        () => _memberships(siteUrl, roomId),
-        'voice.memberships',
-        fallback: null,
-      );
-
-  Future<List<VoiceMembership>?> _memberships(
+  Future<VoiceMembershipOpenResult> openMembershipEditor(
     String siteUrl,
     int roomId,
   ) async {
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _keyRequestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return null;
-    final memberships = await credentials.run(
-      () => api.memberships(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey!,
-      ),
-    );
-    return isCurrent() ? memberships : null;
-  }
-
-  /// Null once [username] is a member; otherwise what the members dialog
-  /// should say instead.
-  Future<String?> addMember(
-    String siteUrl,
-    int roomId,
-    String username,
-    VoiceRole role,
-  ) => _runMembershipWrite(
-    () => _addMember(siteUrl, roomId, username, role),
-    'voice.membership.add',
-    failure: appL10n.couldnTAddTheMember,
-  );
-
-  Future<void> _addMember(
-    String siteUrl,
-    int roomId,
-    String username,
-    VoiceRole role,
-  ) async {
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _keyRequestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) {
-      throw const WriteException(WriteFailure.forbidden);
+    final ownsAccount = captureSiteSession(siteUrl);
+    final editor = VoiceMembershipEditor._(this, siteUrl, roomId, ownsAccount);
+    final loaded = await editor._refresh();
+    if (!editor.isCurrent || !loaded) {
+      editor.dispose();
+      return VoiceMembershipOpenFailure(ownsAccount);
     }
-    await credentials.run(
-      () => api.addMembership(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey!,
-        username: username,
-        role: role,
-      ),
-    );
-  }
-
-  /// Null once the role changed; otherwise what the members dialog should
-  /// say instead.
-  Future<String?> updateMember(
-    String siteUrl,
-    int roomId,
-    int membershipId,
-    VoiceRole role,
-  ) => _runMembershipWrite(
-    () => _updateMember(siteUrl, roomId, membershipId, role),
-    'voice.membership.update',
-    failure: appL10n.couldnTChangeTheMemberSRole,
-  );
-
-  Future<void> _updateMember(
-    String siteUrl,
-    int roomId,
-    int membershipId,
-    VoiceRole role,
-  ) async {
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _keyRequestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) {
-      throw const WriteException(WriteFailure.forbidden);
-    }
-    await credentials.run(
-      () => api.updateMembership(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        membershipId: membershipId,
-        apiKey: credentials.apiKey!,
-        role: role,
-      ),
-    );
-  }
-
-  /// Null once the member is removed; otherwise what the members dialog
-  /// should say instead.
-  Future<String?> removeMember(String siteUrl, int roomId, int membershipId) =>
-      _runMembershipWrite(
-        () => _removeMember(siteUrl, roomId, membershipId),
-        'voice.membership.remove',
-        failure: appL10n.couldnTRemoveTheMember,
-      );
-
-  Future<void> _removeMember(
-    String siteUrl,
-    int roomId,
-    int membershipId,
-  ) async {
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _keyRequestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) {
-      throw const WriteException(WriteFailure.forbidden);
-    }
-    await credentials.run(
-      () => api.removeMembership(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        membershipId: membershipId,
-        apiKey: credentials.apiKey!,
-      ),
-    );
+    return VoiceMembershipOpened(editor);
   }
 
   static _VoiceMediaView _mediaView(VoiceMediaSession media) => (
@@ -2765,23 +2639,6 @@ final class VoiceController extends ChangeNotifier {
     } catch (error, stackTrace) {
       _report(error, stackTrace, operation, correlationId: correlationId);
       return fallback;
-    }
-  }
-
-  /// Contained like any public operation, but answers with what the user
-  /// should be told: the server's own refusal, or [failure]. The error's
-  /// private cause stays behind the diagnostics boundary.
-  Future<String?> _runMembershipWrite(
-    Future<void> Function() action,
-    String operation, {
-    required String failure,
-  }) async {
-    try {
-      await action();
-      return null;
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, operation);
-      return error is WriteException ? error.message : failure;
     }
   }
 

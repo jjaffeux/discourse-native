@@ -2187,6 +2187,91 @@ void main() {
       expect(transport.membershipReads, 1);
     });
 
+    for (final changeText in [false, true]) {
+      testWidgets(
+        'accepted add ${changeText ? 'keeps newer input' : 'clears input'} while refresh excludes edits',
+        (tester) async {
+          final writeGate = Completer<void>();
+          final refreshGate = Completer<void>();
+          var reads = 0;
+          final transport = RecordingPluginTransport(
+            responders: {
+              'GET /voice/rooms/7/memberships.json': (_) async {
+                if (++reads > 1) await refreshGate.future;
+                return {'memberships': _membershipRows};
+              },
+              'POST /voice/rooms/7/memberships.json': (_) async {
+                await writeGate.future;
+                return <String, Object?>{};
+              },
+            },
+          );
+          final harness = _Harness(discourseApi: transport);
+          addTearDown(harness.dispose);
+          addTearDown(() {
+            if (!writeGate.isCompleted) writeGate.complete();
+            if (!refreshGate.isCompleted) refreshGate.complete();
+          });
+          await _openMembers(tester, harness);
+          final username = find.widgetWithText(DInput, 'Username');
+          await tester.enterText(username, '  lee  ');
+          await tester.tap(find.byTooltip('Add member'));
+          await tester.pumpAndSettle();
+          if (changeText) await tester.enterText(username, 'next-user');
+          writeGate.complete();
+          await tester.pumpAndSettle();
+
+          expect(reads, 2);
+          expect(
+            tester.widget<DInput>(username).controller?.text,
+            changeText ? 'next-user' : isEmpty,
+          );
+          expect(
+            tester
+                .widget<DButton>(
+                  find
+                      .ancestor(
+                        of: find.byTooltip('Add member'),
+                        matching: find.byType(DButton),
+                      )
+                      .first,
+                )
+                .onPressed,
+            isNull,
+          );
+          final remove = find.descendant(
+            of: find.widgetWithText(DItem, 'Lee Example'),
+            matching: find.byTooltip('Remove member'),
+          );
+          expect(
+            tester
+                .widget<DButton>(
+                  find
+                      .ancestor(of: remove, matching: find.byType(DButton))
+                      .first,
+                )
+                .onPressed,
+            isNull,
+          );
+          expect(transport.writes, hasLength(1));
+          refreshGate.complete();
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<DButton>(
+                  find
+                      .ancestor(of: remove, matching: find.byType(DButton))
+                      .first,
+                )
+                .onPressed,
+            isNotNull,
+          );
+          await tester.tap(find.text('Done'));
+          await tester.pumpAndSettle();
+        },
+      );
+    }
+
     testWidgets('adds, changes, and removes room memberships', (tester) async {
       final transport = RecordingPluginTransport(
         responses: {

@@ -1048,6 +1048,314 @@ void main() {
     );
   }
 
+  Future<VoiceMembershipEditor> openMembershipEditor() async {
+    final result = await controller.openMembershipEditor(firstSite, 7);
+    expect(result, isA<VoiceMembershipOpened>());
+    final editor = (result as VoiceMembershipOpened).editor;
+    addTearDown(editor.dispose);
+    return editor;
+  }
+
+  group('membership editor', () {
+    const rosterPath = '/voice/rooms/7/memberships.json';
+    const memberPath = '/voice/rooms/7/memberships/9.json';
+
+    Map<String, dynamic> roster({int id = 9, String role = 'participant'}) => {
+      'memberships': [
+        {'id': id, 'room_id': 7, 'user_id': 2, 'role': role},
+      ],
+    };
+
+    test('keeps opening failures bound to the captured account', () async {
+      final controlled = privilegedTransport();
+      controlled.operationFailure = StateError('server unavailable');
+      useTransport(controlled);
+
+      final result = await controller.openMembershipEditor(firstSite, 7);
+      expect(result, isA<VoiceMembershipOpenFailure>());
+      final failure = result as VoiceMembershipOpenFailure;
+      expect(failure.isCurrent, isTrue);
+
+      controller.forget(firstSite);
+
+      expect(failure.isCurrent, isFalse);
+    });
+
+    test(
+      'keeps all edits excluded until the accepted roster is refreshed',
+      () async {
+        final controlled = privilegedTransport();
+        controlled.responses['GET $rosterPath'] = roster();
+        useTransport(controlled);
+        final editor = await openMembershipEditor();
+        controlled.heldPluginWritePaths.add(rosterPath);
+        controlled.heldPluginPaths.add(rosterPath);
+        var accepted = 0;
+
+        final operation = editor.add(
+          'lee',
+          VoiceRole.speaker,
+          onAccepted: () => accepted++,
+        );
+        await controlled.waitForPendingPluginWrites(1);
+        expect(editor.available, isFalse);
+        expect(
+          await editor.add('sam', VoiceRole.participant),
+          VoiceMembershipEditStatus.busy,
+        );
+        expect(
+          await editor.changeRole(9, VoiceRole.speaker),
+          VoiceMembershipEditStatus.busy,
+        );
+        expect(await editor.remove(9), VoiceMembershipEditStatus.busy);
+        expect(accepted, 0);
+
+        controlled.pendingPluginWrites.single.response.complete({});
+        await pumpEventQueue();
+        expect(accepted, 1);
+        expect(controlled.pendingPluginGets, hasLength(1));
+        expect(editor.available, isFalse);
+        expect(
+          await editor.add('sam', VoiceRole.participant),
+          VoiceMembershipEditStatus.busy,
+        );
+        expect(
+          await editor.changeRole(9, VoiceRole.speaker),
+          VoiceMembershipEditStatus.busy,
+        );
+        expect(await editor.remove(9), VoiceMembershipEditStatus.busy);
+        expect(controlled.diagnosticContexts, hasLength(1));
+        expect(editor.memberships.single.role, VoiceRole.participant);
+
+        controlled.pendingPluginGets.single.response.complete(
+          roster(role: 'speaker'),
+        );
+        expect(await operation, VoiceMembershipEditStatus.accepted);
+        expect(editor.memberships.single.role, VoiceRole.speaker);
+        expect(editor.available, isTrue);
+      },
+    );
+
+    test(
+      'publishes immutable rosters and retains the last roster after failures',
+      () async {
+        final controlled = privilegedTransport();
+        controlled.responses['GET $rosterPath'] = roster();
+        useTransport(controlled);
+        final editor = await openMembershipEditor();
+        final initialRoster = editor.memberships;
+        expect(() => initialRoster.clear(), throwsUnsupportedError);
+
+        controlled.responses['GET $rosterPath'] = roster(
+          id: 10,
+          role: 'speaker',
+        );
+        expect(
+          await editor.add('lee', VoiceRole.speaker),
+          VoiceMembershipEditStatus.accepted,
+        );
+        expect(editor.memberships.single.id, 10);
+        expect(initialRoster.single.id, 9);
+        expect(() => editor.memberships.clear(), throwsUnsupportedError);
+        final acceptedRoster = editor.memberships;
+        final readsBefore = controlled.pluginGets.length;
+
+        controlled.operationFailure = StateError('server unavailable');
+        final refused = await editor.changeRole(9, VoiceRole.participant);
+        expect(refused, isA<VoiceMembershipEditRefused>());
+        expect(
+          (refused as VoiceMembershipEditRefused).message,
+          "Couldn't change the member's role.",
+        );
+        expect(controlled.pluginGets.length, readsBefore);
+        expect(editor.memberships, same(acceptedRoster));
+        expect(editor.available, isTrue);
+
+        controlled.operationFailure = null;
+        controlled.pluginGetFailures[rosterPath] = const SiteLookupException(
+          SiteLookupFailure.unreachable,
+          'server unavailable',
+        );
+        var accepted = 0;
+        expect(
+          await editor.add(
+            'sam',
+            VoiceRole.participant,
+            onAccepted: () => accepted++,
+          ),
+          VoiceMembershipEditStatus.refreshFailed,
+        );
+        expect(accepted, 1);
+        expect(editor.memberships, same(acceptedRoster));
+        expect(editor.available, isTrue);
+
+        controlled.pluginGetFailures.clear();
+        controlled.responses['GET $rosterPath'] = {'memberships': <Object?>[]};
+        expect(await editor.remove(9), VoiceMembershipEditStatus.accepted);
+        expect(editor.memberships, isEmpty);
+        expect(acceptedRoster.single.id, 10);
+      },
+    );
+
+    for (final pending in ['write', 'refresh']) {
+      for (final retirement in ['editor', 'account']) {
+        test(
+          'ignores a pending $pending after $retirement retirement',
+          () async {
+            final controlled = privilegedTransport();
+            controlled.responses['GET $rosterPath'] = roster();
+            useTransport(controlled);
+            final editor = await openMembershipEditor();
+            final initialRoster = editor.memberships;
+            final readsBefore = controlled.pluginGets.length;
+            var accepted = 0;
+            if (pending == 'write') {
+              controlled.heldPluginWritePaths.add(rosterPath);
+            } else {
+              controlled.heldPluginPaths.add(rosterPath);
+            }
+            final operation = editor.add(
+              'lee',
+              VoiceRole.speaker,
+              onAccepted: () => accepted++,
+            );
+            if (pending == 'write') {
+              await controlled.waitForPendingPluginWrites(1);
+            } else {
+              await pumpEventQueue();
+              expect(controlled.pendingPluginGets, hasLength(1));
+            }
+
+            if (retirement == 'editor') {
+              editor.retire();
+            } else {
+              controller.forget(firstSite);
+            }
+            expect(editor.isCurrent, isFalse);
+            expect(editor.available, isFalse);
+            if (pending == 'write') {
+              controlled.pendingPluginWrites.single.response.complete({});
+            } else {
+              controlled.pendingPluginGets.single.response.complete(
+                roster(role: 'speaker'),
+              );
+            }
+
+            expect(await operation, VoiceMembershipEditStatus.retired);
+            expect(editor.memberships, same(initialRoster));
+            expect(editor.memberships.single.role, VoiceRole.participant);
+            expect(accepted, pending == 'write' ? 0 : 1);
+            expect(
+              controlled.pluginGets.length,
+              readsBefore + (pending == 'refresh' ? 1 : 0),
+            );
+            final writesBefore = controlled.diagnosticContexts.length;
+            expect(
+              await editor.add('sam', VoiceRole.participant),
+              VoiceMembershipEditStatus.retired,
+            );
+            expect(
+              await editor.changeRole(9, VoiceRole.speaker),
+              VoiceMembershipEditStatus.retired,
+            );
+            expect(await editor.remove(9), VoiceMembershipEditStatus.retired);
+            expect(controlled.diagnosticContexts.length, writesBefore);
+          },
+        );
+      }
+    }
+
+    test(
+      'retains credential execution scopes for opening, writes and refreshes',
+      () async {
+        final controlled = privilegedTransport();
+        final scopes = <Object?>[];
+        for (final route in [
+          'GET $rosterPath',
+          'POST $rosterPath',
+          'PUT $memberPath',
+          'DELETE $memberPath',
+        ]) {
+          final response = controlled.responses[route]!;
+          controlled.responders[route] = (_) {
+            scopes.add(Zone.current[_ScopedRequestHost.scope]);
+            return response;
+          };
+        }
+        requests = _ScopedRequestHost();
+        useTransport(controlled);
+        final editor = await openMembershipEditor();
+
+        expect(
+          await editor.add('lee', VoiceRole.participant),
+          VoiceMembershipEditStatus.accepted,
+        );
+        expect(
+          await editor.changeRole(9, VoiceRole.speaker),
+          VoiceMembershipEditStatus.accepted,
+        );
+        expect(await editor.remove(9), VoiceMembershipEditStatus.accepted);
+
+        expect(scopes, List.filled(7, 'key'));
+      },
+    );
+
+    test(
+      'allows the acceptance callback to retire before roster refresh',
+      () async {
+        final controlled = privilegedTransport();
+        useTransport(controlled);
+        final editor = await openMembershipEditor();
+        final readsBefore = controlled.pluginGets.length;
+        var accepted = 0;
+
+        final result = await editor.add(
+          'lee',
+          VoiceRole.participant,
+          onAccepted: () {
+            accepted++;
+            editor.retire();
+          },
+        );
+
+        expect(result, VoiceMembershipEditStatus.retired);
+        expect(accepted, 1);
+        expect(controlled.writes.single.method, 'POST');
+        expect(controlled.pluginGets.length, readsBefore);
+        expect(editor.available, isFalse);
+      },
+    );
+
+    test('propagates callback errors and releases the edit lock', () async {
+      final controlled = privilegedTransport();
+      useTransport(controlled);
+      final editor = await openMembershipEditor();
+      final readsBefore = controlled.pluginGets.length;
+      final callbackError = StateError('acceptance callback failed');
+
+      await expectLater(
+        editor.add(
+          'lee',
+          VoiceRole.participant,
+          onAccepted: () => throw callbackError,
+        ),
+        throwsA(same(callbackError)),
+      );
+
+      expect(editor.available, isTrue);
+      expect(controlled.pluginGets.length, readsBefore);
+      expect(
+        diagnostics.records.where(
+          (record) =>
+              record.event == 'runtime.error' &&
+              record.data['operation'] == 'voice.membership.add',
+        ),
+        isEmpty,
+      );
+      expect(await editor.remove(9), VoiceMembershipEditStatus.accepted);
+    });
+  });
+
   test(
     'call requests retain capabilities while leave has its own lifetime',
     () async {
@@ -1480,65 +1788,76 @@ void main() {
       );
     }
 
+    test(
+      'prevent a stale membership open when forgotten during credential lookup',
+      () async {
+        final gated = _NextGatedRequestHost()..gateNextRead = true;
+        requests = gated;
+        final controlled = privilegedTransport();
+        useTransport(controlled);
+
+        final operation = controller.openMembershipEditor(firstSite, 7);
+        await gated.readStarted.future;
+        controller.forget(firstSite);
+        gated.readGate.complete();
+
+        final result = await operation;
+        expect(result, isA<VoiceMembershipOpenFailure>());
+        expect((result as VoiceMembershipOpenFailure).isCurrent, isFalse);
+        expect(controlled.pluginGets, isEmpty);
+        expect(controlled.writes, isEmpty);
+      },
+    );
+
     for (final action
         in <
           ({
             String name,
             String path,
-            Future<void> Function(VoiceController controller) begin,
+            Future<VoiceMembershipEditResult> Function(
+              VoiceMembershipEditor editor,
+            )
+            begin,
           })
         >[
           (
-            name: 'membership read',
-            path: '/voice/rooms/7/memberships.json',
-            begin: (controller) async {
-              await controller.memberships(firstSite, 7);
-            },
-          ),
-          (
             name: 'membership add',
             path: '/voice/rooms/7/memberships.json',
-            begin: (controller) => controller.addMember(
-              firstSite,
-              7,
-              'lee',
-              VoiceRole.participant,
-            ),
+            begin: (editor) => editor.add('lee', VoiceRole.participant),
           ),
           (
             name: 'membership update',
             path: '/voice/rooms/7/memberships/9.json',
-            begin: (controller) =>
-                controller.updateMember(firstSite, 7, 9, VoiceRole.speaker),
+            begin: (editor) => editor.changeRole(9, VoiceRole.speaker),
           ),
           (
             name: 'membership removal',
             path: '/voice/rooms/7/memberships/9.json',
-            begin: (controller) => controller.removeMember(firstSite, 7, 9),
+            begin: (editor) => editor.remove(9),
           ),
         ]) {
       test(
-        'prevent stale ${action.name} when the site is forgotten during credential lookup',
+        'prevent stale ${action.name} when forgotten during credential lookup',
         () async {
-          final gated = _NextGatedRequestHost()..gateNextRead = true;
+          final gated = _NextGatedRequestHost();
           requests = gated;
           final controlled = privilegedTransport();
           useTransport(controlled);
+          final editor = await openMembershipEditor();
+          final readsBefore = controlled.pluginGets.length;
 
-          final operation = action.begin(controller);
+          gated.gateNextRead = true;
+          final operation = action.begin(editor);
           await gated.readStarted.future;
           controller.forget(firstSite);
           gated.readGate.complete();
-          await operation;
 
+          expect(await operation, VoiceMembershipEditStatus.retired);
           expect(
             controlled.writes.where((write) => write.path == action.path),
             isEmpty,
           );
-          expect(
-            controlled.pluginGets.where((path) => path == action.path),
-            isEmpty,
-          );
+          expect(controlled.pluginGets.skip(readsBefore), isEmpty);
         },
       );
     }
@@ -1634,6 +1953,9 @@ void main() {
           binding.close();
           await ordinaryDiagnostics.close();
         });
+        final addEditor = await openMembershipEditor();
+        final updateEditor = await openMembershipEditor();
+        final removeEditor = await openMembershipEditor();
         controlled.operationFailure = PlatformException(
           code: 'admin_operation',
           message: privateCause,
@@ -1648,30 +1970,26 @@ void main() {
           },
           () => controller.setRecording(true),
           () async {
-            answers['read'] = await controller.memberships(firstSite, 7);
+            final result = await controller.openMembershipEditor(firstSite, 7);
+            answers['read'] = (result as VoiceMembershipOpenFailure).isCurrent;
           },
           () async {
-            answers['add'] = await controller.addMember(
-              firstSite,
-              7,
+            final result = await addEditor.add(
               'admin-private-user',
               VoiceRole.participant,
             );
+            answers['add'] = (result as VoiceMembershipEditRefused).message;
           },
           () async {
-            answers['update'] = await controller.updateMember(
-              firstSite,
-              7,
+            final result = await updateEditor.changeRole(
               987654321,
               VoiceRole.speaker,
             );
+            answers['update'] = (result as VoiceMembershipEditRefused).message;
           },
           () async {
-            answers['remove'] = await controller.removeMember(
-              firstSite,
-              7,
-              987654321,
-            );
+            final result = await removeEditor.remove(987654321);
+            answers['remove'] = (result as VoiceMembershipEditRefused).message;
           },
         ];
 
@@ -1688,7 +2006,7 @@ void main() {
         // The members dialog shows these answers, so a failure the server
         // did not word itself reaches the user only as a generic message.
         expect(answers, {
-          'read': null,
+          'read': true,
           'add': "Couldn't add the member.",
           'update': "Couldn't change the member's role.",
           'remove': "Couldn't remove the member.",
