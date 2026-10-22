@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_direct_message_search.dart';
-import 'chat_plugin_data.dart';
+import 'chat_new_direct_message_session.dart';
 import 'chat_shell_service.dart';
 import 'chat_shortcuts.dart';
 
@@ -94,31 +94,32 @@ class _ChatNewDirectMessageDialogState
   final _search = TextEditingController();
   bool _resettingSearch = false;
   final _groupName = TextEditingController();
-  Timer? _debounce;
-  int _generation = 0;
-  List<ChatDirectMessageSearchItem> _results = const [];
-  final List<ChatDirectMessageSearchItem> _members = [];
-  bool _composingGroup = false;
-  bool _searching = false;
-  bool _opening = false;
-  bool _retired = false;
-  String? _error;
+  late final _editing = ChatNewDirectMessageSession(
+    chat: widget.chat,
+    siteUrl: widget.siteUrl,
+    lease: widget.session,
+  );
+
+  bool get _sessionIsCurrent => widget.session.isCurrent;
 
   @override
   void initState() {
     super.initState();
-    _showExistingChannels();
-    widget.chat.addListener(_sessionChanged);
-    _sessionChanged();
+    _editing.addListener(_editingChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _sessionIsCurrent) _searchFocus.requestFocus();
     });
   }
 
+  void _editingChanged() {
+    if (_search.text != _editing.searchText) _clearSearch();
+    setState(() {});
+  }
+
   @override
   void dispose() {
-    widget.chat.removeListener(_sessionChanged);
-    _debounce?.cancel();
+    _editing.removeListener(_editingChanged);
+    _editing.dispose();
     _searchFocus.dispose();
     _command.dispose();
     _search.dispose();
@@ -126,171 +127,12 @@ class _ChatNewDirectMessageDialogState
     super.dispose();
   }
 
-  bool get _sessionIsCurrent => widget.session.isCurrent;
-
-  void _sessionChanged() {
-    if (_sessionIsCurrent || _retired || !mounted) return;
-    _debounce?.cancel();
-    _generation++;
-    setState(() {
-      _retired = true;
-      _searching = false;
-      _opening = false;
-      _error = appL10n.yourConnectionChangedReopenTheActionAndTryAgain;
-    });
-  }
-
-  bool _checkSession() {
-    if (!mounted) return false;
-    if (_sessionIsCurrent) return true;
-    _sessionChanged();
-    return false;
-  }
-
-  int get _maximumGroupMembers =>
-      widget.chat.siteConfigFor(widget.siteUrl).chatMaximumDirectMessageUsers;
-
-  bool get _staff => widget.chat.currentUserFor(widget.siteUrl)?.staff == true;
-
-  bool get _canUseGroupChat => _staff || _maximumGroupMembers > 1;
-
-  int get _membersCount => _members.fold(0, (count, member) {
-    return count +
-        switch (member) {
-          ChatDirectMessageUser() => 1,
-          ChatDirectMessageGroup(:final memberCount) => memberCount,
-          ChatDirectMessageChannel() => 0,
-        };
-  });
-
-  void _showExistingChannels() {
-    final channels = [
-      ...widget.chat.directChannels(widget.siteUrl),
-      ...widget.chat.publicChannels(widget.siteUrl),
-    ];
-    final positions = {
-      for (final (i, channel) in channels.indexed) channel.id: i,
-    };
-    channels.sort((a, b) {
-      final activity = (b.lastMessageAt?.millisecondsSinceEpoch ?? 0).compareTo(
-        a.lastMessageAt?.millisecondsSinceEpoch ?? 0,
-      );
-      return activity != 0
-          ? activity
-          : positions[a.id]!.compareTo(positions[b.id]!);
-    });
-    _results = [
-      for (final channel in channels)
-        ChatDirectMessageChannel(
-          identifier: 'c-${channel.id}',
-          matchQuality: 3,
-          enabled: true,
-          channel: channel,
-        ),
-    ];
-  }
-
   void _scheduleSearch(String value) {
-    if (_resettingSearch || !_checkSession() || _opening) return;
-    _debounce?.cancel();
-    final query = value.trim();
-    final generation = ++_generation;
-    setState(() {
-      _error = null;
-      if (query.isEmpty) {
-        _searching = false;
-        if (_composingGroup) {
-          _results = const [];
-        } else {
-          _showExistingChannels();
-        }
-      } else {
-        _searching = true;
-        _results = const [];
-      }
-    });
-    if (query.isEmpty) return;
-
-    _debounce = Timer(const Duration(milliseconds: 300), () async {
-      if (!_checkSession()) return;
-      try {
-        final answer = await widget.chat.searchDirectMessages(
-          widget.siteUrl,
-          query,
-          includeGroups: _canUseGroupChat,
-          includeDirectMessageChannels: !_composingGroup,
-          includeCategoryChannels: !_composingGroup,
-        );
-        if (!mounted || !_sessionIsCurrent || generation != _generation) return;
-        setState(() {
-          _searching = false;
-          _results = answer.items;
-        });
-      } catch (error) {
-        if (!mounted || !_sessionIsCurrent || generation != _generation) return;
-        setState(() {
-          _searching = false;
-          _error = _messageFor(error, fallback: appL10n.couldNotSearchChat);
-        });
-      }
-    });
+    if (!_resettingSearch) _editing.changeQuery(value);
   }
 
-  bool _acceptsResult(int generation) =>
-      _checkSession() && !_opening && !_searching && generation == _generation;
-
-  Future<void> _select(ChatDirectMessageSearchItem item, int generation) async {
-    if (!_acceptsResult(generation) || !item.enabled) return;
-    if (_composingGroup) {
-      _addMember(item);
-      return;
-    }
-    if (item case ChatDirectMessageGroup()) {
-      _startGroup([item]);
-      return;
-    }
-    if (item case ChatDirectMessageChannel(:final channel)) {
-      if (widget.shell.openChannel(channel.id) && mounted) {
-        widget.dialog.close();
-      } else if (mounted) {
-        setState(() => _error = appL10n.thisConversationIsNoLongerAvailable);
-      }
-      return;
-    }
-
-    final user = item as ChatDirectMessageUser;
-    _debounce?.cancel();
-    _generation++;
-    setState(() {
-      _searching = false;
-      _opening = true;
-      _error = null;
-    });
-    try {
-      final channel = await widget.chat.upsertDirectMessageChannel(
-        widget.siteUrl,
-        user.username,
-      );
-      if (!mounted ||
-          !_sessionIsCurrent ||
-          ModalRoute.of(context)?.isCurrent != true) {
-        return;
-      }
-      if (channel != null && widget.shell.openChannel(channel.id)) {
-        widget.dialog.close();
-      } else {
-        setState(() {
-          _opening = false;
-          _error = appL10n.thisConversationIsNoLongerAvailable;
-        });
-      }
-    } catch (error) {
-      if (!mounted || !_sessionIsCurrent) return;
-      setState(() {
-        _opening = false;
-        _error = _messageFor(error, fallback: appL10n.couldNotStartThisChat);
-      });
-    }
+  Future<void> _select(ChatDirectMessageSearchItem item, int revision) async {
+    _navigate(await _editing.select(item, revision));
   }
 
   void _clearSearch() {
@@ -302,147 +144,35 @@ class _ChatNewDirectMessageDialogState
     _searchFocus.requestFocus();
   }
 
-  void _startGroup([
-    List<ChatDirectMessageSearchItem> initialMembers = const [],
-  ]) {
-    if (!_checkSession() || !_canUseGroupChat || _opening) return;
-    if (initialMembers.any((member) => !_canAddMember(member))) {
-      setState(() {
-        _error = appL10n.aGroupChatCanIncludeUpToPeople(
-          (_maximumGroupMembers).toString(),
-        );
-      });
-      return;
-    }
-    _debounce?.cancel();
-    _generation++;
-    _clearSearch();
-    setState(() {
-      _composingGroup = true;
-      _members
-        ..clear()
-        ..addAll(initialMembers);
-      _results = const [];
-      _searching = false;
-      _error = null;
-    });
+  void _startGroup(int revision) {
+    if (_editing.startGroup(revision)) _clearSearch();
   }
 
   void _cancelGroup() {
-    if (!_checkSession()) return;
-    _debounce?.cancel();
-    _generation++;
+    if (!_editing.cancelGroup()) return;
     _clearSearch();
     _groupName.clear();
-    setState(() {
-      _composingGroup = false;
-      _members.clear();
-      _searching = false;
-      _error = null;
-      _showExistingChannels();
-    });
-  }
-
-  int _memberCount(ChatDirectMessageSearchItem item) => switch (item) {
-    ChatDirectMessageUser() => 1,
-    ChatDirectMessageGroup(:final memberCount) => memberCount,
-    ChatDirectMessageChannel() => 0,
-  };
-
-  bool _canAddMember(ChatDirectMessageSearchItem item) =>
-      item is! ChatDirectMessageChannel &&
-      item.enabled &&
-      (_staff || _membersCount + _memberCount(item) <= _maximumGroupMembers);
-
-  void _addMember(ChatDirectMessageSearchItem item) {
-    if (!_checkSession() ||
-        item is ChatDirectMessageChannel ||
-        _members.any((member) => member.identifier == item.identifier)) {
-      return;
-    }
-    if (!_canAddMember(item)) {
-      setState(() {
-        _error = appL10n.aGroupChatCanIncludeUpToPeople(
-          (_maximumGroupMembers).toString(),
-        );
-      });
-      return;
-    }
-    _debounce?.cancel();
-    _generation++;
-    _clearSearch();
-    setState(() {
-      _members.add(item);
-      _results = const [];
-      _searching = false;
-      _error = null;
-    });
-  }
-
-  void _removeMember(ChatDirectMessageSearchItem item) {
-    if (!_checkSession()) return;
-    setState(() {
-      _members.removeWhere((member) => member.identifier == item.identifier);
-      _error = null;
-    });
   }
 
   Future<void> _createGroup() async {
-    if (!_checkSession() ||
-        _opening ||
-        _members.isEmpty ||
-        (!_staff && _membersCount > _maximumGroupMembers)) {
-      return;
-    }
-    _debounce?.cancel();
-    _generation++;
-    setState(() {
-      _searching = false;
-      _opening = true;
-      _error = null;
-    });
-    try {
-      final channel = await widget.chat.createDirectMessageChannel(
-        widget.siteUrl,
-        usernames: [
-          for (final member in _members)
-            if (member case ChatDirectMessageUser(:final username)) username,
-        ],
-        groups: [
-          for (final member in _members)
-            if (member case ChatDirectMessageGroup(:final name)) name,
-        ],
-        name: _groupName.text,
-      );
-      if (!mounted ||
-          !_sessionIsCurrent ||
-          ModalRoute.of(context)?.isCurrent != true) {
-        return;
-      }
-      if (channel != null && widget.shell.openChannel(channel.id)) {
-        widget.dialog.close();
-      } else {
-        setState(() {
-          _opening = false;
-          _error = appL10n.thisConversationIsNoLongerAvailable;
-        });
-      }
-    } catch (error) {
-      if (!mounted || !_sessionIsCurrent) return;
-      setState(() {
-        _opening = false;
-        _error = _messageFor(error, fallback: appL10n.couldNotCreateThisGroup);
-      });
-    }
+    _navigate(await _editing.createGroup(_groupName.text));
   }
 
-  static String _messageFor(Object error, {required String fallback}) =>
-      switch (error) {
-        WriteException(errors: final errors) when errors.isNotEmpty =>
-          errors.join('\n'),
-        final WriteException error => error.message,
-        _ => fallback,
-      };
+  void _navigate(ChatNewConversationDestination? destination) {
+    if (destination == null ||
+        !mounted ||
+        !_sessionIsCurrent ||
+        (destination.requiresCurrentRoute &&
+            ModalRoute.of(context)?.isCurrent != true)) {
+      return;
+    }
+    if (destination.channelId case final channelId?
+        when widget.shell.openChannel(channelId)) {
+      widget.dialog.close();
+    } else {
+      _editing.navigationFailed(destination);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
@@ -456,7 +186,7 @@ class _ChatNewDirectMessageDialogState
   Widget _buildSheet() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      if (_composingGroup)
+      if (_editing.composingGroup)
         Flexible(child: DScrollArea(child: _buildGroupFields())),
       // Keyed so the group fields appearing above do not remount the command.
       Expanded(
@@ -465,7 +195,7 @@ class _ChatNewDirectMessageDialogState
         child: _buildCommand(fill: true),
       ),
       ?_buildError(),
-      if (_composingGroup)
+      if (_editing.composingGroup)
         Padding(
           padding: const EdgeInsets.fromLTRB(
             DSpacing.lg,
@@ -504,7 +234,7 @@ class _ChatNewDirectMessageDialogState
                         DDialogTitle(child: Text(_title)),
                         DDialogDescription(
                           child: Text(
-                            _composingGroup
+                            _editing.composingGroup
                                 ? appL10n.bringAFewPeopleIntoTheConversation
                                 : appL10n.pickUpAConversationOrFindSomeoneNew,
                           ),
@@ -517,7 +247,7 @@ class _ChatNewDirectMessageDialogState
                 ],
               ),
             ),
-            if (_composingGroup) _buildGroupFields(),
+            if (_editing.composingGroup) _buildGroupFields(),
             _buildCommand(fill: false),
             ?_buildError(),
             DCardFooter(
@@ -534,11 +264,11 @@ class _ChatNewDirectMessageDialogState
                       constraints.maxWidth >=
                           MediaQuery.textScalerOf(
                             context,
-                          ).scale(_composingGroup ? 420 : 280);
+                          ).scale(_editing.composingGroup ? 420 : 280);
                   return Row(
                     children: [
                       if (showHints) Expanded(child: _keyboardHints()),
-                      if (_composingGroup)
+                      if (_editing.composingGroup)
                         Expanded(child: _groupActions())
                       else if (showHints)
                         _keyHint([DKbd(appL10n.esc)], 'close')
@@ -565,7 +295,7 @@ class _ChatNewDirectMessageDialogState
   }
 
   String get _title =>
-      _composingGroup ? appL10n.newGroupChat : appL10n.startChatting;
+      _editing.composingGroup ? appL10n.newGroupChat : appL10n.startChatting;
 
   Widget _closeButton() => DButton.iconOnly(
     icon: const DIcon(DIcons.xmark),
@@ -588,7 +318,7 @@ class _ChatNewDirectMessageDialogState
         DInput(
           key: const ValueKey('chat-new-group-name'),
           controller: _groupName,
-          enabled: !_opening && _sessionIsCurrent,
+          enabled: !_editing.opening && _sessionIsCurrent,
           hintText: appL10n.groupNameOptional,
           semanticLabel: appL10n.groupNameOptional,
         ),
@@ -607,7 +337,7 @@ class _ChatNewDirectMessageDialogState
       shouldFilter: false,
       loop: true,
       vimBindings: false,
-      loading: _searching || _opening,
+      loading: _editing.searching || _editing.opening,
       semanticLabel: appL10n.chatDestinations,
       onQueryChanged: _scheduleSearch,
       child: Column(
@@ -620,9 +350,9 @@ class _ChatNewDirectMessageDialogState
               key: const ValueKey('chat-new-direct-message-search'),
               controller: _search,
               focusNode: _searchFocus,
-              enabled: !_opening && _sessionIsCurrent,
+              enabled: !_editing.opening && _sessionIsCurrent,
               semanticLabel: appL10n.searchChatRecipients,
-              placeholder: _composingGroup
+              placeholder: _editing.composingGroup
                   ? appL10n.searchUsersOrGroups
                   : appL10n.searchUsersGroupsOrChannels,
             ),
@@ -633,7 +363,7 @@ class _ChatNewDirectMessageDialogState
     );
   }
 
-  Widget? _buildError() => switch (_error) {
+  Widget? _buildError() => switch (_editing.error) {
     final error? => Padding(
       padding: const EdgeInsets.all(DSpacing.md),
       child: DAlert(
@@ -653,14 +383,15 @@ class _ChatNewDirectMessageDialogState
       DButton(
         label: Text(appL10n.back),
         variant: DButtonVariant.outline,
-        onPressed: _opening || !_sessionIsCurrent ? null : _cancelGroup,
+        onPressed: _editing.opening || !_sessionIsCurrent ? null : _cancelGroup,
       ),
       DButton(
         key: const ValueKey('chat-create-group-direct-message'),
         label: Text(appL10n.startGroupChat),
         variant: DButtonVariant.primary,
-        loading: _opening,
-        onPressed: _opening || !_sessionIsCurrent || _members.isEmpty
+        loading: _editing.opening,
+        onPressed:
+            _editing.opening || !_sessionIsCurrent || _editing.members.isEmpty
             ? null
             : () => unawaited(_createGroup()),
       ),
@@ -672,7 +403,7 @@ class _ChatNewDirectMessageDialogState
     runSpacing: DSpacing.xs,
     children: [
       _keyHint(const [DKbd('↑'), DKbd('↓')], 'navigate'),
-      _keyHint(const [DKbd('↵')], _composingGroup ? 'add' : 'open'),
+      _keyHint(const [DKbd('↵')], _editing.composingGroup ? 'add' : 'open'),
     ],
   );
 
@@ -694,12 +425,12 @@ class _ChatNewDirectMessageDialogState
   Widget _buildMembers() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      if (_members.isNotEmpty) ...[
+      if (_editing.members.isNotEmpty) ...[
         Wrap(
           spacing: DSpacing.controlGap,
           runSpacing: DSpacing.controlGap,
           children: [
-            for (final member in _members)
+            for (final member in _editing.members)
               DButton(
                 key: ValueKey('chat-new-group-member-${member.identifier}'),
                 label: Text(_memberLabel(member)),
@@ -710,10 +441,10 @@ class _ChatNewDirectMessageDialogState
                 semanticLabel: appL10n.removeChatnewdirectmessage(
                   (_memberLabel(member)).toString(),
                 ),
-                onPressed: _opening || !_sessionIsCurrent
+                onPressed: _editing.opening || !_sessionIsCurrent
                     ? null
                     : () {
-                        _removeMember(member);
+                        _editing.removeMember(member);
                         _searchFocus.requestFocus();
                       },
               ),
@@ -723,13 +454,13 @@ class _ChatNewDirectMessageDialogState
       ],
       // Core's DM member policy exempts staff, so its bounded hint applies
       // only to people whose selections are actually capped.
-      if (!_staff)
+      if (!_editing.staff)
         Semantics(
           liveRegion: true,
           child: Text(
             appL10n.ofPeopleSelected(
-              (_membersCount).toString(),
-              (_maximumGroupMembers).toString(),
+              (_editing.membersCount).toString(),
+              (_editing.maximumGroupMembers).toString(),
             ),
             style: TextStyle(
               fontSize: DiscourseTypography.xs,
@@ -748,23 +479,23 @@ class _ChatNewDirectMessageDialogState
       };
 
   Widget _buildResults({required bool fill}) {
-    final generation = _generation;
+    final generation = _editing.revision;
     final query = _search.text.trim();
     final results = [
-      if (!_opening && !_searching)
-        for (final item in _results)
-          if (!_composingGroup ||
+      if (!_editing.opening && !_editing.searching)
+        for (final item in _editing.results)
+          if (!_editing.composingGroup ||
               (item is! ChatDirectMessageChannel &&
-                  !_members.any(
+                  !_editing.members.any(
                     (member) => member.identifier == item.identifier,
                   )))
             item,
     ];
     final showNewGroup =
-        !_composingGroup &&
+        !_editing.composingGroup &&
         query.isEmpty &&
-        _canUseGroupChat &&
-        !_opening &&
+        _editing.canUseGroupChat &&
+        !_editing.opening &&
         _sessionIsCurrent;
     // Keep the server's relevance order, including across result types.
     final groups = <({String heading, List<DCommandItem<String>> items})>[];
@@ -795,7 +526,7 @@ class _ChatNewDirectMessageDialogState
       children: [
         DCommandLoading(
           child: DSkeletonRegion(
-            semanticsLabel: _opening
+            semanticsLabel: _editing.opening
                 ? appL10n.openingConversation
                 : appL10n.searching,
             color: skeletonFill(context, on: SkeletonSurface.floating),
@@ -830,10 +561,10 @@ class _ChatNewDirectMessageDialogState
         ),
         DCommandEmpty(
           child: Text(
-            _error != null
+            _editing.error != null
                 ? appL10n.trySearchingAgain
                 : query.isEmpty
-                ? _composingGroup
+                ? _editing.composingGroup
                       ? appL10n.searchForPeopleOrGroupsToAdd
                       : appL10n.searchForAUserToStartADirectMessage
                 : appL10n.noMatchesFoundTryAnotherNameOrUsername,
@@ -851,7 +582,7 @@ class _ChatNewDirectMessageDialogState
                   key: const ValueKey('chat-new-group-direct-message'),
                 ),
                 onSelected: (_) {
-                  if (_acceptsResult(generation)) _startGroup();
+                  _startGroup(generation);
                 },
               ),
             ],
@@ -868,7 +599,7 @@ class _ChatNewDirectMessageDialogState
   }
 
   DCommandItem<String> _result(ChatDirectMessageSearchItem item) {
-    final generation = _generation;
+    final generation = _editing.revision;
     final (key, title, detail, leading) = switch (item) {
       final ChatDirectMessageUser user => (
         'chat-new-direct-message-user-${user.username}',
@@ -894,16 +625,16 @@ class _ChatNewDirectMessageDialogState
       ),
     };
     final enabled =
-        !_opening &&
+        !_editing.opening &&
         _sessionIsCurrent &&
-        (_composingGroup ? _canAddMember(item) : item.enabled);
+        (_editing.composingGroup ? _editing.canAddMember(item) : item.enabled);
     return DCommandItem<String>(
       value: item.identifier,
       enabled: enabled,
       semanticLabel: [
         title,
         detail,
-        if (_composingGroup && item.enabled && !enabled)
+        if (_editing.composingGroup && item.enabled && !enabled)
           appL10n.groupMemberLimitReached,
       ].where((part) => part.isNotEmpty).join('. '),
       // Command owns its surface key; keep the app's interaction key on content.
@@ -917,7 +648,7 @@ class _ChatNewDirectMessageDialogState
             !DControlStyle.isTouch(context) &&
                 _command.value == item.identifier &&
                 enabled
-            ? DCommandShortcut(Text(_composingGroup ? '+' : '↵'))
+            ? DCommandShortcut(Text(_editing.composingGroup ? '+' : '↵'))
             : switch (item) {
                 ChatDirectMessageChannel(:final channel)
                     when channel.lastMessageAt != null =>
