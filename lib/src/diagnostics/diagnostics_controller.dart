@@ -1089,7 +1089,7 @@ final class DiagnosticsController
         _httpGenerations.remove(removed.id);
       }
     }
-    _pruneFrozenEvents();
+    if (retention.evicted) _pruneFrozenEvents();
     _eventsNotifier.invalidate();
     final selected = panelState.selectedEventId;
     if (selected != null && !_journal.containsId(selected)) {
@@ -1101,9 +1101,10 @@ final class DiagnosticsController
   void _pruneFrozenEvents() {
     final frozen = _frozenEvents;
     if (frozen == null) return;
-    _frozenEvents = List.unmodifiable(
+    final retained = List<DiagnosticEvent>.unmodifiable(
       frozen.where((event) => _journal.containsId(event.id)),
     );
+    if (retained.length != frozen.length) _frozenEvents = retained;
   }
 
   void _scheduleExpiry(DateTime nowUtc) {

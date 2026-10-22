@@ -716,6 +716,87 @@ void main() {
       expect(controller.visibleEvents, hasLength(2));
     });
 
+    test('frozen HTTP projections retain identity and pending details', () {
+      controller.recordHttp(_httpRecord(now, HttpDiagnosticPhase.started));
+      controller
+        ..openPanel()
+        ..setKindFilter(DiagnosticsKindFilter.requests)
+        ..setQuery('GET')
+        ..selectEvent('request-1')
+        ..setFrozen(true);
+      final held = controller.visibleEvents;
+      final pending = held.single as HttpDiagnosticEvent;
+      expect(pending.state, DiagnosticHttpState.pending);
+
+      for (final phase in [
+        HttpDiagnosticPhase.responseHeaders,
+        HttpDiagnosticPhase.completed,
+      ]) {
+        now = now.add(const Duration(milliseconds: 50));
+        controller.recordHttp(_httpRecord(now, phase, statusCode: 200));
+        expect(controller.visibleEvents, same(held));
+        expect(controller.visibleEvents.single, same(pending));
+        expect(controller.panelState.selectedEventId, 'request-1');
+      }
+
+      controller.setQuery('missing');
+      expect(controller.visibleEvents, isEmpty);
+      controller.setQuery('GET');
+      expect(controller.visibleEvents.single, same(pending));
+      controller.setFrozen(false);
+      final completed = controller.visibleEvents.single as HttpDiagnosticEvent;
+      expect(completed.state, DiagnosticHttpState.completed);
+      expect(completed.statusCode, 200);
+      expect(controller.panelState.selectedEventId, 'request-1');
+    });
+
+    test(
+      'self-eviction of an oversized log preserves the frozen projection',
+      () {
+        controller.recordLog(name: 'held');
+        controller.setFrozen(true);
+        final held = controller.visibleEvents;
+        final payload = 'x'.padRight(64000, 'x');
+        controller.recordLog(
+          name: 'oversized',
+          attributes: {
+            for (var index = 0; index < 200; index++) 'field-$index': payload,
+          },
+        );
+
+        expect(
+          controller.events.map((event) => event.id),
+          held.map((event) => event.id),
+        );
+        expect(controller.visibleEvents, same(held));
+      },
+    );
+
+    test(
+      'count retention prunes frozen rows and clears an evicted selection',
+      () {
+        while (controller.events.length < diagnosticsRetentionCount) {
+          controller.recordLog(name: 'held');
+        }
+        final selected = controller.events.first;
+        controller
+          ..setFrozen(true)
+          ..selectEvent(selected.id);
+        final held = controller.visibleEvents;
+        controller.recordLog(name: 'arrived while frozen');
+
+        expect(controller.events, hasLength(diagnosticsRetentionCount));
+        expect(controller.visibleEvents, held.skip(1).toList());
+        expect(controller.panelState.selectedEventId, isNull);
+        controller.setFrozen(false);
+        expect(controller.visibleEvents, hasLength(diagnosticsRetentionCount));
+        expect(
+          (controller.visibleEvents.last as DiagnosticLogEvent).name,
+          'arrived while frozen',
+        );
+      },
+    );
+
     test('errors hidden by a frozen panel remain unseen until it resumes', () {
       controller.openPanel();
       controller.setFrozen(true);
@@ -748,7 +829,13 @@ void main() {
       'clear prevents old in-flight HTTP updates from reappearing',
       () async {
         controller.recordHttp(_httpRecord(now, HttpDiagnosticPhase.started));
+        controller
+          ..setFrozen(true)
+          ..selectEvent('request-1');
         await controller.clear();
+        expect(controller.panelState.frozen, isTrue);
+        expect(controller.panelState.selectedEventId, isNull);
+        expect(controller.visibleEvents, isEmpty);
 
         now = now.add(const Duration(seconds: 1));
         controller.recordHttp(
