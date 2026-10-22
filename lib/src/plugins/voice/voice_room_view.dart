@@ -1331,37 +1331,38 @@ Future<void> _showVoiceInvite(
   required String siteUrl,
   required VoiceRoom room,
   required String? inviteLink,
-}) {
-  final ownsAccount = controller.captureSiteSession(siteUrl);
-  return _showVoiceRoomForm(
-    context: context,
-    title: context.l10n.inviteTo(room.name),
-    builder: (context, dialog) => _VoiceInviteDialog(
-      controller: controller,
-      siteUrl: siteUrl,
-      room: room,
-      inviteLink: inviteLink,
-      ownsAccount: ownsAccount,
-      dialog: dialog,
-    ),
-  );
+}) async {
+  final invitation = controller.userInvitation(siteUrl, room.id);
+  try {
+    await _showVoiceRoomForm(
+      context: context,
+      title: context.l10n.inviteTo(room.name),
+      builder: (context, dialog) => _VoiceInviteDialog(
+        invitation: invitation,
+        siteUrl: siteUrl,
+        room: room,
+        inviteLink: inviteLink,
+        dialog: dialog,
+      ),
+    );
+  } finally {
+    invitation.retire();
+  }
 }
 
 class _VoiceInviteDialog extends StatefulWidget {
   const _VoiceInviteDialog({
-    required this.controller,
+    required this.invitation,
     required this.siteUrl,
     required this.room,
     required this.inviteLink,
-    required this.ownsAccount,
     required this.dialog,
   });
 
-  final VoiceController controller;
+  final VoiceUserInvitationSession invitation;
   final String siteUrl;
   final VoiceRoom room;
   final String? inviteLink;
-  final bool Function() ownsAccount;
   final DDialogController<void> dialog;
 
   @override
@@ -1370,77 +1371,50 @@ class _VoiceInviteDialog extends StatefulWidget {
 
 class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
   final TextEditingController _username = TextEditingController();
-  List<VoiceInviteSuggestion>? _suggestions;
-  final Set<String> _invited = {};
-  bool _sending = false;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadSuggestions());
+    unawaited(widget.invitation.loadSuggestions());
   }
 
-  Future<void> _loadSuggestions() async {
-    if (!widget.ownsAccount()) return;
-    final suggestions = await widget.controller.inviteSuggestions(
-      widget.siteUrl,
-      widget.room.id,
-    );
-    if (mounted && widget.ownsAccount()) {
-      setState(() => _suggestions = suggestions);
-    }
-  }
-
-  /// Whether the invite went through: false when it was refused, and when
-  /// nothing was sent because another invite is still in flight.
   Future<bool> _invite(List<String> usernames) async {
-    final names = [
-      for (final name in usernames)
-        if (name.trim().isNotEmpty) name.trim().replaceFirst('@', ''),
-    ];
-    if (!mounted || !widget.ownsAccount() || names.isEmpty || _sending) {
-      return false;
-    }
-    setState(() => _sending = true);
-    try {
-      final result = await widget.controller.invite(
-        widget.siteUrl,
-        widget.room.id,
-        names,
-      );
-      if (!mounted || !widget.ownsAccount()) return false;
-      setState(() => _invited.addAll(result.invitedUsernames));
-      if (result.invitedUsernames.isNotEmpty) {
-        final count = result.invitedUsernames.length;
+    final outcome = await widget.invitation.submit(usernames);
+    if (!mounted || !widget.invitation.isCurrent) return false;
+    switch (outcome) {
+      case VoiceUserInvitationAccepted(:final result):
+        if (result.invitedUsernames.isNotEmpty) {
+          final count = result.invitedUsernames.length;
+          DToast.show(
+            context,
+            count == 1
+                ? appL10n.inviteSent
+                : appL10n.invitesSent((count).toString()),
+            type: DToastType.success,
+          );
+        }
+        if (result.skippedUsernames.isNotEmpty) {
+          DToast.show(
+            context,
+            appL10n.canTBeInvitedBecauseTheyDonTHaveAccessTo(
+              (result.skippedUsernames.map((name) => '@$name').join(', '))
+                  .toString(),
+            ),
+            type: DToastType.warning,
+          );
+        }
+        return true;
+      case VoiceUserInvitationRefused(:final error):
         DToast.show(
           context,
-          count == 1
-              ? appL10n.inviteSent
-              : appL10n.invitesSent((count).toString()),
-          type: DToastType.success,
+          error is WriteException
+              ? error.message
+              : appL10n.couldnTSendTheInvite,
+          type: DToastType.error,
         );
-      }
-      if (result.skippedUsernames.isNotEmpty) {
-        DToast.show(
-          context,
-          appL10n.canTBeInvitedBecauseTheyDonTHaveAccessTo(
-            (result.skippedUsernames.map((name) => '@$name').join(', '))
-                .toString(),
-          ),
-          type: DToastType.warning,
-        );
-      }
-      return true;
-    } catch (error) {
-      if (!mounted || !widget.ownsAccount()) return false;
-      DToast.show(
-        context,
-        error is WriteException ? error.message : appL10n.couldnTSendTheInvite,
-        type: DToastType.error,
-      );
-      return false;
-    } finally {
-      if (mounted) setState(() => _sending = false);
+        return false;
+      case VoiceUserInvitationStatus():
+        return false;
     }
   }
 
@@ -1454,15 +1428,19 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
 
   @override
   void dispose() {
+    widget.invitation.dispose();
     _username.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final suggestions = _suggestions;
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: widget.invitation, builder: _buildForm);
+
+  Widget _buildForm(BuildContext context, Widget? _) {
+    final suggestions = widget.invitation.suggestions;
     final link = widget.inviteLink;
-    final available = widget.ownsAccount() && !_sending;
+    final available = widget.invitation.available;
     final mobile = context.isTouch;
     final username = DInput(
       controller: _username,
@@ -1477,7 +1455,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
       label: Text(context.l10n.sendInvite),
       variant: DButtonVariant.primary,
       expanded: mobile,
-      loading: _sending,
+      loading: widget.invitation.sending,
     );
     return _VoiceRoomFormLayout(
       title: context.l10n.inviteTo(widget.room.name),
@@ -1558,7 +1536,9 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
                     ),
                     DItemActions(
                       children: [
-                        if (_invited.contains(suggestion.user.username))
+                        if (widget.invitation.invitedUsernames.contains(
+                          suggestion.user.username,
+                        ))
                           Text(context.l10n.invited)
                         else
                           DButton(

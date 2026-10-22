@@ -28,6 +28,7 @@ part 'voice_chat_association.dart';
 part 'voice_device_preferences.dart';
 part 'voice_membership_editor.dart';
 part 'voice_room_directory.dart';
+part 'voice_user_invitation_session.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
 
@@ -1780,53 +1781,13 @@ final class VoiceController extends ChangeNotifier {
     return invitation;
   }
 
-  /// Invites [usernames] to the room. Refusals propagate: the server's own
-  /// message (a rate limit, no permission) is what the dialog should show.
-  Future<VoiceInviteResult> invite(
-    String siteUrl,
-    int roomId,
-    List<String> usernames,
-  ) async {
-    _userActed();
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _requestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) {
-      throw const WriteException(WriteFailure.forbidden);
-    }
-    final result = await credentials.run(
-      () => api.invite(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey!,
-        usernames: usernames,
-        clientId: credentials.clientId,
-      ),
-    );
-
-    return result;
-  }
-
-  /// Best effort: an unavailable shortlist leaves the dialog with the
-  /// username field and the link.
-  Future<List<VoiceInviteSuggestion>> inviteSuggestions(
-    String siteUrl,
-    int roomId,
-  ) => _runHandledValue<List<VoiceInviteSuggestion>>(() async {
-    final credentials = await _requestCredentials(siteUrl);
-    if (credentials == null) return const [];
-    return credentials.run(
-      () => api.inviteSuggestions(
-        siteUrl: siteUrl,
-        roomId: roomId,
-        apiKey: credentials.apiKey!,
-        clientId: credentials.clientId,
-      ),
-    );
-  }, fallback: const []);
+  VoiceUserInvitationSession userInvitation(String siteUrl, int roomId) =>
+      VoiceUserInvitationSession._(
+        this,
+        siteUrl,
+        roomId,
+        captureSiteSession(siteUrl),
+      );
 
   Future<VoiceMembershipOpenResult> openMembershipEditor(
     String siteUrl,

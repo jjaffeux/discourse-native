@@ -8357,57 +8357,258 @@ void main() {
   });
 
   group('invites', () {
-    test('propagate the server\'s refusal and report the outcome', () async {
-      transport.responses['POST /voice/rooms/7/invites.json'] = {
-        'invited_usernames': ['kim'],
-        'skipped_usernames': ['bot'],
-      };
+    const invitePath = '/voice/rooms/7/invites.json';
+    const suggestionsPath = '/voice/rooms/7/invites/suggestions.json';
 
-      final result = await controller.invite(firstSite, 7, ['kim', 'bot']);
+    VoiceUserInvitationSession invitation() {
+      final session = controller.userInvitation(firstSite, 7);
+      addTearDown(session.dispose);
+      return session;
+    }
 
-      expect(result.invitedUsernames, ['kim']);
-      expect(result.skippedUsernames, ['bot']);
-      expect(transport.writes.single.body, {
-        'usernames': ['kim', 'bot'],
-      });
+    test(
+      'reports accepted and skipped usernames and preserves refusal',
+      () async {
+        transport.responses['POST $invitePath'] = {
+          'invited_usernames': ['kim'],
+          'skipped_usernames': ['bot'],
+        };
+        final session = invitation();
+        final outcome = await session.submit(['kim', 'bot']);
+        expect(outcome, isA<VoiceUserInvitationAccepted>());
+        final result = (outcome as VoiceUserInvitationAccepted).result;
+        expect(result.invitedUsernames, ['kim']);
+        expect(result.skippedUsernames, ['bot']);
+        expect(session.invitedUsernames, {'kim'});
+        expect(transport.writes.single.body, {
+          'usernames': ['kim', 'bot'],
+        });
+        const refusal = WriteException(
+          WriteFailure.rateLimited,
+          statusCode: 429,
+          errors: ['Too many invites.'],
+        );
+        transport.failures['POST $invitePath'] = refusal;
+        final refused = await session.submit(['lee']);
+        expect(refused, isA<VoiceUserInvitationRefused>());
+        expect((refused as VoiceUserInvitationRefused).error, same(refusal));
+        expect(session.invitedUsernames, {'kim'});
+        expect(session.available, isTrue);
+      },
+    );
 
-      transport.failures['POST /voice/rooms/7/invites.json'] =
-          const WriteException(
-            WriteFailure.rateLimited,
-            statusCode: 429,
-            errors: ['Too many invites.'],
-          );
-      await expectLater(
-        controller.invite(firstSite, 7, ['lee']),
-        throwsA(
-          isA<WriteException>().having(
-            (error) => error.message,
-            'message',
-            'Too many invites.',
-          ),
-        ),
+    test('an unavailable shortlist is empty and can be reloaded', () async {
+      final session = invitation();
+      transport.failures['GET $suggestionsPath'] = const SiteLookupException(
+        SiteLookupFailure.unreachable,
+        'one',
       );
-    });
-
-    test('an unavailable shortlist is an empty one', () async {
-      transport.failures['GET /voice/rooms/7/invites/suggestions.json'] =
-          const SiteLookupException(SiteLookupFailure.unreachable, 'one');
-
-      expect(await controller.inviteSuggestions(firstSite, 7), isEmpty);
-
-      transport.responses['GET /voice/rooms/7/invites/suggestions.json'] = {
+      await session.loadSuggestions();
+      expect(session.suggestions, isEmpty);
+      transport.responses['GET $suggestionsPath'] = {
         'suggestions': [
           {'id': 3, 'username': 'kim', 'total_seconds': 120},
         ],
       };
-      expect(
-        (await controller.inviteSuggestions(
-          firstSite,
-          7,
-        )).map((s) => s.user.username),
-        ['kim'],
-      );
+      await session.loadSuggestions();
+      expect(session.suggestions!.map((s) => s.user.username), ['kim']);
     });
+
+    test(
+      'snapshots normalized names and admits one submission at a time',
+      () async {
+        final gate = Completer<void>();
+        requests = _GatedRequestHost(credentialsGate: gate);
+        useTransport(transport);
+        transport.responses['POST $invitePath'] = {
+          'invited_usernames': ['lee'],
+        };
+        final session = invitation();
+        final names = [' @lee ', '  '];
+        final pending = session.submit(names);
+        names
+          ..clear()
+          ..add('replacement');
+        expect(await session.submit(['other']), VoiceUserInvitationStatus.busy);
+        expect(session.sending, isTrue);
+        gate.complete();
+        expect(await pending, isA<VoiceUserInvitationAccepted>());
+        expect(transport.writes.single.body['usernames'], ['lee']);
+        expect(session.invitedUsernames, {'lee'});
+        expect(session.sending, isFalse);
+        expect(
+          await session.submit(['other']),
+          isA<VoiceUserInvitationAccepted>(),
+        );
+        expect(transport.writes.last.body['usernames'], ['other']);
+      },
+    );
+
+    test('empty input makes no request', () async {
+      final session = invitation();
+      expect(await session.submit([' ', '']), VoiceUserInvitationStatus.empty);
+      expect(transport.writes, isEmpty);
+      expect(session.available, isTrue);
+    });
+
+    test(
+      'a notification may retire admission before credential acquisition',
+      () async {
+        final counting = _CountingRequestHost();
+        requests = counting;
+        useTransport(transport);
+        final session = invitation();
+        session.addListener(session.retire);
+        expect(
+          await session.submit(['lee']),
+          VoiceUserInvitationStatus.retired,
+        );
+        expect(counting.credentialCalls, 0);
+        expect(transport.writes, isEmpty);
+      },
+    );
+
+    for (final submitting in [false, true]) {
+      test(
+        '${submitting ? 'invite' : 'suggestions'} retires during credentials',
+        () async {
+          final gate = Completer<void>();
+          requests = _GatedRequestHost(credentialsGate: gate);
+          useTransport(transport);
+          final session = invitation();
+          final pending = submitting
+              ? session.submit(['lee'])
+              : session.loadSuggestions().then<Object?>((_) => null);
+          await pumpEventQueue();
+          controller.forget(firstSite);
+          gate.complete();
+          final result = await pending;
+          if (submitting) expect(result, VoiceUserInvitationStatus.retired);
+          expect(transport.writes, isEmpty);
+          expect(transport.reads, isEmpty);
+          expect(session.suggestions, isNull);
+          expect(session.invitedUsernames, isEmpty);
+        },
+      );
+    }
+
+    for (final failure in [false, true]) {
+      for (final retirement in ['route', 'dispose', 'account']) {
+        test(
+          'late ${failure ? 'refusal' : 'success'} retires after $retirement',
+          () async {
+            final host = PluginTestRequestHost(apiKeys: {firstSite: 'key'});
+            requests = host;
+            final controlled = _ControlledVoiceTransport()
+              ..heldPluginWritePaths.add(invitePath);
+            useTransport(controlled);
+            final session = controller.userInvitation(firstSite, 7);
+            if (retirement != 'dispose') addTearDown(session.dispose);
+            final pending = session.submit(['lee']);
+            await controlled.waitForPendingPluginWrites(1);
+            switch (retirement) {
+              case 'route':
+                session.retire();
+              case 'dispose':
+                session.dispose();
+              case 'account':
+                host.forget(firstSite);
+            }
+            final response = controlled.pendingPluginWrites.single.response;
+            if (failure) {
+              response.completeError(
+                const WriteException(WriteFailure.forbidden),
+              );
+            } else {
+              response.complete({
+                'invited_usernames': ['lee'],
+                'skipped_usernames': ['bot'],
+              });
+            }
+            expect(await pending, VoiceUserInvitationStatus.retired);
+            expect(session.invitedUsernames, isEmpty);
+            expect(session.available, isFalse);
+            if (retirement == 'account') {
+              controlled.heldPluginWritePaths.clear();
+              controlled.responses['POST $invitePath'] = {
+                'invited_usernames': ['fresh'],
+              };
+              final fresh = invitation();
+              expect(
+                await fresh.submit(['fresh']),
+                isA<VoiceUserInvitationAccepted>(),
+              );
+              expect(fresh.invitedUsernames, {'fresh'});
+            }
+          },
+        );
+      }
+    }
+
+    test('late suggestions cannot publish after disposal', () async {
+      final controlled = _ControlledVoiceTransport()
+        ..heldPluginPaths.add(suggestionsPath);
+      useTransport(controlled);
+      final session = controller.userInvitation(firstSite, 7);
+      final pending = session.loadSuggestions();
+      await pumpEventQueue();
+      session.dispose();
+      controlled.pendingPluginGets.single.response.complete({
+        'suggestions': [
+          {'id': 3, 'username': 'kim', 'total_seconds': 120},
+        ],
+      });
+      await pending;
+      expect(session.suggestions, isNull);
+    });
+
+    for (final submitting in [false, true]) {
+      test(
+        '${submitting ? 'invite' : 'suggestions'} rechecks deferred dispatch',
+        () async {
+          final deferred = _DeferredRequestHost()..deferNextRun = true;
+          requests = deferred;
+          useTransport(transport);
+          final session = invitation();
+          final pending = submitting
+              ? session.submit(['lee'])
+              : session.loadSuggestions().then<Object?>((_) => null);
+          await deferred.runStarted.future;
+          session.retire();
+          deferred.runGate.complete();
+          final result = await pending;
+          if (submitting) expect(result, VoiceUserInvitationStatus.retired);
+          expect(transport.writes, isEmpty);
+          expect(transport.reads, isEmpty);
+        },
+      );
+    }
+
+    test(
+      'retains the credential execution scope for shortlist and submit',
+      () async {
+        requests = _ScopedRequestHost();
+        useTransport(transport);
+        final scopes = <Object?>[];
+        transport.responders['GET $suggestionsPath'] = (_) {
+          scopes.add(Zone.current[_ScopedRequestHost.scope]);
+          return {'suggestions': <Object?>[]};
+        };
+        transport.responders['POST $invitePath'] = (_) {
+          scopes.add(Zone.current[_ScopedRequestHost.scope]);
+          return {
+            'invited_usernames': ['lee'],
+          };
+        };
+        final session = invitation();
+        await session.loadSuggestions();
+        expect(
+          await session.submit(['lee']),
+          isA<VoiceUserInvitationAccepted>(),
+        );
+        expect(scopes, ['full', 'full']);
+      },
+    );
   });
 
   group('room Chat live session', () {
