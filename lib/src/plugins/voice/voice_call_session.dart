@@ -468,6 +468,9 @@ final class _VoiceCallSession {
       if (controller._audioInputDeviceId case final deviceId?) {
         await controller._selectSavedAudioDevice(
           kind: 'audio_input',
+          media: media,
+          preference: VoiceDevicePreference.audioInput,
+          choice: controller._devicePreferences.audioInput,
           deviceId: deviceId,
           correlationId: correlationId,
           selectDevice: media.selectAudioInput,
@@ -478,6 +481,9 @@ final class _VoiceCallSession {
       if (controller._audioOutputDeviceId case final deviceId?) {
         await controller._selectSavedAudioDevice(
           kind: 'audio_output',
+          media: media,
+          preference: VoiceDevicePreference.audioOutput,
+          choice: controller._devicePreferences.audioOutput,
           deviceId: deviceId,
           correlationId: correlationId,
           selectDevice: media.selectAudioOutput,
@@ -1029,7 +1035,7 @@ final class _VoiceCallSession {
     VoiceCameraFacing? facing,
   }) async {
     if (controller._disposed) return;
-    final selection = controller._cameraSelection;
+    final selection = controller._devicePreferences.camera.intent;
     final call = _call;
     final switchCamera = call != null && (call.cameraEnabled || cameraStarting);
     final remember = cameraStarting && _startingCamera!.remember;
@@ -1046,8 +1052,6 @@ final class _VoiceCallSession {
         controller._userIdFor(call.siteUrl) == userId &&
         userId != null &&
         _canPublishCamera(_call!, userId);
-    if (facing == null) controller._cameraDeviceId = deviceId;
-    controller._cameraFacing = facing;
     _startingCamera = switchCamera
         ? (media: call.media, revision: revision, remember: remember)
         : null;
@@ -1074,7 +1078,7 @@ final class _VoiceCallSession {
           }
           if (controller._disposed ||
               revision != _cameraRevision ||
-              !identical(selection, controller._cameraSelection)) {
+              !controller._devicePreferences.camera.isCurrent(selection)) {
             return;
           }
           if (!switchCamera) {

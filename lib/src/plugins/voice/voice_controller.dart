@@ -24,6 +24,7 @@ import 'voice_video_handle.dart';
 part 'voice_call_manager.dart';
 part 'voice_call_session.dart';
 part 'voice_chat_association.dart';
+part 'voice_device_preferences.dart';
 part 'voice_room_directory.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
@@ -369,16 +370,17 @@ final class VoiceController extends ChangeNotifier {
   Future<void>? _closeOperation;
   VoiceCallSnapshot? get _call => _calls.current?._call;
   bool _disposed = false;
-  String? _audioInputDeviceId;
-  String? _audioOutputDeviceId;
-  String? _cameraDeviceId;
-  VoiceCameraFacing? _cameraFacing;
-  bool _pushToTalkEnabled = false;
-  bool _autoStatusEnabled = true;
+  final _devicePreferences = _VoiceDevicePreferences();
+  String? get _audioInputDeviceId => _devicePreferences.audioInput.value;
+  String? get _audioOutputDeviceId => _devicePreferences.audioOutput.value;
+  String? get _cameraDeviceId => _devicePreferences.camera.value.deviceId;
+  VoiceCameraFacing? get _cameraFacing =>
+      _devicePreferences.camera.value.facing;
+  bool get _pushToTalkEnabled => _devicePreferences.pushToTalk.value;
+  bool get _autoStatusEnabled => _devicePreferences.autoStatus.value;
   bool _foreground = true;
   late final Future<void> _devicePreferencesLoaded;
   final Map<(String, int), Future<bool>> _cameraPreferences = {};
-  Object _cameraSelection = Object();
 
   VoiceCallSnapshot? get call => _call;
 
@@ -405,7 +407,7 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> setAutoStatusEnabled(bool enabled) async {
     if (_disposed) return;
-    _autoStatusEnabled = enabled;
+    _devicePreferences.autoStatus.select(enabled);
     notifyListeners();
     try {
       await _preferences.writeAutoStatusEnabled(enabled);
@@ -1492,31 +1494,13 @@ final class VoiceController extends ChangeNotifier {
   );
 
   Future<void> _selectAudioInput(String deviceId) async {
-    if (_disposed) return;
-    _audioInputDeviceId = deviceId;
-    final correlationId =
-        _activeDiagnosticCorrelationId ??
-        _reporter.newCorrelationId('voice-device');
-    await _traceDeviceSelection(
+    await _selectAudioDevice(
+      deviceId,
+      choice: _devicePreferences.audioInput,
+      preference: VoiceDevicePreference.audioInput,
       kind: 'audio_input',
-      origin: 'user',
-      deviceId: deviceId,
-      applied: _call != null,
-      correlationId: correlationId,
-      action: () async {
-        await _persistPreference(
-          () => _preferences.writeDevice(
-            VoiceDevicePreference.audioInput,
-            deviceId,
-          ),
-          'voice.preferences.audioInput',
-        );
-        if (_disposed) return;
-        await _call?.media.selectAudioInput(deviceId);
-      },
+      selectDevice: (media) => media.selectAudioInput(deviceId),
     );
-    if (_disposed) return;
-    notifyListeners();
   }
 
   Future<void> selectAudioOutput(String deviceId) => _runPublicOperation(
@@ -1526,27 +1510,54 @@ final class VoiceController extends ChangeNotifier {
   );
 
   Future<void> _selectAudioOutput(String deviceId) async {
+    await _selectAudioDevice(
+      deviceId,
+      choice: _devicePreferences.audioOutput,
+      preference: VoiceDevicePreference.audioOutput,
+      kind: 'audio_output',
+      selectDevice: (media) => media.selectAudioOutput(deviceId),
+    );
+  }
+
+  Future<void> _selectAudioDevice(
+    String deviceId, {
+    required _VoicePreferenceChoice<String?> choice,
+    required VoiceDevicePreference preference,
+    required String kind,
+    required Future<void> Function(VoiceMediaSession) selectDevice,
+  }) async {
     if (_disposed) return;
-    _audioOutputDeviceId = deviceId;
+    final intent = choice.select(deviceId);
+    final session = _calls.current;
+    final media = session?._call?.media;
+    bool isCurrent() =>
+        !_disposed &&
+        choice.isCurrent(intent) &&
+        session != null &&
+        session.isActive &&
+        identical(session._call?.media, media);
     final correlationId =
         _activeDiagnosticCorrelationId ??
         _reporter.newCorrelationId('voice-device');
     await _traceDeviceSelection(
-      kind: 'audio_output',
+      kind: kind,
       origin: 'user',
       deviceId: deviceId,
-      applied: _call != null,
+      applied: media != null,
       correlationId: correlationId,
       action: () async {
         await _persistPreference(
-          () => _preferences.writeDevice(
-            VoiceDevicePreference.audioOutput,
-            deviceId,
-          ),
-          'voice.preferences.audioOutput',
+          () => _preferences.writeDevice(preference, deviceId),
+          'voice.preferences.${preference.name}',
         );
-        if (_disposed) return;
-        await _call?.media.selectAudioOutput(deviceId);
+        if (media == null || !isCurrent()) return;
+        await _devicePreferences.audioOperations.run(
+          owner: media,
+          key: preference,
+          operation: () async {
+            if (isCurrent()) await selectDevice(media);
+          },
+        );
       },
     );
     if (_disposed) return;
@@ -1587,14 +1598,12 @@ final class VoiceController extends ChangeNotifier {
     VoiceCameraFacing? facing,
   }) async {
     if (_disposed) return;
-    final selection = _cameraSelection = Object();
+    final selection = _devicePreferences.selectCamera(deviceId, facing);
     final session = _calls.current;
     if (session?._call != null) {
       await session!._selectCamera(deviceId, facing: facing);
       return;
     }
-    if (facing == null) _cameraDeviceId = deviceId;
-    _cameraFacing = facing;
     notifyListeners();
     final correlationId = _reporter.newCorrelationId('voice-device');
     await _traceDeviceSelection(
@@ -1613,7 +1622,7 @@ final class VoiceController extends ChangeNotifier {
             'voice.preferences.camera',
           );
         }
-        if (!_disposed && identical(selection, _cameraSelection)) {
+        if (!_disposed && _devicePreferences.camera.isCurrent(selection)) {
           _calls.current?._restorePreferredCamera();
         }
       },
@@ -1623,13 +1632,18 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> setPushToTalkEnabled(bool enabled) async {
     if (_disposed) return;
-    _pushToTalkEnabled = enabled;
+    final choice = _devicePreferences.pushToTalk;
+    final intent = choice.select(enabled);
+    final session = _calls.current;
     await _persistPreference(
       () => _preferences.writePushToTalk(enabled),
       'voice.preferences.pushToTalk',
     );
     if (_disposed) return;
-    if (enabled) await setMuted(true);
+    if (enabled && choice.isCurrent(intent) && session?.isActive == true) {
+      session!._userActed();
+      await session._setMuted(true, syncSystem: true);
+    }
     if (_disposed) return;
     notifyListeners();
   }
@@ -1704,10 +1718,7 @@ final class VoiceController extends ChangeNotifier {
     try {
       final preferences = await _preferences.readDevices();
       if (_disposed) return;
-      _audioInputDeviceId = preferences.audioInputDeviceId;
-      _audioOutputDeviceId = preferences.audioOutputDeviceId;
-      _cameraDeviceId ??= preferences.cameraDeviceId;
-      _pushToTalkEnabled = preferences.pushToTalkEnabled;
+      _devicePreferences.restoreDevices(preferences);
       _record(
         'preferences.devices.restore_completed',
         component: 'preferences',
@@ -1756,7 +1767,7 @@ final class VoiceController extends ChangeNotifier {
     try {
       final stored = await _preferences.readAutoStatusEnabled();
       if (_disposed || stored == null) return;
-      _autoStatusEnabled = stored;
+      _devicePreferences.autoStatus.restore(stored);
       notifyListeners();
     } catch (error, stackTrace) {
       // Same contract as the device restore: the default stays usable and
@@ -1769,33 +1780,43 @@ final class VoiceController extends ChangeNotifier {
     required String kind,
     required String deviceId,
     required String correlationId,
+    required VoiceMediaSession media,
+    required VoiceDevicePreference preference,
+    required _VoicePreferenceChoice<String?> choice,
     required Future<void> Function(String) selectDevice,
     required bool Function() isCurrent,
-  }) async {
-    try {
-      await _traceDeviceSelection(
-        kind: kind,
-        origin: 'saved_join',
-        deviceId: deviceId,
-        applied: true,
-        correlationId: correlationId,
-        action: () => selectDevice(deviceId),
-      );
-    } on Exception {
-      if (!isCurrent()) return;
-      if (deviceId == 'default') rethrow;
+  }) {
+    final intent = choice.intent;
+    bool selectionIsCurrent() => isCurrent() && choice.isCurrent(intent);
+    return _devicePreferences.audioOperations.run(
+      owner: media,
+      key: preference,
+      operation: () async {
+        if (!selectionIsCurrent()) return;
+        try {
+          await _traceDeviceSelection(
+            kind: kind,
+            origin: 'saved_join',
+            deviceId: deviceId,
+            applied: true,
+            correlationId: correlationId,
+            action: () => selectDevice(deviceId),
+          );
+        } on Exception {
+          if (!selectionIsCurrent()) return;
+          if (deviceId == 'default') rethrow;
 
-      // Saved devices may be disconnected. Explicitly restore the default so
-      // a failed microphone switch cannot leave capture using a stale device.
-      await _traceDeviceSelection(
-        kind: kind,
-        origin: 'saved_join_fallback',
-        deviceId: 'default',
-        applied: true,
-        correlationId: correlationId,
-        action: () => selectDevice('default'),
-      );
-    }
+          await _traceDeviceSelection(
+            kind: kind,
+            origin: 'saved_join_fallback',
+            deviceId: 'default',
+            applied: true,
+            correlationId: correlationId,
+            action: () => selectDevice('default'),
+          );
+        }
+      },
+    );
   }
 
   Future<void> _traceDeviceSelection({
