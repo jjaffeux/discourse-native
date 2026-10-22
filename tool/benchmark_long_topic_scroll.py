@@ -58,8 +58,8 @@ def capture(app, output):
         raise RuntimeError(f"Workload failed; inspect {output.with_suffix('.log')}")
     if report.get("streamPosts") != 16000 or report.get("loadedPosts") != 200:
         raise RuntimeError("Unexpected workload size")
-    if report.get("viewportWork", {}).get("count", 0) < 100:
-        raise RuntimeError("Compile both apps with TRACE_VIEWPORT=true")
+    if report.get("frames", 0) <= 100 or report.get("updates", 0) <= 100:
+        raise RuntimeError("Insufficient frames or scroll updates")
     excursions = report.get("excursions", [])
     if len(excursions) != 8 or any(
         abs(actual - (3600 if index % 2 == 0 else -3600)) > 1
@@ -86,7 +86,8 @@ def main():
             app = getattr(args, label).resolve()
             report = capture(app, args.output / f"{label}-{repeat + 1}.json")
             results[label].append(report)
-            print(f"{label} {repeat + 1}: {report['viewportWork']}", flush=True)
+            print(f"{label} {repeat + 1}: build={report['build']} "
+                  f"raster={report['raster']}", flush=True)
     shapes = {
         (tuple(report["physicalSize"]), report["pixelRatio"])
         for reports in results.values() for report in reports
@@ -97,7 +98,6 @@ def main():
     for label, reports in results.items():
         summaries[label] = {}
         for metric, group, value in [
-            ("viewportMeanUs", "viewportWork", "meanUs"),
             ("buildMeanMs", "build", "meanMs"),
             ("rasterMeanMs", "raster", "meanMs"),
         ]:

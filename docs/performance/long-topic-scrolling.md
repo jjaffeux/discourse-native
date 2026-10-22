@@ -93,13 +93,12 @@ flutter drive --no-pub --profile -d macos \
   --dart-define=PROFILE_LABEL=current
 ```
 
-Add `--dart-define=TRACE_VIEWPORT=true` for inspection durations, or
-`--dart-define=COLLECT_CPU=true` for a separate CPU profile. Tracing changes
-absolute frame costs, so compare runs with the same flags. The controller
-benchmark uses debug mode; the native driver uses profile mode.
+The driver reports build and raster frame timings. The controller benchmark
+uses debug mode; the native driver uses profile mode. The application diagnostics
+used for the historical inspection-duration measurements above have been removed.
 
-For paired macOS comparisons, compile each revision with the same driver and
-`TRACE_VIEWPORT=true`, then copy each complete
+For paired macOS comparisons, compile each revision with the same driver,
+then copy each complete
 `build/macos/Build/Products/Profile/Discourse.app` to a separate directory.
 The local run temporarily disabled signing in the worktree's Release xcconfig;
 that setting was restored and is not part of the change.
@@ -111,7 +110,8 @@ python3 tool/benchmark_long_topic_scroll.py \
 ```
 
 The runner checks successful workload completion, identical viewport size and
-pixel ratio, loaded-window size, and all eight 3,600-pixel excursions. It alternates five runs per side,
+pixel ratio, loaded-window size, at least 101 frames and scroll updates, and all
+eight 3,600-pixel excursions. It alternates five runs per side,
 records JSON and logs, and reports medians and ranges. It starts the supplied
 benchmark applications and terminates only those child processes.
 

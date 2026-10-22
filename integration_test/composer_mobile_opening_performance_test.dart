@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
-import 'package:discourse_native/src/diagnostics/surface_opening_trace.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -35,7 +34,6 @@ void main() {
     addTearDown(() {
       debugProfileBuildsEnabled = false;
       debugProfileLayoutsEnabled = false;
-      SurfaceOpeningTrace.observer = null;
       tester.view.resetViewInsets();
     });
     tester.testTextInput.register();
@@ -92,13 +90,7 @@ void main() {
     final reports = <Map<String, Object?>>[];
     for (var iteration = 0; iteration < 6; iteration++) {
       final frames = <ui.FrameTiming>[];
-      final marks = <String, double>{};
       final start = Timeline.now;
-      var builds = 0;
-      SurfaceOpeningTrace.observer = (name, timestamp) {
-        if (name == 'composer.build') builds++;
-        marks.putIfAbsent(name, () => (timestamp - start) / 1000);
-      };
       void collect(List<ui.FrameTiming> batch) => frames.addAll(batch);
       binding.addTimingsCallback(collect);
       final pixelRatio = tester.view.devicePixelRatio;
@@ -129,7 +121,6 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 700));
       } finally {
         binding.removeTimingsCallback(collect);
-        SurfaceOpeningTrace.observer = null;
       }
       frames.removeWhere((frame) {
         final timestamp = frame.timestampInMicroseconds(
@@ -138,7 +129,6 @@ void main() {
         return timestamp < start || timestamp > end;
       });
       expect(frames, isNotEmpty);
-      expect(builds, 1);
       final report = <String, Object?>{
         'label': const String.fromEnvironment(
           'PROFILE_LABEL',
@@ -158,8 +148,6 @@ void main() {
         'openedUs': opened,
         'endUs': end,
         'openingMs': (opened - start) / 1000,
-        'composerBuilds': builds,
-        'marksMs': marks,
         'frames': [
           for (final frame in frames)
             {
