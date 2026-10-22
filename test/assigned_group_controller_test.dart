@@ -797,6 +797,78 @@ void main() {
     },
   );
 
+  for (final retire in [false, true]) {
+    test(
+      'Store listener ${retire ? 'retirement' : 'refresh'} revokes page publication',
+      () async {
+        final old = Completer<TopicList>();
+        final fresh = Completer<TopicList>();
+        final api = _ControlledAssignedGroupApi()
+          ..topicResults.addAll([
+            _completed(_topics(10, more: '/assigned?page=1')),
+            fresh,
+          ])
+          ..pageResults.add(old);
+        final store = Store();
+        final controller = AssignedGroupController(
+          api: api,
+          requests: _requests(SiteLifecycle()),
+          topics: store,
+        );
+        addTearDown(controller.dispose);
+        const filter = AssignedGroupFilter.everyone();
+        Future<void> load({bool refresh = false}) => controller.loadTopics(
+          siteUrl: _site,
+          groupName: 'support',
+          filter: filter,
+          refresh: refresh,
+        );
+        await load();
+        final cell = store.ref<Topic>(_site, 11);
+        Future<void>? replacement;
+        void interrupt() {
+          cell.removeListener(interrupt);
+          if (retire) {
+            controller.forget(_site);
+          } else {
+            replacement = load(refresh: true);
+          }
+        }
+
+        cell.addListener(interrupt);
+        final page = controller.loadMoreTopics(
+          siteUrl: _site,
+          groupName: 'support',
+          filter: filter,
+        );
+        await pumpEventQueue();
+        var notifications = 0;
+        controller.addListener(() => notifications++);
+        old.complete(
+          const TopicList(
+            topics: [
+              Topic(id: 11, title: 'First', slug: 'first'),
+              Topic(id: 12, title: 'Revoked', slug: 'revoked'),
+            ],
+          ),
+        );
+        await page;
+        expect(store.read<Topic>(_site, 12), isNull);
+        final feed = controller.topicFeedFor(_site, 'support', filter);
+        expect(feed.topicIds, retire ? isEmpty : [10]);
+        expect(feed.loading, !retire);
+        expect(notifications, 1);
+        if (!retire) {
+          fresh.complete(_topics(13));
+          await replacement;
+          expect(controller.topicFeedFor(_site, 'support', filter).topicIds, [
+            13,
+          ]);
+        }
+      },
+    );
+  }
+
   test('a refreshing topic request wins over its older response', () async {
     final old = Completer<TopicList>();
     final fresh = Completer<TopicList>();

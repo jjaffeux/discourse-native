@@ -45,10 +45,7 @@ final class AssignedGroupController extends FrameSafeNotifier {
   final Map<_MemberKey, AssignedGroupMembersState> _memberStates = {};
   final Map<_MemberKey, Object> _memberRequests = {};
 
-  final Map<_TopicKey, TopicFeed> _topicFeeds = {};
-  final Map<_TopicKey, Object> _topicRevisions = {};
-  final Map<_TopicKey, Object> _topicLoads = {};
-  final Map<_TopicKey, Object> _topicPageRequests = {};
+  final Map<_TopicKey, _AssignedTopicQuery> _topicQueries = {};
 
   AssignedGroupMembersState membersStateFor(
     String siteUrl,
@@ -64,7 +61,10 @@ final class AssignedGroupController extends FrameSafeNotifier {
     AssignedGroupFilter filter, {
     AssignedGroupTopicQuery query = const AssignedGroupTopicQuery(),
   }) =>
-      _touchQuery(_topicFeeds, _topicKey(siteUrl, groupName, filter, query)) ??
+      _touchQuery(
+        _topicQueries,
+        _topicKey(siteUrl, groupName, filter, query),
+      )?.feed ??
       const TopicFeed();
 
   List<Topic> topicsFor(
@@ -93,16 +93,12 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }
 
   void _trimTopicQueries(String siteUrl) {
-    final keys = _topicFeeds.keys
+    final keys = _topicQueries.keys
         .where((key) => key.siteUrl == siteUrl)
         .toList(growable: false);
     if (keys.length <= _cachedQueriesPerSite) return;
     for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
-      _topicFeeds.remove(key);
-      // Revoke both first-page and pagination writes before they reach Store.
-      _topicRevisions.remove(key);
-      _topicLoads.remove(key);
-      _topicPageRequests.remove(key);
+      _topicQueries.remove(key)?.retire();
     }
   }
 
@@ -248,64 +244,18 @@ final class AssignedGroupController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = _topicKey(siteUrl, groupName, filter, query);
-    final held = _touchQuery(_topicFeeds, key) ?? const TopicFeed();
-    if (!refresh &&
-        (_topicLoads.containsKey(key) || (held.loaded && held.error == null))) {
-      return;
-    }
-
-    final revision = Object();
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _topicRevisions[key] = revision;
-    _topicLoads[key] = request;
-    _topicPageRequests.remove(key);
-    _topicFeeds[key] = held.refreshing();
+    final owner =
+        _touchQuery(_topicQueries, key) ??
+        (_topicQueries[key] = _AssignedTopicQuery(
+          key: key,
+          api: api,
+          requests: _requests,
+          topics: _topics,
+          notify: notifySafely,
+          diagnostics: diagnostics,
+        ));
     _trimTopicQueries(siteUrl);
-    notifySafely();
-    if (!_topicLoadCurrent(lease, key, revision, request)) return;
-
-    try {
-      final credentials = await _requests.credentialsFor(siteUrl);
-      if (!_topicLoadCurrent(lease, key, revision, request)) return;
-      final apiKey = credentials.apiKey;
-      if (apiKey == null) {
-        _commitTopicLoad(lease, key, revision, request, () {
-          _topicFeeds[key] = held.withError(
-            appL10n.reconnectToViewGroupAssignments,
-          );
-        });
-        return;
-      }
-
-      final list = await credentials.run(
-        () => api.topics(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: credentials.clientId,
-          groupName: key.groupName,
-          filter: key.filter,
-          query: key.query,
-        ),
-      );
-      _commitTopicLoad(lease, key, revision, request, () {
-        _topics.putAll(siteUrl, list.topics);
-        _topicFeeds[key] = TopicFeed.of(list);
-      });
-    } catch (error, stackTrace) {
-      if (!_topicLoadCurrent(lease, key, revision, request)) return;
-      _report(error, stackTrace, 'assign.groupTopics');
-      _commitTopicLoad(lease, key, revision, request, () {
-        _topicFeeds[key] = held.withError(
-          appL10n.couldnTLoadThisGroupSAssignments,
-        );
-      });
-    } finally {
-      if (!isDisposed && identical(_topicLoads[key], request)) {
-        _topicLoads.remove(key);
-        notifySafely();
-      }
-    }
+    await owner.load(refresh: refresh);
   }
 
   Future<void> loadMoreTopics({
@@ -315,99 +265,24 @@ final class AssignedGroupController extends FrameSafeNotifier {
     AssignedGroupTopicQuery query = const AssignedGroupTopicQuery(),
   }) async {
     if (isDisposed) return;
-    final key = _topicKey(siteUrl, groupName, filter, query);
-    final held = _touchQuery(_topicFeeds, key);
-    if (held == null ||
-        held.loading ||
-        held.loadingMore ||
-        !held.hasMore ||
-        _topicLoads.containsKey(key) ||
-        _topicPageRequests.containsKey(key) ||
-        (held.error != null && !held.pageError)) {
-      return;
-    }
-
-    final revision = _topicRevisions[key];
-    if (revision == null) return;
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _topicPageRequests[key] = request;
-    _topicFeeds[key] = held.loadingNextPage();
-    notifySafely();
-    if (!_topicPageCurrent(lease, key, revision, request)) return;
-
-    try {
-      final credentials = await _requests.credentialsFor(siteUrl);
-      if (!_topicPageCurrent(lease, key, revision, request)) return;
-      final apiKey = credentials.apiKey;
-      if (apiKey == null) {
-        _commitTopicPage(lease, key, revision, request, () {
-          _topicFeeds[key] = held.withError(
-            appL10n.reconnectToLoadMoreAssignments,
-            page: true,
-          );
-        });
-        return;
-      }
-
-      final requestedPath = held.nextPagePath!;
-      final next = await credentials.run(
-        () => api.topicPage(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: credentials.clientId,
-          path: requestedPath,
-        ),
-      );
-      _commitTopicPage(lease, key, revision, request, () {
-        _topics.putAll(siteUrl, next.topics);
-        final current = _topicFeeds[key] ?? held;
-        final seen = current.topicIds.toSet();
-        final fresh = [
-          for (final topic in next.topics)
-            if (seen.add(topic.id)) topic.id,
-        ];
-        _topicFeeds[key] = current.copyWith(
-          topicIds: [...current.topicIds, ...fresh],
-          loadingMore: false,
-          nextPagePath: next.nextPagePath,
-          clearNextPage:
-              next.nextPagePath == null || next.nextPagePath == requestedPath,
-          clearError: true,
-        );
-      });
-    } catch (error, stackTrace) {
-      if (!_topicPageCurrent(lease, key, revision, request)) return;
-      _report(
-        error,
-        stackTrace,
-        'assign.groupTopics.loadMore',
-        severity: DiagnosticSeverity.warning,
-      );
-      _commitTopicPage(lease, key, revision, request, () {
-        _topicFeeds[key] = held.withError(
-          appL10n.couldnTLoadMoreAssignments,
-          page: true,
-        );
-      });
-    } finally {
-      if (!isDisposed && identical(_topicPageRequests[key], request)) {
-        _topicPageRequests.remove(key);
-        notifySafely();
-      }
-    }
+    final owner = _touchQuery(
+      _topicQueries,
+      _topicKey(siteUrl, groupName, filter, query),
+    );
+    await owner?.loadMore();
   }
 
   void forget(String siteUrl) {
-    final before = _memberStates.length + _topicFeeds.length;
+    final before = _memberStates.length + _topicQueries.length;
     _memberStates.removeWhere((key, _) => key.siteUrl == siteUrl);
     _memberRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _topicFeeds.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _topicRevisions.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _topicLoads.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _topicPageRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _topicQueries.removeWhere((key, owner) {
+      if (key.siteUrl != siteUrl) return false;
+      owner.retire();
+      return true;
+    });
     if (_ownsTopicStore) _topics.forget(siteUrl);
-    if (before != _memberStates.length + _topicFeeds.length) notifySafely();
+    if (before != _memberStates.length + _topicQueries.length) notifySafely();
   }
 
   // Reads and load attempts count as access; asynchronous completions do not
@@ -470,58 +345,6 @@ final class AssignedGroupController extends FrameSafeNotifier {
     }
   }
 
-  bool _topicLoadCurrent(
-    PluginSiteLease lease,
-    _TopicKey key,
-    Object revision,
-    Object request,
-  ) =>
-      !isDisposed &&
-      lease.isCurrent &&
-      identical(_topicRevisions[key], revision) &&
-      identical(_topicLoads[key], request);
-
-  bool _topicPageCurrent(
-    PluginSiteLease lease,
-    _TopicKey key,
-    Object revision,
-    Object request,
-  ) =>
-      !isDisposed &&
-      lease.isCurrent &&
-      identical(_topicRevisions[key], revision) &&
-      identical(_topicPageRequests[key], request);
-
-  void _commitTopicLoad(
-    PluginSiteLease lease,
-    _TopicKey key,
-    Object revision,
-    Object request,
-    void Function() mutation,
-  ) {
-    if (!_topicLoadCurrent(lease, key, revision, request)) return;
-    lease.commit(() {
-      if (!_topicLoadCurrent(lease, key, revision, request)) return;
-      mutation();
-      notifySafely();
-    });
-  }
-
-  void _commitTopicPage(
-    PluginSiteLease lease,
-    _TopicKey key,
-    Object revision,
-    Object request,
-    void Function() mutation,
-  ) {
-    if (!_topicPageCurrent(lease, key, revision, request)) return;
-    lease.commit(() {
-      if (!_topicPageCurrent(lease, key, revision, request)) return;
-      mutation();
-      notifySafely();
-    });
-  }
-
   void _report(
     Object error,
     StackTrace stackTrace,
@@ -543,10 +366,166 @@ final class AssignedGroupController extends FrameSafeNotifier {
   void dispose() {
     _memberStates.clear();
     _memberRequests.clear();
-    _topicFeeds.clear();
-    _topicRevisions.clear();
-    _topicLoads.clear();
-    _topicPageRequests.clear();
+    for (final owner in _topicQueries.values) {
+      owner.retire();
+    }
+    _topicQueries.clear();
     super.dispose();
+  }
+}
+
+final class _AssignedTopicQuery {
+  _AssignedTopicQuery({
+    required this.key,
+    required this.api,
+    required this.requests,
+    required this.topics,
+    required this.notify,
+    required this.diagnostics,
+  });
+
+  final _TopicKey key;
+  final AssignedGroupApi api;
+  final PluginRequestHost requests;
+  final Store topics;
+  final void Function() notify;
+  final PluginDiagnosticsReporter diagnostics;
+
+  TopicFeed feed = const TopicFeed();
+  Object? _request;
+  bool _retired = false;
+
+  Future<void> load({bool refresh = false}) =>
+      _load(page: false, refresh: refresh);
+
+  Future<void> loadMore() => _load(page: true);
+
+  Future<void> _load({required bool page, bool refresh = false}) async {
+    if (_retired) return;
+    final held = feed;
+    if (page) {
+      if (_request != null ||
+          held.loading ||
+          held.loadingMore ||
+          !held.hasMore ||
+          (held.error != null && !held.pageError)) {
+        return;
+      }
+    } else if (!refresh &&
+        (_request != null || (held.loaded && held.error == null))) {
+      return;
+    }
+
+    final request = Object();
+    final lease = requests.capture(key.siteUrl);
+    final requestedPath = page ? held.nextPagePath! : null;
+    _request = request;
+    feed = page ? held.loadingNextPage() : held.refreshing();
+    notify();
+    if (!_current(lease, request)) return;
+
+    try {
+      final credentials = await requests.credentialsFor(key.siteUrl);
+      if (!_current(lease, request)) return;
+      final apiKey = credentials.apiKey;
+      if (apiKey == null) {
+        _commit(lease, request, () {
+          feed = held.withError(
+            page
+                ? appL10n.reconnectToLoadMoreAssignments
+                : appL10n.reconnectToViewGroupAssignments,
+            page: page,
+          );
+        });
+        return;
+      }
+
+      final list = await credentials.run(
+        () => page
+            ? api.topicPage(
+                siteUrl: key.siteUrl,
+                apiKey: apiKey,
+                clientId: credentials.clientId,
+                path: requestedPath!,
+              )
+            : api.topics(
+                siteUrl: key.siteUrl,
+                apiKey: apiKey,
+                clientId: credentials.clientId,
+                groupName: key.groupName,
+                filter: key.filter,
+                query: key.query,
+              ),
+      );
+      _commit(lease, request, () {
+        for (final topic in list.topics) {
+          if (!_current(lease, request)) return;
+          topics.put(key.siteUrl, topic);
+        }
+        if (!_current(lease, request)) return;
+        if (!page) {
+          feed = TopicFeed.of(list);
+          return;
+        }
+        final seen = feed.topicIds.toSet();
+        final fresh = [
+          for (final topic in list.topics)
+            if (seen.add(topic.id)) topic.id,
+        ];
+        feed = feed.copyWith(
+          topicIds: [...feed.topicIds, ...fresh],
+          loadingMore: false,
+          nextPagePath: list.nextPagePath,
+          clearNextPage:
+              list.nextPagePath == null || list.nextPagePath == requestedPath,
+          clearError: true,
+        );
+      });
+    } catch (error, stackTrace) {
+      if (!_current(lease, request)) return;
+      diagnostics.reportError(
+        error,
+        stackTrace,
+        operation: page ? 'assign.groupTopics.loadMore' : 'assign.groupTopics',
+        source: 'assign',
+        severity: page ? DiagnosticSeverity.warning : DiagnosticSeverity.error,
+        handled: true,
+        degraded: true,
+      );
+      _commit(lease, request, () {
+        feed = held.withError(
+          page
+              ? appL10n.couldnTLoadMoreAssignments
+              : appL10n.couldnTLoadThisGroupSAssignments,
+          page: page,
+        );
+      });
+    } finally {
+      if (!_retired && identical(_request, request)) {
+        _request = null;
+        notify();
+      }
+    }
+  }
+
+  bool _current(PluginSiteLease lease, Object request) =>
+      !_retired && lease.isCurrent && identical(_request, request);
+
+  void _commit(
+    PluginSiteLease lease,
+    Object request,
+    void Function() mutation,
+  ) {
+    if (!_current(lease, request)) return;
+    lease.commit(() {
+      if (!_current(lease, request)) return;
+      mutation();
+      if (_current(lease, request)) notify();
+    });
+  }
+
+  void retire() {
+    _retired = true;
+    _request = null;
   }
 }
