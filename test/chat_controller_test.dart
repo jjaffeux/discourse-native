@@ -317,6 +317,23 @@ ChatChannel channel(
   );
 }
 
+final class _QueuedPinApi extends FakeDiscourseApi {
+  final pinResponses = <Completer<ChatPins>>[];
+
+  @override
+  Future<ChatPins> chatPinnedMessages({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+    required int channelId,
+  }) {
+    chatPinnedMessagesRequested.add(channelId);
+    final response = Completer<ChatPins>();
+    pinResponses.add(response);
+    return response.future;
+  }
+}
+
 final class _GatedCredentials extends FakeApiCredentialReader {
   _GatedCredentials(this.gate);
 
@@ -7083,6 +7100,232 @@ void main() {
   });
 
   group('the pinned-message snapshot', () {
+    for (final fetched in [false, true]) {
+      test(
+        'rereads ${fetched ? 'refresh' : 'initial'} snapshot overtaken by a live unpin',
+        () async {
+          final api = _QueuedPinApi();
+          final subject = build(api: api, currentUser: currentUser);
+          addTearDown(subject.chat.dispose);
+          subject.store.put(site, channel(9));
+          final tracker = attachTracker(subject.chat);
+          final view = subject.chat.beginViewingChannel(site, 9);
+          addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+          final ref = subject.chat.pinsListenable(site, 9);
+          final publishedIds = <List<int>>[];
+          ref.addListener(() {
+            publishedIds.add(
+              ref.value.pins.map((pin) => pin.messageId).toList(),
+            );
+          });
+          final stale = ChatPin(
+            id: 91,
+            messageId: 12,
+            message: message(12, pinned: true),
+            pinnedBy: const ChatMessageAuthor(id: 7, username: 'reader'),
+          );
+          final remaining = ChatPin(
+            id: 92,
+            messageId: 13,
+            message: message(13, pinned: true),
+            pinnedBy: const ChatMessageAuthor(id: 7, username: 'reader'),
+          );
+          if (fetched) {
+            final initial = subject.chat.loadPinnedMessages(site, 9);
+            await Future<void>.delayed(Duration.zero);
+            api.pinResponses.last.complete((
+              pins: [stale, remaining],
+              membership: null,
+            ));
+            await initial;
+            api.pinResponses.clear();
+          }
+          final answer = subject.chat.loadPinnedMessages(
+            site,
+            9,
+            force: fetched,
+          );
+          await Future<void>.delayed(Duration.zero);
+          expect(api.pinResponses, hasLength(1));
+          tracker.deliverPluginMessage('/chat/9', {
+            'type': 'unpin',
+            'chat_message_id': 12,
+            'pinned_message_count': 1,
+          });
+          publishedIds.clear();
+          if (fetched) expect(ref.value.pins, [remaining]);
+          api.pinResponses.first.complete((
+            pins: [stale, remaining],
+            membership: null,
+          ));
+          await Future<void>.delayed(Duration.zero);
+          if (fetched) {
+            expect(subject.chat.message(site, 12)?.pinned, isFalse);
+          } else {
+            expect(subject.store.read<ChatMessage>(site, 12), isNull);
+          }
+          expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 1);
+          expect(publishedIds.any((ids) => ids.contains(12)), isFalse);
+          expect(api.pinResponses, hasLength(2));
+          api.pinResponses.last.complete((pins: [remaining], membership: null));
+          await answer;
+          expect(ref.value.pins, [remaining]);
+          expect(ref.value.fetched, isTrue);
+          expect(ref.value.loading, isFalse);
+          expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 1);
+        },
+      );
+    }
+
+    test(
+      'a live unpin during canonical publication makes the snapshot dirty',
+      () async {
+        final api = _QueuedPinApi();
+        final subject = build(api: api, currentUser: currentUser);
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        final tracker = attachTracker(subject.chat);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+        final held = subject.store.ref<ChatMessage>(site, 12);
+        var delivered = false;
+        void unpin() {
+          if (delivered || held.value?.pinned != true) return;
+          delivered = true;
+          tracker.deliverPluginMessage('/chat/9', {
+            'type': 'unpin',
+            'chat_message_id': 12,
+            'pinned_message_count': 0,
+          });
+        }
+
+        held.addListener(unpin);
+        addTearDown(() => held.removeListener(unpin));
+        final load = subject.chat.loadPinnedMessages(site, 9);
+        await Future<void>.delayed(Duration.zero);
+        api.pinResponses.first.complete((
+          pins: [
+            ChatPin(
+              id: 91,
+              messageId: 12,
+              message: message(12, pinned: true),
+              pinnedBy: const ChatMessageAuthor(id: 7, username: 'reader'),
+            ),
+          ],
+          membership: const ChatMembership(
+            following: true,
+            hasUnseenPins: true,
+          ),
+        ));
+        await Future<void>.delayed(Duration.zero);
+        expect(delivered, isTrue);
+        expect(subject.chat.message(site, 12)?.pinned, isFalse);
+        expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 0);
+        expect(
+          subject.chat.channel(site, 9)?.membership.hasUnseenPins,
+          isFalse,
+        );
+        expect(subject.chat.pinsListenable(site, 9).value.pins, isEmpty);
+        expect(api.pinResponses, hasLength(2));
+        api.pinResponses.last.complete((pins: const <ChatPin>[], membership: null));
+        await load;
+        expect(subject.chat.pinsListenable(site, 9).value.loading, isFalse);
+      },
+    );
+
+    test('controller disposal does not notify pin list listeners', () async {
+      final subject = build();
+      await subject.chat.loadPinnedMessages(site, 9);
+      final ref = subject.chat.pinsListenable(site, 9);
+      var notifications = 0;
+      ref.addListener(() => notifications++);
+      subject.chat.dispose();
+      expect(notifications, 0);
+    });
+
+    test('a forgotten owner cannot publish into its reopened list', () async {
+      final api = _QueuedPinApi();
+      final subject = build(api: api);
+      addTearDown(subject.chat.dispose);
+      final previous = subject.chat.pinsListenable(site, 9);
+      final oldLoad = subject.chat.loadPinnedMessages(site, 9);
+      await Future<void>.delayed(Duration.zero);
+      subject.chat.forget(site);
+      final current = subject.chat.pinsListenable(site, 9);
+      expect(current, isNot(same(previous)));
+      final newLoad = subject.chat.loadPinnedMessages(site, 9);
+      await Future<void>.delayed(Duration.zero);
+      final stale = ChatPin(
+        id: 91,
+        messageId: 12,
+        message: message(12, pinned: true),
+        pinnedBy: const ChatMessageAuthor(id: 7, username: 'reader'),
+      );
+      api.pinResponses.first.complete((pins: [stale], membership: null));
+      await oldLoad;
+      expect(subject.store.read<ChatMessage>(site, 12), isNull);
+      expect(current.value.loading, isTrue);
+      expect(previous.value.pins, isEmpty);
+      api.pinResponses.last.complete((pins: const <ChatPin>[], membership: null));
+      await newLoad;
+      expect(current.value.fetched, isTrue);
+      expect(current.value.loading, isFalse);
+    });
+
+    test('a forced pin request supersedes an older completion', () async {
+      final api = _QueuedPinApi();
+      final subject = build(api: api);
+      addTearDown(subject.chat.dispose);
+      final oldLoad = subject.chat.loadPinnedMessages(site, 9);
+      await Future<void>.delayed(Duration.zero);
+      final newLoad = subject.chat.loadPinnedMessages(site, 9, force: true);
+      await Future<void>.delayed(Duration.zero);
+      api.pinResponses.first.complete((pins: const <ChatPin>[], membership: null));
+      await oldLoad;
+      final ref = subject.chat.pinsListenable(site, 9);
+      expect(ref.value.loading, isTrue);
+      expect(ref.value.fetched, isFalse);
+      await subject.chat.loadPinnedMessages(site, 9);
+      expect(api.pinResponses, hasLength(2));
+      api.pinResponses.last.complete((pins: const <ChatPin>[], membership: null));
+      await newLoad;
+      expect(ref.value.fetched, isTrue);
+      expect(ref.value.loading, isFalse);
+    });
+
+    test(
+      'a dirty reread error settles the pin list without stale rows',
+      () async {
+        final api = _QueuedPinApi();
+        final subject = build(api: api);
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9));
+        final tracker = attachTracker(subject.chat);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+        final load = subject.chat.loadPinnedMessages(site, 9);
+        await Future<void>.delayed(Duration.zero);
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'pin',
+          'chat_message_id': 12,
+          'pinned_message_count': 1,
+        });
+        api.pinResponses.first.complete((pins: const <ChatPin>[], membership: null));
+        await Future<void>.delayed(Duration.zero);
+        expect(api.pinResponses, hasLength(2));
+        api.pinResponses.last.completeError(
+          const WriteException(WriteFailure.forbidden),
+        );
+        await load;
+        final state = subject.chat.pinsListenable(site, 9).value;
+        expect(state.fetched, isTrue);
+        expect(state.loading, isFalse);
+        expect(state.error, isNotNull);
+        expect(state.pins, isEmpty);
+        expect(subject.chat.channel(site, 9)?.pinnedMessagesCount, 1);
+      },
+    );
+
     test('stores pin rows, canonical messages, and membership state', () async {
       final pinned = message(12, pinned: true);
       final pin = ChatPin(

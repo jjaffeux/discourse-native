@@ -37,6 +37,7 @@ part 'chat_channel_directory.dart';
 part 'chat_thread_catalog.dart';
 part 'chat_message_write_owner.dart';
 part 'chat_reaction_owner.dart';
+part 'chat_channel_pins.dart';
 
 typedef _ChatThreadMetadataKey = ({String siteUrl, ChatThreadTarget target});
 
@@ -686,7 +687,7 @@ class ChatController extends FrameSafeNotifier {
 
   @visibleForTesting
   int pinSnapshotCountForTesting(String siteUrl) =>
-      _pinListRefs.keys.where((key) => key.startsWith('$siteUrl~')).length;
+      _pinLists.keys.where((key) => key.startsWith('$siteUrl~')).length;
 
   @visibleForTesting
   int pinnedMessageCountForTesting(String siteUrl) => _conversations.values
@@ -836,8 +837,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, Map<int, int>> _hiddenDeletedMessageChannelIds = {};
   final Map<String, _AccountMessageWrites> _messageWriteOwners = {};
   final Map<({String siteUrl, int channelId}), Object> _messageQuoteWrites = {};
-  final Map<String, Object> _pinListRequests = {};
-  final Map<String, FrameSafeValueNotifier<ChatPinsState>> _pinListRefs = {};
+  final Map<String, _ChatChannelPins> _pinLists = {};
   final Map<String, _AccountChatReactions> _reactionOwners = {};
   final Map<String, int> _bookmarkVersions = {};
   final Map<String, FrameSafeValueNotifier<ChatComposerDraft?>>
@@ -1479,94 +1479,22 @@ class ChatController extends FrameSafeNotifier {
   ChatMessage? message(String siteUrl, int messageId) =>
       _store.read<ChatMessage>(siteUrl, messageId);
 
+  _ChatChannelPins _pinsFor(String siteUrl, int channelId) =>
+      _pinLists.putIfAbsent(
+        _pinsKey(siteUrl, channelId),
+        () => _ChatChannelPins(this, siteUrl, channelId),
+      );
+
   ValueListenable<ChatPinsState> pinsListenable(
     String siteUrl,
     int channelId,
-  ) => _pinListRefs.putIfAbsent(
-    _pinsKey(siteUrl, channelId),
-    () => FrameSafeValueNotifier(const ChatPinsState()),
-  );
+  ) => _pinsFor(siteUrl, channelId).ref;
 
-  /// A snapshot belongs to its channel's retained target: it is weighed
-  /// against the site's message budget and released when the target is
-  /// evicted, so a revisit fetches the pins again.
   Future<void> loadPinnedMessages(
     String siteUrl,
     int channelId, {
     bool force = false,
-  }) async {
-    final key = _pinsKey(siteUrl, channelId);
-    final ref = _pinListRefs.putIfAbsent(
-      key,
-      () => FrameSafeValueNotifier(const ChatPinsState()),
-    );
-    if (!force && (ref.value.fetched || _pinListRequests.containsKey(key))) {
-      return;
-    }
-    final target = ChatChannelTarget(channelId);
-    final targetKey = _targetKey(siteUrl, target);
-    _rememberTarget(siteUrl, target);
-    _enforceSiteRetention(siteUrl, keep: targetKey);
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _pinListRequests[key] = request;
-    ref.value = ref.value.copyWith(loading: true, clearError: true);
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_pinListRequests[key], request);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return;
-      if (apiKey == null) throw const WriteException(WriteFailure.forbidden);
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return;
-      final snapshot = await requestCredentials.run(
-        () => api.chatPinnedMessages(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: channelId,
-        ),
-      );
-      if (!ownsRequest()) return;
-      lease.commit(() {
-        for (final pin in snapshot.pins) {
-          _putLiveMessage(siteUrl, pin.message);
-        }
-        final heldChannel = channel(siteUrl, channelId);
-        if (heldChannel != null) {
-          _putChannel(
-            siteUrl,
-            heldChannel.withPinSnapshot(
-              count: snapshot.pins.length,
-              membership: snapshot.membership,
-            ),
-          );
-        }
-        ref.value = ChatPinsState(
-          pins: List.unmodifiable(snapshot.pins),
-          fetched: true,
-        );
-        _enforceSiteRetention(siteUrl, keep: targetKey);
-      });
-    } catch (error, stackTrace) {
-      if (!ownsRequest()) return;
-      _report(error, stackTrace, 'chat.loadPinnedMessages');
-      ref.value = ref.value.copyWith(
-        loading: false,
-        fetched: true,
-        error: appL10n.couldNotLoadPinnedMessages,
-      );
-    } finally {
-      if (identical(_pinListRequests[key], request)) {
-        _pinListRequests.remove(key);
-      }
-    }
-  }
+  }) => _pinsFor(siteUrl, channelId).load(force: force);
 
   Future<void> markPinnedMessagesRead(String siteUrl, int channelId) async {
     final held = channel(siteUrl, channelId);
@@ -2373,6 +2301,12 @@ class ChatController extends FrameSafeNotifier {
     final messageId = jsonIntOrNull(data['chat_message_id']);
     if (messageId == null) return;
     final message = _store.read<ChatMessage>(siteUrl, messageId);
+    final resolvedChannelId =
+        message?.channelId ?? channelId ?? jsonIntOrNull(data['channel_id']);
+    final pins = resolvedChannelId == null
+        ? null
+        : _pinLists[_pinsKey(siteUrl, resolvedChannelId)];
+    pins?.advanceLiveRevision();
     final pinned = data['type'] == 'pin';
     var changed = false;
     if (message != null && message.pinned != pinned) {
@@ -2381,8 +2315,6 @@ class ChatController extends FrameSafeNotifier {
       _bumpStreamsHolding(siteUrl, messageId);
     }
 
-    final resolvedChannelId =
-        message?.channelId ?? channelId ?? jsonIntOrNull(data['channel_id']);
     if (resolvedChannelId != null) {
       _updateChannel(siteUrl, resolvedChannelId, (channel) {
         final authoritative = jsonIntOrNull(data['pinned_message_count']);
@@ -2397,22 +2329,7 @@ class ChatController extends FrameSafeNotifier {
         return channel.withPinnedMessagesCount(count, hasUnseenPins: unseen);
       });
 
-      final ref = _pinListRefs[_pinsKey(siteUrl, resolvedChannelId)];
-      if (ref != null && ref.value.fetched) {
-        if (!pinned) {
-          ref.value = ref.value.copyWith(
-            pins: List.unmodifiable([
-              for (final pin in ref.value.pins)
-                if (pin.messageId != messageId) pin,
-            ]),
-            clearError: true,
-          );
-        } else {
-          unawaited(
-            loadPinnedMessages(siteUrl, resolvedChannelId, force: true),
-          );
-        }
-      }
+      pins?.applyLiveEvent(messageId, pinned: pinned);
     }
   }
 
@@ -2681,7 +2598,7 @@ class ChatController extends FrameSafeNotifier {
     final pinsKey = _retainedPinsKey(key);
     final pinCount = pinsKey == null
         ? 0
-        : _pinListRefs[pinsKey]?.value.pins.length ?? 0;
+        : _pinLists[pinsKey]?.ref.value.pins.length ?? 0;
     return windowWeight + pinCount;
   }
 
@@ -2716,7 +2633,7 @@ class ChatController extends FrameSafeNotifier {
     if (_liveSync.isViewingTarget(identity.siteUrl, identity.target) ||
         (identity._ref?.hasListeners ?? false) ||
         identity.preventsEviction ||
-        (pinsKey != null && (_pinListRefs[pinsKey]?.hasListeners ?? false)) ||
+        (pinsKey != null && (_pinLists[pinsKey]?.ref.hasListeners ?? false)) ||
         (_composerDraftRefs[key]?.hasListeners ?? false) ||
         _composerDraftRefs[key]?.value != null ||
         (metadata?.preventsEviction ?? false) ||
@@ -2731,14 +2648,7 @@ class ChatController extends FrameSafeNotifier {
     _preparedCooking?.cancel(('draft', key));
     final pinsKey = _retainedPinsKey(key);
     if (pinsKey != null) {
-      // Disowning the request stops a late snapshot from repopulating a
-      // channel the budget has already released.
-      _pinListRequests.remove(pinsKey);
-      final pinsRef = _pinListRefs.remove(pinsKey);
-      if (pinsRef != null) {
-        pinsRef.value = const ChatPinsState();
-        pinsRef.dispose();
-      }
+      _pinLists.remove(pinsKey)?.retire(_ChatPinsRetirement.evicted);
     }
     final owner = _conversations.remove(key);
     owner?.retire();
@@ -4046,15 +3956,14 @@ class ChatController extends FrameSafeNotifier {
       ref.value = null;
     }
     _messageQuoteWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _pinListRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    final forgottenPinRefs = <FrameSafeValueNotifier<ChatPinsState>>[];
-    _pinListRefs.removeWhere((key, ref) {
-      if (!key.startsWith('$siteUrl~')) return false;
-      forgottenPinRefs.add(ref);
+    final forgottenPins = <_ChatChannelPins>[];
+    _pinLists.removeWhere((_, owner) {
+      if (owner.siteUrl != siteUrl) return false;
+      forgottenPins.add(owner);
       return true;
     });
-    for (final ref in forgottenPinRefs) {
-      ref.value = const ChatPinsState();
+    for (final owner in forgottenPins) {
+      owner.retire(_ChatPinsRetirement.forgotten);
     }
     _bookmarkVersions.remove(siteUrl);
     _threadMetadata.removeWhere((key, _) => key.siteUrl == siteUrl);
@@ -4107,11 +4016,11 @@ class ChatController extends FrameSafeNotifier {
     _threadMetadata.clear();
     _hiddenDeletedMessageChannelIds.clear();
     _messageQuoteWrites.clear();
-    _pinListRequests.clear();
-    for (final ref in _pinListRefs.values) {
-      ref.dispose();
+    final pinLists = _pinLists.values.toList(growable: false);
+    _pinLists.clear();
+    for (final owner in pinLists) {
+      owner.retire(_ChatPinsRetirement.disposed);
     }
-    _pinListRefs.clear();
     _bookmarkVersions.clear();
     for (final ref in _composerDraftRefs.values) {
       ref.dispose();
