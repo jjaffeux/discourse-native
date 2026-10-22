@@ -361,6 +361,9 @@ final class FakeVoicePreferences implements VoicePreferences {
   Future<void> Function(int userId)? onReadVolume;
   Future<void> Function(bool)? onWriteCamera;
   Future<VoiceDevicePreferences> Function()? onReadDevices;
+  Future<bool?> Function()? onReadAutoStatus;
+  Future<void> Function(VoiceDevicePreference, String)? onWriteDevice;
+  Future<void> Function(bool)? onWritePushToTalk;
 
   @override
   Future<bool> readCameraEnabled(String siteUrl, int userId) async =>
@@ -403,6 +406,7 @@ final class FakeVoicePreferences implements VoicePreferences {
     String value,
   ) async {
     writes.add('device:${preference.name}:$value');
+    await onWriteDevice?.call(preference, value);
     deviceWriteStarted?.complete();
     await deviceWriteGate?.future;
     if (rejectWrites) throw StateError('device write rejected');
@@ -423,6 +427,7 @@ final class FakeVoicePreferences implements VoicePreferences {
   @override
   Future<void> writePushToTalk(bool enabled) async {
     writes.add('pushToTalk:$enabled');
+    await onWritePushToTalk?.call(enabled);
     if (rejectWrites) throw StateError('push-to-talk write rejected');
   }
 
@@ -446,7 +451,8 @@ final class FakeVoicePreferences implements VoicePreferences {
   }
 
   @override
-  Future<bool?> readAutoStatusEnabled() async => autoStatusEnabled;
+  Future<bool?> readAutoStatusEnabled() async =>
+      onReadAutoStatus == null ? autoStatusEnabled : await onReadAutoStatus!();
 
   @override
   Future<void> writeAutoStatusEnabled(bool enabled) async {
@@ -7207,6 +7213,265 @@ void main() {
   });
 
   group('per-device choices', () {
+    test(
+      'late startup reads preserve explicit default-valued choices',
+      () async {
+        final devices = Completer<VoiceDevicePreferences>();
+        final status = Completer<bool?>();
+        preferences.onReadDevices = () => devices.future;
+        preferences.onReadAutoStatus = () => status.future;
+        useTransport(transport);
+        await controller.setPushToTalkEnabled(false);
+        await controller.setAutoStatusEnabled(true);
+        devices.complete(
+          const VoiceDevicePreferences(
+            audioInputDeviceId: 'stored-input',
+            audioOutputDeviceId: 'stored-output',
+            pushToTalkEnabled: true,
+          ),
+        );
+        status.complete(false);
+        await pumpEventQueue();
+        expect(
+          (controller.pushToTalkEnabled, controller.autoStatusEnabled),
+          (false, true),
+        );
+        expect(controller.audioInputDeviceId, 'stored-input');
+        expect(controller.audioOutputDeviceId, 'stored-output');
+      },
+    );
+
+    test('late startup reads preserve newer explicit choices', () async {
+      final devices = Completer<VoiceDevicePreferences>();
+      final status = Completer<bool?>();
+      preferences.onReadDevices = () => devices.future;
+      preferences.onReadAutoStatus = () => status.future;
+      useTransport(transport);
+
+      await controller.selectAudioInput('chosen-input');
+      await controller.selectAudioOutput('chosen-output');
+      await controller.setPushToTalkEnabled(true);
+      await controller.setAutoStatusEnabled(false);
+      devices.complete(
+        const VoiceDevicePreferences(
+          audioInputDeviceId: 'stored-input',
+          audioOutputDeviceId: 'stored-output',
+          cameraDeviceId: 'stored-camera',
+        ),
+      );
+      status.complete(true);
+      await pumpEventQueue();
+
+      expect(
+        (
+          controller.audioInputDeviceId,
+          controller.audioOutputDeviceId,
+          controller.pushToTalkEnabled,
+          controller.autoStatusEnabled,
+        ),
+        ('chosen-input', 'chosen-output', true, false),
+      );
+      expect(controller.cameraDeviceId, 'stored-camera');
+    });
+
+    for (final input in [true, false]) {
+      test(
+        'a newer ${input ? 'input' : 'output'} choice supersedes saved-device fallback',
+        () async {
+          preferences.devices = VoiceDevicePreferences(
+            audioInputDeviceId: input ? 'saved' : null,
+            audioOutputDeviceId: input ? null : 'saved',
+          );
+          useTransport(transport);
+          final started = Completer<void>();
+          final pending = Completer<void>();
+          Future<void> failSaved(String value) async {
+            if (value == 'saved') {
+              started.complete();
+              await pending.future;
+              throw Exception('device disconnected');
+            }
+          }
+
+          if (input) {
+            mediaFactory.nextAudioInputSelection = failSaved;
+          } else {
+            mediaFactory.nextAudioOutputSelection = failSaved;
+          }
+          await controller.ensureLoaded(firstSite);
+          final joining = controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          await started.future;
+          final selected = input
+              ? controller.selectAudioInput('new-choice')
+              : controller.selectAudioOutput('new-choice');
+          await pumpEventQueue();
+          pending.complete();
+          await Future.wait([joining, selected]);
+          final media = mediaFactory.sessions.single;
+          expect(
+            input ? media.selectedAudioInput : media.selectedAudioOutput,
+            'new-choice',
+          );
+          expect(
+            input ? media.audioInputSelections : media.audioOutputSelections,
+            isNot(contains('default')),
+          );
+        },
+      );
+
+      test(
+        'newer ${input ? 'input' : 'output'} selection supersedes a pending write',
+        () async {
+          await controller.ensureLoaded(firstSite);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          final media = mediaFactory.sessions.single;
+          final pending = Completer<void>();
+          preferences.onWriteDevice = (_, value) async {
+            if (value == 'old-choice') await pending.future;
+          };
+          final select = input
+              ? controller.selectAudioInput
+              : controller.selectAudioOutput;
+          final older = select('old-choice');
+          await pumpEventQueue();
+          await select('new-choice');
+          pending.complete();
+          await older;
+
+          expect(
+            input
+                ? controller.audioInputDeviceId
+                : controller.audioOutputDeviceId,
+            'new-choice',
+          );
+          expect(
+            input ? media.selectedAudioInput : media.selectedAudioOutput,
+            'new-choice',
+          );
+        },
+      );
+
+      test(
+        'overlapping ${input ? 'input' : 'output'} SDK selections finish with the newest choice',
+        () async {
+          await controller.ensureLoaded(firstSite);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          final media = mediaFactory.sessions.single;
+          final started = Completer<void>();
+          final pending = Completer<void>();
+          Future<void> holdOlder(String value) async {
+            if (value == 'old-choice') {
+              started.complete();
+              await pending.future;
+            }
+          }
+
+          if (input) {
+            media.onSelectAudioInput = holdOlder;
+          } else {
+            media.onSelectAudioOutput = holdOlder;
+          }
+          final select = input
+              ? controller.selectAudioInput
+              : controller.selectAudioOutput;
+          final older = select('old-choice');
+          await started.future;
+          final newer = select('new-choice');
+          await pumpEventQueue();
+          pending.complete();
+          await Future.wait([older, newer]);
+          expect(
+            input ? media.selectedAudioInput : media.selectedAudioOutput,
+            'new-choice',
+          );
+        },
+      );
+
+      test(
+        'pending ${input ? 'input' : 'output'} preference write cannot select on a replacement call',
+        () async {
+          await controller.ensureLoaded(firstSite);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          final original = mediaFactory.sessions.single;
+          final started = Completer<void>();
+          final pending = Completer<void>();
+          preferences.onWriteDevice = (_, value) async {
+            started.complete();
+            await pending.future;
+          };
+          final selection = input
+              ? controller.selectAudioInput('new-choice')
+              : controller.selectAudioOutput('new-choice');
+          await started.future;
+          await controller.leave();
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          final replacement = mediaFactory.sessions.last;
+          final before = List<String>.of(
+            input
+                ? replacement.audioInputSelections
+                : replacement.audioOutputSelections,
+          );
+          pending.complete();
+          await selection;
+          expect(
+            input
+                ? replacement.audioInputSelections
+                : replacement.audioOutputSelections,
+            before,
+          );
+          expect(
+            input ? original.selectedAudioInput : original.selectedAudioOutput,
+            isNull,
+          );
+        },
+      );
+    }
+
+    test(
+      'an older push-to-talk enable cannot mute after a newer disable',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+          'join_mesh',
+        );
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final pending = Completer<void>();
+        preferences.onWritePushToTalk = (value) async {
+          if (value) await pending.future;
+        };
+        final older = controller.setPushToTalkEnabled(true);
+        await controller.setPushToTalkEnabled(false);
+        pending.complete();
+        await older;
+        expect(controller.pushToTalkEnabled, isFalse);
+        expect(controller.call!.muted, isFalse);
+      },
+    );
+
     test('a restored status choice shapes the join request', () async {
       preferences.autoStatusEnabled = false;
       useTransport(transport);
