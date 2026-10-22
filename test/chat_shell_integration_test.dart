@@ -1231,6 +1231,77 @@ void _registerChatShellTests() {
         );
       }
 
+      testWidgets(
+        'a topic sheet swiped away over a mobile channel leaves its composer and dock in place',
+        (tester) async {
+          const writer = DiscourseUser(
+            id: 7,
+            username: 'joffreyj',
+            canCreateTopic: true,
+          );
+          await pumpChat(
+            tester,
+            size: phone,
+            user: writer,
+            public: [channel(9)],
+            messages: {
+              key(9): page([for (var id = 1; id <= 30; id++) msg(id)]),
+            },
+          );
+          tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+          tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+          await selectChatSidebar(tester);
+          ShellScope.read(
+            tester.element(find.byKey(const ValueKey('mobile-root'))),
+          ).openChatChannel(9);
+          await tester.pumpAndSettle();
+          final composer = find.byKey(const ValueKey('chat-composer'));
+          final dock = find.byKey(const ValueKey('mobile-dock-surface'));
+          final resting = (tester.getRect(composer), tester.getRect(dock));
+
+          await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
+          await tester.pumpAndSettle();
+          tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+          tester.view.padding = const FakeViewPadding(top: 59);
+          await tester.pumpAndSettle();
+          expect(
+            (tester.getRect(composer), tester.getRect(dock)),
+            resting,
+            reason: 'covered by the sheet',
+          );
+
+          await tester.dragFrom(
+            tester.getCenter(find.byKey(const ValueKey('composer-header'))),
+            const Offset(0, 300),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('composer-mobile-sheet')),
+            findsNothing,
+          );
+          expect(
+            (tester.getRect(composer), tester.getRect(dock)),
+            resting,
+            reason: 'revealed',
+          );
+          for (final inset in [240.0, 160.0, 80.0, 20.0]) {
+            tester.view.viewInsets = FakeViewPadding(bottom: inset);
+            await tester.pump();
+            expect(
+              (tester.getRect(composer), tester.getRect(dock)),
+              resting,
+              reason: 'keyboard $inset',
+            );
+          }
+          tester.view.viewInsets = const FakeViewPadding();
+          tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+          await tester.pumpAndSettle();
+          expect((tester.getRect(composer), tester.getRect(dock)), resting);
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      );
+
       testWidgets('keeps the mobile Chat mode beside an open channel', (
         tester,
       ) async {
