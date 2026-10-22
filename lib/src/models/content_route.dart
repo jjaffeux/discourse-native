@@ -17,6 +17,9 @@ import 'topic_link.dart';
 part 'content_destination.dart';
 part 'content_route_codec.dart';
 
+String topicFilterScopeValue(String value) =>
+    value.contains(RegExp(r'\s')) ? '"$value"' : value;
+
 enum TopPeriod {
   all('all'),
   yearly('yearly'),
@@ -411,18 +414,24 @@ class ContentRoute {
   bool get isAdvancedTopicFilter =>
       Uri.tryParse(feedPath ?? '')?.path == '/filter.json';
 
+  String topicFilterEditorQuery({required List<String> resolvedTags}) =>
+      _topicFilterScopedQuery(resolvedTags, forRequest: false);
+
+  String _topicFilterScopedQuery(
+    List<String> tags, {
+    required bool forRequest,
+  }) => [
+    topicFilterQuery,
+    if (forRequest && topicListSearch.isNotEmpty) topicListSearch,
+    if (categoryId != null) 'category:$categoryId',
+    if (tags.isNotEmpty)
+      'tag:${forRequest ? tags.map(topicFilterScopeValue).join('+') : topicFilterScopeValue(tags.join('+'))}',
+  ].where((part) => part.isNotEmpty).join(' ');
+
   /// Only q/page are understood by /filter.json. Compile taxonomy into q.
   String get topicFilterRequestPath => Uri(
     path: '/filter.json',
-    queryParameters: {
-      'q': [
-        topicFilterQuery,
-        if (topicListSearch.isNotEmpty) topicListSearch,
-        if (categoryId != null) 'category:$categoryId',
-        if (tagNames.isNotEmpty)
-          'tag:${tagNames.map((tag) => tag.contains(RegExp(r'\s')) ? '"$tag"' : tag).join('+')}',
-      ].where((part) => part.isNotEmpty).join(' '),
-    },
+    queryParameters: {'q': _topicFilterScopedQuery(tagNames, forRequest: true)},
   ).toString();
 
   factory ContentRoute.homepage(

@@ -147,7 +147,6 @@ import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
-import 'topic_filter_controller.dart' show splitTopicFilterQuery;
 import 'topic_filter_scope.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
@@ -3750,13 +3749,10 @@ class ShellController extends FrameSafeNotifier
         )).filterOptions,
       );
 
-  String topicListFilterEditorQuery(ContentRoute route) => [
-    route.topicFilterQuery,
-    if (route.categoryId != null) 'category:${route.categoryId}',
-    if (_topicListFilterTagNames(currentInstance!.url, route) case final tags
-        when tags.isNotEmpty)
-      'tag:${topicFilterScopeValue(tags.join('+'))}',
-  ].where((part) => part.isNotEmpty).join(' ');
+  String topicListFilterEditorQuery(ContentRoute route) =>
+      route.topicFilterEditorQuery(
+        resolvedTags: _topicListFilterTagNames(currentInstance!.url, route),
+      );
 
   Future<void> applyTopicListFilterQuery(String query) =>
       focusedTabContext.applyTopicListFilterQuery(query);

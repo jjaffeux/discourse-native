@@ -1,23 +1,23 @@
 import '../models/topic.dart';
 import 'topic_filter_controller.dart';
 
-/// Taxonomy clauses have one value each; other server clauses stay verbatim.
-({int? categoryId, String? tag, String query}) parseTopicFilterScope(
+export '../models/content_route.dart' show topicFilterScopeValue;
+
+/// Extracts feed scope while leaving other server clauses verbatim.
+({int? categoryId, List<String> tags, String query}) parseTopicFilterScope(
   String query,
   List<TopicCategory> categories,
 ) {
   int? categoryId;
   String? tag;
+  final conjunctionTags = <String>[];
   final remainder = <String>[];
   for (final clause in splitTopicFilterQuery(query)) {
     final colon = clause.indexOf(':');
     final key = colon < 0 ? '' : clause.substring(0, colon).toLowerCase();
-    var value = colon < 0 ? '' : clause.substring(colon + 1);
-    if (value.length > 1 &&
-        (value.startsWith('"') && value.endsWith('"') ||
-            value.startsWith("'") && value.endsWith("'"))) {
-      value = value.substring(1, value.length - 1);
-    }
+    final value = _unquoteScopeValue(
+      colon < 0 ? '' : clause.substring(colon + 1),
+    );
     if (key == 'category') {
       final id = int.tryParse(value);
       final category = categories.where((item) {
@@ -43,13 +43,34 @@ import 'topic_filter_controller.dart';
       tag = value;
       continue;
     }
+    final match = RegExp(r'^tags?:(.*)$').firstMatch(clause);
+    if (match != null) {
+      final value = _unquoteScopeValue(match.group(1)!);
+      final conjunction = value.split('+');
+      if (!value.contains(',') &&
+          conjunction.length > 1 &&
+          conjunction.every((tag) => tag.trim().isNotEmpty)) {
+        conjunctionTags.addAll(conjunction);
+        continue;
+      }
+    }
     remainder.add(clause);
   }
-  return (categoryId: categoryId, tag: tag, query: remainder.join(' '));
+  return (
+    categoryId: categoryId,
+    tags: List<String>.unmodifiable([?tag, ...conjunctionTags]),
+    query: remainder.join(' '),
+  );
 }
 
-String topicFilterScopeValue(String value) =>
-    value.contains(RegExp(r'\s')) ? '"$value"' : value;
+String _unquoteScopeValue(String value) {
+  if (value.length > 1 &&
+      (value.startsWith('"') && value.endsWith('"') ||
+          value.startsWith("'") && value.endsWith("'"))) {
+    return value.substring(1, value.length - 1);
+  }
+  return value;
+}
 
 List<String> replaceTopicFilterScopeTokens(Iterable<String> tokens) {
   final result = <String>[];

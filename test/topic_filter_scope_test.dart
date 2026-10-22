@@ -17,31 +17,33 @@ const categories = [
 ];
 
 void main() {
-  test(
-    'category and a quoted tag round-trip independently of server clauses',
-    () {
-      expect(
-        parseTopicFilterScope(
-          'category:product:design tag:"customer feedback" status:open',
-          categories,
-        ),
-        (categoryId: 2, tag: 'customer feedback', query: 'status:open'),
-      );
-      expect(parseTopicFilterScope('', categories), (
-        categoryId: null,
-        tag: null,
-        query: '',
-      ));
-    },
-  );
+  void expectScope(
+    String input, {
+    int? categoryId,
+    List<String> tags = const [],
+    String query = '',
+  }) {
+    final scope = parseTopicFilterScope(input, categories);
+    expect(scope.categoryId, categoryId, reason: input);
+    expect(scope.tags, tags, reason: input);
+    expect(scope.query, query, reason: input);
+  }
 
-  test('the last category and list tag replace the previous scope', () {
-    expect(
-      parseTopicFilterScope(
-        'category:1 tag:old category:2 tag:new',
-        categories,
-      ),
-      (categoryId: 2, tag: 'new', query: ''),
+  test('category and a quoted tag round-trip beside server clauses', () {
+    expectScope(
+      'category:product:design tag:"customer feedback" status:open',
+      categoryId: 2,
+      tags: ['customer feedback'],
+      query: 'status:open',
+    );
+    expectScope('');
+  });
+
+  test('the last category and singular tag replace the previous scope', () {
+    expectScope(
+      'category:1 tag:old category:2 tag:new',
+      categoryId: 2,
+      tags: ['new'],
     );
     expect(
       replaceTopicFilterScopeTokens([
@@ -55,17 +57,43 @@ void main() {
     );
   });
 
-  test('unknown, negative and multi-value clauses remain server filters', () {
-    expect(
-      parseTopicFilterScope(
-        '-category:1 tag:a+b category:missing status:closed',
-        categories,
-      ),
-      (
-        categoryId: null,
-        tag: null,
-        query: '-category:1 tag:a+b category:missing status:closed',
-      ),
+  test('singular tag precedes ordered conjunctions without normalization', () {
+    expectScope(
+      'tags:b+a tag:old tag:new tag:" a + b " tag:new+new status:open',
+      tags: ['new', 'b', 'a', ' a ', ' b ', 'new', 'new'],
+      query: 'status:open',
+    );
+    expectScope(
+      'tag:"customer feedback+123+中文+café"',
+      tags: ['customer feedback', '123', '中文', 'café'],
+    );
+  });
+
+  test('unknown and negative clauses and disjunctions stay server filters', () {
+    const query =
+        '-category:1 category:missing -tag:a+b tag:a,b '
+        'tags:one TAG:a+b future:"Keep  spacing"';
+    expectScope(query, query: query);
+    expectScope(
+      'category:1 category:missing CATEGORY:product:design TAG:中文',
+      categoryId: 2,
+      tags: ['中文'],
+      query: 'category:missing',
+    );
+  });
+
+  test('malformed clauses retain existing server and extraction behavior', () {
+    const query = 'tag:a+ tag:+b tags:a++b tag:"a+ +b" tag:""';
+    expectScope(query, query: query);
+    expectScope(
+      'status:open tag:"unfinished',
+      tags: ['"unfinished'],
+      query: 'status:open',
+    );
+    expectScope('tag:"a+\nb"', query: 'tag:"a+\nb"');
+    expectScope(
+      'tag:"customer feedback"+urgent',
+      tags: ['"customer feedback"', 'urgent'],
     );
   });
 

@@ -555,6 +555,114 @@ void main() {
     );
   });
 
+  testWidgets(
+    'filter compilation preserves tag precedence and server clauses',
+    (tester) async {
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': [], '/filter.json': []},
+        categoryList: const [
+          TopicCategory(
+            id: 1,
+            name: 'Product',
+            slug: 'product',
+            color: 'FF0000',
+          ),
+        ],
+      );
+      await _pump(tester, api);
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      await shell.loadCategories(_siteUrl);
+      for (final (query, categoryId, tags, remainder) in [
+        (
+          'tag:old tags:a+b tag:new tag:c+d category:product status:open',
+          1,
+          ['new', 'a', 'b', 'c', 'd'],
+          'status:open',
+        ),
+        (
+          'TAG:中文 tag:"customer feedback+123" status:open',
+          null,
+          ['中文', 'customer feedback', '123'],
+          'status:open',
+        ),
+        (
+          '-category:1 category:missing -tag:a+b tag:a,b tags:one TAG:a+b '
+              'tag:a+ tags:a++b future:"Keep  spacing"',
+          null,
+          <String>[],
+          '-category:1 category:missing -tag:a+b tag:a,b tags:one TAG:a+b '
+              'tag:a+ tags:a++b future:"Keep  spacing"',
+        ),
+        ('status:open tag:"unfinished', null, ['"unfinished'], 'status:open'),
+      ]) {
+        await shell.applyTopicListFilterQuery(query);
+        await tester.pumpAndSettle();
+        final route = shell.topicListContent!;
+        expect(route.categoryId, categoryId, reason: query);
+        expect(route.tagNames, tags, reason: query);
+        expect(route.topicFilterQuery, remainder, reason: query);
+        expect(route.isAdvancedTopicFilter, isTrue, reason: query);
+        expect(
+          Uri.parse(api.feedPaths.last).queryParameters['q'],
+          Uri.parse(route.topicFilterRequestPath).queryParameters['q'],
+          reason: query,
+        );
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
+
+  testWidgets('editor and request retain their quoted tag representations', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      FakeDiscourseApi(feeds: const {'/latest.json': [], '/filter.json': []}),
+    );
+    final shell = ShellScope.read(tester.element(primaryMainContent));
+    final route = ContentRoute.topicFilter(
+      'future:"keep  spacing"',
+      categoryId: 1,
+      tags: const ['customer feedback', '123', '中文'],
+    );
+    expect(
+      shell.topicListFilterEditorQuery(route),
+      'future:"keep  spacing" category:1 tag:"customer feedback+123+中文"',
+    );
+    expect(
+      Uri.parse(route.topicFilterRequestPath).queryParameters['q'],
+      'future:"keep  spacing" category:1 '
+      'tag:"customer feedback"+123+中文',
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('filter scope round trips retain list mode sorting and search', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi(
+      feeds: const {'/latest.json': [], '/filter.json': []},
+    );
+    await _pump(tester, api);
+    final shell = ShellScope.read(tester.element(primaryMainContent));
+    await shell.selectTopicListMode(TopicListMode.topWeekly);
+    await shell.sortTopicList('posts');
+    shell.applySearchToList('sailing 中文', const []);
+    await tester.pumpAndSettle();
+    await shell.applyTopicListFilterQuery('tag:123+中文');
+    await tester.pumpAndSettle();
+    final selected = shell.topicListContent!;
+    expect(selected.tagNames, ['123', '中文']);
+    expect(TopicListMode.fromRoute(selected), TopicListMode.topWeekly);
+    expect(selected.topicListOrder, 'posts');
+    expect(selected.topicListSearch, 'sailing 中文');
+    expect(selected.isAdvancedTopicFilter, isFalse);
+    await shell.applyTopicListFilterQuery(
+      shell.topicListFilterEditorQuery(selected),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.topicListContent, selected);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
   testWidgets('the Topics filter menu submits and clears a native feed', (
     tester,
   ) async {

@@ -663,36 +663,14 @@ final class ShellTabContext {
       query,
       shell.filterCategoriesFor(instance.url),
     );
-    final tags = <String>[?scope.tag];
-    final remainder = <String>[];
-    for (final clause in splitTopicFilterQuery(scope.query)) {
-      final match = RegExp(r'^tags?:(.*)$').firstMatch(clause);
-      var value = match?.group(1) ?? '';
-      if (value.length > 1 &&
-          (value.startsWith('"') && value.endsWith('"') ||
-              value.startsWith("'") && value.endsWith("'"))) {
-        value = value.substring(1, value.length - 1);
-      }
-      final conjunction = value.split('+');
-      if (match != null &&
-          !value.contains(',') &&
-          conjunction.length > 1 &&
-          conjunction.every((tag) => tag.trim().isNotEmpty)) {
-        // Include-all tags are ordinary feed scope, so changing the feed
-        // retains them just as it retains a single category or tag.
-        tags.addAll(conjunction);
-      } else {
-        remainder.add(clause);
-      }
-    }
     final source = topicListContent;
-    final route = remainder.isEmpty
+    final route = scope.query.isEmpty
         ? shell
               ._topicListFilterRoute(
                 siteUrl: instance.url,
                 category: shell.categoryFor(scope.categoryId),
-                tagName: tags.firstOrNull,
-                tags: tags,
+                tagName: scope.tags.firstOrNull,
+                tags: scope.tags,
                 mode:
                     TopicListMode.fromRoute(sidebarFilterRoute) ??
                     TopicListMode.latest,
@@ -701,9 +679,9 @@ final class ShellTabContext {
                 source?.isAdvancedTopicFilter == true ? null : source,
               )
         : ContentRoute.topicFilter(
-            remainder.join(' '),
+            scope.query,
             categoryId: scope.categoryId,
-            tags: tags,
+            tags: scope.tags,
           );
     shell._showMobileScopeList();
     _replaceTopicListContent(
