@@ -167,6 +167,7 @@ part 'post_commands.dart';
 part 'profile_write_transactions.dart';
 part 'selected_post_moderation.dart';
 part 'topic_metadata_transactions.dart';
+part 'topic_navigation_attempts.dart';
 part 'shell_tab_context.dart';
 part 'taxonomy_directory_controller.dart';
 part 'workspace_controller.dart';
@@ -208,12 +209,6 @@ typedef _ClosedForumTab = ({
   String accountIdentity,
   ForumTab tab,
   int index,
-});
-typedef _TopicPostHighlight = ({
-  String siteUrl,
-  int topicId,
-  int postNumber,
-  String? tabId,
 });
 
 int? _destinationNumericId(String destinationId, String prefix) {
@@ -4531,7 +4526,7 @@ class ShellController extends FrameSafeNotifier
     },
     published: (siteUrl, detail) {
       final changed = _retitle(siteUrl, detail.id, detail.title);
-      _armTopicPostHighlightIfLoaded();
+      _topicNavigation.armHighlightIfLoaded();
       return changed;
     },
     prepareCategories: (siteUrl, ids) async {
@@ -4549,15 +4544,16 @@ class ShellController extends FrameSafeNotifier
   final Set<String> _topicPinWrites = {};
   final Set<String> _topicStatusWrites = {};
   final Set<String> _topicDeletionWrites = {};
-  final Map<String, Object> _topicJumpRuns = {};
-  final _topicNavigationRevisions = <String?, int>{};
+  late final _topicNavigation = _TopicNavigationAttempts(
+    focusedContext: () => focusedTabContext,
+    store: store,
+    topicData: _topicData,
+    lifecycle: lifecycle,
+    openPost: openCurrentTopicPost,
+    changed: _notify,
+    loadTimeout: topicLoadTimeout,
+  );
   final _topicListRevealRequests = StreamController<int>.broadcast(sync: true);
-
-  _TopicPostHighlight? _topicPostHighlight;
-  Timer? _topicPostHighlightTimer;
-  bool _topicPostHighlightVisible = false;
-
-  static const _topicPostHighlightDuration = Duration(milliseconds: 2200);
 
   static String _topicKey(String siteUrl, int topicId) => '$siteUrl#$topicId';
 
@@ -4937,7 +4933,7 @@ class ShellController extends FrameSafeNotifier
     final site = currentInstance?.url;
     if (site != null) {
       search.setPageWords(site, activeTabId, 'topic-${hit.topicId}', words);
-      _requestTopicPostHighlight(
+      _topicNavigation.requestHighlight(
         siteUrl: site,
         topicId: hit.topicId,
         postNumber: hit.postNumber,
@@ -5536,7 +5532,7 @@ class ShellController extends FrameSafeNotifier
         subtitle: route.subtitle,
         color: route.color,
       );
-      _topicNavigationRevisions[tab.id] = document.topicNavigationRevision + 1;
+      _topicNavigation.explicitTarget(tab.id);
       _workspace.replaceTab(
         document.siteUrl!,
         tab.copyWith(
@@ -5566,13 +5562,13 @@ class ShellController extends FrameSafeNotifier
     if (index != _instanceIndex) selectInstance(index);
     _setForumContentRoot();
     if (highlight) {
-      _requestTopicPostHighlight(
+      _topicNavigation.requestHighlight(
         siteUrl: siteUrl,
         topicId: topicId,
         postNumber: postNumber,
       );
     } else {
-      _clearTopicPostHighlight(notify: false);
+      _topicNavigation.clearHighlight(notify: false);
     }
     if (currentContent?.topicId == topicId) {
       openCurrentTopicPost(postNumber, loadAroundPost: true);
@@ -5588,127 +5584,16 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  bool isTopicPostHighlighted(String siteUrl, int topicId, int postNumber) {
-    final highlight = _topicPostHighlight;
-    return _topicPostHighlightVisible &&
-        highlight?.tabId == activeTabId &&
-        highlight?.siteUrl == siteUrl &&
-        highlight?.topicId == topicId &&
-        highlight?.postNumber == postNumber;
-  }
-
-  void _requestTopicPostHighlight({
-    required String siteUrl,
-    required int topicId,
-    required int postNumber,
-  }) {
-    _topicPostHighlightTimer?.cancel();
-    _topicPostHighlight = (
-      siteUrl: siteUrl,
-      topicId: topicId,
-      postNumber: postNumber,
-      tabId: activeTabId,
-    );
-    _topicPostHighlightVisible = false;
-    // Do not let a failed target load leave a latent highlight that appears
-    // during unrelated navigation much later.
-    _topicPostHighlightTimer = Timer(
-      topicLoadTimeout,
-      _clearTopicPostHighlight,
-    );
-    _armTopicPostHighlightIfLoaded();
-  }
-
-  void _armTopicPostHighlightIfLoaded() {
-    final highlight = _topicPostHighlight;
-    if (highlight == null || _topicPostHighlightVisible) return;
-    final topic = store.read<TopicDetail>(highlight.siteUrl, highlight.topicId);
-    final targetLoaded = topic?.stream.any(
-      (postId) =>
-          store.read<Post>(highlight.siteUrl, postId)?.postNumber ==
-          highlight.postNumber,
-    );
-    if (targetLoaded != true) return;
-
-    _topicPostHighlightVisible = true;
-    _topicPostHighlightTimer?.cancel();
-    _topicPostHighlightTimer = Timer(
-      _topicPostHighlightDuration,
-      _clearTopicPostHighlight,
-    );
-  }
-
-  void _clearTopicPostHighlight({bool notify = true}) {
-    final changed = _topicPostHighlight != null;
-    _topicPostHighlightTimer?.cancel();
-    _topicPostHighlightTimer = null;
-    _topicPostHighlight = null;
-    _topicPostHighlightVisible = false;
-    if (changed && notify && !isDisposed) _notify();
-  }
+  bool isTopicPostHighlighted(String siteUrl, int topicId, int postNumber) =>
+      _topicNavigation.isPostHighlighted(siteUrl, topicId, postNumber);
 
   int get topicNavigationRevision => focusedTabContext.topicNavigationRevision;
 
   /// Opens the post at progress position [index], counted from one: its place
   /// in the stream, or in a mega topic, whose stream is only the run read so
   /// far, its post number (TopicViewportSnapshot.progressTotal).
-  Future<bool> jumpToCurrentTopicIndex(int index) async {
-    final instance = currentInstance;
-    final route = currentContent;
-    final topic = currentTopic;
-    final tabId = activeTabId;
-    final navigationRevision = topicNavigationRevision;
-    if (instance == null ||
-        route?.topicId == null ||
-        topic == null ||
-        tabId == null ||
-        currentTopicStreamIds.isEmpty) {
-      return false;
-    }
-    if (topic.isMegaTopic && !currentTopicSummary) {
-      // Read around the number, as the web client's timeline jumps: a held
-      // post opens at once, and a number no post has opens the one after.
-      openCurrentTopicPost(math.max(index, 1));
-      return true;
-    }
-
-    final stream = currentTopicStreamIds;
-    final boundedIndex = index.clamp(1, stream.length);
-    final targetId = stream[boundedIndex - 1];
-    final key = _topicKey(instance.url, topic.id);
-    final token = Object();
-    final lease = lifecycle.capture(instance.url);
-    _topicJumpRuns[key] = token;
-
-    bool isCurrent() =>
-        identical(_topicJumpRuns[key], token) &&
-        lease.isCurrent &&
-        !isDisposed &&
-        topicNavigationRevision == navigationRevision &&
-        activeTabId == tabId &&
-        currentInstance?.url == instance.url &&
-        currentContent?.topicId == topic.id;
-
-    try {
-      var target = store.read<Post>(instance.url, targetId);
-      final loadAroundPost = target == null;
-      if (target == null) {
-        target = await _topicData
-            .forLease(instance.url, lease)
-            ?.ensurePost(topic.id, targetId, isInterested: isCurrent);
-        if (target == null) return false;
-      }
-      if (!isCurrent()) return false;
-      openCurrentTopicPost(target.postNumber, loadAroundPost: loadAroundPost);
-      return true;
-    } catch (error) {
-      return false;
-    } finally {
-      if (identical(_topicJumpRuns[key], token)) {
-        final _ = _topicJumpRuns.remove(key);
-      }
-    }
-  }
+  Future<bool> jumpToCurrentTopicIndex(int index) =>
+      _topicNavigation.jumpToCurrentTopicIndex(index);
 
   bool openCorePageUrl(String url) {
     final destination = _routeForLink(url);
@@ -10815,7 +10700,7 @@ class ShellController extends FrameSafeNotifier
     _topicStatusWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _messageArchiveWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
-    _topicJumpRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
+    _topicNavigation.forgetSite(siteUrl);
     _topicReads.forget(siteUrl);
 
     _taxonomy.forget(siteUrl);
@@ -11732,10 +11617,7 @@ class ShellController extends FrameSafeNotifier
     // scroll. Keep the latest local choice and anchor durable, but never start
     // hydration while tearing the controller down.
     _workspace.dispose();
-    _topicPostHighlightTimer?.cancel();
-    _topicPostHighlightTimer = null;
-    _topicPostHighlight = null;
-    _topicPostHighlightVisible = false;
+    _topicNavigation.dispose();
     _topicPropertyRequests.dispose();
     unawaited(_topicListRevealRequests.close());
     _retireNotificationTransactions();
@@ -11763,7 +11645,6 @@ class ShellController extends FrameSafeNotifier
     _topicDeletionWrites.clear();
     _selectedPosts.clear();
     _topicFlagWrites.clear();
-    _topicJumpRuns.clear();
     _topicReads.dispose();
     _customSidebar.dispose();
     for (final instance in _instances) {

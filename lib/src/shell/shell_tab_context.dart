@@ -282,7 +282,7 @@ final class ShellTabContext {
   }
 
   int get topicNavigationRevision =>
-      shell._topicNavigationRevisions[activeTabId] ?? 0;
+      shell._topicNavigation.revisionFor(activeTabId);
 
   ContentRoute? get sidebarFilterRoute {
     if (shell.mobileNavigationEnabled && shell.mobileNavigation.atRoot) {
