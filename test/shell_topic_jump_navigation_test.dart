@@ -130,6 +130,138 @@ void main() {
       },
     );
 
+    for (final returnToOrigin in [false, true]) {
+      test(
+        'a pending jump after a tab switch '
+        '${returnToOrigin ? 'can finish on return' : 'cannot target the other tab'}',
+        () async {
+          final (:shell, :api, authenticator: _) = await _fixture();
+          shell.openCurrentTopicPost(1);
+          await pumpEventQueue();
+          api.topicPostNumbersOpened.clear();
+          final origin = shell.activeTabId!;
+          final lookup = api.gatePost(300);
+          final pending = shell.jumpToCurrentTopicIndex(3);
+          await lookup.started.future;
+          shell.createTab();
+          expect(shell.activeTabId, isNot(origin));
+          if (returnToOrigin) {
+            shell.selectTab(origin);
+            expect(shell.activeTabId, origin);
+          }
+          lookup.release.complete();
+
+          expect(await pending, returnToOrigin);
+          await pumpEventQueue();
+          expect(api.topicPostNumbersOpened, [if (returnToOrigin) 12]);
+          if (!returnToOrigin) {
+            shell.selectTab(origin);
+            expect(shell.currentContent?.postNumber, 1);
+            expect(shell.store.read<Post>(_siteUrl, 300), isNull);
+          }
+        },
+      );
+    }
+
+    test(
+      'a newer jump in another tab supersedes the same-topic attempt',
+      () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        shell.openCurrentTopicPost(1);
+        await pumpEventQueue();
+        final origin = shell.activeTabId!;
+        final lookup = api.gatePost(300);
+        final pending = shell.jumpToCurrentTopicIndex(3);
+        await lookup.started.future;
+        shell.createTab();
+        shell.pushContent(
+          ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+        );
+        expect(await shell.jumpToCurrentTopicIndex(1), isTrue);
+        shell.selectTab(origin);
+        lookup.release.complete();
+        expect(await pending, isFalse);
+        await pumpEventQueue();
+        expect(shell.currentContent?.postNumber, 1);
+        expect(shell.store.read<Post>(_siteUrl, 300), isNull);
+      },
+    );
+
+    testWidgets(
+      'an expired pending highlight cannot arm on a later publication',
+      (tester) async {
+        final fixture = await tester.runAsync(_fixture);
+        final shell = fixture!.shell;
+        shell.openTopicPost(
+          siteUrl: _siteUrl,
+          topicId: 1,
+          postNumber: 12,
+          highlight: true,
+        );
+        await tester.runAsync(() async => pumpEventQueue());
+        expect(shell.isTopicPostHighlighted(_siteUrl, 1, 12), isFalse);
+        await tester.pump(const Duration(seconds: 30));
+        shell.store.put(_siteUrl, _lastPost);
+        await tester.runAsync(() => shell.loadTopic(1, 'one', force: true));
+        expect(shell.isTopicPostHighlighted(_siteUrl, 1, 12), isFalse);
+      },
+    );
+
+    test(
+      'mega topic progress targets a post number beyond the held stream',
+      () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        shell.store.put(
+          _siteUrl,
+          const TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: [100, 200, 300],
+            postsCount: 9000,
+            highestPostNumber: 12000,
+            isMegaTopic: true,
+          ),
+        );
+        expect(await shell.jumpToCurrentTopicIndex(8000), isTrue);
+        await pumpEventQueue();
+        expect(shell.currentContent?.postNumber, 8000);
+        expect(api.postFetches, isEmpty);
+        expect(api.topicPostNumbersOpened, [8000]);
+      },
+    );
+
+    testWidgets('one highlight keeps aging while its tab is unfocused', (
+      tester,
+    ) async {
+      final fixture = await tester.runAsync(_fixture);
+      final shell = fixture!.shell;
+      await tester.pump();
+      final origin = shell.activeTabId!;
+      shell.openTopicPost(
+        siteUrl: _siteUrl,
+        topicId: 1,
+        postNumber: 1,
+        highlight: true,
+      );
+      expect(shell.isTopicPostHighlighted(_siteUrl, 1, 1), isTrue);
+      await tester.runAsync(() async => pumpEventQueue());
+      shell.createTab();
+      shell.selectTab(origin);
+      expect(shell.activeTabId, origin);
+      expect(shell.isTopicPostHighlighted(_siteUrl, 1, 1), isTrue);
+      shell.createTab();
+      expect(shell.isTopicPostHighlighted(_siteUrl, 1, 1), isFalse);
+      await tester.pump(const Duration(milliseconds: 1000));
+      shell.selectTab(origin);
+      expect(shell.activeTabId, origin);
+      expect(shell.isTopicPostHighlighted(_siteUrl, 1, 1), isTrue);
+      shell.createTab();
+      await tester.pump(const Duration(milliseconds: 1200));
+      shell.selectTab(origin);
+      expect(shell.isTopicPostHighlighted(_siteUrl, 1, 1), isFalse);
+      await tester.runAsync(() async => pumpEventQueue());
+    });
+
     for (final olderFinishesFirst in [true, false]) {
       test('the newer jump wins when the older lookup finishes '
           '${olderFinishesFirst ? 'first' : 'last'}', () async {
@@ -265,6 +397,7 @@ _fixture() async {
     ..put(_siteUrl, _firstPost);
   shell.pushContent(ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'));
   await pumpEventQueue();
+  expect(shell.currentWorkspace!.accountIdentity, shell.currentAccountIdentity);
   return (shell: shell, api: api, authenticator: authenticator);
 }
 
@@ -299,6 +432,7 @@ final class _GatedAuthenticator extends FakeAuthenticator {
 final class _JumpApi extends FakeDiscourseApi {
   _JumpApi()
     : super(
+        user: _reader,
         feeds: const {'/latest.json': []},
         topics: const {
           1: (detail: _topic, posts: [_firstPost, _secondPost]),
