@@ -1403,6 +1403,180 @@ void main() {
       expect(find.byType(PhotoView), findsNothing);
     });
 
+    group('vertical drag to close', () {
+      Future<void> openOnPhone(WidgetTester tester) async {
+        await pumpCookedOn(tester, singleImage, TargetPlatform.iOS);
+        await tester.tap(thumbnail());
+        await tester.pumpAndSettle();
+      }
+
+      // Ten steps a tenth of a second apart: every pause is long enough for
+      // the velocity tracker to treat the finger as stopped, so the release
+      // carries no velocity and only the distance decides.
+      Future<void> dragSlowly(
+        WidgetTester tester,
+        Offset by, {
+        PointerDeviceKind kind = PointerDeviceKind.touch,
+      }) async {
+        final pointer = await tester.startGesture(
+          tester.getCenter(photoViewAt(0)),
+          kind: kind,
+        );
+        for (var step = 1; step <= 10; step++) {
+          await pointer.moveBy(
+            by / 10,
+            timeStamp: Duration(milliseconds: 100 * step),
+          );
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await pointer.up(timeStamp: const Duration(seconds: 1));
+      }
+
+      for (final (direction, distance) in [('down', 200.0), ('up', -200.0)]) {
+        testWidgets('a finger dragging $direction closes the image', (
+          tester,
+        ) async {
+          await openOnPhone(tester);
+
+          await dragSlowly(tester, Offset(0, distance));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(PhotoView), findsNothing);
+        });
+      }
+
+      testWidgets('a short flick closes the image', (tester) async {
+        await openOnPhone(tester);
+
+        await tester.fling(photoViewAt(0), const Offset(0, 60), 1000);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PhotoView), findsNothing);
+      });
+
+      testWidgets('the image follows the finger and hides the controls', (
+        tester,
+      ) async {
+        await openOnPhone(tester);
+        final resting = tester.getCenter(photoViewAt(0));
+        final chrome = find.ancestor(
+          of: find.dIcon(DIcons.xmark),
+          matching: find.byType(AnimatedOpacity),
+        );
+
+        final finger = await tester.startGesture(
+          resting,
+          kind: PointerDeviceKind.touch,
+        );
+        await finger.moveBy(const Offset(0, 30));
+        await finger.moveBy(const Offset(0, 90));
+        await tester.pump();
+
+        expect(tester.getCenter(photoViewAt(0)).dy, resting.dy + 90);
+        expect(tester.widget<AnimatedOpacity>(chrome).opacity, 0);
+        await finger.up();
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('a short slow drag puts the image back', (tester) async {
+        await openOnPhone(tester);
+        final resting = tester.getCenter(photoViewAt(0));
+
+        await dragSlowly(tester, const Offset(0, 50));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PhotoView), findsOneWidget);
+        expect(tester.getCenter(photoViewAt(0)), resting);
+        final chrome = find.ancestor(
+          of: find.dIcon(DIcons.xmark),
+          matching: find.byType(AnimatedOpacity),
+        );
+        expect(tester.widget<AnimatedOpacity>(chrome).opacity, 1);
+      });
+
+      testWidgets('a drag that reverses toward the start puts the image back', (
+        tester,
+      ) async {
+        await openOnPhone(tester);
+        final resting = tester.getCenter(photoViewAt(0));
+
+        final finger = await tester.startGesture(
+          resting,
+          kind: PointerDeviceKind.touch,
+        );
+        var time = Duration.zero;
+        for (final (distance, interval) in [
+          for (var step = 0; step < 10; step++) (20.0, 50),
+          for (var step = 0; step < 5; step++) (-20.0, 10),
+        ]) {
+          time += Duration(milliseconds: interval);
+          await finger.moveBy(Offset(0, distance), timeStamp: time);
+          await tester.pump(Duration(milliseconds: interval));
+        }
+        await finger.up(timeStamp: time);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PhotoView), findsOneWidget);
+        expect(tester.getCenter(photoViewAt(0)), resting);
+      });
+
+      testWidgets('a zoomed image pans instead of closing', (tester) async {
+        await openOnPhone(tester);
+        await tester.tap(galleryButton('Zoom in'));
+        await tester.pumpAndSettle();
+        final controller = photoControllerAt(tester, 0);
+        final zoomed = controller.scale!;
+
+        await dragSlowly(tester, const Offset(0, 200));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PhotoView), findsOneWidget);
+        expect(controller.scale, zoomed);
+      });
+
+      testWidgets('a mouse drag leaves the image open', (tester) async {
+        await openOnPhone(tester);
+
+        await dragSlowly(
+          tester,
+          const Offset(0, 200),
+          kind: PointerDeviceKind.mouse,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PhotoView), findsOneWidget);
+      });
+
+      testWidgets('a two-finger pinch still zooms', (tester) async {
+        await openOnPhone(tester);
+        final controller = photoControllerAt(tester, 0);
+        final initialScale = controller.scale!;
+        final center = tester.getCenter(photoViewAt(0));
+        final first = await tester.startGesture(
+          center - const Offset(0, 40),
+          pointer: 1,
+          kind: PointerDeviceKind.touch,
+        );
+        final second = await tester.startGesture(
+          center + const Offset(0, 40),
+          pointer: 2,
+          kind: PointerDeviceKind.touch,
+        );
+
+        for (var step = 0; step < 8; step++) {
+          await first.moveBy(const Offset(0, -10));
+          await second.moveBy(const Offset(0, 10));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await first.up();
+        await second.up();
+        await tester.pumpAndSettle();
+
+        expect(find.byType(PhotoView), findsOneWidget);
+        expect(controller.scale, greaterThan(initialScale));
+      });
+    });
+
     testWidgets('steps between images with the arrow keys', (tester) async {
       await pumpCooked(tester, threeImages);
       await tester.tap(thumbnail());

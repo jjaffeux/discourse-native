@@ -208,7 +208,7 @@ export 'src/shell/image_decode.dart' show imageForCover, imagePhysicalPixels;
 export 'src/shell/inline_code.dart' show InlineCode;
 export 'src/shell/inline_video.dart' show InlineVideo, InlineVideoData;
 export 'src/shell/lightbox.dart'
-    show LightboxGallery, LightboxImage, UnavailableImage;
+    show LightboxGallery, LightboxImage, UnavailableImage, showLightboxGallery;
 export 'src/shell/list_boundary_shortcuts.dart' show ListBoundaryShortcuts;
 export 'src/shell/mobile_footer_action.dart'
     show
