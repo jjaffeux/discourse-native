@@ -597,40 +597,36 @@ final class ChatLiveSyncCoordinator {
 
   void _applyRootEvent(String siteUrl, int channelId, Object? data) {
     if (data is! Map<String, dynamic>) return;
+    final event = _ChatLiveMessageEvent.decode(data, siteUrl);
+    if (event != null) {
+      final message = event.message;
+      if (message.channelId != channelId ||
+          message.threadId != null &&
+              message.thread?.threadId != message.threadId) {
+        return;
+      }
+      _host.putLiveMessage(siteUrl, message, true);
+      final target = ChatChannelTarget(channelId);
+      if (event.kind == _ChatLiveMessageKind.sent &&
+          !_host.streamContainsMessage(siteUrl, target, message.id)) {
+        _host.admitLiveMessage(siteUrl, target, message);
+      }
+      if (event.hasStagedId) {
+        _host.reconcileSentEvent(siteUrl, target, data);
+      }
+      if (event.kind == _ChatLiveMessageKind.restored) {
+        _host.bumpStreamsHolding(siteUrl, message.id);
+        _host.setLoadedThreadOriginalDeleted(
+          siteUrl,
+          channelId,
+          message.id,
+          null,
+          true,
+        );
+      }
+      return;
+    }
     switch (data['type']) {
-      case 'sent' || 'processed' || 'edit' || 'refresh' || 'restore':
-        final payload = data['chat_message'];
-        if (payload is! Map<String, dynamic>) return;
-        final message = ChatMessage.fromJson(payload, siteUrl);
-        if (message.id <= 0 ||
-            message.channelId != channelId ||
-            message.threadId != null &&
-                message.thread?.threadId != message.threadId) {
-          return;
-        }
-        // Replies without their nested root preview belong only to the thread
-        // stream even though core also publishes them on the root channel.
-        if (message.threadId != null && message.thread == null) return;
-        _host.putLiveMessage(siteUrl, message, true);
-        final target = ChatChannelTarget(channelId);
-        if (data['type'] == 'sent' &&
-            !_host.streamContainsMessage(siteUrl, target, message.id)) {
-          _host.admitLiveMessage(siteUrl, target, message);
-        }
-        if (data['staged_id'] is String) {
-          _host.reconcileSentEvent(siteUrl, target, data);
-        }
-        if (data['type'] == 'restore') {
-          _host.bumpStreamsHolding(siteUrl, message.id);
-          _host.setLoadedThreadOriginalDeleted(
-            siteUrl,
-            channelId,
-            message.id,
-            null,
-            true,
-          );
-        }
-        break;
       case 'thread_created':
         final payload = data['chat_message'];
         if (payload is! Map<String, dynamic>) return;
@@ -745,31 +741,30 @@ final class ChatLiveSyncCoordinator {
     if (data is! Map<String, dynamic>) return;
     final heldThread = _host.threadFor(siteUrl, target.threadId);
     final originalId = heldThread?.originalMessage?.id;
+    final event = _ChatLiveMessageEvent.decode(data, siteUrl);
+    if (event != null) {
+      final message = event.message;
+      if (message.channelId != target.channelId ||
+          message.threadId != target.threadId && message.id != originalId) {
+        return;
+      }
+      // The original is published to both streams; only the root path may
+      // apply non-idempotent mutations for that record.
+      if (message.id == originalId) return;
+      _host.putLiveMessage(siteUrl, message, true);
+      if (event.kind == _ChatLiveMessageKind.restored) {
+        _host.bumpStreamsHolding(siteUrl, message.id);
+      }
+      if (event.kind == _ChatLiveMessageKind.sent &&
+          !_host.streamContainsMessage(siteUrl, target, message.id)) {
+        _host.admitLiveMessage(siteUrl, target, message);
+      }
+      if (event.hasStagedId) {
+        _host.reconcileSentEvent(siteUrl, target, data);
+      }
+      return;
+    }
     switch (data['type']) {
-      case 'sent' || 'processed' || 'edit' || 'refresh' || 'restore':
-        final payload = data['chat_message'];
-        if (payload is! Map<String, dynamic>) return;
-        final message = ChatMessage.fromJson(payload, siteUrl);
-        if (message.id <= 0 ||
-            message.channelId != target.channelId ||
-            message.threadId != target.threadId && message.id != originalId) {
-          return;
-        }
-        // The original is published to both streams; only the root path may
-        // apply non-idempotent mutations for that record.
-        if (message.id == originalId) return;
-        _host.putLiveMessage(siteUrl, message, true);
-        if (data['type'] == 'restore') {
-          _host.bumpStreamsHolding(siteUrl, message.id);
-        }
-        if (data['type'] == 'sent' &&
-            !_host.streamContainsMessage(siteUrl, target, message.id)) {
-          _host.admitLiveMessage(siteUrl, target, message);
-        }
-        if (data['staged_id'] is String) {
-          _host.reconcileSentEvent(siteUrl, target, data);
-        }
-        break;
       case 'delete':
         if (jsonIntOrNull(data['deleted_id']) == originalId) return;
         _host.applyDeleteMutation(siteUrl, data, target.channelId, heldThread);
@@ -1575,6 +1570,34 @@ final class ChatLiveSyncCoordinator {
     }
     _presenceRefs.clear();
   }
+}
+
+enum _ChatLiveMessageKind { sent, updated, restored }
+
+final class _ChatLiveMessageEvent {
+  const _ChatLiveMessageEvent._(this.kind, this.message, this.hasStagedId);
+
+  static _ChatLiveMessageEvent? decode(
+    Map<String, dynamic> data,
+    String siteUrl,
+  ) {
+    final kind = switch (data['type']) {
+      'sent' => _ChatLiveMessageKind.sent,
+      'processed' || 'edit' || 'refresh' => _ChatLiveMessageKind.updated,
+      'restore' => _ChatLiveMessageKind.restored,
+      _ => null,
+    };
+    if (kind == null) return null;
+    final payload = data['chat_message'];
+    if (payload is! Map<String, dynamic>) return null;
+    final message = ChatMessage.fromJson(payload, siteUrl);
+    if (message.id <= 0) return null;
+    return _ChatLiveMessageEvent._(kind, message, data['staged_id'] is String);
+  }
+
+  final _ChatLiveMessageKind kind;
+  final ChatMessage message;
+  final bool hasStagedId;
 }
 
 final class _ChatLiveSite {
