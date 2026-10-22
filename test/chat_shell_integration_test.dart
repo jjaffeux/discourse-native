@@ -2038,20 +2038,22 @@ void _registerChatShellTests() {
           await tester.tap(find.byKey(const ValueKey('chat-search-sort')));
           await tester.pumpAndSettle();
 
-          final surface = find.byKey(const ValueKey('choice-menu-surface'));
+          final surface = find.byType(DPopoverContent);
           expect(surface, findsOneWidget);
           expect(
             tester.getRect(surface).right,
             lessThanOrEqualTo(desktop.width - 12),
           );
-          expect(find.text('Sort search results'), findsOneWidget);
           expect(find.text('Best matching messages first'), findsOneWidget);
           expect(find.text('Newest messages first'), findsOneWidget);
           expect(find.byType(DropdownButton<ChatSearchSort>), findsNothing);
 
           await tester.tap(
             find.byKey(
-              const ValueKey(('choice-menu-option', ChatSearchSort.latest)),
+              const ValueKey<(String, ChatSearchSort?)>((
+                'd-select-item',
+                ChatSearchSort.latest,
+              )),
             ),
           );
           await tester.pumpAndSettle();

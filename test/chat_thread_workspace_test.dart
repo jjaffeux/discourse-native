@@ -43,6 +43,7 @@ import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 
 const String _siteUrl = 'https://meta.discourse.org';
+const _messageList = ValueKey('d-message-scroller-list');
 const int _channelId = 9;
 const int _threadId = 3;
 const String _channelTitle = 'Support';
@@ -354,11 +355,11 @@ void main() {
         expect(tester.getSize(border), Size(1, tester.getSize(divider).height));
         final channelStream = find.descendant(
           of: channelPane,
-          matching: find.byType(SuperListView),
+          matching: find.byKey(_messageList),
         );
         final threadStream = find.descendant(
           of: threadPane,
-          matching: find.byType(SuperListView),
+          matching: find.byKey(_messageList),
         );
         final channelWidth = tester.getSize(channelPane).width;
         final threadWidth = tester.getSize(threadPane).width;
@@ -466,11 +467,11 @@ void main() {
 
     final channelList = find.descendant(
       of: find.byKey(const ValueKey('chat-channel-pane')),
-      matching: find.byType(SuperListView),
+      matching: find.byKey(_messageList),
     );
     final threadList = find.descendant(
       of: find.byKey(const ValueKey('chat-thread-pane')),
-      matching: find.byType(SuperListView),
+      matching: find.byKey(_messageList),
     );
     final channelScroll = tester
         .widget<SuperListView>(channelList)
@@ -544,7 +545,7 @@ void main() {
       );
       await _exportWorkspace(tester, '${width.toInt()}-latest');
       for (final list in tester.widgetList<SuperListView>(
-        find.byType(SuperListView),
+        find.byKey(_messageList),
       )) {
         list.controller!.position.jumpTo(
           list.controller!.position.maxScrollExtent,
@@ -560,7 +561,7 @@ void main() {
       await _exportWorkspace(tester, '${width.toInt()}-full');
       final list = find.descendant(
         of: find.byType(ChatThreadView),
-        matching: find.byType(SuperListView),
+        matching: find.byKey(_messageList),
       );
       final position = tester.widget<SuperListView>(list).controller!.position;
       position.jumpTo(position.maxScrollExtent - 700);
@@ -596,7 +597,7 @@ void main() {
       for (final (pane, title) in panes) {
         final list = find.descendant(
           of: pane,
-          matching: find.byType(SuperListView),
+          matching: find.byKey(_messageList),
         );
         final stream = find.descendant(
           of: pane,
