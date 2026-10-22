@@ -153,6 +153,89 @@ Future<void> _seed(PreferencesController controller) async {
 }
 
 void main() {
+  test('automatic saves join reentrantly and persist a reversed choice', () async {
+    final first = Completer<UserPreferences>();
+    late final _PreferencesApi api;
+    api = _PreferencesApi(
+      onUpdate: (call) => api.updates.length == 1
+          ? first.future
+          : Future.value(call.fallback),
+    );
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    await _seed(controller);
+    controller.edit(
+      _siteUrl,
+      PreferenceSection.notifications,
+      (value) => value.copyWith(notifyOnLinkedPosts: false),
+    );
+    Future<void>? joined;
+    controller.addListener(() {
+      if (joined == null && controller.stateFor(_siteUrl)!.saving) {
+        joined = controller.saveAutomatically(
+          _accountA,
+          PreferenceSection.notifications,
+        );
+      }
+    });
+    final saving = controller.saveAutomatically(
+      _accountA,
+      PreferenceSection.notifications,
+    );
+    expect(joined, same(saving));
+    await pumpEventQueue();
+    controller.edit(
+      _siteUrl,
+      PreferenceSection.notifications,
+      (value) => value.copyWith(notifyOnLinkedPosts: true),
+    );
+    first.complete(_initial.copyWith(notifyOnLinkedPosts: false));
+    await saving;
+
+    expect(api.updates.map((call) => call.values), [
+      {'notify_on_linked_posts': false},
+      {'notify_on_linked_posts': true},
+    ]);
+    final state = controller.stateFor(_siteUrl)!;
+    expect(state.draft!.notifyOnLinkedPosts, isTrue);
+    expect(state.confirmed!.notifyOnLinkedPosts, isTrue);
+    expect(state.pendingWrites, 0);
+    expect(state.dirty(PreferenceSection.notifications), isFalse);
+  });
+
+  test('editing another section does not suppress save settlement', () async {
+    final response = Completer<UserPreferences>();
+    final saved = <PreferenceSection>[];
+    final api = _PreferencesApi(onUpdate: (_) => response.future);
+    final controller = _controller(
+      api,
+      onSaved: (_, section, _) => saved.add(section),
+    );
+    addTearDown(controller.dispose);
+    await _seed(controller);
+    controller.edit(
+      _siteUrl,
+      PreferenceSection.profile,
+      (value) => value.copyWith(timezone: 'Europe/Paris'),
+    );
+    final saving = controller.save(_accountA, PreferenceSection.profile);
+    await pumpEventQueue();
+    controller.edit(
+      _siteUrl,
+      PreferenceSection.notifications,
+      (value) => value.copyWith(notifyOnLinkedPosts: false),
+    );
+    response.complete(_initial.copyWith(timezone: 'Europe/Paris'));
+    expect(await saving, isTrue);
+
+    final state = controller.stateFor(_siteUrl)!;
+    expect(state.confirmed!.timezone, 'Europe/Paris');
+    expect(state.confirmed!.notifyOnLinkedPosts, isTrue);
+    expect(state.draft!.notifyOnLinkedPosts, isFalse);
+    expect(state.dirty(PreferenceSection.notifications), isTrue);
+    expect(saved, [PreferenceSection.profile]);
+  });
+
   test(
     'automatic saves stop on failure and retry the retained choice',
     () async {
