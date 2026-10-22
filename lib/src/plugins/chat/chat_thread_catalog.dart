@@ -86,6 +86,7 @@ final class _ChatThreadListRequest {
 final class _ChatThreadListEntry {
   _ChatThreadListSnapshot snapshot = const _ChatThreadListSnapshot.empty();
   _ChatThreadListRequest? request;
+  ({List<int> ids, List<ChatThread> threads})? projection;
 }
 
 final class _ChatThreadCatalog {
@@ -109,6 +110,7 @@ final class _ChatThreadCatalog {
   final void Function() onChanged;
   final void Function(Object, StackTrace, String) report;
   final Map<_ChatThreadListId, _ChatThreadListEntry> _lists = {};
+  int? _projectionGeneration;
   bool _retired = false;
   bool hasThreads = false;
 
@@ -116,6 +118,36 @@ final class _ChatThreadCatalog {
 
   _ChatThreadListSnapshot snapshot(_ChatThreadListId id) =>
       _lists[id]?.snapshot ?? const _ChatThreadListSnapshot.empty();
+
+  List<ChatThread> channelThreads(int channelId) {
+    if (!isCurrent) return const <ChatThread>[];
+    final generation = store.generationOf<ChatThread>(siteUrl);
+    if (_projectionGeneration != generation) {
+      for (final entry in _lists.values) {
+        entry.projection = null;
+      }
+      _projectionGeneration = generation;
+    }
+    final entry = _lists[_ChannelChatThreadList(channelId)];
+    final ids = entry?.snapshot.ids;
+    if (entry == null || ids == null) return const <ChatThread>[];
+    final projection = entry.projection;
+    if (projection != null && identical(projection.ids, ids)) {
+      return projection.threads;
+    }
+    final threads = <ChatThread>[
+      for (final id in ids)
+        if (store.read<ChatThread>(siteUrl, id) case final thread?
+            when thread.channelId == channelId &&
+                thread.originalMessage?.deletedAt == null &&
+                thread.originalMessage?.id != thread.lastMessageId)
+          thread,
+    ];
+    threads.sort(ChatController._compareChannelThreads);
+    final List<ChatThread> projected = List.unmodifiable(threads);
+    entry.projection = (ids: ids, threads: projected);
+    return projected;
+  }
 
   void recordThreadChange(ChatThread? before, ChatThread after) {
     if (identical(before, after)) return;

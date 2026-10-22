@@ -677,6 +677,14 @@ class ChatController extends FrameSafeNotifier {
           );
 
   @visibleForTesting
+  int retainedChannelThreadRecordsForTesting(String siteUrl) =>
+      _heldThreadCatalog(siteUrl)?._lists.values.fold<int>(
+        0,
+        (total, entry) => total + (entry.projection?.threads.length ?? 0),
+      ) ??
+      0;
+
+  @visibleForTesting
   int pinSnapshotCountForTesting(String siteUrl) =>
       _pinListRefs.keys.where((key) => key.startsWith('$siteUrl~')).length;
 
@@ -1185,19 +1193,9 @@ class ChatController extends FrameSafeNotifier {
   String? myThreadsError(String siteUrl) =>
       _threadList(siteUrl, _ChatThreadListId.mine).error;
 
-  List<ChatThread> channelThreads(String siteUrl, int channelId) {
-    final state = _threadList(siteUrl, _ChannelChatThreadList(channelId));
-    final threads = <ChatThread>[
-      for (final id in state.ids ?? const <int>[])
-        if (_store.read<ChatThread>(siteUrl, id) case final thread?
-            when thread.channelId == channelId &&
-                thread.originalMessage?.deletedAt == null &&
-                thread.originalMessage?.id != thread.lastMessageId)
-          thread,
-    ];
-    threads.sort(_compareChannelThreads);
-    return List.unmodifiable(threads);
-  }
+  List<ChatThread> channelThreads(String siteUrl, int channelId) =>
+      _heldThreadCatalog(siteUrl)?.channelThreads(channelId) ??
+      const <ChatThread>[];
 
   bool channelThreadsLoaded(String siteUrl, int channelId) =>
       _threadList(siteUrl, _ChannelChatThreadList(channelId)).loaded;

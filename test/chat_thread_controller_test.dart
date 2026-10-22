@@ -936,6 +936,272 @@ void main() {
     expect(subject.chat.channelThreadsHaveMore(site, 9), isFalse);
   });
 
+  test(
+    'channel threads follow canonical writes from an empty result',
+    () async {
+      final api = FakeDiscourseApi(
+        chatChannelThreadPagesByKey: {
+          FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+            threads: [
+              listedThread(1, hasReplies: false),
+              listedThread(2, deletedAt: DateTime.utc(2026, 8, 12)),
+            ],
+          ),
+        },
+      );
+      final subject = _controllerFor(api);
+      subject.store.put(site, followedChannel());
+      await subject.chat.loadChannelThreads(site, 9);
+
+      expect(subject.chat.channelThreads(site, 9), isEmpty);
+      subject.store.put(site, listedThread(1));
+      subject.store.put(site, listedThread(2));
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        2,
+        1,
+      ]);
+
+      subject.store.update<ChatThread>(
+        site,
+        1,
+        (thread) => thread.copyWith(
+          title: 'Canonical title',
+          tracking: const ChatTracking(unreadCount: 1),
+        ),
+      );
+      final unread = subject.chat.channelThreads(site, 9);
+      expect(unread.map((thread) => thread.id), [1, 2]);
+      expect(unread.first.title, 'Canonical title');
+      expect(() => unread.add(listedThread(3)), throwsUnsupportedError);
+
+      subject.store.put(
+        site,
+        listedThread(
+          2,
+          tracking: const ChatTracking(watchedThreadsUnreadCount: 1),
+        ),
+      );
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        2,
+        1,
+      ]);
+
+      subject.store.remove<ChatThread>(site, 2);
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        1,
+      ]);
+      subject.store.update<ChatThread>(
+        site,
+        1,
+        (thread) => thread.copyWith(
+          originalMessage: thread.originalMessage!.copyWith(
+            deletedAt: DateTime.utc(2026, 8, 12),
+          ),
+        ),
+      );
+      expect(subject.chat.channelThreads(site, 9), isEmpty);
+      subject.store.put(site, listedThread(1));
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        1,
+      ]);
+    },
+  );
+
+  test(
+    'channel threads drop evicted records and rematerialize canonical rows',
+    () async {
+      final api = FakeDiscourseApi(
+        chatChannelThreadPagesByKey: {
+          FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+            threads: [listedThread(1), listedThread(2)],
+          ),
+        },
+      );
+      final subject = _controllerFor(
+        api,
+        store: Store(
+          policy: const StorePolicy(
+            maxEntries: 100,
+            maxEntriesPerSiteAndType: 2,
+          ),
+        ),
+      );
+      subject.store.put(site, followedChannel());
+      await subject.chat.loadChannelThreads(site, 9);
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        2,
+        1,
+      ]);
+
+      subject.store.put(site, listedThread(3));
+      expect(subject.store.containsRecord<ChatThread>(site, 1), isFalse);
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        2,
+      ]);
+
+      subject.store.put(
+        site,
+        listedThread(1).copyWith(title: 'Rematerialized'),
+      );
+      final threads = subject.chat.channelThreads(site, 9);
+      expect(threads.map((thread) => thread.id), [2, 1]);
+      expect(threads.last.title, 'Rematerialized');
+    },
+  );
+
+  test(
+    'channel thread projections release evicted records across channel visits',
+    () async {
+      ChatThread record(int channelId, int id) => ChatThread(
+        id: id,
+        channelId: channelId,
+        status: 'open',
+        replyCount: 1,
+        lastMessageId: id * 10 + 1,
+      );
+      final api = FakeDiscourseApi(
+        chatChannelThreadPagesByKey: {
+          for (final channelId in [9, 10, 11])
+            FakeDiscourseApi.chatChannelThreadPageKey(
+              channelId,
+              0,
+            ): ChatThreadPage(
+              threads: [
+                record(channelId, channelId * 10),
+                record(channelId, channelId * 10 + 1),
+              ],
+            ),
+        },
+      );
+      final subject = _controllerFor(
+        api,
+        store: Store(
+          policy: const StorePolicy(
+            maxEntries: 100,
+            maxEntriesPerSiteAndType: 2,
+          ),
+        ),
+      );
+
+      for (final channelId in [9, 10, 11]) {
+        await subject.chat.loadChannelThreads(
+          site,
+          channelId,
+          directoryChannel: ChatChannel(
+            id: channelId,
+            title: 'Channel $channelId',
+            kind: ChatChannelKind.category,
+            threadingEnabled: true,
+          ),
+        );
+        expect(
+          subject.chat
+              .channelThreads(site, channelId)
+              .map((thread) => thread.id),
+          [channelId * 10 + 1, channelId * 10],
+        );
+        expect(
+          subject.chat.retainedChannelThreadRecordsForTesting(site),
+          lessThanOrEqualTo(2),
+        );
+        expect(
+          subject.store.statisticsForTesting.entriesFor<ChatThread>(site),
+          2,
+        );
+        for (
+          var previousChannelId = 9;
+          previousChannelId < channelId;
+          previousChannelId++
+        ) {
+          expect(
+            subject.store.containsRecord<ChatThread>(
+              site,
+              previousChannelId * 10,
+            ),
+            isFalse,
+          );
+          expect(
+            subject.store.containsRecord<ChatThread>(
+              site,
+              previousChannelId * 10 + 1,
+            ),
+            isFalse,
+          );
+          expect(
+            subject.chat.channelThreadsLoaded(site, previousChannelId),
+            isTrue,
+          );
+        }
+      }
+
+      subject.store.put(site, record(9, 90));
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        90,
+      ]);
+      expect(subject.chat.retainedChannelThreadRecordsForTesting(site), 1);
+    },
+  );
+
+  for (final reset in ['lease expiry', 'forget', 'disposal', 'kick']) {
+    test('channel threads discard a loaded result after $reset', () async {
+      final api = _SequencedThreadListApi(
+        chatChannelsBySite: {
+          site: ChatChannels(
+            public: [followedChannel()],
+            kickMessageBusLastIds: const {9: 72},
+          ),
+        },
+      );
+      final requests = FakePluginRequestHost(
+        credentials: FakeApiCredentialReader()..keys[site] = 'key',
+      );
+      final subject = _controllerFor(
+        api,
+        requests: requests,
+        autoDispose: reset != 'disposal',
+      );
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      final started = api.nextChannelThreadPage();
+      final initial = subject.chat.loadChannelThreads(site, 9);
+      await started;
+      api.channelThreadPages.single.complete(
+        ChatThreadPage(threads: [listedThread(1)]),
+      );
+      await initial;
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        1,
+      ]);
+
+      switch (reset) {
+        case 'lease expiry':
+          requests.lifecycle.invalidate(site);
+        case 'forget':
+          subject.chat.forget(site);
+          subject.store.forget(site);
+        case 'disposal':
+          subject.chat.dispose();
+        case 'kick':
+          tracker.deliverPluginMessage('/chat/9/kick', {'channel_id': 9});
+      }
+      expect(subject.chat.channelThreads(site, 9), isEmpty);
+      expect(subject.chat.channelThreadsLoaded(site, 9), isFalse);
+
+      if (reset == 'disposal' || reset == 'kick') return;
+      await subject.chat.loadChannels(site);
+      final nextStarted = api.nextChannelThreadPage();
+      final next = subject.chat.loadChannelThreads(site, 9);
+      await nextStarted;
+      api.channelThreadPages.last.complete(
+        ChatThreadPage(threads: [listedThread(2)]),
+      );
+      await next;
+      expect(subject.chat.channelThreads(site, 9).map((thread) => thread.id), [
+        2,
+      ]);
+    });
+  }
+
   test('a my-threads refresh supersedes a page already in flight', () async {
     final api = _SequencedThreadListApi(
       chatChannelsBySite: {
