@@ -1,0 +1,411 @@
+import 'dart:async';
+
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'support/fakes.dart';
+
+const _site = 'https://meta.example';
+const _row = Topic(id: 1, title: 'Original', slug: 'original', categoryId: 1);
+const _tag = TopicTag(id: 7, name: 'design');
+
+enum _Field { title, category, tags }
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final field in _Field.values) {
+    test(
+      '$field rejects missing credentials without sending a write',
+      () async {
+        final fixture = await _fixture();
+        fixture.auth.keys.clear();
+        expect(
+          await _save(fixture.shell, field),
+          const WriteException(WriteFailure.forbidden).message,
+        );
+        expect(fixture.api.pending, isEmpty);
+        _expectOriginal(fixture.shell);
+      },
+    );
+
+    test(
+      '$field cannot borrow credentials after account replacement',
+      () async {
+        final fixture = await _fixture();
+        final held = fixture.auth.hold = Completer<String?>();
+        final saving = _save(fixture.shell, field);
+        await pumpEventQueue();
+        fixture.shell.lifecycle.invalidate(_site);
+        fixture.auth.keys[_site] = 'replacement-key';
+        fixture.shell.lifecycle.capture(_site);
+        held.complete('replacement-key');
+        expect(await saving, _staleMessage(field));
+        expect(fixture.api.pending, isEmpty);
+        _expectOriginal(fixture.shell);
+      },
+    );
+
+    test('$field stale response preserves a replacement transaction', () async {
+      final fixture = await _fixture();
+      final stale = _save(fixture.shell, field);
+      await pumpEventQueue();
+      expect(fixture.api.pending, hasLength(1));
+      fixture.shell.lifecycle.invalidate(_site);
+      fixture.auth.keys[_site] = 'replacement-key';
+      final replacement = _save(fixture.shell, field);
+      await pumpEventQueue();
+      expect(fixture.api.pending, hasLength(2));
+      expect(fixture.api.keys, ['key', 'replacement-key']);
+      fixture.api.pending[0].complete(const TopicUpdate(title: 'Stale'));
+      expect(await stale, _staleMessage(field));
+      _expectOriginal(fixture.shell);
+      fixture.api.pending[1].complete(const TopicUpdate(title: 'Normalized'));
+      expect(await replacement, isNull);
+      final detail = fixture.shell.currentTopic!;
+      switch (field) {
+        case _Field.title:
+          expect(detail.title, 'Normalized');
+        case _Field.category:
+          expect(detail.categoryId, 2);
+          expect(detail.title, _row.title);
+        case _Field.tags:
+          expect(detail.tags, [_tag]);
+          expect(detail.title, _row.title);
+      }
+    });
+
+    test('$field cannot publish after shell disposal', () async {
+      final fixture = await _fixture();
+      final saving = _save(fixture.shell, field);
+      await pumpEventQueue();
+      fixture.dispose();
+      fixture.api.pending.single.complete(const TopicUpdate(title: 'Late'));
+      expect(await saving, _staleMessage(field));
+      _expectOriginal(fixture.shell);
+    });
+
+    test('$field preserves write failures without projecting fields', () async {
+      final fixture = await _fixture();
+      final saving = _save(fixture.shell, field);
+      await pumpEventQueue();
+      fixture.api.pending.single.completeError(
+        const WriteException(WriteFailure.forbidden),
+      );
+      expect(
+        await saving,
+        const WriteException(WriteFailure.forbidden).message,
+      );
+      _expectOriginal(fixture.shell);
+    });
+  }
+
+  for (final field in [_Field.title, _Field.category]) {
+    test(
+      '$field retains its opening conflict baseline across credential lookup',
+      () async {
+        final fixture = await _fixture();
+        final held = fixture.auth.hold = Completer<String?>();
+        final saving = _save(fixture.shell, field);
+        await pumpEventQueue();
+        fixture.shell.store.update<TopicDetail>(
+          _site,
+          1,
+          (detail) => detail.copyWith(title: 'Refreshed', tags: [_tag]),
+        );
+        held.complete('key');
+        await pumpEventQueue();
+        final sent = fixture.api.requests.single;
+        expect(sent['originalTitle'], 'Original');
+        if (field == _Field.category) {
+          expect(sent['title'], 'Original');
+          expect(sent['originalTags'], isEmpty);
+        }
+        fixture.api.pending.single.complete(const TopicUpdate());
+        expect(await saving, isNull);
+      },
+    );
+  }
+
+  test('sidebar tag command snapshots a caller-owned selection', () async {
+    final fixture = await _fixture();
+    final held = fixture.auth.hold = Completer<String?>();
+    final selection = [_tag];
+    final saving = fixture.shell.updateTopicTagsFromSidebar(
+      siteUrl: _site,
+      topicId: 1,
+      tags: selection,
+    );
+    selection.clear();
+    held.complete('key');
+    await pumpEventQueue();
+    expect(fixture.api.requests.single['tags'], [_tag]);
+    fixture.api.pending.single.complete(const TopicUpdate());
+    expect(await saving, isNull);
+    expect(fixture.shell.currentTopic?.tags, [_tag]);
+  });
+
+  test(
+    'category validation cannot send a mutation after account retirement',
+    () async {
+      final fixture = await _fixture();
+      fixture.shell.store.update<TopicDetail>(
+        _site,
+        1,
+        (detail) => detail.copyWith(tags: [_tag]),
+      );
+      final gate = fixture.api.tagSearch = Completer<TopicTagSearch>();
+      final saving = _save(fixture.shell, _Field.category);
+      await pumpEventQueue();
+      expect(fixture.api.tagSearches, 1);
+      fixture.shell.lifecycle.invalidate(_site);
+      fixture.shell.lifecycle.capture(_site);
+      gate.complete(const TopicTagSearch(tags: [_tag]));
+      expect(await saving, _staleMessage(_Field.category));
+      expect(fixture.api.pending, isEmpty);
+      expect(fixture.shell.currentTopic?.categoryId, 1);
+      expect(fixture.shell.currentTopic?.tags, [_tag]);
+    },
+  );
+
+  test(
+    'same-field writes settle in response order without a busy refusal',
+    () async {
+      final fixture = await _fixture();
+      final first = fixture.shell.saveTopicTitle(
+        siteUrl: _site,
+        topicId: 1,
+        title: 'First',
+      );
+      final second = fixture.shell.saveTopicTitle(
+        siteUrl: _site,
+        topicId: 1,
+        title: 'Second',
+      );
+      await pumpEventQueue();
+      expect(fixture.api.pending, hasLength(2));
+      fixture.api.pending[1].complete(
+        const TopicUpdate(title: 'Second stored'),
+      );
+      expect(await second, isNull);
+      fixture.api.pending[0].complete(const TopicUpdate(title: 'First stored'));
+      expect(await first, isNull);
+      expect(fixture.shell.currentTopic?.title, 'First stored');
+      expect(fixture.shell.currentContent?.title, 'First stored');
+    },
+  );
+
+  for (final categoryLast in [false, true]) {
+    test(
+      'category and sidebar tags settle in response order, category last $categoryLast',
+      () async {
+        final fixture = await _fixture();
+        final category = _save(fixture.shell, _Field.category);
+        await pumpEventQueue();
+        final tags = _save(fixture.shell, _Field.tags);
+        await pumpEventQueue();
+        expect(fixture.api.pending, hasLength(2));
+        if (categoryLast) {
+          fixture.api.pending[1].complete(const TopicUpdate());
+          expect(await tags, isNull);
+          fixture.api.pending[0].complete(const TopicUpdate(tags: []));
+          expect(await category, isNull);
+        } else {
+          fixture.api.pending[0].complete(const TopicUpdate(tags: []));
+          expect(await category, isNull);
+          fixture.api.pending[1].complete(const TopicUpdate());
+          expect(await tags, isNull);
+        }
+        expect(fixture.shell.currentTopic?.categoryId, 2);
+        final expectedTags = categoryLast ? <TopicTag>[] : [_tag];
+        expect(fixture.shell.currentTopic?.tags, expectedTags);
+        expect(fixture.shell.store.read<Topic>(_site, 1)?.tags, expectedTags);
+      },
+    );
+  }
+}
+
+String _staleMessage(_Field field) => switch (field) {
+  _Field.title => appL10n.theForumChangedBeforeTheTitleSaved,
+  _Field.category => appL10n.theForumChangedBeforeTheCategorySaved,
+  _Field.tags => appL10n.theSiteChangedBeforeTagsWereSaved,
+};
+
+Future<String?> _save(ShellController shell, _Field field) => switch (field) {
+  _Field.title => shell.saveTopicTitle(
+    siteUrl: _site,
+    topicId: 1,
+    title: 'Renamed',
+  ),
+  _Field.category => shell.saveTopicCategory(
+    siteUrl: _site,
+    topicId: 1,
+    categoryId: 2,
+  ),
+  _Field.tags => shell.updateTopicTagsFromSidebar(
+    siteUrl: _site,
+    topicId: 1,
+    tags: [_tag],
+  ),
+};
+
+void _expectOriginal(ShellController shell) {
+  for (final (title, categoryId, tags) in [
+    (
+      shell.store.read<TopicDetail>(_site, 1)?.title,
+      shell.store.read<TopicDetail>(_site, 1)?.categoryId,
+      shell.store.read<TopicDetail>(_site, 1)?.tags,
+    ),
+    (
+      shell.store.read<Topic>(_site, 1)?.title,
+      shell.store.read<Topic>(_site, 1)?.categoryId,
+      shell.store.read<Topic>(_site, 1)?.tags,
+    ),
+  ]) {
+    expect(title, _row.title);
+    expect(categoryId, 1);
+    expect(tags, isEmpty);
+  }
+}
+
+Future<
+  ({
+    ShellController shell,
+    _MetadataApi api,
+    _HeldAuthenticator auth,
+    void Function() dispose,
+  })
+>
+_fixture() async {
+  final api = _MetadataApi();
+  final auth = _HeldAuthenticator()..keys[_site] = 'key';
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore([
+      instance(
+        'meta.example',
+      ).copyWith(user: const DiscourseUser(id: 7, username: 'sam')),
+    ]),
+    api: api,
+    authenticator: auth,
+    drafts: FakeDraftStore(),
+    forumTabs: FakeForumTabStore(),
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+  );
+  var disposed = false;
+  void dispose() {
+    if (disposed) return;
+    disposed = true;
+    shell.dispose();
+  }
+
+  addTearDown(() {
+    dispose();
+    for (final pending in api.pending) {
+      if (!pending.isCompleted) pending.complete(const TopicUpdate());
+    }
+  });
+  await shell.load();
+  await shell.loadFeed('latest');
+  await shell.loadTopic(1, _row.slug);
+  shell.openTopicFromList(_row);
+  return (shell: shell, api: api, auth: auth, dispose: dispose);
+}
+
+final class _HeldAuthenticator extends FakeAuthenticator {
+  Completer<String?>? hold;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) =>
+      hold?.future ?? super.apiKeyFor(siteUrl);
+}
+
+final class _MetadataApi extends FakeDiscourseApi {
+  _MetadataApi()
+    : super(
+        feeds: const {
+          '/latest.json': [_row],
+        },
+        topics: const {
+          1: (
+            detail: TopicDetail(
+              id: 1,
+              title: 'Original',
+              stream: [],
+              postsCount: 0,
+              categoryId: 1,
+              canEdit: true,
+              canEditTags: true,
+            ),
+            posts: [],
+          ),
+        },
+      );
+
+  final pending = <Completer<TopicUpdate>>[];
+  final keys = <String>[];
+  final requests = <Map<String, Object?>>[];
+  Completer<TopicTagSearch>? tagSearch;
+  int tagSearches = 0;
+
+  Future<TopicUpdate> _write(String apiKey) {
+    keys.add(apiKey);
+    final result = Completer<TopicUpdate>();
+    pending.add(result);
+    return result.future;
+  }
+
+  @override
+  Future<TopicUpdate> updateTopic({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required String title,
+    required String originalTitle,
+    Iterable<TopicTag>? tags,
+    Iterable<TopicTag>? originalTags,
+    int? categoryId,
+    String? clientId,
+  }) {
+    requests.add({
+      'title': title,
+      'originalTitle': originalTitle,
+      'tags': tags?.toList(),
+      'originalTags': originalTags?.toList(),
+      'categoryId': categoryId,
+    });
+    return _write(apiKey);
+  }
+
+  @override
+  Future<void> updateTopicTags({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required Iterable<TopicTag> tags,
+    String? clientId,
+  }) async {
+    requests.add({'tags': tags.toList()});
+    await _write(apiKey);
+  }
+
+  @override
+  Future<TopicTagSearch> searchTopicTags({
+    required String siteUrl,
+    required String apiKey,
+    required String term,
+    int? categoryId,
+    Iterable<int> selectedTagIds = const [],
+    int limit = 20,
+    String? clientId,
+  }) async {
+    tagSearches++;
+    return await tagSearch?.future ?? const TopicTagSearch(tags: [_tag]);
+  }
+}

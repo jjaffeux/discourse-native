@@ -163,6 +163,7 @@ part 'instance_rail_transactions.dart';
 part 'notification_preference_transactions.dart';
 part 'profile_write_transactions.dart';
 part 'selected_post_moderation.dart';
+part 'topic_metadata_transactions.dart';
 part 'shell_tab_context.dart';
 part 'taxonomy_directory_controller.dart';
 part 'workspace_controller.dart';
@@ -8481,48 +8482,11 @@ class ShellController extends FrameSafeNotifier
     if (nextTitle.isEmpty) return appL10n.aTopicTitleIsRequired;
     if (nextTitle == detail!.title.trim()) return null;
 
-    final lease = lifecycle.capture(siteUrl);
-    final credential = await _credentialForWrite(siteUrl, lease: lease);
-    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheTitleSaved;
-    if (credential.failure case final failure?) return failure.message;
-
-    final TopicUpdate update;
-    try {
-      update = await credential.request!.run(
-        () => api.topicMutations.updateTopic(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          title: nextTitle,
-          originalTitle: originalTitle ?? detail.title,
-        ),
-      );
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, 'topic.editTitle');
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    }
-    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheTitleSaved;
-
-    final stored = update.title ?? nextTitle;
-    lease.commit(() {
-      store.update<TopicDetail>(
-        siteUrl,
-        topicId,
-        (topic) => topic.copyWith(title: stored),
-      );
-      store.update<Topic>(
-        siteUrl,
-        topicId,
-        (topic) => topic.copyWith(title: stored),
-      );
-      _retitle(siteUrl, topicId, stored);
-      _notify();
-    });
-    return null;
+    return _saveTopicMetadata(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      command: _TopicTitleCommand(nextTitle, originalTitle ?? detail.title),
+    );
   }
 
   Future<String?> saveTopicCategory({
@@ -8535,101 +8499,11 @@ class ShellController extends FrameSafeNotifier
       return appL10n.thisTopicCanNoLongerBeEdited;
     }
     if (detail!.categoryId == categoryId) return null;
-    final lease = lifecycle.capture(siteUrl);
-    final credential = await _credentialForWrite(siteUrl, lease: lease);
-    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheCategorySaved;
-    if (credential.failure case final failure?) return failure.message;
-
-    final tags = await _tagsAllowedInCategory(
+    return _saveTopicMetadata(
       siteUrl: siteUrl,
-      credential: credential.request!,
-      categoryId: categoryId,
-      selected: detail.tags,
+      topicId: topicId,
+      command: _TopicCategoryCommand(detail.title, categoryId, detail.tags),
     );
-    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheCategorySaved;
-
-    final TopicUpdate update;
-    try {
-      update = await credential.request!.run(
-        () => api.topicMutations.updateTopic(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          title: detail.title,
-          originalTitle: detail.title,
-          categoryId: categoryId,
-          tags: tags,
-          originalTags: detail.tags,
-        ),
-      );
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, 'topic.editCategory');
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    }
-    if (!lease.isCurrent) return appL10n.theForumChangedBeforeTheCategorySaved;
-
-    // The answer's title only echoes the baseline this write was accepted
-    // against; its tags are the ones the site kept.
-    final storedTags = update.tags ?? tags;
-    lease.commit(() {
-      store.update<TopicDetail>(
-        siteUrl,
-        topicId,
-        (topic) => topic.copyWith(categoryId: categoryId, tags: storedTags),
-      );
-      store.update<Topic>(
-        siteUrl,
-        topicId,
-        (topic) => topic.copyWith(categoryId: categoryId, tags: storedTags),
-      );
-      _updateTopicRouteMetadata(siteUrl, topicId, detail.title, categoryId);
-      _notify();
-    });
-    return null;
-  }
-
-  Future<List<TopicTag>> _tagsAllowedInCategory({
-    required String siteUrl,
-    required AccountRequestCredentials credential,
-    required int categoryId,
-    required List<TopicTag> selected,
-  }) async {
-    if (selected.isEmpty) return selected;
-    final kept = <TopicTag>[];
-    for (final tag in selected) {
-      try {
-        final result = await credential.run(
-          () => api.topicComposerQueries.searchTopicTags(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            term: tag.name,
-            categoryId: categoryId,
-            selectedTagIds: selected.map((item) => item.id).whereType<int>(),
-            limit: siteConfigFor(
-              siteUrl,
-            ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
-          ),
-        );
-        final match = result.results
-            .where(
-              (item) =>
-                  item.id == tag.id ||
-                  item.name.toLowerCase() == tag.name.toLowerCase(),
-            )
-            .firstOrNull;
-        if (!result.isForbidden && match != null && !match.disabled) {
-          kept.add(match);
-        }
-      } catch (_) {
-        // A failed validation lookup must not silently remove existing tags.
-        return selected;
-      }
-    }
-    return List.unmodifiable(kept);
   }
 
   void openTagsEdit({ShellTabContext? context}) {
@@ -8686,38 +8560,11 @@ class ShellController extends FrameSafeNotifier
         currentTopic?.canEditTags != true) {
       return appL10n.topicTagsCanNoLongerBeEdited;
     }
-    final next = List<TopicTag>.unmodifiable(tags);
-    final lease = lifecycle.capture(siteUrl);
-    final credential = await _credentialForWrite(siteUrl, lease: lease);
-    if (!lease.isCurrent) return appL10n.theSiteChangedBeforeTagsWereSaved;
-    if (credential.failure case final failure?) return failure.message;
-    try {
-      await credential.request!.run(
-        () => api.topicMutations.updateTopicTags(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-          topicId: topicId,
-          tags: next,
-        ),
-      );
-    } on WriteException catch (error) {
-      return error.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'topicSidebar.editTopicTags',
-        );
-      }
-      return const WriteException(WriteFailure.unreachable).message;
-    }
-    if (!lease.isCurrent) return appL10n.theSiteChangedBeforeTagsWereSaved;
-    lease.commit(() {
-      _applyTopicTags(siteUrl, topicId, next);
-      _notify();
-    });
-    return null;
+    return _saveTopicMetadata(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      command: _TopicTagsCommand(tags),
+    );
   }
 
   Future<void> _ensureTopicComposerCapabilities(String siteUrl) async {
