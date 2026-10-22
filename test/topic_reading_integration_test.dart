@@ -3503,15 +3503,13 @@ void _registerTopicReadingTests() {
       expect(find.text('Source 5'), findsOneWidget);
       expect(find.text('Source 6'), findsNothing);
       expect(find.text('1 more link'), findsOneWidget);
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(pointer.removePointer);
+      await pointer.addPointer(location: Offset.zero);
+      await pointer.moveTo(tester.getCenter(find.text('Source 1')));
+      await tester.pumpAndSettle();
       expect(
-        tester
-            .widget<InkWell>(
-              find.ancestor(
-                of: find.text('Source 1'),
-                matching: find.byType(InkWell),
-              ),
-            )
-            .mouseCursor,
+        tester.binding.mouseTracker.debugDeviceActiveCursor(1),
         SystemMouseCursors.click,
       );
 
