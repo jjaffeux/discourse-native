@@ -144,6 +144,30 @@ void main() {
         posts[11].id,
       ]);
 
+      controller.store.put(site.url, posts[10].copyWith(hidden: true));
+      await tester.pumpAndSettle();
+      await tester.drag(topicPostListFinder(), const Offset(0, -1000));
+      await tester.pumpAndSettle();
+      expect(controller.visibleTopicContext?.postIds, [
+        posts[9].id,
+        posts[11].id,
+      ]);
+
+      controller.store.put(site.url, posts[10].copyWith(hidden: false));
+      controller.store.put(
+        site.url,
+        posts[11].copyWith(
+          cooked: List.filled(30, '<p>Edited reply</p>').join(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(topicPostListFinder(), const Offset(0, -10000));
+      await tester.pumpAndSettle();
+      expect(controller.visibleTopicContext?.postIds, [
+        posts[10].id,
+        posts[11].id,
+      ]);
+
       controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
       expect(controller.visibleTopicContext, isNull);
     },

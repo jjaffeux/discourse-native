@@ -1260,13 +1260,19 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       return;
     }
 
+    final posts = <int, Post?>{};
+    final postBounds = <int, ({double top, double bottom})?>{};
+    Post? postFor(int postId) => posts.putIfAbsent(
+      postId,
+      () => controller.store.read<Post>(snapshot.siteUrl!, postId),
+    );
+    ({double top, double bottom})? boundsFor(int postId) =>
+        postBounds.putIfAbsent(postId, () => _reader.boundsForPost(postId));
+
     TopicViewportSeenPost? leadingPost;
     for (final postIndex in _reader.window.postIndexesInRange(range)) {
-      final post = controller.store.read<Post>(
-        snapshot.siteUrl!,
-        snapshot.postIds[postIndex],
-      );
-      final bounds = post == null ? null : _reader.boundsForPost(post.id);
+      final post = postFor(snapshot.postIds[postIndex]);
+      final bounds = post == null ? null : boundsFor(post.id);
       if (bounds != null && bounds.bottom <= 0) continue;
       if (post != null) {
         leadingPost = (
@@ -1285,12 +1291,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       range,
       reverse: true,
     )) {
-      final post = controller.store.read<Post>(
-        snapshot.siteUrl!,
-        snapshot.postIds[postIndex],
-      );
+      final post = postFor(snapshot.postIds[postIndex]);
       if (post == null) continue;
-      final bounds = _reader.boundsForPost(post.id);
+      final bounds = boundsFor(post.id);
       if (bounds != null && bounds.bottom <= 0) continue;
       visiblePost = (
         postId: post.id,
@@ -1307,17 +1310,14 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       maxScrollExtent: scrollPosition.maxScrollExtent,
       postStreamBottom: snapshot.hasMore || snapshot.postIds.isEmpty
           ? null
-          : _reader.boundsForPost(snapshot.postIds.last)?.bottom,
+          : boundsFor(snapshot.postIds.last)?.bottom,
       hasMore: snapshot.hasMore,
     );
     TopicViewportSeenPost? contextPost;
     for (final postIndex in _reader.window.postIndexesInRange(range)) {
-      final post = controller.store.read<Post>(
-        snapshot.siteUrl!,
-        snapshot.postIds[postIndex],
-      );
+      final post = postFor(snapshot.postIds[postIndex]);
       if (post == null) continue;
-      final bounds = _reader.boundsForPost(post.id);
+      final bounds = boundsFor(post.id);
       if (bounds == null ||
           contextEyeline < bounds.top - 0.5 ||
           contextEyeline > bounds.bottom + 0.5) {
@@ -1336,11 +1336,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     final previousContextPostId = _visibleContextCurrentPostId;
     if (contextPost == null &&
         previousContextPostId != null &&
-        snapshot.postIds.contains(previousContextPostId)) {
-      final previous = controller.store.read<Post>(
-        snapshot.siteUrl!,
-        previousContextPostId,
-      );
+        _reader.window[previousContextPostId] != null) {
+      final previous = postFor(previousContextPostId);
       if (previous != null) {
         contextPost = (
           postId: previous.id,
@@ -1354,11 +1351,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (_reader.postContext(contextPost?.postId) case final context?) {
       // Several async placeholders can initially fit in the viewport. Once
       // they expand, prefer the post being read over later offscreen rows.
-      final html =
-          controller.store
-              .read<Post>(snapshot.siteUrl!, contextPost!.postId)
-              ?.cooked ??
-          '';
+      final html = postFor(contextPost!.postId)?.cooked ?? '';
       _postRetention.retain(
         context,
         html.length,
@@ -1388,12 +1381,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       range,
       reverse: true,
     )) {
-      final post = controller.store.read<Post>(
-        snapshot.siteUrl!,
-        snapshot.postIds[postIndex],
-      );
+      final post = postFor(snapshot.postIds[postIndex]);
       if (post == null) continue;
-      final bounds = _reader.boundsForPost(post.id);
+      final bounds = boundsFor(post.id);
       if (bounds == null ||
           bounds.bottom <= 0 ||
           bounds.bottom > viewportExtent + 0.5) {
@@ -1487,8 +1477,8 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     TopicViewportSnapshot snapshot,
     int currentPostId,
   ) {
-    final currentIndex = snapshot.postIds.indexOf(currentPostId);
-    if (currentIndex < 0) return const [];
+    final currentIndex = _reader.window[currentPostId];
+    if (currentIndex == null) return const [];
 
     int? eligibleNeighbor(int from, int step) {
       for (
