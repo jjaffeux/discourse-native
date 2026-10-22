@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -10,104 +8,10 @@ import 'event_calendar.dart';
 import 'event_calendar_data.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
+import 'event_directory_session.dart';
 import 'event_navigation.dart';
-import 'event_time.dart';
-import 'topic_calendar_data.dart';
 
-/// Finder occurrences are authoritative. A future occurrence never offers
-/// RSVP controls: the server's attendance routes act on the current series.
-List<PostEvent> eventDirectoryOccurrences(
-  List<PostEvent> events,
-  PluginTimezoneHost zones,
-) {
-  final candidates =
-      <
-        ({
-          PostEvent event,
-          Map<String, Object?>? occurrence,
-          String startsAt,
-          DateTime? instant,
-          int index,
-        })
-      >[];
-  void add(PostEvent event, {Map<String, Object?>? occurrence}) {
-    Object? field(String key) => occurrence?.containsKey(key) == true
-        ? occurrence![key]
-        : event.fields[key];
-    final startsAt = eventText(field('starts_at'));
-    if (startsAt == null) return;
-    candidates.add((
-      event: event,
-      occurrence: occurrence,
-      startsAt: startsAt,
-      instant: eventDate(
-        startsAt,
-        zones: zones,
-        timezone: eventText(field('timezone')),
-        allDay: field('all_day') == true,
-        showLocalTime: field('show_local_time') == true,
-      ),
-      index: candidates.length,
-    ));
-  }
-
-  for (final event in events) {
-    final occurrences = event.fields['occurrences'];
-    if (occurrences is List) {
-      for (final raw in occurrences) {
-        // PostEvent already froze these maps; keep references until selected.
-        if (raw is Map<String, Object?> &&
-            eventText(raw['starts_at']) != null) {
-          add(event, occurrence: raw);
-        }
-      }
-    } else {
-      add(event);
-    }
-  }
-  candidates.sort((a, b) {
-    final first = a.instant;
-    final second = b.instant;
-    final int order;
-    if (first != null && second != null) {
-      order = first.compareTo(second);
-    } else if (first == null && second == null) {
-      order = a.startsAt.compareTo(b.startsAt);
-    } else {
-      // Unknown dates follow known instants, keeping the comparison transitive.
-      order = first == null ? 1 : -1;
-    }
-    return order != 0 ? order : a.index.compareTo(b.index);
-  });
-
-  final result = <PostEvent>[];
-  final seen = <(int, String)>{};
-  for (final candidate in candidates) {
-    final occurrence = candidate.occurrence;
-    final id = occurrence?.containsKey('id') == true
-        ? eventInt(occurrence!['id'])
-        : candidate.event.id;
-    if (id == null || seen.contains((id, candidate.startsAt))) continue;
-    // Keep each occurrence independent without copying the recurrence array.
-    final event = occurrence == null
-        ? candidate.event
-        : PostEvent.decode({
-            for (final entry in candidate.event.fields.entries)
-              if (entry.key != 'occurrences') entry.key: entry.value,
-            for (final entry in occurrence.entries)
-              if (entry.key != 'occurrences') entry.key: entry.value,
-            'should_display_invitees': false,
-            'sample_invitees': null,
-            'stats': null,
-            'watching_invitee': null,
-            'can_update_attendance': false,
-          }, topicId: candidate.event.topicId);
-    if (event == null) continue;
-    seen.add((event.id, candidate.startsAt));
-    result.add(event);
-  }
-  return List.unmodifiable(result);
-}
+export 'event_directory_session.dart' show eventDirectoryOccurrences;
 
 class EventDirectory extends StatelessWidget {
   const EventDirectory({
@@ -160,46 +64,41 @@ class _EventDirectoryBody extends StatefulWidget {
 }
 
 class _EventDirectoryState extends State<_EventDirectoryBody> {
-  List<PostEvent> _occurrences = const [];
   List<EventCalendarEntry> _events = const [];
   late EventCalendarPage _page;
-  late String _timezone;
-  late int _firstDay;
-  late EventSettings _settings;
-  String? _error;
-  int _generation = 0;
-  int _accountRevision = 0;
-  int _foregroundRevision = 0;
-  bool _loading = true;
+  late EventDirectorySession _session;
   bool _viewSelected = false;
-  tz.Location get _location => widget.controller.zones.location(_timezone)!;
-  String get _readerTimezone => widget.controller.zones.readerTimezone(
-    widget.controller.accountTimezone(widget.site),
-  );
-  int get _siteFirstDay =>
-      widget.controller.siteState
-          .siteConfigFor(widget.site)
-          .plugins
-          .get(topicCalendarSettingsKey)
-          ?.firstDay ??
-      1;
+  tz.Location get _location => _session.location;
+  int get _firstDay => _session.firstDay;
+  EventSettings get _settings => _session.settings;
+
+  void _createSession() {
+    _session = EventDirectorySession(
+      controller: widget.controller,
+      site: widget.site,
+      mine: widget.mine,
+      page: _page,
+    )..addListener(_changed);
+    _projectEvents();
+  }
 
   @override
   void initState() {
     super.initState();
-    _timezone = _readerTimezone;
-    _firstDay = _siteFirstDay;
-    _settings = widget.controller.settings(widget.site);
-    _accountRevision = widget.controller.accountRevision(widget.site);
-    _foregroundRevision = widget.controller.foregroundRevision;
-    widget.controller.addListener(_changed);
     _viewSelected = widget.page != null;
     _page = widget.page?.directoryPage ?? _defaultPage();
-    unawaited(_load());
+    _createSession();
   }
 
   EventCalendarPage _defaultPage() {
-    final today = tz.TZDateTime.from(widget.controller.api.clock(), _location);
+    final controller = widget.controller;
+    final timezone = controller.zones.readerTimezone(
+      controller.accountTimezone(widget.site),
+    );
+    final today = tz.TZDateTime.from(
+      controller.api.clock(),
+      controller.zones.location(timezone)!,
+    );
     final view = widget.compact
         ? EventCalendarView.schedule
         : EventCalendarView.month;
@@ -209,58 +108,21 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
     );
   }
 
-  void _changed() {
-    final revision = widget.controller.accountRevision(widget.site);
-    final foreground = widget.controller.foregroundRevision;
-    final accountChanged = _accountRevision != revision;
-    final resumed = _foregroundRevision != foreground;
-    final calendarChanged =
-        _timezone != _readerTimezone || _firstDay != _siteFirstDay;
-    final settingsChanged =
-        _settings != widget.controller.settings(widget.site);
-    _accountRevision = revision;
-    _foregroundRevision = foreground;
-    _timezone = _readerTimezone;
-    _firstDay = _siteFirstDay;
-    _settings = widget.controller.settings(widget.site);
-    if (accountChanged || resumed || calendarChanged) {
-      _occurrences = const [];
-      _events = const [];
-      unawaited(_load());
-    } else if (settingsChanged) {
-      setState(_projectEvents);
-    }
-  }
+  void _changed() => setState(_projectEvents);
 
   @override
   void didUpdateWidget(_EventDirectoryBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final controllerChanged = oldWidget.controller != widget.controller;
-    if (controllerChanged) {
-      oldWidget.controller.removeListener(_changed);
-      widget.controller.addListener(_changed);
-    }
-    if (controllerChanged ||
+    if (oldWidget.controller != widget.controller ||
         oldWidget.site != widget.site ||
         oldWidget.mine != widget.mine) {
-      _accountRevision = widget.controller.accountRevision(widget.site);
-      _foregroundRevision = widget.controller.foregroundRevision;
-      _timezone = _readerTimezone;
-      _firstDay = _siteFirstDay;
-      _settings = widget.controller.settings(widget.site);
+      _session.dispose();
       if (oldWidget.site != widget.site) _viewSelected = widget.page != null;
       _page =
           widget.page?.directoryPage ??
           (oldWidget.site != widget.site ? _defaultPage() : _page);
-      _occurrences = const [];
-      _events = const [];
-      unawaited(_load());
+      _createSession();
     } else {
-      final calendarChanged =
-          _timezone != _readerTimezone || _firstDay != _siteFirstDay;
-      final oldRange = _page.days(firstDay: _firstDay);
-      _timezone = _readerTimezone;
-      _firstDay = _siteFirstDay;
       if (widget.page != null && widget.page != oldWidget.page) {
         final incoming = widget.page!.directoryPage;
         if (incoming != _page) _viewSelected = true;
@@ -268,24 +130,18 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
       } else if (!_viewSelected && oldWidget.compact != widget.compact) {
         _page = EventCalendarPage(_defaultPage().view, _page.date);
       }
-      if (_settings != widget.controller.settings(widget.site)) {
-        _settings = widget.controller.settings(widget.site);
-        _projectEvents();
-      }
-      if (calendarChanged || oldRange != _page.days(firstDay: _firstDay)) {
-        unawaited(_load());
-      }
+      _session.show(_page);
     }
   }
 
   void _projectEvents() {
     final controller = widget.controller;
     _events = [
-      for (final event in _occurrences)
+      for (final event in _session.occurrences)
         ?EventCalendarEntry.decode(
           event,
           zones: controller.zones,
-          timezone: _timezone,
+          timezone: _session.timezone,
           settings: _settings,
           categoryName: switch (eventInt(event.fields['category_id'])) {
             final id? =>
@@ -308,68 +164,17 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
 
   void _navigate(EventCalendarPage page) {
     if (page == _page) return;
-    final oldRange = _page.days(firstDay: _firstDay);
     setState(() {
       _viewSelected = _viewSelected || page.view != _page.view;
       _page = page;
     });
-    if (oldRange != page.days(firstDay: _firstDay)) unawaited(_load());
+    _session.show(page);
     widget.navigation.rememberDirectory(mine: widget.mine, page: page);
-  }
-
-  Future<void> _load() async {
-    final generation = ++_generation;
-    final controller = widget.controller;
-    final site = widget.site;
-    final mine = widget.mine;
-    final days = _page.days(firstDay: _firstDay);
-    final location = _location;
-    DateTime inCalendar(DateTime day) =>
-        tz.TZDateTime(location, day.year, day.month, day.day);
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final rows = <PostEvent>[];
-      var after = days.start;
-      // The endpoint caps each series at 200 occurrences. Fetch a year in
-      // quarters so a daily series reaches December, then deduplicate overlaps.
-      while (after.isBefore(days.end)) {
-        final quarter = DateTime.utc(after.year, after.month + 3, after.day);
-        final before = quarter.isBefore(days.end) ? quarter : days.end;
-        rows.addAll(
-          await controller.list(
-            site,
-            mine: mine,
-            after: inCalendar(after),
-            before: inCalendar(before),
-          ),
-        );
-        if (!mounted || generation != _generation) return;
-        after = before;
-      }
-      setState(() {
-        _occurrences = eventDirectoryOccurrences(rows, controller.zones);
-        _projectEvents();
-        _loading = false;
-      });
-    } catch (_) {
-      if (mounted && generation == _generation) {
-        setState(() {
-          _occurrences = const [];
-          _events = const [];
-          _error = appL10n.unableToLoadEventsTryRefreshingTheCalendar;
-          _loading = false;
-        });
-      }
-    }
   }
 
   @override
   void dispose() {
-    _generation++;
-    widget.controller.removeListener(_changed);
+    _session.dispose();
     super.dispose();
   }
 
@@ -377,7 +182,7 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
   Widget build(BuildContext context) => EventCalendar(
     page: _page,
     events: _events,
-    loading: _loading,
+    loading: _session.loading,
     location: _location,
     firstDay: _firstDay,
     display: _settings.calendarDisplay,
@@ -397,24 +202,28 @@ class _EventDirectoryState extends State<_EventDirectoryBody> {
     status: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_error != null)
+        if (_session.failed)
           Semantics(
             liveRegion: true,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Expanded(child: Text(_error!)),
+                  Expanded(
+                    child: Text(
+                      context.l10n.unableToLoadEventsTryRefreshingTheCalendar,
+                    ),
+                  ),
                   DButton(
                     variant: DButtonVariant.outline,
-                    onPressed: _load,
+                    onPressed: _session.refresh,
                     label: Text(context.l10n.retry),
                   ),
                 ],
               ),
             ),
           ),
-        if (!_loading && _error == null && _events.isEmpty)
+        if (!_session.loading && !_session.failed && _events.isEmpty)
           Padding(
             padding: const EdgeInsets.all(8),
             child: Text(
