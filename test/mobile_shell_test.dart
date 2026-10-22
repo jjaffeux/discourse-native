@@ -1337,55 +1337,89 @@ void main() {
     });
   }
 
-  for (final scale in [1.0, 1.5]) {
-    _mobileTest(
-      'body and plugin page follow the expanded dock at $scale text',
-      (tester) async {
-        tester.platformDispatcher.textScaleFactorTestValue = scale;
-        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-        final shell = await pumpMobileShellFixture(tester);
-        final body = find.byKey(const ValueKey('mobile-content-panel'));
-        final bodyElement = tester.element(body);
-        BorderRadiusGeometry? bodyRadius() => tester
-            .widget<DPageSurface>(
-              find
-                  .descendant(of: body, matching: find.byType(DPageSurface))
-                  .first,
-            )
-            .borderRadius;
+  for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
+    for (final material in DAppearanceMaterial.values) {
+      for (final scale in [1.0, 1.5]) {
+        _mobileTest(
+          'body and plugin page follow the expanded dock at $scale text '
+          '${mode.name} ${material.name}',
+          (tester) async {
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            await _loadChromeCaptureFonts(tester);
+            final shell = await pumpMobileShellFixture(tester);
+            await shell.forumSettings.setThemeMode(_site, mode);
+            await shell.forumSettings.setThemes(
+              _site,
+              ForumThemePreferences.preset('dracula'),
+            );
+            await shell.forumSettings.setShared(
+              shell.forumSettings.shared.copyWith(material: material),
+            );
+            await tester.pumpAndSettle();
+            final body = find.byKey(const ValueKey('mobile-content-panel'));
+            final bodyElement = tester.element(body);
+            BorderRadiusGeometry? bodyRadius() => tester
+                .widget<DPageSurface>(
+                  find
+                      .descendant(of: body, matching: find.byType(DPageSurface))
+                      .first,
+                )
+                .borderRadius;
 
-        final start = find.byKey(const ValueKey('mobile-mode-start'));
-        final label = find.descendant(of: start, matching: find.text('Start'));
-        final glyph = find.descendant(of: start, matching: find.byType(DIcon));
-        final button = find.descendant(of: start, matching: find.byType(DButton));
-        final before = (
-          dockHeight: tester.getSize(_bar).height,
-          buttonHeight: tester.getSize(button).height,
-          labelSize: tester.getSize(label),
-          glyphSize: tester.getSize(glyph),
+            final start = find.byKey(const ValueKey('mobile-mode-start'));
+            final label = find.descendant(
+              of: start,
+              matching: find.text('Start'),
+            );
+            final glyph = find.descendant(
+              of: start,
+              matching: find.byType(DIcon),
+            );
+            final button = find.descendant(
+              of: start,
+              matching: find.byType(DButton),
+            );
+            final before = (
+              dockHeight: tester.getSize(_bar).height,
+              buttonHeight: tester.getSize(button).height,
+              labelSize: tester.getSize(label),
+              glyphSize: tester.getSize(glyph),
+            );
+            _expectPageRadiusForDock(tester, bodyRadius());
+            await _captureChrome(
+              tester,
+              'dock-topics-$scale-${mode.name}-${material.name}',
+            );
+            shell.openChatChannel(10);
+            await tester.pumpAndSettle();
+            expect(tester.element(body), same(bodyElement));
+            expect(tester.getSize(_bar).height, before.dockHeight);
+            expect(tester.getSize(button).height, before.buttonHeight);
+            expect(tester.getSize(label), before.labelSize);
+            expect(tester.getSize(glyph), before.glyphSize);
+            _expectPageRadiusForDock(tester, bodyRadius());
+            final sheet = find
+                .descendant(
+                  of: find.byType(DSheetContent),
+                  matching: find.byType(DPageSurface),
+                )
+                .first;
+            _expectPageRadiusForDock(
+              tester,
+              tester.widget<DPageSurface>(sheet).borderRadius,
+            );
+            await _captureChrome(
+              tester,
+              'dock-chat-$scale-${mode.name}-${material.name}',
+            );
+            expect(tester.takeException(), isNull);
+          },
         );
-        _expectPageRadiusForDock(tester, bodyRadius());
-        shell.openChatChannel(10);
-        await tester.pumpAndSettle();
-        expect(tester.element(body), same(bodyElement));
-        expect(tester.getSize(_bar).height, before.dockHeight);
-        expect(tester.getSize(button).height, before.buttonHeight);
-        expect(tester.getSize(label), before.labelSize);
-        expect(tester.getSize(glyph), before.glyphSize);
-        _expectPageRadiusForDock(tester, bodyRadius());
-        final sheet = find
-            .descendant(
-              of: find.byType(DSheetContent),
-              matching: find.byType(DPageSurface),
-            )
-            .first;
-        _expectPageRadiusForDock(
-          tester,
-          tester.widget<DPageSurface>(sheet).borderRadius,
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+      }
+    }
   }
 
   _mobileTest('Start shares the rounded inset mobile body', (tester) async {

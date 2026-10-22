@@ -213,13 +213,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               final route? => registry.keepsMobileDockVisible(context, route),
               null => false,
             };
-        final referenceTextScale =
-            shell.currentContent != null &&
-            registry.ownsContentChrome(context, shell.currentContent!);
-        final dockExtent = DMobileDock.expandedExtentOf(
-          context,
-          referenceTextScale: referenceTextScale,
-        );
+        final dockExtent = DMobileDock.expandedExtentOf(context);
         final dockDestinations = <_DockDestination>[
           (
             tab: MobileTab.start,
@@ -447,7 +441,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             panelAction: panelAction,
                             showNewTopic: showNewTopic,
                             shell: shell,
-                            referenceTextScale: referenceTextScale,
                             hideDestinations: hidden,
                           ),
                         ),
@@ -535,7 +528,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     required SidebarPanelAction? panelAction,
     required bool showNewTopic,
     required ShellController shell,
-    required bool referenceTextScale,
     required bool hideDestinations,
   }) {
     final pageAction = _footerAction.action;
@@ -590,7 +582,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         active == null || destinations.indexOf(active) >= _shownDockCount;
     return DMobileDock(
       key: const ValueKey('mobile-bottom-bar'),
-      referenceTextScale: referenceTextScale,
       collapsed: hideDestinations && pageAction == null,
       destinationsHidden: hideDestinations && pageAction != null,
       onOverflowChanged: (shown) {
