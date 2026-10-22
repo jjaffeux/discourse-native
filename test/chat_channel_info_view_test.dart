@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart' show DSpinner;
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_info_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
@@ -24,6 +26,94 @@ const _memberError = "Couldn't load this channel's members.";
 
 void main() {
   group('ChatChannelInfoView members', () {
+    testWidgets('retires pending pages when the controller is replaced', (
+      tester,
+    ) async {
+      final oldApi = _MemberApi({
+        _pageKey(): _page([1], rowCount: 20, more: true),
+        _pageKey(offset: 20): _page([21]),
+      });
+      final gate = _holdPage(oldApi, offset: 20);
+      final shell = await _pumpMembers(tester, oldApi);
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+      final replacement = _ReplacementChat(shell.chat);
+      await _showMembers(tester, shell, chat: replacement);
+      expect(_visibleMembers(tester), ['member90']);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(_visibleMembers(tester), ['member90']);
+      expect(replacement.requests, [('', 0)]);
+    });
+
+    for (final replacement in ['site', 'channel']) {
+      testWidgets(
+        'rebinds members and route refresh after $replacement replacement',
+        (tester) async {
+          const otherSite = 'https://other.discourse.org';
+          final site = replacement == 'site' ? otherSite : _site;
+          final channelId = replacement == 'channel' ? 10 : 9;
+          final api = _MemberApi({
+            _pageKey(): _page([1], rowCount: 20, more: true),
+            _pageKey(offset: 20): _page([21]),
+          });
+          api.chatChannelsBySite[_site] = ChatChannels(
+            public: [_channel(), _channel(id: 10)],
+          );
+          api.chatChannelsBySite[otherSite] = ChatChannels(
+            public: [_channel()],
+          );
+          final gate = _holdPage(api, offset: 20);
+          final shell = await _pumpMembers(
+            tester,
+            api,
+            sites: [_site, otherSite],
+          );
+          await tester.tap(find.text('Load more'));
+          await tester.pump();
+          api.chatChannelMemberPagesByKey[_pageKey(channelId: channelId)] =
+              _page([90]);
+          await _showMembers(
+            tester,
+            shell,
+            siteUrl: site,
+            channelId: channelId,
+          );
+          expect(_visibleMembers(tester), ['member90']);
+          gate.complete();
+          await tester.pumpAndSettle();
+          expect(_visibleMembers(tester), ['member90']);
+          expect(api.sitesRequested.last, site);
+          expect(api.chatChannelMembersRequested.last.channelId, channelId);
+
+          api.chatChannelMemberPagesByKey[_pageKey(channelId: channelId)] =
+              _page([91]);
+          final service = shell.pluginSession.require(chatShellService);
+          await service.hydratePluginRoute(
+            site,
+            ChatRoute.info(
+              channelId: channelId,
+              tab: ChatChannelInfoTab.members,
+            ).routeId,
+            force: true,
+          );
+          await tester.pumpAndSettle();
+          expect(_visibleMembers(tester), ['member91']);
+          final count = api.chatChannelMembersRequested.length;
+          await service.hydratePluginRoute(
+            _site,
+            ChatRoute.info(
+              channelId: 9,
+              tab: ChatChannelInfoTab.members,
+            ).routeId,
+            force: true,
+          );
+          await tester.pumpAndSettle();
+          expect(api.chatChannelMembersRequested.length, count);
+        },
+      );
+    }
+
     testWidgets('advances by server rows after filtering malformed members', (
       tester,
     ) async {
@@ -370,9 +460,9 @@ Iterable<(String, int)> _requests(FakeDiscourseApi api) => api
     .chatChannelMembersRequested
     .map((request) => (request.username, request.offset));
 
-String _pageKey({String username = '', int offset = 0}) =>
+String _pageKey({String username = '', int offset = 0, int channelId = 9}) =>
     FakeDiscourseApi.chatChannelMembersKey(
-      9,
+      channelId,
       username: username,
       offset: offset,
     );
@@ -388,8 +478,8 @@ ChatChannelMembersPage _page(
   canLoadMore: more,
 );
 
-ChatChannel _channel({int membershipsCount = 100}) => ChatChannel(
-  id: 9,
+ChatChannel _channel({int membershipsCount = 100, int id = 9}) => ChatChannel(
+  id: id,
   title: 'Bugs',
   kind: ChatChannelKind.category,
   membership: const ChatMembership(following: true),
@@ -409,6 +499,7 @@ Future<ShellController> _pumpMembers(
   WidgetTester tester,
   _MemberApi api, {
   Size size = const Size(1000, 2400),
+  List<String> sites = const [_site],
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -416,16 +507,31 @@ Future<ShellController> _pumpMembers(
   final controller = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
-      instance('meta.discourse.org').copyWith(user: _user),
+      for (final site in sites)
+        instance(Uri.parse(site).host).copyWith(user: _user),
     ]),
     api: api,
-    authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    authenticator: FakeAuthenticator()
+      ..keys.addEntries(sites.map((site) => MapEntry(site, 'key'))),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
   );
   addTearDown(controller.dispose);
   await controller.load();
-  await controller.chat.loadChannels(_site);
+  for (final site in sites) {
+    await controller.chat.loadChannels(site);
+  }
+  await _showMembers(tester, controller);
+  return controller;
+}
+
+Future<void> _showMembers(
+  WidgetTester tester,
+  ShellController controller, {
+  String siteUrl = _site,
+  int channelId = 9,
+  ChatController? chat,
+}) async {
   await tester.pumpWidget(
     ShellScope(
       controller: controller,
@@ -436,10 +542,10 @@ Future<ShellController> _pumpMembers(
           home: Scaffold(
             body: ChatChannelInfoView(
               key: const ValueKey('$_site/9/members'),
-              siteUrl: _site,
-              channelId: 9,
+              siteUrl: siteUrl,
+              channelId: channelId,
               tab: ChatChannelInfoTab.members,
-              chat: controller.chat,
+              chat: chat ?? controller.chat,
             ),
           ),
         ),
@@ -447,7 +553,6 @@ Future<ShellController> _pumpMembers(
     ),
   );
   await tester.pumpAndSettle();
-  return controller;
 }
 
 Completer<void> _holdPage(_MemberApi api, {required int offset}) {
@@ -469,6 +574,7 @@ class _MemberApi extends FakeDiscourseApi {
         chatChannelMemberPagesByKey: pages,
       );
 
+  final sitesRequested = <String>[];
   final gates = <String, Completer<void>>{};
   final failures = <String, Object>{};
 
@@ -482,6 +588,7 @@ class _MemberApi extends FakeDiscourseApi {
     int limit = 20,
     String? clientId,
   }) async {
+    sitesRequested.add(siteUrl);
     final page = await super.chatChannelMembers(
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -491,9 +598,36 @@ class _MemberApi extends FakeDiscourseApi {
       limit: limit,
       clientId: clientId,
     );
-    final key = _pageKey(username: username, offset: offset);
+    final key = _pageKey(
+      username: username,
+      offset: offset,
+      channelId: channelId,
+    );
     await gates[key]?.future;
     if (failures[key] case final error?) throw error;
     return page;
+  }
+}
+
+class _ReplacementChat extends Fake implements ChatController {
+  _ReplacementChat(this.delegate);
+
+  final ChatController delegate;
+  final requests = <(String, int)>[];
+
+  @override
+  Ref<ChatChannel> channelRef(String siteUrl, int channelId) =>
+      delegate.channelRef(siteUrl, channelId);
+
+  @override
+  Future<ChatChannelMembersResult> fetchChannelMembers(
+    String siteUrl,
+    int channelId, {
+    String username = '',
+    int offset = 0,
+    int limit = 20,
+  }) async {
+    requests.add((username, offset));
+    return (page: _page([90]), error: null);
   }
 }

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'chat_channel.dart';
 import 'chat_channel_editor.dart';
+import 'chat_channel_members_session.dart';
 import 'chat_channel_status.dart';
 import 'chat_controller.dart';
 import 'chat_plugin_data.dart';
@@ -768,122 +769,84 @@ class _ChannelMembers extends StatefulWidget {
 }
 
 class _ChannelMembersState extends State<_ChannelMembers> {
-  static const _pageSize = 20;
-
   final _scroll = ScrollController();
-  final _members = <ChatUser>[];
-  Timer? _searchTimer;
-  Object _generation = Object();
-  String _filter = '';
-  String? _error;
-  int _nextOffset = 0;
-  bool _loading = false;
-  bool _loaded = false;
-  bool _canLoadMore = true;
+  late final ChatChannelMembersSession _session;
+  ChatShellService? _shell;
   VoidCallback? _unregisterRefresher;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final shell = PluginUiScope.require(context, chatShellService);
+    if (!identical(_shell, shell)) {
+      _shell = shell;
+      _registerRefresher();
+    }
+  }
+
+  void _registerRefresher() {
+    final shell = _shell;
+    if (shell == null) return;
     _unregisterRefresher?.call();
-    _unregisterRefresher = PluginUiScope.require(context, chatShellService)
-        .registerRouteRefresher(
-          widget.siteUrl,
-          ChatRoute.info(
-            channelId: widget.channelId,
-            tab: ChatChannelInfoTab.members,
-          ).routeId,
-          () => _load(reset: true),
-        );
+    _unregisterRefresher = shell.registerRouteRefresher(
+      widget.siteUrl,
+      ChatRoute.info(
+        channelId: widget.channelId,
+        tab: ChatChannelInfoTab.members,
+      ).routeId,
+      _session.refresh,
+    );
   }
 
   @override
   void initState() {
     super.initState();
+    _session = ChatChannelMembersSession(
+      chat: widget.chat,
+      siteUrl: widget.siteUrl,
+      channelId: widget.channelId,
+      membershipsCount: widget.membershipsCount,
+    )..addListener(_membersChanged);
     _scroll.addListener(_maybeLoadMore);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_load(reset: true));
+      if (mounted) unawaited(_session.refresh());
     });
   }
 
   @override
   void didUpdateWidget(covariant _ChannelMembers oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.membershipsCount != widget.membershipsCount) {
-      _generation = Object();
-      unawaited(_load(reset: true));
+    _session.bind(
+      chat: widget.chat,
+      siteUrl: widget.siteUrl,
+      channelId: widget.channelId,
+      membershipsCount: widget.membershipsCount,
+    );
+    if (!identical(oldWidget.chat, widget.chat) ||
+        oldWidget.siteUrl != widget.siteUrl ||
+        oldWidget.channelId != widget.channelId) {
+      _registerRefresher();
     }
   }
 
   @override
   void dispose() {
     _unregisterRefresher?.call();
-    _generation = Object();
-    _searchTimer?.cancel();
+    _session.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  void _membersChanged() {
+    if (mounted) setState(() {});
   }
 
   void _maybeLoadMore() {
     if (_scroll.hasClients &&
         _scroll.position.extentAfter <
-            paginationPrefetchDistance(_scroll.position) &&
-        _canLoadMore &&
-        _error == null &&
-        !_loading) {
-      unawaited(_load());
+            paginationPrefetchDistance(_scroll.position)) {
+      unawaited(_session.loadMore(prefetch: true));
     }
-  }
-
-  void _filterChanged(String value) {
-    _searchTimer?.cancel();
-    _searchTimer = Timer(const Duration(milliseconds: 300), () {
-      if (!mounted || value.trim() == _filter) return;
-      _filter = value.trim();
-      _generation = Object();
-      unawaited(_load(reset: true));
-    });
-  }
-
-  Future<void> _load({bool reset = false}) async {
-    if (!reset && (_loading || !_canLoadMore)) return;
-    final generation = reset ? Object() : _generation;
-    if (reset) {
-      _generation = generation;
-      setState(() {
-        _members.clear();
-        _nextOffset = 0;
-        _loaded = false;
-        _canLoadMore = true;
-        _error = null;
-      });
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final offset = _nextOffset;
-    final result = await widget.chat.fetchChannelMembers(
-      widget.siteUrl,
-      widget.channelId,
-      username: _filter,
-      offset: offset,
-      limit: _pageSize,
-    );
-    if (!mounted || !identical(_generation, generation)) return;
-    final page = result.page;
-    setState(() {
-      _loading = false;
-      _loaded = true;
-      _error = result.error;
-      if (page != null) {
-        // Server progress includes duplicate and malformed rows.
-        _nextOffset = offset + page.rowCount;
-        final ids = _members.map((member) => member.id).toSet();
-        _members.addAll(page.members.where((member) => ids.add(member.id)));
-        _canLoadMore = page.canLoadMore && page.rowCount > 0;
-      }
-    });
   }
 
   @override
@@ -908,7 +871,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
                   style: Theme.of(context).textTheme.bodyMedium,
                   key: const ValueKey('chat-channel-member-filter'),
                   autofocus: true,
-                  onChanged: _filterChanged,
+                  onChanged: _session.filterChanged,
                   textInputAction: TextInputAction.search,
                   hintText: context.l10n.filterMembers,
                   prefix: const DIcon(DIcons.magnifyingGlass),
@@ -924,10 +887,11 @@ class _ChannelMembersState extends State<_ChannelMembers> {
   }
 
   Widget _memberList(ContentReadingLaneGeometry lane) {
-    if (!_loaded && _loading) {
+    if (!_session.loaded && _session.loading) {
       return const SizedBox.shrink();
     }
-    if (_error case final error? when _members.isEmpty && _nextOffset == 0) {
+    if (_session.error case final error?
+        when _session.members.isEmpty && _session.nextOffset == 0) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -936,17 +900,18 @@ class _ChannelMembersState extends State<_ChannelMembers> {
             const SizedBox(height: 8),
             DButton(
               label: Text(appL10n.retry),
-              onPressed: () => unawaited(_load(reset: true)),
+              onPressed: () => unawaited(_session.refresh()),
             ),
           ],
         ),
       );
     }
-    final hasFooter = _loading || _canLoadMore || _error != null;
-    if (_members.isEmpty && !hasFooter) {
+    final hasFooter =
+        _session.loading || _session.canLoadMore || _session.error != null;
+    if (_session.members.isEmpty && !hasFooter) {
       return Center(
         child: Text(
-          _filter.isEmpty ? appL10n.noMembers : appL10n.noMembersFound,
+          _session.filter.isEmpty ? appL10n.noMembers : appL10n.noMembersFound,
         ),
       );
     }
@@ -957,29 +922,31 @@ class _ChannelMembersState extends State<_ChannelMembers> {
         left: lane.padding.left,
         right: lane.padding.right,
       ),
-      itemCount: _members.length + (hasFooter ? 1 : 0),
+      itemCount: _session.members.length + (hasFooter ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index == _members.length) {
+        if (index == _session.members.length) {
           return Align(
             alignment: lane.alignment,
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 760),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: _loading
+                child: _session.loading
                     ? const SizedBox.shrink()
                     : Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (_error case final error?) ...[
+                          if (_session.error case final error?) ...[
                             Text(error, textAlign: TextAlign.center),
                             const SizedBox(height: 8),
                           ],
                           DButton(
                             label: Text(
-                              _error == null ? appL10n.loadMore : appL10n.retry,
+                              _session.error == null
+                                  ? appL10n.loadMore
+                                  : appL10n.retry,
                             ),
-                            onPressed: () => unawaited(_load()),
+                            onPressed: () => unawaited(_session.loadMore()),
                           ),
                         ],
                       ),
@@ -987,7 +954,7 @@ class _ChannelMembersState extends State<_ChannelMembers> {
             ),
           );
         }
-        final member = _members[index];
+        final member = _session.members[index];
         return Align(
           alignment: lane.alignment,
           child: ConstrainedBox(
@@ -1039,8 +1006,8 @@ class _ChannelMembersState extends State<_ChannelMembers> {
       },
     );
     return DScrollChromePagination(
-      hasMore: _canLoadMore,
-      loading: _loading,
+      hasMore: _session.canLoadMore,
+      loading: _session.loading,
       child: content,
     );
   }
