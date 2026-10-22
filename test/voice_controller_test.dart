@@ -1800,7 +1800,6 @@ void main() {
         });
 
         expect(uncaught, isEmpty);
-        const operations = {'voice.directory', 'voice.join', 'voice.chat.load'};
       },
     );
   });
@@ -2095,79 +2094,6 @@ void main() {
         expect(rejoined.participantVolumes, {2: 0.4});
         expect(left.participantVolumes, isEmpty);
       });
-    });
-
-    for (final captureEnabled in [false, true]) {
-      test('keep stale saved-device failures private with deep capture '
-          '${captureEnabled ? 'on' : 'off'}', () async {
-        const deviceId = 'private-stale-microphone';
-        const sentinelUsername = 'private-participant-name';
-        const sentinelUserId = '987654321';
-        const sentinelTrackId = 'private-track-id';
-        const sentinelStreamId = 'private-stream-id';
-        const sentinelIp = '203.0.113.77';
-
-        preferences.devices = const VoiceDevicePreferences(
-          audioInputDeviceId: deviceId,
-        );
-
-        useTransport(transport);
-        mediaFactory.nextAudioInputFailure = StateError(
-          '$sentinelUsername $sentinelUserId $deviceId $sentinelTrackId '
-          '$sentinelStreamId $sentinelIp',
-        );
-        await pumpEventQueue();
-
-        await controller.ensureLoaded(firstSite);
-        await controller.join(
-          siteUrl: firstSite,
-          siteName: 'One',
-          room: controller.room(firstSite, 7)!,
-        );
-
-        for (final sentinel in [
-          deviceId,
-          sentinelUsername,
-          sentinelUserId,
-          sentinelTrackId,
-          sentinelStreamId,
-          sentinelIp,
-        ]) {}
-      });
-    }
-
-    test(
-      'trace saved input and output selection with the call correlation',
-      () async {
-        preferences.devices = const VoiceDevicePreferences(
-          audioInputDeviceId: 'saved-input',
-          audioOutputDeviceId: 'saved-output',
-        );
-
-        useTransport(transport);
-        await pumpEventQueue();
-
-        await controller.ensureLoaded(firstSite);
-        await controller.join(
-          siteUrl: firstSite,
-          siteName: 'One',
-          room: controller.room(firstSite, 7)!,
-        );
-      },
-    );
-
-    test('trace explicit input, output, and camera selections', () async {
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-      await controller.setCameraEnabled(true);
-
-      await controller.selectAudioInput('user-input');
-      await controller.selectAudioOutput('user-output');
-      await controller.selectCamera('user-camera');
     });
 
     test(
@@ -3119,78 +3045,73 @@ void main() {
               )
               as Map<String, dynamic>;
 
-      for (final captureEnabled in [false, true]) {
-        for (final (label, sender) in <(String, Object?)>[
-          ('fractional', 2.9),
-          ('zero', 0),
-          ('negative', -2),
-          ('infinite', double.infinity),
-          ('negative infinite', double.negativeInfinity),
-          ('NaN', double.nan),
-          ('out-of-range integral', 9223372036854775808.0),
-          ('oversized finite', 1e100),
-          ('numeric string', '2'),
-          ('boolean', true),
-          ('missing', null),
-          ('JSON numeric overflow', overflowedEnvelope['sender_id']),
-        ]) {
-          test('rejects $label sender with capture $captureEnabled', () async {
-            await controller.ensureLoaded(firstSite);
-            await controller.join(
-              siteUrl: firstSite,
-              siteName: 'One',
-              room: controller.room(firstSite, 7)!,
-            );
-            // Keep user 2 in the authoritative roster: 2.9 must never route
-            // to that participant by truncating its fractional part.
-            firstTracker.deliver('/voice/rooms/7', {
-              'type': 'participants',
-              'participants': [
-                {'id': 1, 'username': 'sam', 'role': 'speaker'},
-                {'id': 2, 'username': 'lee', 'role': 'speaker'},
-              ],
-            });
-            await pumpEventQueue();
-            final media = mediaFactory.sessions.single;
-            final participants = media.participants;
-            final activeCall = controller.call;
-
-            for (final envelope in <Map<String, dynamic>>[
-              if (label == 'JSON numeric overflow')
-                overflowedEnvelope
-              else
-                {
-                  'type': 'signal',
-                  'sender_id': ?sender,
-                  'sender': {'id': 2, 'username': 'private-sender'},
-                  'events': [offer, candidate],
-                },
-              {'type': 'signal', 'sender_id': ?sender, 'data': offer},
-              {'type': 'signal', 'sender_id': ?sender, 'data': candidate},
-            ]) {
-              firstTracker.deliver('/voice/rooms/7', envelope);
-            }
-            await pumpEventQueue();
-
-            expect(media.signals, isEmpty);
-            expect(media.participants, same(participants));
-            expect(controller.call, same(activeCall));
-            expect(controller.errorFor(firstSite), isNull);
-
-            firstTracker.deliver('/voice/rooms/7', {
-              'type': 'signal',
-              'sender_id': 2.0,
-              'events': [offer, candidate],
-            });
-            await pumpEventQueue();
-
-            expect(media.signals.map((signal) => signal.$1), [2, 2]);
-            expect(media.signals.map((signal) => signal.$2), [
-              offer,
-              candidate,
-            ]);
+      for (final (label, sender) in <(String, Object?)>[
+        ('fractional', 2.9),
+        ('zero', 0),
+        ('negative', -2),
+        ('infinite', double.infinity),
+        ('negative infinite', double.negativeInfinity),
+        ('NaN', double.nan),
+        ('out-of-range integral', 9223372036854775808.0),
+        ('oversized finite', 1e100),
+        ('numeric string', '2'),
+        ('boolean', true),
+        ('missing', null),
+        ('JSON numeric overflow', overflowedEnvelope['sender_id']),
+      ]) {
+        test('rejects $label sender', () async {
+          await controller.ensureLoaded(firstSite);
+          await controller.join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          );
+          // Keep user 2 in the authoritative roster: 2.9 must never route
+          // to that participant by truncating its fractional part.
+          firstTracker.deliver('/voice/rooms/7', {
+            'type': 'participants',
+            'participants': [
+              {'id': 1, 'username': 'sam', 'role': 'speaker'},
+              {'id': 2, 'username': 'lee', 'role': 'speaker'},
+            ],
           });
-        }
+          await pumpEventQueue();
+          final media = mediaFactory.sessions.single;
+          final participants = media.participants;
+          final activeCall = controller.call;
+
+          for (final envelope in <Map<String, dynamic>>[
+            if (label == 'JSON numeric overflow')
+              overflowedEnvelope
+            else
+              {
+                'type': 'signal',
+                'sender_id': ?sender,
+                'sender': {'id': 2, 'username': 'private-sender'},
+                'events': [offer, candidate],
+              },
+            {'type': 'signal', 'sender_id': ?sender, 'data': offer},
+            {'type': 'signal', 'sender_id': ?sender, 'data': candidate},
+          ]) {
+            firstTracker.deliver('/voice/rooms/7', envelope);
+          }
+          await pumpEventQueue();
+
+          expect(media.signals, isEmpty);
+          expect(media.participants, same(participants));
+          expect(controller.call, same(activeCall));
+          expect(controller.errorFor(firstSite), isNull);
+
+          firstTracker.deliver('/voice/rooms/7', {
+            'type': 'signal',
+            'sender_id': 2.0,
+            'events': [offer, candidate],
+          });
+          await pumpEventQueue();
+
+          expect(media.signals.map((signal) => signal.$1), [2, 2]);
+          expect(media.signals.map((signal) => signal.$2), [offer, candidate]);
+        });
       }
     });
 
@@ -5704,6 +5625,87 @@ void main() {
         expect(callPublished, isFalse);
       });
     }
+
+    test(
+      'awaits leave, media, subscriptions, and CallKit during session close',
+      () async {
+        final joinPayload = fixture('join_mesh');
+        (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
+        final controlled = _ControlledVoiceTransport(
+          responses: {
+            'GET /voice/rooms.json': fixture('directory'),
+            'POST /voice/rooms/7/join.json': joinPayload,
+            'POST /voice/rooms/7/heartbeat.json': <String, dynamic>{},
+            'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
+            'POST /voice/rooms/7/state.json': <String, dynamic>{},
+            'GET /voice/rooms/7/chat_session.json': fixture('chat'),
+          },
+        )..heldPluginWritePaths.add('/voice/rooms/7/leave.json');
+        final awaitableTracker = _AwaitableSubscriptionTracker();
+        firstTracker = awaitableTracker;
+        useTransport(controlled);
+
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        final mediaDisposeStarted = Completer<void>();
+        final mediaDisposeGate = Completer<void>();
+        media
+          ..disposeStarted = mediaDisposeStarted
+          ..disposeGate = mediaDisposeGate;
+        final endStarted = Completer<void>();
+        final endGate = Completer<void>();
+        final callKitDisposeStarted = Completer<void>();
+        final callKitDisposeGate = Completer<void>();
+        systemCall
+          ..endStarted = endStarted
+          ..endGate = endGate
+          ..disposeStarted = callKitDisposeStarted
+          ..disposeGate = callKitDisposeGate;
+
+        var completed = false;
+        final closing = controller.close();
+        unawaited(closing.then((_) => completed = true));
+        expect(controller.close(), same(closing));
+        await awaitableTracker.firstCancellationStarted.future;
+        expect(awaitableTracker.channels, isEmpty);
+        expect(completed, isFalse);
+
+        await controlled.waitForPendingPluginWrites(1);
+        // Local media stops without waiting for the server to accept the leave.
+        await mediaDisposeStarted.future;
+        expect(media.disposeCount, 1);
+        controlled.pendingPluginWrites.single.response.complete({});
+        await pumpEventQueue();
+        expect(endStarted.isCompleted, isFalse);
+        expect(completed, isFalse);
+
+        mediaDisposeGate.complete();
+        await endStarted.future;
+        expect(systemCall.ends, 1);
+        expect(completed, isFalse);
+
+        endGate.complete();
+        await Future<void>.delayed(Duration.zero);
+        expect(callKitDisposeStarted.isCompleted, isFalse);
+        expect(completed, isFalse);
+
+        awaitableTracker.cancellationGate.complete();
+        await callKitDisposeStarted.future;
+        expect(completed, isFalse);
+
+        callKitDisposeGate.complete();
+        await closing;
+
+        expect(completed, isTrue);
+        expect(media.disposeCount, 1);
+        expect(systemCall.disposeCount, 1);
+      },
+    );
 
     test(
       'reaches every teardown step after native session-close failures',

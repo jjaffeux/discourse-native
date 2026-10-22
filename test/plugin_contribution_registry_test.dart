@@ -755,7 +755,17 @@ void main() {
       }
     });
 
-    test('distinct keyed providers compose', () {});
+    test('distinct keyed providers compose', () {
+      expect(
+        () => PluginRegistry.validated(const [
+          _SiteFeaturePlugin('site-one'),
+          _SiteFeaturePlugin('site-two'),
+          _UserFeaturePlugin('user-one'),
+          _UserFeaturePlugin('user-two'),
+        ]),
+        returnsNormally,
+      );
+    });
   });
 }
 

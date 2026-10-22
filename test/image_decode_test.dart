@@ -493,7 +493,74 @@ void main() {
     );
   });
 
-  for (final svg in [false, true]) {}
+  for (final svg in [false, true]) {
+    testWidgets('quarantines invalid ${svg ? 'SVG' : 'raster'} avatars', (
+      tester,
+    ) async {
+      final url = 'https://site.test/broken-avatar.${svg ? 'svg' : 'png'}';
+      final pipeline = installTestMediaPipeline(
+        client: MockClient(
+          (_) async => http.Response.bytes(
+            svg ? utf8.encode('<svg><g></svg>') : [1, 2, 3],
+            200,
+            headers: {'content-type': svg ? 'image/svg+xml' : 'image/png'},
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                AvatarImage(
+                  url: url,
+                  size: 24,
+                  fallback: const Text('First avatar'),
+                ),
+                AvatarImage(
+                  url: url,
+                  size: 32,
+                  fallback: const Text('Second avatar'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('First avatar'), findsOneWidget);
+      expect(find.text('Second avatar'), findsOneWidget);
+      expect(pipeline.avatars.isCached(url), isTrue);
+      expect(pipeline.avatars.cached(url), isNull);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('quarantines invalid emoji bytes', (tester) async {
+    const url = 'https://site.test/broken.png';
+    final pipeline = installTestMediaPipeline(
+      client: MockClient((_) async => http.Response.bytes([1, 2, 3], 200)),
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Row(
+          children: [
+            EmojiImage(url: url, size: 18, alt: ':broken:'),
+            EmojiImage(url: url, size: 20, alt: ':broken:'),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(':broken:'), findsNWidgets(2));
+    expect(pipeline.emoji.isCached(url), isTrue);
+    expect(pipeline.emoji.cached(url), isNull);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<Uint8List> _pngBytes(

@@ -5,7 +5,6 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -1156,6 +1155,115 @@ void main() {
           ));
         },
       );
+    });
+
+    group('long-post target stability', () {
+      for (final longPost in [73, 74]) {
+        testWidgets(
+          'keeps the latest target stable while long post $longPost builds',
+          (tester) async {
+            final site = instance('meta.example');
+            final controller = ShellController(
+              instanceStore: FakeInstanceStore([site]),
+              api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+              authenticator: FakeAuthenticator(),
+              drafts: FakeDraftStore(),
+              trackers: FakeSiteTracker.reset(),
+            );
+            addTearDown(controller.dispose);
+            try {
+              await controller.load();
+              final posts = [
+                for (var number = 35; number <= 74; number++)
+                  Post(
+                    id: number,
+                    postNumber: number,
+                    username: 'sam',
+                    cooked: number == longPost
+                        ? List.filled(
+                            600,
+                            '<p>A very long earlier post</p>',
+                          ).join()
+                        : '<p>Post $number</p>',
+                  ),
+              ];
+              controller.store
+                ..put(
+                  site.url,
+                  TopicDetail(
+                    id: 1,
+                    title: 'One',
+                    stream: [
+                      for (var number = 1; number <= 74; number++) number,
+                    ],
+                    postsCount: 74,
+                  ),
+                )
+                ..putAll(site.url, posts);
+              controller.pushContent(
+                ContentRoute.topic(
+                  topicId: 1,
+                  slug: 'one',
+                  title: 'One',
+                  postNumber: 74,
+                ),
+              );
+
+              await tester.pumpWidget(_topicView(controller));
+              final target = find.byKey(const ValueKey(74));
+              double? firstTop;
+              if (longPost == 74) {
+                expect(target, findsNothing);
+                expect(
+                  find.byKey(const ValueKey('topic-loading-skeleton')),
+                  findsOneWidget,
+                );
+              } else {
+                expect(target, findsOneWidget);
+                firstTop = tester.getTopLeft(target).dy;
+              }
+              for (var frame = 0; frame < 120; frame++) {
+                await tester.runAsync(
+                  () => Future<void>.delayed(const Duration(milliseconds: 10)),
+                );
+                await tester.pump(const Duration(milliseconds: 16));
+                if (target.evaluate().isEmpty && firstTop == null) continue;
+                expect(target, findsOneWidget, reason: 'frame $frame');
+                firstTop ??= tester.getTopLeft(target).dy;
+                expect(
+                  tester.getTopLeft(target).dy,
+                  closeTo(firstTop, 1),
+                  reason: 'frame $frame',
+                );
+              }
+              expect(firstTop, isNotNull);
+              if (longPost == 74) {
+                expect(
+                  firstTop,
+                  closeTo(topicReadingViewportRect(tester).top, 1),
+                );
+              }
+
+              expect(
+                find.byWidgetPredicate(
+                  (widget) =>
+                      widget is RichText &&
+                      widget.text.toPlainText().contains(
+                        'A very long earlier post',
+                      ),
+                ),
+                findsNWidgets(600),
+              );
+
+              expect(tester.takeException(), isNull);
+              expect(find.textContaining('74 / 74'), findsOneWidget);
+            } finally {
+              await tester.pumpWidget(const SizedBox.shrink());
+              await tester.pump();
+            }
+          },
+        );
+      }
     });
 
     group('scroll attachment lifecycle', () {
