@@ -201,6 +201,9 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
   String? _siteUrl;
   TopicDetail? _topic;
   List<int> _stream = const [];
+  List<int>? _indexedStream;
+  Object? _indexedPostStructure;
+  final Map<int, int> _postIdsByNumber = {};
 
   late final bool Function() _ownsSource;
   late final VoidCallback _sourceListener;
@@ -293,11 +296,23 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     final site = _siteUrl;
     if (site == null) return null;
     if (_topic?.isMegaTopic == true && !widget.controller.currentTopicSummary) {
-      for (final id in widget.controller.currentTopicStreamIds) {
-        final post = widget.controller.store.read<Post>(site, id);
-        if (post?.postNumber == position) return post;
+      final store = widget.controller.store;
+      final stream = widget.controller.currentTopicStreamIds;
+      final structure = store.structureGenerationOf<Post>(site);
+      if (!identical(_indexedStream, stream) ||
+          !identical(_indexedPostStructure, structure)) {
+        _postIdsByNumber.clear();
+        for (final id in stream) {
+          final post = store.read<Post>(site, id);
+          if (post != null) {
+            _postIdsByNumber.putIfAbsent(post.postNumber, () => id);
+          }
+        }
+        _indexedStream = stream;
+        _indexedPostStructure = structure;
       }
-      return null;
+      final id = _postIdsByNumber[position];
+      return id == null ? null : store.read<Post>(site, id);
     }
     if (position < 1 || position > _stream.length) return null;
     return widget.controller.store.read<Post>(site, _stream[position - 1]);
