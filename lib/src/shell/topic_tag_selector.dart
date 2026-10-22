@@ -128,12 +128,15 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
   void _openChanged(bool open, DComboboxChangeReason _) {
     _debounce?.cancel();
     _lookup.invalidate();
+    // The content keeps painting through its exit animation, so closing must
+    // leave the last results on screen. Opening starts from a clean search.
+    if (!open) return;
     setState(() {
       _query = '';
       _result = const TopicTagSearch();
-      _loading = open;
+      _loading = true;
     });
-    if (open) _lookup.request('');
+    _lookup.request('');
   }
 
   void _queryChanged(String query, DComboboxChangeReason reason) {
