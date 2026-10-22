@@ -703,7 +703,9 @@ void main() {
 
     await tester.pumpWidget(app(oldPlugins));
     await tester.pumpAndSettle();
-    final retired = tester.widget<ShellScope>(find.byType(ShellScope)).notifier!;
+    final retired = tester
+        .widget<ShellScope>(find.byType(ShellScope))
+        .notifier!;
     const url = 'https://one.example/t/suspended/42/1';
     opens.add(url);
     opens.add(url);
@@ -761,7 +763,7 @@ void main() {
       opens.add('https://one.example/t/queued/42/$post');
     }
     opens.add(equalUrl);
-    pending.complete(true);
+    pending.completeError(StateError('nonfatal navigation failure'));
     await tester.pumpAndSettle();
 
     expect(opened, [
@@ -773,64 +775,69 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('source replacement retains queued taps and errors are nonfatal', (
-    tester,
-  ) async {
-    final stored = Completer<List<DiscourseInstance>>();
-    final oldOpens = StreamController<String>.broadcast(sync: true);
-    final newOpens = StreamController<String>.broadcast(sync: true);
-    addTearDown(oldOpens.close);
-    addTearDown(newOpens.close);
-    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
-    final opened = <String>[];
-    final plugins = PluginInstaller.install(
-      PluginManifest([
-        _NotificationLinkModule((url) async {
-          opened.add(url);
-          return true;
-        }),
-      ]),
-    );
-    addTearDown(plugins.close);
-    final store = _GatedInstanceStore(stored.future);
-    final authenticator = _readerKeys(api);
-    final drafts = FakeDraftStore();
-    final tabs = FakeForumTabStore();
-    final trackers = FakeSiteTracker.reset();
-    final updater = FakeUpdater();
-    final updateStore = FakeUpdateStore();
-    DiscourseApp app(Stream<String> urls) => DiscourseApp(
-      store: store,
-      api: api,
-      authenticator: authenticator,
-      drafts: drafts,
-      forumTabs: tabs,
-      trackers: trackers,
-      updater: updater,
-      updateStore: updateStore,
-      plugins: plugins,
-      notificationOpenUrls: urls,
-    );
+  testWidgets(
+    'source replacement retains queued taps and errors are nonfatal',
+    (tester) async {
+      final stored = Completer<List<DiscourseInstance>>();
+      final oldOpens = StreamController<String>.broadcast(sync: true);
+      final newOpens = StreamController<String>.broadcast(sync: true);
+      final oldSource = _RetainedNotificationCallbackStream(oldOpens.stream);
+      final newSource = _RetainedNotificationCallbackStream(newOpens.stream);
+      addTearDown(oldOpens.close);
+      addTearDown(newOpens.close);
+      final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+      final opened = <String>[];
+      final plugins = PluginInstaller.install(
+        PluginManifest([
+          _NotificationLinkModule((url) async {
+            opened.add(url);
+            return true;
+          }),
+        ]),
+      );
+      addTearDown(plugins.close);
+      final store = _GatedInstanceStore(stored.future);
+      final authenticator = _readerKeys(api);
+      final drafts = FakeDraftStore();
+      final tabs = FakeForumTabStore();
+      final trackers = FakeSiteTracker.reset();
+      final updater = FakeUpdater();
+      final updateStore = FakeUpdateStore();
+      DiscourseApp app(Stream<String> urls) => DiscourseApp(
+        store: store,
+        api: api,
+        authenticator: authenticator,
+        drafts: drafts,
+        forumTabs: tabs,
+        trackers: trackers,
+        updater: updater,
+        updateStore: updateStore,
+        plugins: plugins,
+        notificationOpenUrls: urls,
+      );
 
-    await tester.pumpWidget(app(oldOpens.stream));
-    oldOpens.add('https://one.example/t/before/42/1');
-    await tester.pumpWidget(app(newOpens.stream));
-    oldOpens.add('https://one.example/t/retired/42/2');
-    newOpens.addError(StateError('nonfatal source failure'));
-    newOpens.add('');
-    newOpens.add('https://one.example/t/after/42/3');
-    stored.complete([_connected('one.example')]);
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(app(oldSource));
+      oldOpens.add('https://one.example/t/before/42/1');
+      await tester.pumpWidget(app(newSource));
+      oldOpens.add('https://one.example/t/retired/42/2');
+      oldSource.deliverRetained('https://one.example/t/retired-callback/42/2');
+      newOpens.addError(StateError('nonfatal source failure'));
+      newOpens.add('');
+      newOpens.add('https://one.example/t/after/42/3');
+      stored.complete([_connected('one.example')]);
+      await tester.pumpAndSettle();
 
-    expect(opened, [
-      'https://one.example/t/before/42/1',
-      'https://one.example/t/after/42/3',
-    ]);
-    await tester.pumpWidget(const SizedBox.shrink());
-    newOpens.add('https://one.example/t/disposed/42/4');
-    await tester.pump();
-    expect(opened, hasLength(2));
-  });
+      expect(opened, [
+        'https://one.example/t/before/42/1',
+        'https://one.example/t/after/42/3',
+      ]);
+      await tester.pumpWidget(const SizedBox.shrink());
+      newOpens.add('https://one.example/t/disposed/42/4');
+      newSource.deliverRetained('https://one.example/t/disposed-callback/42/4');
+      await tester.pump();
+      expect(opened, hasLength(2));
+    },
+  );
 
   testWidgets('a burst of taps preserves the newest pending destinations', (
     tester,
@@ -965,4 +972,29 @@ final class _NotificationLinkHandler implements PluginLinkHandler {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
     void Function()? onNavigated,
   }) => open(url);
+}
+
+final class _RetainedNotificationCallbackStream extends Stream<String> {
+  _RetainedNotificationCallbackStream(this.source);
+
+  final Stream<String> source;
+  void Function(String)? _onData;
+
+  void deliverRetained(String url) => _onData?.call(url);
+
+  @override
+  StreamSubscription<String> listen(
+    void Function(String)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    _onData = onData;
+    return source.listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
 }

@@ -43,6 +43,8 @@ import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
 import 'theme/app_theme.dart';
 
+part 'app_notification_ingress.dart';
+
 class DiscourseApp extends StatefulWidget {
   const DiscourseApp({
     super.key,
@@ -110,13 +112,8 @@ class _DiscourseAppState extends State<DiscourseApp>
   late bool _ownsPlugins;
   late bool _foreground;
   late final PlatformNotificationOpens _platformNotificationOpens;
-  StreamSubscription<String>? _notificationOpenSubscription;
-  final Queue<_PendingNotificationUrl> _pendingNotificationUrls = Queue();
-  ShellController? _notificationNavigationController;
-  bool _drainingNotificationUrls = false;
+  final _notificationIngress = _NotificationIngress();
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-
-  static const _maximumPendingNotificationUrls = 16;
 
   // Theme construction includes Material's seed-color calculation. Keep recent
   // immutable palettes across forum switches, while bounding retained themes
@@ -219,7 +216,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     _foreground = isForegroundLifecycle(WidgetsBinding.instance.lifecycleState);
     _controller = _createController()..setForeground(_foreground);
     _platformNotificationOpens = PlatformNotificationOpens();
-    _listenToNotificationOpens(
+    _notificationIngress.listen(
       widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
     );
     WidgetsBinding.instance.addObserver(this);
@@ -233,14 +230,14 @@ class _DiscourseAppState extends State<DiscourseApp>
       widget.notificationOpenUrls,
       oldWidget.notificationOpenUrls,
     )) {
-      _listenToNotificationOpens(
+      _notificationIngress.listen(
         widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
       );
     }
 
     if (!_dependenciesChanged(oldWidget)) return;
 
-    _notificationNavigationController = null;
+    _notificationIngress.unavailable();
     final previousController = _controller;
     final previousPlugins = _plugins;
     final previousOwnsPlugins = _ownsPlugins;
@@ -335,7 +332,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_notificationOpenSubscription?.cancel());
+    _notificationIngress.dispose();
     final controller = _controller;
     controller.dispose();
     final teardown = _ownsPlugins
@@ -370,8 +367,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     try {
       await controller.load();
       if (!mounted || !identical(_controller, controller)) return;
-      _notificationNavigationController = controller;
-      _drainNotificationUrls();
+      _notificationIngress.ready(controller.openNotificationUrl);
       if (pluginsStarted) {
         await plugins.startPhase(
           PluginStartupPhase.appReady,
@@ -379,55 +375,6 @@ class _DiscourseAppState extends State<DiscourseApp>
         );
       }
     } catch (_) {}
-  }
-
-  void _listenToNotificationOpens(Stream<String> urls) {
-    unawaited(_notificationOpenSubscription?.cancel());
-    _notificationOpenSubscription = urls.listen(
-      _queueNotificationUrl,
-      onError: (Object error, StackTrace stackTrace) {},
-    );
-  }
-
-  void _queueNotificationUrl(String url) {
-    if (url.isEmpty) return;
-    _pendingNotificationUrls.addLast(_PendingNotificationUrl(url));
-    if (_pendingNotificationUrls.length > _maximumPendingNotificationUrls) {
-      _pendingNotificationUrls.removeFirst();
-    }
-    _drainNotificationUrls();
-  }
-
-  void _drainNotificationUrls() {
-    final controller = _controller;
-    if (_drainingNotificationUrls ||
-        _pendingNotificationUrls.isEmpty ||
-        !identical(_notificationNavigationController, controller)) {
-      return;
-    }
-    _drainingNotificationUrls = true;
-    unawaited(_drainNotificationUrlsWith(controller));
-  }
-
-  Future<void> _drainNotificationUrlsWith(ShellController controller) async {
-    try {
-      while (mounted &&
-          identical(_controller, controller) &&
-          _pendingNotificationUrls.isNotEmpty) {
-        final pending = _pendingNotificationUrls.first;
-        try {
-          await controller.openNotificationUrl(pending.url);
-        } catch (_) {}
-        if (!mounted || !identical(_controller, controller)) return;
-        // A burst of taps can evict this entry while its navigation is in
-        // flight. Remove only this delivery, even when a later tap has the
-        // same URL, so finishing it cannot discard another destination.
-        _pendingNotificationUrls.remove(pending);
-      }
-    } finally {
-      _drainingNotificationUrls = false;
-      if (mounted) _drainNotificationUrls();
-    }
   }
 
   /// Completes after the session and [plugins] close, absorbing close failures.
@@ -630,12 +577,6 @@ class _DiscourseAppState extends State<DiscourseApp>
       ),
     ),
   );
-}
-
-final class _PendingNotificationUrl {
-  _PendingNotificationUrl(this.url);
-
-  final String url;
 }
 
 class _MouseNavigationRegion extends StatelessWidget {
