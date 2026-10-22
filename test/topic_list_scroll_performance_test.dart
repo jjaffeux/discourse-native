@@ -70,6 +70,11 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final controller = await topicListScrollController();
+    addTearDown(() async {
+      controller.dispose();
+      await controller.pluginTeardown;
+      await controller.plugins.close();
+    });
 
     try {
       await tester.pumpWidget(

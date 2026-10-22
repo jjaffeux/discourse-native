@@ -156,6 +156,18 @@ void main() {
     expect(plugin.reads, _expectedReads);
   });
 
+  test('preference key identity survives mutation', () {
+    final plugin = _MutableDeclarations();
+    final key = plugin.preferences.single;
+    final registry = PluginRegistry.validated([plugin]);
+
+    plugin.preferences.clear();
+
+    expect(registry.sitePreferenceKeys.single, same(key));
+    expect(() => registry.sitePreferenceKeys.clear(), throwsUnsupportedError);
+    expect(plugin.reads, _expectedReads);
+  });
+
   test(
     'homepages freeze identities, retain first-owner order and call live availability',
     () {

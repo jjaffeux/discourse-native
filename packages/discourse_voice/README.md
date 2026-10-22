@@ -14,7 +14,7 @@ failure or an expired ring; they do not depend on a provider action arriving
 after the call has already ended. Late provider callbacks cannot complete the
 same result twice.
 
-The Dart module, UI, controllers, diagnostics, and media integrations live in
+The Dart module, UI, controllers, and media integrations live in
 `../../lib/src/plugins/voice` and are part of every application manifest.
 The main package depends on this bridge, so every iOS app graph registers
 `DiscourseVoicePlugin`; this package deliberately has no dependency back on

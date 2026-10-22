@@ -1,14 +1,11 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
+import 'package:discourse_native/src/data/sidebar_width_store.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  setUp(() async {});
-
-  tearDown(() async {});
-
   group('ScalarPreferenceRepository', () {
     test('a read observes every already-requested write in order', () async {
       final persistence = _MemoryScalarPersistence(
@@ -61,7 +58,7 @@ void main() {
       expect(persistence.readKeys, ['other-width', 'width', 'width']);
     });
 
-    test('a false persistence result reports a degraded write', () async {
+    test('a rejected write leaves persisted values unchanged', () async {
       final persistence = _MemoryScalarPersistence(acceptWrites: false);
 
       await _repository(persistence).write(360);
@@ -85,7 +82,24 @@ void main() {
     );
   });
 
-  group('width store facades', () {});
+  group('width store facades', () {
+    test('SidebarWidthStore preserves its API', () async {
+      final persistence = _SidebarWidthPersistence(320);
+      final store = SidebarWidthStore(persistence: persistence);
+
+      expect(await store.read(), 320);
+      await store.write(360);
+      expect(persistence.value, 360);
+
+      persistence
+        ..readError = StateError('read unavailable')
+        ..acceptWrites = false;
+      expect(await store.read(), isNull);
+      await store.write(400);
+      expect(persistence.attemptedWrites, [360, 400]);
+      expect(persistence.value, 360);
+    });
+  });
 }
 
 ScalarPreferenceRepository<double> _repository(
@@ -135,6 +149,29 @@ final class _MemoryScalarPersistence
       await firstWriteGate!.future;
     }
     if (acceptWrites) values[key] = value;
+    return acceptWrites;
+  }
+}
+
+final class _SidebarWidthPersistence implements SidebarWidthPersistence {
+  _SidebarWidthPersistence(this.value);
+
+  double? value;
+  Object? readError;
+  bool acceptWrites = true;
+  final List<double> attemptedWrites = [];
+
+  @override
+  Future<double?> readWidth() async {
+    final error = readError;
+    if (error != null) throw error;
+    return value;
+  }
+
+  @override
+  Future<bool> writeWidth(double width) async {
+    attemptedWrites.add(width);
+    if (acceptWrites) value = width;
     return acceptWrites;
   }
 }

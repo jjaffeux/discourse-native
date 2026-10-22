@@ -350,7 +350,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     ShellController controller,
     InstalledPlugins plugins,
   ) async {
-    // A plugin that cannot boot is reported and left behind. The sites must
+    // A plugin that cannot boot is left behind. The sites must
     // still load: the only retry the shell offers is on a failed load, so a
     // load that never starts would leave every launch on the spinner.
     var pluginsStarted = false;
@@ -430,8 +430,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     }
   }
 
-  /// Closes [plugins] once the session they served has torn down, and
-  /// answers when they have; a failure is reported, not raised.
+  /// Completes after the session and [plugins] close, absorbing close failures.
   Future<void> _closePlugins(InstalledPlugins plugins, {Future<void>? after}) {
     final closing = _closePluginsAfterSession(
       plugins,
