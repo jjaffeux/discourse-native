@@ -1,0 +1,535 @@
+{
+  "date": "2026-10-22",
+  "baseline": "1c23479833847cf04c3a7ece4928d670fce700d8",
+  "review_base": "29e192a08130c5ceb88869f860228e1483c8b147",
+  "measured_head": "b4ddd7c2e79d45428130c95b95fe08f13e251c80",
+  "controller_sha256": "f06f81c93fd45c5553b3294b92cd5d36315bfc95471cef94da8d549111557087",
+  "sdk": "Flutter 3.47.7 / Dart 3.13.5",
+  "cpu_count": 18,
+  "load_average": [
+    6.419921875,
+    9.20458984375,
+    14.07861328125
+  ],
+  "runs_per_side_per_case": 5,
+  "errors": 0,
+  "exact_projection_and_rendered_comparisons": "passed",
+  "timing": {
+    "forum": {
+      "baseline": {
+        "opening_us": {
+          "median": 34175,
+          "minimum": 28042,
+          "maximum": 71473
+        },
+        "controller_us": {
+          "median": 673112,
+          "minimum": 657344,
+          "maximum": 744042
+        },
+        "panel_us": {
+          "median": 170189,
+          "minimum": 157874,
+          "maximum": 225608
+        },
+        "small_us": {
+          "median": 175424,
+          "minimum": 173418,
+          "maximum": 184802
+        },
+        "replacement_us": {
+          "median": 10589,
+          "minimum": 10506,
+          "maximum": 11086
+        },
+        "core_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "message_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "tail_parses": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "opening_us": {
+          "median": 26861,
+          "minimum": 25241,
+          "maximum": 53939
+        },
+        "controller_us": {
+          "median": 340624,
+          "minimum": 334406,
+          "maximum": 350107
+        },
+        "panel_us": {
+          "median": 138948,
+          "minimum": 132791,
+          "maximum": 191433
+        },
+        "small_us": {
+          "median": 117543,
+          "minimum": 117010,
+          "maximum": 120706
+        },
+        "replacement_us": {
+          "median": 5278,
+          "minimum": 5151,
+          "maximum": 5552
+        },
+        "core_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "message_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "tail_parses": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      }
+    },
+    "messages": {
+      "baseline": {
+        "opening_us": {
+          "median": 23311,
+          "minimum": 21330,
+          "maximum": 24668
+        },
+        "controller_us": {
+          "median": 222184,
+          "minimum": 218885,
+          "maximum": 241010
+        },
+        "panel_us": {
+          "median": 66544,
+          "minimum": 62814,
+          "maximum": 77128
+        },
+        "small_us": {
+          "median": 122999,
+          "minimum": 120948,
+          "maximum": 130440
+        },
+        "replacement_us": {
+          "median": 11547,
+          "minimum": 11395,
+          "maximum": 13429
+        },
+        "core_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "message_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "tail_parses": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "opening_us": {
+          "median": 24307,
+          "minimum": 21637,
+          "maximum": 30414
+        },
+        "controller_us": {
+          "median": 116663,
+          "minimum": 116227,
+          "maximum": 140455
+        },
+        "panel_us": {
+          "median": 54581,
+          "minimum": 50845,
+          "maximum": 109191
+        },
+        "small_us": {
+          "median": 63348,
+          "minimum": 62508,
+          "maximum": 96155
+        },
+        "replacement_us": {
+          "median": 5883,
+          "minimum": 5566,
+          "maximum": 8905
+        },
+        "core_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "message_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "tail_parses": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      }
+    },
+    "chat": {
+      "baseline": {
+        "opening_us": {
+          "median": 23304,
+          "minimum": 20729,
+          "maximum": 32921
+        },
+        "controller_us": {
+          "median": 220726,
+          "minimum": 214092,
+          "maximum": 232186
+        },
+        "panel_us": {
+          "median": 63936,
+          "minimum": 61871,
+          "maximum": 88121
+        },
+        "small_us": {
+          "median": 121651,
+          "minimum": 117922,
+          "maximum": 126669
+        },
+        "replacement_us": {
+          "median": 11862,
+          "minimum": 11683,
+          "maximum": 16906
+        },
+        "core_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "message_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "tail_parses": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "opening_us": {
+          "median": 20943,
+          "minimum": 18466,
+          "maximum": 36810
+        },
+        "controller_us": {
+          "median": 108335,
+          "minimum": 105118,
+          "maximum": 147122
+        },
+        "panel_us": {
+          "median": 49643,
+          "minimum": 45522,
+          "maximum": 75546
+        },
+        "small_us": {
+          "median": 56128,
+          "minimum": 55661,
+          "maximum": 60563
+        },
+        "replacement_us": {
+          "median": 5942,
+          "minimum": 5646,
+          "maximum": 6403
+        },
+        "core_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "message_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "tail_parses": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      }
+    },
+    "restricted": {
+      "baseline": {
+        "opening_us": {
+          "median": 21031,
+          "minimum": 18821,
+          "maximum": 38339
+        },
+        "controller_us": {
+          "median": 327977,
+          "minimum": 322317,
+          "maximum": 355279
+        },
+        "panel_us": {
+          "median": 85612,
+          "minimum": 72865,
+          "maximum": 118175
+        },
+        "small_us": {
+          "median": 107237,
+          "minimum": 105026,
+          "maximum": 159044
+        },
+        "replacement_us": {
+          "median": 6014,
+          "minimum": 5491,
+          "maximum": 8474
+        },
+        "core_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "message_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "tail_parses": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      },
+      "candidate": {
+        "opening_us": {
+          "median": 18462,
+          "minimum": 17560,
+          "maximum": 23786
+        },
+        "controller_us": {
+          "median": 146780,
+          "minimum": 142932,
+          "maximum": 147683
+        },
+        "panel_us": {
+          "median": 65095,
+          "minimum": 60290,
+          "maximum": 89082
+        },
+        "small_us": {
+          "median": 45095,
+          "minimum": 43903,
+          "maximum": 50435
+        },
+        "replacement_us": {
+          "median": 847,
+          "minimum": 792,
+          "maximum": 1121
+        },
+        "core_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "message_builds": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        },
+        "tail_parses": {
+          "median": 0,
+          "minimum": 0,
+          "maximum": 0
+        }
+      }
+    }
+  },
+  "counts": {
+    "forum": {
+      "baseline": {
+        "core_builds": {
+          "median": 4920,
+          "minimum": 4920,
+          "maximum": 4920
+        },
+        "message_builds": {
+          "median": 2460,
+          "minimum": 2460,
+          "maximum": 2460
+        },
+        "tail_parses": {
+          "median": 1050,
+          "minimum": 1050,
+          "maximum": 1050
+        }
+      },
+      "candidate": {
+        "core_builds": {
+          "median": 1760,
+          "minimum": 1760,
+          "maximum": 1760
+        },
+        "message_builds": {
+          "median": 880,
+          "minimum": 880,
+          "maximum": 880
+        },
+        "tail_parses": {
+          "median": 110,
+          "minimum": 110,
+          "maximum": 110
+        }
+      }
+    },
+    "messages": {
+      "baseline": {
+        "core_builds": {
+          "median": 1920,
+          "minimum": 1920,
+          "maximum": 1920
+        },
+        "message_builds": {
+          "median": 960,
+          "minimum": 960,
+          "maximum": 960
+        },
+        "tail_parses": {
+          "median": 670,
+          "minimum": 670,
+          "maximum": 670
+        }
+      },
+      "candidate": {
+        "core_builds": {
+          "median": 840,
+          "minimum": 840,
+          "maximum": 840
+        },
+        "message_builds": {
+          "median": 420,
+          "minimum": 420,
+          "maximum": 420
+        },
+        "tail_parses": {
+          "median": 70,
+          "minimum": 70,
+          "maximum": 70
+        }
+      }
+    },
+    "chat": {
+      "baseline": {
+        "core_builds": {
+          "median": 1920,
+          "minimum": 1920,
+          "maximum": 1920
+        },
+        "message_builds": {
+          "median": 960,
+          "minimum": 960,
+          "maximum": 960
+        },
+        "tail_parses": {
+          "median": 670,
+          "minimum": 670,
+          "maximum": 670
+        }
+      },
+      "candidate": {
+        "core_builds": {
+          "median": 840,
+          "minimum": 840,
+          "maximum": 840
+        },
+        "message_builds": {
+          "median": 420,
+          "minimum": 420,
+          "maximum": 420
+        },
+        "tail_parses": {
+          "median": 70,
+          "minimum": 70,
+          "maximum": 70
+        }
+      }
+    },
+    "restricted": {
+      "baseline": {
+        "core_builds": {
+          "median": 3080,
+          "minimum": 3080,
+          "maximum": 3080
+        },
+        "message_builds": {
+          "median": 1540,
+          "minimum": 1540,
+          "maximum": 1540
+        },
+        "tail_parses": {
+          "median": 1080,
+          "minimum": 1080,
+          "maximum": 1080
+        }
+      },
+      "candidate": {
+        "core_builds": {
+          "median": 1340,
+          "minimum": 1340,
+          "maximum": 1340
+        },
+        "message_builds": {
+          "median": 670,
+          "minimum": 670,
+          "maximum": 670
+        },
+        "tail_parses": {
+          "median": 110,
+          "minimum": 110,
+          "maximum": 110
+        }
+      }
+    }
+  },
+  "profile": {
+    "sample_count": 3070,
+    "appL10n_inclusive_samples": 2868,
+    "globalSearchDefinitions_inclusive_samples": 1949,
+    "globalSearchFilters_inclusive_samples": 1829,
+    "globalSearchFilterAvailable_inclusive_samples": 991
+  },
+  "checks": {
+    "tests": 159,
+    "files": [
+      "test/global_search_filter_projection_test.dart",
+      "test/global_search_controller_test.dart",
+      "test/global_search_filter_choice_test.dart",
+      "test/global_search_presentation_test.dart",
+      "test/global_search_panel_test.dart"
+    ],
+    "targeted_analysis": "no issues"
+  },
+  "limits": [
+    "Source-level getter and parse counts, not allocations",
+    "Debug widget-test timing, not release or physical-device latency/FPS",
+    "Default opening timing is inconclusive",
+    "Panel timings overlap; direction supports preparation result but magnitude is noisy",
+    "Only English locale is bundled; French zone tests fallback"
+  ],
+  "raw_artifacts": "/Users/joffreyjaffeux/.codex/worktrees/search-filter-projection/discourse-native/.audit/search-filter-projection"
+}
