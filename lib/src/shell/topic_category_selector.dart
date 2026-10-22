@@ -125,13 +125,15 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
   void _openChanged(bool open, DComboboxChangeReason _) {
     _debounce?.cancel();
     _lookup.invalidate();
+    // The content keeps painting through its exit animation, so closing must
+    // leave the last results on screen. Opening starts from a clean search.
+    if (!open) return;
     setState(() {
       _query = '';
       _results = const [];
       _error = null;
-      _loading = open && widget.search != null;
+      _loading = widget.search != null;
     });
-    if (!open) return;
     if (widget.search != null) {
       _lookup.request('');
     } else {

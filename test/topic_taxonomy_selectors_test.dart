@@ -595,4 +595,78 @@ void main() {
     ]);
     expect(tester.takeException(), isNull);
   });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final tags in [false, true]) {
+      final selector = tags ? TopicTagSelector : TopicCategorySelector;
+      testWidgets('a closing $selector keeps its results until it is gone '
+          'on $platform', (tester) async {
+        tester.view.physicalSize = platform == TargetPlatform.iOS
+            ? const Size(390, 844)
+            : const Size(1000, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: platform),
+            home: Scaffold(
+              body: tags
+                  ? TopicTagSelector(
+                      selectedTags: const [],
+                      search: (_) async =>
+                          const TopicTagSearch(tags: [design, mobile]),
+                      onChanged: (_) {},
+                    )
+                  : TopicCategorySelector(
+                      siteUrl: 'https://example.invalid',
+                      categories: const [],
+                      selected: null,
+                      search: (_) async => const [support, designCategory],
+                      onSelected: (_) {},
+                    ),
+            ),
+          ),
+        );
+        await open(tester, selector);
+        final query = find.descendant(
+          of: find.byKey(
+            ValueKey(tags ? 'tag-selector-query' : 'category-selector-query'),
+          ),
+          matching: find.byType(EditableText),
+        );
+        await tester.enterText(query, 'des');
+        await tester.pumpAndSettle();
+        final option = tags
+            ? tagOption('design')
+            : find.byKey(const ValueKey(('category-selector-option', 1)));
+        expect(option, findsOneWidget);
+        if (platform == TargetPlatform.iOS) {
+          await tester.tap(find.byTooltip('Close'));
+        } else {
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        }
+        var closingFrames = 0;
+        for (
+          ;
+          find.byType(DComboboxContent).evaluate().isNotEmpty;
+          closingFrames++
+        ) {
+          expect(
+            option,
+            findsOneWidget,
+            reason: 'closing frame $closingFrames',
+          );
+          expect(find.text('No tags are available.'), findsNothing);
+          expect(find.text('No matching categories.'), findsNothing);
+          expect(closingFrames, lessThan(100));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(closingFrames, greaterThan(1));
+        await open(tester, selector);
+        expect(tester.widget<EditableText>(query).controller.text, isEmpty);
+        expect(option, findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 }
