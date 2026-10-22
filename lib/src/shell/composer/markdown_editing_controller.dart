@@ -216,6 +216,14 @@ class MarkdownEditingController extends TextEditingController {
   bool _isSingleLineBreak(TextRange range) =>
       range.end - range.start == (text.startsWith('\r\n', range.start) ? 2 : 1);
 
+  /// Whether [separator] is drawn as space below the previous paragraph,
+  /// which puts every offset inside it at the end of that paragraph's last
+  /// line.
+  bool _projectsParagraphSpacing(TextRange separator) =>
+      blockSeparators.contains(separator) &&
+      !_componentGapStarts.contains(separator.start) &&
+      !todos.any((todo) => todo.end == separator.start);
+
   bool _isListRow(ComposerBodyBlock block) =>
       block.kind == ComposerBlockKind.list ||
       block.kind == ComposerBlockKind.todo;
@@ -362,6 +370,30 @@ class MarkdownEditingController extends TextEditingController {
           newValue = newValue.copyWith(
             text: current.text.replaceRange(separator.start, separator.end, ''),
             selection: TextSelection.collapsed(offset: separator.start),
+          );
+          break;
+        }
+      }
+    }
+    if (newValue.text == current.text &&
+        newValue.selection.isValid &&
+        newValue.selection.affinity == TextAffinity.upstream &&
+        newValue.composing.isCollapsed) {
+      // Line ends, vertical moves and clicks past a paragraph's last line
+      // land upstream inside its spacing and mean that line's end, not the
+      // next paragraph. Character steps arrive downstream and still cross.
+      final extent = newValue.selection.extentOffset;
+      for (final separator in blockSeparators) {
+        if (extent > separator.start &&
+            extent < separator.end &&
+            _projectsParagraphSpacing(separator)) {
+          newValue = newValue.copyWith(
+            selection: newValue.selection.isCollapsed
+                ? TextSelection.collapsed(offset: separator.start)
+                : newValue.selection.copyWith(
+                    extentOffset: separator.start,
+                    affinity: TextAffinity.downstream,
+                  ),
           );
           break;
         }
@@ -1911,8 +1943,7 @@ class MarkdownEditingController extends TextEditingController {
                     text: '\u200b',
                     style: hiddenComposerSourceStyle,
                   ),
-              ] else if (!blockSeparators.contains(separator) ||
-                  todos.any((todo) => todo.end == separator.start))
+              ] else if (!_projectsParagraphSpacing(separator))
                 // Embedded components and to-do rows retain their boundary
                 // caret layout and explicit blank lines.
                 TextSpan(

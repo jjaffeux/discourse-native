@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +36,25 @@ Future<void> arrow(WidgetTester tester, LogicalKeyboardKey key) async {
   await tester.sendKeyEvent(key);
   await tester.pumpAndSettle();
   expect(tester.takeException(), isNull);
+}
+
+Future<void> lineEnd(WidgetTester tester, {bool extend = false}) async {
+  final apple = defaultTargetPlatform == TargetPlatform.macOS;
+  final modifiers = [
+    if (extend) LogicalKeyboardKey.shiftLeft,
+    if (apple) LogicalKeyboardKey.metaLeft,
+  ];
+  for (final key in modifiers) {
+    await tester.sendKeyDownEvent(key);
+  }
+  await arrow(
+    tester,
+    apple ? LogicalKeyboardKey.arrowRight : LogicalKeyboardKey.end,
+  );
+  for (final key in modifiers.reversed) {
+    await tester.sendKeyUpEvent(key);
+  }
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -164,6 +184,63 @@ void main() {
       expect(items.first.text.selection.extentOffset, 8);
       expect(root.text.text, source);
       expect(tester.takeException(), isNull);
+    },
+    variant: desktopPlatforms,
+  );
+
+  testWidgets(
+    'the last line of a wrapped paragraph ends before the paragraph break',
+    (tester) async {
+      const first =
+          'A first paragraph that wraps across several visual lines before it ends.';
+      const source = '$first\n\nSecond paragraph';
+      final root = await pumpEditor(
+        tester,
+        source,
+        platform: defaultTargetPlatform,
+      );
+      final render = tester
+          .state<EditableTextState>(editable(root))
+          .renderEditable;
+      final lastLine = render
+          .getLineAtOffset(const TextPosition(offset: first.length - 1))
+          .start;
+      expect(first.substring(lastLine), 'ends.');
+
+      await focusAt(tester, root, lastLine);
+      await lineEnd(tester);
+      expect(root.text.selection.extentOffset, first.length);
+      await lineEnd(tester);
+      expect(root.text.selection.extentOffset, first.length);
+      await arrow(tester, LogicalKeyboardKey.arrowRight);
+      expect(root.text.selection.extentOffset, first.length + 2);
+
+      root.text.selection = TextSelection.collapsed(
+        offset: lastLine,
+        affinity: TextAffinity.upstream,
+      );
+      await tester.pumpAndSettle();
+      await arrow(tester, LogicalKeyboardKey.arrowDown);
+      expect(root.text.selection.extentOffset, first.length);
+
+      final end = render.localToGlobal(
+        render
+            .getLocalRectForCaret(const TextPosition(offset: first.length))
+            .center,
+      );
+      for (var i = 0; i < 2; i++) {
+        await tester.tapAt(end + const Offset(40, 0));
+        await tester.pumpAndSettle(kDoubleTapTimeout);
+        expect(root.text.selection.extentOffset, first.length);
+      }
+
+      await focusAt(tester, root, lastLine);
+      await lineEnd(tester, extend: true);
+      await arrow(tester, LogicalKeyboardKey.backspace);
+      expect(
+        root.text.text,
+        '${first.substring(0, lastLine)}\n\nSecond paragraph',
+      );
     },
     variant: desktopPlatforms,
   );
