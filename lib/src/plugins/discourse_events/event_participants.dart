@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'event_card.dart' show eventResponseLabel;
 import 'event_controller.dart';
 import 'event_data.dart';
+import 'event_participant_session.dart';
 
 final RegExp _whitespace = RegExp(r'\s+');
 
@@ -41,113 +42,38 @@ class _Participants extends StatefulWidget {
 class _ParticipantsState extends State<_Participants> {
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
-  Timer? _debounce;
-  List<EventInvitee>? _rows;
-  String? _error;
-  String? _type;
-  int _generation = 0;
-  bool _loading = false;
-
-  /// Availability as of the last change this sheet handled. Access can return
-  /// after a failed re-read or an account refresh; the roster was withdrawn
-  /// when it left, so it must be read again rather than left disabled behind
-  /// the withdrawal notice with no way to retry.
-  bool _wasAvailable = true;
-
-  bool get _available =>
-      widget.handle.isCurrent &&
-      widget.handle.authoritative &&
-      widget.handle.event?.displayInvitees == true;
+  late EventParticipantSession _session;
 
   @override
   void initState() {
     super.initState();
-    widget.handle.controller.addListener(_changed);
-    unawaited(_load());
+    _session = EventParticipantSession(widget.handle)..addListener(_changed);
   }
 
-  void _changed() {
-    final available = _available;
-    final returned = available && !_wasAvailable;
-    _wasAvailable = available;
-    if (returned) {
-      unawaited(_load());
-    } else if (!available) {
-      _debounce?.cancel();
-      _generation++;
-      setState(() {
-        _rows = null;
-        _loading = false;
-        _error = appL10n.participantDetailsAreNoLongerAvailable;
-      });
-    }
+  @override
+  void didUpdateWidget(covariant _Participants oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.handle, widget.handle)) return;
+    final type = _session.type;
+    _session.dispose();
+    _session = EventParticipantSession(
+      widget.handle,
+      filter: _search.text,
+      type: type,
+    )..addListener(_changed);
   }
 
-  void _searchChanged(String _) {
-    _debounce?.cancel();
-    // Invalidate older responses as soon as the query changes, including the
-    // debounce window. Never display the previous filter's roster as current.
-    _generation++;
-    setState(() {
-      _rows = null;
-      _loading = true;
-      _error = null;
-    });
-    _debounce = Timer(const Duration(milliseconds: 250), _load);
-  }
+  void _changed() => setState(() {});
 
   void _clearSearch() {
     _search.clear();
     _searchFocus.requestFocus();
-    unawaited(_load());
-  }
-
-  void _selectType(String? value) {
-    final type = value == 'all' ? null : value;
-    if (type == _type) return;
-    _type = type;
-    unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    _debounce?.cancel();
-    if (!_available) {
-      _changed();
-      return;
-    }
-    final generation = ++_generation;
-    setState(() {
-      _rows = null;
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final rows = await widget.handle.controller.participants(
-        widget.handle,
-        filter: _search.text.trim().replaceFirst(RegExp(r'^@'), ''),
-        type: _type,
-      );
-      if (mounted && generation == _generation) {
-        setState(() {
-          _rows = rows;
-          _loading = false;
-        });
-      }
-    } catch (error) {
-      if (mounted && generation == _generation) {
-        setState(() {
-          _rows = null;
-          _error = eventError(error, reading: true);
-          _loading = false;
-        });
-      }
-    }
+    _session.changeSearch('', immediately: true);
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
-    widget.handle.controller.removeListener(_changed);
+    _session.dispose();
     _search.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -175,27 +101,27 @@ class _ParticipantsState extends State<_Participants> {
             focusNode: _searchFocus,
             hintText: context.l10n.searchParticipants,
             semanticLabel: context.l10n.searchParticipants,
-            enabled: _available,
+            enabled: _session.available,
             autocorrect: false,
             textInputAction: TextInputAction.search,
             prefix: Icon(Icons.search, size: 16, color: tokens.mutedForeground),
             suffix: _search.text.isEmpty
                 ? null
                 : DButton.iconOnly(
-                    onPressed: _available ? _clearSearch : null,
+                    onPressed: _session.available ? _clearSearch : null,
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
                     tooltip: context.l10n.clearSearch,
                     icon: const Icon(Icons.close),
                   ),
-            onChanged: _searchChanged,
-            onSubmitted: (_) => unawaited(_load()),
+            onChanged: _session.changeSearch,
+            onSubmitted: (_) => unawaited(_session.refresh()),
           ),
         ),
         DTabs<String>.controlled(
-          value: _type ?? 'all',
-          enabled: _available,
-          onChanged: _selectType,
+          value: _session.type ?? 'all',
+          enabled: _session.available,
+          onChanged: _session.selectType,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -224,10 +150,12 @@ class _ParticipantsState extends State<_Participants> {
               ),
             ),
             DTabPanel<String>(
-              value: _type ?? 'all',
+              value: _session.type ?? 'all',
               semanticLabel: context.l10n.participantsEventparticipants(
-                (_type == null).toString(),
-                ((!(_type == null)) ? (eventResponseLabel(_type)) : '')
+                (_session.type == null).toString(),
+                ((!(_session.type == null))
+                        ? (eventResponseLabel(_session.type))
+                        : '')
                     .toString(),
               ),
               child: SizedBox(
@@ -237,7 +165,7 @@ class _ParticipantsState extends State<_Participants> {
             ),
           ],
         ),
-        if ((_rows?.length ?? 0) >= 200)
+        if ((_session.rows?.length ?? 0) >= 200)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
@@ -257,9 +185,11 @@ class _ParticipantsState extends State<_Participants> {
                     child: Semantics(
                       liveRegion: true,
                       child: Text(
-                        _rows == null
+                        _session.rows == null
                             ? ''
-                            : context.l10n.shown((_rows!.length).toString()),
+                            : context.l10n.shown(
+                                (_session.rows!.length).toString(),
+                              ),
                         style: Theme.of(context).textTheme.bodySmall!.copyWith(
                           color: tokens.mutedForeground,
                         ),
@@ -281,10 +211,10 @@ class _ParticipantsState extends State<_Participants> {
   }
 
   Widget _buildResults(BuildContext context) {
-    if (_loading) {
+    if (_session.loading) {
       return const _ParticipantSkeleton();
     }
-    if (_error != null || _rows?.isEmpty != false) {
+    if (_session.error != null || _session.rows?.isEmpty != false) {
       final searching = _search.text.trim().isNotEmpty;
       return Center(
         child: SingleChildScrollView(
@@ -293,35 +223,38 @@ class _ParticipantsState extends State<_Participants> {
               DEmptyHeader(
                 children: [
                   DEmptyTitle(
-                    _error != null
+                    _session.error != null
                         ? context.l10n.unableToLoadParticipants
                         : context.l10n.noParticipantsFound,
                   ),
                   DEmptyDescription(
-                    _error ??
+                    _session.error ??
                         (searching
                             ? context.l10n.tryAnotherNameOrUsername
-                            : _type != null
+                            : _session.type != null
                             ? context.l10n.tryADifferentResponseFilter
                             : context.l10n.noParticipantsToShowYet),
                   ),
                 ],
               ),
-              if (_available && (_error != null || searching || _type != null))
+              if (_session.available &&
+                  (_session.error != null ||
+                      searching ||
+                      _session.type != null))
                 DButton(
                   variant: DButtonVariant.outline,
                   label: Text(
-                    _error != null
+                    _session.error != null
                         ? context.l10n.tryAgain
                         : searching
                         ? context.l10n.clearSearch
                         : context.l10n.showAllParticipants,
                   ),
-                  onPressed: _error != null
-                      ? () => unawaited(_load())
+                  onPressed: _session.error != null
+                      ? () => unawaited(_session.refresh())
                       : searching
                       ? _clearSearch
-                      : () => _selectType('all'),
+                      : () => _session.selectType('all'),
                 ),
             ],
           ),
@@ -331,10 +264,12 @@ class _ParticipantsState extends State<_Participants> {
     return ListView.separated(
       shrinkWrap: true,
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      itemCount: _rows!.length,
+      itemCount: _session.rows!.length,
       separatorBuilder: (_, _) => const DSeparator(space: 1),
-      itemBuilder: (context, index) =>
-          _ParticipantRow(invitee: _rows![index], siteUrl: widget.handle.site),
+      itemBuilder: (context, index) => _ParticipantRow(
+        invitee: _session.rows![index],
+        siteUrl: widget.handle.site,
+      ),
     );
   }
 }
