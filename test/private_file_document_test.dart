@@ -55,6 +55,133 @@ void main() {
     );
   });
 
+  group('immutable snapshot comparison', () {
+    test('encodes only changed updates and leaves reads unchanged', () async {
+      await target.writeAsString('{"kept":"original"}');
+      var decodes = 0;
+      var encodes = 0;
+      final document = PrivateFileDocument<Map<String, String>>(
+        target: () => target,
+        empty: () => <String, String>{},
+        decode: (contents) {
+          decodes++;
+          return _decodeMap(contents);
+        },
+        encode: (values) {
+          encodes++;
+          return _encodeMap(values);
+        },
+        snapshot: _encodeMap,
+      );
+
+      expect(
+        await document.read((values) => PrivateFileResult(values['kept'])),
+        'original',
+      );
+      expect((decodes, encodes), (1, 0));
+      final originalStamp = DateTime(2001);
+      await target.setLastModified(originalStamp);
+      final before = (await target.stat()).modified;
+      await document.update<void>((values) {
+        values['kept'] = 'original';
+        return PrivateFileResult.done;
+      });
+      expect((decodes, encodes), (2, 0));
+      expect((await target.stat()).modified, before);
+
+      await document.update<void>((values) {
+        values['kept'] = 'updated';
+        return PrivateFileResult.done;
+      });
+      expect((decodes, encodes), (3, 1));
+      expect(await target.readAsString(), '{"kept":"updated"}');
+
+      await document.update<void>((values) {
+        values['temporary'] = 'removed before commit';
+        values.remove('temporary');
+        return PrivateFileResult.done;
+      });
+      expect((decodes, encodes), (4, 1));
+    });
+
+    test('retains canonical comparison when no snapshot is supplied', () async {
+      var encodes = 0;
+      final document = PrivateFileDocument<Map<String, String>>(
+        target: () => target,
+        empty: () => <String, String>{},
+        decode: _decodeMap,
+        encode: (values) {
+          encodes++;
+          return _encodeMap(values);
+        },
+      );
+
+      await document.update<void>((_) => PrivateFileResult.done);
+      expect(encodes, 2);
+      expect(await target.exists(), isFalse);
+      await document.update<void>((values) {
+        values['kept'] = 'committed';
+        return PrivateFileResult.done;
+      });
+      expect(encodes, 4);
+      expect(await target.readAsString(), '{"kept":"committed"}');
+    });
+
+    test(
+      'preserves encoded map order after removing and reinserting',
+      () async {
+        await target.writeAsString('{"first":"one","second":"two"}');
+        final document = PrivateFileDocument<Map<String, String>>(
+          target: () => target,
+          empty: () => <String, String>{},
+          decode: _decodeMap,
+          encode: jsonEncode,
+          snapshot: jsonEncode,
+        );
+
+        await document.update<void>((values) {
+          values['first'] = values.remove('first')!;
+          return PrivateFileResult.done;
+        });
+
+        expect(await target.readAsString(), '{"second":"two","first":"one"}');
+      },
+    );
+
+    test('discards failed snapshots and retries from durable state', () async {
+      await target.writeAsString('{"kept":"original"}');
+      final document = PrivateFileDocument<Map<String, String>>(
+        target: () => target,
+        empty: () => <String, String>{},
+        decode: _decodeMap,
+        encode: _encodeMap,
+        snapshot: (values) {
+          if (values.containsKey('refused')) {
+            throw StateError('snapshot failed');
+          }
+          return _encodeMap(values);
+        },
+      );
+
+      await expectLater(
+        document.update<void>((values) {
+          values['refused'] = 'partial';
+          return PrivateFileResult.done;
+        }),
+        throwsStateError,
+      );
+      expect(await target.readAsString(), '{"kept":"original"}');
+      await document.update<void>((values) {
+        values['later'] = 'committed';
+        return PrivateFileResult.done;
+      });
+      expect(
+        await target.readAsString(),
+        '{"kept":"original","later":"committed"}',
+      );
+    });
+  });
+
   group('write coordination', () {
     test('awaits codecs before releasing the transaction to a read', () async {
       await target.writeAsString('{"kept":"original"}');
@@ -93,28 +220,35 @@ void main() {
       expect(mutations, 1);
     });
 
-    test('coordinates separate processes through the sidecar lock', () async {
-      await target.writeAsString('{}');
-      final processes = await Future.wait([
-        for (final series in ['first', 'second'])
-          Process.run('dart', [
-            '--packages=.dart_tool/package_config.json',
-            'test/fixtures/private_document_writer.dart',
+    for (final snapshot in [false, true]) {
+      test(
+        'coordinates processes with snapshot comparison $snapshot',
+        () async {
+          await target.writeAsString('{}');
+          final processes = await Future.wait([
+            for (final series in ['first', 'second'])
+              Process.run('dart', [
+                '--packages=.dart_tool/package_config.json',
+                'test/fixtures/private_document_writer.dart',
+                target.path,
+                series,
+                if (snapshot) 'snapshot',
+              ]),
+          ]);
+          for (final process in processes) {
+            expect(process.exitCode, 0, reason: '${process.stderr}');
+          }
+          final values = await _mapDocument(
             target.path,
-            series,
-          ]),
-      ]);
-      for (final process in processes) {
-        expect(process.exitCode, 0, reason: '${process.stderr}');
-      }
-      final values = await _mapDocument(
-        target.path,
-      ).read((values) => PrivateFileResult(Map.of(values)));
-      expect(values, {
-        for (final series in ['first', 'second'])
-          for (var index = 0; index < 12; index++) '$series-$index': '$index',
-      });
-    });
+          ).read((values) => PrivateFileResult(Map.of(values)));
+          expect(values, {
+            for (final series in ['first', 'second'])
+              for (var index = 0; index < 12; index++)
+                '$series-$index': '$index',
+          });
+        },
+      );
+    }
 
     test('serializes document instances targeting one path', () async {
       final first = _mapDocument(target.path);
@@ -172,6 +306,7 @@ void main() {
             }
             return _encodeMap(values);
           },
+          snapshot: _encodeMap,
         );
         await document.update<void>((values) {
           values['kept'] = 'original';

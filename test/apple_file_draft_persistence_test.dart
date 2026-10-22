@@ -72,6 +72,56 @@ void main() {
       expect((await file.stat()).modified, before);
     });
 
+    test(
+      'preserves normalized no-op bytes and the serialized draft order',
+      () async {
+        const later = '${sitePrefix}topic_z';
+        const earlier = '${sitePrefix}topic_a';
+        const covered = '${sitePrefix}topic_missing';
+        final seeded = jsonEncode({
+          'version': 1,
+          'values': {later: 'later', earlier: 'earlier'},
+          'blockedLegacyKeys': [covered, earlier, earlier, later],
+          'blockedLegacyPrefixes': [sitePrefix, sitePrefix],
+        });
+        await file.parent.create(recursive: true);
+        await file.writeAsString(seeded);
+        final storage = AppleFileDraftPersistence(file: file);
+
+        await storage.write(earlier, 'earlier');
+        await storage.delete(covered);
+        expect(await file.readAsString(), seeded);
+
+        await storage.write(earlier, 'changed');
+        expect(
+          await file.readAsString(),
+          jsonEncode({
+            'version': 1,
+            'values': {later: 'later', earlier: 'changed'},
+            'blockedLegacyKeys': <String>[],
+            'blockedLegacyPrefixes': [sitePrefix],
+          }),
+        );
+      },
+    );
+
+    test('rereads mutations made after a preceding no-op update', () async {
+      final first = AppleFileDraftPersistence(file: file);
+      final second = AppleFileDraftPersistence(file: file);
+      await first.write(key, 'original');
+      await first.write(key, 'original');
+      await second.write(otherKey, 'another writer');
+      await second.write(key, 'latest');
+      await first.write(key, 'saved after reread');
+
+      expect(jsonDecode(await file.readAsString()), {
+        'version': 1,
+        'values': {key: 'saved after reread', otherKey: 'another writer'},
+        'blockedLegacyKeys': [key, otherKey]..sort(),
+        'blockedLegacyPrefixes': <String>[],
+      });
+    });
+
     test('retains drafts across reopened instances', () async {
       final storage = AppleFileDraftPersistence(file: file);
       await storage.write(key, 'unfinished thought');
@@ -395,6 +445,37 @@ void main() {
   });
 
   group('concurrent mutations', () {
+    test('lets the latest save win over a delayed Keychain read', () async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      final started = Completer<void>();
+      final legacy = _LegacyDraftStorage({key: 'old'})
+        ..readGate = gate
+        ..readStarted = started;
+      final storage = AppleFileDraftPersistence(
+        file: file,
+        legacyStorage: legacy,
+      );
+
+      final migration = storage.read(key);
+      await started.future;
+      await storage.write(key, 'latest');
+      await storage.write(key, 'latest');
+      gate.complete();
+
+      expect(await migration, (
+        value: 'latest',
+        allowPreferenceFallback: false,
+      ));
+      expect(await storage.read(key), (
+        value: 'latest',
+        allowPreferenceFallback: false,
+      ));
+      expect(legacy.events, ['read:$key']);
+    });
+
     test('lets a deletion win over a delayed Keychain read', () async {
       final gate = Completer<void>();
       addTearDown(() {

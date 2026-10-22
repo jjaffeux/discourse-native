@@ -89,6 +89,7 @@ final class AppleFileDraftPersistence implements DraftPersistence {
         empty: _DraftFileState.new,
         decode: _decodeDraftFileState,
         encode: _encodeDraftFileState,
+        snapshot: _DraftFileSnapshot.new,
       );
 
   @override
@@ -178,8 +179,10 @@ Future<_DraftFileState> _decodeDraftFileState(String contents) {
   );
 }
 
-Future<String> _encodeDraftFileState(_DraftFileState state) =>
-    _DraftFileCodecs.run(() => jsonEncode(state.toJson()));
+Future<String> _encodeDraftFileState(_DraftFileState state) {
+  final snapshot = _DraftFileSnapshot(state);
+  return _DraftFileCodecs.run(() => jsonEncode(snapshot.toJson()));
+}
 
 abstract final class _DraftFileCodecs {
   static Future<void> _tail = Future<void>.value();
@@ -235,10 +238,6 @@ final class _DraftFileState {
         blockedLegacyKeys: rawKeys.cast<String>().toSet(),
         blockedLegacyPrefixes: rawPrefixes.cast<String>().toSet(),
       );
-      // Covered key blockers are redundant (see [blockLegacyKey]). Dropping
-      // them on decode lets an existing file shrink with its next real change;
-      // a lookup still never rewrites, because an update compares encodings
-      // taken after decoding.
       return state..blockedLegacyKeys.removeWhere(state._coveredBySite);
     }
     throw FormatException(appL10n.invalidDraftStorageFormat);
@@ -256,6 +255,17 @@ final class _DraftFileState {
   }
 
   bool _coveredBySite(String key) => blockedLegacyPrefixes.any(key.startsWith);
+}
+
+final class _DraftFileSnapshot {
+  _DraftFileSnapshot(_DraftFileState state)
+    : values = Map.unmodifiable(state.values),
+      blockedLegacyKeys = Set.unmodifiable(state.blockedLegacyKeys),
+      blockedLegacyPrefixes = Set.unmodifiable(state.blockedLegacyPrefixes);
+
+  final Map<String, String> values;
+  final Set<String> blockedLegacyKeys;
+  final Set<String> blockedLegacyPrefixes;
 
   Map<String, Object> toJson() => {
     'version': _draftFileFormatVersion,
@@ -263,6 +273,35 @@ final class _DraftFileState {
     'blockedLegacyKeys': blockedLegacyKeys.toList()..sort(),
     'blockedLegacyPrefixes': blockedLegacyPrefixes.toList()..sort(),
   };
+
+  @override
+  bool operator ==(Object other) {
+    if (other is! _DraftFileSnapshot ||
+        values.length != other.values.length ||
+        blockedLegacyKeys.length != other.blockedLegacyKeys.length ||
+        blockedLegacyPrefixes.length != other.blockedLegacyPrefixes.length ||
+        !blockedLegacyKeys.containsAll(other.blockedLegacyKeys) ||
+        !blockedLegacyPrefixes.containsAll(other.blockedLegacyPrefixes)) {
+      return false;
+    }
+    final entries = other.values.entries.iterator;
+    for (final MapEntry(:key, :value) in values.entries) {
+      entries.moveNext();
+      if (entries.current.key != key || entries.current.value != value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAll(
+      values.entries.map((entry) => Object.hash(entry.key, entry.value)),
+    ),
+    Object.hashAllUnordered(blockedLegacyKeys),
+    Object.hashAllUnordered(blockedLegacyPrefixes),
+  );
 }
 
 /// Presence means the site has not received this text, so restore prefers it

@@ -52,15 +52,23 @@ final class PrivateFileDocument<T> {
     required T Function() empty,
     required FutureOr<T> Function(String contents) decode,
     required FutureOr<String> Function(T value) encode,
+    Object Function(T value)? snapshot,
     void Function(File damaged)? setAsideUndecodable,
-  }) =>
-      PrivateFileDocument._(target, empty, decode, encode, setAsideUndecodable);
+  }) => PrivateFileDocument._(
+    target,
+    empty,
+    decode,
+    encode,
+    snapshot,
+    setAsideUndecodable,
+  );
 
   PrivateFileDocument._(
     this._target,
     this._empty,
     this._decode,
     this._encode,
+    this._snapshot,
     this._setAsideUndecodable,
   );
 
@@ -68,6 +76,7 @@ final class PrivateFileDocument<T> {
   final T Function() _empty;
   final FutureOr<T> Function(String contents) _decode;
   final FutureOr<String> Function(T value) _encode;
+  final Object Function(T value)? _snapshot;
   final void Function(File damaged)? _setAsideUndecodable;
 
   /// The decoded value is transaction-local and must not escape through
@@ -75,16 +84,28 @@ final class PrivateFileDocument<T> {
   Future<R> read<R>(PrivateFileResult<R> Function(T value) inspect) =>
       _transact((target) async => inspect(await _read(target)).value);
 
-  /// Comparing canonical encodings makes a no-op update free and avoids a
-  /// separate `markChanged` capability which a caller could forget to use.
-  /// The codec must therefore be deterministic for equivalent values.
+  /// Comparing canonical encodings avoids writing unchanged documents without
+  /// relying on a caller to mark mutations. The codec must be deterministic.
+  ///
+  /// An optional `snapshot` avoids encoding unchanged documents. It must return
+  /// an immutable, independently owned projection whose equality is equivalent
+  /// to equality of canonical encodings, including any significant ordering.
   Future<R> update<R>(PrivateFileResult<R> Function(T value) mutate) =>
       _transact((target) async {
         final value = await _read(target);
-        final before = await _encode(value);
+        final snapshot = _snapshot;
+        final before = snapshot == null
+            ? await _encode(value)
+            : snapshot(value);
         final result = mutate(value);
-        final after = await _encode(value);
-        if (after != before) await _replace(target, after);
+        if (snapshot != null) {
+          if (snapshot(value) != before) {
+            await _replace(target, await _encode(value));
+          }
+        } else {
+          final after = await _encode(value);
+          if (after != before) await _replace(target, after);
+        }
         return result.value;
       });
 

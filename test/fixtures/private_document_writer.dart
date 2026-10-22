@@ -24,6 +24,7 @@ Future<void> main(List<String> arguments) async {
       );
     },
     encode: (values) async => jsonEncode(values),
+    snapshot: arguments.length > 2 ? jsonEncode : null,
   );
   for (var index = 0; index < 12; index++) {
     await document.update<void>((values) {
