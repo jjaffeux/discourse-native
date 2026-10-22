@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/ui/foundation/native_glass.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -308,6 +309,98 @@ void main() {
     expect((await _pixels(tester, latest)).rgba, isNot(firstPixels.rgba));
     expect(bridge.peak, 1);
     expect(bridge.scenes.last['visible'], isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final blocked in [false, true]) {
+    testWidgets(
+      'chat send artwork returns after loading with blocked bridge $blocked',
+      (tester) async {
+        Widget fixture({bool loading = false, bool enabled = false}) =>
+            _fixture((context) {
+              final colors = DTokens.of(context).buttonTheme.primary;
+              return DButton.iconOnly(
+                size: DButtonSize.toolbar,
+                foregroundColor: colors.foreground,
+                backgroundColor: colors.background,
+                interactiveBackgroundColor: colors.hover,
+                icon: const DIcon(DIcons.paperPlane, size: 12),
+                tooltip: 'Send message',
+                semanticLabel: 'Send',
+                onPressed: enabled ? () {} : null,
+                loading: loading,
+              );
+            });
+
+        await tester.pumpWidget(fixture());
+        await _drain(tester);
+        expect(bridge.uploads, isNotEmpty);
+        final disabled = await _pixels(tester, bridge.uploads.last);
+        expect(disabled.rgba.where((value) => value != 0), isNotEmpty);
+
+        await tester.pumpWidget(fixture(enabled: true));
+        await tester.pump(const Duration(milliseconds: 300));
+        await _drain(tester);
+        bridge.blocked = blocked;
+        await tester.pumpWidget(fixture(loading: true));
+        await tester.pump(const Duration(milliseconds: 300));
+        await _drain(tester);
+        expect(find.byType(DSpinner), findsOneWidget);
+        final loading = await _pixels(tester, bridge.uploads.last);
+        expect(loading.rgba, isNot(disabled.rgba));
+
+        await tester.pumpWidget(fixture());
+        await tester.pump(const Duration(milliseconds: 300));
+        bridge.release();
+        await _drain(tester);
+        expect(find.byType(DSpinner), findsNothing);
+        final finished = await _pixels(tester, bridge.uploads.last);
+        expect(
+          finished.rgba,
+          disabled.rgba,
+          reason:
+              'The native button must receive the restored paper-plane icon.',
+        );
+        expect(bridge.peak, 1);
+        expect(bridge.scenes.last['visible'], isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('descendant repaint boundaries refresh native artwork', (
+    tester,
+  ) async {
+    Widget fixture(Color color) => _fixture(
+      (context) => NativeGlassContent(
+        group: NativeGlass.of(context)!,
+        child: RepaintBoundary(
+          child: SizedBox.square(
+            dimension: 24,
+            child: ColoredBox(color: color),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(fixture(const Color(0xffff0000)));
+    await _drain(tester);
+    expect(bridge.uploads, isNotEmpty);
+    expect((await _pixels(tester, bridge.uploads.last)).rgba.take(4), [
+      255,
+      0,
+      0,
+      255,
+    ]);
+
+    await tester.pumpWidget(fixture(const Color(0xff0000ff)));
+    await _drain(tester);
+    expect((await _pixels(tester, bridge.uploads.last)).rgba.take(4), [
+      0,
+      0,
+      255,
+      255,
+    ]);
     expect(tester.takeException(), isNull);
   });
 }
