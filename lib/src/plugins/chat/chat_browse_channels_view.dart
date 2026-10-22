@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'chat_browse_navigation.dart';
+import 'chat_browse_session.dart';
 import 'chat_browse_skeleton.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
@@ -32,16 +33,8 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   late TextEditingController _filterController;
   ChatShellService? _shell;
   late final ScrollController _scrollController;
-  Timer? _filterTimer;
-  Object? _request;
-  List<ChatChannel> _channels = const [];
-  int _nextOffset = 0;
-  ChatChannelBrowseStatus _status = ChatChannelBrowseStatus.all;
-  ChatChannelJoinedFilter _joined = ChatChannelJoinedFilter.all;
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _hasMore = false;
-  String? _error;
+  ChatBrowseSession? _session;
+  ChatBrowseSession get _browse => _session!;
   VoidCallback? _unregisterRefresher;
 
   @override
@@ -56,142 +49,71 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     super.didChangeDependencies();
     final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
-    if (_request != null &&
+    _bindSession(chat, shell);
+  }
+
+  @override
+  void didUpdateWidget(ChatBrowseChannelsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.siteUrl != widget.siteUrl) {
+      _bindSession(
+        PluginUiScope.require(context, chatControllerService),
+        PluginUiScope.require(context, chatShellService),
+      );
+    }
+  }
+
+  void _bindSession(ChatController chat, ChatShellService shell) {
+    if (_session != null &&
         identical(chat, _chat) &&
-        identical(shell, _shell)) {
+        identical(shell, _shell) &&
+        _browse.siteUrl == widget.siteUrl) {
       return;
     }
     _unregisterRefresher?.call();
-    _request = Object();
-    _filterTimer?.cancel();
-    _filterTimer = null;
+    _session?.dispose();
     _chat = chat;
     _shell = shell;
-    final saved = _chat.inboxFilters.browseFor(widget.siteUrl);
-    // Replace the field controller when its owner changes: notifying the old
-    // mounted field synchronously here would update it during this build.
+    final session = ChatBrowseSession(chat: chat, siteUrl: widget.siteUrl);
+    _session = session;
+    // Replacing the field avoids notifying the mounted input during build.
     _filterController.dispose();
-    _filterController = TextEditingController(text: saved.query);
-    _status = saved.status;
-    _joined = saved.membership;
-    _channels = const [];
-    _nextOffset = 0;
-    _loadingMore = false;
-    _hasMore = false;
-    _error = null;
+    _filterController = TextEditingController(text: session.query);
+    session.addListener(_sessionChanged);
     _unregisterRefresher = shell.registerRouteRefresher(
       widget.siteUrl,
       ChatPlugin.browseRouteId,
-      () => _load(reset: true),
+      session.refresh,
     );
-    unawaited(_load(reset: true));
+    unawaited(session.refresh());
   }
+
+  void _sessionChanged() => setState(() {});
 
   @override
   void dispose() {
     _unregisterRefresher?.call();
-    _request = Object();
-    _filterTimer?.cancel();
+    _session?.dispose();
     _filterController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // Fed by the field's onChanged rather than a controller listener: the
-  // controller also notifies on focus and caret moves, and a reset for those
-  // would drop the pages already loaded.
-  void _filterChanged(String query) {
-    _chat.inboxFilters.browseFor(widget.siteUrl).query = query;
-    _filterTimer?.cancel();
-    _filterTimer = Timer(
-      const Duration(milliseconds: 350),
-      () => unawaited(_load(reset: true)),
-    );
-  }
-
-  // A failed page is retried only from its Try again row: every scroll
-  // update near the end would otherwise resend it as soon as it fails.
   void _maybeLoadMore() {
     if (!_scrollController.hasClients ||
         _scrollController.position.extentAfter >
-            paginationPrefetchDistance(_scrollController.position) ||
-        !_hasMore ||
-        _loadingMore ||
-        _error != null) {
+            paginationPrefetchDistance(_scrollController.position)) {
       return;
     }
-    unawaited(_load(reset: false));
+    unawaited(_browse.loadMore());
   }
-
-  Future<void> _load({required bool reset}) async {
-    if (!reset && (_loading || _loadingMore || !_hasMore)) return;
-    final token = Object();
-    _request = token;
-    setState(() {
-      if (reset) {
-        _loading = true;
-        _nextOffset = 0;
-        _error = null;
-      } else {
-        _loadingMore = true;
-      }
-    });
-    final offset = _nextOffset;
-    final result = await _chat.fetchBrowseChannels(
-      widget.siteUrl,
-      filter: _filterController.text,
-      status: _status,
-      offset: offset,
-    );
-    if (!mounted || !identical(_request, token)) return;
-    setState(() {
-      _loading = false;
-      _loadingMore = false;
-      _error = result.error;
-      if (result.page case final page?) {
-        _nextOffset = offset + page.rowCount;
-        // Channels created or joined between pages shift the server's
-        // offsets, so a page can repeat a channel already listed.
-        final ids = {for (final channel in _channels) channel.id};
-        _channels = reset
-            ? page.channels
-            : List.unmodifiable([
-                ..._channels,
-                for (final channel in page.channels)
-                  if (ids.add(channel.id)) channel,
-              ]);
-        _hasMore = page.hasMore && page.rowCount > 0;
-      } else if (reset) {
-        _channels = const [];
-        _hasMore = false;
-      }
-    });
-  }
-
-  List<ChatChannel> get _visibleChannels => switch (_joined) {
-    ChatChannelJoinedFilter.all => _channels,
-    ChatChannelJoinedFilter.joined => [
-      for (final channel in _channels)
-        if ((_chat.channel(widget.siteUrl, channel.id) ?? channel)
-            .membership
-            .following)
-          channel,
-    ],
-    ChatChannelJoinedFilter.notJoined => [
-      for (final channel in _channels)
-        if (!(_chat.channel(widget.siteUrl, channel.id) ?? channel)
-            .membership
-            .following)
-          channel,
-    ],
-  };
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: _chat,
     builder: (context, _) => DScrollChromePagination(
-      hasMore: _hasMore,
-      loading: _loading || _loadingMore,
+      hasMore: _browse.hasMore,
+      loading: _browse.loading || _browse.loadingMore,
       child: DPageSurface.headed(
         title: Text(context.l10n.browseChannels),
         // Scroll fades and mobile chrome must not repaint the fixed filters.
@@ -214,7 +136,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                         size: DControlSize.field,
                         key: const ValueKey('chat-browse-filter'),
                         controller: _filterController,
-                        onChanged: _filterChanged,
+                        onChanged: _browse.changeQuery,
                         hintText: context.l10n.findAChannel,
                         semanticLabel: context.l10n.findAChannel,
                         prefix: const DIcon(DIcons.magnifyingGlass),
@@ -225,47 +147,38 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                         children: [
                           ChatBrowseFilter<ChatChannelBrowseStatus>(
                             key: const ValueKey('chat-browse-status'),
-                            value: _status,
-                            label: _status == ChatChannelBrowseStatus.all
+                            value: _browse.status,
+                            label: _browse.status == ChatChannelBrowseStatus.all
                                 ? context.l10n.status
-                                : _statusLabel(_status),
+                                : _statusLabel(_browse.status),
                             semanticLabel: context.l10n.status,
-                            emphasized: _status != ChatChannelBrowseStatus.all,
+                            emphasized:
+                                _browse.status != ChatChannelBrowseStatus.all,
                             options: {
                               for (final status
                                   in ChatChannelBrowseStatus.values)
                                 status: _statusLabel(status),
                             },
-                            onChanged: (status) {
-                              if (status == _status) return;
-                              setState(() => _status = status);
-                              _chat.inboxFilters
-                                      .browseFor(widget.siteUrl)
-                                      .status =
-                                  status;
-                              unawaited(_load(reset: true));
-                            },
+                            onChanged: _browse.changeStatus,
                           ),
                           ChatBrowseFilter<ChatChannelJoinedFilter>(
                             key: const ValueKey('chat-browse-joined'),
-                            value: _joined,
-                            label: _joined == ChatChannelJoinedFilter.all
+                            value: _browse.membership,
+                            label:
+                                _browse.membership ==
+                                    ChatChannelJoinedFilter.all
                                 ? context.l10n.membership
-                                : _joinedLabel(_joined),
+                                : _joinedLabel(_browse.membership),
                             semanticLabel: context.l10n.membership,
-                            emphasized: _joined != ChatChannelJoinedFilter.all,
+                            emphasized:
+                                _browse.membership !=
+                                ChatChannelJoinedFilter.all,
                             options: {
                               for (final joined
                                   in ChatChannelJoinedFilter.values)
                                 joined: _joinedLabel(joined),
                             },
-                            onChanged: (joined) {
-                              setState(() => _joined = joined);
-                              _chat.inboxFilters
-                                      .browseFor(widget.siteUrl)
-                                      .membership =
-                                  joined;
-                            },
+                            onChanged: _browse.changeMembership,
                           ),
                         ],
                       );
@@ -297,7 +210,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   );
 
   Widget _buildResults(BuildContext context, bool lazy) {
-    if (_loading) {
+    if (_browse.loading) {
       return ContentReadingLane(
         basePadding: EdgeInsets.fromLTRB(
           16,
@@ -312,23 +225,24 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
         ),
       );
     }
-    final channels = _visibleChannels;
-    if (channels.isEmpty && !_hasMore && _error != null) {
+    final channels = _browse.visibleChannels;
+    if (channels.isEmpty && !_browse.hasMore && _browse.error != null) {
       return _BrowseMessage(
         icon: DIcons.triangleExclamation,
-        message: _error!,
+        message: _browse.error!,
         action: context.l10n.tryAgain,
-        onAction: () => unawaited(_load(reset: true)),
+        onAction: () => unawaited(_browse.refresh()),
       );
     }
     final resultCount = channels.isEmpty ? 1 : channels.length;
-    final hasFooter = _loadingMore || _error != null || _hasMore;
+    final hasFooter =
+        _browse.loadingMore || _browse.error != null || _browse.hasMore;
     final itemCount = resultCount + (hasFooter ? 1 : 0);
     Widget item(BuildContext context, int index) {
       if (channels.isEmpty && index == 0) {
         return _BrowseMessage(
           icon: DIcons.magnifyingGlass,
-          message: _hasMore
+          message: _browse.hasMore
               ? context.l10n.noMatchingChannelsLoadedYet
               : context.l10n.noChannelsMatchTheseFilters,
         );
@@ -341,26 +255,28 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
             siteUrl: widget.siteUrl,
             channel: current ?? channel,
             chat: _chat,
-            onChanged: _replaceChannel,
+            onChanged: _browse.replaceChannel,
           ),
         );
       }
-      if (_loadingMore) {
+      if (_browse.loadingMore) {
         return const ChatBrowseSkeleton(page: ChatBrowsePage.channels, rows: 2);
       }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(
           children: [
-            if (_error case final error?) ...[
+            if (_browse.error case final error?) ...[
               Text(error, textAlign: TextAlign.center),
               const SizedBox(height: 8),
             ],
             DButton(
               label: Text(
-                _error == null ? context.l10n.loadMore : context.l10n.tryAgain,
+                _browse.error == null
+                    ? context.l10n.loadMore
+                    : context.l10n.tryAgain,
               ),
-              onPressed: () => unawaited(_load(reset: false)),
+              onPressed: () => unawaited(_browse.loadMore(retry: true)),
             ),
           ],
         ),
@@ -396,14 +312,6 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
               ),
             ),
     );
-  }
-
-  void _replaceChannel(ChatChannel channel) {
-    final index = _channels.indexWhere((value) => value.id == channel.id);
-    if (index < 0 || !mounted) return;
-    setState(() {
-      _channels = List.unmodifiable([..._channels]..[index] = channel);
-    });
   }
 
   static String _statusLabel(ChatChannelBrowseStatus status) =>

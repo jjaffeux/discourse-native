@@ -37,6 +37,128 @@ const _emptyMessage = 'No channels match these filters.';
 
 void main() {
   group('ChatBrowseChannelsView', () {
+    testWidgets('a pending search cannot append with the old offset', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [_channel(1)],
+            hasMore: true,
+          ),
+          FakeDiscourseApi.chatBrowseKey(filter: 'new'): ChatChannelBrowsePage(
+            channels: [_channel(3)],
+          ),
+        },
+      );
+      await _pumpBrowse(tester, api);
+      await tester.enterText(_filter, 'new');
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+      expect(_offsets(api), [0]);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(_card(3), findsOneWidget);
+      expect(_offsets(api), [0, 0]);
+    });
+
+    testWidgets('retained view retires old pages when its site changes', (
+      tester,
+    ) async {
+      const other = 'https://other.discourse.org';
+      final selectedSite = ValueNotifier(_site);
+      addTearDown(selectedSite.dispose);
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [_channel(1)],
+            hasMore: true,
+          ),
+          FakeDiscourseApi.chatBrowseKey(offset: 1): ChatChannelBrowsePage(
+            channels: [_channel(2)],
+          ),
+          FakeDiscourseApi.chatBrowseKey(filter: 'other'):
+              ChatChannelBrowsePage(channels: [_channel(3)]),
+        },
+      );
+      final gate = _holdPage(api, offset: 1);
+      await _pumpBrowse(
+        tester,
+        api,
+        sites: [_site, other],
+        body: ValueListenableBuilder<String>(
+          valueListenable: selectedSite,
+          builder: (context, site, _) => ChatBrowseChannelsView(siteUrl: site),
+        ),
+      );
+      final chat = PluginUiScope.require(
+        tester.element(_browse),
+        chatControllerService,
+      );
+      chat.inboxFilters.browseFor(other).query = 'other';
+      final previousState = tester.state(_browse);
+      await tester.tap(find.text('Load more'));
+      await tester.pump();
+      selectedSite.value = other;
+      await tester.pump();
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.state(_browse), same(previousState));
+      expect(_filterText(tester).text, 'other');
+      expect(_card(1), findsNothing);
+      expect(_card(2), findsNothing);
+      expect(_card(3), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final replaceSite in [false, true]) {
+      testWidgets(
+        'retained view replaces controller with site change $replaceSite',
+        (tester) async {
+          const other = 'https://other.discourse.org';
+          final newSite = replaceSite ? other : _site;
+          final oldApi = _BrowseApi(
+            chatBrowsePagesByKey: {
+              FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+                channels: [_channel(1)],
+                hasMore: true,
+              ),
+              FakeDiscourseApi.chatBrowseKey(offset: 1): ChatChannelBrowsePage(
+                channels: [_channel(2)],
+              ),
+            },
+          );
+          final gate = _holdPage(oldApi, offset: 1);
+          await _pumpBrowse(tester, oldApi, sites: [_site, other]);
+          final previousState = tester.state(_browse);
+          await tester.tap(find.text('Load more'));
+          await tester.pump();
+          final newApi = _BrowseApi(
+            chatBrowsePagesByKey: {
+              FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+                channels: [_channel(3)],
+              ),
+            },
+          );
+          await _pumpBrowse(
+            tester,
+            newApi,
+            sites: [newSite],
+            body: ChatBrowseChannelsView(siteUrl: newSite),
+          );
+          expect(tester.state(_browse), same(previousState));
+          expect(_card(3), findsOneWidget);
+          gate.complete();
+          await tester.pumpAndSettle();
+          expect(_card(2), findsNothing);
+          expect(_card(3), findsOneWidget);
+          expect(_offsets(oldApi), [0, 1]);
+          expect(_offsets(newApi), [0]);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('filters and channel cards follow the content size setting', (
       tester,
     ) async {
@@ -963,13 +1085,19 @@ Future<void> _selectMembership(WidgetTester tester, String label) async {
 
 Future<ShellController> _pumpBrowse(
   WidgetTester tester,
-  FakeDiscourseApi api,
-) async {
-  final authenticator = FakeAuthenticator()..keys[_site] = 'key';
+  FakeDiscourseApi api, {
+  Widget? body,
+  List<String> sites = const [_site],
+}) async {
+  final authenticator = FakeAuthenticator();
+  for (final site in sites) {
+    authenticator.keys[site] = 'key';
+  }
   final controller = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
-      instance('meta.discourse.org').copyWith(user: _user),
+      for (final site in sites)
+        instance(Uri.parse(site).host).copyWith(user: _user),
     ]),
     api: api,
     authenticator: authenticator,
@@ -987,7 +1115,9 @@ Future<ShellController> _pumpBrowse(
           chatPluginId,
           MaterialApp(
             theme: AppTheme.light,
-            home: const Scaffold(body: ChatBrowseChannelsView(siteUrl: _site)),
+            home: Scaffold(
+              body: body ?? const ChatBrowseChannelsView(siteUrl: _site),
+            ),
           ),
         ),
       ),
