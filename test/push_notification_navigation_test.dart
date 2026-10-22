@@ -654,6 +654,184 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('shell replacement replays suspended and equal deliveries', (
+    tester,
+  ) async {
+    final opens = StreamController<String>.broadcast(sync: true);
+    addTearDown(opens.close);
+    final pending = Completer<bool>();
+    final oldOpened = <String>[];
+    final newOpened = <String>[];
+    final oldPlugins = PluginInstaller.install(
+      PluginManifest([
+        _NotificationLinkModule((url) {
+          oldOpened.add(url);
+          return pending.future;
+        }),
+      ]),
+    );
+    final newPlugins = PluginInstaller.install(
+      PluginManifest([
+        _NotificationLinkModule((url) async {
+          newOpened.add(url);
+          return true;
+        }),
+      ]),
+    );
+    addTearDown(oldPlugins.close);
+    addTearDown(newPlugins.close);
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final store = FakeInstanceStore([_connected('one.example')]);
+    final authenticator = _readerKeys(api);
+    final drafts = FakeDraftStore();
+    final tabs = FakeForumTabStore();
+    final trackers = FakeSiteTracker.reset();
+    final updater = FakeUpdater();
+    final updateStore = FakeUpdateStore();
+    DiscourseApp app(InstalledPlugins plugins) => DiscourseApp(
+      store: store,
+      api: api,
+      authenticator: authenticator,
+      drafts: drafts,
+      forumTabs: tabs,
+      trackers: trackers,
+      updater: updater,
+      updateStore: updateStore,
+      plugins: plugins,
+      notificationOpenUrls: opens.stream,
+    );
+
+    await tester.pumpWidget(app(oldPlugins));
+    await tester.pumpAndSettle();
+    final retired = tester.widget<ShellScope>(find.byType(ShellScope)).notifier!;
+    const url = 'https://one.example/t/suspended/42/1';
+    opens.add(url);
+    opens.add(url);
+    await tester.pumpAndSettle();
+    expect(oldOpened, [url]);
+
+    await tester.pumpWidget(app(newPlugins));
+    await tester.pumpAndSettle();
+    expect(newOpened, isEmpty);
+    pending.complete(false);
+    await tester.pumpAndSettle();
+
+    expect(oldOpened, [url]);
+    expect(newOpened, [url, url]);
+    expect(retired.currentContent?.topicId, isNull);
+    expect(api.topicsOpened, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('finishing an evicted delivery preserves a later equal URL', (
+    tester,
+  ) async {
+    final opens = StreamController<String>.broadcast(sync: true);
+    addTearDown(opens.close);
+    final pending = Completer<bool>();
+    final opened = <String>[];
+    final plugins = PluginInstaller.install(
+      PluginManifest([
+        _NotificationLinkModule((url) {
+          opened.add(url);
+          return opened.length == 1 ? pending.future : Future.value(true);
+        }),
+      ]),
+    );
+    addTearDown(plugins.close);
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    await tester.pumpWidget(
+      DiscourseApp(
+        store: FakeInstanceStore([_connected('one.example')]),
+        api: api,
+        authenticator: _readerKeys(api),
+        drafts: FakeDraftStore(),
+        forumTabs: FakeForumTabStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+        plugins: plugins,
+        notificationOpenUrls: opens.stream,
+      ),
+    );
+    await tester.pumpAndSettle();
+    const equalUrl = 'https://one.example/t/equal/42/1';
+    opens.add(equalUrl);
+    for (var post = 2; post <= 16; post++) {
+      opens.add('https://one.example/t/queued/42/$post');
+    }
+    opens.add(equalUrl);
+    pending.complete(true);
+    await tester.pumpAndSettle();
+
+    expect(opened, [
+      equalUrl,
+      for (var post = 2; post <= 16; post++)
+        'https://one.example/t/queued/42/$post',
+      equalUrl,
+    ]);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('source replacement retains queued taps and errors are nonfatal', (
+    tester,
+  ) async {
+    final stored = Completer<List<DiscourseInstance>>();
+    final oldOpens = StreamController<String>.broadcast(sync: true);
+    final newOpens = StreamController<String>.broadcast(sync: true);
+    addTearDown(oldOpens.close);
+    addTearDown(newOpens.close);
+    final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+    final opened = <String>[];
+    final plugins = PluginInstaller.install(
+      PluginManifest([
+        _NotificationLinkModule((url) async {
+          opened.add(url);
+          return true;
+        }),
+      ]),
+    );
+    addTearDown(plugins.close);
+    final store = _GatedInstanceStore(stored.future);
+    final authenticator = _readerKeys(api);
+    final drafts = FakeDraftStore();
+    final tabs = FakeForumTabStore();
+    final trackers = FakeSiteTracker.reset();
+    final updater = FakeUpdater();
+    final updateStore = FakeUpdateStore();
+    DiscourseApp app(Stream<String> urls) => DiscourseApp(
+      store: store,
+      api: api,
+      authenticator: authenticator,
+      drafts: drafts,
+      forumTabs: tabs,
+      trackers: trackers,
+      updater: updater,
+      updateStore: updateStore,
+      plugins: plugins,
+      notificationOpenUrls: urls,
+    );
+
+    await tester.pumpWidget(app(oldOpens.stream));
+    oldOpens.add('https://one.example/t/before/42/1');
+    await tester.pumpWidget(app(newOpens.stream));
+    oldOpens.add('https://one.example/t/retired/42/2');
+    newOpens.addError(StateError('nonfatal source failure'));
+    newOpens.add('');
+    newOpens.add('https://one.example/t/after/42/3');
+    stored.complete([_connected('one.example')]);
+    await tester.pumpAndSettle();
+
+    expect(opened, [
+      'https://one.example/t/before/42/1',
+      'https://one.example/t/after/42/3',
+    ]);
+    await tester.pumpWidget(const SizedBox.shrink());
+    newOpens.add('https://one.example/t/disposed/42/4');
+    await tester.pump();
+    expect(opened, hasLength(2));
+  });
+
   testWidgets('a burst of taps preserves the newest pending destinations', (
     tester,
   ) async {
