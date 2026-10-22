@@ -584,11 +584,12 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       await _toggleSheetTag(_unquoteTopicFilterValue(suggestion.term!));
       return;
     }
+    var tokens = _tokens;
     if (widget.embedded && _isTagStage && _isTagScopeToken(suggestion.name)) {
-      _tokens = _tokens.where((token) => !_isTagScopeToken(token)).toList();
+      tokens = tokens.where((token) => !_isTagScopeToken(token)).toList();
     }
     if (widget.embedded && suggestion.replaceKeys.isNotEmpty) {
-      _tokens = _tokens
+      tokens = tokens
           .where(
             (token) =>
                 !suggestion.replaceKeys.contains(topicFilterClauseKey(token)),
@@ -596,18 +597,24 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           .toList();
     }
     if (widget.embedded && suggestion.category != null) {
-      _tokens = _tokens
+      tokens = tokens
           .where((token) => !RegExp(r'^=?category:').hasMatch(token))
           .toList();
     }
     if (widget.embedded &&
         widget.onlyKey != null &&
         _completesClause(suggestion)) {
-      _setTokenDraft(suggestion.name);
-      _commitTokenDraft();
-      await widget.onSubmitted(_tokens.join(' '));
+      // Submitting closes the popup, which keeps painting this sheet while it
+      // leaves, so a single pick is submitted without being staged here.
+      await widget.onSubmitted(
+        replaceTopicFilterScopeTokens([
+          ...tokens,
+          ...splitTopicFilterQuery(suggestion.name),
+        ]).join(' '),
+      );
       return;
     }
+    _tokens = tokens;
     final acceptance = filter.accept(suggestion);
     if (widget.tokenized && _completesClause(suggestion)) {
       _commitTokenDraft();

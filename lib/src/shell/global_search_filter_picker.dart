@@ -47,8 +47,10 @@ class _GlobalSearchFilterPickerState extends State<_GlobalSearchFilterPicker> {
     final editor = _editing ?? definition;
     return DPopover(
       controller: _popover,
+      // The content keeps painting through its exit animation, so a new
+      // filter's editor is only put away when the picker opens again.
       onOpenChange: (open, _) {
-        if (!open && mounted) setState(() => _editing = null);
+        if (open && _editing != null) setState(() => _editing = null);
       },
       content: DPopoverContent(
         width: 420,

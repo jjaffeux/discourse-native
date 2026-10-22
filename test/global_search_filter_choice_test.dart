@@ -101,6 +101,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  for (final apply in [false, true]) {
+    _testChoice(
+      'a new filter editor stays on screen while it closes: apply=$apply',
+      (tester) async {
+        final api = _UserLookupApi();
+        await _openAuthor(tester, api);
+        final editor = _key('global-search-filter-value');
+        final catalogue = _key('global-search-filter-author');
+        await tester.enterText(editor, 'al');
+        await tester.pump();
+        if (apply) {
+          await tester.tap(_key('global-search-filter-apply'));
+        } else {
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        }
+        var closingFrames = 0;
+        for (
+          ;
+          editor.evaluate().isNotEmpty || catalogue.evaluate().isNotEmpty;
+          closingFrames++
+        ) {
+          final reason = 'closing frame $closingFrames';
+          expect(editor, findsOneWidget, reason: reason);
+          expect(_value(tester), 'al', reason: reason);
+          expect(catalogue, findsNothing, reason: reason);
+          expect(closingFrames, lessThan(100));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(closingFrames, greaterThan(1));
+        api.release();
+        await tester.pump(const Duration(milliseconds: 450));
+        await tester.pumpAndSettle();
+        await tester.tap(_key('global-search-filter-trigger'));
+        await tester.pumpAndSettle();
+        expect(catalogue, findsOneWidget);
+        expect(editor, findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Finder _key(String key) => find.byKey(ValueKey(key));

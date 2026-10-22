@@ -334,4 +334,68 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
   );
+
+  for (final pick in [false, true]) {
+    testWidgets(
+      'a closing inbox menu keeps its search and options: pick=$pick',
+      (tester) async {
+        final value = ValueNotifier('personal:');
+        addTearDown(value.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: ValueListenableBuilder<String>(
+                  valueListenable: value,
+                  builder: (context, current, _) => DMessageInboxMenu<String>(
+                    value: current,
+                    options: _options,
+                    onChanged: (next) => value.value = next,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byType(DButton));
+        await tester.pumpAndSettle();
+        final search = find.byType(EditableText);
+        await tester.enterText(search, 'a');
+        await tester.pumpAndSettle();
+        expect(_option('personal:'), findsOneWidget);
+        expect(_option('group:team'), findsOneWidget);
+        if (pick) {
+          await tester.tap(_option('group:team'));
+        } else {
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        }
+        var closingFrames = 0;
+        for (
+          ;
+          find.byType(DComboboxContent).evaluate().isNotEmpty;
+          closingFrames++
+        ) {
+          final reason = 'closing frame $closingFrames';
+          expect(
+            tester.widget<EditableText>(search).controller.text,
+            'a',
+            reason: reason,
+          );
+          expect(_option('personal:'), findsOneWidget, reason: reason);
+          expect(_option('group:team'), findsOneWidget, reason: reason);
+          expect(closingFrames, lessThan(100));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(closingFrames, greaterThan(1));
+        expect(value.value, pick ? 'group:team' : 'personal:');
+        await tester.tap(find.byType(DButton));
+        await tester.pumpAndSettle();
+        expect(tester.widget<EditableText>(search).controller.text, isEmpty);
+        expect(_option('personal:'), findsOneWidget);
+        expect(_option('group:team'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
 }

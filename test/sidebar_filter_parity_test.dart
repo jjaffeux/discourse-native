@@ -1058,6 +1058,48 @@ void main() {
       ),
     );
   }
+
+  for (final size in [desktop, phone]) {
+    testWidgets(
+      'picking a category keeps the list on screen while the filter closes '
+      'at $size',
+      (tester) async {
+        final (shell: shell, api: _) = await fixture(tester, size: size);
+        await tester.tap(
+          find.byKey(const ValueKey('topic-list-category-filter')),
+        );
+        await tester.pumpAndSettle();
+        final popup = find.byWidgetPredicate(
+          (widget) =>
+              widget is DSheetContent ||
+              widget is DPopoverContent &&
+                  widget.semanticLabel == 'Filter topics',
+        );
+        Finder inPopup(String text) => find.descendant(
+          of: popup,
+          matching: find.textContaining(text, findRichText: true),
+        );
+        expect(inPopup('Product'), findsOneWidget);
+        await tester.tap(inPopup('Support'));
+        var closingFrames = 0;
+        for (; popup.evaluate().isNotEmpty; closingFrames++) {
+          final reason = 'closing frame $closingFrames';
+          expect(inPopup('Product'), findsOneWidget, reason: reason);
+          expect(inPopup('Category: Support'), findsNothing, reason: reason);
+          expect(inPopup('Apply'), findsNothing, reason: reason);
+          expect(closingFrames, lessThan(100));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(closingFrames, greaterThan(1));
+        await tester.pumpAndSettle();
+        expect(shell.topicListContent?.categoryId, other.id);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(
+        size == phone ? TargetPlatform.iOS : TargetPlatform.macOS,
+      ),
+    );
+  }
 }
 
 Future<void> capture(WidgetTester tester, String name) async {
