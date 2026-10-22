@@ -81,6 +81,7 @@ class _SiteImageState extends State<SiteImage> {
   SiteImageRequest? _request;
   bool _viewportCheckScheduled = false;
   bool _tickerEnabled = true;
+  bool _playbackVisible = true;
   SiteImageBytes? _bytes;
   Object? _error;
   StackTrace? _errorStack;
@@ -208,19 +209,27 @@ class _SiteImageState extends State<SiteImage> {
     request?.release();
   }
 
+  bool get _needsViewportCheck =>
+      (!_resolved && widget.viewportAware) || (_resolved && _isAnimated);
+
   void _scheduleViewportCheck() {
-    if (_viewportCheckScheduled || !widget.viewportAware || _resolved) return;
+    if (_viewportCheckScheduled || !_needsViewportCheck) return;
     _viewportCheckScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _viewportCheckScheduled = false;
-      if (!mounted || !widget.viewportAware || _resolved) return;
+      if (!mounted || !_needsViewportCheck) return;
       final visible = _viewportDemand();
-      if (visible == null) {
-        _releaseRequest();
-      } else if (_request case final request?) {
-        request.setVisible(visible);
-      } else {
-        _startRequest(visible: visible);
+      if (_resolved && _isAnimated && _playbackVisible != (visible == true)) {
+        setState(() => _playbackVisible = visible == true);
+      }
+      if (!_resolved && widget.viewportAware) {
+        if (visible == null) {
+          _releaseRequest();
+        } else if (_request case final request?) {
+          request.setVisible(visible);
+        } else {
+          _startRequest(visible: visible);
+        }
       }
       // Recheck ancestor-only layout changes on natural frames without
       // requesting another frame while an image waits outside the viewport.
@@ -345,6 +354,7 @@ class _SiteImageState extends State<SiteImage> {
 
   @override
   Widget build(BuildContext context) {
+    _scheduleViewportCheck();
     Widget child;
     if (!_resolved) {
       child = widget.loadingBuilder?.call(context) ?? const SizedBox.shrink();
@@ -363,6 +373,8 @@ class _SiteImageState extends State<SiteImage> {
     } else {
       child = const SizedBox.shrink();
     }
+
+    child = TickerMode(enabled: !_isAnimated || _playbackVisible, child: child);
 
     if (widget.excludeFromSemantics) {
       child = ExcludeSemantics(child: child);
