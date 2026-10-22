@@ -3711,6 +3711,117 @@ void main() {
   });
 
   group('room Chat lifecycle', () {
+    for (final fails in [false, true]) {
+      test('a retired send cannot change a replacement room Chat '
+          '(failure=$fails)', () async {
+        final controlled = _ControlledVoiceTransport(
+          responses: {
+            'GET /voice/rooms.json': fixture('directory'),
+            'GET /voice/rooms/7/chat_session.json': {
+              'channel_id': 42,
+              'thread_id': 100,
+            },
+          },
+        )..heldPluginWritePaths.add('/voice/rooms/7/chat_session.json');
+        useTransport(controlled);
+        chatConversations.seed(
+          siteUrl: firstSite,
+          channelId: 42,
+          threadId: 100,
+          snapshot: ChatConversationSnapshot(messages: _chatPage(20).messages),
+        );
+        await controller.ensureLoaded(firstSite);
+        final sending = controller.sendChatMessage(firstSite, 7, 'old send');
+        await controlled.waitForPendingPluginWrites(1);
+
+        firstTracker.deliver('/voice/rooms/index', {
+          'type': 'destroyed',
+          'room': (fixture('directory')['rooms'] as List<dynamic>).first,
+        });
+        expect(controller.chat(firstSite, 7), isNull);
+        await controller.openChat(firstSite, 7);
+
+        final oldWrite = controlled.pendingPluginWrites.single.response;
+        if (fails) {
+          oldWrite.completeError(
+            const SiteLookupException(SiteLookupFailure.unreachable, 'one'),
+          );
+        } else {
+          oldWrite.complete(fixture('chat'));
+        }
+        await sending;
+
+        final chat = controller.chat(firstSite, 7)!;
+        expect(chat.session.threadId, 100);
+        expect(chat.messages.map((message) => message.id), [20]);
+        expect(chat.error, isNull);
+        expect(chat.sending, isFalse);
+        expect(chatConversations.opened.map((key) => key.threadId), [100]);
+        expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 1);
+      });
+    }
+
+    test(
+      'a hidden temporary send releases its handle after retirement',
+      () async {
+        transport.responses['POST /voice/rooms/7/chat_session.json'] = fixture(
+          'chat',
+        );
+        final conversation = chatConversations.find(
+          siteUrl: firstSite,
+          channelId: 42,
+          threadId: 99,
+        )!;
+        final gate = Completer<void>();
+        conversation.sendGate = gate;
+        final sending = controller.sendChatMessage(firstSite, 7, 'hidden');
+        await pumpEventQueue();
+        expect(conversation.sentMessages, ['hidden']);
+        expect(conversation.closeCalls, 0);
+
+        controller.forget(firstSite);
+        gate.complete();
+        await sending;
+
+        expect(controller.chat(firstSite, 7), isNull);
+        expect(conversation.closeCalls, 1);
+        expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 0);
+      },
+    );
+
+    test(
+      'hiding during a first send keeps the write and releases the reader',
+      () async {
+        final controlled = _ControlledVoiceTransport(
+          responses: {
+            'GET /voice/rooms/7/chat_session.json': {'channel_id': 42},
+          },
+        )..heldPluginWritePaths.add('/voice/rooms/7/chat_message.json');
+        useTransport(controlled);
+        await controller.openChat(firstSite, 7);
+        final sending = controller.sendChatMessage(firstSite, 7, 'first');
+        await controlled.waitForPendingPluginWrites(1);
+
+        controller.closeChat(firstSite, 7);
+        controlled.pendingPluginWrites.single.response.complete(
+          fixture('chat'),
+        );
+        await sending;
+
+        expect(controller.chat(firstSite, 7)?.session.threadId, 99);
+        expect(controller.chat(firstSite, 7)?.sending, isFalse);
+        expect(controller.chat(firstSite, 7)?.error, isNull);
+        expect(chatConversations.opened, isEmpty);
+        expect(firstTracker.subscriberCount('/voice/rooms/7/chat'), 0);
+        expect(
+          controlled.pendingPluginWrites.where(
+            (write) => write.path.endsWith('/chat_message.json'),
+          ),
+          hasLength(1),
+        );
+      },
+    );
+
     test(
       'loads, pages, and sends through the associated Discourse Chat thread',
       () async {

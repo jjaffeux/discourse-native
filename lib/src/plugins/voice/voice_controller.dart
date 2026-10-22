@@ -23,6 +23,7 @@ import 'voice_video_handle.dart';
 
 part 'voice_call_manager.dart';
 part 'voice_call_session.dart';
+part 'voice_chat_association.dart';
 part 'voice_room_directory.dart';
 
 enum VoiceCallStatus { joining, connected, reconnecting, leaving, failed }
@@ -171,23 +172,6 @@ class VoiceChatSnapshot {
   final bool sending;
   final bool canLoadMorePast;
   final String? error;
-}
-
-final class _VoiceChatAssociation {
-  _VoiceChatAssociation({this.session = const VoiceChatSession()});
-
-  VoiceChatSession session;
-  ChatConversation? conversation;
-  VoidCallback? conversationListener;
-
-  /// The room's chat channel, watched while the panel is open: the server
-  /// publishes a content-free "updated" there when the session's thread
-  /// changes (someone's first message opened it, or it rolled over).
-  PluginLiveChannelSubscription? liveUpdates;
-  bool visible = false;
-  bool loading = false;
-  bool sending = false;
-  String? error;
 }
 
 @immutable
@@ -372,13 +356,12 @@ final class VoiceController extends ChangeNotifier {
   final Map<String, _VoiceRoomDirectory> _roomDirectories = {};
   final Set<_VoiceRoomDirectory> _closingDirectories = {};
   final Map<String, PluginLiveChannelHandle> _attachedTrackers = {};
-  final Map<String, _VoiceChatAssociation> _chats = {};
+  final Map<(String, int), _VoiceChatAssociation> _chats = {};
   final Map<String, Object> _siteSessions = {};
   final ChangeNotifier _roomListChanges = ChangeNotifier();
   Map<String, VoiceDirectory> _publishedDirectories = {};
   Set<(String, int)> _publishedJoining = {};
 
-  final Map<String, Object> _chatRequests = {};
   final Map<String, _VoiceInviteRef> _pendingInviteRefs = {};
   final Map<String, int> _roomVideoWatchers = {};
   final StreamController<VoiceNotice> _notices =
@@ -842,19 +825,8 @@ final class VoiceController extends ChangeNotifier {
     }
   }
 
-  VoiceChatSnapshot? chat(String siteUrl, int roomId) {
-    final state = _chats['$siteUrl#$roomId'];
-    if (state == null) return null;
-    final conversation = state.conversation?.value;
-    return VoiceChatSnapshot(
-      session: state.session,
-      messages: conversation?.messages ?? const [],
-      loading: state.loading || (conversation?.loading ?? false),
-      sending: state.sending || (conversation?.sending ?? false),
-      canLoadMorePast: conversation?.canLoadMorePast ?? false,
-      error: state.error ?? conversation?.error,
-    );
-  }
+  VoiceChatSnapshot? chat(String siteUrl, int roomId) =>
+      _chats[(siteUrl, roomId)]?.snapshot;
 
   VoiceRoom? room(String siteUrl, int roomId) =>
       _roomDirectories[siteUrl]?.room(roomId) ??
@@ -967,7 +939,7 @@ final class VoiceController extends ChangeNotifier {
     _roomDirectories[siteUrl]?.detachTracker();
     _ringSubscriptions.remove(siteUrl)?.cancel();
     for (final entry in _chats.entries) {
-      if (entry.key.startsWith('$siteUrl#')) _unwatchChatUpdates(entry.value);
+      if (entry.key.$1 == siteUrl) entry.value.detachTracker();
     }
     if (_ringingCall?.siteUrl == siteUrl) {
       _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
@@ -988,11 +960,7 @@ final class VoiceController extends ChangeNotifier {
       changed = true;
     }
     for (final entry in _chats.entries) {
-      if (!entry.key.startsWith('$siteUrl#') || !entry.value.visible) continue;
-      final roomId = int.tryParse(entry.key.substring(siteUrl.length + 1));
-      if (roomId != null) {
-        _watchChatUpdates(siteUrl, roomId, entry.key, entry.value);
-      }
+      if (entry.key.$1 == siteUrl) entry.value.syncTracker();
     }
     return changed;
   }
@@ -1936,357 +1904,52 @@ final class VoiceController extends ChangeNotifier {
     fallback: null,
   );
 
+  void _notifyChatChanged(_VoiceChatAssociation association) {
+    if (association.isCurrent) notifyListeners();
+  }
+
+  _VoiceChatAssociation _chatAssociation(String siteUrl, int roomId) =>
+      _chats.putIfAbsent((
+        siteUrl,
+        roomId,
+      ), () => _VoiceChatAssociation(this, siteUrl, roomId));
+
   Future<void> openChat(String siteUrl, int roomId, {bool force = false}) =>
       _runPublicOperation(
-        () => _openChat(siteUrl, roomId, force: force),
+        () => _chatAssociation(siteUrl, roomId).open(force: force),
         'voice.chat.load',
       );
 
   void closeChat(String siteUrl, int roomId) {
-    final key = '$siteUrl#$roomId';
-    _chatRequests.remove(key);
-    final state = _chats[key];
-    if (state == null) return;
-    state
-      ..visible = false
-      ..loading = false;
-    _unwatchChatUpdates(state);
-    _closeChatConversation(state);
+    final association = _chats[(siteUrl, roomId)];
+    if (association == null) return;
+    association.hide();
     if (!_disposed) notifyListeners();
   }
 
-  Future<void> _openChat(
-    String siteUrl,
-    int roomId, {
-    bool force = false,
-  }) async {
-    final key = '$siteUrl#$roomId';
-    if (!force && (_chats[key]?.loading ?? false)) return;
-    final siteSession = _siteSession(siteUrl);
-    final request = Object();
-    _chatRequests[key] = request;
-    bool isCurrent() =>
-        _isCurrentSiteSession(siteUrl, siteSession) &&
-        identical(_chatRequests[key], request);
-    final state = _chats.putIfAbsent(key, _VoiceChatAssociation.new);
-    state
-      ..visible = true
-      ..loading = true
-      ..error = null;
-    notifyListeners();
-    try {
-      final credentials = await _keyRequestCredentials(
-        siteUrl,
-        ifCurrent: isCurrent,
-      );
-      if (credentials == null) return;
-      final session = await credentials.run(
-        () => api.chatSession(
-          siteUrl: siteUrl,
-          roomId: roomId,
-          apiKey: credentials.apiKey!,
-        ),
-      );
-      if (!isCurrent()) return;
-      state.session = session;
-      // Watched only once the session has been read: a change published
-      // before that is reflected in the read itself, and a panel whose site
-      // was forgotten mid-read must not leave a subscription behind.
-      _watchChatUpdates(siteUrl, roomId, key, state);
-      final conversation = _bindChatConversation(siteUrl, key, state);
-      if (conversation != null) await conversation.refresh(force: force);
-    } catch (error, stackTrace) {
-      if (!isCurrent()) return;
-      state.error = appL10n.couldnTLoadRoomChat;
-      _report(error, stackTrace, 'voice.chat.load');
-    } finally {
-      if (isCurrent()) {
-        _chatRequests.remove(key);
-        state.loading = false;
-        notifyListeners();
-      }
-    }
-  }
-
-  void _watchChatUpdates(
-    String siteUrl,
-    int roomId,
-    String key,
-    _VoiceChatAssociation state,
-  ) {
-    if (state.liveUpdates != null) return;
-    final tracker = _trackerFor(siteUrl);
-    if (tracker == null) return;
-    state.liveUpdates = tracker.subscribe('/voice/rooms/$roomId/chat', (
-      data,
-      _,
-    ) {
-      if (_disposed || !state.visible || !identical(_chats[key], state)) {
-        return;
-      }
-      if (data is Map && data['type'] == 'updated') {
-        _observe(
-          () => _refreshChatSession(siteUrl, roomId),
-          'voice.chat.refresh',
-        );
-      }
-    });
-  }
-
-  void _unwatchChatUpdates(_VoiceChatAssociation state) {
-    state.liveUpdates?.cancel();
-    state.liveUpdates = null;
-  }
-
-  /// The panel is open and the server said the session changed: re-read it
-  /// through the chat_session endpoint (which re-checks this user's access)
-  /// and follow the thread it names now. Deliberately not [_openChat]: no
-  /// loading state, so the panel does not blink on every rollover.
-  ///
-  /// An open still in flight is restarted instead. Its read may predate the
-  /// change, and a read of this kind would take its request token and with
-  /// it the open's settling: clearing [_VoiceChatAssociation.loading],
-  /// showing its failure and loading the thread. The panel already shows
-  /// loading, so the restart costs no blink.
-  Future<void> _refreshChatSession(String siteUrl, int roomId) async {
-    final key = '$siteUrl#$roomId';
-    final state = _chats[key];
-    if (state == null || !state.visible) return;
-    if (state.loading) return _openChat(siteUrl, roomId, force: true);
-    final siteSession = _siteSession(siteUrl);
-    final request = Object();
-    _chatRequests[key] = request;
-    bool isCurrent() =>
-        _isCurrentSiteSession(siteUrl, siteSession) &&
-        identical(_chatRequests[key], request) &&
-        identical(_chats[key], state) &&
-        state.visible;
-    try {
-      final credentials = await _keyRequestCredentials(
-        siteUrl,
-        ifCurrent: isCurrent,
-      );
-      if (credentials == null) return;
-      final session = await credentials.run(
-        () => api.chatSession(
-          siteUrl: siteUrl,
-          roomId: roomId,
-          apiKey: credentials.apiKey!,
-        ),
-      );
-      if (!isCurrent()) return;
-      final changed =
-          session.channelId != state.session.channelId ||
-          session.threadId != state.session.threadId;
-      state.session = session;
-      final conversation = _bindChatConversation(siteUrl, key, state);
-      if (conversation != null && changed) {
-        await conversation.refresh(force: true);
-      }
-      if (isCurrent()) notifyListeners();
-    } catch (error, stackTrace) {
-      if (isCurrent()) _report(error, stackTrace, 'voice.chat.refresh');
-    } finally {
-      if (identical(_chatRequests[key], request)) _chatRequests.remove(key);
-    }
-  }
-
   Future<void> loadOlderChat(String siteUrl, int roomId) =>
-      _chats['$siteUrl#$roomId']?.conversation?.loadOlder() ??
-      Future<void>.value();
+      _chats[(siteUrl, roomId)]?.loadOlder() ?? Future<void>.value();
 
   Future<void> sendChatMessage(String siteUrl, int roomId, String message) {
     _userActed();
     return _runPublicOperation(
-      () => _sendChatMessage(siteUrl, roomId, message),
+      () => message.trim().isEmpty
+          ? Future<void>.value()
+          : _chatAssociation(siteUrl, roomId).send(message),
       'voice.chat.send',
     );
   }
 
-  Future<void> _sendChatMessage(
-    String siteUrl,
-    int roomId,
-    String message,
-  ) async {
-    if (message.trim().isEmpty) return;
-    final key = '$siteUrl#$roomId';
-    var state = _chats.putIfAbsent(key, _VoiceChatAssociation.new);
-    final heldConversation = state.conversation;
-    if (heldConversation != null) {
-      // The panel reads this send's outcome from the snapshot, where an
-      // earlier failure held here would otherwise outrank the
-      // conversation's own answer.
-      if (state.error != null) {
-        state.error = null;
-        notifyListeners();
-      }
-      await heldConversation.send(message);
-      return;
-    }
-    final siteSession = _siteSession(siteUrl);
-    bool isCurrent() => _isCurrentSiteSession(siteUrl, siteSession);
-    final credentials = await _keyRequestCredentials(
-      siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return;
-    final apiKey = credentials.apiKey!;
-    state
-      ..sending = true
-      ..error = null;
-    notifyListeners();
-    try {
-      var session = state.session;
-      if (session.channelId == null) {
-        session = await credentials.run(
-          () => api.chatSession(
-            siteUrl: siteUrl,
-            roomId: roomId,
-            apiKey: apiKey,
-            ensure: true,
-          ),
-        );
-        if (!isCurrent()) return;
-      }
-      var sentFirstMessage = false;
-      if (session.threadId == null) {
-        session = await credentials.run(
-          () => api.firstChatMessage(
-            siteUrl: siteUrl,
-            roomId: roomId,
-            apiKey: apiKey,
-            message: message,
-          ),
-        );
-        if (!isCurrent()) return;
-        sentFirstMessage = true;
-      }
-      state = _chats[key] ?? state;
-      state
-        ..session = session
-        ..sending = false;
-      final retainConversation = state.visible && identical(_chats[key], state);
-      final conversation = retainConversation
-          ? _bindChatConversation(siteUrl, key, state)
-          : sentFirstMessage
-          ? null
-          : _temporaryChatConversation(siteUrl, state.session);
-      try {
-        if (conversation != null) {
-          if (sentFirstMessage) {
-            if (retainConversation) await conversation.refresh(force: true);
-          } else {
-            await conversation.send(message);
-            final sendError = conversation.value.error;
-            if (!retainConversation && sendError != null) {
-              state.error = sendError;
-            }
-          }
-        }
-      } finally {
-        if (!retainConversation) conversation?.close();
-      }
-      if (isCurrent()) notifyListeners();
-    } catch (error, stackTrace) {
-      if (!isCurrent()) return;
-      state = _chats[key] ?? state;
-      state
-        ..sending = false
-        ..error = appL10n.messageNotSent;
-      _report(error, stackTrace, 'voice.chat.send');
-      notifyListeners();
-    }
-  }
-
-  ChatConversation? _bindChatConversation(
-    String siteUrl,
-    String key,
-    _VoiceChatAssociation state,
-  ) {
-    if (!state.visible || !identical(_chats[key], state)) {
-      _closeChatConversation(state);
-      return null;
-    }
-    final channelId = state.session.channelId;
-    final threadId = state.session.threadId;
-    final held = state.conversation;
-    if (channelId == null || threadId == null) {
-      _closeChatConversation(state);
-      return null;
-    }
-    if (held != null &&
-        held.channelId == channelId &&
-        held.threadId == threadId) {
-      return held;
-    }
-
-    _closeChatConversation(state);
-    final conversation = chatConversations.openThread(
-      siteUrl: siteUrl,
-      channelId: channelId,
-      threadId: threadId,
-    );
-    void conversationChanged() {
-      if (!_disposed && identical(_chats[key], state)) notifyListeners();
-    }
-
-    state
-      ..conversation = conversation
-      ..conversationListener = conversationChanged;
-    conversation.addListener(conversationChanged);
-    return conversation;
-  }
-
-  ChatConversation? _temporaryChatConversation(
-    String siteUrl,
-    VoiceChatSession session,
-  ) {
-    final channelId = session.channelId;
-    final threadId = session.threadId;
-    if (channelId == null || threadId == null) return null;
-    return chatConversations.openThread(
-      siteUrl: siteUrl,
-      channelId: channelId,
-      threadId: threadId,
-    );
-  }
-
-  void _closeChatConversation(_VoiceChatAssociation state) {
-    final conversation = state.conversation;
-    final listener = state.conversationListener;
-    if (conversation != null && listener != null) {
-      conversation.removeListener(listener);
-    }
-    conversation?.close();
-    state
-      ..conversation = null
-      ..conversationListener = null;
-  }
-
   void _removeChatAssociation(String siteUrl, int roomId) {
-    final key = '$siteUrl#$roomId';
-    _chatRequests.remove(key);
-    final state = _chats.remove(key);
-    if (state != null) {
-      _unwatchChatUpdates(state);
-      _closeChatConversation(state);
-    }
+    _chats.remove((siteUrl, roomId))?.retire();
   }
 
   void _pruneChatAssociations(String siteUrl, Set<int> roomIds) {
-    final prefix = '$siteUrl#';
-    for (final key in {
-      ..._chats.keys.where((key) => key.startsWith(prefix)),
-      ..._chatRequests.keys.where((key) => key.startsWith(prefix)),
-    }) {
-      final roomId = int.tryParse(key.substring(prefix.length));
-      if (roomId != null && roomIds.contains(roomId)) continue;
-      _chatRequests.remove(key);
-      final state = _chats.remove(key);
-      if (state != null) {
-        _unwatchChatUpdates(state);
-        _closeChatConversation(state);
-      }
+    final removed = _chats.keys
+        .where((key) => key.$1 == siteUrl && !roomIds.contains(key.$2))
+        .toList();
+    for (final key in removed) {
+      _chats.remove(key)?.retire();
     }
   }
 
@@ -2858,18 +2521,16 @@ final class VoiceController extends ChangeNotifier {
     _agentPermissions.remove(siteUrl);
     _agentPermissionRequests.remove(siteUrl);
     _agentSubmissions.removeWhere((key, _) => key.$1 == siteUrl);
-    _chatRequests.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _pendingInviteRefs.remove(siteUrl);
     _attachedTrackers.remove(siteUrl);
     final forgottenChats = <_VoiceChatAssociation>[];
     _chats.removeWhere((key, state) {
-      if (!key.startsWith('$siteUrl#')) return false;
+      if (key.$1 != siteUrl) return false;
       forgottenChats.add(state);
       return true;
     });
     for (final state in forgottenChats) {
-      _unwatchChatUpdates(state);
-      _closeChatConversation(state);
+      state.retire();
     }
     _cancelTrackerSubscriptions(siteUrl);
     _notifyRoomListChanged();
@@ -3120,8 +2781,7 @@ final class VoiceController extends ChangeNotifier {
     _pendingInviteRefs.clear();
     _attachedTrackers.clear();
     for (final state in _chats.values) {
-      _unwatchChatUpdates(state);
-      _closeChatConversation(state);
+      state.retire();
     }
     _chats.clear();
     unawaited(_notices.close());
