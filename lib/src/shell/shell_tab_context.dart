@@ -169,15 +169,7 @@ final class ShellTabContext {
 
     final tagIds = <int>{};
     for (final name in tagNames) {
-      final normalized = name.toLowerCase();
-      final tag = shell._taxonomy
-          .knownTagsFor(instance.url)
-          .where(
-            (tag) =>
-                tag.name.toLowerCase() == normalized ||
-                tag.slug.toLowerCase() == normalized,
-          )
-          .firstOrNull;
+      final tag = shell._taxonomy.knownTopicListTag(instance.url, name);
       // An unresolved tag cannot use the unfiltered forum total.
       if (tag == null || tag.pmOnly) return (all: 0, topics: 0, replies: 0);
       tagIds.add(tag.id);

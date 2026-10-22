@@ -305,6 +305,222 @@ void main() {
     },
   );
 
+  group('topic tag identity lookup', () {
+    for (final earlierMatchesName in [true, false]) {
+      test(
+        'an earlier ${earlierMatchesName ? 'name' : 'ID'} match wins over a later ${earlierMatchesName ? 'ID' : 'name'} match',
+        () async {
+          final earlier = SidebarTag(
+            id: earlierMatchesName ? 11 : 22,
+            name: earlierMatchesName ? '  SHARED  ' : 'Other',
+            slug: 'earlier',
+          );
+          final later = SidebarTag(
+            id: earlierMatchesName ? 22 : 11,
+            name: earlierMatchesName ? 'Other' : 'shared',
+            slug: 'later',
+            pmOnly: true,
+          );
+          final user = _readerWith([earlier]);
+          final controller = await _loadController(
+            _TagApi(reader: user, categorySiteTopTags: [later]),
+            user: user,
+          );
+
+          expect(
+            await controller.openTopicTag(
+              const TopicTag(id: 22, name: ' shared ', slug: 'topic-slug'),
+              siteUrl: _siteUrl,
+            ),
+            isTrue,
+          );
+          expect(controller.currentContent!.id, 'tag-22');
+          expect(
+            controller.currentContent!.feedPath,
+            '/tag/topic-slug/22.json',
+          );
+        },
+      );
+    }
+
+    test(
+      'resolves an absent ID with a trimmed case-insensitive name',
+      () async {
+        const known = SidebarTag(id: 31, name: '  MiXeD  ', slug: 'known-slug');
+        final user = _readerWith(const [known]);
+        final controller = await _loadController(
+          _TagApi(reader: user),
+          user: user,
+        );
+
+        expect(
+          await controller.openTopicTag(
+            const TopicTag(name: ' mixed ', slug: 'unresolved-slug'),
+            siteUrl: _siteUrl,
+          ),
+          isTrue,
+        );
+        expect(controller.currentContent!.id, 'tag-31');
+        expect(controller.currentContent!.feedPath, '/tag/known-slug/31.json');
+      },
+    );
+
+    test('refreshes identity and privacy when each source changes', () async {
+      const query = TopicTag(name: 'shared');
+      const personal = SidebarTag(id: 31, name: 'Shared', slug: 'personal');
+      final top = [
+        const SidebarTag(id: 32, name: 'SHARED', slug: 'top', pmOnly: true),
+      ];
+      final anonymous = [
+        const SidebarTag(id: 33, name: 'Shared', slug: 'anonymous'),
+      ];
+      final directory = [
+        const SidebarTag(id: 34, name: 'Shared', slug: 'directory'),
+      ];
+      final user = _readerWith(const [personal]);
+      final controller = await _loadController(
+        _TagApi(
+          reader: user,
+          categorySiteTopTags: top,
+          categoryAnonymousDefaultTags: anonymous,
+          tagList: directory,
+        ),
+        user: user,
+      );
+      await controller.loadTags(_siteUrl);
+
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.feedPath, '/tag/personal/31.json');
+
+      _publishUser(controller, _readerWith(const []));
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.id, 'pm-tag-32');
+      expect(
+        controller.currentContent!.feedPath,
+        '/topics/private-messages-tags/sam/shared.json',
+      );
+
+      top.clear();
+      await controller.loadCategories(_siteUrl, force: true);
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.feedPath, '/tag/anonymous/33.json');
+
+      anonymous.clear();
+      await controller.loadCategories(_siteUrl, force: true);
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.feedPath, '/tag/directory/34.json');
+
+      directory[0] = const SidebarTag(
+        id: 35,
+        name: 'Shared',
+        slug: 'directory-refreshed',
+      );
+      await controller.loadTags(_siteUrl, force: true);
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(
+        controller.currentContent!.feedPath,
+        '/tag/directory-refreshed/35.json',
+      );
+    });
+
+    test('account replacement discards the previous tag identity', () async {
+      final controller = await _loadController(_TagApi());
+      const query = TopicTag(name: 'personal');
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.feedPath, '/tag/personal-label/1.json');
+
+      _publishUser(
+        controller,
+        const DiscourseUser(
+          id: 8,
+          username: 'lee',
+          sidebarTags: [
+            SidebarTag(
+              id: 41,
+              name: 'Personal',
+              slug: 'replacement',
+              pmOnly: true,
+            ),
+          ],
+        ),
+      );
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.id, 'pm-tag-41');
+      expect(
+        controller.currentContent!.feedPath,
+        '/topics/private-messages-tags/lee/personal.json',
+      );
+    });
+
+    test('keeps site identities separate and clears them on removal', () async {
+      const secondUser = DiscourseUser(
+        id: 9,
+        username: 'lee',
+        sidebarTags: [
+          SidebarTag(id: 42, name: 'Personal', slug: 'second-site'),
+        ],
+      );
+      final secondSite = instance(
+        'team.discourse.org',
+      ).copyWith(user: secondUser);
+      final api = _TagApi()..readers[secondSite.url] = secondUser;
+      final controller = await _loadController(
+        api,
+        additionalSites: [secondSite],
+      );
+      const query = TopicTag(name: 'personal');
+
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.feedPath, '/tag/personal-label/1.json');
+      await controller.openTopicTag(query, siteUrl: secondSite.url);
+      expect(controller.currentContent!.feedPath, '/tag/second-site/42.json');
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.feedPath, '/tag/personal-label/1.json');
+
+      expect(
+        await controller.removeInstance(controller.instanceFor(_siteUrl)!),
+        isTrue,
+      );
+      await controller.addInstance(instance('meta.discourse.org'));
+      await controller.openTopicTag(query, siteUrl: _siteUrl);
+      expect(controller.currentContent!.feedPath, '/tag/personal.json');
+    });
+
+    test('warm lookups avoid rescanning unchanged tag sources', () async {
+      final personal = _CountingTags([_personal]);
+      final user = _readerWith(personal);
+      final controller = await _loadController(
+        _TagApi(reader: user),
+        user: user,
+      );
+      const queries = [
+        TopicTag(id: 999, name: 'unknown'),
+        TopicTag(name: ' Personal '),
+        TopicTag(name: 'unknown'),
+      ];
+      const paths = [
+        '/tag/unknown/999.json',
+        '/tag/personal-label/1.json',
+        '/tag/unknown.json',
+      ];
+      for (final query in queries) {
+        expect(await controller.openTopicTag(query, siteUrl: _siteUrl), isTrue);
+      }
+      personal.iterations = 0;
+
+      for (var repeat = 0; repeat < 10; repeat++) {
+        for (var index = 0; index < queries.length; index++) {
+          expect(
+            await controller.openTopicTag(queries[index], siteUrl: _siteUrl),
+            isTrue,
+          );
+          expect(controller.currentContent!.feedPath, paths[index]);
+        }
+      }
+      expect(personal.iterations, 0);
+    });
+  });
+
   group('a tag list reached by its URL slug filters by the tag name', () {
     // Core derives a tag's slug from its name (`Slug.for`), using `<id>-tag`
     // when that comes out empty, but resolves `tags[]`, `tag:` and a

@@ -27,6 +27,7 @@ final class _TaxonomySite {
   _CategorySidebarCache? categorySidebarCache;
   _TagSidebarCache? tagSidebarCache;
   _TopicListFilterTagsCache? topicListFilterTagsCache;
+  _KnownTagIndex? knownTagIndex;
 }
 
 final class _TaxonomyDirectoryController {
@@ -259,11 +260,9 @@ final class _TaxonomyDirectoryController {
     return section;
   }
 
-  List<SidebarTag> topicListFilterTagsFor(String siteUrl) {
-    final instance = _shell._instanceAt(siteUrl);
-    if (instance == null) return const [];
-    final user = instance.user;
-    final sources = (
+  _TopicListFilterTagSources _topicListFilterTagSourcesFor(String siteUrl) {
+    final user = _shell._instanceAt(siteUrl)?.user;
+    return (
       account: (user?.id, user?.username),
       personal: user?.sidebarTags ?? const <SidebarTag>[],
       siteTop: _sites[siteUrl]?.siteTopTags ?? const <SidebarTag>[],
@@ -271,6 +270,12 @@ final class _TaxonomyDirectoryController {
           _sites[siteUrl]?.anonymousDefaultTags ?? const <SidebarTag>[],
       directory: tagDirectoryFeedFor(siteUrl).tags,
     );
+  }
+
+  List<SidebarTag> topicListFilterTagsFor(String siteUrl) {
+    final instance = _shell._instanceAt(siteUrl);
+    if (instance == null) return const [];
+    final sources = _topicListFilterTagSourcesFor(siteUrl);
     final site = _sites[siteUrl];
     final held = site?.topicListFilterTagsCache;
     if (held != null && held.sources == sources) return held.tags;
@@ -370,17 +375,21 @@ final class _TaxonomyDirectoryController {
     });
   }
 
-  SidebarTag? knownTopicTag(String siteUrl, TopicTag topicTag) {
-    final topicTagId = topicTag.id;
-    final topicTagName = topicTag.name.trim().toLowerCase();
-    for (final tag in knownTagsFor(siteUrl)) {
-      if ((topicTagId != null && topicTagId > 0 && tag.id == topicTagId) ||
-          tag.name.trim().toLowerCase() == topicTagName) {
-        return tag;
-      }
-    }
-    return null;
+  _KnownTagIndex _knownTagIndexFor(String siteUrl) {
+    final sources = _topicListFilterTagSourcesFor(siteUrl);
+    final site = _sites[siteUrl];
+    final held = site?.knownTagIndex;
+    if (held != null && held.sources == sources) return held;
+    final index = _KnownTagIndex(sources);
+    if (site != null) site.knownTagIndex = index;
+    return index;
   }
+
+  SidebarTag? knownTopicTag(String siteUrl, TopicTag topicTag) =>
+      _knownTagIndexFor(siteUrl).forTopicTag(topicTag);
+
+  SidebarTag? knownTopicListTag(String siteUrl, String name) =>
+      _knownTagIndexFor(siteUrl).forTopicListTag(name);
 
   Iterable<SidebarTag> knownTagsFor(String siteUrl) sync* {
     yield* _shell._instanceAt(siteUrl)?.user?.sidebarTags ?? const [];
@@ -896,3 +905,41 @@ typedef _TopicListFilterTagsCache = ({
   _TopicListFilterTagSources sources,
   List<SidebarTag> tags,
 });
+
+typedef _KnownTagMatch = ({int ordinal, SidebarTag tag});
+
+final class _KnownTagIndex {
+  _KnownTagIndex(this.sources) {
+    var ordinal = 0;
+    for (final tags in [
+      sources.personal,
+      sources.siteTop,
+      sources.anonymousDefaults,
+      sources.directory,
+    ]) {
+      for (final tag in tags) {
+        final match = (ordinal: ordinal++, tag: tag);
+        _byId.putIfAbsent(tag.id, () => match);
+        _byTrimmedName.putIfAbsent(tag.name.trim().toLowerCase(), () => match);
+        _byNameOrSlug.putIfAbsent(tag.name.toLowerCase(), () => tag);
+        _byNameOrSlug.putIfAbsent(tag.slug.toLowerCase(), () => tag);
+      }
+    }
+  }
+
+  final _TopicListFilterTagSources sources;
+  final _byId = <int, _KnownTagMatch>{};
+  final _byTrimmedName = <String, _KnownTagMatch>{};
+  final _byNameOrSlug = <String, SidebarTag>{};
+
+  SidebarTag? forTopicTag(TopicTag topicTag) {
+    final id = topicTag.id;
+    final byId = id != null && id > 0 ? _byId[id] : null;
+    final byName = _byTrimmedName[topicTag.name.trim().toLowerCase()];
+    if (byName == null) return byId?.tag;
+    if (byId == null || byName.ordinal < byId.ordinal) return byName.tag;
+    return byId.tag;
+  }
+
+  SidebarTag? forTopicListTag(String name) => _byNameOrSlug[name.toLowerCase()];
+}
