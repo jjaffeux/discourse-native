@@ -519,15 +519,6 @@ class ChatPlugin
     if (site == null || !shell.chatAvailable(site)) return const [];
     final chat = PluginUiScope.require(context, chatControllerService);
     final settings = chat.siteConfigFor(site).chatSettings;
-    final threads = {
-      for (final thread in chat.myThreads(site)) thread.id: thread,
-      for (final channel in [
-        ...chat.publicChannels(site),
-        ...chat.directChannels(site),
-      ])
-        for (final thread in chat.channelThreads(site, channel.id))
-          thread.id: thread,
-    };
     return [
       if (settings.publicChannelsEnabled)
         StartPageSection(
@@ -537,16 +528,6 @@ class ChatPlugin
             icon: DIcons.hashtag,
             onTap: shell.openBrowseChannels,
           ),
-          entries: [
-            for (final channel in chat.publicChannels(site))
-              SidebarDestination(
-                id: 'chat-c-${channel.id}',
-                label: channel.title,
-                icon: DIcons.hashtag,
-                unreadCount: channel.tracking.unreadCount,
-                onTap: () => shell.openChannel(channel.id),
-              ),
-          ],
         ),
       if (shell.isConnected(site) && settings.threadsEnabled)
         StartPageSection(
@@ -556,25 +537,6 @@ class ChatPlugin
             icon: DIcons.comments,
             onTap: shell.openMyThreads,
           ),
-          entries: [
-            for (final thread in threads.values)
-              if (chat.channel(site, thread.channelId) != null)
-                SidebarDestination(
-                  id: 'chat-t-${thread.id}',
-                  label:
-                      thread.title ??
-                      thread.originalMessage?.excerpt ??
-                      thread.originalMessage?.message ??
-                      context.l10n.threads,
-                  icon: DIcons.hashtag,
-                  unreadCount: thread.tracking.unreadCount,
-                  onTap: () => shell.openThread(
-                    siteUrl: site,
-                    channelId: thread.channelId,
-                    threadId: thread.id,
-                  ),
-                ),
-          ],
         ),
     ];
   }
