@@ -21,6 +21,7 @@ import 'voice_settings.dart';
 import 'voice_signaling.dart';
 import 'voice_video_handle.dart';
 
+part 'voice_call_commands.dart';
 part 'voice_call_manager.dart';
 part 'voice_call_session.dart';
 part 'voice_chat_association.dart';
@@ -1621,28 +1622,10 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> requestToSpeak({int? userId, bool raised = true}) {
     _userActed();
-    return _runHandled(() => _requestToSpeak(userId: userId, raised: raised));
-  }
-
-  Future<void> _requestToSpeak({int? userId, bool raised = true}) async {
-    final call = _call;
-    if (call == null) return;
-    final siteSession = _siteSession(call.siteUrl);
-    bool isCurrent() => _isCurrentCall(call, siteSession);
-    final credentials = await _keyRequestCredentials(
-      call.siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return;
-    await credentials.run(
-      () => api.requestToSpeak(
-        siteUrl: call.siteUrl,
-        roomId: call.room.id,
-        apiKey: credentials.apiKey!,
-        userId: userId,
-        raised: raised,
-        participantSessionId: _calls.current?._participantSessionId,
-      ),
+    return _runHandled(
+      () async => _VoiceCallCommands.admit(
+        this,
+      )?.requestToSpeak(userId: userId, raised: raised),
     );
   }
 
@@ -1652,123 +1635,28 @@ final class VoiceController extends ChangeNotifier {
   /// lowered by it.
   Future<void> setParticipantRole(int userId, VoiceRole role) {
     _userActed();
-    return _runHandled(() => _setParticipantRole(userId, role));
-  }
-
-  Future<void> _setParticipantRole(int userId, VoiceRole role) async {
-    final call = _call;
-    if (call == null ||
-        userId < 0 ||
-        call.room.participants.any((p) => p.id == userId && p.isAgent)) {
-      return;
-    }
-    final siteSession = _siteSession(call.siteUrl);
-    bool isCurrent() => _isCurrentCall(call, siteSession);
-    final credentials = await _requestCredentials(
-      call.siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return;
-    await credentials.run(
-      () => api.addMembership(
-        siteUrl: call.siteUrl,
-        roomId: call.room.id,
-        apiKey: credentials.apiKey!,
-        userId: userId,
-        role: role,
-        clientId: credentials.clientId,
-      ),
+    return _runHandled(
+      () async =>
+          _VoiceCallCommands.admit(this)?.setParticipantRole(userId, role),
     );
   }
 
-  Future<void> kick(int userId) => _runHandled(() => _kick(userId));
-
-  Future<void> _kick(int userId) async {
-    final call = _call;
-    if (call == null) return;
-    final siteSession = _siteSession(call.siteUrl);
-    bool isCurrent() => _isCurrentCall(call, siteSession);
-    final credentials = await _keyRequestCredentials(
-      call.siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return;
-    await credentials.run(
-      () => api.kick(
-        siteUrl: call.siteUrl,
-        roomId: call.room.id,
-        apiKey: credentials.apiKey!,
-        userId: userId,
-      ),
-    );
-  }
+  Future<void> kick(int userId) =>
+      _runHandled(() async => _VoiceCallCommands.admit(this)?.kick(userId));
 
   Future<bool> flagParticipant(int userId, String message) =>
       _runHandledValue<bool>(
-        () => _flagParticipant(userId, message),
-
+        () async =>
+            await _VoiceCallCommands.admit(
+              this,
+            )?.flagParticipant(userId, message) ??
+            false,
         fallback: false,
       );
 
-  Future<bool> _flagParticipant(int userId, String message) async {
-    final call = _call;
-    final text = message.trim();
-    if (call == null || text.isEmpty) return false;
-    final siteSession = _siteSession(call.siteUrl);
-    bool isCurrent() => _isCurrentCall(call, siteSession);
-    final credentials = await _requestCredentials(
-      call.siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return false;
-    final flagTypeId = await credentials.run(
-      () => api.notifyModeratorsFlagType(
-        siteUrl: call.siteUrl,
-        apiKey: credentials.apiKey!,
-        clientId: credentials.clientId,
-      ),
-    );
-    if (flagTypeId == null || !isCurrent()) return false;
-    final writeCredentials = await _keyRequestCredentials(
-      call.siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (writeCredentials == null) return false;
-    await writeCredentials.run(
-      () => api.flag(
-        siteUrl: call.siteUrl,
-        roomId: call.room.id,
-        apiKey: writeCredentials.apiKey!,
-        userId: userId,
-        flagTypeId: flagTypeId,
-        message: text,
-      ),
-    );
-    return true;
-  }
-
-  Future<void> setRecording(bool active) =>
-      _runHandled(() => _setRecording(active));
-
-  Future<void> _setRecording(bool active) async {
-    final call = _call;
-    if (call == null) return;
-    final siteSession = _siteSession(call.siteUrl);
-    bool isCurrent() => _isCurrentCall(call, siteSession);
-    final credentials = await _keyRequestCredentials(
-      call.siteUrl,
-      ifCurrent: isCurrent,
-    );
-    if (credentials == null) return;
-    await credentials.run(
-      () => api.setRecording(
-        siteUrl: call.siteUrl,
-        roomId: call.room.id,
-        apiKey: credentials.apiKey!,
-        active: active,
-      ),
-    );
-  }
+  Future<void> setRecording(bool active) => _runHandled(
+    () async => _VoiceCallCommands.admit(this)?.setRecording(active),
+  );
 
   final Map<
     String,

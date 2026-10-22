@@ -468,6 +468,39 @@ final class _NextGatedRequestHost extends _RequestHostBase {
   }
 }
 
+final class _DeferredRequestHost extends _RequestHostBase {
+  bool deferNextRun = false;
+  final runStarted = Completer<void>();
+  final runGate = Completer<void>();
+
+  Future<T> _run<T>(Future<T> Function() request) async {
+    if (deferNextRun) {
+      deferNextRun = false;
+      runStarted.complete();
+      await runGate.future;
+    }
+    return request();
+  }
+
+  @override
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
+      PluginRequestCredentials(
+        apiKey: 'key',
+        clientId: 'client',
+        execute: _run,
+      );
+
+  @override
+  Future<PluginWriteCredential> writeCredentialFor(String siteUrl) async => (
+    credentials: PluginRequestCredentials(
+      apiKey: 'key',
+      clientId: '',
+      execute: _run,
+    ),
+    failure: null,
+  );
+}
+
 final class _FailingRequestHost extends _RequestHostBase {
   Object? failure;
 
@@ -1629,6 +1662,12 @@ void main() {
             begin: (controller) => controller.requestToSpeak(),
           ),
           (
+            name: 'participant role write',
+            paths: {'/voice/rooms/7/memberships.json'},
+            begin: (controller) =>
+                controller.setParticipantRole(2, VoiceRole.speaker),
+          ),
+          (
             name: 'kick write',
             paths: {'/voice/rooms/7/kick.json'},
             begin: (controller) => controller.kick(2),
@@ -1659,37 +1698,49 @@ void main() {
             },
           ),
         ]) {
-      test(
-        'prevent stale ${action.name} when the site is forgotten during credential lookup',
-        () async {
-          final gated = _NextGatedRequestHost();
-          requests = gated;
-          final controlled = privilegedTransport();
-          useTransport(controlled);
-          await controller.join(
-            siteUrl: firstSite,
-            siteName: 'One',
-            room: VoiceRoom.fromJson(fixture('room')),
-          );
-          final writesBefore = controlled.writes.length;
-          final getsBefore = controlled.pluginGets.length;
+      for (final replaceCall in [false, true]) {
+        test(
+          'prevent stale ${action.name} during credential lookup when '
+          '${replaceCall ? 'the call is replaced' : 'the site is forgotten'}',
+          () async {
+            final gated = _NextGatedRequestHost();
+            requests = gated;
+            final controlled = privilegedTransport();
+            useTransport(controlled);
+            await controller.join(
+              siteUrl: firstSite,
+              siteName: 'One',
+              room: VoiceRoom.fromJson(fixture('room')),
+            );
 
-          gated.gateNextRead = true;
-          final operation = action.begin(controller);
-          await gated.readStarted.future;
-          controller.forget(firstSite);
-          gated.readGate.complete();
-          await operation;
-          await pumpEventQueue();
+            gated.gateNextRead = true;
+            final operation = action.begin(controller);
+            await gated.readStarted.future;
+            if (replaceCall) {
+              await controller.leave();
+              await controller.join(
+                siteUrl: firstSite,
+                siteName: 'One',
+                room: VoiceRoom.fromJson(fixture('room')),
+              );
+            } else {
+              controller.forget(firstSite);
+            }
+            final writesBefore = controlled.writes.length;
+            final getsBefore = controlled.pluginGets.length;
+            gated.readGate.complete();
+            await operation;
+            await pumpEventQueue();
 
-          final paths = <String>{
-            for (final write in controlled.writes.skip(writesBefore))
-              write.path,
-            ...controlled.pluginGets.skip(getsBefore),
-          };
-          expect(paths.intersection(action.paths), isEmpty);
-        },
-      );
+            final paths = <String>{
+              for (final write in controlled.writes.skip(writesBefore))
+                write.path,
+              ...controlled.pluginGets.skip(getsBefore),
+            };
+            expect(paths.intersection(action.paths), isEmpty);
+          },
+        );
+      }
     }
 
     test(
@@ -3353,7 +3404,221 @@ void main() {
     );
   });
 
+  group('call commands', () {
+    Future<_ControlledVoiceTransport> joinCommands() async {
+      final controlled = privilegedTransport();
+      useTransport(controlled);
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: VoiceRoom.fromJson(fixture('room')),
+      );
+      return controlled;
+    }
+
+    test(
+      'dispatches through each credential capability without changing the roster',
+      () async {
+        requests = _ScopedRequestHost();
+        final controlled = await joinCommands();
+        final scopes = <String, Object?>{};
+        for (final path in [
+          '/voice/rooms/7/request_to_speak.json',
+          '/voice/rooms/7/memberships.json',
+          '/voice/rooms/7/kick.json',
+          '/voice/rooms/7/flag.json',
+          '/voice/rooms/7/recording.json',
+          '/site.json',
+        ]) {
+          final method = path == '/site.json'
+              ? 'GET'
+              : path.endsWith('/kick.json')
+              ? 'DELETE'
+              : 'POST';
+          controlled.responders['$method $path'] = (_) {
+            scopes[path] = Zone.current[_ScopedRequestHost.scope];
+            return controlled.responses['$method $path']!;
+          };
+        }
+        final participants = controller.call!.room.participants;
+        await controller.requestToSpeak(userId: 2);
+        await controller.setParticipantRole(2, VoiceRole.speaker);
+        await controller.kick(2);
+        expect(
+          await controller.flagParticipant(2, '  Please review  '),
+          isTrue,
+        );
+        await controller.setRecording(true);
+
+        expect(scopes, {
+          '/voice/rooms/7/request_to_speak.json': 'key',
+          '/voice/rooms/7/memberships.json': 'full',
+          '/voice/rooms/7/kick.json': 'key',
+          '/site.json': 'full',
+          '/voice/rooms/7/flag.json': 'key',
+          '/voice/rooms/7/recording.json': 'key',
+        });
+        expect(controller.call!.room.participants, same(participants));
+        expect(
+          controlled.writes
+              .singleWhere((w) => w.path.endsWith('/flag.json'))
+              .body,
+          {'user_id': 2, 'flag_type_id': 3, 'message': 'Please review'},
+        );
+      },
+    );
+
+    test('retains silent failures and false flag results', () async {
+      final controlled = await joinCommands();
+      controlled.operationFailure = StateError('request failed');
+      final uncaught = await _captureUncaught(() async {
+        await controller.requestToSpeak();
+        await controller.setParticipantRole(2, VoiceRole.speaker);
+        await controller.kick(2);
+        expect(await controller.flagParticipant(2, 'Please review'), isFalse);
+        await controller.setRecording(true);
+      });
+      expect(uncaught, isEmpty);
+      expect(controller.call!.error, isNull);
+    });
+
+    test(
+      'does not flag after the call changes during flag-type lookup',
+      () async {
+        final controlled = await joinCommands();
+        controlled.heldPluginPaths.add('/site.json');
+        final flagging = controller.flagParticipant(2, 'Please review');
+        await pumpEventQueue();
+        expect(controlled.pendingPluginGets, hasLength(1));
+        await controller.leave();
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(fixture('room')),
+        );
+        controlled.pendingPluginGets.single.response.complete({
+          'post_action_types': [
+            {'name_key': 'notify_moderators', 'id': 3},
+          ],
+        });
+        expect(await flagging, isFalse);
+        expect(
+          controlled.writes.where((w) => w.path.endsWith('/flag.json')),
+          isEmpty,
+        );
+      },
+    );
+
+    test('rejects a deferred dispatch after its call is replaced', () async {
+      final deferred = _DeferredRequestHost();
+      requests = deferred;
+      final controlled = await joinCommands();
+      deferred.deferNextRun = true;
+      final kicking = controller.kick(2);
+      await deferred.runStarted.future;
+      await controller.leave();
+      await controller.join(
+        siteUrl: firstSite,
+        siteName: 'One',
+        room: VoiceRoom.fromJson(fixture('room')),
+      );
+      deferred.runGate.complete();
+      await kicking;
+      expect(
+        controlled.writes.where((w) => w.path.endsWith('/kick.json')),
+        isEmpty,
+      );
+    });
+
+    test(
+      'does not flag after replacement during write credential lookup',
+      () async {
+        final gated = _NextGatedRequestHost();
+        requests = gated;
+        final controlled = await joinCommands();
+        controlled.responders['GET /site.json'] = (_) {
+          gated.gateNextRead = true;
+          return controlled.responses['GET /site.json']!;
+        };
+        final flagging = controller.flagParticipant(2, 'Please review');
+        await gated.readStarted.future;
+        await controller.leave();
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(fixture('room')),
+        );
+        gated.readGate.complete();
+        expect(await flagging, isFalse);
+        expect(
+          controlled.writes.where((w) => w.path.endsWith('/flag.json')),
+          isEmpty,
+        );
+      },
+    );
+
+    test('returns false when the flag type is unavailable', () async {
+      final controlled = await joinCommands();
+      controlled.responses['GET /site.json'] = {};
+      expect(await controller.flagParticipant(2, 'Please review'), isFalse);
+      expect(
+        controlled.writes.where((w) => w.path.endsWith('/flag.json')),
+        isEmpty,
+      );
+    });
+
+    test('recording remains independent of a pending kick', () async {
+      final controlled = await joinCommands();
+      controlled.heldPluginWritePaths.add('/voice/rooms/7/kick.json');
+      final kicking = controller.kick(2);
+      await controlled.waitForPendingPluginWrites(1);
+      await controller.setRecording(true);
+      expect(
+        controlled.writes.where((w) => w.path.endsWith('/recording.json')),
+        hasLength(1),
+      );
+      controlled.pendingPluginWrites.single.response.complete({});
+      await kicking;
+    });
+  });
+
   group('participant session propagation', () {
+    test(
+      'raise hand keeps its admitted session across token refresh',
+      () async {
+        final gated = _NextGatedRequestHost();
+        requests = gated;
+        transport.responses.addAll({
+          'POST /voice/rooms/7/join.json': fixture('join_livekit'),
+          'POST /voice/rooms/7/livekit_token.json': {
+            ...(fixture('join_livekit')['livekit'] as Map<String, dynamic>),
+            'participant_session_id': 'refreshed-session',
+          },
+          'POST /voice/rooms/7/request_to_speak.json': <String, dynamic>{},
+        });
+        useTransport(transport);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: VoiceRoom.fromJson(fixture('room')),
+        );
+        gated.gateNextRead = true;
+        final raising = controller.requestToSpeak();
+        await gated.readStarted.future;
+        await mediaFactory.sessions.single.refreshLiveKitCredentials();
+        gated.readGate.complete();
+        await raising;
+        await controller.requestToSpeak();
+        final raises = transport.writes.where(
+          (w) => w.path.endsWith('/request_to_speak.json'),
+        );
+        expect(raises.map((w) => w.body['participant_session_id']), [
+          fixture('join_livekit')['participant_session_id'],
+          'refreshed-session',
+        ]);
+      },
+    );
+
     test('includes the joined session on protected writes', () async {
       transport.responses.addAll({
         'POST /voice/rooms/7/signal.json': <String, dynamic>{},
