@@ -70,6 +70,44 @@ final class _OfferThenFailUpdater extends FakeUpdater {
   }
 }
 
+final class _ControlledUpdater extends FakeUpdater {
+  _ControlledUpdater() : super(isSupported: true);
+
+  final checks = <Completer<UpdateRelease?>>[];
+  final downloads = <Completer<void>>[];
+  final progressCallbacks = <void Function(double)?>[];
+  final installs = <Completer<void>>[];
+
+  @override
+  Future<UpdateRelease?> check({required UpdateChannel channel}) {
+    checkCount++;
+    final result = Completer<UpdateRelease?>();
+    checks.add(result);
+    return result.future;
+  }
+
+  @override
+  Future<void> download(
+    UpdateRelease release, {
+    void Function(double fraction)? onProgress,
+  }) {
+    downloadCount++;
+    lastDownloaded = release;
+    progressCallbacks.add(onProgress);
+    final result = Completer<void>();
+    downloads.add(result);
+    return result.future;
+  }
+
+  @override
+  Future<void> installAndRestart() {
+    installCount++;
+    final result = Completer<void>();
+    installs.add(result);
+    return result.future;
+  }
+}
+
 void main() {
   // UpdateController defers a notification raised mid-frame to a post-frame
   // callback, which reads SchedulerBinding.instance. These are plain tests
@@ -291,6 +329,60 @@ void main() {
 
       gate.complete();
       await first;
+    });
+
+    test('a retained offer can download while another check is pending', () async {
+      final updater = _ControlledUpdater();
+      final controller = controllerWith(updater: updater);
+      final offer = release('1.4.0');
+      final first = controller.check();
+      updater.checks.single.complete(offer);
+      await first;
+
+      final checking = controller.check(silent: true);
+      expect(controller.status, UpdateStatus.checking);
+      expect(controller.available, same(offer));
+      final downloading = controller.download();
+      expect(updater.downloadCount, 1);
+      expect(updater.lastDownloaded, same(offer));
+      expect(controller.status, UpdateStatus.downloading);
+
+      await controller.check();
+      await controller.setChannel(UpdateChannel.canary);
+      await controller.installAndRestart();
+      await controller.download();
+      expect(updater.checkCount, 2);
+      expect(updater.downloadCount, 1);
+      expect(updater.installCount, 0);
+      expect(controller.channel, UpdateChannel.stable);
+
+      updater.checks.last.complete(offer);
+      await checking;
+      updater.downloads.single.complete();
+      await downloading;
+      expect(controller.status, UpdateStatus.readyToInstall);
+    });
+
+    test('download remains admitted during installation with a retained offer', () async {
+      final updater = _ControlledUpdater();
+      final controller = controllerWith(updater: updater);
+      final checking = controller.check();
+      updater.checks.single.complete(release('1.4.0'));
+      await checking;
+      final downloading = controller.download();
+      updater.downloads.single.complete();
+      await downloading;
+
+      final installing = controller.installAndRestart();
+      expect(controller.status, UpdateStatus.installing);
+      final downloadingAgain = controller.download();
+      expect(updater.downloadCount, 2);
+      expect(controller.status, UpdateStatus.downloading);
+      updater.installs.single.complete();
+      await installing;
+      updater.downloads.last.complete();
+      await downloadingAgain;
+      expect(controller.status, UpdateStatus.readyToInstall);
     });
 
     test('load prefers a stored channel over the one built in', () async {
