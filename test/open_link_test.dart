@@ -10,6 +10,8 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -32,6 +34,158 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
         .load();
   });
+
+  for (final (path, corePage) in const [
+    ('/about', true),
+    ('/t/a-topic/42', false),
+    ('/badges', false),
+    ('/g/support', false),
+    ('/c/support/5', false),
+  ]) {
+    testWidgets('ordinary $path link preserves plugin precedence', (
+      tester,
+    ) async {
+      final opened = <String>[];
+      var navigated = 0;
+      final plugins = PluginInstaller.install(
+        PluginManifest([
+          _OrdinaryLinkModule((url, onNavigated) async {
+            opened.add(url);
+            onNavigated?.call();
+            return true;
+          }),
+        ]),
+      );
+      addTearDown(plugins.close);
+      final controller = await _pumpLink(
+        tester,
+        url: path,
+        plugins: plugins,
+        onNavigated: () => navigated++,
+      );
+      final before = controller.currentContent;
+
+      await tester.tap(find.text('Open link'));
+      await tester.pumpAndSettle();
+
+      expect(opened, corePage ? isEmpty : ['https://one.example$path']);
+      expect(navigated, 1);
+      expect(
+        controller.currentContent?.id,
+        corePage ? 'forum-about' : before?.id,
+      );
+    });
+  }
+
+  for (final (path, expectedTitle) in const [
+    ('/about', 'About this forum'),
+    ('/t/a-topic/42', 'A topic'),
+    ('/g/support', 'support'),
+    ('/badges', 'Clicked title'),
+    ('/c/support/5', 'Clicked title'),
+  ]) {
+    testWidgets('ordinary $path link preserves its title policy', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      var navigated = 0;
+      final controller = await _pumpLink(
+        tester,
+        url: path,
+        title: 'Clicked title',
+        onNavigated: () => navigated++,
+        api: FakeDiscourseApi(
+          feeds: const {'/latest.json': [], '/c/support/5.json': []},
+          topics: {42: topicPayload(id: 42)},
+          topicGate: gate,
+        ),
+      );
+
+      await tester.tap(find.text('Open link'));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentContent?.title, expectedTitle);
+      expect(navigated, 1);
+      gate.complete();
+      await tester.pumpAndSettle();
+    });
+  }
+
+  for (final (path, navigates) in const [
+    ('/t/a-topic/42/3', true),
+    ('/about', false),
+  ]) {
+    testWidgets('ordinary $path rechecks ownership after plugins decline', (
+      tester,
+    ) async {
+      final launched = watchBrowser(tester);
+      final started = Completer<void>();
+      final result = Completer<bool>();
+      final plugins = PluginInstaller.install(
+        PluginManifest([
+          _OrdinaryLinkModule((_, _) {
+            started.complete();
+            return result.future;
+          }),
+        ]),
+      );
+      addTearDown(plugins.close);
+      final url = 'https://one.example/forum$path';
+      final controller = await _pumpLink(
+        tester,
+        url: url,
+        plugins: plugins,
+        api: FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          topics: {42: topicPayload(id: 42)},
+        ),
+      );
+
+      await tester.tap(find.text('Open link'));
+      await tester.pump();
+      expect(started.isCompleted, isTrue);
+      await controller.addInstance(instance('one.example/forum'));
+      controller.selectInstance(0);
+      result.complete(false);
+      await tester.pumpAndSettle();
+
+      expect(launched, navigates ? isEmpty : [url]);
+      expect(
+        controller.currentInstance?.url,
+        navigates ? 'https://one.example/forum' : 'https://one.example',
+      );
+      expect(controller.currentContent?.topicId, navigates ? 42 : isNull);
+    });
+  }
+
+  for (final rootFirst in [true, false]) {
+    testWidgets('ordinary links choose the subfolder forum '
+        '(root first: $rootFirst)', (tester) async {
+      var navigated = 0;
+      final sites = rootFirst
+          ? ['one.example', 'one.example/forum']
+          : ['one.example/forum', 'one.example'];
+      final controller = await _pumpLink(
+        tester,
+        sites: sites,
+        url: 'https://one.example/forum/t/a-topic/42/3',
+        onNavigated: () => navigated++,
+        api: FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          topics: {42: topicPayload(id: 42)},
+        ),
+      );
+      controller.selectInstance(sites.indexOf('one.example'));
+
+      await tester.tap(find.text('Open link'));
+      await tester.pumpAndSettle();
+
+      expect(controller.currentInstance?.url, 'https://one.example/forum');
+      expect(controller.currentContent?.topicId, 42);
+      expect(controller.currentContent?.postNumber, 3);
+      expect(navigated, 1);
+    });
+  }
 
   testWidgets('topic list bookmark is actionable in the first menu frame', (
     tester,
@@ -870,16 +1024,21 @@ Future<ShellController> _pumpLink(
   List<String> messageGroupNames = const [],
   FakeDiscourseApi? api,
   Topic? listTopic,
+  InstalledPlugins? plugins,
+  List<String> sites = const ['one.example'],
+  String? title,
+  VoidCallback? onNavigated,
 }) async {
   final instances = [
-    instance('one.example').copyWith(
-      user: signedIn
-          ? DiscourseUser(
-              username: 'j.jaffeux',
-              messageGroupNames: messageGroupNames,
-            )
-          : null,
-    ),
+    for (final site in sites)
+      instance(site).copyWith(
+        user: signedIn
+            ? DiscourseUser(
+                username: 'j.jaffeux',
+                messageGroupNames: messageGroupNames,
+              )
+            : null,
+      ),
   ];
   final site = api ?? FakeDiscourseApi(feeds: const {'/latest.json': []});
   final controller = ShellController(
@@ -890,6 +1049,7 @@ Future<ShellController> _pumpLink(
     forumTabs: FakeForumTabStore(),
     forumTabsEnabled: tabsEnabled,
     trackers: FakeSiteTracker.reset(),
+    plugins: plugins,
   );
   addTearDown(controller.dispose);
   await controller.load();
@@ -926,7 +1086,12 @@ Future<ShellController> _pumpLink(
                         isLink: true,
                         variant: DButtonVariant.inline,
                         density: DButtonDensity.inlineMetadata,
-                        onPressed: () => openLink(context, url),
+                        onPressed: () => openLink(
+                          context,
+                          url,
+                          title: title,
+                          onNavigated: onNavigated,
+                        ),
                         label: const Text('Open link'),
                       ),
                     ),
@@ -938,6 +1103,41 @@ Future<ShellController> _pumpLink(
   );
   await tester.pumpAndSettle();
   return controller;
+}
+
+final class _OrdinaryLinkModule implements PluginModule {
+  const _OrdinaryLinkModule(this.open);
+
+  final Future<bool> Function(String url, VoidCallback? onNavigated) open;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('ordinary-link-test'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addSession(
+      (_, _) => PluginSessionContribution(
+        lifecycle: _OrdinaryLinkLifecycle(),
+        capabilities: [_OrdinaryLinkHandler(open)],
+      ),
+    );
+  }
+}
+
+final class _OrdinaryLinkLifecycle extends PluginSessionLifecycle {}
+
+final class _OrdinaryLinkHandler implements PluginLinkHandler {
+  const _OrdinaryLinkHandler(this.open);
+
+  final Future<bool> Function(String url, VoidCallback? onNavigated) open;
+
+  @override
+  Future<bool> openPluginUrl(
+    String url, {
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    VoidCallback? onNavigated,
+  }) => open(url, onNavigated);
 }
 
 final class _LinkBookmarkApi extends FakeDiscourseApi {

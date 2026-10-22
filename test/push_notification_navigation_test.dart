@@ -31,6 +31,52 @@ void main() {
     expect(await opens.urls.toList(), isEmpty);
   });
 
+  for (final path in const [
+    '/about',
+    '/t/native-push/42/3',
+    '/badges',
+    '/g/support',
+    '/c/support/5',
+  ]) {
+    test(
+      'a notification lets plugins handle $path before core navigation',
+      () async {
+        final opened = <String>[];
+        final plugins = PluginInstaller.install(
+          PluginManifest([
+            _NotificationLinkModule((url) async {
+              opened.add(url);
+              return true;
+            }),
+          ]),
+        );
+        addTearDown(plugins.close);
+        final api = FakeDiscourseApi(feeds: const {'/latest.json': []});
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([_connected('one.example')]),
+          api: api,
+          authenticator: _readerKeys(api),
+          drafts: FakeDraftStore(),
+          forumTabs: FakeForumTabStore(),
+          trackers: FakeSiteTracker.reset(),
+          plugins: plugins,
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        final before = controller.currentContent;
+
+        expect(
+          await controller.openNotificationUrl('https://one.example$path'),
+          isTrue,
+        );
+
+        expect(opened, ['https://one.example$path']);
+        expect(controller.currentContent, before);
+        expect(api.topicsOpened, isEmpty);
+      },
+    );
+  }
+
   test(
     'a notification switches forums and opens its exact topic post',
     () async {
