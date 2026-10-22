@@ -18,12 +18,13 @@ WORKLOAD = r'''
     var checksum = 0;
     final references = <String, List<String>>{};
     final panelReferences = <String, List<String>>{};
-    String projection(GlobalSearchController c) => jsonEncode([
+    Object rawProjection(GlobalSearchController c) => [
       c.availableFilters.map((f) => [f.id, f.label]).toList(),
       c.orderedConditionIndices.map((i) => [c.conditions[i].filterId, c.conditions[i].operator, c.conditions[i].value]).toList(),
       c.stagedFilter?.id, c.stagedTerm, c.stagedOperator,
       c.hintedFilters.map((f) => f.id).toList(), c.wordsQuery,
-    ]);
+    ];
+    String projection(GlobalSearchController c) => jsonEncode(rawProjection(c));
     for (final scenario in ['forum', 'messages', 'chat', 'restricted']) {
       final scope = switch (scenario) {
         'messages' => GlobalSearchScope.messages,
@@ -113,18 +114,26 @@ WORKLOAD = r'''
           }
           small.stop();
           final full = controller.capabilities;
-          final replacement = Stopwatch()..start();
+          final replacement = Stopwatch();
           final replacementSignatures = <String>[];
           for (final capabilities in [const GlobalSearchCapabilities(tagging: false), full]) {
+            replacement.start();
             controller.configure(siteUrl: controller.siteUrl, capabilities: capabilities);
             controller.setScope(GlobalSearchScope.forum);
             controller.setQuery('tags:blue');
-            replacementSignatures.add(projection(controller));
+            final snapshot = rawProjection(controller);
+            replacement.stop();
+            replacementSignatures.add(jsonEncode(snapshot));
           }
           for (final locale in ['en', 'fr', 'en']) {
-            Intl.withLocale(locale, () => replacementSignatures.add(projection(controller)));
+            final snapshot = Intl.withLocale(locale, () {
+              replacement.start();
+              final value = rawProjection(controller);
+              replacement.stop();
+              return value;
+            });
+            replacementSignatures.add(jsonEncode(snapshot));
           }
-          replacement.stop();
           final replacementKey = '$scenario-replacement';
           if (references.containsKey(replacementKey)) {
             expect(replacementSignatures, references[replacementKey]);
