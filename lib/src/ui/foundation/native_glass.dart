@@ -603,10 +603,11 @@ class _RenderNativeGlassContent extends RenderRepaintBoundary
     super.detach();
   }
 
-  // A repaint boundary paints only when its content changed.
   @override
-  void paint(PaintingContext context, Offset offset) {
-    super.paint(context, offset);
+  OffsetLayer updateCompositedLayer({required OffsetLayer? oldLayer}) =>
+      oldLayer ?? _NativeGlassContentLayer(_contentChanged);
+
+  void _contentChanged() {
     _revision++;
     _scheduleCapture();
   }
@@ -675,4 +676,28 @@ class _RenderNativeGlassContent extends RenderRepaintBoundary
     tint: tint,
     image: NativeGlass._images[this] ?? 0,
   );
+}
+
+class _NativeGlassContentLayer extends OffsetLayer {
+  _NativeGlassContentLayer(this._onContentChanged);
+
+  final VoidCallback _onContentChanged;
+  static int _snapshotDepth = 0;
+
+  @override
+  void addToScene(ui.SceneBuilder builder) {
+    super.addToScene(builder);
+    if (_snapshotDepth == 0) _onContentChanged();
+  }
+
+  // Image snapshots build a scene too, including any nested content layers.
+  @override
+  ui.Scene buildScene(ui.SceneBuilder builder) {
+    _snapshotDepth++;
+    try {
+      return super.buildScene(builder);
+    } finally {
+      _snapshotDepth--;
+    }
+  }
 }
