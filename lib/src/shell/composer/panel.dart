@@ -234,6 +234,7 @@ class ComposerPanel extends StatelessWidget {
                   key: const ValueKey('composer-submit'),
                   icon: const DIcon(DIcons.arrowUp),
                   variant: DButtonVariant.primary,
+                  size: DButtonSize.toolbar,
                   shape: DButtonShape.pill,
                   tooltip: submitLabel,
                   semanticLabel: submitLabel,
@@ -767,7 +768,7 @@ class _MobileComposerViewportState extends State<_MobileComposerViewport> {
     _scheduleOverflowUpdate();
     final headerExtent =
         DControlStyle.scaledHeight(
-          DControlSize.regular,
+          DControlSize.toolbar,
           MediaQuery.textScalerOf(context),
           context: context,
         ) +

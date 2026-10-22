@@ -629,6 +629,34 @@ void main() {
   }
 
   for (final material in DAppearanceMaterial.values) {
+    testWidgets('phone close and submit use the mockup 34px action $material', (
+      tester,
+    ) async {
+      await _Harness.create(
+        tester,
+        mobile: true,
+        size: const Size(390, 844),
+        theme: DMaterialTheme.apply(AppTheme.light, material),
+      );
+      for (final action in ['composer-close', 'composer-submit']) {
+        final button = find.byKey(ValueKey(action));
+        expect(tester.getSize(button), const Size(34, 34), reason: action);
+        expect(
+          tester
+              .getSize(
+                find.descendant(of: button, matching: find.byType(DIcon)),
+              )
+              .height,
+          14,
+          reason: action,
+        );
+      }
+      await _render(tester, 'phone-header-actions-${material.name}');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final material in DAppearanceMaterial.values) {
     testWidgets(
       'minimized new topic keeps contrast on a blue forum palette $material',
       (tester) async {

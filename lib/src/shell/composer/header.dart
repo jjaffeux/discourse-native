@@ -284,6 +284,7 @@ class ComposerHeader extends StatelessWidget {
                       ? context.l10n.closeComposer
                       : context.l10n.composerActions,
                   variant: DButtonVariant.outline,
+                  size: DButtonSize.toolbar,
                   shape: DButtonShape.pill,
                   focusNode: trigger.focusNode,
                   hasPopup: !empty,
