@@ -667,15 +667,18 @@ class _ShellScaffold extends StatefulWidget {
 
 class _ShellScaffoldState extends State<_ShellScaffold> {
   // The sheet's keyboard outlives the sheet: a swipe or close removes the
-  // sheet first and the keyboard retracts after. Avoiding that keyboard would
-  // lift the dock onto its top edge for the whole retraction, so the shell
-  // ignores it until it is gone, or until it rises again for a shell field.
+  // sheet first and the keyboard retracts after. Until that keyboard is gone,
+  // or rises again for a shell field, the shell lays out as if there were no
+  // keyboard. Avoiding it would lift the dock onto its top edge for the whole
+  // retraction, and keyboard-aware chrome such as the chat composer would
+  // move under the sheet and move back after it.
   double? _sheetKeyboard;
 
   @override
   Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
     if (widget.mobile) {
-      final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+      final keyboard = media.viewInsets.bottom;
       final retracting = keyboard > 0 && keyboard <= (_sheetKeyboard ?? 0);
       _sheetKeyboard =
           ComposerPresentationHost.hasMobileSheetOf(context) || retracting
@@ -684,13 +687,20 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
     } else {
       _sheetKeyboard = null;
     }
-    return Scaffold(
-      resizeToAvoidBottomInset: _sheetKeyboard == null,
-      // iOS exposes this surface around the keyboard's rounded upper corners.
-      backgroundColor: widget.mobile
-          ? Theme.of(context).shell.content
-          : Colors.transparent,
-      body: widget.body,
+    return MediaQuery(
+      data: _sheetKeyboard == null
+          ? media
+          : media.copyWith(
+              viewInsets: media.viewInsets.copyWith(bottom: 0),
+              padding: media.padding.copyWith(bottom: media.viewPadding.bottom),
+            ),
+      child: Scaffold(
+        // iOS exposes this surface around the keyboard's rounded upper corners.
+        backgroundColor: widget.mobile
+            ? Theme.of(context).shell.content
+            : Colors.transparent,
+        body: widget.body,
+      ),
     );
   }
 }
