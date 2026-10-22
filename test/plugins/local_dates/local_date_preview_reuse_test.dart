@@ -4,7 +4,6 @@ import 'package:discourse_native/src/plugins/local_dates/local_date_environment.
 import 'package:discourse_native/src/plugins/local_dates/local_date_widget.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:relative_time/relative_time.dart';
