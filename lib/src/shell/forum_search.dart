@@ -59,6 +59,10 @@ class _ForumSearchState extends State<ForumSearch> {
   final _clearFocus = FocusNode(debugLabel: 'clear forum search');
   final _popover = DPopoverController();
   MaterialPageRoute<void>? _page;
+  // A popped page keeps painting this search through its exit transition, so
+  // nothing it shows changes until it is gone or search opens again.
+  MaterialPageRoute<void>? _leavingPage;
+  bool _clearWhenLeft = false;
   final _pageRevision = ValueNotifier(0);
   ShellController? _shell;
   String? _tabId;
@@ -142,6 +146,7 @@ class _ForumSearchState extends State<ForumSearch> {
     if (widget.fullScreen) {
       final page = _page;
       if (page != null) {
+        _leavingPage = page;
         if (page.isCurrent) {
           page.navigator?.pop();
         } else {
@@ -229,6 +234,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _retireClosedDraftIfScopeChanged() {
     if (!_open &&
+        _leavingPage == null &&
         _openingExpression != null &&
         _openingExpression != _listExpression) {
       _draftEditingValue = null;
@@ -280,6 +286,7 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _syncText() {
+    if (_leavingPage != null) return;
     final query = _query;
     if (_text.text == query) return;
     _text.value = TextEditingValue(
@@ -319,7 +326,28 @@ class _ForumSearchState extends State<ForumSearch> {
     if (_focus.hasFocus && !_suppressFocus && !_open) _requestFocus();
   }
 
+  void _clearSubmittedSearch() {
+    if (_leavingPage != null) {
+      _clearWhenLeft = true;
+      return;
+    }
+    _global.setQuery('');
+    _global.clearAllConditions();
+  }
+
+  void _pageLeft() {
+    _leavingPage = null;
+    if (_clearWhenLeft) {
+      _clearWhenLeft = false;
+      _clearSubmittedSearch();
+    }
+    if (!mounted) return;
+    _retireClosedDraftIfScopeChanged();
+    _syncText();
+  }
+
   void _openSearch({SearchFocusMode? mode}) {
+    if (_leavingPage != null) _pageLeft();
     if (_search.siteUrl == null) return;
     if (!widget.fullScreen) _measureAnchor();
     if (!_surfaceOpen || mode != null) {
@@ -629,8 +657,7 @@ class _ForumSearchState extends State<ForumSearch> {
       conditions,
       clearFilters: words.isEmpty && conditions.isEmpty,
     );
-    _global.setQuery('');
-    _global.clearAllConditions();
+    _clearSubmittedSearch();
   }
 
   void _openSection(GlobalSearchSection section) {
@@ -688,8 +715,7 @@ class _ForumSearchState extends State<ForumSearch> {
     shell.search.setPageWords(site, shell.activeTabId, route.id, words);
     if (route.isMessages) unawaited(shell.loadFeed(route.id));
     if (route.isUsers) unawaited(shell.focusedTabContext.loadUsers());
-    _global.setQuery('');
-    _global.clearAllConditions();
+    _clearSubmittedSearch();
   }
 
   Widget _editor(double width, {required bool expanded}) {
@@ -1127,7 +1153,13 @@ class _ForumSearchState extends State<ForumSearch> {
         animation.removeStatusListener(focusAfterTransition);
         if (!mounted || _page != page) return;
         _page = null;
+        _leavingPage = page;
         _openChanged(false, DPopoverChangeReason.imperative);
+      }),
+    );
+    unawaited(
+      page.completed.then((_) {
+        if (identical(_leavingPage, page)) _pageLeft();
       }),
     );
   }
