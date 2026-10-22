@@ -1251,6 +1251,45 @@ void main() {
       expect(controller.feedFor(site.url, 'three'), isNotNull);
     });
 
+    test('an old retention release leaves its replacement retained', () async {
+      final owner = Object();
+      final releaseOld = controller.retainFeed(
+        site.url,
+        'filtered',
+        owner: owner,
+      );
+      await seed(pages: 1);
+      controller.forget(site.url);
+      final releaseReplacement = controller.retainFeed(
+        site.url,
+        'filtered',
+        owner: owner,
+      );
+      await seed(pages: 1);
+      controller.updateViewport(
+        site.url,
+        'filtered',
+        owner: owner,
+        firstRow: 0,
+        lastRow: 1,
+      );
+      releaseOld();
+      releaseOld();
+      for (final destination in ['one', 'two']) {
+        final loading = controller.load(
+          instance: site,
+          destinationId: destination,
+          path: '/$destination.json',
+          incoming: null,
+        );
+        await answer([20]);
+        await loading;
+      }
+      expect(controller.feedFor(site.url, 'filtered')?.topicIds, [1, 2]);
+      expect(controller.feedFor(site.url, 'one'), isNull);
+      releaseReplacement();
+    });
+
     for (final source in ['load', 'page', 'incoming', 'range', 'selection']) {
       test('destination LRU excludes an in-flight $source request', () async {
         final release = controller.retainFeed(site.url, 'visible');
@@ -1451,6 +1490,11 @@ void main() {
         'category-5': const IncomingTopicsFilter.latest(categoryId: 5),
         'category-8': const IncomingTopicsFilter.latest(categoryId: 8),
       });
+      controller.feedFor(site.url, 'category-5');
+      expect(controller.incomingFiltersFor(site.url).keys, [
+        'category-5',
+        'category-8',
+      ]);
 
       // A failed refetch keeps what the list last announced; a fresh load
       // makes it the most recent.
@@ -1477,6 +1521,51 @@ void main() {
   });
 
   group('request lifecycle', () {
+    test(
+      'forget settles a queued refresh without clearing its replacement',
+      () async {
+        final site = instance('one.example');
+        Future<void> load(String path, {bool force = false}) => controller.load(
+          instance: site,
+          destinationId: 'latest',
+          path: path,
+          incoming: null,
+          force: force,
+        );
+        final old = load('/old.json');
+        await pumpEventQueue();
+        var queuedCompleted = false;
+        final queued = load('/old-refresh.json', force: true);
+        unawaited(queued.then((_) => queuedCompleted = true));
+        controller.forget(site.url);
+        await pumpEventQueue();
+        expect(queuedCompleted, isTrue);
+        await queued;
+
+        final replacement = load('/replacement.json');
+        await pumpEventQueue();
+        final superseded = load('/replacement-intermediate.json', force: true);
+        final replay = load('/replacement-refresh.json', force: true);
+        expect(replay, same(superseded));
+        api.requests.first.response.complete(_page(1));
+        await old;
+        expect(load('/duplicate.json'), same(replacement));
+        expect(controller.feedFor(site.url, 'latest')?.loading, isTrue);
+        api.requests[1].response.complete(_page(2));
+        await replacement;
+        await pumpEventQueue();
+        expect(api.requests.map((request) => request.path), [
+          '/old.json',
+          '/replacement.json',
+          '/replacement-refresh.json',
+        ]);
+        api.requests.last.response.complete(_page(3));
+        await replay;
+        expect(controller.feedFor(site.url, 'latest')?.topicIds, [3]);
+        expect(store.read<Topic>(site.url, 1), isNull);
+      },
+    );
+
     test('shares the load with a synchronous loading listener', () async {
       final site = instance('one.example');
       Future<void>? duplicate;

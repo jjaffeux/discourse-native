@@ -290,6 +290,95 @@ final class _TopicRequest {
   final completion = Completer<Topic?>();
 }
 
+final class _FeedReplay {
+  _FeedReplay(this.load);
+
+  _FeedLoad load;
+  final completion = Completer<void>();
+}
+
+final class _FeedSession {
+  _FeedSession(this.key, this.window);
+
+  final _FeedKey key;
+  final _FeedWindow window;
+  TopicFeed? feed;
+  Object? revision;
+  int? scrollRow;
+  ({IncomingTopicsFilter filter, int order})? incomingFilter;
+  Future<void>? loadRequest;
+  _FeedReplay? replay;
+  Completer<void>? pageRequest;
+  _RangeRequest? rangeRequest;
+  _TopicRequest? topicRequest;
+  final Set<Object> incomingRequests = {};
+  bool retired = false;
+
+  bool get hasRequests =>
+      loadRequest != null ||
+      replay != null ||
+      pageRequest != null ||
+      rangeRequest != null ||
+      topicRequest != null ||
+      incomingRequests.isNotEmpty;
+
+  Future<void> queueReplay(_FeedLoad load) {
+    final pending = replay ??= _FeedReplay(load);
+    pending.load = load;
+    return pending.completion.future;
+  }
+
+  void cancelPage() {
+    final request = pageRequest;
+    pageRequest = null;
+    if (request != null && !request.isCompleted) request.complete();
+  }
+
+  void cancelRange() {
+    final request = rangeRequest;
+    rangeRequest = null;
+    if (request != null && !request.completion.isCompleted) {
+      request.completion.complete();
+    }
+  }
+
+  void cancelTopic() {
+    final request = topicRequest;
+    topicRequest = null;
+    if (request != null && !request.completion.isCompleted) {
+      request.completion.complete();
+    }
+  }
+
+  void cancelPaging() {
+    cancelPage();
+    cancelRange();
+    cancelTopic();
+  }
+
+  void retire() {
+    if (retired) return;
+    retired = true;
+    revision = null;
+    loadRequest = null;
+    final pending = replay;
+    replay = null;
+    if (pending != null && !pending.completion.isCompleted) {
+      pending.completion.complete();
+    }
+    cancelPaging();
+    incomingRequests.clear();
+    feed = null;
+    scrollRow = null;
+    incomingFilter = null;
+    window.owners.clear();
+    window.viewports.clear();
+    window.rows.clear();
+    window.checkpoints.clear();
+    window.rootPath = null;
+  }
+}
+
 final class TopicFeedController extends FrameSafeNotifier {
   TopicFeedController({
     required this.api,
@@ -329,24 +418,14 @@ final class TopicFeedController extends FrameSafeNotifier {
   final TopicFeedIncomingFilter? incomingFilterFor;
   final Set<int> Function(String siteUrl, String destinationId)? readerTopics;
 
-  final Map<_FeedKey, TopicFeed> _feeds = {};
+  final Map<_FeedKey, _FeedSession> _sessions = {};
   final Map<String, String> _filterQueries = {};
-  final Map<_FeedKey, Object> _revisions = {};
-  final Map<_FeedKey, Completer<void>> _pageRequests = {};
-  final Map<_FeedKey, int> _rows = {};
-  final Map<_FeedKey, Future<void>> _loadRequests = {};
-  final Map<_FeedKey, _FeedLoad> _pendingLoads = {};
-  final Map<_FeedKey, Completer<void>> _pendingLoadWaiters = {};
-  final Map<_FeedKey, IncomingTopicsFilter> _incomingFilters = {};
-  final Map<_FeedKey, _FeedWindow> _windows = {};
-  final Map<_FeedKey, _RangeRequest> _rangeRequests = {};
-  final Map<_FeedKey, _TopicRequest> _topicRequests = {};
-  final Map<_FeedKey, Set<Object>> _incomingRequests = {};
+  int _incomingFilterOrder = 0;
 
   TopicFeed? feedFor(String siteUrl, String destinationId) {
-    final key = (siteUrl, destinationId);
-    if (_windows.containsKey(key)) _window(key);
-    return _feeds[key];
+    final session = _sessions[(siteUrl, destinationId)];
+    if (session != null) _touchSession(session);
+    return session?.feed;
   }
 
   VoidCallback retainFeed(
@@ -355,15 +434,16 @@ final class TopicFeedController extends FrameSafeNotifier {
     Object? owner,
   }) {
     if (isDisposed) return () {};
-    final key = (siteUrl, destinationId);
+    final session = _session((siteUrl, destinationId));
     final token = owner ?? Object();
-    final window = _window(key);
+    final window = session.window;
     window.owners.update(token, (count) => count + 1, ifAbsent: () => 1);
     _pruneDestinations();
     var released = false;
     return () {
       if (released) return;
       released = true;
+      if (!identical(_sessions[session.key], session)) return;
       final count = window.owners[token];
       if (count == null) return;
       if (count > 1) {
@@ -374,11 +454,9 @@ final class TopicFeedController extends FrameSafeNotifier {
       }
       final before = window.rows.length;
       window.trim(maximumRetainedTopics);
-      final feed = _feeds[key];
-      if (identical(_windows[key], window) &&
-          feed != null &&
-          window.rows.length != before) {
-        _feeds[key] = window.publish(feed);
+      final feed = session.feed;
+      if (feed != null && window.rows.length != before) {
+        session.feed = window.publish(feed);
         if (!isDisposed) notifySafely();
       }
       _pruneDestinations();
@@ -393,81 +471,101 @@ final class TopicFeedController extends FrameSafeNotifier {
     required int lastRow,
   }) {
     if (isDisposed) return;
-    final key = (siteUrl, destinationId);
-    final window = _windows[key];
-    if (window == null || !window.owners.containsKey(owner)) return;
+    final session = _sessions[(siteUrl, destinationId)];
+    if (session == null || !session.window.owners.containsKey(owner)) return;
+    final window = session.window;
     window.viewports[owner] = (first: firstRow, last: lastRow);
     for (final row in window.rows.keys.toList()) {
       if (row >= firstRow && row <= lastRow) window.touch(row);
     }
     final before = window.rows.length;
     window.trim(maximumRetainedTopics);
-    final feed = _feeds[key];
-    _window(key);
+    final feed = session.feed;
+    _touchSession(session);
     if (feed != null && window.rows.length != before) {
-      _feeds[key] = window.publish(feed);
+      session.feed = window.publish(feed);
       notifySafely();
     }
   }
 
-  _FeedWindow _window(_FeedKey key) {
-    final window =
-        _windows.remove(key) ??
-        _FeedWindow(
-          readerTopics: () => readerTopics?.call(key.$1, key.$2) ?? {},
+  _FeedSession _session(_FeedKey key) {
+    final session =
+        _sessions.remove(key) ??
+        _FeedSession(
+          key,
+          _FeedWindow(
+            readerTopics: () => readerTopics?.call(key.$1, key.$2) ?? {},
+          ),
         );
-    _windows[key] = window;
-    return window;
+    _sessions[key] = session;
+    return session;
+  }
+
+  bool _sessionIsCurrent(_FeedSession session, Object? revision) =>
+      !isDisposed &&
+      identical(_sessions[session.key], session) &&
+      identical(session.revision, revision);
+
+  void _touchSession(_FeedSession session) {
+    if (!identical(_sessions[session.key], session)) return;
+    _sessions.remove(session.key);
+    _sessions[session.key] = session;
+  }
+
+  void _retireSession(_FeedSession session) {
+    if (identical(_sessions[session.key], session)) {
+      _sessions.remove(session.key);
+    }
+    session.retire();
   }
 
   void _pruneDestinations() {
-    while (_windows.length > maximumDestinations) {
-      final candidates = _windows.entries.where(
-        (entry) =>
-            entry.value.owners.isEmpty &&
-            (entry.value.readerTopics?.call().isEmpty ?? true) &&
-            !_loadRequests.containsKey(entry.key) &&
-            !_pageRequests.containsKey(entry.key) &&
-            !_rangeRequests.containsKey(entry.key) &&
-            !_topicRequests.containsKey(entry.key) &&
-            !_incomingRequests.containsKey(entry.key),
+    while (_sessions.length > maximumDestinations) {
+      final candidates = _sessions.values.where(
+        (session) =>
+            session.window.owners.isEmpty &&
+            (session.window.readerTopics?.call().isEmpty ?? true) &&
+            !session.hasRequests,
       );
       if (candidates.isEmpty) return;
-      final key = candidates.first.key;
-      _windows.remove(key);
-      _feeds.remove(key);
-      _revisions.remove(key);
-      _rows.remove(key);
-      _incomingFilters.remove(key);
-      _pendingLoads.remove(key);
-      final waiter = _pendingLoadWaiters.remove(key);
-      if (waiter != null && !waiter.isCompleted) waiter.complete();
+      _retireSession(candidates.first);
     }
   }
 
   /// The filter of every list loaded on [siteUrl] that announces arrivals,
   /// by destination, oldest load first.
-  Map<String, IncomingTopicsFilter> incomingFiltersFor(String siteUrl) => {
-    for (final MapEntry(key: (site, destinationId), :value)
-        in _incomingFilters.entries)
-      if (site == siteUrl) destinationId: value,
-  };
+  Map<String, IncomingTopicsFilter> incomingFiltersFor(String siteUrl) {
+    final sessions =
+        _sessions.values
+            .where(
+              (session) =>
+                  session.key.$1 == siteUrl && session.incomingFilter != null,
+            )
+            .toList()
+          ..sort(
+            (a, b) =>
+                a.incomingFilter!.order.compareTo(b.incomingFilter!.order),
+          );
+    return {
+      for (final session in sessions)
+        session.key.$2: session.incomingFilter!.filter,
+    };
+  }
 
   String filterQueryFor(String siteUrl) => _filterQueries[siteUrl] ?? '';
 
   void setFilterQuery(String siteUrl, String query) {
     _filterQueries[siteUrl] = query;
-    _rows.remove((siteUrl, 'filter'));
+    _sessions[(siteUrl, 'filter')]?.scrollRow = null;
   }
 
   int scrollRowFor(String siteUrl, String destinationId) =>
-      _rows[(siteUrl, destinationId)] ?? 0;
+      _sessions[(siteUrl, destinationId)]?.scrollRow ?? 0;
 
   void saveScrollRow(String siteUrl, String destinationId, int row) {
     if (isDisposed) return;
     final key = (siteUrl, destinationId);
-    _rows[key] = row;
-    _window(key);
+    _session(key).scrollRow = row;
     _pruneDestinations();
   }
 
@@ -480,24 +578,23 @@ final class TopicFeedController extends FrameSafeNotifier {
   }) {
     if (isDisposed) return Future.value();
     final key = (instance.url, destinationId);
-    _window(key);
+    final session = _session(key);
     final load = (
       instance: instance,
       destinationId: destinationId,
       path: path,
       incoming: incoming,
     );
-    final active = _loadRequests[key];
+    final active = session.loadRequest;
     if (active != null) {
       if (!force) return active;
       // A refresh means "give me data newer than the request already in
       // flight", not "send another request alongside it". Keep only the
       // newest path and let every repeated refresh await the same replay.
-      _pendingLoads[key] = load;
-      return _pendingLoadWaiters.putIfAbsent(key, Completer<void>.new).future;
+      return session.queueReplay(load);
     }
 
-    final existing = _feeds[key];
+    final existing = session.feed;
     if (existing != null &&
         !force &&
         (existing.loading ||
@@ -509,43 +606,44 @@ final class TopicFeedController extends FrameSafeNotifier {
       return Future.value();
     }
 
-    return _startLoad(key, load);
+    return _startLoad(session, load);
   }
 
-  Future<void> _startLoad(_FeedKey key, _FeedLoad load) {
+  Future<void> _startLoad(_FeedSession session, _FeedLoad load) {
     final completion = Completer<void>();
     final request = completion.future;
     // Loading notifications can synchronously retry or forget this feed.
     // Publish ownership before the worker exposes its loading state.
-    _loadRequests[key] = request;
+    session.loadRequest = request;
     _pruneDestinations();
     completion.complete(
-      _performLoad(key, load).whenComplete(() => _finishLoad(key, request)),
+      _performLoad(
+        session,
+        load,
+      ).whenComplete(() => _finishLoad(session, request)),
     );
     return request;
   }
 
-  Future<void> _performLoad(_FeedKey key, _FeedLoad load) async {
+  Future<void> _performLoad(_FeedSession session, _FeedLoad load) async {
     final (:instance, :destinationId, :path, :incoming) = load;
-    final existing = _feeds[key];
+    final existing = session.feed;
 
     final lease = lifecycle.capture(instance.url);
     final personalizationVersion = readPersonalizationVersion?.call(
       instance.url,
     );
     final revision = Object();
-    _revisions[key] = revision;
-    _cancelPageRequest(key);
-    _cancelRangeRequest(key);
-    _cancelTopicRequest(key);
+    session.revision = revision;
+    session.cancelPaging();
 
     final announced = incoming?.topicIds(destinationId) ?? const <int>[];
     incoming?.reset(destinationId);
-    _feeds[key] = (existing ?? const TopicFeed()).refreshing();
+    session.feed = (existing ?? const TopicFeed()).refreshing();
     notifySafely();
 
     bool requestIsCurrent() =>
-        !isDisposed && lease.isCurrent && identical(_revisions[key], revision);
+        lease.isCurrent && _sessionIsCurrent(session, revision);
 
     try {
       final auth = await AccountRequestSession(
@@ -566,7 +664,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         requestIsCurrent,
       );
       _commit(lease, () {
-        if (!identical(_revisions[key], revision)) return;
+        if (!requestIsCurrent()) return;
         if (!_putTopics(
           instance.url,
           list.topics,
@@ -575,7 +673,8 @@ final class TopicFeedController extends FrameSafeNotifier {
         )) {
           return;
         }
-        final window = _window(key);
+        _touchSession(session);
+        final window = session.window;
         window.rootPath = path;
         window.pagesWithoutRows = 0;
         window.rows.clear();
@@ -588,7 +687,10 @@ final class TopicFeedController extends FrameSafeNotifier {
         if (list.nextPagePath case final nextPath?) {
           window.remember(ids.length, nextPath, maximumCursorCheckpoints);
         }
-        _feeds[key] = window.publish(TopicFeed.of(list), totalRows: ids.length);
+        session.feed = window.publish(
+          TopicFeed.of(list),
+          totalRows: ids.length,
+        );
         // Core's `trackIncoming` starts counting once the list is found, so
         // an arrival the answer already lists is not announced over it. One
         // that arrived while the request was out and that the answer missed
@@ -596,10 +698,13 @@ final class TopicFeedController extends FrameSafeNotifier {
         incoming?.clear(destinationId, [
           for (final topic in list.topics) topic.id,
         ]);
-        _rows.remove(key);
-        _incomingFilters.remove(key);
+        session.scrollRow = null;
+        session.incomingFilter = null;
         if (incomingFilterFor?.call(path, list) case final filter?) {
-          _incomingFilters[key] = filter;
+          session.incomingFilter = (
+            filter: filter,
+            order: _incomingFilterOrder++,
+          );
         }
         notifySafely();
         // Publishing can synchronously replace the account or forget the feed.
@@ -617,10 +722,10 @@ final class TopicFeedController extends FrameSafeNotifier {
       if (!requestIsCurrent()) return;
       _report(error, stackTrace, 'topics.loadFeed');
       _commit(lease, () {
-        if (!identical(_revisions[key], revision)) return;
+        if (!requestIsCurrent()) return;
         incoming?.restore(destinationId, announced);
-        final held = _feeds[key] ?? existing ?? const TopicFeed();
-        _feeds[key] = held.withError(
+        final held = session.feed ?? existing ?? const TopicFeed();
+        session.feed = held.withError(
           error.failure == SiteLookupFailure.notDiscourse
               ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
               : appL10n.couldnTReach((instance.host).toString()),
@@ -631,10 +736,10 @@ final class TopicFeedController extends FrameSafeNotifier {
       if (!requestIsCurrent()) return;
       _report(error, stackTrace, 'topics.loadFeed');
       _commit(lease, () {
-        if (!identical(_revisions[key], revision)) return;
+        if (!requestIsCurrent()) return;
         incoming?.restore(destinationId, announced);
-        final held = _feeds[key] ?? existing ?? const TopicFeed();
-        _feeds[key] = held.withError(
+        final held = session.feed ?? existing ?? const TopicFeed();
+        session.feed = held.withError(
           appL10n.couldnTLoadTopicfeedcontroller((instance.host).toString()),
         );
         notifySafely();
@@ -642,27 +747,33 @@ final class TopicFeedController extends FrameSafeNotifier {
     }
   }
 
-  void _finishLoad(_FeedKey key, Future<void> request) {
-    if (!identical(_loadRequests[key], request)) return;
-    final removed = _loadRequests.remove(key);
-    assert(identical(removed, request));
+  void _finishLoad(_FeedSession session, Future<void> request) {
+    if (!identical(_sessions[session.key], session) ||
+        !identical(session.loadRequest, request)) {
+      return;
+    }
+    session.loadRequest = null;
 
-    final pending = _pendingLoads.remove(key);
-    final waiter = _pendingLoadWaiters.remove(key);
-    if (pending == null || waiter == null || isDisposed) {
-      if (waiter != null && !waiter.isCompleted) waiter.complete();
+    final pending = session.replay;
+    session.replay = null;
+    if (pending == null || isDisposed) {
+      if (pending != null && !pending.completion.isCompleted) {
+        pending.completion.complete();
+      }
       _pruneDestinations();
       return;
     }
 
-    final replay = _startLoad(key, pending);
+    final replay = _startLoad(session, pending.load);
     unawaited(
       replay.then<void>(
         (_) {
-          if (!waiter.isCompleted) waiter.complete();
+          if (!pending.completion.isCompleted) pending.completion.complete();
         },
         onError: (Object error, StackTrace stackTrace) {
-          if (!waiter.isCompleted) waiter.completeError(error, stackTrace);
+          if (!pending.completion.isCompleted) {
+            pending.completion.completeError(error, stackTrace);
+          }
         },
       ),
     );
@@ -676,7 +787,9 @@ final class TopicFeedController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = (instance.url, destinationId);
-    final feed = _feeds[key];
+    final session = _sessions[key];
+    if (session == null) return;
+    final feed = session.feed;
     if (feed == null || feed.loadingIncoming) return;
 
     final ids = incoming.topicIds(destinationId, limit: incomingPageSize);
@@ -685,17 +798,15 @@ final class TopicFeedController extends FrameSafeNotifier {
     final personalizationVersion = readPersonalizationVersion?.call(
       instance.url,
     );
-    final feedRevision = _revisions[key];
+    final feedRevision = session.revision;
     final incomingRequest = Object();
-    (_incomingRequests[key] ??= {}).add(incomingRequest);
-    _window(key);
+    session.incomingRequests.add(incomingRequest);
+    _touchSession(session);
 
     bool requestIsCurrent() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_revisions[key], feedRevision);
+        lease.isCurrent && _sessionIsCurrent(session, feedRevision);
 
-    _feeds[key] = feed.copyWith(loadingIncoming: true);
+    session.feed = feed.copyWith(loadingIncoming: true);
     notifySafely();
 
     try {
@@ -733,16 +844,17 @@ final class TopicFeedController extends FrameSafeNotifier {
         )) {
           return;
         }
-        final held = _feeds[key] ?? feed;
+        final held = session.feed ?? feed;
         final arrived = list.topics.map((topic) => topic.id).toSet().toList();
-        final window = _window(key);
+        _touchSession(session);
+        final window = session.window;
         final previousRoot = window.checkpoints.where(
           (checkpoint) => checkpoint.row == 0,
         );
         final resumePath = previousRoot.isEmpty
             ? window.rootPath
             : previousRoot.last.path;
-        _cancelRangeRequest(key);
+        session.cancelRange();
         final totalRows = window.prepend(
           arrived,
           held.rowCount,
@@ -760,12 +872,12 @@ final class TopicFeedController extends FrameSafeNotifier {
             ),
           );
         }
-        _feeds[key] = window.publish(
+        session.feed = window.publish(
           held.copyWith(loadingIncoming: false),
           totalRows: totalRows,
         );
         incoming.clear(destinationId, ids);
-        _rows[key] = 0;
+        session.scrollRow = 0;
         notifySafely();
         if (requestIsCurrent()) {
           onFeedLoaded?.call(
@@ -786,13 +898,11 @@ final class TopicFeedController extends FrameSafeNotifier {
       );
       _commit(lease, () {
         if (!requestIsCurrent()) return;
-        _feeds[key] = (_feeds[key] ?? feed).copyWith(loadingIncoming: false);
+        session.feed = (session.feed ?? feed).copyWith(loadingIncoming: false);
         notifySafely();
       });
     } finally {
-      final requests = _incomingRequests[key];
-      requests?.remove(incomingRequest);
-      if (requests?.isEmpty == true) _incomingRequests.remove(key);
+      session.incomingRequests.remove(incomingRequest);
       _pruneDestinations();
     }
   }
@@ -803,22 +913,22 @@ final class TopicFeedController extends FrameSafeNotifier {
   }) async {
     if (isDisposed) return;
     final key = (instance.url, destinationId);
-    if (_pageRequests[key] case final pending?) {
+    final session = _sessions[key];
+    if (session == null) return;
+    if (session.pageRequest case final pending?) {
       await pending.future;
       return;
     }
-    if (_rangeRequests[key] case final range?) {
+    if (session.rangeRequest case final range?) {
       final lease = lifecycle.capture(instance.url);
-      final revision = _revisions[key];
+      final revision = session.revision;
       await range.completion.future;
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_revisions[key], revision)) {
+      if (!lease.isCurrent || !_sessionIsCurrent(session, revision)) {
         return;
       }
       return loadMore(instance: instance, destinationId: destinationId);
     }
-    final feed = _feeds[key];
+    final feed = session.feed;
     if (feed == null || feed.loading || feed.loadingMore || !feed.hasMore) {
       return;
     }
@@ -828,19 +938,17 @@ final class TopicFeedController extends FrameSafeNotifier {
     final personalizationVersion = readPersonalizationVersion?.call(
       instance.url,
     );
-    final feedRevision = _revisions[key];
+    final feedRevision = session.revision;
     final pageRequest = Completer<void>();
-    _pageRequests[key] = pageRequest;
-    _window(key);
+    session.pageRequest = pageRequest;
+    _touchSession(session);
 
     bool feedIsCurrent() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_revisions[key], feedRevision);
+        lease.isCurrent && _sessionIsCurrent(session, feedRevision);
     bool requestIsCurrent() =>
-        feedIsCurrent() && identical(_pageRequests[key], pageRequest);
+        feedIsCurrent() && identical(session.pageRequest, pageRequest);
 
-    _feeds[key] = feed.loadingNextPage();
+    session.feed = feed.loadingNextPage();
     notifySafely();
 
     try {
@@ -876,9 +984,10 @@ final class TopicFeedController extends FrameSafeNotifier {
         )) {
           return;
         }
-        final held = _feeds[key];
+        final held = session.feed;
         if (held == null) return;
-        final window = _window(key);
+        _touchSession(session);
+        final window = session.window;
         final rawIds = next.topics.map((topic) => topic.id).toList();
         final shape = _PageShape(rawIds, held.topicIds.toSet());
         final fresh = shape.resolve(rawIds);
@@ -904,7 +1013,7 @@ final class TopicFeedController extends FrameSafeNotifier {
             maximumCursorCheckpoints,
           );
         }
-        _feeds[key] = window.publish(
+        session.feed = window.publish(
           held.copyWith(
             loadingMore: false,
             nextPagePath: next.nextPagePath,
@@ -935,17 +1044,17 @@ final class TopicFeedController extends FrameSafeNotifier {
       );
       _commit(lease, () {
         if (!requestIsCurrent()) return;
-        final held = _feeds[key];
+        final held = session.feed;
         if (held != null) {
-          _feeds[key] = held.withError(
+          session.feed = held.withError(
             appL10n.couldnTLoadMoreTopicsFrom((instance.host).toString()),
             page: true,
           );
         }
       });
     } finally {
-      if (identical(_pageRequests[key], pageRequest)) {
-        _pageRequests.remove(key);
+      if (identical(session.pageRequest, pageRequest)) {
+        session.pageRequest = null;
         if (!isDisposed && lease.isCurrent) notifySafely();
       }
       if (!pageRequest.isCompleted) pageRequest.complete();
@@ -961,19 +1070,21 @@ final class TopicFeedController extends FrameSafeNotifier {
   }) {
     if (isDisposed) return Future.value();
     final key = (instance.url, destinationId);
-    final feed = _feeds[key];
-    final window = _windows[key];
-    if (feed == null || window?.rootPath == null || feed.loading) {
+    final session = _sessions[key];
+    if (session == null) return Future.value();
+    final feed = session.feed;
+    final window = session.window;
+    if (feed == null || window.rootPath == null || feed.loading) {
       return Future.value();
     }
     final first = firstRow < 0 ? 0 : firstRow;
     final last = lastRow >= feed.rowCount ? feed.rowCount - 1 : lastRow;
     if (first > last) return Future.value();
-    _window(key);
-    for (final row in window!.rows.keys.toList()) {
+    _touchSession(session);
+    for (final row in window.rows.keys.toList()) {
       if (row >= first && row <= last) window.touch(row);
     }
-    if (_rangeRequests[key] case final request?) {
+    if (session.rangeRequest case final request?) {
       if (request.pending.length >= maximumCursorCheckpoints) {
         request.pending.removeAt(0);
       }
@@ -984,8 +1095,8 @@ final class TopicFeedController extends FrameSafeNotifier {
       return Future.value();
     }
     final request = _RangeRequest()..add(first, last);
-    _rangeRequests[key] = request;
-    unawaited(_performRanges(key, instance, window, request));
+    session.rangeRequest = request;
+    unawaited(_performRanges(session, instance, request));
     return request.completion.future;
   }
 
@@ -996,30 +1107,32 @@ final class TopicFeedController extends FrameSafeNotifier {
   }) {
     if (isDisposed) return Future.value();
     final key = (instance.url, destinationId);
-    final path = _windows[key]?.rootPath;
+    final session = _sessions[key];
+    if (session == null) return Future.value();
+    final path = session.window.rootPath;
     if (path == null) return Future.value();
-    final active = _topicRequests[key];
+    final active = session.topicRequest;
     if (active?.topicId == topicId) return active!.completion.future;
-    _cancelTopicRequest(key);
+    session.cancelTopic();
     final request = _TopicRequest(topicId);
-    _topicRequests[key] = request;
-    _window(key);
-    unawaited(_performTopicRestore(key, instance, request));
+    session.topicRequest = request;
+    _touchSession(session);
+    unawaited(_performTopicRestore(session, instance, request));
     return request.completion.future;
   }
 
   Future<void> _performTopicRestore(
-    _FeedKey key,
+    _FeedSession session,
     DiscourseInstance instance,
     _TopicRequest request,
   ) async {
     final lease = lifecycle.capture(instance.url);
-    final revision = _revisions[key];
+    final revision = session.revision;
     final version = readPersonalizationVersion?.call(instance.url);
     bool feedIsCurrent() =>
-        !isDisposed && lease.isCurrent && identical(_revisions[key], revision);
+        lease.isCurrent && _sessionIsCurrent(session, revision);
     bool requestIsCurrent() =>
-        feedIsCurrent() && identical(_topicRequests[key], request);
+        feedIsCurrent() && identical(session.topicRequest, request);
     try {
       final auth = await AccountRequestSession(
         instance.url,
@@ -1064,18 +1177,11 @@ final class TopicFeedController extends FrameSafeNotifier {
         );
       }
     } finally {
-      if (identical(_topicRequests[key], request)) {
-        _topicRequests.remove(key);
+      if (identical(session.topicRequest, request)) {
+        session.topicRequest = null;
       }
       if (!request.completion.isCompleted) request.completion.complete();
       _pruneDestinations();
-    }
-  }
-
-  void _cancelTopicRequest(_FeedKey key) {
-    final request = _topicRequests.remove(key);
-    if (request != null && !request.completion.isCompleted) {
-      request.completion.complete();
     }
   }
 
@@ -1088,23 +1194,23 @@ final class TopicFeedController extends FrameSafeNotifier {
   }
 
   Future<void> _performRanges(
-    _FeedKey key,
+    _FeedSession session,
     DiscourseInstance instance,
-    _FeedWindow window,
     _RangeRequest request,
   ) async {
+    final window = session.window;
     final lease = lifecycle.capture(instance.url);
-    final revision = _revisions[key];
+    final revision = session.revision;
     final personalizationVersion = readPersonalizationVersion?.call(
       instance.url,
     );
     bool feedIsCurrent() =>
-        !isDisposed && lease.isCurrent && identical(_revisions[key], revision);
+        lease.isCurrent && _sessionIsCurrent(session, revision);
     bool requestIsCurrent() =>
-        feedIsCurrent() && identical(_rangeRequests[key], request);
+        feedIsCurrent() && identical(session.rangeRequest, request);
 
     try {
-      if (_pageRequests[key] case final page?) {
+      if (session.pageRequest case final page?) {
         await page.future;
       }
       if (!requestIsCurrent()) return;
@@ -1228,7 +1334,7 @@ final class TopicFeedController extends FrameSafeNotifier {
                 if (earlier.contains(ids[index])) start + index,
             };
             if (duplicateRows.isNotEmpty) {
-              final held = _feeds[key];
+              final held = session.feed;
               if (held == null) return;
               final count = window.removeSourceRows(
                 duplicateRows,
@@ -1236,7 +1342,7 @@ final class TopicFeedController extends FrameSafeNotifier {
               );
               shape = shape.removingRows(start, duplicateRows);
               ids = shape.resolve(rawIds);
-              _feeds[key] = window.publish(held, totalRows: count);
+              session.feed = window.publish(held, totalRows: count);
             }
             final nextPath = resumePath ?? list.nextPagePath;
             _commit(lease, () {
@@ -1249,7 +1355,7 @@ final class TopicFeedController extends FrameSafeNotifier {
               )) {
                 return;
               }
-              final held = _feeds[key];
+              final held = session.feed;
               if (held == null) return;
               window.remember(
                 start,
@@ -1275,12 +1381,12 @@ final class TopicFeedController extends FrameSafeNotifier {
               final end = start + ids.length;
               if (nextPath == null && end <= held.rowCount) {
                 window.truncate(end);
-                _feeds[key] = window.publish(
+                session.feed = window.publish(
                   held.copyWith(clearNextPage: true),
                   totalRows: end,
                 );
               } else {
-                _feeds[key] = window.publish(held);
+                session.feed = window.publish(held);
               }
               notifySafely();
               if (requestIsCurrent()) {
@@ -1314,7 +1420,7 @@ final class TopicFeedController extends FrameSafeNotifier {
           }
         }
         if (!requestIsCurrent()) return;
-        final last = (_feeds[key]?.rowCount ?? 0) - 1;
+        final last = (session.feed?.rowCount ?? 0) - 1;
         if (!_rangeIsBacked(
           instance.url,
           window,
@@ -1323,9 +1429,9 @@ final class TopicFeedController extends FrameSafeNotifier {
         )) {
           throw StateError('The requested topic range could not be restored.');
         }
-        final held = _feeds[key];
+        final held = session.feed;
         if (held != null) {
-          _feeds[key] = window.publish(held.copyWith(clearError: true));
+          session.feed = window.publish(held.copyWith(clearError: true));
         }
       }
     } catch (error, stackTrace) {
@@ -1338,16 +1444,16 @@ final class TopicFeedController extends FrameSafeNotifier {
       );
       _commit(lease, () {
         if (!requestIsCurrent()) return;
-        final held = _feeds[key];
+        final held = session.feed;
         if (held == null) return;
-        _feeds[key] = held.withError(
+        session.feed = held.withError(
           appL10n.couldnTLoadMoreTopicsFrom((instance.host).toString()),
           page: true,
         );
       });
     } finally {
-      if (identical(_rangeRequests[key], request)) {
-        _rangeRequests.remove(key);
+      if (identical(session.rangeRequest, request)) {
+        session.rangeRequest = null;
         if (!isDisposed && lease.isCurrent) notifySafely();
       }
       if (!request.completion.isCompleted) request.completion.complete();
@@ -1360,44 +1466,16 @@ final class TopicFeedController extends FrameSafeNotifier {
     return '$path${separator}topic_ids=${ids.join(',')}';
   }
 
-  void _cancelRangeRequest(_FeedKey key) {
-    final request = _rangeRequests.remove(key);
-    if (request != null && !request.completion.isCompleted) {
-      request.completion.complete();
-    }
-  }
-
-  void _cancelPageRequest(_FeedKey key) {
-    final pending = _pageRequests.remove(key);
-    if (pending != null && !pending.isCompleted) pending.complete();
-  }
-
   void forget(String siteUrl) {
-    final before = _feeds.length;
-    _feeds.removeWhere((key, _) => key.$1 == siteUrl);
+    final sessions = _sessions.values
+        .where((session) => session.key.$1 == siteUrl)
+        .toList();
+    final hadFeeds = sessions.any((session) => session.feed != null);
     _filterQueries.remove(siteUrl);
-    _revisions.removeWhere((key, _) => key.$1 == siteUrl);
-    for (final key in _pageRequests.keys.toList()) {
-      if (key.$1 == siteUrl) _cancelPageRequest(key);
+    for (final session in sessions) {
+      _retireSession(session);
     }
-    for (final key in _rangeRequests.keys.toList()) {
-      if (key.$1 == siteUrl) _cancelRangeRequest(key);
-    }
-    for (final key in _topicRequests.keys.toList()) {
-      if (key.$1 == siteUrl) _cancelTopicRequest(key);
-    }
-    _windows.removeWhere((key, _) => key.$1 == siteUrl);
-    _incomingRequests.removeWhere((key, _) => key.$1 == siteUrl);
-    _rows.removeWhere((key, _) => key.$1 == siteUrl);
-    _incomingFilters.removeWhere((key, _) => key.$1 == siteUrl);
-    _loadRequests.removeWhere((key, _) => key.$1 == siteUrl);
-    _pendingLoads.removeWhere((key, _) => key.$1 == siteUrl);
-    for (final entry in _pendingLoadWaiters.entries.toList()) {
-      if (entry.key.$1 != siteUrl) continue;
-      _pendingLoadWaiters.remove(entry.key);
-      if (!entry.value.isCompleted) entry.value.complete();
-    }
-    if (_feeds.length != before) notifySafely();
+    if (hadFeeds) notifySafely();
   }
 
   bool _putTopics(
@@ -1447,27 +1525,11 @@ final class TopicFeedController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    for (final waiter in _pendingLoadWaiters.values) {
-      if (!waiter.isCompleted) waiter.complete();
+    final sessions = _sessions.values.toList();
+    _sessions.clear();
+    for (final session in sessions) {
+      session.retire();
     }
-    _pendingLoadWaiters.clear();
-    _pendingLoads.clear();
-    _loadRequests.clear();
-    _revisions.clear();
-    for (final key in _pageRequests.keys.toList()) {
-      _cancelPageRequest(key);
-    }
-    for (final key in _rangeRequests.keys.toList()) {
-      _cancelRangeRequest(key);
-    }
-    for (final key in _topicRequests.keys.toList()) {
-      _cancelTopicRequest(key);
-    }
-    _feeds.clear();
-    _windows.clear();
-    _rows.clear();
-    _incomingFilters.clear();
-    _incomingRequests.clear();
     _filterQueries.clear();
     super.dispose();
   }
