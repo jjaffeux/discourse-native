@@ -150,6 +150,38 @@ class ForumTabsBar extends StatefulWidget {
   State<ForumTabsBar> createState() => _ForumTabsBarState();
 }
 
+typedef _TabDrop = ({ForumTabItem item, Offset pointerGlobal, int insertion});
+typedef _TabDropGeometry = ({String id, List<Rect> rects});
+
+int _insertionAt({
+  required List<Rect> rects,
+  required int itemCount,
+  required int source,
+  required double x,
+  required bool rtl,
+}) {
+  var gap = itemCount;
+  for (var index = 0; index < rects.length; index++) {
+    final center = rects[index].center.dx;
+    if (rtl ? x > center : x < center) {
+      gap = index;
+      break;
+    }
+  }
+  if (source < 0 || rects.length != itemCount) return gap;
+  final slot = rects[source];
+  if (x >= slot.left && x <= slot.right) return source;
+  if (gap == source && source > 0) return source - 1;
+  if (gap == source + 1 && source + 2 <= itemCount) return source + 2;
+  return gap;
+}
+
+int? _destinationFor(int source, int insertion) {
+  if (source < 0) return insertion;
+  if (insertion == source || insertion == source + 1) return null;
+  return source < insertion ? insertion - 1 : insertion;
+}
+
 class _ForumTabsBarState extends State<ForumTabsBar> {
   static const _tabGap = 6.0;
   static const _switcherGap = 8.0;
@@ -161,12 +193,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   final _tabRowKey = GlobalKey();
   final _tabKeys = <String, GlobalKey>{};
   final _tabsScrollController = ScrollController();
-  ForumTabItem? _dropItem;
-  int _dropIndex = 0;
-  Offset? _pointerGlobal;
-  String? _geometryTabId;
-  List<double> _tabCenters = const [];
-  List<Rect> _tabRects = const [];
+  _TabDrop? _drop;
+  _TabDropGeometry? _dropGeometry;
 
   @override
   void initState() {
@@ -207,27 +235,32 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   /// wheel still scrolls — so the slots must travel with the tabs; pointer
   /// positions and the insertion bar go through the row's current transform.
   void _captureDropGeometry(String id) {
-    if (_geometryTabId == id) return;
-    _geometryTabId = id;
+    if (_dropGeometry?.id == id) return;
     final row = _tabRow;
-    _tabRects = [
-      if (row != null)
-        for (final item in widget.items)
-          if (_tabKeys[item.id]?.currentContext?.findRenderObject()
-              case final RenderBox box)
-            box.localToGlobal(Offset.zero, ancestor: row) & box.size,
-    ];
-    _tabCenters = [for (final rect in _tabRects) rect.center.dx];
+    _dropGeometry = (
+      id: id,
+      rects: [
+        if (row != null)
+          for (final item in widget.items)
+            if (_tabKeys[item.id]?.currentContext?.findRenderObject()
+                case final RenderBox box)
+              box.localToGlobal(Offset.zero, ancestor: row) & box.size,
+      ],
+    );
   }
 
   /// A pointer held still while the strip scrolls points at another gap, so
   /// the gap and the bar marking it follow the tabs rather than the pointer's
   /// last move.
   void _followScrolledDrop() {
-    if (!mounted || (_dropItem == null && widget.incomingTab == null)) return;
+    if (!mounted || (_drop == null && widget.incomingTab == null)) return;
     setState(() {
-      if (_pointerGlobal case final pointer? when _dropItem != null) {
-        _dropIndex = _indexAt(_dropItem!.id, pointer);
+      if (_drop case final drop?) {
+        _drop = (
+          item: drop.item,
+          pointerGlobal: drop.pointerGlobal,
+          insertion: _indexAt(drop.item.id, drop.pointerGlobal),
+        );
       }
       _contents = null;
     });
@@ -237,10 +270,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     // Crossing a child DragTarget leaves and re-enters this target in one
     // pointer event. Keep the original geometry through that transition.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _dropItem == null && widget.incomingTab == null) {
-        _geometryTabId = null;
-        _tabCenters = const [];
-        _tabRects = const [];
+      if (mounted && _drop == null && widget.incomingTab == null) {
+        _dropGeometry = null;
       }
     });
   }
@@ -253,35 +284,13 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   int _indexAt(String id, Offset globalPosition) {
     final row = _tabRow;
     if (row == null) return widget.items.length;
-    final position = row.globalToLocal(globalPosition);
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    var gap = widget.items.length;
-    for (var index = 0; index < _tabCenters.length; index++) {
-      if (rtl
-          ? position.dx > _tabCenters[index]
-          : position.dx < _tabCenters[index]) {
-        gap = index;
-        break;
-      }
-    }
-    final source = widget.items.indexWhere((item) => item.id == id);
-    if (source < 0 || _tabRects.length != widget.items.length) return gap;
-    final slot = _tabRects[source];
-    if (position.dx >= slot.left && position.dx <= slot.right) return source;
-    if (gap == source && source > 0) return source - 1;
-    if (gap == source + 1 && source + 2 <= widget.items.length) {
-      return source + 2;
-    }
-    return gap;
-  }
-
-  /// Where [id] lands when dropped at gap [insertion], or null when that gap
-  /// borders the tab's own slot and dropping there would not move it.
-  int? _destinationFor(String id, int insertion) {
-    final source = widget.items.indexWhere((item) => item.id == id);
-    if (source < 0) return insertion;
-    if (insertion == source || insertion == source + 1) return null;
-    return source < insertion ? insertion - 1 : insertion;
+    return _insertionAt(
+      rects: _dropGeometry?.rects ?? const [],
+      itemCount: widget.items.length,
+      source: widget.items.indexWhere((item) => item.id == id),
+      x: row.globalToLocal(globalPosition).dx,
+      rtl: Directionality.of(context) == TextDirection.rtl,
+    );
   }
 
   /// The strip's own tabs and tabs arriving from another strip share one
@@ -299,13 +308,7 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   bool _startDrop(DragTargetDetails<String> details) {
     final item = _droppable(details.data);
     if (item == null) return false;
-    _captureDropGeometry(item.id);
-    _pointerGlobal = details.offset;
-    setState(() {
-      _dropItem = item;
-      _dropIndex = _indexAt(item.id, details.offset);
-      _contents = null;
-    });
+    _beginDrop(item, details.offset);
     return true;
   }
 
@@ -319,43 +322,41 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
       title: details.data.title,
       icon: DIcons.link,
     );
-    _captureDropGeometry(item.id);
-    _pointerGlobal = details.offset;
-    setState(() {
-      _dropItem = item;
-      _dropIndex = _indexAt(item.id, details.offset);
-      _contents = null;
-    });
+    _beginDrop(item, details.offset);
     return true;
   }
 
-  void _moveLinkDrop(DragTargetDetails<StartPageDrag> details) {
-    if (_dropItem == null) return;
-    _pointerGlobal = details.offset;
-    final index = _indexAt('incoming-start-page-link', details.offset);
-    if (index == _dropIndex) return;
+  void _beginDrop(ForumTabItem item, Offset pointerGlobal) {
+    _captureDropGeometry(item.id);
     setState(() {
-      _dropIndex = index;
+      _drop = (
+        item: item,
+        pointerGlobal: pointerGlobal,
+        insertion: _indexAt(item.id, pointerGlobal),
+      );
       _contents = null;
     });
   }
 
-  void _moveDrop(DragTargetDetails<String> details) {
-    if (_dropItem == null) return;
-    _pointerGlobal = details.offset;
-    final index = _indexAt(details.data, details.offset);
-    if (index == _dropIndex) return;
+  void _moveDropAt(String id, Offset pointerGlobal) {
+    final drop = _drop;
+    if (drop == null) return;
+    final insertion = _indexAt(id, pointerGlobal);
+    _drop = (
+      item: drop.item,
+      pointerGlobal: pointerGlobal,
+      insertion: insertion,
+    );
+    if (insertion == drop.insertion) return;
     setState(() {
-      _dropIndex = index;
       _contents = null;
     });
   }
 
   void _clearDrop() {
-    if (_dropItem == null) return;
-    _pointerGlobal = null;
+    if (_drop == null) return;
     setState(() {
-      _dropItem = null;
+      _drop = null;
       _contents = null;
     });
     _scheduleGeometryReset();
@@ -417,7 +418,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   @override
   Widget build(BuildContext context) => DragTarget<StartPageDrag>(
     onWillAcceptWithDetails: _startLinkDrop,
-    onMove: _moveLinkDrop,
+    onMove: (details) =>
+        _moveDropAt('incoming-start-page-link', details.offset),
     onLeave: (_) => _clearDrop(),
     onAcceptWithDetails: (details) {
       final index = _indexAt('incoming-start-page-link', details.offset);
@@ -426,11 +428,11 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     },
     builder: (context, links, rejectedLinks) => DragTarget<String>(
       onWillAcceptWithDetails: _startDrop,
-      onMove: _moveDrop,
+      onMove: (details) => _moveDropAt(details.data, details.offset),
       onLeave: (_) => _clearDrop(),
       onAcceptWithDetails: (details) {
         final destination = _destinationFor(
-          details.data,
+          widget.items.indexWhere((item) => item.id == details.data),
           _indexAt(details.data, details.offset),
         );
         _clearDrop();
@@ -447,19 +449,23 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   );
 
   Widget _buildContents(BuildContext context) {
-    final incoming = _dropItem ?? widget.incomingTab;
-    final insertion = _dropItem == null
-        ? widget.items.length
-        : _dropIndex.clamp(0, widget.items.length);
+    final incoming = _drop?.item ?? widget.incomingTab;
+    final insertion =
+        _drop?.insertion.clamp(0, widget.items.length) ?? widget.items.length;
+    final rects = _dropGeometry?.rects ?? const <Rect>[];
     final tabCount = widget.items.length;
     final rtl = Directionality.of(context) == TextDirection.rtl;
     double? indicatorLeft;
     if (incoming != null &&
-        _tabRects.length == tabCount &&
+        rects.length == tabCount &&
         tabCount > 0 &&
-        _destinationFor(incoming.id, insertion) != null) {
-      final previous = insertion == 0 ? null : _tabRects[insertion - 1];
-      final next = insertion == tabCount ? null : _tabRects[insertion];
+        _destinationFor(
+              widget.items.indexWhere((item) => item.id == incoming.id),
+              insertion,
+            ) !=
+            null) {
+      final previous = insertion == 0 ? null : rects[insertion - 1];
+      final next = insertion == tabCount ? null : rects[insertion];
       final position = previous == null
           ? (rtl ? next!.right + _tabGap / 2 : next!.left - _tabGap / 2)
           : next == null

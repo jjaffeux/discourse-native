@@ -17,6 +17,7 @@ import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
+import 'package:discourse_native/src/shell/start_page_drag.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
@@ -986,6 +987,158 @@ void main() {
       await tester.pumpAndSettle();
       expect(reordered, isEmpty);
     });
+
+    for (final direction in TextDirection.values) {
+      testWidgets('incoming tab keeps its geometry through leave, scroll and '
+          'reentry in $direction', (tester) async {
+        final items = [
+          for (var index = 0; index < 8; index++)
+            ForumTabItem(id: 'tab-$index', title: 'Forum tab $index'),
+        ];
+        const incoming = ForumTabItem(id: 'external', title: 'External tab');
+        final dropped = <(String, int)>[];
+        Future<void> pump({ForumTabItem? preview}) => _pumpBar(
+          tester,
+          items: items,
+          selectedId: items[4].id,
+          width: 800,
+          textDirection: direction,
+          incomingTab: preview,
+          itemForDrop: (id) => id == incoming.id ? incoming : null,
+          onDropTab: (id, index) => dropped.add((id, index)),
+          onReorder: (_, _) => fail('External tabs use onDropTab'),
+        );
+        await pump();
+        await pump(preview: incoming);
+        final target = tester.widget<DragTarget<String>>(
+          find.byWidgetPredicate((widget) => widget is DragTarget<String>),
+        );
+        Rect slot(int index) => tester.getRect(
+          find.byKey(ValueKey('forum-tab-item-${items[index].id}')),
+        );
+        final details = DragTargetDetails(
+          data: incoming.id,
+          offset: slot(4).center,
+        );
+        expect(target.onWillAcceptWithDetails!(details), isTrue);
+        await tester.pump();
+        target.onLeave!(incoming.id);
+        await tester.pump();
+
+        final indicator = find.byKey(
+          const ValueKey('forum-tab-drop-placeholder'),
+        );
+        expect(indicator, findsOneWidget);
+        final before = tester.getRect(indicator);
+        final scroll = tester
+            .state<ScrollableState>(
+              find.descendant(
+                of: find.byKey(const ValueKey('forum-tabs-scroll')),
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .position;
+        scroll.jumpTo(0);
+        await tester.pump();
+        final after = tester.getRect(indicator);
+        expect(after, isNot(before));
+        expect(
+          after.center.dx,
+          closeTo(
+            direction == TextDirection.ltr
+                ? slot(7).right + 3
+                : slot(7).left - 3,
+            .01,
+          ),
+        );
+
+        final end = DragTargetDetails(
+          data: incoming.id,
+          offset:
+              slot(7).center +
+              Offset(direction == TextDirection.ltr ? 1 : -1, 0),
+        );
+        expect(target.onWillAcceptWithDetails!(end), isTrue);
+        target.onLeave!(incoming.id);
+        expect(target.onWillAcceptWithDetails!(end), isTrue);
+        await tester.pump();
+        target.onAcceptWithDetails!(end);
+        await tester.pump();
+        expect(dropped, [(incoming.id, items.length)]);
+        expect(indicator, findsOneWidget);
+        await pump();
+        expect(indicator, findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('link drops use the displayed gap and original payload in '
+          '$direction', (tester) async {
+        const link = StartPageDrag(
+          siteUrl: 'https://meta.discourse.org',
+          path: '/t/example/42',
+          title: 'Example topic',
+        );
+        final dropped = <(StartPageDrag, int)>[];
+        await _pumpBar(
+          tester,
+          items: const [first, second, third],
+          selectedId: first.id,
+          textDirection: direction,
+          acceptsLink: (value) => identical(value, link),
+          onDropLink: (value, index) => dropped.add((value, index)),
+        );
+        final target = tester.widget<DragTarget<StartPageDrag>>(
+          find.byWidgetPredicate(
+            (widget) => widget is DragTarget<StartPageDrag>,
+          ),
+        );
+        final firstSlot = tester.getRect(
+          find.byKey(ValueKey('forum-tab-item-${first.id}')),
+        );
+        final lastSlot = tester.getRect(
+          find.byKey(ValueKey('forum-tab-item-${third.id}')),
+        );
+        final start = DragTargetDetails(
+          data: link,
+          offset: Offset(
+            direction == TextDirection.ltr ? firstSlot.left : firstSlot.right,
+            firstSlot.center.dy,
+          ),
+        );
+        expect(target.onWillAcceptWithDetails!(start), isTrue);
+        await tester.pump();
+        target.onLeave!(link);
+        expect(target.onWillAcceptWithDetails!(start), isTrue);
+        await tester.pump();
+        final end = DragTargetDetails(
+          data: link,
+          offset: Offset(
+            direction == TextDirection.ltr ? lastSlot.right : lastSlot.left,
+            lastSlot.center.dy,
+          ),
+        );
+        target.onMove!(end);
+        await tester.pump();
+        final indicator = find.byKey(
+          const ValueKey('forum-tab-drop-placeholder'),
+        );
+        expect(indicator, findsOneWidget);
+        expect(
+          tester.getCenter(indicator).dx,
+          closeTo(
+            direction == TextDirection.ltr
+                ? lastSlot.right + 3
+                : lastSlot.left - 3,
+            .01,
+          ),
+        );
+        target.onAcceptWithDetails!(end);
+        await tester.pump();
+        expect(dropped, [(link, 3)]);
+        expect(indicator, findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('show the click cursor across every tab', (tester) async {
       await _pumpBar(
@@ -2292,6 +2445,50 @@ void main() {
         expect(reordered, [(id: carried.id, newIndex: 2)]);
         expect(tester.takeException(), isNull);
       });
+
+      testWidgets('drop after stationary scrolling uses the latest same-gap '
+          'pointer in $direction', (tester) async {
+        final reordered = <(String, int)>[];
+        await _pumpBar(
+          tester,
+          items: items,
+          selectedId: items[4].id,
+          width: 500,
+          textDirection: direction,
+          onReorder: (id, index) => reordered.add((id, index)),
+        );
+        final carried = items[4];
+        final center = rectOf(tester, carried).center;
+        final drag = await tester.startGesture(
+          center - const Offset(4, 0),
+          kind: PointerDeviceKind.mouse,
+        );
+        await drag.moveTo(center);
+        await tester.pumpAndSettle();
+        final pointer =
+            center + Offset(direction == TextDirection.ltr ? 10 : -10, 0);
+        await drag.moveTo(pointer);
+        await tester.pumpAndSettle();
+        expect(indicator, findsNothing);
+
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            kind: PointerDeviceKind.mouse,
+            position: pointer,
+            scrollDelta: Offset(
+              rectOf(tester, items[2]).center.dx - (center.dx + pointer.dx) / 2,
+              0,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expectBarBetween(tester, items[2], items[3]);
+        await drag.up();
+        await tester.pumpAndSettle();
+        expect(reordered, [(carried.id, 3)]);
+        expect(indicator, findsNothing);
+        expect(tester.takeException(), isNull);
+      });
     }
   });
 
@@ -2517,6 +2714,11 @@ Future<void> _pumpBar(
   TextScaler? textScaler,
   TextDirection textDirection = TextDirection.ltr,
   bool followSelection = false,
+  ForumTabItem? incomingTab,
+  ForumTabItem? Function(String id)? itemForDrop,
+  void Function(String id, int index)? onDropTab,
+  bool Function(StartPageDrag link)? acceptsLink,
+  void Function(StartPageDrag link, int index)? onDropLink,
 }) async {
   var selected = selectedId;
   Widget child = MaterialApp(
@@ -2552,6 +2754,11 @@ Future<void> _pumpBar(
                     child: StatefulBuilder(
                       builder: (context, setState) => ForumTabsBar(
                         panel: panel,
+                        incomingTab: incomingTab,
+                        itemForDrop: itemForDrop,
+                        onDropTab: onDropTab,
+                        acceptsLink: acceptsLink,
+                        onDropLink: onDropLink,
                         onMoveToPanel: onMoveToPanel,
                         forumName: 'Discourse Meta',
                         items: items,
