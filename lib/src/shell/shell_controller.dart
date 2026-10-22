@@ -159,6 +159,7 @@ import 'user_summary_controller.dart';
 
 part 'account_new_topic_dismissals.dart';
 part 'composer_submission.dart';
+part 'core_link_navigation.dart';
 part 'notification_preference_transactions.dart';
 part 'profile_write_transactions.dart';
 part 'selected_post_moderation.dart';
@@ -1483,16 +1484,10 @@ class ShellController extends FrameSafeNotifier
     if (pluginHandled) {
       return _revealNotificationTarget();
     }
-    if (openBadgeUrl(absolute, refresh: true)) {
-      return _revealNotificationTarget();
-    }
-    if (openGroupUrl(absolute)) return _revealNotificationTarget();
-    if (_openTopicUrl(absolute, refresh: true)) {
-      return _revealNotificationTarget();
-    }
-    if (openCorePageUrl(absolute)) return _revealNotificationTarget();
-    if (openListUrl(absolute)) return _revealNotificationTarget();
-    return false;
+    final destination = _routeForLink(absolute);
+    return destination != null &&
+        _openResolvedCoreLink(destination, _CoreLinkIntent.notification) &&
+        _revealNotificationTarget();
   }
 
   /// Discourse spells the URL a push carries with `http` unless the site
@@ -5684,7 +5679,35 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  bool openTopicUrl(String url) => _openTopicUrl(url);
+  Future<bool> openInAppLink(
+    String url, {
+    String? title,
+    PluginLinkOrigin origin = PluginLinkOrigin.inApp,
+    void Function()? onNavigated,
+  }) async {
+    if (openCorePageUrl(url)) {
+      onNavigated?.call();
+      return true;
+    }
+    if (await openPluginUrl(url, origin: origin, onNavigated: onNavigated)) {
+      return true;
+    }
+    final destination = _routeForLink(url, specializedTitle: title);
+    if (destination == null || _isCorePageLink(destination.route)) return false;
+    final handled = _openResolvedCoreLink(
+      destination,
+      _CoreLinkIntent.ordinary,
+    );
+    if (handled) onNavigated?.call();
+    return handled;
+  }
+
+  bool openTopicUrl(String url) {
+    final destination = _routeForLink(url);
+    return destination != null &&
+        destination.route.destination is TopicDestination &&
+        _openResolvedCoreLink(destination, _CoreLinkIntent.ordinary);
+  }
 
   TabOpenResult openLinkInNewTab(
     String url, {
@@ -5722,9 +5745,10 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  ({ContentRoute route, String siteUrl})? _routeForLink(
+  _ResolvedCoreLink? _routeForLink(
     String url, {
     String? title,
+    String? specializedTitle,
   }) {
     final absolute = absoluteUrl(url);
     final target = Uri.tryParse(absolute);
@@ -5736,7 +5760,7 @@ class ShellController extends FrameSafeNotifier
     )?.forum;
     if (instance == null) return null;
 
-    final ContentRoute? decoded;
+    ContentRoute? decoded;
     if (const {'', '/'}.contains(instance.pathWithin(target)) &&
         !target.hasQuery &&
         !target.hasFragment) {
@@ -5749,6 +5773,10 @@ class ShellController extends FrameSafeNotifier
         defaultTopPeriod: _defaultTopPeriodFor(instance.url),
         title: title,
       );
+      if (decoded != null &&
+          (decoded.destination is BadgeDestination || decoded.isTaxonomyList)) {
+        decoded = decoded.withDisplay(title: specializedTitle);
+      }
     }
     if (decoded == null) return null;
     final category = categoryFor(decoded.categoryId, siteUrl: instance.url);
@@ -5762,88 +5790,19 @@ class ShellController extends FrameSafeNotifier
 
   bool openBadgeUrl(String url, {String? title, bool refresh = false}) {
     final destination = _routeForLink(url, title: title);
-    if (destination == null ||
-        destination.route.destination is! BadgeDestination) {
-      return false;
-    }
-    final index = _instances.indexWhere(
-      (instance) => instance.url == destination.siteUrl,
-    );
-    final instance = _instances[index];
-    final route = (destination.route.destination as BadgeDestination).route;
-    if (index != _instanceIndex) selectInstance(index);
-    final rootChanged = _setForumContentRoot();
-    if (currentContent?.badgeRoute != route) {
-      pushContent(destination.route);
-    } else if (rootChanged) {
-      _notify();
-    }
-    unawaited(badges.load(instance, route, refresh: refresh));
-    return true;
+    return destination != null &&
+        destination.route.destination is BadgeDestination &&
+        _openResolvedCoreLink(
+          destination,
+          refresh ? _CoreLinkIntent.notification : _CoreLinkIntent.ordinary,
+        );
   }
 
   bool openGroupUrl(String url) {
     final destination = _routeForLink(url);
-    if (destination == null ||
-        destination.route.destination is! GroupDestination) {
-      return false;
-    }
-    final index = _instances.indexWhere(
-      (instance) => instance.url == destination.siteUrl,
-    );
-    final route = (destination.route.destination as GroupDestination).route;
-    if (index != _instanceIndex) selectInstance(index);
-    final rootChanged = _setForumContentRoot();
-    if (currentContent?.groupRoute == route) {
-      if (rootChanged) _notify();
-      return true;
-    }
-
-    final content = destination.route;
-    pushContent(content);
-    if (content.feedPath != null) unawaited(loadFeed(content.id));
-    return true;
-  }
-
-  bool _openTopicUrl(String url, {bool refresh = false}) {
-    final destination = _routeForLink(url);
-    if (destination == null ||
-        destination.route.destination is! TopicDestination) {
-      return false;
-    }
-    final index = _instances.indexWhere(
-      (instance) => instance.url == destination.siteUrl,
-    );
-    final link = destination.route.destination as TopicDestination;
-
-    if (index != _instanceIndex) selectInstance(index);
-    final rootChanged = _setForumContentRoot();
-
-    // Posts link to the topic they are already in — every cross-post quote
-    // does — and stacking a second copy of it only costs the user a back tap,
-    // so a link naming a post moves the open reader to it instead, and a bare
-    // topic link leaves the reading position alone. A notification is
-    // different: it reports a change that happened after the post may have
-    // entered the store, so its target has to be read again.
-    if (currentContent?.topicId == link.topicId) {
-      final postNumber = refresh ? link.postNumber ?? 1 : link.postNumber;
-      if (postNumber != null) {
-        openCurrentTopicPost(postNumber, loadAroundPost: refresh);
-      } else if (rootChanged) {
-        _notify();
-      }
-      return true;
-    }
-
-    _openTopic(
-      link.topicId,
-      link.slug ?? '',
-      destination.route.title,
-      postNumber: link.postNumber,
-      force: refresh,
-      resetScrollPosition: link.postNumber != null,
-    );
-    return true;
+    return destination != null &&
+        destination.route.destination is GroupDestination &&
+        _openResolvedCoreLink(destination, _CoreLinkIntent.ordinary);
   }
 
   void openCurrentTopicPost(int postNumber, {bool loadAroundPost = false}) {
@@ -6069,57 +6028,16 @@ class ShellController extends FrameSafeNotifier
 
   bool openCorePageUrl(String url) {
     final destination = _routeForLink(url);
-    if (destination == null) return false;
-    final route = destination.route;
-    final page = ContentPageContract.resolve(route);
-    final supported = switch (page.coreUrl) {
-      CoreUrlPolicy.direct => true,
-      CoreUrlPolicy.registeredHomepage =>
-        plugins.registry.homepage(route.id) != null,
-      CoreUrlPolicy.specialized => false,
-    };
-    if (!supported) {
-      return false;
-    }
-    final index = _instances.indexWhere(
-      (instance) => instance.url == destination.siteUrl,
-    );
-    if (index < 0) return false;
-    if (index != _instanceIndex) selectInstance(index);
-    final rootChanged = _setForumContentRoot();
-    if (route.sameDestinationAs(currentContent)) {
-      _workspace.consumeHomepage(activeTabId);
-      if (rootChanged) _notify();
-      return true;
-    }
-    pushContent(route);
-    unawaited(_loadPage(focusedTabContext, route, page.urlLoad));
-    return true;
+    return destination != null &&
+        _isCorePageLink(destination.route) &&
+        _openResolvedCoreLink(destination, _CoreLinkIntent.ordinary);
   }
 
   bool openListUrl(String url, {String? title}) {
     final destination = _routeForLink(url, title: title);
-    if (destination == null || !destination.route.isTaxonomyList) return false;
-    final index = _instances.indexWhere(
-      (instance) => instance.url == destination.siteUrl,
-    );
-
-    if (index != _instanceIndex) selectInstance(index);
-    final rootChanged = _setForumContentRoot();
-
-    final route = destination.route;
-
-    if (route.sameDestinationAs(currentContent)) {
-      if (rootChanged) _notify();
-      return true;
-    }
-
-    pushContent(route);
-    // In the same turn as the push, so the main region never draws a route
-    // whose feed does not exist yet — that is the placeholder screen, and it
-    // would flash in before the list arrived.
-    unawaited(loadFeed(route.id));
-    return true;
+    return destination != null &&
+        destination.route.isTaxonomyList &&
+        _openResolvedCoreLink(destination, _CoreLinkIntent.ordinary);
   }
 
   /// Starts a speculative load after a short pointer dwell. The row releases

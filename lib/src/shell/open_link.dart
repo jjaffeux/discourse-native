@@ -61,12 +61,9 @@ Future<bool> openLink(
   }
 
   if (showUserCardForUrl(context, target, siteUrl: siteUrl)) return true;
-  if (controller?.openCorePageUrl(target) ?? false) {
-    onNavigated?.call();
-    return true;
-  }
-  if (await controller?.openPluginUrl(
+  if (await controller?.openInAppLink(
         target,
+        title: title,
         onNavigated: onNavigated,
         origin: switch ((requestedPanel, newTab)) {
           (ForumPanel.main, true) => PluginLinkOrigin.mainPanelNewTab,
@@ -78,13 +75,6 @@ Future<bool> openLink(
         },
       ) ??
       false) {
-    return true;
-  }
-  if ((controller?.openBadgeUrl(target, title: title) ?? false) ||
-      (controller?.openGroupUrl(target) ?? false) ||
-      (controller?.openTopicUrl(target) ?? false) ||
-      (controller?.openListUrl(target, title: title) ?? false)) {
-    onNavigated?.call();
     return true;
   }
   return openExternalLink(target);
