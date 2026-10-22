@@ -33,6 +33,36 @@ typedef ComposerDraftErrorReporter =
 
 typedef _DraftSessionKey = ({String siteUrl, String draftKey, Object session});
 
+enum _DraftServerPresence { unknown, createdAfterCachedCount, observed }
+
+final class _DraftKeyState {
+  int? latestGeneration;
+  _RetiredDraftSaves? retiredSaves;
+  Object? saveRequest;
+  Future<void>? operationTail;
+  Future<void>? listedDeletion;
+  int? deletedGeneration;
+  _DraftServerPresence _serverPresence = _DraftServerPresence.unknown;
+
+  bool get knownOnServer => _serverPresence != _DraftServerPresence.unknown;
+  bool get createdAfterCachedCount =>
+      _serverPresence == _DraftServerPresence.createdAfterCachedCount;
+
+  void observeServerDraft() {
+    _serverPresence = _DraftServerPresence.observed;
+  }
+
+  void savedOnServer() {
+    if (_serverPresence == _DraftServerPresence.unknown) {
+      _serverPresence = _DraftServerPresence.createdAfterCachedCount;
+    }
+  }
+
+  void forgetServerDraft() {
+    _serverPresence = _DraftServerPresence.unknown;
+  }
+}
+
 /// Owns the persistence lifecycle for composer drafts.
 ///
 /// Navigation and presentation remain in the shell. This coordinator receives
@@ -94,14 +124,7 @@ final class ComposerDraftCoordinator {
   final Expando<ComposerDraftSession> _sessions = Expando();
   final Expando<Future<bool>> _restoreTasks = Expando();
   final Map<ComposerController, Future<String?>> _discardTasks = {};
-  final Map<_DraftSessionKey, int> _latestGenerations = {};
-  final Map<_DraftSessionKey, _RetiredDraftSaves> _retiredSaves = {};
-  final Map<_DraftSessionKey, Object> _saveRequests = {};
-  final Map<_DraftSessionKey, Future<void>> _operations = {};
-  final Map<_DraftSessionKey, Future<void>> _listedDeletions = {};
-  final Map<_DraftSessionKey, int> _deletedGenerations = {};
-  final Set<_DraftSessionKey> _knownServerDrafts = {};
-  final Set<_DraftSessionKey> _draftsCreatedAfterCachedCount = {};
+  final Map<_DraftSessionKey, _DraftKeyState> _draftStates = {};
   final Map<String, int> _sequences = {};
   int _generation = 0;
 
@@ -174,15 +197,16 @@ final class ComposerDraftCoordinator {
     final lease = _lifecycle.capture(siteUrl);
     final key = (siteUrl: siteUrl, draftKey: draft.key, session: lease.session);
     final generation = _generation;
-    final recoveryGeneration = _latestGenerations[key];
+    final recoveryGeneration = _draftStates[key]?.latestGeneration;
     bool isCurrent() => !_isDisposed() && lease.isCurrent && requestIsCurrent();
     bool ownsRecovery() =>
-        isCurrent() && _latestGenerations[key] == recoveryGeneration;
+        isCurrent() &&
+        _draftStates[key]?.latestGeneration == recoveryGeneration;
 
     final task = () async {
       // A retired controller may still have a second save to enqueue. Drain
       // it before joining the same queue, without holding up its own saves.
-      await _retiredSaves[key]?.task;
+      await _draftStates[key]?.retiredSaves?.task;
       if (!isCurrent()) return;
       await _serialize<void>(key, () async {
         if (!isCurrent()) return;
@@ -237,18 +261,18 @@ final class ComposerDraftCoordinator {
         if (target != null) {
           _commitSequence(target, _readCachedSequence(target));
         }
-        _knownServerDrafts.remove(key);
-        _draftsCreatedAfterCachedCount.remove(key);
+        _draftStates[key]?.forgetServerDraft();
         // Saves which had not reached the queue must not recreate this
         // snapshot. A current composer can claim a newer generation as usual.
-        _deletedGenerations[key] = generation;
-        if (ownsRecovery()) _latestGenerations[key] = ++_generation;
+        _stateFor(key).deletedGeneration = generation;
+        if (ownsRecovery()) _stateFor(key).latestGeneration = ++_generation;
       });
     }();
-    _listedDeletions[key] = task;
+    _stateFor(key).listedDeletion = task;
     void finished() {
-      if (identical(_listedDeletions[key], task)) {
-        final _ = _listedDeletions.remove(key);
+      final state = _draftStates[key];
+      if (identical(state?.listedDeletion, task)) {
+        state!.listedDeletion = null;
       }
     }
 
@@ -304,7 +328,7 @@ final class ComposerDraftCoordinator {
     final session = _sessions[composer];
     if (session == null) return;
     final key = session._keyFor(composer.target);
-    final previous = _retiredSaves[key];
+    final previous = _draftStates[key]?.retiredSaves;
     final drain = composer.finishDraftSaves();
     final retired = _RetiredDraftSaves(
       owner: session._owner,
@@ -320,11 +344,12 @@ final class ComposerDraftCoordinator {
         await drain;
       } catch (_) {}
     }();
-    _retiredSaves[key] = retired;
+    _stateFor(key).retiredSaves = retired;
     unawaited(
       retired.task.then((_) {
-        if (identical(_retiredSaves[key], retired)) {
-          final _ = _retiredSaves.remove(key);
+        final state = _draftStates[key];
+        if (identical(state?.retiredSaves, retired)) {
+          state!.retiredSaves = null;
         }
       }),
     );
@@ -474,19 +499,11 @@ final class ComposerDraftCoordinator {
     final session = _sessions[composer];
     if (session == null) return;
     final key = session._keyFor(composer.target);
-    _knownServerDrafts.remove(key);
-    _draftsCreatedAfterCachedCount.remove(key);
+    _draftStates[key]?.forgetServerDraft();
   }
 
   void forgetSite(String siteUrl) {
-    _saveRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _operations.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _listedDeletions.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _deletedGenerations.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _retiredSaves.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _latestGenerations.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _knownServerDrafts.removeWhere((key) => key.siteUrl == siteUrl);
-    _draftsCreatedAfterCachedCount.removeWhere((key) => key.siteUrl == siteUrl);
+    _draftStates.removeWhere((key, _) => key.siteUrl == siteUrl);
     _sequences.removeWhere((key, _) => key.startsWith('$siteUrl#'));
   }
 
@@ -615,8 +632,7 @@ final class ComposerDraftCoordinator {
               ),
             );
             session._lease.commit(() {
-              _knownServerDrafts.remove(key);
-              _draftsCreatedAfterCachedCount.remove(key);
+              _draftStates[key]?.forgetServerDraft();
             });
             if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
               return false;
@@ -637,8 +653,7 @@ final class ComposerDraftCoordinator {
                 final committedSequence = _commitSequence(target, nextSequence);
                 composer.draftSequence = committedSequence;
               }
-              _knownServerDrafts.add(key);
-              _draftsCreatedAfterCachedCount.remove(key);
+              _stateFor(key).observeServerDraft();
             });
             if (!isCurrent() || !composer.discardRevisionIsCurrent(revision)) {
               return false;
@@ -721,7 +736,8 @@ final class ComposerDraftCoordinator {
           }
           final sequence = sequenceFor(target);
           final draftWasKnown =
-              _knownServerDrafts.contains(key) || _isServerDraftKnown(target);
+              (_draftStates[key]?.knownOnServer ?? false) ||
+              _isServerDraftKnown(target);
           await credential.request!.run(
             () => _draftsApi.deleteUserDraft(
               siteUrl: target.siteUrl,
@@ -752,10 +768,10 @@ final class ComposerDraftCoordinator {
             target.siteUrl,
             target.draftKey,
             knownToExist:
-                draftWasKnown && !_draftsCreatedAfterCachedCount.contains(key),
+                draftWasKnown &&
+                _draftStates[key]?.createdAfterCachedCount != true,
           );
-          _knownServerDrafts.remove(key);
-          _draftsCreatedAfterCachedCount.remove(key);
+          _draftStates[key]?.forgetServerDraft();
           composer.draftSettled();
           _close(composer);
           return true;
@@ -796,8 +812,8 @@ final class ComposerDraftCoordinator {
         ifCurrent: () =>
             save.isCurrent() &&
             session._lease.isCurrent &&
-            generation > (_deletedGenerations[key] ?? -1) &&
-            _latestGenerations[key] == generation,
+            generation > (_draftStates[key]?.deletedGeneration ?? -1) &&
+            _draftStates[key]?.latestGeneration == generation,
       ),
     );
   }
@@ -832,8 +848,10 @@ final class ComposerDraftCoordinator {
     final lease = session._lease;
     final key = session._keyFor(target);
     final generation = _claimGeneration(key, session);
-    bool ownsLatestGeneration() => _latestGenerations[key] == generation;
-    bool wasDeleted() => generation <= (_deletedGenerations[key] ?? -1);
+    bool ownsLatestGeneration() =>
+        _draftStates[key]?.latestGeneration == generation;
+    bool wasDeleted() =>
+        generation <= (_draftStates[key]?.deletedGeneration ?? -1);
 
     // Preserve the local-first durability guarantee even when an older
     // controller is still draining. Its later queued writes are generation
@@ -861,7 +879,7 @@ final class ComposerDraftCoordinator {
     if (!lease.isCurrent || !save.isCurrent()) return null;
 
     final request = Object();
-    _saveRequests[key] = request;
+    _stateFor(key).saveRequest = request;
 
     return _serialize<int?>(key, () async {
       try {
@@ -887,7 +905,8 @@ final class ComposerDraftCoordinator {
           if (save.draft.isEmpty) {
             final requestSequence = sequenceFor(target);
             final draftWasKnown =
-                _knownServerDrafts.contains(key) || _isServerDraftKnown(target);
+                (_draftStates[key]?.knownOnServer ?? false) ||
+                _isServerDraftKnown(target);
             if (draftWasKnown) {
               await credential.request!.run(
                 () => _draftsApi.deleteUserDraft(
@@ -902,7 +921,8 @@ final class ComposerDraftCoordinator {
               if (draftWasKnown) {
                 session._composer?.unappliedDraftWasOverwritten();
               }
-              if (save.isCurrent() && identical(_saveRequests[key], request)) {
+              if (save.isCurrent() &&
+                  identical(_draftStates[key]?.saveRequest, request)) {
                 if (!target.createsTopic) {
                   _writeCachedDraft(target, null, requestSequence);
                 }
@@ -911,11 +931,10 @@ final class ComposerDraftCoordinator {
                   target.draftKey,
                   knownToExist:
                       draftWasKnown &&
-                      !_draftsCreatedAfterCachedCount.contains(key),
+                      _draftStates[key]?.createdAfterCachedCount != true,
                 );
               }
-              _knownServerDrafts.remove(key);
-              _draftsCreatedAfterCachedCount.remove(key);
+              _draftStates[key]?.forgetServerDraft();
             });
             if (localFailure != null) throw localFailure;
             return null;
@@ -944,10 +963,9 @@ final class ComposerDraftCoordinator {
               committedSequence = _commitSequence(target, sequence);
             }
             session._composer?.unappliedDraftWasOverwritten();
-            if (_knownServerDrafts.add(key)) {
-              _draftsCreatedAfterCachedCount.add(key);
-            }
-            if (!save.isCurrent() || !identical(_saveRequests[key], request)) {
+            _stateFor(key).savedOnServer();
+            if (!save.isCurrent() ||
+                !identical(_draftStates[key]?.saveRequest, request)) {
               return;
             }
 
@@ -968,7 +986,7 @@ final class ComposerDraftCoordinator {
               ifCurrent: () =>
                   save.isCurrent() &&
                   ownsLatestGeneration() &&
-                  identical(_saveRequests[key], request) &&
+                  identical(_draftStates[key]?.saveRequest, request) &&
                   lease.commit(() {}),
             );
           }
@@ -979,8 +997,9 @@ final class ComposerDraftCoordinator {
           rethrow;
         }
       } finally {
-        if (identical(_saveRequests[key], request)) {
-          _saveRequests.remove(key);
+        final state = _draftStates[key];
+        if (identical(state?.saveRequest, request)) {
+          state!.saveRequest = null;
         }
       }
     });
@@ -1000,7 +1019,7 @@ final class ComposerDraftCoordinator {
 
     bool isCurrent() => lease.isCurrent && _isCurrent(composer);
 
-    final deletion = _listedDeletions[key];
+    final deletion = _draftStates[key]?.listedDeletion;
     if (deletion != null) {
       try {
         await deletion;
@@ -1008,7 +1027,7 @@ final class ComposerDraftCoordinator {
       } catch (_) {}
       if (!isCurrent()) return true;
     }
-    final deletedGeneration = _deletedGenerations[key];
+    final deletedGeneration = _draftStates[key]?.deletedGeneration;
     if (listedDraft != null) {
       composer.draftSequence = _commitSequence(
         target,
@@ -1066,8 +1085,8 @@ final class ComposerDraftCoordinator {
       }
     }
     if (!isCurrent()) return true;
-    if (_listedDeletions.containsKey(key) ||
-        _deletedGenerations[key] != deletedGeneration) {
+    if (_draftStates[key]?.listedDeletion != null ||
+        _draftStates[key]?.deletedGeneration != deletedGeneration) {
       return _restoreDraft(
         composer,
         startingRevision: startingRevision,
@@ -1091,8 +1110,7 @@ final class ComposerDraftCoordinator {
       if (session != null &&
           (remote != null || cached != null || listedDraft != null)) {
         final key = session._keyFor(target);
-        _knownServerDrafts.add(key);
-        _draftsCreatedAfterCachedCount.remove(key);
+        _stateFor(key).observeServerDraft();
       }
       if (!composer.canRestoreDraft(draft)) {
         composer.protectUnappliedDraft(draft, wasLocal: local != null);
@@ -1182,6 +1200,9 @@ final class ComposerDraftCoordinator {
     return committedSequence;
   }
 
+  _DraftKeyState _stateFor(_DraftSessionKey key) =>
+      _draftStates.putIfAbsent(key, _DraftKeyState.new);
+
   int _claimGeneration(_DraftSessionKey key, ComposerDraftSession session) {
     // A retained tab can become the latest writer again after another tab
     // used the same server draft key. Retired controllers keep their last
@@ -1190,9 +1211,9 @@ final class ComposerDraftCoordinator {
       session._generation = ++_generation;
     }
     final generation = session._generation;
-    final current = _latestGenerations[key];
+    final current = _draftStates[key]?.latestGeneration;
     if (current == null || generation > current) {
-      _latestGenerations[key] = generation;
+      _stateFor(key).latestGeneration = generation;
     }
     return generation;
   }
@@ -1201,7 +1222,7 @@ final class ComposerDraftCoordinator {
     ComposerTarget target,
     ComposerDraftSession session,
   ) async {
-    final latest = _retiredSaves[session._keyFor(target)];
+    final latest = _draftStates[session._keyFor(target)]?.retiredSaves;
     if (latest == null) return;
 
     // A retiring controller waits behind older controllers, but not behind
@@ -1230,17 +1251,18 @@ final class ComposerDraftCoordinator {
     _DraftSessionKey key,
     Future<T> Function() operation,
   ) {
-    final previous = _operations[key] ?? Future<void>.value();
+    final previous = _draftStates[key]?.operationTail ?? Future<void>.value();
     final result = previous.then<T>((_) => operation());
     final tail = result.then<void>(
       (_) {},
       onError: (Object _, StackTrace _) {},
     );
-    _operations[key] = tail;
+    _stateFor(key).operationTail = tail;
     unawaited(
       tail.then((_) {
-        if (identical(_operations[key], tail)) {
-          final _ = _operations.remove(key);
+        final state = _draftStates[key];
+        if (identical(state?.operationTail, tail)) {
+          state!.operationTail = null;
         }
       }),
     );

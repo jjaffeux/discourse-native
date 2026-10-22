@@ -643,8 +643,9 @@ void main() {
     expect(harness.cachedDraft, isNull);
     expect(harness.coordinator.sequenceFor(_replyTarget), 5);
     expect(
-      ComposerDraft.decode(await harness.localStore.read(_siteUrl, 'topic_7'))
-          ?.reply,
+      ComposerDraft.decode(
+        await harness.localStore.read(_siteUrl, 'topic_7'),
+      )?.reply,
       'Replacement recovery',
     );
   });
