@@ -64,7 +64,7 @@ The driver saves full frame data to `build/integration_response_data.json`.
 Keep the first opening separate from the five repeated openings. Alternate
 baseline and candidate runs when comparing them. Frame batches are filtered by
 the measured action's timestamps. Assertions check that the composer, category,
-tags, and toolbar mount and that the composer builds once.
+tags, and toolbar mount.
 
 The fixture mocks text input and applies keyboard insets of 80, 160, 240, and 320
 logical pixels. It measures Flutter frame work for those layout updates. It does
