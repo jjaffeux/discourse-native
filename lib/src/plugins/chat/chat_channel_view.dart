@@ -6,7 +6,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
-    show ValueListenable, precisionErrorTolerance;
+    show ValueListenable, listEquals, precisionErrorTolerance;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:flutter/scheduler.dart';
@@ -20,6 +20,7 @@ import 'chat_controller.dart';
 import 'chat_message.dart';
 import 'chat_message_tile.dart';
 import 'chat_pinned_bar.dart';
+import 'chat_preview.dart';
 import 'chat_route.dart';
 import 'chat_scroll_layout_observer.dart';
 import 'chat_services.dart';
@@ -1870,6 +1871,7 @@ class _StreamState extends State<ChatMessageStream>
                       key: ValueKey((siteUrl, widget.target, id)),
                       recent: _recentMessages,
                       index: row,
+                      messages: [chat.messageRef(siteUrl, id)],
                       child: ConstrainedBox(
                         // Reserve hover overflow only when the live-edge row is short.
                         constraints: BoxConstraints(
@@ -1933,6 +1935,13 @@ class _StreamState extends State<ChatMessageStream>
                     )),
                     recent: _recentMessages,
                     index: row,
+                    messages:
+                        messageIds.every(_expandedDeletedMessageIds.contains)
+                        ? [
+                            for (final id in messageIds)
+                              chat.messageRef(siteUrl, id),
+                          ]
+                        : const [],
                     child: _DeletedRun(
                       siteUrl: siteUrl,
                       messageIds: messageIds,
@@ -2923,19 +2932,55 @@ class _ChatMessageVisibleBounds {
 // the full history. The sliver still builds no offscreen rows in advance.
 class _RecentChatMessages {
   static const capacity = 24;
-  final _rows = <_RetainedChatMessageState>{};
+  static const largeBodyCapacity = 3;
+  static const characterCapacity = 256 * 1024;
+  final _rows =
+      <_RetainedChatMessageState, ({int characters, int largeBodies})>{};
   final _mountedRows = <_RetainedChatMessageState>{};
   double? _lastPixels;
 
   void add(_RetainedChatMessageState row) {
     _mountedRows.add(row);
-    _rows.add(row);
-    if (_rows.length > capacity) {
-      final oldest = _rows.first;
-      _rows.remove(oldest);
-      // Mounting a new sliver child can happen during layout. Release the old
-      // keep-alive after that frame, outside the sliver's layout/build lock.
-      WidgetsBinding.instance.addPostFrameCallback((_) => oldest.release());
+    _rows[row] = row._weight;
+    _trim(row);
+  }
+
+  void updateWeight(_RetainedChatMessageState row) {
+    final previous = _rows[row];
+    if (previous == null) return;
+    final weight = row._weight;
+    if (previous == weight) return;
+    _rows[row] = weight;
+    _trim(row);
+  }
+
+  void _trim(_RetainedChatMessageState changed) {
+    final weight = _rows[changed]!;
+    if (weight.characters > characterCapacity ||
+        weight.largeBodies > largeBodyCapacity) {
+      _rows.remove(changed);
+      changed.release();
+      return;
+    }
+    var characters = 0;
+    var largeBodies = 0;
+    for (final weight in _rows.values) {
+      characters += weight.characters;
+      largeBodies += weight.largeBodies;
+    }
+    while (largeBodies > largeBodyCapacity) {
+      final oldestLarge = _rows.keys.firstWhere(
+        (row) => _rows[row]!.largeBodies > 0,
+      );
+      final removed = _rows.remove(oldestLarge)!;
+      characters -= removed.characters;
+      largeBodies -= removed.largeBodies;
+      oldestLarge.release();
+    }
+    while (_rows.length > capacity || characters > characterCapacity) {
+      final oldest = _rows.keys.first;
+      characters -= _rows.remove(oldest)!.characters;
+      oldest.release();
     }
   }
 
@@ -2947,7 +2992,7 @@ class _RecentChatMessages {
     if (jumped) {
       // Release the old window before mounting the destination where possible.
       // Otherwise its rich trees increase GC work throughout rapid traversal.
-      final previous = _rows.toList();
+      final previous = _rows.keys.toList();
       _rows.clear();
       for (final row in previous) {
         row.release();
@@ -3011,10 +3056,12 @@ class _RetainedChatMessage extends StatefulWidget {
     super.key,
     required this.recent,
     required this.index,
+    required this.messages,
     required this.child,
   });
   final _RecentChatMessages recent;
   final int index;
+  final List<ValueListenable<ChatMessage?>> messages;
   final Widget child;
   @override
   State<_RetainedChatMessage> createState() => _RetainedChatMessageState();
@@ -3039,7 +3086,48 @@ class _RetainedChatMessageState extends State<_RetainedChatMessage>
   @override
   void initState() {
     super.initState();
+    for (final message in widget.messages) {
+      message.addListener(_updateWeight);
+    }
     widget.recent.add(this);
+  }
+
+  ({int characters, int largeBodies}) get _weight {
+    var characters = 0;
+    var largeBodies = 0;
+    for (final ref in widget.messages) {
+      final message = ref.value;
+      if (message == null) continue;
+      final html = message.canonicalReceived
+          ? message.cooked
+          : message.provisionalCooked;
+      if (html != null) {
+        characters += html.length;
+        if (CookedHtml.buildsAsynchronously(html)) largeBodies++;
+      } else {
+        characters += switch (message.preview) {
+          ProjectedPreview(:final document) => document.source.length,
+          _ => message.optimisticRaw?.length ?? 0,
+        };
+      }
+    }
+    return (characters: characters, largeBodies: largeBodies);
+  }
+
+  void _updateWeight() => widget.recent.updateWeight(this);
+
+  @override
+  void didUpdateWidget(covariant _RetainedChatMessage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.messages, widget.messages)) {
+      for (final message in oldWidget.messages) {
+        message.removeListener(_updateWeight);
+      }
+      for (final message in widget.messages) {
+        message.addListener(_updateWeight);
+      }
+    }
+    _updateWeight();
   }
 
   void setVisible(bool visible) {
@@ -3069,6 +3157,9 @@ class _RetainedChatMessageState extends State<_RetainedChatMessage>
 
   @override
   void dispose() {
+    for (final message in widget.messages) {
+      message.removeListener(_updateWeight);
+    }
     widget.recent.remove(this);
     _focus.dispose();
     super.dispose();

@@ -58,7 +58,8 @@ void main() {
               axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
         ),
       );
-      final position = tester.state<ScrollableState>(scrollable).position;
+      ScrollPosition position() =>
+          tester.state<ScrollableState>(scrollable).position;
       final gifRows = find
           .byType(ChatMessageTile)
           .evaluate()
@@ -139,7 +140,7 @@ void main() {
       final visibleBuilds = builds;
       expect(visibleBuilds, greaterThan(0));
       for (var i = 0; i < 8; i++) {
-        position.pointerScroll(150);
+        position().pointerScroll(150);
         await frames(1);
       }
       expect(tile.mounted, isTrue);
@@ -170,7 +171,7 @@ void main() {
       expect(tester.binding.transientCallbackCount, 0);
       expect(tester.binding.hasScheduledFrame, isFalse);
       for (var i = 0; i < 8; i++) {
-        position.pointerScroll(-150);
+        position().pointerScroll(-150);
         await frames(1);
       }
       await frames(4);
@@ -207,12 +208,13 @@ void main() {
       expect(completer.hasListeners, isFalse);
       for (final delta in [150.0, -150.0]) {
         for (var i = 0; i < 8; i++) {
-          position.pointerScroll(delta);
+          position().pointerScroll(delta);
           await frames(1);
         }
       }
       expect(tile.mounted, isTrue);
       expect(completer.hasListeners, isFalse);
+      await frames(3);
       builds = 0;
       await frames(10);
       expect(builds, 0);
@@ -222,7 +224,7 @@ void main() {
       builds = 0;
       await frames(10);
       expect(builds, greaterThan(0));
-      position.jumpTo(position.maxScrollExtent);
+      position().jumpTo(position().maxScrollExtent);
       await frames(4);
       expect(tile.mounted, isFalse);
       expect(gifRows.where((row) => row.mounted), isEmpty);
