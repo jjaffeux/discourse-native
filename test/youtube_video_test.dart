@@ -329,6 +329,41 @@ void main() {
       expect(tester.getSize(player).height, 200);
     });
 
+    testWidgets('fills the 16:9 frame with the poster thumbnail', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 480,
+                child: YoutubeVideo(
+                  data: YoutubeVideoData(
+                    videoId: 'dQw4w9WgXcQ',
+                    listId: null,
+                    title: 'A useful video',
+                    thumbnailUrl:
+                        'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+                    startSeconds: null,
+                    endSeconds: null,
+                    loop: false,
+                  ),
+                  siteUrl: null,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getRect(find.byType(SiteImage)),
+        const Rect.fromLTWH(0, 8, 480, 270),
+      );
+    });
+
     testWidgets('composites the macOS player in the root overlay', (
       tester,
     ) async {
