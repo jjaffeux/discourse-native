@@ -365,6 +365,8 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   bool _open = false;
   T? _highlighted;
   bool _syncingText = false;
+  String? _pendingSelectionText;
+  int _anchorInputs = 0;
   double? _anchorWidth;
 
   DCombobox<T> get combobox => widget as DCombobox<T>;
@@ -499,7 +501,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
           !combobox.multiple &&
           combobox.query == null) {
         final selected = combobox.controlledValues.firstOrNull;
-        _syncTextAfterUpdate(selected == null ? '' : labelFor(selected));
+        _showSelection(
+          selected == null ? '' : labelFor(selected),
+          afterUpdate: true,
+        );
       }
     }
     if (combobox.query case final controlledQuery?
@@ -540,6 +545,18 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     });
   }
 
+  // An input in the anchor shows the selection as soon as it changes. One
+  // inside the popup is still painting the popup's exit, so it takes the
+  // selection as the popup opens again.
+  void _showSelection(String text, {bool afterUpdate = false}) {
+    if (_anchorInputs == 0) {
+      _pendingSelectionText = text;
+      return;
+    }
+    _pendingSelectionText = null;
+    afterUpdate ? _syncTextAfterUpdate(text) : _replaceText(text);
+  }
+
   void _replaceText(String text) {
     _syncingText = true;
     textController.value = TextEditingValue(
@@ -577,6 +594,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       return;
     }
     _measureAnchor();
+    if (open && _pendingSelectionText != null) {
+      _replaceText(_pendingSelectionText!);
+      _pendingSelectionText = null;
+    }
     if (combobox.open == null) _open = open;
     combobox.onOpenChanged?.call(open, reason);
     if (open && combobox.autoHighlight && highlightedValue == null) {
@@ -584,7 +605,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     }
     if (!open && reason == DComboboxChangeReason.escape && !combobox.multiple) {
       final selected = selectedValues.firstOrNull;
-      _replaceText(selected == null ? '' : labelFor(selected));
+      _showSelection(selected == null ? '' : labelFor(selected));
     }
     setState(() {});
     _controller._changed();
@@ -698,7 +719,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
           combobox.query == null) {
         // An unchanged controlled value never reaches didUpdateWidget's sync,
         // which would otherwise replace the typed filter with the label.
-        _syncTextAfterUpdate(labelFor(option.value));
+        _showSelection(labelFor(option.value), afterUpdate: true);
       }
       _requestOpen(!combobox.closeOnSelect, reason);
     }
@@ -822,6 +843,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   void reset() {
     super.reset();
     if (!combobox.controlled) setValue(_resetValues);
+    _pendingSelectionText = null;
     _replaceText(_resetQuery);
     combobox.onQueryChanged?.call(_resetQuery, DComboboxChangeReason.formReset);
     if (combobox.multiple) {
@@ -1128,11 +1150,45 @@ class DComboboxInput<T> extends StatelessWidget {
       ),
     );
     if (!registerAsAnchor || root.combobox.content.isInline) return input;
-    return DPopoverTrigger(
-      focusNode: root.focusNode,
-      builder: (context, state) => input,
+    return _AnchorInput<T>(
+      child: DPopoverTrigger(
+        focusNode: root.focusNode,
+        builder: (context, state) => input,
+      ),
     );
   }
+}
+
+class _AnchorInput<T> extends StatefulWidget {
+  const _AnchorInput({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_AnchorInput<T>> createState() => _AnchorInputState<T>();
+}
+
+class _AnchorInputState<T> extends State<_AnchorInput<T>> {
+  _DComboboxState<T>? _root;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final root = _DComboboxScope.of<T>(context);
+    if (identical(root, _root)) return;
+    _root?._anchorInputs--;
+    root._anchorInputs++;
+    _root = root;
+  }
+
+  @override
+  void dispose() {
+    _root?._anchorInputs--;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _ComboboxTextEditor<T> extends StatelessWidget {
