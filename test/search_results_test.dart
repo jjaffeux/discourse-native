@@ -116,6 +116,114 @@ void main() {
       },
     );
 
+    test('retains whitespace ownership at highlight boundaries', () {
+      final cases = <String, List<(String, bool)>>{
+        'left<span class="search-highlight"> right</span>': [
+          ('left', false),
+          (' right', true),
+        ],
+        'left <span class="search-highlight">right</span>': [
+          ('left ', false),
+          ('right', true),
+        ],
+        '<span class="search-highlight">left </span>right': [
+          ('left', true),
+          (' right', false),
+        ],
+        '<span class="search-highlight">left </span>'
+            '<span class="search-highlight">right</span>': [
+          ('left right', true),
+        ],
+        'left<span class="search-highlight"> \t</span>'
+            '<span class="search-highlight"> right</span>': [
+          ('left', false),
+          (' right', true),
+        ],
+        '<span class="search-highlight">left </span> \t'
+            '<span class="search-highlight"> right</span>': [
+          ('left right', true),
+        ],
+      };
+
+      for (final entry in cases.entries) {
+        final excerpt = SearchExcerpt.fromHtml(entry.key);
+        expect(
+          excerpt.segments.map((part) => (part.text, part.highlighted)),
+          entry.value,
+          reason: entry.key,
+        );
+      }
+    });
+
+    test('drops empty and edge whitespace-only highlights', () {
+      final excerpt = SearchExcerpt.fromHtml(
+        ' \t<span class="search-highlight"> \n</span>'
+        'left<span class="search-highlight"> \t</span>right'
+        '<span class="search-highlight"> \n</span> \t',
+      );
+
+      expect(excerpt.plainText, 'left right');
+      expect(excerpt.segments.map((part) => (part.text, part.highlighted)), [
+        ('left right', false),
+      ]);
+      expect(SearchExcerpt.fromHtml(' \t\n').segments, isEmpty);
+      expect(
+        SearchExcerpt.fromHtml(
+          '<span class="search-highlight"> \t</span>',
+        ).segments,
+        isEmpty,
+      );
+    });
+
+    test('preserves Unicode text while collapsing Unicode whitespace', () {
+      final excerpt = SearchExcerpt.fromHtml(
+        '\u00a0A\u1680\u2000\u2001\u2002\u2003\u2004\u2005'
+        '\u2006\u2007\u2008\u2009\u200aB\u2028\u2029'
+        '\u202f\u205f\u3000\ufeff'
+        '<span class="search-highlight">😀\u00a0𐐷</span>'
+        '\u200b\u0085\u180e\u3000',
+      );
+
+      expect(excerpt.plainText, 'A B 😀 𐐷\u200b\u0085\u180e');
+      expect(excerpt.segments.map((part) => (part.text, part.highlighted)), [
+        ('A B ', false),
+        ('😀 𐐷', true),
+        ('\u200b\u0085\u180e', false),
+      ]);
+    });
+
+    test(
+      'retains parser replacement of isolated surrogates and valid pairs',
+      () {
+        final excerpt = SearchExcerpt.fromHtml(
+          'before \ud800x\udc00 '
+          '<span class="search-highlight">😀\ud800 \udc00𐐷</span> after',
+        );
+
+        expect(excerpt.segments.map((part) => (part.text, part.highlighted)), [
+          ('before \ufffdx\ufffd ', false),
+          ('😀\ufffd \ufffd𐐷', true),
+          (' after', false),
+        ]);
+      },
+    );
+
+    test('returns immutable segments', () {
+      final excerpt = SearchExcerpt.fromHtml(
+        'left <span class="search-highlight">right</span>',
+      );
+
+      expect(
+        () => excerpt.segments.add(const SearchExcerptSegment('changed')),
+        throwsUnsupportedError,
+      );
+      expect(
+        () => excerpt.segments[0] = const SearchExcerptSegment('changed'),
+        throwsUnsupportedError,
+      );
+      expect(excerpt.plainText, 'left right');
+    });
+
     test('bounds oversized excerpt HTML before parsing it', () {
       final retained = List.filled(
         SearchExcerpt.maxHtmlSourceCodeUnits,

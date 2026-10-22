@@ -466,7 +466,7 @@ class SearchExcerpt {
 
   static const int maxHtmlSourceCodeUnits = 8 * 1024;
 
-  static final RegExp _whitespace = RegExp(r'\s');
+  static final RegExp _whitespace = RegExp(r'\s+');
 
   factory SearchExcerpt.fromHtml(String source) {
     if (source.isEmpty) return const SearchExcerpt([]);
@@ -550,13 +550,26 @@ class SearchExcerpt {
     var pendingSegment = -1;
     for (var segmentIndex = 0; segmentIndex < raw.length; segmentIndex++) {
       final segment = raw[segmentIndex];
-      for (final rune in segment.text.toString().runes) {
-        final character = String.fromCharCode(rune);
-        if (_whitespace.hasMatch(character)) {
-          pendingSpace = normalized.isNotEmpty || normalizedText != null;
-          pendingSegment = segmentIndex;
-          continue;
+      final text = segment.text.toString();
+      var runStart = 0;
+      for (final whitespace in _whitespace.allMatches(text)) {
+        if (whitespace.start > runStart) {
+          if (pendingSpace) {
+            appendNormalized(
+              ' ',
+              pendingSegment == segmentIndex && segment.highlighted,
+            );
+          }
+          appendNormalized(
+            text.substring(runStart, whitespace.start),
+            segment.highlighted,
+          );
         }
+        pendingSpace = normalized.isNotEmpty || normalizedText != null;
+        pendingSegment = segmentIndex;
+        runStart = whitespace.end;
+      }
+      if (runStart < text.length) {
         if (pendingSpace) {
           appendNormalized(
             ' ',
@@ -564,7 +577,7 @@ class SearchExcerpt {
           );
         }
         pendingSpace = false;
-        appendNormalized(character, segment.highlighted);
+        appendNormalized(text.substring(runStart), segment.highlighted);
       }
     }
     flushNormalized();
