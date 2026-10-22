@@ -57,7 +57,7 @@ void main() {
     search.configure(
       capabilities: GlobalSearchCapabilities(
         contributions: [contribution],
-        enabledContributions: {'mutable'},
+        enabledContributions: const {'mutable'},
       ),
     );
     search.setQuery('widget:value');
@@ -165,7 +165,7 @@ void main() {
       search.configure(
         capabilities: GlobalSearchCapabilities(
           contributions: [contribution],
-          enabledContributions: {'mutable'},
+          enabledContributions: const {'mutable'},
         ),
       );
       search.addCondition(
