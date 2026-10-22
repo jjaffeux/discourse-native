@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/material_surface.dart';
+import '../foundation/material_theme.dart';
 import '../foundation/tokens.dart';
 import 'd_item.dart';
 
@@ -21,6 +22,11 @@ enum DCardVariant {
   /// the raised accent surface with an opaque fill.
   /// Compose with chrome-density primary buttons and no outer border.
   primaryCapsule,
+
+  /// Tools floating over scrolling content, as the mobile dock does. Liquid
+  /// glass paints the stock material, whose rim replaces the outline. The
+  /// Standard material and reduced transparency keep the [capsule] well.
+  floatingCapsule,
 }
 
 /// A passive surface. Actions, selection, loading and errors belong to children.
@@ -166,7 +172,10 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
 
     final tokens = DTokens.of(context);
     final primaryCapsule = variant == DCardVariant.primaryCapsule;
-    final capsule = variant == DCardVariant.capsule || primaryCapsule;
+    final floatingCapsule = variant == DCardVariant.floatingCapsule;
+    final floatingGlass = floatingCapsule && DMaterialTheme.glassOf(context);
+    final capsule =
+        variant == DCardVariant.capsule || floatingCapsule || primaryCapsule;
     final compactCapsule = capsule && size == DCardSize.small;
     final surfaceColor =
         backgroundColor ??
@@ -206,6 +215,8 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
         BorderRadius.circular(capsule ? DRadius.pill : DRadius.panel);
     final depth = primaryCapsule
         ? DSurfaceDepth.primaryCapsule
+        : floatingGlass
+        ? DSurfaceDepth.raised
         : capsule || variant == DCardVariant.well
         ? DSurfaceDepth.recessed
         : child is Expanded
@@ -238,7 +249,7 @@ class _DCardState extends AnimatedWidgetBaseState<DCard> {
                 position: DecorationPosition.foreground,
                 decoration: BoxDecoration(
                   borderRadius: radius,
-                  border: border && !dashedBorder
+                  border: border && !dashedBorder && !floatingGlass
                       ? Border.all(color: borderColor ?? tokens.border)
                       : null,
                 ),

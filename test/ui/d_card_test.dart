@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+
+import '../support/stock_glass.dart';
 
 Widget host(
   Widget child, {
@@ -164,6 +167,109 @@ void main() {
       expect(presses, 2);
     },
   );
+
+  group('floating capsule', () {
+    const captureKey = ValueKey('floating-capsule');
+    final glass = find.descendant(
+      of: find.byType(DCard),
+      matching: find.byType(LiquidGlass),
+    );
+
+    Future<List<int>> paint(
+      WidgetTester tester,
+      DCardVariant variant, {
+      required DAppearanceMaterial material,
+      bool highContrast = false,
+      bool border = true,
+    }) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: DMaterialTheme.apply(
+            ThemeData(platform: TargetPlatform.iOS),
+            material,
+          ),
+          home: MediaQuery(
+            data: MediaQueryData(highContrast: highContrast),
+            child: Scaffold(
+              body: Center(
+                child: RepaintBoundary(
+                  key: captureKey,
+                  child: SizedBox(
+                    width: 200,
+                    child: DCard(
+                      variant: variant,
+                      border: border,
+                      spacing: 0,
+                      child: const SizedBox(height: 44),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(captureKey),
+      );
+      return (await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          final bytes = await image.toByteData(format: ImageByteFormat.rawRgba);
+          return bytes!.buffer.asUint8List().toList();
+        } finally {
+          image.dispose();
+        }
+      }))!;
+    }
+
+    testWidgets('floats on stock glass whose rim replaces the outline', (
+      tester,
+    ) async {
+      final outlined = await paint(
+        tester,
+        DCardVariant.floatingCapsule,
+        material: DAppearanceMaterial.liquidGlass,
+      );
+      expectStockGlass(tester, glass.first);
+      final bare = await paint(
+        tester,
+        DCardVariant.floatingCapsule,
+        material: DAppearanceMaterial.liquidGlass,
+        border: false,
+      );
+      expect(outlined, bare);
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final (material, highContrast) in [
+      (DAppearanceMaterial.standard, false),
+      (DAppearanceMaterial.standard, true),
+      (DAppearanceMaterial.liquidGlass, true),
+    ]) {
+      testWidgets(
+        'keeps the capsule well ($material, high contrast $highContrast)',
+        (tester) async {
+          final floating = await paint(
+            tester,
+            DCardVariant.floatingCapsule,
+            material: material,
+            highContrast: highContrast,
+          );
+          expect(glass, findsNothing);
+          final capsule = await paint(
+            tester,
+            DCardVariant.capsule,
+            material: material,
+            highContrast: highContrast,
+          );
+          expect(floating, capsule);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  });
 
   testWidgets(
     'desktop footer palette matches CSS fill and hairline across themes',

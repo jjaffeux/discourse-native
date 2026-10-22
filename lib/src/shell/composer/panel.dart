@@ -5001,7 +5001,7 @@ class _Footer extends StatelessWidget {
                       : context.isTouch
                       ? DCard(
                           key: const ValueKey('composer-toolbar-bar'),
-                          variant: DCardVariant.capsule,
+                          variant: DCardVariant.floatingCapsule,
                           spacing: 0,
                           child: toolbar,
                         )

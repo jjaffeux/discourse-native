@@ -12,9 +12,11 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/stock_glass.dart';
 
 const _captureKey = ValueKey('mobile-sheet-capture');
 
@@ -137,9 +139,13 @@ void main() {
           ShellScope(
             controller: controller,
             child: MaterialApp(
-              theme: AppTheme.forBrightness(
-                brightness,
-              ).copyWith(platform: TargetPlatform.iOS),
+              // iOS always selects the glass material.
+              theme: DMaterialTheme.apply(
+                AppTheme.forBrightness(
+                  brightness,
+                ).copyWith(platform: TargetPlatform.iOS),
+                DAppearanceMaterial.liquidGlass,
+              ),
               home: const RepaintBoundary(
                 key: _captureKey,
                 child: AdaptiveShell(),
@@ -150,11 +156,17 @@ void main() {
         await controller.openNewTopicFromSidebar();
         await tester.pumpAndSettle();
         expect(find.byType(ComposerPanel), findsOneWidget);
+        final toolbarBar = find.byKey(const ValueKey('composer-toolbar-bar'));
         expect(
-          tester
-              .widget<DCard>(find.byKey(const ValueKey('composer-toolbar-bar')))
-              .variant,
-          DCardVariant.capsule,
+          tester.widget<DCard>(toolbarBar).variant,
+          DCardVariant.floatingCapsule,
+        );
+        expect(DMaterialTheme.glassOf(tester.element(toolbarBar)), isTrue);
+        expectStockGlass(
+          tester,
+          find
+              .descendant(of: toolbarBar, matching: find.byType(LiquidGlass))
+              .first,
         );
         final panelContext = tester.element(find.byType(ComposerPanel));
         final background = Theme.of(panelContext).shell.content;
