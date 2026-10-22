@@ -363,14 +363,18 @@ final class _MetadataSelection {
     List<Map<String, Object?>> layers, {
     Set<String> references = const {},
   }) {
-    final keys = {for (final layer in layers) ...layer.keys}.toList()..sort();
+    final keys =
+        {for (final layer in layers) ...layer.keys}
+            .where(
+              (key) =>
+                  _raw.contains(key.split('::').first.toLowerCase()) ||
+                  references.contains(key),
+            )
+            .toList()
+          ..sort();
     final selected = <String, Object?>{};
     var bytes = 0;
     for (final key in keys) {
-      if (!_raw.contains(key.split('::').first.toLowerCase()) &&
-          !references.contains(key)) {
-        continue;
-      }
       final value = layers.lastWhere((layer) => layer.containsKey(key))[key];
       final cost = utf8.encode(jsonEncode({key: value})).length;
       if (cost > 8192 ||

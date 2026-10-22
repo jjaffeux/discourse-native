@@ -243,6 +243,174 @@ void main() {
   );
 
   test(
+    'selection preserves token matching, layer precedence and fresh values',
+    () {
+      final app = ApplicationCooking(
+        plugins: PluginInstaller.install(const PluginManifest([])),
+        service: _Service(),
+      );
+      addTearDown(app.dispose);
+      final lease = app.captureUploads('https://a', '1');
+      app.ingestUploads(lease, {
+        'upload://a': {'url': '/CDN.PNG'},
+      });
+      app.ingestMetadata(
+        lease,
+        CookingCachedMetadata(
+          mentions: {
+            'sam': const CookingMention(
+              username: 'stored',
+              href: '/u/stored',
+              kind: CookingMentionKind.user,
+            ),
+            'bob': const CookingMention(
+              username: 'stored-bob',
+              href: '/u/bob',
+              kind: CookingMentionKind.user,
+            ),
+          },
+        ),
+      );
+      final supplied = CookingCachedMetadata(
+        mentions: {
+          'sam': const CookingMention(
+            username: 'supplied',
+            href: '/u/supplied',
+            kind: CookingMentionKind.user,
+          ),
+        },
+        media: {
+          '/CDN.PNG': const CookingMedia(
+            thumbnailUrl: '/thumb.png',
+            videoBase62Sha1: 'video',
+          ),
+          '/cdn.png': const CookingMedia(
+            thumbnailUrl: '/unreferenced.png',
+            videoBase62Sha1: 'other',
+          ),
+        },
+      );
+      final legacy = <String, Object?>{
+        'sam': 'legacy',
+        'bob': 'legacy',
+        'MiXeD::user': 'before',
+        '::empty-prefix': true,
+        '': true,
+        'unused': Object(),
+      };
+      CookingRequest request() => app.request(
+        siteUrl: 'https://a',
+        accountId: '1',
+        raw: 'MIXED @SAM @BOB upload://a',
+        config: const SiteConfig(),
+        cachedMetadata: supplied,
+        mentions: legacy,
+      );
+      final first = request();
+      expect(first.snapshot.mentions.keys, [
+        '',
+        '::empty-prefix',
+        'MiXeD::user',
+        'bob',
+        'sam',
+      ]);
+      expect(first.snapshot.mentions['sam'], supplied.snapshot.mentions['sam']);
+      expect(
+        (first.snapshot.mentions['bob']! as Map)['username'],
+        'stored-bob',
+      );
+      expect(first.snapshot.media.keys, ['/CDN.PNG']);
+      legacy['MiXeD::user'] = 'after';
+      expect(first.snapshot.mentions['MiXeD::user'], 'before');
+      expect(request().snapshot.mentions['MiXeD::user'], 'after');
+      legacy['MiXeD::user'] = Object();
+      expect(request, throwsA(isA<JsonUnsupportedObjectError>()));
+    },
+  );
+
+  test(
+    'selection applies exact UTF-8 entry, field and count limits in key order',
+    () {
+      final app = ApplicationCooking(
+        plugins: PluginInstaller.install(const PluginManifest([])),
+        service: _Service(),
+      );
+      addTearDown(app.dispose);
+      final entries = <String, Object?>{
+        'hit::05': true,
+        for (final i in [4, 3, 2, 1])
+          'hit::0$i': _entryWithBytes('hit::0$i', 8192),
+        'hit::00': _entryWithBytes('hit::00', 8193),
+        'unused': Object(),
+      };
+      final bounded = app.request(
+        siteUrl: 'https://a',
+        accountId: '1',
+        raw: 'HIT',
+        config: const SiteConfig(),
+        mentions: entries,
+      );
+      expect(bounded.snapshot.mentions.keys, [
+        'hit::01',
+        'hit::02',
+        'hit::03',
+        'hit::04',
+      ]);
+      final counted = app.request(
+        siteUrl: 'https://a',
+        accountId: '1',
+        raw: 'hit',
+        config: const SiteConfig(),
+        customEmoji: {
+          for (var i = 128; i >= 0; i--)
+            'hit::${i.toString().padLeft(3, '0')}': true,
+        },
+      );
+      expect(counted.snapshot.customEmoji.keys, [
+        for (var i = 0; i < 128; i++) 'hit::${i.toString().padLeft(3, '0')}',
+      ]);
+    },
+  );
+
+  test(
+    'selection reserves policy bytes before the exact aggregate boundary',
+    () {
+      final app = ApplicationCooking(
+        plugins: PluginInstaller.install(const PluginManifest([])),
+        service: _Service(),
+      );
+      addTearDown(app.dispose);
+      final fullField = {
+        for (var i = 1; i <= 4; i++)
+          'hit::0$i': _entryWithBytes('hit::0$i', 8192),
+      };
+      final request = app.request(
+        siteUrl: 'https://a',
+        accountId: '1',
+        raw: 'hit',
+        config: const SiteConfig(),
+        mentions: fullField,
+        hashtags: fullField,
+        customEmoji: {
+          'hit::06': true,
+          'hit::05': _entryWithBytes('hit::05', 7993),
+          'hit::04': _entryWithBytes('hit::04', 7994),
+          for (var i = 3; i >= 1; i--)
+            'hit::0$i': _entryWithBytes('hit::0$i', 8192),
+        },
+      );
+      expect(request.snapshot.mentions.keys, fullField.keys);
+      expect(request.snapshot.hashtags.keys, fullField.keys);
+      expect(request.snapshot.customEmoji.keys, [
+        'hit::01',
+        'hit::02',
+        'hit::03',
+        'hit::05',
+      ]);
+    },
+  );
+
+  test(
     'upload leases reject account races; snapshots select bounded metadata',
     () async {
       final service = _Service();
@@ -329,6 +497,11 @@ void main() {
     );
     expect(httpClients, 0);
   });
+}
+
+String _entryWithBytes(String key, int bytes) {
+  final payloadBytes = bytes - utf8.encode(jsonEncode({key: ''})).length;
+  return '${'é' * (payloadBytes ~/ 2)}${'x' * (payloadBytes % 2)}';
 }
 
 final class _Service implements CookingServicePort {
