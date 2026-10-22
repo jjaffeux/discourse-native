@@ -40,6 +40,7 @@ import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
@@ -2760,6 +2761,55 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  _mobileTest(
+    'Topics is titled by its feed and Filters flows with the other filters',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      final title = find.byKey(const ValueKey('topic-list-title'));
+      final row = find.byKey(const ValueKey('topic-list-feed-row'));
+      final tags = find.byKey(const ValueKey('topic-list-tag-filter'));
+      final filters = find.byWidgetPredicate(
+        (widget) => widget is TopicListFilterMenu && widget.filterKey == null,
+      );
+      void expectFiltersFollowTags() {
+        final tag = tester.getRect(tags);
+        final filter = tester.getRect(filters);
+        expect(
+          filter.top > tag.top ||
+              (filter.top == tag.top && filter.left > tag.right),
+          isTrue,
+          reason: 'Filters at $filter must follow Tags at $tag',
+        );
+      }
+
+      expect(tester.widget<Text>(title).data, 'Latest topics');
+      expectFiltersFollowTags();
+
+      await shell.selectTopicListMode(TopicListMode.newActivity);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(title).data, 'New topics');
+
+      shell.openCategory(
+        const TopicCategory(
+          id: 42,
+          name: 'Support',
+          slug: 'support',
+          color: '3188CC',
+        ),
+      );
+      await tester.pumpAndSettle();
+      final bell = tester.getRect(find.byType(CategoryNotificationLevelButton));
+      expect(bell.right, tester.getRect(row).right);
+      expect(
+        bell.top,
+        tester.getRect(find.byKey(const ValueKey('topic-list-feed-menu'))).top,
+      );
+      expectFiltersFollowTags();
+      expect(tester.getRect(filters).right, lessThan(bell.left));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   _mobileTest(
     'creation actions adapt their labels and remain inside the dock at every width',

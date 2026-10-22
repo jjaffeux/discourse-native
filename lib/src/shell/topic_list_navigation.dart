@@ -198,6 +198,16 @@ class _TopicListNavigationControls extends StatelessWidget {
         identical(ShellScope.read(context), controller) &&
         tab.isCurrent &&
         _filterOwner(controller, tab) == owner;
+    final filterMenu =
+        controller.mobileNavigationEnabled &&
+            state.siteUrl != null &&
+            state.route?.isMessages != true
+        ? TopicListFilterMenu(
+            key: ValueKey((state.siteUrl, state.route!.id)),
+            siteUrl: state.siteUrl!,
+            query: controller.topicListFilterEditorQuery(state.route!),
+          )
+        : null;
     final filters = !showsFilters
         ? null
         : TopicListFilterBar(
@@ -212,6 +222,7 @@ class _TopicListNavigationControls extends StatelessWidget {
             inline: true,
             wrap: true,
             leading: showsTabs ? navigation : null,
+            trailing: filterMenu,
             siteUrl: state.siteUrl!,
             filterQuery: controller.topicListFilterEditorQuery(state.route!),
             categories: state.categories,
@@ -276,6 +287,9 @@ class _TopicListNavigationControls extends StatelessWidget {
                   final wrap =
                       constraints.maxWidth < 600 &&
                       MediaQuery.textScalerOf(context).scale(14) > 21;
+                  // The filters wrap among themselves; a control that is not
+                  // a filter stands beside them instead of being stranded on
+                  // a run of its own.
                   final primary = Wrap(
                     spacing: DSpacing.sm,
                     runSpacing: 8,
@@ -283,8 +297,10 @@ class _TopicListNavigationControls extends StatelessWidget {
                     children: [
                       if (filters != null)
                         filters
-                      else if (showsTabs)
-                        navigation,
+                      else ...[
+                        if (showsTabs) navigation,
+                        ?filterMenu,
+                      ],
                     ],
                   );
                   final actions = <Widget>[
@@ -302,16 +318,6 @@ class _TopicListNavigationControls extends StatelessWidget {
                         size: DButtonSize.filter,
                         quiet: true,
                         showChevron: !controller.mobileNavigationEnabled,
-                      ),
-                    if (controller.mobileNavigationEnabled &&
-                        state.siteUrl != null &&
-                        state.route?.isMessages != true)
-                      TopicListFilterMenu(
-                        key: ValueKey((state.siteUrl, state.route!.id)),
-                        siteUrl: state.siteUrl!,
-                        query: controller.topicListFilterEditorQuery(
-                          state.route!,
-                        ),
                       ),
                     ?trailing,
                   ];

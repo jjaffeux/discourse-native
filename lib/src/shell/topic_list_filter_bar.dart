@@ -37,6 +37,7 @@ class TopicListFilterBar extends StatefulWidget {
     this.selectedTagNames,
     this.onTagsSelected,
     this.leading,
+    this.trailing,
     this.maxCategoryNesting = SiteConfig.defaultMaxCategoryNesting,
     this.filterQuery,
   });
@@ -55,6 +56,7 @@ class TopicListFilterBar extends StatefulWidget {
   final List<String>? selectedTagNames;
   final ValueChanged<List<String>>? onTagsSelected;
   final Widget? leading;
+  final Widget? trailing;
   final int maxCategoryNesting;
   final String? filterQuery;
 
@@ -225,7 +227,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
             spacing: DSpacing.sm,
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
-            children: [?widget.leading, ...controlChildren],
+            children: [?widget.leading, ...controlChildren, ?widget.trailing],
           )
         : Row(
             mainAxisSize: MainAxisSize.min,
@@ -240,6 +242,10 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
                   Flexible(child: controlChildren[index])
                 else
                   controlChildren[index],
+              ],
+              if (widget.trailing != null) ...[
+                const SizedBox(width: DSpacing.sm),
+                widget.trailing!,
               ],
             ],
           );
