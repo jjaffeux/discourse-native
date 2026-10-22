@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -38,7 +37,7 @@ abstract final class NativeGlass {
   static final _images = <_RenderNativeGlassContent, int>{};
   static bool _probed = false;
   static bool _ticking = false;
-  static String? _sent;
+  static Map<String, Object?>? _sent;
 
   static void _probe() {
     if (_probed || kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) {
@@ -101,12 +100,33 @@ abstract final class NativeGlass {
   static void _send(Map<String, Object?> scene) {
     // Hosts without system glass never showed anything to hide.
     if (_sent == null && scene['visible'] != true) return;
-    final encoded = jsonEncode(scene);
-    if (encoded == _sent) return;
-    _sent = encoded;
+    if (_sameScene(scene, _sent)) return;
+    _sent = scene;
     unawaited(
       channel.invokeMethod<void>('scene', scene).catchError((Object _) {}),
     );
+  }
+
+  static bool _sameScene(Object? a, Object? b) {
+    if (identical(a, b)) return true;
+    if (a is List<Object?> && b is List<Object?>) {
+      if (a.length != b.length) return false;
+      for (var i = 0; i < a.length; i++) {
+        if (!_sameScene(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    if (a is Map<String, Object?> && b is Map<String, Object?>) {
+      if (a.length != b.length) return false;
+      for (final entry in a.entries) {
+        if (!b.containsKey(entry.key) ||
+            !_sameScene(entry.value, b[entry.key])) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return a == b;
   }
 
   static int _compare(List<int> a, List<int> b) {
