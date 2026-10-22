@@ -161,6 +161,7 @@ part 'account_new_topic_dismissals.dart';
 part 'composer_submission.dart';
 part 'notification_preference_transactions.dart';
 part 'profile_write_transactions.dart';
+part 'selected_post_moderation.dart';
 part 'shell_tab_context.dart';
 part 'taxonomy_directory_controller.dart';
 part 'workspace_controller.dart';
@@ -9695,20 +9696,23 @@ class ShellController extends FrameSafeNotifier
       value.replaceAll(RegExp('[“”]'), '"').replaceAll(RegExp('[‘’]'), "'");
 
   bool topicPostSelectionEnabled(String siteUrl, int topicId) =>
-      _topicPostSelections.containsKey(_topicKey(siteUrl, topicId));
+      _selectedPosts.containsKey((siteUrl: siteUrl, topicId: topicId));
 
   Set<int> selectedTopicPostIds(String siteUrl, int topicId) =>
       Set.unmodifiable(
-        _topicPostSelections[_topicKey(siteUrl, topicId)] ?? const <int>{},
+        _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.ids ??
+            const <int>{},
       );
 
   bool isTopicPostSelected(String siteUrl, int topicId, int postId) =>
-      _topicPostSelections[_topicKey(siteUrl, topicId)]?.contains(postId) ??
+      _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.ids.contains(
+        postId,
+      ) ??
       false;
 
   List<Post> selectedTopicPosts(String siteUrl, int topicId) {
     final detail = store.read<TopicDetail>(siteUrl, topicId);
-    final selected = _topicPostSelections[_topicKey(siteUrl, topicId)];
+    final selected = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.ids;
     if (detail == null || selected == null || selected.isEmpty) return const [];
     return List.unmodifiable([
       for (final id in detail.stream)
@@ -9717,18 +9721,18 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool topicPostSelectionWriteInFlight(String siteUrl, int topicId) =>
-      _topicPostSelectionWrites.contains(_topicKey(siteUrl, topicId));
+      _selectedPosts[(siteUrl: siteUrl, topicId: topicId)]?.active != null;
 
   void setTopicPostSelectionEnabled(String siteUrl, int topicId, bool enabled) {
-    final key = _topicKey(siteUrl, topicId);
+    final key = (siteUrl: siteUrl, topicId: topicId);
     if (enabled) {
       final topic = store.read<TopicDetail>(siteUrl, topicId);
       if (topic == null || !topic.canSelectPosts) return;
-      if (_topicPostSelections.containsKey(key)) return;
-      _topicPostSelections[key] = <int>{};
+      if (_selectedPosts.containsKey(key)) return;
+      _selectedPosts[key] = _SelectedPostsSelection();
     } else {
-      if (_topicPostSelectionWrites.contains(key) ||
-          _topicPostSelections.remove(key) == null) {
+      if (_selectedPosts[key]?.active != null ||
+          _selectedPosts.remove(key) == null) {
         return;
       }
     }
@@ -9736,32 +9740,30 @@ class ShellController extends FrameSafeNotifier
   }
 
   void toggleTopicPostSelected(String siteUrl, int topicId, int postId) {
-    final key = _topicKey(siteUrl, topicId);
-    final selected = _topicPostSelections[key];
+    final selection = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)];
     final topic = store.read<TopicDetail>(siteUrl, topicId);
-    if (selected == null ||
+    if (selection == null ||
         topic == null ||
         !topic.canSelectPosts ||
-        _topicPostSelectionWrites.contains(key) ||
+        selection.active != null ||
         !topic.stream.contains(postId) ||
         store.read<Post>(siteUrl, postId) == null) {
       return;
     }
-    if (!selected.remove(postId)) selected.add(postId);
+    if (!selection.ids.remove(postId)) selection.ids.add(postId);
     _notify();
   }
 
   void selectAllLoadedTopicPosts(String siteUrl, int topicId) {
-    final key = _topicKey(siteUrl, topicId);
-    final selected = _topicPostSelections[key];
+    final selection = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)];
     final topic = store.read<TopicDetail>(siteUrl, topicId);
-    if (selected == null ||
+    if (selection == null ||
         topic == null ||
         !topic.canSelectPosts ||
-        _topicPostSelectionWrites.contains(key)) {
+        selection.active != null) {
       return;
     }
-    selected
+    selection.ids
       ..clear()
       ..addAll(
         topic.stream.where((id) => store.read<Post>(siteUrl, id) != null),
@@ -9770,49 +9772,40 @@ class ShellController extends FrameSafeNotifier
   }
 
   void clearSelectedTopicPosts(String siteUrl, int topicId) {
-    final key = _topicKey(siteUrl, topicId);
-    final selected = _topicPostSelections[key];
-    if (selected == null ||
-        selected.isEmpty ||
-        _topicPostSelectionWrites.contains(key)) {
+    final selection = _selectedPosts[(siteUrl: siteUrl, topicId: topicId)];
+    if (selection == null ||
+        selection.ids.isEmpty ||
+        selection.active != null) {
       return;
     }
-    selected.clear();
+    selection.ids.clear();
     _notify();
   }
 
   Future<PostMutationOutcome> deleteSelectedTopicPosts(
     String siteUrl,
     int topicId,
-  ) {
+  ) async {
     final posts = selectedTopicPosts(siteUrl, topicId);
     final topic = store.read<TopicDetail>(siteUrl, topicId);
     if (topic == null ||
         !topic.canSelectPosts ||
         posts.isEmpty ||
         posts.any((post) => !post.canDelete)) {
-      return Future.value(
-        const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.invalidTarget),
-        ),
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.invalidTarget),
       );
     }
-    return _mutateSelectedTopicPosts(
-      siteUrl,
-      topicId,
+    return (await _runSelectedPosts(
+      _DeleteSelectedPosts(siteUrl, topicId, lifecycle.capture(siteUrl)),
       posts,
-      (apiKey, ids) => api.postMutations.deletePosts(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postIds: ids,
-      ),
-    );
+    )).outcome;
   }
 
   Future<PostMutationOutcome> mergeSelectedTopicPosts(
     String siteUrl,
     int topicId,
-  ) {
+  ) async {
     final posts = selectedTopicPosts(siteUrl, topicId);
     final topic = store.read<TopicDetail>(siteUrl, topicId);
     if (topic == null ||
@@ -9820,22 +9813,14 @@ class ShellController extends FrameSafeNotifier
         posts.length < 2 ||
         posts.any((post) => !post.canDelete) ||
         posts.map((post) => post.username).toSet().length != 1) {
-      return Future.value(
-        const PostMutationNotSent(
-          PostMutationProblem(PostMutationProblemKind.invalidTarget),
-        ),
+      return const PostMutationNotSent(
+        PostMutationProblem(PostMutationProblemKind.invalidTarget),
       );
     }
-    return _mutateSelectedTopicPosts(
-      siteUrl,
-      topicId,
+    return (await _runSelectedPosts(
+      _MergeSelectedPosts(siteUrl, topicId, lifecycle.capture(siteUrl)),
       posts,
-      (apiKey, ids) => api.postMutations.mergePosts(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        postIds: ids,
-      ),
-    );
+    )).outcome;
   }
 
   TopicPostMoveTarget captureTopicPostMoveTarget(String siteUrl, int topicId) =>
@@ -10003,45 +9988,19 @@ class ShellController extends FrameSafeNotifier
         targetCurrent: true,
       );
     }
-    void invalidateDestination() => target._lease.commit(
-      () => _topicData
-          .forLease(siteUrl, target._lease)
-          ?.refreshWhenOpened(destinationTopicId),
-    );
-    String? destinationUrl;
-    final outcome = await _mutateSelectedTopicPosts(
-      siteUrl,
-      topicId,
+    final settlement = await _runSelectedPosts(
+      _MoveSelectedPostsToExisting(
+        target,
+        destinationTopicId,
+        chronologicalOrder: chronologicalOrder,
+      ),
       posts,
-      (apiKey, ids) async {
-        try {
-          destinationUrl = await api.postMutations.movePosts(
-            siteUrl: siteUrl,
-            apiKey: apiKey,
-            topicId: topicId,
-            postIds: ids,
-            destinationTopicId: destinationTopicId,
-            chronologicalOrder: chronologicalOrder,
-            privateMessage: target.privateMessage,
-          );
-        } on WriteException catch (error) {
-          if (error.failure == WriteFailure.unreachable && !error.notSent) {
-            invalidateDestination();
-          }
-          rethrow;
-        } catch (_) {
-          invalidateDestination();
-          rethrow;
-        }
-        invalidateDestination();
-      },
-      lease: target._lease,
-      validate: () => _topicPostMoveBlock(target, postIds: ids),
     );
+    final outcome = settlement.outcome;
     final current = isTopicPostMoveTargetCurrent(target);
     return PostMoveOutcome(
       current ? outcome : _retiredPostMutation(outcome),
-      destinationUrl: destinationUrl,
+      destinationUrl: settlement.destinationUrl,
       targetCurrent: current,
     );
   }
@@ -10066,30 +10025,20 @@ class ShellController extends FrameSafeNotifier
         targetCurrent: true,
       );
     }
-    String? destinationUrl;
-    final outcome = await _mutateSelectedTopicPosts(
-      siteUrl,
-      topicId,
+    final settlement = await _runSelectedPosts(
+      _MoveSelectedPostsToNew(
+        target,
+        title: title,
+        categoryId: categoryId,
+        tagIds: tagIds,
+      ),
       posts,
-      (apiKey, ids) async {
-        destinationUrl = await api.postMutations.movePosts(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          topicId: topicId,
-          postIds: ids,
-          title: title,
-          categoryId: categoryId,
-          tagIds: tagIds,
-          privateMessage: target.privateMessage,
-        );
-      },
-      lease: target._lease,
-      validate: () => _topicPostMoveBlock(target, postIds: ids, newTopic: true),
     );
+    final outcome = settlement.outcome;
     final current = isTopicPostMoveTargetCurrent(target);
     return PostMoveOutcome(
       current ? outcome : _retiredPostMutation(outcome),
-      destinationUrl: destinationUrl,
+      destinationUrl: settlement.destinationUrl,
       targetCurrent: current,
     );
   }
@@ -10119,20 +10068,11 @@ class ShellController extends FrameSafeNotifier
     if (_topicPostOwnerRefusal(target, ids, trimmed) case final refusal?) {
       return refusal;
     }
-    final outcome = await _mutateSelectedTopicPosts(
-      target.siteUrl,
-      target.topicId,
+    final settlement = await _runSelectedPosts(
+      _ChangeSelectedPostsOwner(target, trimmed),
       posts,
-      (apiKey, ids) => api.postMutations.changePostOwners(
-        siteUrl: target.siteUrl,
-        apiKey: apiKey,
-        topicId: target.topicId,
-        postIds: ids,
-        username: trimmed,
-      ),
-      lease: target._lease,
-      validate: () => _topicPostOwnerRefusal(target, ids, trimmed),
     );
+    final outcome = settlement.outcome;
     return _ownsTopicPostOwnerTarget(target)
         ? outcome
         : _retiredPostMutation(outcome);
@@ -11011,8 +10951,7 @@ class ShellController extends FrameSafeNotifier
         _topicData.forSite(targetSite).postWriting(postId);
   }
 
-  final Map<String, Set<int>> _topicPostSelections = {};
-  final Set<String> _topicPostSelectionWrites = {};
+  final Map<_SelectedPostsKey, _SelectedPostsSelection> _selectedPosts = {};
   final Set<String> _topicFlagWrites = {};
 
   @override
@@ -11366,82 +11305,218 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<PostMutationOutcome> _mutateSelectedTopicPosts(
-    String siteUrl,
-    int topicId,
-    List<Post> posts,
-    Future<void> Function(String apiKey, List<int> ids) write, {
-    SiteLease? lease,
-    PostMutationOutcome? Function()? validate,
-  }) async {
-    lease ??= lifecycle.capture(siteUrl);
+  PostMutationOutcome? _selectedPostsDispatchBlock(
+    _SelectedPostsCommand command,
+    List<int> ids,
+  ) => switch (command) {
+    _MoveSelectedPostsToExisting(:final target) => _topicPostMoveBlock(
+      target,
+      postIds: ids,
+    ),
+    _MoveSelectedPostsToNew(:final target) => _topicPostMoveBlock(
+      target,
+      postIds: ids,
+      newTopic: true,
+    ),
+    _ChangeSelectedPostsOwner(:final target, :final username) =>
+      _topicPostOwnerRefusal(target, ids, username),
+    _DeleteSelectedPosts() || _MergeSelectedPosts() => null,
+  };
+
+  Future<String?> _sendSelectedPosts(
+    _SelectedPostsAttempt attempt,
+    String apiKey,
+  ) async {
+    final command = attempt.command;
+    final siteUrl = command.siteUrl;
+    final topicId = command.topicId;
+    final ids = attempt.postIds;
+    switch (command) {
+      case _DeleteSelectedPosts():
+        await api.postMutations.deletePosts(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          postIds: ids,
+        );
+        return null;
+      case _MergeSelectedPosts():
+        await api.postMutations.mergePosts(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          postIds: ids,
+        );
+        return null;
+      case _MoveSelectedPostsToExisting(
+        :final target,
+        :final destinationTopicId,
+        :final chronologicalOrder,
+      ):
+        void invalidateDestination() => command.lease.commit(
+          () => attempt.data.refreshWhenOpened(destinationTopicId),
+        );
+        final String destinationUrl;
+        try {
+          destinationUrl = await api.postMutations.movePosts(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            topicId: topicId,
+            postIds: ids,
+            destinationTopicId: destinationTopicId,
+            chronologicalOrder: chronologicalOrder,
+            privateMessage: target.privateMessage,
+          );
+        } on WriteException catch (error) {
+          if (error.failure == WriteFailure.unreachable && !error.notSent) {
+            invalidateDestination();
+          }
+          rethrow;
+        } catch (_) {
+          invalidateDestination();
+          rethrow;
+        }
+        invalidateDestination();
+        return destinationUrl;
+      case _MoveSelectedPostsToNew(
+        :final target,
+        :final title,
+        :final categoryId,
+        :final tagIds,
+      ):
+        return api.postMutations.movePosts(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          topicId: topicId,
+          postIds: ids,
+          title: title,
+          categoryId: categoryId,
+          tagIds: tagIds,
+          privateMessage: target.privateMessage,
+        );
+      case _ChangeSelectedPostsOwner(:final username):
+        await api.postMutations.changePostOwners(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          topicId: topicId,
+          postIds: ids,
+          username: username,
+        );
+        return null;
+    }
+  }
+
+  Future<({PostMutationOutcome outcome, String? destinationUrl})>
+  _runSelectedPosts(_SelectedPostsCommand command, List<Post> posts) async {
+    final siteUrl = command.siteUrl;
+    final topicId = command.topicId;
+    final lease = command.lease;
     final data = _topicData.forLease(siteUrl, lease);
-    if (data == null || isDisposed) return const PostMutationRetired();
-    if (validate?.call() case final refusal?) return refusal;
+    if (data == null || isDisposed) {
+      return (outcome: const PostMutationRetired(), destinationUrl: null);
+    }
     final ids = List<int>.unmodifiable(posts.map((post) => post.id));
+    if (_selectedPostsDispatchBlock(command, ids) case final refusal?) {
+      return (outcome: refusal, destinationUrl: null);
+    }
     final unresolved = data.moderationRecoveryFor(topicId, ids);
     if (unresolved != null) {
-      return PostMutationNotSent.recoveryRequired(unresolved);
-    }
-    final key = _topicKey(siteUrl, topicId);
-    if (_topicPostSelectionWrites.contains(key) || ids.any(data.postWriting)) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.busyPost),
+      return (
+        outcome: PostMutationNotSent.recoveryRequired(unresolved),
+        destinationUrl: null,
       );
     }
-    _topicPostSelectionWrites.add(key);
-    final releases = [
-      for (final id in ids) data.holdPostWrite(id, notifyOnRelease: false),
-    ];
+    final selection = _selectedPosts[command.key]!;
+    if (selection.active != null || ids.any(data.postWriting)) {
+      return (
+        outcome: const PostMutationNotSent(
+          PostMutationProblem(PostMutationProblemKind.busyPost),
+        ),
+        destinationUrl: null,
+      );
+    }
+    final attempt = _SelectedPostsAttempt(
+      command: command,
+      selection: selection,
+      postIds: ids,
+      data: data,
+      releases: [
+        for (final id in ids) data.holdPostWrite(id, notifyOnRelease: false),
+      ],
+    );
+    selection.active = attempt;
     _notify();
-    var clearSelection = false;
+    PostMutationOutcome outcome = const PostMutationRetired();
+    String? destinationUrl;
+    ({PostMutationOutcome outcome, String? destinationUrl}) settle(
+      PostMutationOutcome settled,
+    ) {
+      outcome = settled;
+      return (outcome: settled, destinationUrl: destinationUrl);
+    }
+
     try {
-      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
-      if (validate?.call() case final refusal?) return refusal;
+      if (!data.isCurrent || isDisposed) return settle(outcome);
+      if (_selectedPostsDispatchBlock(command, attempt.postIds)
+          case final refusal?) {
+        return settle(refusal);
+      }
       final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!data.isCurrent || isDisposed) return const PostMutationRetired();
-      if (validate?.call() case final refusal?) return refusal;
+      if (!data.isCurrent || isDisposed) return settle(outcome);
+      if (_selectedPostsDispatchBlock(command, attempt.postIds)
+          case final refusal?) {
+        return settle(refusal);
+      }
       if (credential.failure case final failure?) {
-        return PostMutationNotSent(_postMutationProblem(failure));
+        return settle(PostMutationNotSent(_postMutationProblem(failure)));
       }
       var sent = false;
       try {
-        await credential.request!.run(() {
+        destinationUrl = await credential.request!.run(() {
           sent = true;
-          return write(credential.apiKey!, ids);
+          return _sendSelectedPosts(attempt, credential.apiKey!);
         });
       } catch (error, stackTrace) {
-        final outcome = await _failedPostMutation(
-          data,
-          topicId,
-          ids,
-          credential.apiKey,
-          error,
-          stackTrace,
-          sent: sent,
+        return settle(
+          await _failedPostMutation(
+            data,
+            topicId,
+            attempt.postIds,
+            credential.apiKey,
+            error,
+            stackTrace,
+            sent: sent,
+          ),
         );
-        clearSelection = outcome is PostMutationUncertain;
-        return outcome;
       }
-      clearSelection = true;
-      if (!data.isCurrent || isDisposed) {
-        return const PostMutationAccepted.retired();
-      }
+      outcome = const PostMutationAccepted.retired();
+      if (!data.isCurrent || isDisposed) return settle(outcome);
       final projection = await data.repairSelectedPosts(
         topicId,
-        ids,
+        attempt.postIds,
         credential.apiKey,
         lease,
       );
-      return _acceptedPostMutation(
-        projection,
-        data.postMutationRecovery(topicId, ids, credential.apiKey),
+      return settle(
+        _acceptedPostMutation(
+          projection,
+          data.postMutationRecovery(
+            topicId,
+            attempt.postIds,
+            credential.apiKey,
+          ),
+        ),
       );
     } finally {
       lease.commit(() {
-        _topicPostSelectionWrites.remove(key);
-        if (clearSelection) _topicPostSelections.remove(key);
-        for (final release in releases) {
+        if (!identical(_selectedPosts[command.key], attempt.selection) ||
+            !identical(selection.active, attempt)) {
+          return;
+        }
+        selection.active = null;
+        if (outcome is PostMutationAccepted ||
+            outcome is PostMutationUncertain) {
+          _selectedPosts.remove(command.key);
+        }
+        for (final release in attempt.releases) {
           release();
         }
         _notify();
@@ -12505,8 +12580,7 @@ class ShellController extends FrameSafeNotifier
     likerRequests.forget(siteUrl);
     userCardRequests.forget(siteUrl);
     _postChecklistWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _topicPostSelections.removeWhere((key, _) => key.startsWith('$siteUrl#'));
-    _topicPostSelectionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
+    _selectedPosts.removeWhere((key, _) => key.siteUrl == siteUrl);
     _topicFlagWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _retireNotificationTransactions(siteUrl: siteUrl);
     _currentUserReconcilers.remove(siteUrl)?.retire();
@@ -13470,8 +13544,7 @@ class ShellController extends FrameSafeNotifier
     }
     _siteNotificationTypeRequests.clear();
     _topicDeletionWrites.clear();
-    _topicPostSelections.clear();
-    _topicPostSelectionWrites.clear();
+    _selectedPosts.clear();
     _topicFlagWrites.clear();
     _topicJumpRuns.clear();
     _topicReads.dispose();

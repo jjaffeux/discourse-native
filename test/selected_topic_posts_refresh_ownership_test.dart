@@ -27,6 +27,58 @@ void main() {
 
   for (final action in _BulkAction.values) {
     group(action.name, () {
+      test('holds the submitted selection through credential IO', () async {
+        final authenticator = _GatedAuthenticator();
+        final (:controller, :api, authenticator: _) = await _fixture(
+          authenticator: authenticator,
+        );
+        final credential = authenticator.nextRead = Completer<String?>();
+        final writing = _write(controller, action);
+        _expectLocks(controller, true);
+        expect(_writtenIds(api, action), isEmpty);
+
+        controller.toggleTopicPostSelected(_siteUrl, _topicId, 42);
+        controller.clearSelectedTopicPosts(_siteUrl, _topicId);
+        controller.selectAllLoadedTopicPosts(_siteUrl, _topicId);
+        controller.setTopicPostSelectionEnabled(_siteUrl, _topicId, false);
+        expect(
+          controller.selectedTopicPostIds(_siteUrl, _topicId),
+          _selectedIds.toSet(),
+        );
+        expect(
+          await _write(controller, action),
+          isA<PostMutationNotSent>().having(
+            (r) => r.problem.kind,
+            'problem',
+            PostMutationProblemKind.busyPost,
+          ),
+        );
+        expect(
+          await controller.changeTopicPostOwner(
+            controller.captureTopicPostOwnerTarget(
+              siteUrl: _siteUrl,
+              topicId: _topicId,
+              postId: 1,
+            ),
+            'recipient',
+          ),
+          isA<PostMutationNotSent>().having(
+            (r) => r.problem.kind,
+            'problem',
+            PostMutationProblemKind.busyPost,
+          ),
+        );
+
+        credential.complete(_originalKey);
+        expect(await writing, isA<PostMutationAccepted>());
+        expect(_writtenIds(api, action), [_selectedIds]);
+        expect(
+          controller.topicPostSelectionEnabled(_siteUrl, _topicId),
+          isFalse,
+        );
+        _expectLocks(controller, false);
+      });
+
       for (final pendingBatch in [1, 2]) {
         test(
           'stops after batch $pendingBatch completes for a replaced account',
@@ -210,6 +262,47 @@ void main() {
       );
     });
   }
+
+  test('new-topic move retains submitted tags through credential IO', () async {
+    final authenticator = _GatedAuthenticator();
+    final (:controller, :api, authenticator: _) = await _fixture(
+      authenticator: authenticator,
+    );
+    final credential = authenticator.nextRead = Completer<String?>();
+    final tags = [4, 8];
+    final writing = controller.moveSelectedTopicPostsToNew(
+      controller.captureTopicPostMoveTarget(_siteUrl, _topicId),
+      title: 'Moved posts',
+      tagIds: tags,
+    );
+    tags
+      ..clear()
+      ..add(99);
+    credential.complete(_originalKey);
+
+    expect((await writing).outcome, isA<PostMutationAccepted>());
+    expect(api.movedTopicPosts.single.tagIds, [4, 8]);
+  });
+
+  test(
+    'refusal retains selected IDs absent from the submitted loaded posts',
+    () async {
+      final (:controller, :api, authenticator: _) = await _fixture();
+      controller.store.remove<Post>(_siteUrl, 41);
+      api.deleteFailure = const WriteException(WriteFailure.validation);
+
+      expect(
+        await controller.deleteSelectedTopicPosts(_siteUrl, _topicId),
+        isA<PostMutationRefused>(),
+      );
+      expect(api.bulkDeleted.single, _selectedIds.take(40));
+      expect(
+        controller.selectedTopicPostIds(_siteUrl, _topicId),
+        _selectedIds.toSet(),
+      );
+      _expectLocks(controller, false);
+    },
+  );
 
   for (final obsolete in [false, true]) {
     test('refresh failure ${obsolete ? 'after retirement' : 'while current'} '
@@ -411,9 +504,10 @@ Future<
     FakeAuthenticator authenticator,
   })
 >
-_fixture() async {
+_fixture({FakeAuthenticator? authenticator}) async {
   final api = _RefreshApi();
-  final authenticator = FakeAuthenticator()..keys[_siteUrl] = _originalKey;
+  authenticator ??= FakeAuthenticator();
+  authenticator.keys[_siteUrl] = _originalKey;
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(user: _moderator),
@@ -433,6 +527,17 @@ _fixture() async {
   await controller.loadTopic(_topicId, 'topic');
   _selectPosts(controller);
   return (controller: controller, api: api, authenticator: authenticator);
+}
+
+class _GatedAuthenticator extends FakeAuthenticator {
+  Completer<String?>? nextRead;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    final pending = nextRead;
+    nextRead = null;
+    return pending?.future ?? super.apiKeyFor(siteUrl);
+  }
 }
 
 Post _post(int id, String label) => Post(

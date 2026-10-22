@@ -31,6 +31,13 @@ Accepted deletion closes only the captured composer while its opening account
 remains current. Accepted selected-post writes clear the captured selection even
 when repair fails. Refused and not-sent writes retain selection.
 
+Selected-post selection and admission share one typed entry in `ShellController`.
+Its active attempt retains the original lease, ordered post IDs, immutable command
+inputs and `TopicDataSession` holders through dispatch and repair. A closed command
+switch sends delete, merge, move and owner changes. Settlement derives selection
+removal from the outcome and checks the captured entry and attempt identities.
+Account retirement cannot clear or unlock a replacement account's selection.
+
 `PostMoveOutcome` exposes a destination only for accepted completion with a
 current opening target. A retired accepted move keeps its acceptance and has no
 navigable destination. Known destinations are invalidated when the write settles.
