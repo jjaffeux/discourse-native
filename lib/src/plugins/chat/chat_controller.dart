@@ -36,16 +36,10 @@ part 'chat_conversation_stream.dart';
 part 'chat_channel_directory.dart';
 part 'chat_thread_catalog.dart';
 part 'chat_message_write_owner.dart';
+part 'chat_reaction_owner.dart';
 
 typedef _ChatThreadMetadataKey = ({String siteUrl, ChatThreadTarget target});
 
-typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
-typedef _ChatReactorsKey = ({
-  String siteUrl,
-  int channelId,
-  int messageId,
-  String? filter,
-});
 typedef ChatNotificationsDelta = void Function(String siteUrl, int delta);
 
 /// The part of an unsent Chat message that can safely survive its composer
@@ -836,9 +830,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<({String siteUrl, int channelId}), Object> _messageQuoteWrites = {};
   final Map<String, Object> _pinListRequests = {};
   final Map<String, FrameSafeValueNotifier<ChatPinsState>> _pinListRefs = {};
-  final Map<_ChatReactionWriteKey, Object> _reactionWrites = {};
-  final Map<_ChatReactorsKey, Object> _reactorRequests = {};
-  final Map<_ChatReactorsKey, String> _reactorErrors = {};
+  final Map<String, _AccountChatReactions> _reactionOwners = {};
   final Map<String, int> _bookmarkVersions = {};
   final Map<String, FrameSafeValueNotifier<ChatComposerDraft?>>
   _composerDraftRefs = {};
@@ -849,6 +841,25 @@ class ChatController extends FrameSafeNotifier {
       _targetKey(siteUrl, ChatChannelTarget(id));
   static String _pinsKey(String siteUrl, int channelId) =>
       '$siteUrl~channel-$channelId-pins';
+
+  _AccountChatReactions? _heldReactions(String siteUrl) {
+    final held = _reactionOwners[siteUrl];
+    return held != null && held.isCurrent ? held : null;
+  }
+
+  _AccountChatReactions _reactionsFor(String siteUrl) {
+    final held = _heldReactions(siteUrl);
+    if (held != null) return held;
+    _reactionOwners.remove(siteUrl)?.retire();
+    final owner = _AccountChatReactions(
+      this,
+      siteUrl,
+      _requests.capture(siteUrl),
+      onChanged: notifySafely,
+    );
+    _reactionOwners[siteUrl] = owner;
+    return owner;
+  }
 
   _AccountMessageWrites _messageWritesFor(String siteUrl) {
     final held = _messageWriteOwners[siteUrl];
@@ -2112,112 +2123,9 @@ class ChatController extends FrameSafeNotifier {
     int messageId,
     String emoji, {
     bool? reacted,
-  }) async {
-    if (isDisposed) return null;
-    final message = _store.read<ChatMessage>(siteUrl, messageId);
-    if (message == null ||
-        message.id <= 0 ||
-        message.isDeleted ||
-        message.isOptimistic ||
-        emoji.isEmpty) {
-      return null;
-    }
-    final held = message.reactions
-        .where((reaction) => reaction.emoji == emoji)
-        .firstOrNull;
-    final wasReacted = held?.reacted ?? false;
-    final adding = reacted ?? !wasReacted;
-    if (adding == wasReacted) return null;
-    if (!(adding
-        ? canAddReactionToMessage(siteUrl, message)
-        : canRemoveReactionFromMessage(siteUrl, message))) {
-      return null;
-    }
-
-    final key = (siteUrl: siteUrl, messageId: messageId, emoji: emoji);
-    if (_reactionWrites.containsKey(key)) return null;
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _reactionWrites[key] = request;
-
-    final readerId = _currentUserFor(siteUrl)?.id;
-    _store.put(
-      siteUrl,
-      message.withReaction(emoji, reacted: adding, userId: readerId),
-    );
-
-    bool ownsRequest() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_reactionWrites[key], request);
-
-    void rollback() {
-      if (!ownsRequest()) return;
-      lease.commit(() {
-        final latest = _store.read<ChatMessage>(siteUrl, messageId);
-        if (latest != null) {
-          _store.put(
-            siteUrl,
-            latest.withReaction(emoji, reacted: !adding, userId: readerId),
-          );
-        }
-      });
-    }
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!ownsRequest()) return null;
-      if (apiKey == null) {
-        throw const WriteException(WriteFailure.forbidden);
-      }
-      final clientId = requestCredentials.clientId;
-      if (!ownsRequest()) return null;
-      final current = _store.read<ChatMessage>(siteUrl, messageId);
-      if (current == null ||
-          !(adding
-              ? canAddReactionToMessage(siteUrl, current)
-              : canRemoveReactionFromMessage(siteUrl, current))) {
-        rollback();
-        return null;
-      }
-      await requestCredentials.run(
-        () => api.setChatMessageReaction(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: message.channelId,
-          messageId: message.id,
-          emoji: emoji,
-          action: adding ? ChatReactionAction.add : ChatReactionAction.remove,
-        ),
-      );
-      if (!ownsRequest()) return null;
-      lease.commit(() {
-        final latest = _store.read<ChatMessage>(siteUrl, messageId);
-        if (latest != null) {
-          _store.put(
-            siteUrl,
-            latest.withReaction(emoji, reacted: adding, userId: readerId),
-          );
-        }
-      });
-      return null;
-    } on WriteException catch (error) {
-      rollback();
-      return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        _report(error, stackTrace, 'chat.toggleReaction');
-      }
-      rollback();
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_reactionWrites[key], request)) {
-        _reactionWrites.remove(key);
-      }
-    }
-  }
+  }) => isDisposed
+      ? Future.value()
+      : _reactionsFor(siteUrl).set(messageId, emoji, reacted: reacted);
 
   ChatMessageReactors? messageReactors(
     String siteUrl,
@@ -2234,13 +2142,9 @@ class ChatController extends FrameSafeNotifier {
     int channelId,
     int messageId, {
     String? filter,
-  }) =>
-      _reactorErrors[(
-        siteUrl: siteUrl,
-        channelId: channelId,
-        messageId: messageId,
-        filter: filter,
-      )];
+  }) => _heldReactions(
+    siteUrl,
+  )?.reactorsError(channelId, messageId, filter: filter);
 
   /// Uses chat's authenticated channel-scoped endpoint and retains the previous
   /// page while one request per exact filter refreshes it.
@@ -2249,68 +2153,11 @@ class ChatController extends FrameSafeNotifier {
     required int channelId,
     required int messageId,
     String? filter,
-  }) async {
-    if (isDisposed) return;
-    final key = (
-      siteUrl: siteUrl,
-      channelId: channelId,
-      messageId: messageId,
-      filter: filter,
-    );
-    if (_reactorRequests.containsKey(key)) return;
-    final request = Object();
-    final lease = _requests.capture(siteUrl);
-    _reactorRequests[key] = request;
-    notifySafely();
-
-    bool ownsRequest() => identical(_reactorRequests[key], request);
-
-    try {
-      final requestCredentials = await _requests.credentialsFor(siteUrl);
-      final apiKey = requestCredentials.apiKey;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      if (apiKey == null) {
-        throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-      }
-
-      final clientId = requestCredentials.clientId;
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      final fetched = await requestCredentials.run(
-        () => api.chatMessageReactors(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-          channelId: channelId,
-          messageId: messageId,
-          reaction: filter,
-        ),
-      );
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      lease.commit(() {
-        _store.put(siteUrl, fetched);
-        _reactorErrors.remove(key);
-      });
-    } catch (error, stackTrace) {
-      if (!_requestIsCurrent(lease, ownsRequest)) return;
-      _report(
-        error,
-        stackTrace,
-        'chat.loadReactionUsers',
-        severity: DiagnosticSeverity.warning,
-      );
-      lease.commit(() {
-        if (messageReactors(siteUrl, channelId, messageId, filter: filter) ==
-            null) {
-          _reactorErrors[key] = appL10n.couldNotFindOutWhoReacted;
-        }
-      });
-    } finally {
-      if (!isDisposed && identical(_reactorRequests[key], request)) {
-        _reactorRequests.remove(key);
-        notifySafely();
-      }
-    }
-  }
+  }) => isDisposed
+      ? Future.value()
+      : _reactionsFor(
+          siteUrl,
+        ).loadReactors(channelId, messageId, filter: filter);
 
   ChatStreamState stream(String siteUrl, int channelId) =>
       streamFor(siteUrl, ChatChannelTarget(channelId));
@@ -2782,70 +2629,8 @@ class ChatController extends FrameSafeNotifier {
     if (changed) notifySafely();
   }
 
-  /// Applies non-idempotent reaction deltas. HTTP pages expose no MessageBus
-  /// cursor, so remount replay can leave truncated reactions off until refresh.
   void _applyReactionEvent(String siteUrl, Map<String, dynamic> data) {
-    final messageId = jsonIntOrNull(data['chat_message_id']);
-    final emoji = jsonText(data['emoji']);
-    final action = jsonText(data['action']);
-    if (messageId == null || emoji == null || action == null) return;
-    if (action != 'add' && action != 'remove') return;
-    final message = _store.read<ChatMessage>(siteUrl, messageId);
-    if (message == null) return;
-
-    final reactions = message.reactions.toList();
-    final index = reactions.indexWhere((reaction) => reaction.emoji == emoji);
-    final existing = index < 0 ? null : reactions[index];
-    final actorId = jsonIntOrNull(jsonObject(data['user'])['id']);
-    final isCurrentUser =
-        actorId != null && actorId == _currentUserFor(siteUrl)?.id;
-    // The personalized bit deduplicates this reader's echo whether it arrives
-    // before or after the HTTP response.
-    if (isCurrentUser &&
-        ((action == 'add' && existing?.reacted == true) ||
-            (action == 'remove' && existing?.reacted != true))) {
-      return;
-    }
-    // Pages have no bus cursor, so actor identity deduplicates replay. The site
-    // names only five reactors; once truncated, ambiguous events must still
-    // advance the live count.
-    if (actorId != null && existing != null && !isCurrentUser) {
-      if (action == 'add' && existing.hasReactor(actorId)) return;
-      if (action == 'remove' &&
-          !existing.hasReactor(actorId) &&
-          existing.namesEveryReactor) {
-        return;
-      }
-    }
-    if (action == 'add') {
-      final next = ChatReaction(
-        emoji: emoji,
-        count: (existing?.count ?? 0) + 1,
-        reacted: (existing?.reacted ?? false) || isCurrentUser,
-        reactorIds:
-            existing?.reactorIdsWith(actorId, reacted: true) ?? [?actorId],
-      );
-      if (index < 0) {
-        if (reactions.length >= ChatMessage.maximumReactionsPerMessage) return;
-        reactions.add(next);
-      } else {
-        reactions[index] = next;
-      }
-    } else if (existing != null) {
-      if (existing.count <= 1) {
-        reactions.removeAt(index);
-      } else {
-        reactions[index] = ChatReaction(
-          emoji: emoji,
-          count: existing.count - 1,
-          reacted: isCurrentUser ? false : existing.reacted,
-          reactorIds: existing.reactorIdsWith(actorId, reacted: false),
-        );
-      }
-    } else {
-      return;
-    }
-    _store.put(siteUrl, message.withReactions(reactions));
+    if (!isDisposed) _reactionsFor(siteUrl).applyEvent(data);
   }
 
   void _scheduleThreadDetailRefresh(String siteUrl, ChatThreadTarget target) {
@@ -4231,6 +4016,7 @@ class ChatController extends FrameSafeNotifier {
 
   void forget(String siteUrl) {
     _messageWriteOwners.remove(siteUrl)?.retire();
+    _reactionOwners.remove(siteUrl)?.retire();
     _directories.remove(siteUrl)?.retire();
     _preparedCooking?.forget(siteUrl);
     _cookingLocales.remove(siteUrl);
@@ -4261,7 +4047,6 @@ class ChatController extends FrameSafeNotifier {
     for (final ref in forgottenDraftRefs) {
       ref.value = null;
     }
-    _reactionWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
     _messageQuoteWrites.removeWhere((key, _) => key.siteUrl == siteUrl);
     _pinListRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     final forgottenPinRefs = <FrameSafeValueNotifier<ChatPinsState>>[];
@@ -4273,8 +4058,6 @@ class ChatController extends FrameSafeNotifier {
     for (final ref in forgottenPinRefs) {
       ref.value = const ChatPinsState();
     }
-    _reactorRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _reactorErrors.removeWhere((key, _) => key.siteUrl == siteUrl);
     _bookmarkVersions.remove(siteUrl);
     _threadMetadata.removeWhere((key, _) => key.siteUrl == siteUrl);
     _hiddenDeletedMessageChannelIds.remove(siteUrl);
@@ -4293,6 +4076,11 @@ class ChatController extends FrameSafeNotifier {
     );
     _messageWriteOwners.clear();
     for (final owner in messageWriteOwners) {
+      owner.retire();
+    }
+    final reactions = _reactionOwners.values.toList(growable: false);
+    _reactionOwners.clear();
+    for (final owner in reactions) {
       owner.retire();
     }
     final directories = _directories.values.toList(growable: false);
@@ -4320,15 +4108,12 @@ class ChatController extends FrameSafeNotifier {
     }
     _threadMetadata.clear();
     _hiddenDeletedMessageChannelIds.clear();
-    _reactionWrites.clear();
     _messageQuoteWrites.clear();
     _pinListRequests.clear();
     for (final ref in _pinListRefs.values) {
       ref.dispose();
     }
     _pinListRefs.clear();
-    _reactorRequests.clear();
-    _reactorErrors.clear();
     _bookmarkVersions.clear();
     for (final ref in _composerDraftRefs.values) {
       ref.dispose();
