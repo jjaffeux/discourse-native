@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/discourse_transport.dart';
+import 'package:discourse_native/src/data/sidebar_icon_loader.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
+import 'package:discourse_native/src/plugin_api/plugin_icon_catalog.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -38,6 +42,7 @@ String _fixture(String name) =>
     File('test/fixtures/sidebar-icons/$name.svg').readAsStringSync();
 
 void main() {
+  sidebarArtworkReuseTests();
   test(
     'loads solid, regular, brand, custom and composite sidebar icons',
     () async {
@@ -391,4 +396,233 @@ void main() {
       }
     }
   });
+}
+
+SidebarIconLoader _artworkLoader(
+  Future<http.Response> Function(http.Request) respond, {
+  DateTime Function()? clock,
+}) {
+  final transport = DiscourseTransport.create(client: MockClient(respond));
+  addTearDown(transport.close);
+  return SidebarIconLoader(
+    transport,
+    const CoreIconNameDecoder(),
+    clock: clock,
+  );
+}
+
+Future<DIconData> _loadArtwork(SidebarIconLoader loader, String name) async =>
+    (await loader.load([
+      _section([name]),
+    ], 'https://forum.example')).single.destinations.single.icon;
+
+String _requestedArtwork(http.Request request) =>
+    request.url.pathSegments.last.replaceFirst('.svg', '');
+
+void sidebarArtworkReuseTests() {
+  test('reuses completed immutable sidebar artwork', () async {
+    var requests = 0;
+    final loader = _artworkLoader((request) async {
+      requests++;
+      return http.Response(_customSvg, 200);
+    });
+
+    final first = await _loadArtwork(loader, 'theme-logo');
+    final repeated = await _loadArtwork(loader, 'theme-logo');
+
+    expect(identical(first, repeated), isTrue);
+    expect(repeated.preserveColors, isTrue);
+    expect(requests, 1);
+  });
+
+  test('composite artwork expires with its oldest dependency', () async {
+    var now = DateTime.utc(2026, 1, 1);
+    var generation = 'first';
+    final requests = <String, int>{};
+    final loader = _artworkLoader((request) async {
+      final name = _requestedArtwork(request);
+      requests.update(name, (value) => value + 1, ifAbsent: () => 1);
+      return http.Response(
+        name == 'composite'
+            ? '<svg><use href="#shared"/></svg>'
+            : '<svg><path data-generation="$generation"/></svg>',
+        200,
+      );
+    }, clock: () => now);
+
+    await _loadArtwork(loader, 'shared');
+    now = now.add(const Duration(hours: 12));
+    final first = await _loadArtwork(loader, 'composite');
+    expect(identical(first, await _loadArtwork(loader, 'composite')), isTrue);
+    now = now.add(const Duration(hours: 12));
+    generation = 'second';
+    final refreshed = await _loadArtwork(loader, 'composite');
+
+    expect(first.svg, contains('data-generation="first"'));
+    expect(refreshed.svg, contains('data-generation="second"'));
+    expect(requests, {'shared': 2, 'composite': 1});
+  });
+
+  test('evicting a shared source invalidates completed composites', () async {
+    var generation = 'first';
+    final requests = <String, int>{};
+    final loader = _artworkLoader((request) async {
+      final name = _requestedArtwork(request);
+      requests.update(name, (value) => value + 1, ifAbsent: () => 1);
+      return http.Response(
+        name == 'composite'
+            ? '<svg><use href="#shared"/></svg>'
+            : '<svg><path data-generation="$generation"/></svg>',
+        200,
+      );
+    });
+
+    await _loadArtwork(loader, 'shared');
+    final first = await _loadArtwork(loader, 'composite');
+    for (var index = 0; index < 255; index++) {
+      await _loadArtwork(loader, 'filler-$index');
+    }
+    generation = 'second';
+    final refreshed = await _loadArtwork(loader, 'composite');
+
+    expect(first.svg, contains('data-generation="first"'));
+    expect(refreshed.svg, contains('data-generation="second"'));
+    expect(requests['shared'], 2);
+    expect(requests['composite'], 1);
+  });
+
+  test(
+    'does not retain an assembly invalidated while awaiting artwork',
+    () async {
+      var generation = 'first';
+      final blockedStarted = Completer<void>();
+      final releaseBlocked = Completer<void>();
+      final loader = _artworkLoader((request) async {
+        final name = _requestedArtwork(request);
+        if (name == 'blocked') {
+          blockedStarted.complete();
+          await releaseBlocked.future;
+        }
+        return http.Response(
+          name == 'composite'
+              ? '<svg><use href="#shared"/><use href="#blocked"/></svg>'
+              : '<svg><path data-generation="$generation"/></svg>',
+          200,
+        );
+      });
+
+      await _loadArtwork(loader, 'shared');
+      final pending = _loadArtwork(loader, 'composite');
+      await blockedStarted.future;
+      for (var index = 0; index < 255; index++) {
+        await _loadArtwork(loader, 'filler-$index');
+      }
+      generation = 'second';
+      releaseBlocked.complete();
+      final interrupted = await pending;
+      final refreshed = await _loadArtwork(loader, 'composite');
+
+      expect(interrupted.svg, contains('data-generation="first"'));
+      expect(refreshed.svg, isNot(contains('data-generation="first"')));
+      expect(refreshed.svg, contains('data-generation="second"'));
+    },
+  );
+
+  test('concurrent sidebar loads assemble isolated XML trees', () async {
+    final requests = <String, int>{};
+    final loader = _artworkLoader((request) async {
+      final name = _requestedArtwork(request);
+      requests.update(name, (value) => value + 1, ifAbsent: () => 1);
+      await Future<void>.delayed(Duration.zero);
+      return http.Response(
+        name == 'composite'
+            ? '<svg><use href="#shared"/></svg>'
+            : '<svg><path fill="#ff6600"/></svg>',
+        200,
+      );
+    });
+
+    final concurrent = await Future.wait([
+      _loadArtwork(loader, 'composite'),
+      _loadArtwork(loader, 'composite'),
+    ]);
+    final shared = await _loadArtwork(loader, 'shared');
+
+    for (final icon in concurrent) {
+      expect('<defs>'.allMatches(icon.svg).length, 1);
+      expect('id="shared"'.allMatches(icon.svg).length, 1);
+      expect(icon.svg, contains('fill="#ff6600"'));
+      expect(icon.preserveColors, isTrue);
+    }
+    expect(concurrent.first.svg, concurrent.last.svg);
+    expect(shared.svg, isNot(contains('<defs>')));
+    expect(shared.svg, isNot(contains('<symbol')));
+    expect(requests, {'composite': 1, 'shared': 1});
+  });
+
+  test('bounds retained raw source characters', () async {
+    final requests = <String, int>{};
+    final padding = 'x' * (1100 * 1024);
+    final loader = _artworkLoader((request) async {
+      final name = _requestedArtwork(request);
+      requests.update(name, (value) => value + 1, ifAbsent: () => 1);
+      return http.Response('<!--$padding--><svg><path/></svg>', 200);
+    });
+
+    await _loadArtwork(loader, 'large-one');
+    await _loadArtwork(loader, 'large-two');
+    final reloaded = await _loadArtwork(loader, 'large-one');
+
+    expect(reloaded.name, 'large-one');
+    expect(requests, {'large-one': 2, 'large-two': 1});
+  });
+
+  test('bounds completed artwork separately from shared raw sources', () async {
+    final requests = <String, int>{};
+    final padding = 'x' * (1100 * 1024);
+    final loader = _artworkLoader((request) async {
+      final name = _requestedArtwork(request);
+      requests.update(name, (value) => value + 1, ifAbsent: () => 1);
+      return http.Response(
+        name == 'shared'
+            ? '<svg><path data-padding="$padding"/></svg>'
+            : '<svg><use href="#shared"/></svg>',
+        200,
+      );
+    });
+
+    final first = await _loadArtwork(loader, 'large-one');
+    final cached = await _loadArtwork(loader, 'large-one');
+    expect(identical(first, cached), isTrue);
+    await _loadArtwork(loader, 'large-two');
+    final reassembled = await _loadArtwork(loader, 'large-one');
+
+    expect(identical(first, reassembled), isFalse);
+    expect(reassembled.svg, first.svg);
+    expect(requests, {'large-one': 1, 'shared': 1, 'large-two': 1});
+    expect(
+      identical(reassembled, await _loadArtwork(loader, 'large-one')),
+      isTrue,
+    );
+  });
+
+  test(
+    'oversized raw sources never retain their compact assembled artwork',
+    () async {
+      var requests = 0;
+      final padding = 'x' * (2 * 1024 * 1024);
+      final loader = _artworkLoader((request) async {
+        requests++;
+        return http.Response('<!--$padding--><svg><path/></svg>', 200);
+      });
+
+      final first = await _loadArtwork(loader, 'oversized');
+      final repeated = await _loadArtwork(loader, 'oversized');
+
+      expect(first.svg, '<svg><path/></svg>');
+      expect(repeated.svg, first.svg);
+      expect(identical(first, repeated), isFalse);
+      expect(requests, 2);
+    },
+  );
 }

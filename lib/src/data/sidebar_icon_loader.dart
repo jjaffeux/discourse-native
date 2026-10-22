@@ -8,10 +8,18 @@ import 'discourse_transport.dart';
 
 /// Supplements bundled icons with the forum's complete SVG catalogue.
 final class SidebarIconLoader {
-  SidebarIconLoader(this._transport, this._bundled);
+  SidebarIconLoader(
+    this._transport,
+    this._bundled, {
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   final DiscourseTransport _transport;
   final IconNameDecoder _bundled;
+  final DateTime Function() _clock;
+  final _artwork = <Uri, (DateTime, DIconData)>{};
+  int _artworkCharacters = 0;
+  int _sourceRevision = 0;
   final _cache = <Uri, (DateTime, String)>{};
   int _cachedCharacters = 0;
   static const _maximumCachedCharacters = 2 * 1024 * 1024;
@@ -44,8 +52,17 @@ final class SidebarIconLoader {
 
   Future<DIconData?> _loadIcon(String siteUrl, String name) async {
     try {
-      final root = await _symbol(siteUrl, name);
-      if (root == null) return null;
+      final url = _iconUrl(siteUrl, name);
+      final cached = _artwork[url];
+      if (cached != null) {
+        if (_clock().isBefore(cached.$1)) return cached.$2;
+        _artworkCharacters -= _artwork.remove(url)!.$2.svg.length;
+      }
+      final revision = _sourceRevision;
+      final source = await _symbol(siteUrl, name);
+      if (source == null) return null;
+      final root = source.$1;
+      var expiresAt = source.$2;
       final symbols = <String, XmlElement>{name: root};
       final definitions = XmlElement.tag('defs');
 
@@ -74,12 +91,18 @@ final class SidebarIconLoader {
           if (symbols.length >= 32) return false;
           final dependency = await _symbol(siteUrl, reference);
           if (dependency == null) return false;
+          final dependencyExpiry = dependency.$2;
+          if (expiresAt == null || dependencyExpiry == null) {
+            expiresAt = null;
+          } else if (dependencyExpiry.isBefore(expiresAt!)) {
+            expiresAt = dependencyExpiry;
+          }
           final symbol = XmlElement.tag(
             'symbol',
-            attributes: dependency.attributes.map(
+            attributes: dependency.$1.attributes.map(
               (attribute) => attribute.copy(),
             ),
-            children: dependency.children.map((child) => child.copy()),
+            children: dependency.$1.children.map((child) => child.copy()),
           )..setAttribute('id', reference);
           symbols[reference] = symbol;
           definitions.children.add(symbol);
@@ -92,16 +115,31 @@ final class SidebarIconLoader {
 
       if (!await includeReferences(root, {name})) return null;
       if (definitions.children.isNotEmpty) root.children.insert(0, definitions);
-      return DIconData(name, root.toXmlString(), preserveColors: true);
+      final icon = DIconData(name, root.toXmlString(), preserveColors: true);
+      final expiry = expiresAt;
+      if (revision == _sourceRevision &&
+          expiry != null &&
+          _clock().isBefore(expiry) &&
+          icon.svg.length <= _maximumCachedCharacters) {
+        _artworkCharacters -= _artwork.remove(url)?.$2.svg.length ?? 0;
+        while (_artwork.length >= 256 ||
+            _artworkCharacters + icon.svg.length > _maximumCachedCharacters) {
+          final oldest = _artwork.remove(_artwork.keys.first)!;
+          _artworkCharacters -= oldest.$2.svg.length;
+        }
+        _artwork[url] = (expiry, icon);
+        _artworkCharacters += icon.svg.length;
+      }
+      return icon;
     } on Exception {
       // Artwork is optional; an offline/missing icon must not hide navigation.
       return null;
     }
   }
 
-  Future<XmlElement?> _symbol(String siteUrl, String name) async {
+  Uri _iconUrl(String siteUrl, String name) {
     final site = Uri.parse(siteUrl);
-    final url = site.replace(
+    return site.replace(
       pathSegments: [
         ...site.pathSegments.where((part) => part.isNotEmpty),
         'svg-sprite',
@@ -112,10 +150,25 @@ final class SidebarIconLoader {
       query: null,
       fragment: null,
     );
+  }
+
+  void _removeSource(Uri url) {
+    final removed = _cache.remove(url);
+    if (removed == null) return;
+    _cachedCharacters -= removed.$2.length;
+    _sourceRevision++;
+    _artwork.clear();
+    _artworkCharacters = 0;
+  }
+
+  Future<(XmlElement, DateTime?)?> _symbol(String siteUrl, String name) async {
+    final url = _iconUrl(siteUrl, name);
     final cached = _cache[url];
-    if (cached != null &&
-        DateTime.now().difference(cached.$1) < const Duration(days: 1)) {
-      return XmlDocument.parse(cached.$2).rootElement;
+    if (cached != null) {
+      if (_clock().isBefore(cached.$1)) {
+        return (XmlDocument.parse(cached.$2).rootElement, cached.$1);
+      }
+      _removeSource(url);
     }
     // This endpoint is public, including on login-required forums.
     final response = await _transport.get(
@@ -130,16 +183,16 @@ final class SidebarIconLoader {
         root.childElements.isEmpty) {
       return null;
     }
-    if (source.length <= _maximumCachedCharacters) {
-      _cachedCharacters -= _cache.remove(url)?.$2.length ?? 0;
-      while (_cache.length >= 256 ||
-          _cachedCharacters + source.length > _maximumCachedCharacters) {
-        _cachedCharacters -= _cache.remove(_cache.keys.first)!.$2.length;
-      }
-      _cache[url] = (DateTime.now(), source);
-      _cachedCharacters += source.length;
+    _removeSource(url);
+    if (source.length > _maximumCachedCharacters) return (root, null);
+    while (_cache.length >= 256 ||
+        _cachedCharacters + source.length > _maximumCachedCharacters) {
+      _removeSource(_cache.keys.first);
     }
-    return root;
+    final expiresAt = _clock().add(const Duration(days: 1));
+    _cache[url] = (expiresAt, source);
+    _cachedCharacters += source.length;
+    return (root, expiresAt);
   }
 }
 
