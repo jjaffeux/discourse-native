@@ -30,6 +30,13 @@ part 'global_search_filter_picker.dart';
 
 final RegExp _whitespace = RegExp(r'\s+');
 
+class _PreparedSearchResult {
+  const _PreparedSearchResult({required this.result, required this.open});
+
+  final GlobalSearchResult result;
+  final VoidCallback open;
+}
+
 /// Search scopes, conditions and results below the shell's persistent input.
 /// The caller owns the anchored surface and result navigation.
 class GlobalSearchPanel extends StatefulWidget {
@@ -62,6 +69,8 @@ class GlobalSearchPanel extends StatefulWidget {
 class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   final _scroll = ScrollController();
   final Map<String, GlobalKey> _resultKeys = {};
+  final _preparedResults =
+      Map<GlobalSearchResult, _PreparedSearchResult>.identity();
   final _actions = <({String id, VoidCallback open, VoidCallback? into})>[];
   String? _selected;
   Object? _selectedNavigationIdentity;
@@ -657,7 +666,15 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       }
       _checkSelectionTarget();
       _actions.clear();
-      final liveIds = controller.results.map((result) => result.id).toSet();
+      final liveResults = Set<GlobalSearchResult>.identity();
+      final liveIds = <String>{};
+      for (final result in controller.results) {
+        liveResults.add(result);
+        liveIds.add(result.id);
+      }
+      _preparedResults.removeWhere(
+        (result, _) => !liveResults.contains(result),
+      );
       _resultKeys.removeWhere(
         (id, _) =>
             !liveIds.contains(id) &&
@@ -860,7 +877,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         clear: controller.conditions.isNotEmpty,
       );
     }
-    final children = <Widget>[
+    final children = <Object>[
       if (controller.hintedFilters.isNotEmpty) ..._filterRows(context),
       for (final section in controller.sections.where(
         (section) =>
@@ -893,7 +910,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             in controller.scope == GlobalSearchScope.all
                 ? section.results.take(3)
                 : section.results)
-          _result(result),
+          _prepareResult(result),
       ],
       if (controller.error != null &&
           results.isNotEmpty &&
@@ -931,12 +948,27 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           !id.startsWith('section:') &&
           !id.startsWith('filter:'),
     );
+    final childIndices = <Key, int>{};
+    for (var index = 0; index < children.length; index++) {
+      final child = children[index];
+      final key = child is _PreparedSearchResult
+          ? _resultKeys[child.result.id]
+          : (child as Widget).key;
+      if (key != null) childIndices[key] = index;
+    }
     final content = DScrollBar(
       controller: _scroll,
-      child: ListView(
+      child: ListView.builder(
         controller: _scroll,
         padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-        children: children,
+        itemCount: children.length,
+        findChildIndexCallback: (key) => childIndices[key],
+        itemBuilder: (context, index) {
+          final child = children[index];
+          return child is _PreparedSearchResult
+              ? _result(child)
+              : child as Widget;
+        },
       ),
     );
     return DScrollChromePagination(
@@ -1156,13 +1188,26 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     ),
   );
 
-  Widget _result(GlobalSearchResult result) {
+  _PreparedSearchResult _prepareResult(GlobalSearchResult result) {
+    var row = _preparedResults[result];
+    if (row == null) {
+      row = _PreparedSearchResult(
+        result: result,
+        open: () => widget.onOpen(result),
+      );
+      _preparedResults[result] = row;
+    }
+    _actions.add((id: result.id, open: row.open, into: null));
+    return row;
+  }
+
+  Widget _result(_PreparedSearchResult row) {
+    final result = row.result;
     final controller = widget.controller;
     final site = controller.siteUrl;
-    return _action(
-      result.id,
-      () => widget.onOpen(result),
-      KeyedSubtree(
+    return KeyedSubtree(
+      key: _resultKeys.putIfAbsent(result.id, GlobalKey.new),
+      child: KeyedSubtree(
         child: LinkTarget(
           url: site == null
               ? result.path

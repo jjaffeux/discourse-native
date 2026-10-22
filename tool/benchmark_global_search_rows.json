@@ -1,0 +1,330 @@
+{
+  "baseline": "1c23479833847cf04c3a7ece4928d670fce700d8",
+  "metric": "operation counts in production GlobalSearchPanel widget interactions",
+  "runs": {
+    "baseline": [
+      {
+        "results": 30,
+        "run": 1,
+        "arrival": {
+          "rowFactory": 30,
+          "openCallback": 30
+        },
+        "selection": {
+          "rowFactory": 300,
+          "openCallback": 300
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 330,
+          "openCallback": 330
+        }
+      },
+      {
+        "results": 900,
+        "run": 1,
+        "arrival": {
+          "rowFactory": 13950,
+          "openCallback": 13950
+        },
+        "selection": {
+          "rowFactory": 9000,
+          "openCallback": 9000
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 9900,
+          "openCallback": 9900
+        }
+      },
+      {
+        "results": 30,
+        "run": 2,
+        "arrival": {
+          "rowFactory": 30,
+          "openCallback": 30
+        },
+        "selection": {
+          "rowFactory": 300,
+          "openCallback": 300
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 330,
+          "openCallback": 330
+        }
+      },
+      {
+        "results": 900,
+        "run": 2,
+        "arrival": {
+          "rowFactory": 13950,
+          "openCallback": 13950
+        },
+        "selection": {
+          "rowFactory": 9000,
+          "openCallback": 9000
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 9900,
+          "openCallback": 9900
+        }
+      },
+      {
+        "results": 30,
+        "run": 3,
+        "arrival": {
+          "rowFactory": 30,
+          "openCallback": 30
+        },
+        "selection": {
+          "rowFactory": 300,
+          "openCallback": 300
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 330,
+          "openCallback": 330
+        }
+      },
+      {
+        "results": 900,
+        "run": 3,
+        "arrival": {
+          "rowFactory": 13950,
+          "openCallback": 13950
+        },
+        "selection": {
+          "rowFactory": 9000,
+          "openCallback": 9000
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 9900,
+          "openCallback": 9900
+        }
+      },
+      {
+        "results": 30,
+        "run": 4,
+        "arrival": {
+          "rowFactory": 30,
+          "openCallback": 30
+        },
+        "selection": {
+          "rowFactory": 300,
+          "openCallback": 300
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 330,
+          "openCallback": 330
+        }
+      },
+      {
+        "results": 900,
+        "run": 4,
+        "arrival": {
+          "rowFactory": 13950,
+          "openCallback": 13950
+        },
+        "selection": {
+          "rowFactory": 9000,
+          "openCallback": 9000
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 9900,
+          "openCallback": 9900
+        }
+      },
+      {
+        "results": 30,
+        "run": 5,
+        "arrival": {
+          "rowFactory": 30,
+          "openCallback": 30
+        },
+        "selection": {
+          "rowFactory": 300,
+          "openCallback": 300
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 330,
+          "openCallback": 330
+        }
+      },
+      {
+        "results": 900,
+        "run": 5,
+        "arrival": {
+          "rowFactory": 13950,
+          "openCallback": 13950
+        },
+        "selection": {
+          "rowFactory": 9000,
+          "openCallback": 9000
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 9900,
+          "openCallback": 9900
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "results": 30,
+        "run": 1,
+        "arrival": {
+          "openCallback": 30,
+          "rowFactory": 9
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 140
+        }
+      },
+      {
+        "results": 900,
+        "run": 1,
+        "arrival": {
+          "openCallback": 900,
+          "rowFactory": 270
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 1010
+        }
+      },
+      {
+        "results": 30,
+        "run": 2,
+        "arrival": {
+          "openCallback": 30,
+          "rowFactory": 9
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 140
+        }
+      },
+      {
+        "results": 900,
+        "run": 2,
+        "arrival": {
+          "openCallback": 900,
+          "rowFactory": 270
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 1010
+        }
+      },
+      {
+        "results": 30,
+        "run": 3,
+        "arrival": {
+          "openCallback": 30,
+          "rowFactory": 9
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 140
+        }
+      },
+      {
+        "results": 900,
+        "run": 3,
+        "arrival": {
+          "openCallback": 900,
+          "rowFactory": 270
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 1010
+        }
+      },
+      {
+        "results": 30,
+        "run": 4,
+        "arrival": {
+          "openCallback": 30,
+          "rowFactory": 9
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 140
+        }
+      },
+      {
+        "results": 900,
+        "run": 4,
+        "arrival": {
+          "openCallback": 900,
+          "rowFactory": 270
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 1010
+        }
+      },
+      {
+        "results": 30,
+        "run": 5,
+        "arrival": {
+          "openCallback": 30,
+          "rowFactory": 9
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 140
+        }
+      },
+      {
+        "results": 900,
+        "run": 5,
+        "arrival": {
+          "openCallback": 900,
+          "rowFactory": 270
+        },
+        "selection": {
+          "rowFactory": 111
+        },
+        "mounted": 5,
+        "selection_and_reveal": {
+          "rowFactory": 1010
+        }
+      }
+    ]
+  }
+}

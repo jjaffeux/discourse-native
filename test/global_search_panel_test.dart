@@ -26,6 +26,52 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  for (final textScale in [1.0, 2.0]) {
+    testWidgets(
+      'loaded result pages reveal and wrap keyboard selection at $textScale text',
+      (tester) async {
+        final opened = <GlobalSearchResult>[];
+        final controller = await _pump(
+          tester,
+          api: _PagedPanelApi(4),
+          onOpen: opened.add,
+          height: 300,
+          textScale: textScale,
+          platform: TargetPlatform.iOS,
+        );
+        controller.setScope(GlobalSearchScope.forum);
+        controller.setQuery('prepared');
+        await tester.pumpAndSettle();
+        final first = _key('global-search-result-prepared-0');
+        final firstElement = tester.element(first);
+        for (var page = 1; page < 4; page++) {
+          controller.loadMore();
+          await tester.pumpAndSettle();
+          expect(tester.element(first), same(firstElement));
+        }
+        expect(controller.results.length, 120);
+        final state = tester.state<GlobalSearchPanelState>(
+          find.byType(GlobalSearchPanel),
+        );
+        expect(_key('global-search-result-prepared-119'), findsNothing);
+        expect(state.handleKey(LogicalKeyboardKey.arrowUp), isTrue);
+        await tester.pumpAndSettle();
+        expect(
+          _key('global-search-result-prepared-119').hitTestable(),
+          findsOneWidget,
+        );
+        expect(state.handleKey(LogicalKeyboardKey.enter), isTrue);
+        expect(opened.single.id, 'prepared-119');
+        expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+        await tester.pumpAndSettle();
+        expect(first.hitTestable(), findsOneWidget);
+        expect(state.handleKey(LogicalKeyboardKey.enter), isTrue);
+        expect(opened.last.id, 'prepared-0');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final changeTarget in [false, true]) {
     testWidgets(
       'progressive selection ${changeTarget ? 'clears a changed target' : 'survives metadata updates'}',
@@ -67,6 +113,10 @@ void main() {
         expect(
           opened.map((r) => r.path),
           changeTarget ? isEmpty : ['/t/first/1'],
+        );
+        expect(
+          opened.map((r) => r.title),
+          changeTarget ? isEmpty : ['Updated metadata'],
         );
         expect(tester.takeException(), isNull);
       },
@@ -1189,4 +1239,37 @@ class _ProgressivePanelApi extends _PanelApi {
     ]);
     return gate.future;
   }
+}
+
+class _PagedPanelApi extends _PanelApi {
+  _PagedPanelApi(this.pages);
+  final int pages;
+
+  @override
+  Future<GlobalSearchPage> search({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+    required GlobalSearchRequest request,
+    Future<void>? abortTrigger,
+    void Function(List<GlobalSearchSection> sections)? onProgress,
+  }) async => GlobalSearchPage(
+    sections: [
+      GlobalSearchSection(
+        scope: GlobalSearchScope.forum,
+        results: List.generate(30, (index) {
+          final n = request.offset + index;
+          return GlobalSearchResult(
+            id: 'prepared-$n',
+            scope: GlobalSearchScope.forum,
+            title: 'Prepared result $n',
+            path: '/t/prepared/${n + 1}',
+            excerpt: 'A search result excerpt for row $n.',
+          );
+        }),
+      ),
+    ],
+    hasMore: request.offset + 30 < pages * 30,
+    consumedCount: 30,
+  );
 }
