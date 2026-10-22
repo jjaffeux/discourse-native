@@ -28,6 +28,43 @@ typedef VoiceMediaDeviceEnumerator =
 typedef VoiceTrackVolumeSetter =
     Future<void> Function(double volume, rtc.MediaStreamTrack track);
 
+/// Captures and releases a temporary microphone stream before reporting success.
+Future<bool> probeVoiceMicrophone({
+  String? deviceId,
+  VoiceUserMediaGetter? getUserMedia,
+}) async {
+  rtc.MediaStream? stream;
+  var available = true;
+  try {
+    stream = await (getUserMedia ?? rtc.navigator.mediaDevices.getUserMedia)({
+      'audio': {
+        'deviceId': ?deviceId,
+        'echoCancellation': true,
+        'noiseSuppression': true,
+      },
+      'video': false,
+    });
+    for (final track in stream.getTracks()) {
+      try {
+        await track.stop();
+      } catch (_) {
+        available = false;
+      }
+    }
+  } catch (_) {
+    available = false;
+  } finally {
+    if (stream != null) {
+      try {
+        await stream.dispose();
+      } catch (_) {
+        available = false;
+      }
+    }
+  }
+  return available;
+}
+
 enum VoiceMicrophoneFailureKind { permissionDenied, unavailable }
 
 enum VoiceCameraFacing { front, back }

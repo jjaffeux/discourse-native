@@ -1730,7 +1730,9 @@ Future<void> _showMediaSettings(
                   if (testing) return;
                   setState(() => testing = true);
                   try {
-                    final available = await _testMicrophone(input);
+                    final available = await probeVoiceMicrophone(
+                      deviceId: input,
+                    );
                     if (ownerContext.mounted &&
                         context.mounted &&
                         ModalRoute.of(context)?.isCurrent == true) {
@@ -1846,40 +1848,6 @@ Future<void> _showMediaSettings(
       },
     ),
   );
-}
-
-Future<bool> _testMicrophone(String? input) async {
-  rtc.MediaStream? stream;
-  var available = true;
-
-  try {
-    stream = await rtc.navigator.mediaDevices.getUserMedia({
-      'audio': {
-        'deviceId': ?input,
-        'echoCancellation': true,
-        'noiseSuppression': true,
-      },
-      'video': false,
-    });
-    for (final track in stream.getTracks()) {
-      try {
-        await track.stop();
-      } catch (error) {
-        available = false;
-      }
-    }
-  } catch (error) {
-    available = false;
-  } finally {
-    if (stream != null) {
-      try {
-        await stream.dispose();
-      } catch (error) {
-        available = false;
-      }
-    }
-  }
-  return available;
 }
 
 String? _heldDevice(String? held, List<rtc.MediaDeviceInfo> devices) =>
