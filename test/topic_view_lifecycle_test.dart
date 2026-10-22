@@ -2593,6 +2593,7 @@ void main() {
 
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
+        await _pumpUntilRendered(tester, 'Post 1');
         final first = controller.currentPostIds;
         expect(first, [1, 2, 3, 4, 5, 6]);
         expect(identical(controller.currentPostIds, first), isTrue);
@@ -2600,8 +2601,8 @@ void main() {
         controller.store.put(
           site.url,
           const Post(
-            id: 3,
-            postNumber: 3,
+            id: 1,
+            postNumber: 1,
             username: 'sam',
             cooked: '<p>New</p>',
           ),
@@ -2610,7 +2611,7 @@ void main() {
         expect(replaced, same(first));
         expect(replaced, [1, 2, 3, 4, 5, 6]);
         await tester.pumpAndSettle();
-        expect(find.text('New'), findsOneWidget);
+        await _pumpUntilRendered(tester, 'New');
       });
 
       testWidgets('retries a failed next page only after the reader scrolls', (
