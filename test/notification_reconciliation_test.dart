@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/bookmark_feed.dart';
 import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_feed.dart';
@@ -125,6 +126,148 @@ void main() {
     fixture.owner.failRead(readingNew);
     expect(fixture.owner.feed(feed).notifications.last.read, isFalse);
   });
+
+  test('bulk dismissal changes the first eligible duplicate in each feed', () {
+    final fixture = _Fixture();
+    final feed = fixture.slot('feed');
+    final reminders = NotificationFeedSlot.reminders(
+      () => fixture.changes.add('reminders'),
+    );
+    const second = DiscourseNotification.test(id: 2, typeId: _type);
+    const third = DiscourseNotification.test(id: 3, typeId: _type);
+    const unrelated = DiscourseNotification.test(
+      id: 9,
+      typeId: NotificationTypeId(99),
+      read: true,
+    );
+    final alreadyRead = _row.asRead();
+    final thirdRead = third.asRead();
+    final rows = [alreadyRead, _row, _row, second, thirdRead, unrelated];
+    final original = NotificationFeed(
+      notifications: rows,
+      loading: true,
+      loaded: true,
+      error: 'held notifications',
+    );
+    final originalReminders = BookmarkFeed(
+      reminders: rows,
+      bookmarks: const [Bookmark(id: 42, title: 'Held bookmark')],
+      loading: true,
+      loaded: true,
+      error: 'held reminders',
+    );
+    fixture.owner.publish(feed, original);
+    fixture.owner.publish(reminders, originalReminders);
+    fixture.changes.clear();
+
+    final dismissal = fixture.owner.beginDismiss(types: [_wireType])!;
+    fixture.owner.confirmDismiss(dismissal);
+
+    final updated = fixture.owner.feed(feed);
+    final updatedReminders = fixture.owner.feed(reminders);
+    for (final projected in [
+      updated.notifications,
+      updatedReminders.reminders,
+    ]) {
+      expect(projected.map((row) => row.read), [
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+      ]);
+      expect(projected[0], same(alreadyRead));
+      expect(projected[2], same(_row));
+      expect(projected[4], same(thirdRead));
+      expect(projected[5], same(unrelated));
+    }
+    expect(rows[1].read, isFalse);
+    expect(rows[3].read, isFalse);
+    expect(updated.loading, isTrue);
+    expect(updated.loaded, isTrue);
+    expect(updated.error, 'held notifications');
+    expect(updatedReminders.bookmarks, same(originalReminders.bookmarks));
+    expect(updatedReminders.loading, isTrue);
+    expect(updatedReminders.loaded, isTrue);
+    expect(updatedReminders.error, 'held reminders');
+    expect(fixture.changes, ['feed', 'reminders', 'owner']);
+
+    fixture.owner.publish(feed, original);
+    fixture.owner.publish(reminders, originalReminders);
+    expect(fixture.owner.feed(feed).notifications.map((row) => row.read), [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+    expect(fixture.owner.feed(reminders).reminders.map((row) => row.read), [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  test('bulk dismissal retains snapshots for already read and missing IDs', () {
+    final fixture = _Fixture();
+    final source = fixture.slot('source');
+    final extra = fixture.slot('extra');
+    final reminders = NotificationFeedSlot.reminders(
+      () => fixture.changes.add('reminders'),
+    );
+    const second = DiscourseNotification.test(id: 2, typeId: _type);
+    const unrelated = DiscourseNotification.test(
+      id: 9,
+      typeId: NotificationTypeId(99),
+    );
+    fixture.owner.publish(source, const NotificationFeed.of([_row, second]));
+    final dismissal = fixture.owner.beginDismiss(types: [_wireType])!;
+    const empty = NotificationFeed();
+    final alreadyRead = NotificationFeed.of([_row.asRead(), unrelated]);
+    const missing = BookmarkFeed(reminders: [unrelated]);
+    fixture.owner.publish(source, empty);
+    fixture.owner.publish(extra, alreadyRead);
+    fixture.owner.publish(reminders, missing);
+    fixture.changes.clear();
+
+    fixture.owner.confirmDismiss(dismissal);
+
+    expect(fixture.owner.feed(source), same(empty));
+    expect(fixture.owner.feed(extra), same(alreadyRead));
+    expect(fixture.owner.feed(reminders), same(missing));
+    expect(fixture.changes, isEmpty);
+  });
+
+  test(
+    'bulk dismissal keeps newer arrivals unread after a late read failure',
+    () {
+      final fixture = _Fixture();
+      final feed = fixture.slot('feed');
+      const second = DiscourseNotification.test(id: 2, typeId: _type);
+      const arrived = DiscourseNotification.test(id: 3, typeId: _type);
+      fixture.owner.publish(feed, const NotificationFeed.of([_row, second]));
+      final reading = fixture.owner.beginRead(_row)!;
+      final dismissal = fixture.owner.beginDismiss(types: [_wireType])!;
+      fixture.owner.publish(
+        feed,
+        const NotificationFeed.of([_row, second, arrived]),
+      );
+
+      fixture.owner.confirmDismiss(dismissal);
+      fixture.owner.failRead(reading);
+
+      expect(fixture.owner.feed(feed).notifications.map((row) => row.read), [
+        true,
+        true,
+        false,
+      ]);
+    },
+  );
 
   test(
     'trusted source covers rows with missing type names and other wire IDs',

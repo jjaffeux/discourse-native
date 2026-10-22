@@ -527,16 +527,14 @@ final class _FeedSnapshot<T> implements _RegisteredFeed {
   @override
   bool mark(Set<int> ids, {required bool read}) {
     final previous = value;
-    for (final id in ids) {
-      value = slot._projection.mark(value, id, read: read);
-    }
+    value = slot._projection.mark(value, ids, read: read);
     return !identical(previous, value);
   }
 }
 
 abstract interface class _FeedProjection<T> {
   Iterable<DiscourseNotification> rows(T snapshot);
-  T mark(T snapshot, int id, {required bool read});
+  T mark(T snapshot, Set<int> ids, {required bool read});
   T overlay(T snapshot, Set<int> ids);
 }
 
@@ -554,6 +552,24 @@ List<DiscourseNotification> _overlay(
   return updated ?? rows;
 }
 
+List<DiscourseNotification> _markRows(
+  List<DiscourseNotification> rows,
+  Set<int> ids, {
+  required bool read,
+}) {
+  List<DiscourseNotification>? updated;
+  final marked = <int>{};
+  for (var i = 0; i < rows.length; i++) {
+    final row = rows[i];
+    if (row.read != read && ids.contains(row.id) && marked.add(row.id)) {
+      updated ??= List.of(rows);
+      updated[i] = read ? row.asRead() : row.asUnread();
+      if (marked.length == ids.length) break;
+    }
+  }
+  return updated ?? rows;
+}
+
 final class _NotificationProjection
     implements _FeedProjection<NotificationFeed> {
   const _NotificationProjection();
@@ -564,9 +580,26 @@ final class _NotificationProjection
   @override
   NotificationFeed mark(
     NotificationFeed snapshot,
-    int id, {
+    Set<int> ids, {
     required bool read,
-  }) => read ? snapshot.withRead(id) : snapshot.withUnread(id);
+  }) {
+    if (ids.isEmpty) return snapshot;
+    if (ids.length == 1) {
+      return read
+          ? snapshot.withRead(ids.single)
+          : snapshot.withUnread(ids.single);
+    }
+    final rows = _markRows(snapshot.notifications, ids, read: read);
+    return identical(rows, snapshot.notifications)
+        ? snapshot
+        : NotificationFeed(
+            notifications: rows,
+            loading: snapshot.loading,
+            loaded: snapshot.loaded,
+            error: snapshot.error,
+          );
+  }
+
   @override
   NotificationFeed overlay(NotificationFeed snapshot, Set<int> ids) {
     final rows = _overlay(snapshot.notifications, ids);
@@ -588,8 +621,25 @@ final class _ReminderProjection implements _FeedProjection<BookmarkFeed> {
   Iterable<DiscourseNotification> rows(BookmarkFeed snapshot) =>
       snapshot.reminders;
   @override
-  BookmarkFeed mark(BookmarkFeed snapshot, int id, {required bool read}) =>
-      read ? snapshot.withRead(id) : snapshot.withUnread(id);
+  BookmarkFeed mark(BookmarkFeed snapshot, Set<int> ids, {required bool read}) {
+    if (ids.isEmpty) return snapshot;
+    if (ids.length == 1) {
+      return read
+          ? snapshot.withRead(ids.single)
+          : snapshot.withUnread(ids.single);
+    }
+    final rows = _markRows(snapshot.reminders, ids, read: read);
+    return identical(rows, snapshot.reminders)
+        ? snapshot
+        : BookmarkFeed(
+            reminders: rows,
+            bookmarks: snapshot.bookmarks,
+            loading: snapshot.loading,
+            loaded: snapshot.loaded,
+            error: snapshot.error,
+          );
+  }
+
   @override
   BookmarkFeed overlay(BookmarkFeed snapshot, Set<int> ids) {
     final rows = _overlay(snapshot.reminders, ids);
