@@ -19,6 +19,7 @@ import '../data/authenticator.dart';
 import '../data/badges_api.dart';
 import '../data/composer_media_optimizer.dart';
 import '../data/current_user_reconciler.dart';
+import '../data/current_user_refresh.dart';
 import '../data/custom_sidebar_sections.dart';
 import '../data/destination_bookmarks_store.dart';
 import '../data/discourse_api_contracts.dart';
@@ -3825,7 +3826,7 @@ class ShellController extends FrameSafeNotifier
 
   final Set<String> _sessionUsersRefreshed = {};
 
-  final Map<String, Future<DiscourseUser?>> _sessionUserRequests = {};
+  final Map<String, CurrentUserRefresh> _sessionUserRequests = {};
 
   bool _foreground = true;
 
@@ -4255,29 +4256,23 @@ class ShellController extends FrameSafeNotifier
       return Future.value(held.user);
     }
 
-    final active = _sessionUserRequests[siteUrl];
     final session = lease ?? lifecycle.capture(siteUrl);
-    if (active != null) {
-      if (!force) return active;
-      return () async {
-        await active;
-        if (!session.isCurrent) return null;
-        return _sessionUser(siteUrl, apiKey, lease: session, force: true);
-      }();
+    if (!session.isCurrent) return Future.value();
+    var refresh = _sessionUserRequests[siteUrl];
+    if (refresh == null || !refresh.isCurrent) {
+      refresh?.retire();
+      refresh = CurrentUserRefresh(
+        lease: session,
+        read: () => _readSessionUser(
+          siteUrl,
+          apiKey,
+          session,
+          _currentUserReconcilerFor(siteUrl).beginSnapshot(),
+        ),
+      );
+      _sessionUserRequests[siteUrl] = refresh;
     }
-
-    final currentUserOwner = _currentUserReconcilerFor(siteUrl);
-    final userSnapshot = currentUserOwner.beginSnapshot();
-    late final Future<DiscourseUser?> request;
-    request = _readSessionUser(siteUrl, apiKey, session, userSnapshot)
-        .whenComplete(() {
-          if (identical(_sessionUserRequests[siteUrl], request)) {
-            final removed = _sessionUserRequests.remove(siteUrl);
-            assert(identical(removed, request));
-          }
-        });
-    _sessionUserRequests[siteUrl] = request;
-    return request;
+    return refresh.request(force: force);
   }
 
   Future<DiscourseUser?> _readSessionUser(
@@ -11671,7 +11666,7 @@ class ShellController extends FrameSafeNotifier
     _observePluginLifecycle(forgetPlugins, 'plugins.session.forget');
     topicFeeds.forget(siteUrl);
     _sessionUsersRefreshed.remove(siteUrl);
-    _sessionUserRequests.remove(siteUrl)?.ignore();
+    _sessionUserRequests.remove(siteUrl)?.retire();
     doNotDisturb.forget(siteUrl);
     userStatuses.forget(siteUrl);
     _profileWrites.forget(siteUrl);
@@ -12582,6 +12577,10 @@ class ShellController extends FrameSafeNotifier
       owner.retire();
     }
     _currentUserReconcilers.clear();
+    for (final refresh in _sessionUserRequests.values) {
+      refresh.retire();
+    }
+    _sessionUserRequests.clear();
     _topicPinWrites.clear();
     _topicStatusWrites.clear();
     _messageArchiveWrites.clear();
