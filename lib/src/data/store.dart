@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 abstract mixin class Storable<T extends Storable<T>> {
   Object get storeId;
 
-  /// The record fields used to derive its place in a loaded window.
-  Object get storeStructureKey => this;
+  /// Whether a replacement preserves the fields used by a loaded window.
+  bool hasSameStoreStructure(covariant T incoming) => identical(this, incoming);
 
   T merge(covariant T incoming) => incoming;
 }
@@ -134,7 +134,7 @@ class Store {
   int generationOf<T extends Storable<T>>(String siteUrl) =>
       _generations[(siteUrl, T)] ?? 0;
 
-  /// Changes when records arrive, leave, or change their structure key.
+  /// Changes when records arrive, leave, or change their store structure.
   Object? structureGenerationOf<T extends Storable<T>>(String siteUrl) =>
       _structureGenerations[(siteUrl, T)];
 
@@ -184,7 +184,7 @@ class Store {
     final merged = held == null ? record : held.merge(record);
     if (!identical(held, merged)) {
       _bump(siteUrl, T);
-      if (held == null || held.storeStructureKey != merged.storeStructureKey) {
+      if (held == null || !held.hasSameStoreStructure(merged)) {
         _bumpStructure(siteUrl, T);
       }
     }
@@ -207,7 +207,7 @@ class Store {
     final next = change(held);
     if (!identical(held, next)) {
       _bump(siteUrl, T);
-      if (held.storeStructureKey != next.storeStructureKey) {
+      if (!held.hasSameStoreStructure(next)) {
         _bumpStructure(siteUrl, T);
       }
     }

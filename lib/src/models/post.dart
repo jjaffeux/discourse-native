@@ -290,7 +290,8 @@ class Post with Storable<Post> {
   Object get storeId => id;
 
   @override
-  Object get storeStructureKey => postNumber;
+  bool hasSameStoreStructure(Post incoming) =>
+      postNumber == incoming.postNumber;
 
   /// A copy without `raw` was read without asking for it, so the held markdown
   /// survives — but only while it is the source of the incoming revision. An
