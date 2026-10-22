@@ -148,27 +148,40 @@ final class _FeedWindow {
     bool restoring = false,
     _RowRange? preferredRange,
   }) {
-    if (restoring) {
+    final incoming = ids.toList();
+    final destinations = <int, int>{};
+    final duplicateIds = <int>{};
+    var row = start;
+    for (final id in incoming) {
+      if (restoring && destinations.containsKey(id)) duplicateIds.add(id);
+      destinations[id] = row++;
+    }
+    if (restoring && incoming.isNotEmpty) {
       final readers = readerTopics?.call() ?? const <int>{};
-      var row = start;
-      for (final id in ids) {
-        for (final entry in rows.entries) {
-          if (protects(entry.key, readers: readers) &&
-              ((entry.value == id && entry.key != row) ||
-                  (entry.key == row && entry.value != id))) {
-            throw StateError(
-              'The topic page moved visible rows. Refresh the list.',
-            );
-          }
+      for (final entry in rows.entries) {
+        if (!protects(entry.key, readers: readers)) continue;
+        final destination = destinations[entry.value];
+        final incomingOffset = entry.key - start;
+        if ((destination != null &&
+                (destination != entry.key ||
+                    duplicateIds.contains(entry.value))) ||
+            (incomingOffset >= 0 &&
+                incomingOffset < incoming.length &&
+                incoming[incomingOffset] != entry.value)) {
+          throw StateError(
+            'The topic page moved visible rows. Refresh the list.',
+          );
         }
-        row++;
       }
     }
-    var row = start;
-    for (final id in ids) {
-      rows.removeWhere((otherRow, otherId) => otherRow != row && otherId == id);
-      rows.remove(row);
-      rows[row++] = id;
+    if (incoming.isNotEmpty) {
+      rows.removeWhere((_, id) => destinations.containsKey(id));
+      row = start;
+      for (final id in incoming) {
+        rows.remove(row);
+        if (destinations[id] == row) rows[row] = id;
+        row++;
+      }
     }
     trim(maximum, preferredRange: preferredRange);
   }

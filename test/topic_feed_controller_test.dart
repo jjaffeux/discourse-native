@@ -634,6 +634,74 @@ void main() {
       await pumpEventQueue();
     }
 
+    test('evicts older rows before a reordered restored page', () async {
+      await seed();
+      final restoring = restore(0, 1);
+      await pumpEventQueue();
+      expect(api.requests.last.path, rootPath);
+      await answer([12, 9], next: '/cursor/1.json?token=opaque');
+      await restoring;
+      var feed = controller.feedFor(site.url, 'filtered')!;
+      expect(feed.topicIdAt(0), 12);
+      expect(feed.topicIdAt(1), 9);
+      expect(feed.topicIdAt(9), 10);
+      expect(feed.topicIdAt(10), 11);
+      expect(feed.rowCount, 12);
+      expect(feed.error, isNull);
+
+      final forward = controller.loadMore(
+        instance: site,
+        destinationId: 'filtered',
+      );
+      await pumpEventQueue();
+      expect(api.requests.last.path, '/cursor/6.json?token=opaque');
+      await answer([13, 14], next: '/cursor/7.json?token=opaque');
+      await forward;
+      feed = controller.feedFor(site.url, 'filtered')!;
+      expect(feed.topicIdAt(0), 12);
+      expect(feed.topicIdAt(1), 9);
+      expect(feed.topicIdAt(9), isNull);
+      expect(feed.topicIdAt(10), isNull);
+      expect(feed.topicIdAt(12), 13);
+      expect(feed.topicIdAt(13), 14);
+      expect(feed.topicIds, [12, 9, 13, 14]);
+      expect(feed.rowCount, 14);
+      expect(feed.error, isNull);
+    });
+
+    test(
+      'rejects a late protected identity move before inserting rows',
+      () async {
+        final owner = Object();
+        final release = controller.retainFeed(
+          site.url,
+          'filtered',
+          owner: owner,
+        );
+        addTearDown(release);
+        controller.updateViewport(
+          site.url,
+          'filtered',
+          owner: owner,
+          firstRow: 8,
+          lastRow: 8,
+        );
+        await seed();
+        final before = controller.feedFor(site.url, 'filtered')!;
+        final restoring = restore(0, 1);
+        await answer([100, 9], next: '/cursor/1.json?token=opaque');
+        await restoring;
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIdAt(0), isNull);
+        expect(feed.topicIdAt(1), isNull);
+        expect(feed.topicIdAt(8), 9);
+        expect(feed.topicIds, before.topicIds);
+        expect(feed.topicRows, before.topicRows);
+        expect(feed.rowCount, before.rowCount);
+        expect(feed.pageError, isTrue);
+      },
+    );
+
     test(
       'replays dropped opaque checkpoints without changing the frontier',
       () async {
