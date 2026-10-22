@@ -16,6 +16,7 @@ import 'preferences_controller.dart';
 import 'settings_section_tabs.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'skeleton_fill.dart';
 
 class PreferencesPage extends StatefulWidget {
   const PreferencesPage({super.key, required this.siteUrl});
@@ -929,18 +930,34 @@ class _LoadingPreferences extends StatelessWidget {
   final String host;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    container: true,
-    liveRegion: true,
-    label: context.l10n.loadingPreferencesFrom((host).toString()),
-    child: ExcludeSemantics(
-      child: Center(
+  Widget build(BuildContext context) => DPageSurface.headed(
+    title: Text(context.l10n.preferences),
+    child: _SectionScroller(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+      child: DSkeletonRegion(
+        color: skeletonFill(context),
+        semanticsLabel: context.l10n.loadingPreferencesFrom((host).toString()),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const DSpinner(),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final width in [64.0, 112.0, 88.0, 80.0])
+                  DSkeleton(width: width, height: 32),
+              ],
+            ),
+            const SizedBox(height: 38),
+            const DSkeleton(width: 104, height: 16),
+            const SizedBox(height: 12),
+            const DSkeleton(height: 12),
             const SizedBox(height: 16),
-            Text(context.l10n.loadingPreferences),
+            const DSkeleton(width: 250, height: 36),
+            const SizedBox(height: 12),
+            const DSkeleton(width: 200, height: 12),
+            const SizedBox(height: 8),
+            const DSkeleton(width: 160, height: 32),
           ],
         ),
       ),
