@@ -918,24 +918,31 @@ class _WideShellState extends State<_WideShell> {
   @override
   void initState() {
     super.initState();
-    widget.sidebarExpanded.addListener(_sidebarChoiceChanged);
+    widget.sidebarExpanded.addListener(_navigationLayoutChanged);
+    widget.sidebarWidth.addListener(_navigationLayoutChanged);
   }
 
   @override
   void didUpdateWidget(_WideShell oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.sidebarExpanded == widget.sidebarExpanded) return;
-    oldWidget.sidebarExpanded.removeListener(_sidebarChoiceChanged);
-    widget.sidebarExpanded.addListener(_sidebarChoiceChanged);
+    if (oldWidget.sidebarExpanded != widget.sidebarExpanded) {
+      oldWidget.sidebarExpanded.removeListener(_navigationLayoutChanged);
+      widget.sidebarExpanded.addListener(_navigationLayoutChanged);
+    }
+    if (oldWidget.sidebarWidth != widget.sidebarWidth) {
+      oldWidget.sidebarWidth.removeListener(_navigationLayoutChanged);
+      widget.sidebarWidth.addListener(_navigationLayoutChanged);
+    }
   }
 
   @override
   void dispose() {
-    widget.sidebarExpanded.removeListener(_sidebarChoiceChanged);
+    widget.sidebarExpanded.removeListener(_navigationLayoutChanged);
+    widget.sidebarWidth.removeListener(_navigationLayoutChanged);
     super.dispose();
   }
 
-  void _sidebarChoiceChanged() => setState(() {});
+  void _navigationLayoutChanged() => setState(() {});
 
   Widget _buildRail(bool sidebarExpanded) => ShellSelector<bool>(
     select: (controller) =>
