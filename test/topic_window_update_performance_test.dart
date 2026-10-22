@@ -75,6 +75,7 @@ void main() {
       final expected = posts.map((p) => p.id).toList();
       expect(shell.currentPostIds, expected);
       final initialIndex = TopicViewportSnapshot.from(shell).initialPostIndex;
+      expect(initialIndex, streamLength == 20 ? 7 : 71);
       final unrelatedId = streamLength + 1;
       store.put(
         site.url,
