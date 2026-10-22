@@ -4720,6 +4720,67 @@ void _inviteTests() {
       harness.dispose();
     });
 
+    testWidgets('a slow invite keeps a newly typed name', (tester) async {
+      final harness = await _openInvites(tester);
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      harness.transport.responders['POST /voice/rooms/7/invites.json'] =
+          (_) async {
+            await gate.future;
+            return {
+              'invited_usernames': ['lee'],
+              'skipped_usernames': <Object?>[],
+            };
+          };
+      final field = find.widgetWithText(DInput, 'Invite by name');
+      await tester.enterText(field, ' @lee ');
+      await tester.tap(find.text('Send invite'));
+      await tester.pump();
+      await tester.enterText(field, 'next');
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<DInput>(field).controller!.text, 'next');
+      expect(
+        harness.transport.writes
+            .where((write) => write.path.endsWith('/invites.json'))
+            .single
+            .body['usernames'],
+        ['lee'],
+      );
+      expect(find.text('Invite sent.'), findsOneWidget);
+      harness.dispose();
+    });
+
+    for (final partial in [false, true]) {
+      testWidgets(
+        'a ${partial ? 'partial' : 'skipped'} invite keeps outcomes distinct',
+        (tester) async {
+          final harness = await _openInvites(tester);
+          harness.transport.responses['POST /voice/rooms/7/invites.json'] = {
+            'invited_usernames': partial ? ['lee'] : <Object?>[],
+            'skipped_usernames': ['kim'],
+          };
+          final field = find.widgetWithText(DInput, 'Invite by name');
+          await tester.enterText(field, 'kim');
+          await tester.tap(find.text('Send invite'));
+          await tester.pumpAndSettle();
+
+          expect(tester.widget<DInput>(field).controller!.text, isEmpty);
+          expect(find.text('Invited'), findsNothing);
+          expect(find.widgetWithText(DButton, 'Invite'), findsOneWidget);
+          expect(
+            find.text('Invite sent.'),
+            partial ? findsOneWidget : findsNothing,
+          );
+          expect(find.textContaining('@kim'), findsOneWidget);
+          harness.dispose();
+        },
+      );
+    }
+
     testWidgets('no invite control without the permission', (tester) async {
       final room = _room(
         participants: const [
@@ -6170,6 +6231,7 @@ void _roomDialogSessionTests() {
         'role',
         'remove',
         'suggestions completion',
+        'invite completion',
         'add completion',
       ]) {
         testWidgets(
@@ -6216,10 +6278,13 @@ void _roomDialogSessionTests() {
             final gate = Completer<void>();
             final heldSuggestions = action == 'suggestions completion';
             final heldAdd = action == 'add completion';
+            final heldInvite = action == 'invite completion';
             final heldPath = heldSuggestions
                 ? 'GET /voice/rooms/7/invites/suggestions.json'
+                : heldInvite
+                ? 'POST /voice/rooms/7/invites.json'
                 : 'POST /voice/rooms/7/memberships.json';
-            if (heldSuggestions || heldAdd) {
+            if (heldSuggestions || heldAdd || heldInvite) {
               transport.responders[heldPath] = (_) async {
                 await gate.future;
                 return transport.responses[heldPath]!;
@@ -6278,7 +6343,8 @@ void _roomDialogSessionTests() {
               ),
             );
             await tester.pumpAndSettle();
-            final inviting = action.endsWith('invite') || heldSuggestions;
+            final inviting =
+                action.endsWith('invite') || heldSuggestions || heldInvite;
             final trigger = tester.element(
               find.byTooltip(inviting ? 'Invite people' : 'Manage members'),
             );
@@ -6288,7 +6354,10 @@ void _roomDialogSessionTests() {
             await tester.pumpAndSettle();
             final field = find.byType(TextField);
             final modal = tester.element(field);
-            if (action == 'typed invite' || action == 'add' || heldAdd) {
+            if (action == 'typed invite' ||
+                action == 'add' ||
+                heldAdd ||
+                heldInvite) {
               await tester.enterText(field, 'lee');
             }
             if (heldAdd) {
@@ -6301,9 +6370,23 @@ void _roomDialogSessionTests() {
                 hasLength(1),
               );
             }
+            if (heldInvite) {
+              await tester.tap(find.text('Send invite'));
+              await tester.pump();
+              expect(
+                transport.writes.where(
+                  (write) => write.path.contains('/invites'),
+                ),
+                hasLength(1),
+              );
+            }
             await shell.connectCurrentInstance();
             await controller.ensureLoaded(_siteUrl, force: true);
-            await tester.pumpAndSettle();
+            if (heldInvite) {
+              await tester.pump(const Duration(seconds: 1));
+            } else {
+              await tester.pumpAndSettle();
+            }
             expect(trigger.mounted, isFalse);
             expect(tester.element(field), same(modal));
             expect(auth.keys[_siteUrl], rollback ? 'key' : 'replacement-key');
@@ -6340,6 +6423,7 @@ void _roomDialogSessionTests() {
                 );
               case 'suggestions completion':
               case 'add completion':
+              case 'invite completion':
                 gate.complete();
             }
             await tester.pumpAndSettle();
@@ -6349,10 +6433,15 @@ void _roomDialogSessionTests() {
                     write.path.contains('/invites') ||
                     write.path.contains('/memberships'),
               ),
-              heldAdd ? hasLength(1) : isEmpty,
+              heldAdd || heldInvite ? hasLength(1) : isEmpty,
             );
             if (heldSuggestions) {
               expect(find.text('kim'), findsNothing);
+            }
+            if (heldInvite) {
+              expect(tester.widget<TextField>(field).controller?.text, 'lee');
+              expect(find.text('Invite sent.'), findsNothing);
+              expect(find.text('Invited'), findsNothing);
             }
             if (heldAdd) {
               expect(
