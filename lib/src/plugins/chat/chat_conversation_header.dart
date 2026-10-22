@@ -11,15 +11,13 @@ class ChatConversationHeader extends StatelessWidget {
     super.key,
     required this.title,
     required this.kindLabel,
-    required this.messageCount,
-    required this.fetchedOnce,
     this.color,
     this.direct = false,
+    this.messageCount,
     this.threadCount = 0,
     this.partial = false,
     this.latest,
     this.compact = false,
-    this.compactMessageCountLabel,
     this.titleBuilder,
     this.now,
   });
@@ -28,13 +26,13 @@ class ChatConversationHeader extends StatelessWidget {
   final String kindLabel;
   final Color? color;
   final bool direct;
-  final int messageCount;
+
+  /// Loaded messages; null leaves the count out, as before a first fetch.
+  final int? messageCount;
   final int threadCount;
-  final bool fetchedOnce;
   final bool partial;
   final DateTime? latest;
   final bool compact;
-  final String? compactMessageCountLabel;
   final Widget Function(Widget title)? titleBuilder;
   final DateTime? now;
 
@@ -43,7 +41,8 @@ class ChatConversationHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final tokens = DTokens.of(context);
     final suffix = partial ? '+' : '';
-    final messageLabel = messageCount == 1 && !partial
+    final count = messageCount;
+    final messageLabel = count == 1 && !partial
         ? context.l10n.messageChatchannelheader
         : context.l10n.messagesChatchannelheader;
     final emphasis = TextStyle(
@@ -52,10 +51,10 @@ class ChatConversationHeader extends StatelessWidget {
     );
     final metadata = <InlineSpan>[
       TextSpan(text: kindLabel),
-      if (fetchedOnce || messageCount > 0)
+      if (count != null)
         TextSpan(
           children: [
-            TextSpan(text: '$messageCount$suffix', style: emphasis),
+            TextSpan(text: '$count$suffix', style: emphasis),
             TextSpan(text: messageLabel),
           ],
         ),
@@ -127,15 +126,14 @@ class ChatConversationHeader extends StatelessWidget {
                     child: titleBuilder?.call(titleText) ?? titleText,
                   ),
                 ),
-                if (compact && (fetchedOnce || messageCount > 0)) ...[
+                if (compact && count != null) ...[
                   const SizedBox(width: 8),
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxWidth: constraints.maxWidth * .5,
                     ),
                     child: DText(
-                      compactMessageCountLabel ??
-                          '$messageCount$suffix$messageLabel',
+                      '$count$suffix$messageLabel',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       key: const ValueKey('chat-compact-message-count'),

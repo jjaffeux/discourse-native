@@ -653,9 +653,10 @@ class _ThreadHeader extends StatelessWidget {
           ),
           color: channel?.categoryColor,
           direct: channel?.isDirectMessage == true,
-          messageCount: activity.messageCount,
+          messageCount: stream.fetchedOnce || activity.messageCount > 0
+              ? activity.messageCount
+              : null,
           threadCount: activity.threadIds.length,
-          fetchedOnce: stream.fetchedOnce,
           partial: stream.canLoadMorePast || stream.canLoadMoreFuture,
           latest: activity.latestAt,
           compact: compact,

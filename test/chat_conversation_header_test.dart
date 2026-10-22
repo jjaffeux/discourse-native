@@ -38,11 +38,9 @@ void main() {
             color: const Color(0xff888888),
             messageCount: 19,
             threadCount: thread ? 1 : 3,
-            fetchedOnce: true,
             latest: DateTime(2026, 10, 15, 11, 14),
             now: DateTime(2026, 10, 15, 12),
             compact: compact,
-            compactMessageCountLabel: thread ? null : '19 unread messages',
           );
           late DPageHeaderGeometry geometry;
           await tester.pumpWidget(
@@ -121,10 +119,7 @@ void main() {
           final count = find.byKey(
             const ValueKey('chat-compact-message-count'),
           );
-          expect(
-            find.text(thread ? '19 messages' : '19 unread messages'),
-            findsOneWidget,
-          );
+          expect(find.text('19 messages'), findsOneWidget);
           final compactTitle = find
               .byType(DText)
               .evaluate()
@@ -163,7 +158,6 @@ void main() {
                     title: 'A very long conversation title that must truncate',
                     kindLabel: 'Thread in #a-long-channel-name',
                     messageCount: 12345,
-                    fetchedOnce: true,
                     partial: true,
                     compact: compact,
                   ),

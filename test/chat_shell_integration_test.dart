@@ -3286,7 +3286,6 @@ void _registerChatShellTests() {
 
         final header = find.byKey(const ValueKey('chat-channel-header'));
         final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
-        final count = find.byKey(const ValueKey('chat-compact-message-count'));
         final pageSurface = find
             .ancestor(of: header, matching: find.byType(DPageSurface))
             .first;
@@ -3297,12 +3296,12 @@ void _registerChatShellTests() {
           await tester.pumpAndSettle();
           final pageRect = tester.getRect(pageSurface);
           final markerRect = tester.getRect(marker);
-          final countRect = tester.getRect(count);
+          final headerRect = tester.getRect(header);
           final inset = limited && pageRect.width > DPageReadingLane.maxWidth
               ? (pageRect.width - DPageReadingLane.maxWidth) / 2
               : 0.0;
           expect(markerRect.left, closeTo(pageRect.left + inset + 16, 1));
-          expect(countRect.right, closeTo(pageRect.right - inset - 16, 1));
+          expect(headerRect.right, closeTo(pageRect.right - inset, 1));
           expect(
             find.byKey(const ValueKey('content-header-separator')),
             findsNothing,
@@ -3333,7 +3332,6 @@ void _registerChatShellTests() {
             find.byKey(const ValueKey('chat-channel-star-button')),
             findsNothing,
           );
-          expect(find.text('0 unread messages'), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),

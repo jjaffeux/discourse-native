@@ -52,14 +52,8 @@ void main() {
       await _pump(tester, platform: platform, onOpenDetails: () => details++);
       final marker = find.byKey(const ValueKey('chat-channel-header-marker'));
       final title = find.text('general');
-      final count = find.byKey(const ValueKey('chat-compact-message-count'));
       expect(tester.getSize(marker), const Size.square(10));
       expect(tester.getTopLeft(title).dx - tester.getTopRight(marker).dx, 8);
-      expect(
-        tester.getRect(title).center.dy,
-        closeTo(tester.getRect(count).center.dy, .01),
-      );
-      expect(find.text('1 unread message'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('chat-channel-header-metadata')),
         findsNothing,
@@ -75,32 +69,25 @@ void main() {
     });
   }
 
-  for (final unreadCount in [0, 1, 42]) {
-    testWidgets('header shows exactly $unreadCount unread messages', (
+  testWidgets('header shows no message or unread count', (tester) async {
+    await _pump(
       tester,
-    ) async {
-      await _pump(
-        tester,
-        channel: _channel.withTrackingState(
-          tracking: ChatTracking(
-            unreadCount: unreadCount,
-            mentionCount: 3,
-            watchedThreadsUnreadCount: 5,
-          ),
+      channel: _channel.withTrackingState(
+        tracking: const ChatTracking(
+          unreadCount: 42,
+          mentionCount: 3,
+          watchedThreadsUnreadCount: 5,
         ),
-      );
-      expect(
-        find.text(
-          unreadCount == 1
-              ? '1 unread message'
-              : '$unreadCount unread messages',
-        ),
-        findsOneWidget,
-      );
-      expect(find.textContaining('+'), findsNothing);
-      expect(find.textContaining('thread'), findsNothing);
-    });
-  }
+      ),
+    );
+    expect(find.text('general'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-compact-message-count')),
+      findsNothing,
+    );
+    expect(find.textContaining('unread'), findsNothing);
+    expect(find.textContaining('42'), findsNothing);
+  });
 
   testWidgets(
     'loading and empty channels keep the same compact header height',
@@ -109,10 +96,6 @@ void main() {
       final header = find.byKey(const ValueKey('chat-channel-header'));
       final loadingHeight = tester.getSize(header).height;
       expect(
-        find.byKey(const ValueKey('chat-compact-message-count')),
-        findsNothing,
-      );
-      expect(
         find.byKey(const ValueKey('chat-channel-header-metadata')),
         findsNothing,
       );
@@ -120,7 +103,7 @@ void main() {
         tester,
         channel: _channel.withTrackingState(tracking: ChatTracking.none),
       );
-      expect(find.text('0 unread messages'), findsOneWidget);
+      expect(find.text('general'), findsOneWidget);
       expect(tester.getSize(header).height, loadingHeight);
       expect(loadingHeight, 47);
     },
