@@ -209,6 +209,7 @@ abstract class BuildTree extends BuildBit with NonInheritedPropertiesOwner {
     final child = bit.parent == this ? bit : bit.copyWith(parent: this);
     final scopedChildren = _children ??= [];
     scopedChildren.add(child);
+    notifyBuildTreeMutation();
     return bit;
   }
 
@@ -238,6 +239,7 @@ abstract class BuildTree extends BuildBit with NonInheritedPropertiesOwner {
     final child = bit.parent == this ? bit : bit.copyWith(parent: this);
     final scopedChildren = _children ??= [];
     scopedChildren.insert(0, child);
+    notifyBuildTreeMutation();
     return bit;
   }
 

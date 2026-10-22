@@ -5,6 +5,8 @@ import 'package:logging/logging.dart';
 import '../core_data.dart';
 import '../core_helpers.dart';
 import '../core_widget_factory.dart';
+import 'build_tree_mutation.dart';
+import 'core_build_tree.dart';
 import 'core_ops.dart';
 import 'margin_vertical.dart';
 
@@ -24,13 +26,22 @@ class Flattener implements Flattened {
   late InheritanceResolvers _inheritanceResolvers;
   var _swallowWhitespace = false;
   late List<_String> _strings;
+  var _hasBroadTree = false;
+  ({int generation, Map<BuildBit, BuildBit> bits})? _lookahead;
 
   Flattener(this.wf, this.tree) {
     _loopSubTree(tree, flatten: false);
+    if (_hasBroadTree) {
+      _lookahead = _prepareLookahead();
+    }
 
     _resetLoop(tree.inheritanceResolvers);
-    for (final bit in tree.bits) {
-      _loop(bit);
+    try {
+      for (final bit in tree.bits) {
+        _loop(bit);
+      }
+    } finally {
+      _lookahead = null;
     }
     _completeLoop();
   }
@@ -107,22 +118,96 @@ class Flattener implements Flattened {
     _strings = _firstStrings;
   }
 
-  void _loopSubTree(BuildTree someTree, {required bool flatten}) {
+  int _loopSubTree(BuildTree someTree, {required bool flatten}) {
+    var width = 0;
+    var whitespaces = 0;
     for (final child in someTree.children) {
+      width++;
       if (child is BuildTree) {
-        _loopSubTree(child, flatten: true);
+        whitespaces += _loopSubTree(child, flatten: true);
+      } else if (child is WhitespaceBit) {
+        whitespaces++;
       }
     }
+    _hasBroadTree |= width >= 64 && whitespaces >= 64;
 
     if (flatten) {
       someTree.flatten(this);
     }
+    return whitespaces;
+  }
+
+  Map<BuildBit, BuildBit>? get _currentLookahead {
+    final lookahead = _lookahead;
+    if (lookahead == null) {
+      return null;
+    }
+    if (lookahead.generation != buildTreeMutationGeneration) {
+      _lookahead = null;
+      return null;
+    }
+    return lookahead.bits;
+  }
+
+  ({int generation, Map<BuildBit, BuildBit> bits})? _prepareLookahead() {
+    final seen = Set<BuildBit>.identity();
+    final leaves = <BuildBit>[];
+    bool collect(BuildTree someTree) {
+      if (someTree.runtimeType != CoreBuildTree || !seen.add(someTree)) {
+        return false;
+      }
+      for (final child in someTree.children) {
+        if (child.runtimeType != CoreBuildTree &&
+            child.runtimeType != TextBit &&
+            child.runtimeType != WhitespaceBit) {
+          return false;
+        }
+        if (!identical(child.parent, someTree)) {
+          return false;
+        }
+        if (child is BuildTree) {
+          if (!collect(child)) {
+            return false;
+          }
+        } else {
+          if (!seen.add(child)) {
+            return false;
+          }
+          leaves.add(child);
+        }
+      }
+      return true;
+    }
+
+    if (!collect(tree)) {
+      return null;
+    }
+    final lookahead = Map<BuildBit, BuildBit>.identity();
+    BuildBit? next;
+    for (final leaf in leaves.reversed) {
+      if (leaf is WhitespaceBit) {
+        if (next != null) {
+          lookahead[leaf] = next;
+        }
+      } else {
+        next = leaf;
+      }
+    }
+    return (generation: buildTreeMutationGeneration, bits: lookahead);
   }
 
   void _loop(BuildBit bit) {
     _bit = bit;
+    final lookahead = _currentLookahead;
+    if (lookahead != null &&
+        bit is WhitespaceBit &&
+        !lookahead.containsKey(bit)) {
+      // Boundary traversal may invoke custom code outside this tree.
+      _lookahead = null;
+    }
     final thisInheritanceResolvers =
-        bit.effectiveInheritanceResolvers ?? _inheritanceResolvers;
+        bit.effectiveInheritanceResolvers(_currentLookahead?[bit]) ??
+            _inheritanceResolvers;
     if (_childrenBuilder == null) {
       _resetLoop(thisInheritanceResolvers);
     }
@@ -141,7 +226,7 @@ class Flattener implements Flattened {
       return true;
     }
 
-    final next = bit.nextNonWhitespace;
+    final next = _currentLookahead?[bit] ?? bit.nextNonWhitespace;
     if (next != null && next.isInline == false) {
       // skip whitespace before a new block
       return true;
@@ -282,7 +367,7 @@ class Flattener implements Flattened {
 }
 
 extension on BuildBit {
-  InheritanceResolvers? get effectiveInheritanceResolvers {
+  InheritanceResolvers? effectiveInheritanceResolvers(BuildBit? lookahead) {
     // the below code will find the best resolvers for this whitespace bit
     // easy case: whitespace at the beginning of a tag, use the previous style
     final parent = this.parent;
@@ -296,7 +381,7 @@ extension on BuildBit {
     // complicated: whitespace at the end of a tag, try to merge with the next
     // unless it has unrelated styling (e.g. next bit is a sibling)
     if (this == parent.last) {
-      final next = nextNonWhitespace;
+      final next = lookahead ?? nextNonWhitespace;
       if (next != null) {
         var tree = parent;
         while (tree.parent.last == this) {

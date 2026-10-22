@@ -5,6 +5,7 @@ import 'package:html/dom.dart' as dom;
 import 'core_helpers.dart';
 import 'core_legacy.dart';
 import 'core_widget_factory.dart';
+import 'internal/build_tree_mutation.dart';
 
 part 'data/inherited_properties/background.dart';
 part 'data/inherited_properties/decoration_color.dart';
