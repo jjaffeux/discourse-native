@@ -10,6 +10,57 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
+  for (final (width, scale, narrowWidth, rowHeight) in [
+    (1000.0, 1.0, 511.5, 49.0),
+    (1200.0, 2.0, 711.5, 84.0),
+  ]) {
+    testWidgets(
+      'desktop chrome follows sidebar resizing at ${scale * 100}% text',
+      (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await pumpShell(tester, Size(width, 900));
+        if (find.byType(InstanceSidebar).evaluate().isEmpty) {
+          await tester.tap(find.byKey(const ValueKey('rail-sidebar-toggle')));
+          await tester.pumpAndSettle();
+        }
+
+        final titleBar = find.byType(ShellTitleBar);
+        final originalHeader = tester.getRect(titleBar);
+        expect(originalHeader.height, rowHeight);
+        final handle = find.byKey(const ValueKey('sidebar-resize-handle'));
+        final delta = originalHeader.width - narrowWidth;
+        await tester.drag(handle, Offset(delta, 0), touchSlopX: 0);
+        await tester.pumpAndSettle();
+
+        final stackedHeader = tester.getRect(titleBar);
+        final search = tester.getRect(find.byKey(ForumSearch.inputKey));
+        final account = tester.getRect(userMenu);
+        expect(stackedHeader.width, closeTo(narrowWidth, .01));
+        expect(stackedHeader.height, rowHeight * 2);
+        expect(search.bottom, lessThanOrEqualTo(account.top));
+        expect(account.bottom, lessThanOrEqualTo(stackedHeader.bottom));
+        expect(
+          tester.getRect(find.byType(ShellWorkspace)).top,
+          greaterThanOrEqualTo(stackedHeader.bottom),
+        );
+        expect(tester.takeException(), isNull);
+
+        await tester.drag(handle, Offset(-delta, 0), touchSlopX: 0);
+        await tester.pumpAndSettle();
+        final restoredHeader = tester.getRect(titleBar);
+        expect(restoredHeader.width, closeTo(originalHeader.width, .01));
+        expect(restoredHeader.height, rowHeight);
+        expect(
+          tester.getRect(find.byKey(ForumSearch.inputKey)).center.dy,
+          closeTo(tester.getRect(userMenu).center.dy, .01),
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.desktop(),
+    );
+  }
+
   for (final size in [laptop, desktop]) {
     testWidgets(
       'desktop chrome matches mockup spacing at width ${size.width}',
