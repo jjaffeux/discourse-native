@@ -37,6 +37,8 @@ part 'chat_channel_directory.dart';
 part 'chat_thread_catalog.dart';
 part 'chat_message_write_owner.dart';
 
+typedef _ChatThreadMetadataKey = ({String siteUrl, ChatThreadTarget target});
+
 typedef _ChatReactionWriteKey = ({String siteUrl, int messageId, String emoji});
 typedef _ChatReactorsKey = ({
   String siteUrl,
@@ -798,9 +800,30 @@ class ChatController extends FrameSafeNotifier {
 
   final Map<String, int> _lastOpenedChannelIds = {};
 
-  final Map<String, Future<ChatThread?>> _threadDetailRequests = {};
-  final Set<String> _threadDetailDirty = {};
-  final Map<String, Object> _threadDetailRuns = {};
+  final Map<_ChatThreadMetadataKey, _ChatThreadMetadata> _threadMetadata = {};
+
+  _ChatThreadMetadata _metadataFor(String siteUrl, ChatThreadTarget target) =>
+      _threadMetadata.putIfAbsent((
+        siteUrl: siteUrl,
+        target: target,
+      ), _ChatThreadMetadata.new);
+
+  bool _ownsMetadata(
+    String siteUrl,
+    ChatThreadTarget target,
+    _ChatThreadMetadata metadata,
+  ) => identical(_threadMetadata[(siteUrl: siteUrl, target: target)], metadata);
+
+  void _releaseIdleMetadata(
+    String siteUrl,
+    ChatThreadTarget target,
+    _ChatThreadMetadata metadata,
+  ) {
+    if (!metadata.preventsEviction &&
+        _ownsMetadata(siteUrl, target, metadata)) {
+      _threadMetadata.remove((siteUrl: siteUrl, target: target));
+    }
+  }
 
   final LinkedHashMap<String, _ChatConversationStream> _conversations =
       LinkedHashMap();
@@ -809,14 +832,10 @@ class ChatController extends FrameSafeNotifier {
   /// reader. Their ids stay in held windows as paging slots with no record
   /// behind them, so only a record lost any other way is a hole.
   final Map<String, Map<int, int>> _hiddenDeletedMessageChannelIds = {};
-  final Map<String, int> _threadNotificationRevisions = {};
-  final Map<String, Future<void>> _threadNotificationTails = {};
-  final Map<String, ChatThreadMembership?> _threadNotificationConfirmed = {};
   final Map<String, _AccountMessageWrites> _messageWriteOwners = {};
   final Map<({String siteUrl, int channelId}), Object> _messageQuoteWrites = {};
   final Map<String, Object> _pinListRequests = {};
   final Map<String, FrameSafeValueNotifier<ChatPinsState>> _pinListRefs = {};
-  final Map<String, Object> _threadTitleWrites = {};
   final Map<_ChatReactionWriteKey, Object> _reactionWrites = {};
   final Map<_ChatReactorsKey, Object> _reactorRequests = {};
   final Map<_ChatReactorsKey, String> _reactorErrors = {};
@@ -2343,9 +2362,13 @@ class ChatController extends FrameSafeNotifier {
       hidden.removeWhere((_, heldChannelId) => heldChannelId == channelId);
       if (hidden.isEmpty) _hiddenDeletedMessageChannelIds.remove(siteUrl);
     }
-    _threadDetailRuns.removeWhere((key, _) => key.startsWith(threadPrefix));
-    _threadDetailRequests.removeWhere((key, _) => key.startsWith(threadPrefix));
-    _threadDetailDirty.removeWhere((key) => key.startsWith(threadPrefix));
+    _threadMetadata.removeWhere((key, metadata) {
+      if (key.siteUrl != siteUrl || key.target.channelId != channelId) {
+        return false;
+      }
+      metadata.abandonDetail();
+      return !metadata.preventsEviction;
+    });
 
     final unavailableStreams = _conversations.values
         .where(
@@ -2901,22 +2924,21 @@ class ChatController extends FrameSafeNotifier {
 
   bool _canEvictRetainedTarget(String key) {
     final identity = _conversations[key];
+    if (identity == null) return false;
     final pinsKey = _retainedPinsKey(key);
-    if (identity == null ||
-        _liveSync.isViewingTarget(identity.siteUrl, identity.target) ||
+    final target = identity.target;
+    final metadata = target is ChatThreadTarget
+        ? _threadMetadata[(siteUrl: identity.siteUrl, target: target)]
+        : null;
+    if (_liveSync.isViewingTarget(identity.siteUrl, identity.target) ||
         (identity._ref?.hasListeners ?? false) ||
         identity.preventsEviction ||
         (pinsKey != null && (_pinListRefs[pinsKey]?.hasListeners ?? false)) ||
         (_composerDraftRefs[key]?.hasListeners ?? false) ||
         _composerDraftRefs[key]?.value != null ||
-        _threadNotificationRevisions.containsKey(key) ||
-        _threadNotificationTails.containsKey(key) ||
-        _threadNotificationConfirmed.containsKey(key) ||
+        (metadata?.preventsEviction ?? false) ||
         (identity.target is ChatChannelTarget &&
-            _directory(identity.siteUrl).hasWrite(identity.target.channelId)) ||
-        _threadTitleWrites.containsKey(key) ||
-        _threadDetailRequests.containsKey(key) ||
-        _threadDetailDirty.contains(key)) {
+            _directory(identity.siteUrl).hasWrite(identity.target.channelId))) {
       return false;
     }
     return true;
@@ -3642,33 +3664,34 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed || target.channelId <= 0 || target.threadId <= 0) {
       return Future.value();
     }
-    final key = _targetKey(siteUrl, target);
-    _threadDetailDirty.add(key);
-    final current = _threadDetailRequests[key];
-    if (current != null) return current;
+    final metadata = _metadataFor(siteUrl, target);
+    metadata.detailDirty = true;
+    final current = metadata.detail;
+    if (current != null) return current.future;
 
-    late final Future<ChatThread?> request;
-    final run = Object();
-    _threadDetailRuns[key] = run;
-    request = _drainThreadDetail(siteUrl, target, key, run).whenComplete(() {
-      if (identical(_threadDetailRequests[key], request)) {
-        final _ = _threadDetailRequests.remove(key);
-        _threadDetailDirty.remove(key);
-        _threadDetailRuns.remove(key);
-      }
-    });
-    _threadDetailRequests[key] = request;
-    return request;
+    final run = _ThreadDetailRun();
+    metadata.detail = run;
+    run.result.complete(
+      _drainThreadDetail(siteUrl, target, metadata, run).whenComplete(() {
+        if (identical(metadata.detail, run)) {
+          metadata.abandonDetail();
+          _releaseIdleMetadata(siteUrl, target, metadata);
+        }
+      }),
+    );
+    return run.future;
   }
 
   Future<ChatThread?> _drainThreadDetail(
     String siteUrl,
     ChatThreadTarget target,
-    String key,
-    Object run,
+    _ChatThreadMetadata metadata,
+    _ThreadDetailRun run,
   ) async {
     final lease = _requests.capture(siteUrl);
-    bool ownsRequest() => identical(_threadDetailRuns[key], run);
+    bool ownsRequest() =>
+        _ownsMetadata(siteUrl, target, metadata) &&
+        identical(metadata.detail, run);
     _setStream(
       siteUrl,
       target,
@@ -3677,7 +3700,7 @@ class ChatController extends FrameSafeNotifier {
         target,
       ).copyWith(clearError: true, threadUnavailable: false),
     );
-    while (_threadDetailDirty.remove(key)) {
+    while (metadata.takeDetailDirty()) {
       try {
         final requestCredentials = await _requests.credentialsFor(siteUrl);
         final apiKey = requestCredentials.apiKey;
@@ -3699,7 +3722,7 @@ class ChatController extends FrameSafeNotifier {
           throw StateError('Thread detail did not match its requested target.');
         }
         // A preview event made this response stale; refetch before completing waiters.
-        if (_threadDetailDirty.contains(key)) continue;
+        if (metadata.detailDirty) continue;
 
         ChatThread? stored;
         lease.commit(() {
@@ -3730,7 +3753,7 @@ class ChatController extends FrameSafeNotifier {
         return stored;
       } catch (error, stackTrace) {
         if (!_requestIsCurrent(lease, ownsRequest)) return null;
-        if (_threadDetailDirty.contains(key)) continue;
+        if (metadata.detailDirty) continue;
 
         final terminal =
             error is SiteLookupException &&
@@ -3844,14 +3867,15 @@ class ChatController extends FrameSafeNotifier {
         !canEditThreadTitle(siteUrl, held)) {
       return false;
     }
-    final key = _targetKey(siteUrl, target);
-    if (_threadTitleWrites.containsKey(key)) return false;
+    final metadata = _metadataFor(siteUrl, target);
+    if (metadata.titleWrite != null) return false;
     final token = Object();
     final lease = _requests.capture(siteUrl);
-    _threadTitleWrites[key] = token;
+    metadata.titleWrite = token;
 
     bool isCurrent() =>
-        identical(_threadTitleWrites[key], token) &&
+        _ownsMetadata(siteUrl, target, metadata) &&
+        identical(metadata.titleWrite, token) &&
         lease.isCurrent &&
         !isDisposed;
 
@@ -3881,7 +3905,7 @@ class ChatController extends FrameSafeNotifier {
           target.threadId,
           (current) => current.copyWith(title: title),
         );
-        _threadDetailDirty.add(key);
+        metadata.detailDirty = true;
       });
       return true;
     } catch (error, stackTrace) {
@@ -3895,8 +3919,9 @@ class ChatController extends FrameSafeNotifier {
       }
       return false;
     } finally {
-      if (identical(_threadTitleWrites[key], token)) {
-        final _ = _threadTitleWrites.remove(key);
+      if (identical(metadata.titleWrite, token)) {
+        metadata.titleWrite = null;
+        _releaseIdleMetadata(siteUrl, target, metadata);
       }
     }
   }
@@ -3913,13 +3938,18 @@ class ChatController extends FrameSafeNotifier {
     if (held == null || held.channelId != target.channelId) {
       return Future.value(false);
     }
-    final key = _targetKey(siteUrl, target);
-    if (!_threadNotificationConfirmed.containsKey(key)) {
-      _threadNotificationConfirmed[key] = held.membership;
-    }
-    final revision = (_threadNotificationRevisions[key] ?? 0) + 1;
-    _threadNotificationRevisions[key] = revision;
+    final metadata = _metadataFor(siteUrl, target);
+    final queue = metadata.notifications ??= _ThreadNotificationQueue(
+      held.membership,
+    );
 
+    final write = _QueuedThreadNotification(
+      siteUrl: siteUrl,
+      target: target,
+      level: level,
+      lease: _requests.capture(siteUrl),
+    );
+    queue.latest = write;
     final previous = held.membership;
     final optimistic =
         (previous ?? ChatThreadMembership(threadId: target.threadId))
@@ -3930,39 +3960,37 @@ class ChatController extends FrameSafeNotifier {
       (current) => current.copyWith(membership: optimistic),
     );
 
-    final write = _QueuedThreadNotification(
-      siteUrl: siteUrl,
-      target: target,
-      level: level,
-      revision: revision,
-      lease: _requests.capture(siteUrl),
-    );
-    final previousTail = _threadNotificationTails[key] ?? Future.value();
+    final previousTail = queue.tail;
     late final Future<void> tail;
     tail = previousTail
         .catchError((_) {
           // One unexpected failure must not strand later queued selections.
         })
-        .then((_) => _performThreadNotificationWrite(key, write))
+        .then((_) => _performThreadNotificationWrite(metadata, queue, write))
         .whenComplete(() {
-          if (!identical(_threadNotificationTails[key], tail)) return;
-          final _ = _threadNotificationTails.remove(key);
-          _threadNotificationRevisions.remove(key);
-          _threadNotificationConfirmed.remove(key);
+          if (!identical(metadata.notifications, queue) ||
+              !identical(queue.tail, tail)) {
+            return;
+          }
+          metadata.notifications = null;
+          _releaseIdleMetadata(siteUrl, target, metadata);
         });
-    _threadNotificationTails[key] = tail;
+    queue.tail = tail;
     unawaited(tail);
     return write.result.future;
   }
 
   Future<void> _performThreadNotificationWrite(
-    String key,
+    _ChatThreadMetadata metadata,
+    _ThreadNotificationQueue queue,
     _QueuedThreadNotification write,
   ) async {
-    bool isLatest() =>
-        _threadNotificationRevisions[key] == write.revision &&
+    bool isCurrent() =>
+        _ownsMetadata(write.siteUrl, write.target, metadata) &&
+        identical(metadata.notifications, queue) &&
         write.lease.isCurrent &&
         !isDisposed;
+    bool isLatest() => identical(queue.latest, write) && isCurrent();
 
     // Collapse a selection superseded before it reaches the server.
     if (!isLatest()) {
@@ -3978,7 +4006,7 @@ class ChatController extends FrameSafeNotifier {
         return;
       }
       if (apiKey == null) {
-        _rollbackThreadNotification(key, write);
+        _rollbackThreadNotification(queue, write);
         write.complete(false);
         return;
       }
@@ -3997,7 +4025,7 @@ class ChatController extends FrameSafeNotifier {
           clientId: clientId,
         ),
       );
-      if (!write.lease.isCurrent || isDisposed) {
+      if (!isCurrent()) {
         write.complete(false);
         return;
       }
@@ -4013,7 +4041,7 @@ class ChatController extends FrameSafeNotifier {
             ? currentRead
             : responseRead,
       );
-      _threadNotificationConfirmed[key] = confirmed;
+      queue.confirmed = confirmed;
       if (isLatest()) {
         write.lease.commit(() {
           final current = thread(write.siteUrl, write.target.threadId);
@@ -4028,14 +4056,14 @@ class ChatController extends FrameSafeNotifier {
       }
       write.complete(true);
     } catch (error, stackTrace) {
-      if (write.lease.isCurrent && !isDisposed) {
+      if (isCurrent()) {
         _report(
           error,
           stackTrace,
           'chat.updateThreadNotificationLevel',
           severity: DiagnosticSeverity.warning,
         );
-        if (isLatest()) _rollbackThreadNotification(key, write);
+        if (isLatest()) _rollbackThreadNotification(queue, write);
       }
       write.complete(false);
     }
@@ -4045,11 +4073,11 @@ class ChatController extends FrameSafeNotifier {
   /// a deleted reply while it was in flight stays on the live membership, so
   /// the rollback rebases on it rather than on the saved membership.
   void _rollbackThreadNotification(
-    String key,
+    _ThreadNotificationQueue queue,
     _QueuedThreadNotification write,
   ) {
     if (!write.lease.isCurrent || isDisposed) return;
-    final previous = _threadNotificationConfirmed[key];
+    final previous = queue.confirmed;
     write.lease.commit(() {
       final current = thread(write.siteUrl, write.target.threadId);
       if (current != null) {
@@ -4248,20 +4276,8 @@ class ChatController extends FrameSafeNotifier {
     _reactorRequests.removeWhere((key, _) => key.siteUrl == siteUrl);
     _reactorErrors.removeWhere((key, _) => key.siteUrl == siteUrl);
     _bookmarkVersions.remove(siteUrl);
-    _threadDetailRequests.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _threadDetailRuns.removeWhere((key, _) => key.startsWith('$siteUrl~'));
-    _threadDetailDirty.removeWhere((key) => key.startsWith('$siteUrl~'));
+    _threadMetadata.removeWhere((key, _) => key.siteUrl == siteUrl);
     _hiddenDeletedMessageChannelIds.remove(siteUrl);
-    _threadNotificationRevisions.removeWhere(
-      (key, _) => key.startsWith('$siteUrl~'),
-    );
-    _threadNotificationTails.removeWhere(
-      (key, _) => key.startsWith('$siteUrl~'),
-    );
-    _threadNotificationConfirmed.removeWhere(
-      (key, _) => key.startsWith('$siteUrl~'),
-    );
-    _threadTitleWrites.removeWhere((key, _) => key.startsWith('$siteUrl~'));
     for (final owner in forgottenConversations) {
       owner.resetReference();
     }
@@ -4302,14 +4318,8 @@ class ChatController extends FrameSafeNotifier {
       owner.retire();
       owner.disposeReference();
     }
-    _threadDetailRequests.clear();
-    _threadDetailRuns.clear();
-    _threadDetailDirty.clear();
+    _threadMetadata.clear();
     _hiddenDeletedMessageChannelIds.clear();
-    _threadNotificationRevisions.clear();
-    _threadNotificationTails.clear();
-    _threadNotificationConfirmed.clear();
-    _threadTitleWrites.clear();
     _reactionWrites.clear();
     _messageQuoteWrites.clear();
     _pinListRequests.clear();
@@ -4333,18 +4343,54 @@ final class _QueuedThreadNotification {
     required this.siteUrl,
     required this.target,
     required this.level,
-    required this.revision,
     required this.lease,
   });
 
   final String siteUrl;
   final ChatThreadTarget target;
   final ChatThreadNotificationLevel level;
-  final int revision;
   final PluginSiteLease lease;
   final Completer<bool> result = Completer<bool>();
 
   void complete(bool succeeded) {
     if (!result.isCompleted) result.complete(succeeded);
   }
+}
+
+final class _ChatThreadMetadata {
+  bool detailDirty = false;
+  _ThreadDetailRun? detail;
+  Object? titleWrite;
+  _ThreadNotificationQueue? notifications;
+
+  bool get preventsEviction =>
+      detailDirty ||
+      detail != null ||
+      titleWrite != null ||
+      notifications != null;
+
+  bool takeDetailDirty() {
+    final dirty = detailDirty;
+    detailDirty = false;
+    return dirty;
+  }
+
+  void abandonDetail() {
+    detail = null;
+    detailDirty = false;
+  }
+}
+
+final class _ThreadDetailRun {
+  final Completer<ChatThread?> result = Completer();
+
+  Future<ChatThread?> get future => result.future;
+}
+
+final class _ThreadNotificationQueue {
+  _ThreadNotificationQueue(this.confirmed);
+
+  ChatThreadMembership? confirmed;
+  late _QueuedThreadNotification latest;
+  Future<void> tail = Future.value();
 }

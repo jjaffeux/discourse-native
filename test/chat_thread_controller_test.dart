@@ -2517,6 +2517,100 @@ void main() {
   );
 
   test(
+    'a stream listener can refresh detail during its initial publication',
+    () async {
+      final api = _SequencedDetailApi();
+      final subject = _controllerFor(api);
+      final stream = subject.chat.streamListenableFor(site, target);
+      final failed = subject.chat.refreshThreadDetail(site, target);
+      await waitUntil(() => api.calls == 1);
+      api.responses[0].completeError(
+        const SiteLookupException(
+          SiteLookupFailure.unreachable,
+          site,
+          statusCode: 404,
+        ),
+      );
+      await failed;
+      Future<ChatThread?>? reentrant;
+      Object? reentrantError;
+      var joined = false;
+      void refreshOnce() {
+        if (joined) return;
+        joined = true;
+        try {
+          reentrant = subject.chat.refreshThreadDetail(site, target);
+        } catch (error) {
+          reentrantError = error;
+        }
+      }
+
+      stream.addListener(refreshOnce);
+      addTearDown(() => stream.removeListener(refreshOnce));
+      final refreshing = subject.chat.refreshThreadDetail(site, target);
+      await waitUntil(() => api.calls == 2);
+      api.responses[1].complete(threadDetail(title: 'Current'));
+      await refreshing;
+      await reentrant;
+
+      expect(joined, isTrue);
+      expect(reentrantError, isNull);
+      expect(subject.chat.thread(site, 22)?.title, 'Current');
+    },
+  );
+
+  test(
+    'a title write dirties an older detail without losing its waiters',
+    () async {
+      final api = _SequencedDetailApi();
+      final store = Store()
+        ..put(site, threadDetail(title: 'Before', originalAuthorId: 7));
+      final subject = _controllerFor(api, store: store);
+
+      final refreshing = subject.chat.refreshThreadDetail(site, target);
+      await waitUntil(() => api.calls == 1);
+      expect(
+        await subject.chat.updateThreadTitle(site, target, 'After'),
+        isTrue,
+      );
+      api.responses[0].complete(threadDetail(title: 'Before'));
+      await waitUntil(() => api.calls == 2);
+      expect(subject.chat.thread(site, 22)?.title, 'After');
+      api.responses[1].complete(threadDetail(title: 'After'));
+
+      expect((await refreshing)?.title, 'After');
+      expect(subject.chat.thread(site, 22)?.title, 'After');
+    },
+  );
+
+  test(
+    'a forgotten detail completion cannot clear its replacement request',
+    () async {
+      final api = _SequencedDetailApi();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+      final requests = FakePluginRequestHost(credentials: credentials);
+      final subject = _controllerFor(api, requests: requests);
+
+      final old = subject.chat.refreshThreadDetail(site, target);
+      await waitUntil(() => api.calls == 1);
+      requests.lifecycle.invalidate(site);
+      subject.chat.forget(site);
+      final replacement = subject.chat.refreshThreadDetail(site, target);
+      await waitUntil(() => api.calls == 2);
+      api.responses[0].complete(threadDetail(title: 'Old account'));
+      expect(await old, isNull);
+      final joined = subject.chat.refreshThreadDetail(site, target);
+      expect(identical(joined, replacement), isTrue);
+      api.responses[1].complete(threadDetail(title: 'Dirty replacement'));
+      await waitUntil(() => api.calls == 3);
+      api.responses[2].complete(threadDetail(title: 'Current account'));
+
+      expect((await replacement)?.title, 'Current account');
+      expect(subject.chat.thread(site, 22)?.title, 'Current account');
+    },
+  );
+
+  test(
     'thread metadata updates even when the root message is not held',
     () async {
       final api = _AdversarialThreadApi(
@@ -2685,6 +2779,113 @@ void main() {
           ChatThreadNotificationLevel.watching,
           ChatThreadNotificationLevel.muted,
         ],
+      );
+    },
+  );
+
+  test(
+    'a queued notification rollback keeps the earlier success and newer read',
+    () async {
+      final api = _SequencedNotificationApi();
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store);
+
+      final first = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.watching,
+      );
+      await waitUntil(() => api.pending.length == 1);
+      final skipped = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.normal,
+      );
+      final latest = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.muted,
+      );
+      await subject.chat.markReadFor(site, target, 40);
+      api.pending[0].response.complete(
+        const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.watching,
+          lastReadMessageId: 17,
+        ),
+      );
+      await waitUntil(() => api.pending.length == 2);
+      expect(await skipped, isFalse);
+      expect(api.pending.last.level, ChatThreadNotificationLevel.muted);
+      api.pending.last.response.completeError(
+        const WriteException(WriteFailure.unreachable),
+      );
+
+      expect(await first, isTrue);
+      expect(await latest, isFalse);
+      final membership = subject.chat.thread(site, 22)?.membership;
+      expect(
+        membership?.notificationLevel,
+        ChatThreadNotificationLevel.watching,
+      );
+      expect(membership?.lastReadMessageId, 40);
+    },
+  );
+
+  test(
+    'a forgotten notification completion cannot clear its replacement queue',
+    () async {
+      final api = _SequencedNotificationApi();
+      final credentials = FakeApiCredentialReader()..keys[site] = 'key';
+      final requests = FakePluginRequestHost(credentials: credentials);
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store, requests: requests);
+
+      final old = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.watching,
+      );
+      await waitUntil(() => api.pending.length == 1);
+      requests.lifecycle.invalidate(site);
+      subject.chat.forget(site);
+      store.put(site, threadDetail());
+      final replacement = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.muted,
+      );
+      await waitUntil(() => api.pending.length == 2);
+      api.pending[0].response.complete(
+        const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.watching,
+        ),
+      );
+      expect(await old, isFalse);
+      final latest = subject.chat.updateThreadNotificationLevel(
+        site,
+        target,
+        ChatThreadNotificationLevel.normal,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(api.pending, hasLength(2));
+      api.pending[1].response.complete(
+        const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.muted,
+        ),
+      );
+      await waitUntil(() => api.pending.length == 3);
+      api.pending[2].response.completeError(
+        const WriteException(WriteFailure.unreachable),
+      );
+
+      expect(await replacement, isTrue);
+      expect(await latest, isFalse);
+      expect(
+        subject.chat.thread(site, 22)?.membership?.notificationLevel,
+        ChatThreadNotificationLevel.muted,
       );
     },
   );
