@@ -287,7 +287,7 @@ void main() {
           null,
           [],
           {'type': 'sent'},
-          {'type': 'sent', 'chat_message': []},
+          {'type': 'sent', 'chat_message': <Object?>[]},
           _messageEvent('sent', id: 0, threadId: threadStream ? 22 : null),
           _messageEvent('sent', id: -1, threadId: threadStream ? 22 : null),
           _messageEvent(
