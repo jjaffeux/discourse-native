@@ -109,33 +109,6 @@ abstract final class NativeGlass {
     );
   }
 
-  static Future<void> _capture(_RenderNativeGlassContent content) async {
-    if (!content.attached || !content.hasSize || content.size.isEmpty) return;
-    final ui.Image image;
-    try {
-      image = await content.toImage(pixelRatio: content.pixelRatio);
-    } on Object {
-      return;
-    }
-    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    if (bytes == null || !content.attached) return;
-    final version = (_images[content] ?? 0) + 1;
-    await channel
-        .invokeMethod<void>('image', {
-          'id': identityHashCode(content),
-          'version': version,
-          'scale': content.pixelRatio,
-          'png': bytes.buffer.asUint8List(),
-        })
-        .catchError((Object _) {});
-    if (!content.attached) return;
-    _images[content] = version;
-    // The scene is read after a frame; an idle screen would otherwise wait for
-    // an unrelated one before showing this content.
-    SchedulerBinding.instance.scheduleFrame();
-  }
-
   static int _compare(List<int> a, List<int> b) {
     for (var i = 0; i < a.length && i < b.length; i++) {
       if (a[i] != b[i]) return a[i].compareTo(b[i]);
@@ -579,7 +552,12 @@ class _NativeGlassContentSlot extends SingleChildRenderObjectWidget {
 
 class _RenderNativeGlassContent extends RenderRepaintBoundary
     implements _NativeGlassNode {
-  _RenderNativeGlassContent(this._group, this.pill, this.tint, this.pixelRatio);
+  _RenderNativeGlassContent(
+    this._group,
+    this.pill,
+    this.tint,
+    this._pixelRatio,
+  );
 
   NativeGlassGroup _group;
   set group(NativeGlassGroup value) {
@@ -594,18 +572,34 @@ class _RenderNativeGlassContent extends RenderRepaintBoundary
 
   bool pill;
   Color? tint;
-  double pixelRatio;
+  double _pixelRatio;
+  set pixelRatio(double value) {
+    if (value == _pixelRatio) return;
+    _pixelRatio = value;
+    _revision++;
+    markNeedsPaint();
+  }
+
+  int _epoch = 0;
+  int _revision = 0;
+  int _attemptedRevision = 0;
+  int _uploadVersion = 0;
+  bool _captureScheduled = false;
+  bool _capturing = false;
 
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
     _group._nodes.add(this);
+    _epoch++;
+    markNeedsPaint();
   }
 
   @override
   void detach() {
     _group._nodes.remove(this);
     NativeGlass._images.remove(this);
+    _epoch++;
     super.detach();
   }
 
@@ -613,9 +607,64 @@ class _RenderNativeGlassContent extends RenderRepaintBoundary
   @override
   void paint(PaintingContext context, Offset offset) {
     super.paint(context, offset);
-    SchedulerBinding.instance.addPostFrameCallback(
-      (_) => unawaited(NativeGlass._capture(this)),
-    );
+    _revision++;
+    _scheduleCapture();
+  }
+
+  void _scheduleCapture() {
+    if (!attached ||
+        _captureScheduled ||
+        _capturing ||
+        _revision == _attemptedRevision) {
+      return;
+    }
+    _captureScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _captureScheduled = false;
+      unawaited(_capture());
+    });
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase == SchedulerPhase.idle ||
+        scheduler.schedulerPhase == SchedulerPhase.postFrameCallbacks) {
+      scheduler.scheduleFrame();
+    }
+  }
+
+  Future<void> _capture() async {
+    if (!attached || !hasSize || size.isEmpty || _capturing) return;
+    final ticket = (epoch: _epoch, revision: _revision, scale: _pixelRatio);
+    bool current() =>
+        attached && _epoch == ticket.epoch && _revision == ticket.revision;
+    _attemptedRevision = ticket.revision;
+    _capturing = true;
+    ui.Image? image;
+    try {
+      image = await toImage(pixelRatio: ticket.scale);
+      if (!current()) return;
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      image = null;
+      if (bytes == null || !current()) return;
+      final version = ++_uploadVersion;
+      await NativeGlass.channel.invokeMethod<void>('image', {
+        'id': identityHashCode(this),
+        'version': version,
+        'scale': ticket.scale,
+        'png': bytes.buffer.asUint8List(
+          bytes.offsetInBytes,
+          bytes.lengthInBytes,
+        ),
+      });
+      if (!current()) return;
+      NativeGlass._images[this] = version;
+      SchedulerBinding.instance.scheduleFrame();
+    } on Object {
+      return;
+    } finally {
+      image?.dispose();
+      _capturing = false;
+      _scheduleCapture();
+    }
   }
 
   @override
