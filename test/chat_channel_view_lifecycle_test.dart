@@ -36,13 +36,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/button_surface.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
+
+const _messageList = ValueKey('d-message-scroller-list');
 
 Finder _groupEnd(int id) => find.byWidgetPredicate(
   (widget) =>
@@ -231,7 +232,7 @@ void main() {
         final row = tester.getRect(find.byType(ChatMessageTile));
         expect(row.width, width > 825 ? 825 : width);
         expect(row.center.dx, width / 2);
-        expect(tester.getSize(find.byType(SuperListView)).width, width);
+        expect(tester.getSize(find.byKey(_messageList)).width, width);
         expect(tester.takeException(), isNull);
       }
     });
@@ -1776,7 +1777,7 @@ void main() {
           expect(scroll.pixels, 0);
 
           // Pointer interaction can give this stream ownership in a split layout.
-          await tester.tap(find.byType(SuperListView));
+          await tester.tap(find.byKey(_messageList));
           await tester.pump();
 
           await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
@@ -1888,7 +1889,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(api.targetMessageIds, [null]);
 
-      await tester.tap(find.byType(SuperListView));
+      await tester.tap(find.byKey(_messageList));
       await tester.pump();
       expect(await tester.sendKeyEvent(LogicalKeyboardKey.end), isTrue);
       await tester.pumpAndSettle();
@@ -2063,8 +2064,12 @@ void main() {
         )!;
         expect(geometry.visibleExtent, greaterThan(0));
         final viewport = tester.getRect(scroll);
+        // A touch composer floats over the bottom of the transcript.
         await tester.timedDragFrom(
-          Offset(viewport.center.dx, viewport.bottom - 16),
+          Offset(
+            viewport.center.dx,
+            viewport.bottom - geometry.footerExtent - 16,
+          ),
           const Offset(0, -180),
           const Duration(milliseconds: 300),
         );
