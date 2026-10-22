@@ -1,0 +1,747 @@
+{
+  "baseline_revision": "1c23479833847cf04c3a7ece4928d670fce700d8",
+  "environment": {
+    "expected_claim": "Caching normalized local metadata reduces awaited controller search preparation on 5000 known tags, including source-refresh maintenance, while preserving complete output. No device timing claim.",
+    "baseline_revision": "1c23479833847cf04c3a7ece4928d670fce700d8",
+    "flutter": "3.47.7",
+    "dart": "3.13.5",
+    "logical_cpus": 18,
+    "preflight_load_average": [
+      10.58,
+      27.99,
+      22.46
+    ],
+    "background_load": "Codex, Chrome and WindowServer active. Validation lane serializes heavy jobs. Compare alternating sides.",
+    "timed": "ShellController.searchFilterTags await; loadTags await measured separately and included in cold/refresh totals. Immediate FakeDiscourseApi futures, credentials and lease path included.",
+    "excluded": "Shell startup, oracle preparation, full result assertions, checksum consumption, Flutter compilation/process startup. Process duration recorded separately.",
+    "queries": [
+      "empty",
+      "broad t",
+      "mixed-case TaG-0",
+      "group-07",
+      "narrow tag-04999",
+      "absent",
+      "category-scoped empty",
+      "category-scoped TaG",
+      "five refreshed sources, each followed by a first selective query with empty remote results"
+    ],
+    "cases": [
+      30,
+      5000
+    ],
+    "known_tag_generations": 14,
+    "remote_response_generations": 3,
+    "remote_results": 100,
+    "ranking_inputs": [
+      "count ties",
+      "mixed case",
+      "null description",
+      "nonnumeric description",
+      "signed integer",
+      "spaced integer",
+      "hex integer",
+      "duplicate remote names"
+    ],
+    "oracle": "reverse remote last-wins deduplication, then eligible local first-wins rows, numeric rank and lowercase key tuple ordering, full equality outside timed regions",
+    "limitation": "Flutter test VM debug JIT. Separate CPU samples confirm conversion/sort work; no release/device/frame/network-latency inference.",
+    "selective_refresh_scenario": "Five additional source generations each force loadTags and then first narrow query, one local match, empty immediate remote. Load plus search fully timed; expected output and source lists prepared beforehand.",
+    "search_calls_per_size": 437,
+    "tag_loads_per_size": 14,
+    "benchmark_sha256": "2bbdc5507e520e270810390012bead39732c0af41f839e26e69cd4b10f15e678"
+  },
+  "source_sha256": {
+    "baseline": [
+      "d180282d21743b5ecf0607a6dcb597a6176d0820660664675be67a057b6b4548"
+    ],
+    "candidate": [
+      "f2c3ed6393731ca25876d4b1350f24c0049a4a324452d11a8b0acf867a956826"
+    ]
+  },
+  "workload": {
+    "runs_per_side": 5,
+    "sizes": [
+      30,
+      5000
+    ],
+    "calls_per_size_per_run": 437,
+    "warm_measured_calls": 320,
+    "cold_queries": 8,
+    "refresh_generations": 8,
+    "refresh_queries": 64,
+    "first_selective_refresh_generations": 5,
+    "loads_per_size_per_run": 14,
+    "failures": 0,
+    "checks": "Full result equality and checksum for every call, outside timed region"
+  },
+  "summary": {
+    "limits": "Debug JIT awaited controller preparation only. warm_search_us is total time for 320 calls; warm_mean_search_us divides each sample total by 320. No device or network timing.",
+    "cases": [
+      {
+        "label": "baseline",
+        "known_tags": 30,
+        "samples": 5,
+        "checksum": 2052417075,
+        "warm_search_us": {
+          "median": 48835,
+          "min": 29465,
+          "max": 55817,
+          "samples": [
+            49795,
+            48835,
+            55817,
+            38222,
+            29465
+          ]
+        },
+        "cold_total_us": {
+          "median": 8746,
+          "min": 6497,
+          "max": 16634,
+          "samples": [
+            7444,
+            8746,
+            16634,
+            8899,
+            6497
+          ]
+        },
+        "refresh_total_us": {
+          "median": 8257,
+          "min": 5845,
+          "max": 12442,
+          "samples": [
+            8257,
+            11676,
+            12442,
+            6809,
+            5845
+          ]
+        },
+        "refresh_load_us": {
+          "median": 803,
+          "min": 516,
+          "max": 1246,
+          "samples": [
+            803,
+            1097,
+            1246,
+            704,
+            516
+          ]
+        },
+        "selective_refresh_total_us": {
+          "median": 683,
+          "min": 441,
+          "max": 1509,
+          "samples": [
+            1070,
+            1509,
+            683,
+            508,
+            441
+          ]
+        },
+        "warm_mean_search_us": {
+          "median": 152.609375,
+          "min": 92.078125,
+          "max": 174.428125
+        }
+      },
+      {
+        "label": "baseline",
+        "known_tags": 5000,
+        "samples": 5,
+        "checksum": 69867046,
+        "warm_search_us": {
+          "median": 434954,
+          "min": 358901,
+          "max": 768195,
+          "samples": [
+            358901,
+            465306,
+            768195,
+            434954,
+            392029
+          ]
+        },
+        "cold_total_us": {
+          "median": 15527,
+          "min": 11607,
+          "max": 26485,
+          "samples": [
+            11607,
+            16706,
+            26485,
+            15527,
+            14992
+          ]
+        },
+        "refresh_total_us": {
+          "median": 87573,
+          "min": 83783,
+          "max": 125338,
+          "samples": [
+            87573,
+            88675,
+            125338,
+            87445,
+            83783
+          ]
+        },
+        "refresh_load_us": {
+          "median": 1389,
+          "min": 1235,
+          "max": 2896,
+          "samples": [
+            1235,
+            1389,
+            2896,
+            1684,
+            1301
+          ]
+        },
+        "selective_refresh_total_us": {
+          "median": 5055,
+          "min": 4504,
+          "max": 7736,
+          "samples": [
+            4504,
+            5055,
+            7736,
+            5525,
+            4596
+          ]
+        },
+        "warm_mean_search_us": {
+          "median": 1359.23125,
+          "min": 1121.565625,
+          "max": 2400.609375
+        }
+      },
+      {
+        "label": "candidate",
+        "known_tags": 30,
+        "samples": 5,
+        "checksum": 2052417075,
+        "warm_search_us": {
+          "median": 29119,
+          "min": 23095,
+          "max": 39742,
+          "samples": [
+            26833,
+            29119,
+            39742,
+            30742,
+            23095
+          ]
+        },
+        "cold_total_us": {
+          "median": 10195,
+          "min": 6730,
+          "max": 10832,
+          "samples": [
+            6730,
+            10761,
+            10195,
+            10832,
+            6976
+          ]
+        },
+        "refresh_total_us": {
+          "median": 6538,
+          "min": 4900,
+          "max": 7416,
+          "samples": [
+            5122,
+            6538,
+            7416,
+            7059,
+            4900
+          ]
+        },
+        "refresh_load_us": {
+          "median": 805,
+          "min": 455,
+          "max": 1261,
+          "samples": [
+            657,
+            1053,
+            1261,
+            805,
+            455
+          ]
+        },
+        "selective_refresh_total_us": {
+          "median": 603,
+          "min": 464,
+          "max": 771,
+          "samples": [
+            507,
+            603,
+            771,
+            688,
+            464
+          ]
+        },
+        "warm_mean_search_us": {
+          "median": 90.996875,
+          "min": 72.171875,
+          "max": 124.19375
+        }
+      },
+      {
+        "label": "candidate",
+        "known_tags": 5000,
+        "samples": 5,
+        "checksum": 69867046,
+        "warm_search_us": {
+          "median": 200331,
+          "min": 174757,
+          "max": 212074,
+          "samples": [
+            200331,
+            189505,
+            209083,
+            212074,
+            174757
+          ]
+        },
+        "cold_total_us": {
+          "median": 11329,
+          "min": 10068,
+          "max": 12327,
+          "samples": [
+            12284,
+            12327,
+            11329,
+            10091,
+            10068
+          ]
+        },
+        "refresh_total_us": {
+          "median": 52645,
+          "min": 42651,
+          "max": 55965,
+          "samples": [
+            55965,
+            52645,
+            49369,
+            52652,
+            42651
+          ]
+        },
+        "refresh_load_us": {
+          "median": 1405,
+          "min": 1012,
+          "max": 2794,
+          "samples": [
+            2794,
+            1313,
+            1405,
+            1517,
+            1012
+          ]
+        },
+        "selective_refresh_total_us": {
+          "median": 5384,
+          "min": 4482,
+          "max": 6979,
+          "samples": [
+            6979,
+            5280,
+            5384,
+            5909,
+            4482
+          ]
+        },
+        "warm_mean_search_us": {
+          "median": 626.034375,
+          "min": 546.115625,
+          "max": 662.73125
+        }
+      }
+    ],
+    "comparisons": [
+      {
+        "known_tags": 30,
+        "metrics": {
+          "warm_search_us": {
+            "baseline_median": 48835,
+            "candidate_median": 29119,
+            "reduction_percent": 40.37268352615952,
+            "speedup_ratio": 1.6770836910608193
+          },
+          "cold_total_us": {
+            "baseline_median": 8746,
+            "candidate_median": 10195,
+            "reduction_percent": -16.567573747999084,
+            "speedup_ratio": 0.8578715056400196
+          },
+          "refresh_total_us": {
+            "baseline_median": 8257,
+            "candidate_median": 6538,
+            "reduction_percent": 20.818699285454766,
+            "speedup_ratio": 1.2629244417252983
+          },
+          "selective_refresh_total_us": {
+            "baseline_median": 683,
+            "candidate_median": 603,
+            "reduction_percent": 11.71303074670571,
+            "speedup_ratio": 1.1326699834162521
+          }
+        }
+      },
+      {
+        "known_tags": 5000,
+        "metrics": {
+          "warm_search_us": {
+            "baseline_median": 434954,
+            "candidate_median": 200331,
+            "reduction_percent": 53.942026053329776,
+            "speedup_ratio": 2.171176702557268
+          },
+          "cold_total_us": {
+            "baseline_median": 15527,
+            "candidate_median": 11329,
+            "reduction_percent": 27.036774650608617,
+            "speedup_ratio": 1.37055344690617
+          },
+          "refresh_total_us": {
+            "baseline_median": 87573,
+            "candidate_median": 52645,
+            "reduction_percent": 39.884439267810855,
+            "speedup_ratio": 1.6634628169816696
+          },
+          "selective_refresh_total_us": {
+            "baseline_median": 5055,
+            "candidate_median": 5384,
+            "reduction_percent": -6.508407517309594,
+            "speedup_ratio": 0.9388930163447251
+          }
+        }
+      }
+    ]
+  },
+  "operation_counts": {
+    "baseline": [
+      {
+        "known_tags": 30,
+        "cold_8_queries": {
+          "lowercase_calls": 7394,
+          "rank_parses": 15136
+        },
+        "warm_320_queries": {
+          "lowercase_calls": 294600,
+          "rank_parses": 605440
+        },
+        "refresh_64_queries": {
+          "lowercase_calls": 58330,
+          "rank_parses": 119786
+        },
+        "selective_refresh_5_queries": {
+          "lowercase_calls": 440,
+          "rank_parses": 0
+        },
+        "total": {
+          "lowercase_calls": 397589,
+          "rank_parses": 816042
+        }
+      },
+      {
+        "known_tags": 5000,
+        "cold_8_queries": {
+          "lowercase_calls": 167346,
+          "rank_parses": 459130
+        },
+        "warm_320_queries": {
+          "lowercase_calls": 6501144,
+          "rank_parses": 18354826
+        },
+        "refresh_64_queries": {
+          "lowercase_calls": 1343290,
+          "rank_parses": 3682390
+        },
+        "selective_refresh_5_queries": {
+          "lowercase_calls": 74255,
+          "rank_parses": 0
+        },
+        "total": {
+          "lowercase_calls": 8898617,
+          "rank_parses": 24792348
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "known_tags": 30,
+        "cold_8_queries": {
+          "lowercase_calls": 864,
+          "rank_parses": 800
+        },
+        "warm_320_queries": {
+          "lowercase_calls": 32240,
+          "rank_parses": 32000
+        },
+        "refresh_64_queries": {
+          "lowercase_calls": 6912,
+          "rank_parses": 6400
+        },
+        "selective_refresh_5_queries": {
+          "lowercase_calls": 295,
+          "rank_parses": 0
+        },
+        "total": {
+          "lowercase_calls": 44341,
+          "rank_parses": 43200
+        }
+      },
+      {
+        "known_tags": 5000,
+        "cold_8_queries": {
+          "lowercase_calls": 10706,
+          "rank_parses": 800
+        },
+        "warm_320_queries": {
+          "lowercase_calls": 32240,
+          "rank_parses": 32000
+        },
+        "refresh_64_queries": {
+          "lowercase_calls": 85648,
+          "rank_parses": 6400
+        },
+        "selective_refresh_5_queries": {
+          "lowercase_calls": 49505,
+          "rank_parses": 0
+        },
+        "total": {
+          "lowercase_calls": 182129,
+          "rank_parses": 43200
+        }
+      }
+    ]
+  },
+  "cpu_profiles": {
+    "baseline": {
+      "sample_count": 572,
+      "sample_period_us": 1000,
+      "profile_interval_us": 738442,
+      "workload": "300 awaited full 5000-tag controller searches alternating empty and tag queries. Immediate fake responses, count and first-name consumption, no oracle/checksum inside sampling interval.",
+      "limiter": "CPU-bound merge/filter/sort work on one test isolate. Sort comparator and integer rank parsing dominate sampled stacks.",
+      "limits": "Separate debug-JIT profile, excluded from timing samples. Inclusive stacks overlap and must not be summed. Does not characterize network, widgets or physical-device latency.",
+      "functions": [
+        {
+          "function": "searchFilterTags",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 329,
+          "inclusive_samples": 561,
+          "exclusive_samples": 45,
+          "inclusive_percent": 98.07692307692308
+        },
+        {
+          "function": "sort",
+          "uri": "dart:collection/list.dart",
+          "line": 320,
+          "inclusive_samples": 429,
+          "exclusive_samples": 0,
+          "inclusive_percent": 75.0
+        },
+        {
+          "function": "sort",
+          "uri": "dart:_internal/sort.dart",
+          "line": 32,
+          "inclusive_samples": 429,
+          "exclusive_samples": 0,
+          "inclusive_percent": 75.0
+        },
+        {
+          "function": "_dualPivotQuicksort",
+          "uri": "dart:_internal/sort.dart",
+          "line": 85,
+          "inclusive_samples": 429,
+          "exclusive_samples": 27,
+          "inclusive_percent": 75.0
+        },
+        {
+          "function": "<anonymous closure>",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 368,
+          "inclusive_samples": 388,
+          "exclusive_samples": 142,
+          "inclusive_percent": 67.83216783216783
+        },
+        {
+          "function": "tryParse",
+          "uri": "dart:core-patch/integers_patch.dart",
+          "line": 124,
+          "inclusive_samples": 156,
+          "exclusive_samples": 57,
+          "inclusive_percent": 27.272727272727273
+        },
+        {
+          "function": "toLowerCase",
+          "uri": "dart:core-patch/string_patch.dart",
+          "line": 1256,
+          "inclusive_samples": 120,
+          "exclusive_samples": 0,
+          "inclusive_percent": 20.97902097902098
+        },
+        {
+          "function": "_tryParseSmi",
+          "uri": "dart:core-patch/integers_patch.dart",
+          "line": 25,
+          "inclusive_samples": 98,
+          "exclusive_samples": 98,
+          "inclusive_percent": 17.132867132867133
+        },
+        {
+          "function": "compareTo",
+          "uri": "dart:core-patch/integers.dart",
+          "line": 213,
+          "inclusive_samples": 95,
+          "exclusive_samples": 95,
+          "inclusive_percent": 16.60839160839161
+        },
+        {
+          "function": "compareTo",
+          "uri": "dart:core-patch/string_patch.dart",
+          "line": 334,
+          "inclusive_samples": 18,
+          "exclusive_samples": 0,
+          "inclusive_percent": 3.1468531468531467
+        },
+        {
+          "function": "<anonymous closure>",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 360,
+          "inclusive_samples": 9,
+          "exclusive_samples": 4,
+          "inclusive_percent": 1.5734265734265733
+        },
+        {
+          "function": "topicListFilterTagsFor",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 275,
+          "inclusive_samples": 1,
+          "exclusive_samples": 0,
+          "inclusive_percent": 0.17482517482517482
+        },
+        {
+          "function": "_topicListFilterTagSourcesFor",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 263,
+          "inclusive_samples": 1,
+          "exclusive_samples": 1,
+          "inclusive_percent": 0.17482517482517482
+        }
+      ]
+    },
+    "candidate": {
+      "sample_count": 222,
+      "sample_period_us": 1000,
+      "profile_interval_us": 336427,
+      "workload": "300 awaited full 5000-tag controller searches alternating empty and tag queries. Immediate fake responses. Count and first-name consumption. No oracle or full checksum during sampling.",
+      "limits": "Separate debug-JIT profile excluded from timing samples. Inclusive stacks overlap and must not be summed. No network, widget or device latency inference.",
+      "functions": [
+        {
+          "function": "searchFilterTags",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 330,
+          "inclusive_samples": 212,
+          "exclusive_samples": 6,
+          "inclusive_percent": 95.49549549549549
+        },
+        {
+          "function": "sort",
+          "uri": "dart:collection/list.dart",
+          "line": 320,
+          "inclusive_samples": 141,
+          "exclusive_samples": 0,
+          "inclusive_percent": 63.513513513513516
+        },
+        {
+          "function": "sort",
+          "uri": "dart:_internal/sort.dart",
+          "line": 32,
+          "inclusive_samples": 141,
+          "exclusive_samples": 0,
+          "inclusive_percent": 63.513513513513516
+        },
+        {
+          "function": "_dualPivotQuicksort",
+          "uri": "dart:_internal/sort.dart",
+          "line": 85,
+          "inclusive_samples": 140,
+          "exclusive_samples": 23,
+          "inclusive_percent": 63.06306306306306
+        },
+        {
+          "function": "<anonymous closure>",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 371,
+          "inclusive_samples": 111,
+          "exclusive_samples": 43,
+          "inclusive_percent": 50.0
+        },
+        {
+          "function": "compareTo",
+          "uri": "dart:core-patch/integers.dart",
+          "line": 213,
+          "inclusive_samples": 69,
+          "exclusive_samples": 69,
+          "inclusive_percent": 31.08108108108108
+        },
+        {
+          "function": "compareTo",
+          "uri": "dart:core-patch/string_patch.dart",
+          "line": 334,
+          "inclusive_samples": 18,
+          "exclusive_samples": 0,
+          "inclusive_percent": 8.108108108108109
+        },
+        {
+          "function": "<anonymous closure>",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 340,
+          "inclusive_samples": 2,
+          "exclusive_samples": 0,
+          "inclusive_percent": 0.9009009009009009
+        },
+        {
+          "function": "toLowerCase",
+          "uri": "dart:core-patch/string_patch.dart",
+          "line": 1256,
+          "inclusive_samples": 1,
+          "exclusive_samples": 0,
+          "inclusive_percent": 0.45045045045045046
+        },
+        {
+          "function": "_tryParseSmi",
+          "uri": "dart:core-patch/integers_patch.dart",
+          "line": 25,
+          "inclusive_samples": 1,
+          "exclusive_samples": 1,
+          "inclusive_percent": 0.45045045045045046
+        },
+        {
+          "function": "tryParse",
+          "uri": "dart:core-patch/integers_patch.dart",
+          "line": 124,
+          "inclusive_samples": 1,
+          "exclusive_samples": 0,
+          "inclusive_percent": 0.45045045045045046
+        },
+        {
+          "function": "<anonymous closure>",
+          "uri": "package:discourse_native/src/shell/taxonomy_directory_controller.dart",
+          "line": 366,
+          "inclusive_samples": 1,
+          "exclusive_samples": 1,
+          "inclusive_percent": 0.45045045045045046
+        }
+      ]
+    }
+  },
+  "memory_limit": "One lazy normalized entry per public merged tag is retained. No heap or device memory measurement.",
+  "harness_sha256": "2bbdc5507e520e270810390012bead39732c0af41f839e26e69cd4b10f15e678",
+  "runner_sha256": "d4323434720dd0c7a88315041cfdbe2a9bbc15db4d61764571cce1046990e156"
+}

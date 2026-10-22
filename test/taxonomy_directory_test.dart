@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -40,6 +41,236 @@ const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('tag searches preserve remote precedence and numeric ranking', () async {
+    final api = _TagSearchApi()
+      ..directory = const [
+        SidebarTag(id: 1, name: 'MATCH', slug: 'match', count: 999),
+        SidebarTag(id: 2, name: 'Local', slug: 'local', count: 5),
+      ]
+      ..remote = const [
+        TopicFilterLookupValue(name: 'match', description: '1000'),
+        TopicFilterLookupValue(name: 'MATCH', description: '2'),
+        TopicFilterLookupValue(name: 'Hex', description: '0x10'),
+        TopicFilterLookupValue(name: 'Signed', description: '+5'),
+        TopicFilterLookupValue(name: 'Zulu', description: 'invalid'),
+        TopicFilterLookupValue(name: 'Alpha'),
+        TopicFilterLookupValue(name: 'Empty', description: ''),
+        TopicFilterLookupValue(name: 'Negative', description: '-3'),
+      ];
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    await shell.loadTags(_site);
+
+    final results = await shell.searchFilterTags(siteUrl: _site, term: '');
+    expect(results.map((tag) => (tag.name, tag.description)), [
+      ('Hex', '0x10'),
+      ('Local', '5'),
+      ('Signed', '+5'),
+      ('MATCH', '2'),
+      ('Alpha', null),
+      ('Empty', ''),
+      ('Zulu', 'invalid'),
+      ('Negative', '-3'),
+    ]);
+    expect(identical(results[3], api.remote[1]), isTrue);
+  });
+
+  test(
+    'tag searches keep all local results and literal query matching',
+    () async {
+      final api = _TagSearchApi()
+        ..directory = [
+          for (var i = 0; i < 2048; i++)
+            SidebarTag(
+              id: i + 1,
+              name: 'Tag-${i.toString().padLeft(4, '0')}',
+              slug: 'tag-$i',
+              count: i % 3,
+            ),
+          const SidebarTag(id: 3000, name: ' Tag ', slug: 'spaced', count: 10),
+          const SidebarTag(
+            id: 3001,
+            name: 'Tag-private',
+            slug: 'private',
+            pmOnly: true,
+            count: 9999,
+          ),
+        ];
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      await shell.loadTags(_site);
+
+      final results = await shell.searchFilterTags(siteUrl: _site, term: 'TAG');
+      expect(results.length, 2049);
+      expect(results.first.name, ' Tag ');
+      expect(results.skip(1).map((tag) => tag.name), [
+        for (final rank in [2, 1, 0])
+          for (var i = rank; i < 2048; i += 3)
+            'Tag-${i.toString().padLeft(4, '0')}',
+      ]);
+      expect(
+        (await shell.searchFilterTags(
+          siteUrl: _site,
+          term: ' TAG ',
+        )).map((tag) => tag.name),
+        [' Tag '],
+      );
+      expect(
+        await shell.searchFilterTags(
+          siteUrl: _site,
+          term: 'TAG',
+          categoryId: 7,
+        ),
+        isEmpty,
+      );
+      expect(api.filterTagRequests.last.categoryId, 7);
+    },
+  );
+
+  test(
+    'tag searches follow equal and changed taxonomy source snapshots',
+    () async {
+      final api = _TagSearchApi()
+        ..directory = const [
+          SidebarTag(id: 1, name: 'Shared', slug: 'shared', count: 1),
+          SidebarTag(id: 2, name: 'Before', slug: 'before', count: 2),
+        ]
+        ..top = const [SidebarTag(id: 3, name: 'Top', slug: 'top', count: 3)]
+        ..defaults = const [
+          SidebarTag(id: 4, name: 'Default', slug: 'default', count: 4),
+        ];
+      final shell = await _loadShell(
+        api,
+        user: const DiscourseUser(
+          id: 7,
+          username: 'reader',
+          sidebarTags: [
+            SidebarTag(id: 5, name: 'Shared', slug: 'personal', count: 5),
+          ],
+        ),
+      );
+      addTearDown(shell.dispose);
+      await shell.loadCategories(_site);
+      await shell.loadTags(_site);
+
+      Future<List<(String, String?)>> search() async => [
+        for (final tag in await shell.searchFilterTags(
+          siteUrl: _site,
+          term: '',
+        ))
+          (tag.name, tag.description),
+      ];
+      const initial = [
+        ('Shared', '5'),
+        ('Default', '4'),
+        ('Top', '3'),
+        ('Before', '2'),
+      ];
+      expect(await search(), initial);
+      api.directory = List.of(api.directory);
+      api.top = List.of(api.top);
+      api.defaults = List.of(api.defaults);
+      await shell.loadTags(_site, force: true);
+      await shell.loadCategories(_site, force: true);
+      expect(await search(), initial);
+
+      api.directory = const [
+        SidebarTag(id: 2, name: 'After', slug: 'after', count: 20),
+        SidebarTag(id: 1, name: 'Shared', slug: 'shared', count: 10),
+      ];
+      api.top = const [
+        SidebarTag(id: 3, name: 'New top', slug: 'top', count: 30),
+      ];
+      api.defaults = const [];
+      await shell.loadTags(_site, force: true);
+      await shell.loadCategories(_site, force: true);
+      expect(await search(), [
+        ('New top', '30'),
+        ('After', '20'),
+        ('Shared', '5'),
+      ]);
+
+      shell.applyAccountSessionInstance(
+        shell
+            .instanceFor(_site)!
+            .copyWith(
+              user: const DiscourseUser(
+                id: 7,
+                username: 'reader',
+                sidebarTags: [
+                  SidebarTag(
+                    id: 5,
+                    name: 'Personal',
+                    slug: 'personal',
+                    count: 40,
+                  ),
+                ],
+              ),
+            ),
+        AccountSessionPhase.connecting,
+      );
+      expect(await search(), [
+        ('Personal', '40'),
+        ('New top', '30'),
+        ('After', '20'),
+        ('Shared', '10'),
+      ]);
+    },
+  );
+
+  test(
+    'tag searches resolve current local sources after remote completion',
+    () async {
+      final api = _TagSearchApi()..directory = const [_oldTag];
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      await shell.loadTags(_site);
+      expect(
+        (await shell.searchFilterTags(
+          siteUrl: _site,
+          term: '',
+        )).map((tag) => tag.name),
+        ['Old tag'],
+      );
+      final response = Completer<List<TopicFilterLookupValue>>();
+      api.lookupResponse = response;
+      final pending = shell.searchFilterTags(siteUrl: _site, term: '');
+      await pumpEventQueue();
+      api.directory = const [_newTag];
+      await shell.loadTags(_site, force: true);
+      response.complete(const []);
+      expect((await pending).map((tag) => tag.name), ['New tag']);
+
+      final oldResponse = Completer<List<TopicFilterLookupValue>>();
+      api.lookupResponse = oldResponse;
+      final stale = shell.searchFilterTags(siteUrl: _site, term: '');
+      await pumpEventQueue();
+      final replacement = shell
+          .instanceFor(_site)!
+          .copyWith(user: const DiscourseUser(id: 8, username: 'replacement'));
+      shell.lifecycle.invalidate(_site);
+      shell.clearAccountSessionState(_site);
+      shell.applyAccountSessionInstance(
+        replacement,
+        AccountSessionPhase.connecting,
+      );
+      api.lookupResponse = null;
+      api.directory = const [_oldTag];
+      await shell.loadTags(_site);
+      oldResponse.complete(const [
+        TopicFilterLookupValue(name: 'Stale remote'),
+      ]);
+      expect(await stale, isEmpty);
+      expect(
+        (await shell.searchFilterTags(
+          siteUrl: _site,
+          term: '',
+        )).map((tag) => tag.name),
+        ['Old tag'],
+      );
+    },
+  );
 
   test(
     'overlapping topic loads share missing category lookup and resolve ancestry',
@@ -170,6 +401,7 @@ Future<ShellController> _loadShell(
   FakeDiscourseApi api, {
   DiscourseUser user = const DiscourseUser(id: 7, username: 'reader'),
 }) async {
+  api.accounts['api-key'] = user;
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(user: user),
@@ -347,5 +579,51 @@ final class _RefreshingTaxonomyApi extends FakeDiscourseApi {
       oldTagsRequested.complete();
     }
     return response;
+  }
+}
+
+final class _TagSearchApi extends FakeDiscourseApi {
+  _TagSearchApi() : super(feeds: const {'/latest.json': []});
+
+  List<SidebarTag> directory = const [];
+  List<SidebarTag> top = const [];
+  List<SidebarTag> defaults = const [];
+  List<TopicFilterLookupValue> remote = const [];
+  Completer<List<TopicFilterLookupValue>>? lookupResponse;
+
+  @override
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+    int page = 1,
+  }) async => CategoryLoadResult(
+    const [_directoryRoot],
+    siteTopTags: top,
+    anonymousDefaultTags: defaults,
+  );
+
+  @override
+  Future<List<SidebarTag>> tags({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async => directory;
+
+  @override
+  Future<List<TopicFilterLookupValue>> searchFilterTags({
+    required String siteUrl,
+    required String term,
+    int? categoryId,
+    int limit = 5,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    filterTagRequests.add((
+      siteUrl: siteUrl,
+      term: term,
+      categoryId: categoryId,
+    ));
+    return lookupResponse == null ? remote : await lookupResponse!.future;
   }
 }

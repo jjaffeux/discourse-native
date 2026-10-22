@@ -27,6 +27,7 @@ final class _TaxonomySite {
   _CategorySidebarCache? categorySidebarCache;
   _TagSidebarCache? tagSidebarCache;
   _TopicListFilterTagsCache? topicListFilterTagsCache;
+  _TagSearchEntriesCache? tagSearchEntriesCache;
   _KnownTagIndex? knownTagIndex;
 }
 
@@ -349,30 +350,51 @@ final class _TaxonomyDirectoryController {
       ),
     );
     if (_shell.accountSessionDisposed || !lease.isCurrent) return const [];
-    final byName = <String, TopicFilterLookupValue>{
-      for (final tag in remote) tag.name.toLowerCase(): tag,
-    };
+    final byName = <String, _TagSearchEntry>{};
+    for (final tag in remote) {
+      final name = tag.name.toLowerCase();
+      byName[name] = (
+        nameKey: name,
+        rank: int.tryParse(tag.description ?? '') ?? 0,
+        value: tag,
+      );
+    }
     if (categoryId == null) {
-      for (final tag in topicListFilterTagsFor(siteUrl)) {
-        if (tag.name.toLowerCase().contains(term.toLowerCase())) {
-          byName.putIfAbsent(
-            tag.name.toLowerCase(),
-            () => TopicFilterLookupValue(
-              name: tag.name,
-              description: '${tag.count}',
-            ),
-          );
+      final query = term.toLowerCase();
+      for (final entry in _localTagSearchEntriesFor(siteUrl)) {
+        if (entry.nameKey.contains(query)) {
+          byName.putIfAbsent(entry.nameKey, () => entry);
         }
       }
     }
-    return byName.values.toList()..sort((a, b) {
-      final count = (int.tryParse(b.description ?? '') ?? 0).compareTo(
-        int.tryParse(a.description ?? '') ?? 0,
-      );
-      return count != 0
-          ? count
-          : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    });
+    final entries = byName.values.toList()
+      ..sort((a, b) {
+        final rank = b.rank.compareTo(a.rank);
+        return rank != 0 ? rank : a.nameKey.compareTo(b.nameKey);
+      });
+    return [for (final entry in entries) entry.value];
+  }
+
+  List<_TagSearchEntry> _localTagSearchEntriesFor(String siteUrl) {
+    final tags = topicListFilterTagsFor(siteUrl);
+    final site = _sites[siteUrl];
+    final held = site?.tagSearchEntriesCache;
+    if (held != null && identical(held.tags, tags)) return held.entries;
+    final entries = List<_TagSearchEntry>.unmodifiable([
+      for (final tag in tags)
+        (
+          nameKey: tag.name.toLowerCase(),
+          rank: tag.count,
+          value: TopicFilterLookupValue(
+            name: tag.name,
+            description: '${tag.count}',
+          ),
+        ),
+    ]);
+    if (site != null) {
+      site.tagSearchEntriesCache = (tags: tags, entries: entries);
+    }
+    return entries;
   }
 
   _KnownTagIndex _knownTagIndexFor(String siteUrl) {
@@ -904,6 +926,16 @@ typedef _TopicListFilterTagSources = ({
 typedef _TopicListFilterTagsCache = ({
   _TopicListFilterTagSources sources,
   List<SidebarTag> tags,
+});
+
+typedef _TagSearchEntry = ({
+  String nameKey,
+  int rank,
+  TopicFilterLookupValue value,
+});
+typedef _TagSearchEntriesCache = ({
+  List<SidebarTag> tags,
+  List<_TagSearchEntry> entries,
 });
 
 typedef _KnownTagMatch = ({int ordinal, SidebarTag tag});
