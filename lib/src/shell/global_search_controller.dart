@@ -45,6 +45,10 @@ class GlobalSearchController extends ChangeNotifier {
   GlobalSearchScope _scope = GlobalSearchScope.all;
   GlobalSearchContext? _context, _pendingContext;
   String _query = '';
+  AppLocalizations? _filterL10n;
+  List<GlobalSearchFilter> _coreFilters = const [];
+  _SearchQueryTail? _queryTail;
+
   GlobalSearchScope? _preferredScope;
   int? _contextTopicId;
   String? _contextTopicTitle;
@@ -104,10 +108,37 @@ class GlobalSearchController extends ChangeNotifier {
   List<GlobalSearchCondition> conditionsFor(GlobalSearchScope value) =>
       value == GlobalSearchScope.all ? const [] : _banks[value] ?? const [];
   List<GlobalSearchCondition> get conditions => conditionsFor(scope);
+  List<GlobalSearchFilter> get _filterDefinitions {
+    final l10n = appL10n;
+    if (!identical(_filterL10n, l10n)) {
+      _coreFilters = globalSearchDefinitions(const GlobalSearchCapabilities());
+      _filterL10n = l10n;
+    }
+    return [..._coreFilters, ...capabilities.contributedFilters];
+  }
+
+  _SearchQueryTail get _tail {
+    final cached = _queryTail;
+    if (cached != null && cached.query == query) return cached;
+    final tail = query.endsWith(' ') ? '' : query.split(RegExp(r'\s+')).last;
+    final colon = tail.indexOf(':');
+    final key = colon < 0 ? null : tail.substring(0, colon);
+    final boundary = query.lastIndexOf(RegExp(r'\s'));
+    return _queryTail = (
+      query: query,
+      tail: tail,
+      lowerTail: tail.toLowerCase(),
+      key: key,
+      lowerKey: key?.toLowerCase(),
+      term: colon < 0 ? '' : tail.substring(colon + 1),
+      prefix: query.substring(0, boundary < 0 ? 0 : boundary).trim(),
+    );
+  }
+
   List<GlobalSearchFilter> get availableFilters => List.unmodifiable([
     if (scope == GlobalSearchScope.all || scope == GlobalSearchScope.forum)
       globalSearchOrderFilter(capabilities),
-    for (final filter in globalSearchDefinitions(capabilities))
+    for (final filter in _filterDefinitions)
       if ((filter.scope ==
               (scope == GlobalSearchScope.all
                   ? GlobalSearchScope.forum
@@ -117,19 +148,24 @@ class GlobalSearchController extends ChangeNotifier {
   ]);
   List<GlobalSearchOrder> get orders => globalSearchOrders(scope, capabilities);
 
-  List<int> get orderedConditionIndices =>
-      List.generate(conditions.length, (index) => index)..sort((a, b) {
-        final left = globalSearchFilter(
-          conditions[a].filterId,
-          capabilities,
-        )!.label;
-        final right = globalSearchFilter(
-          conditions[b].filterId,
-          capabilities,
-        )!.label;
-        final compared = left.toLowerCase().compareTo(right.toLowerCase());
-        return compared == 0 ? a.compareTo(b) : compared;
-      });
+  List<int> get orderedConditionIndices {
+    final current = conditions;
+    final indices = List.generate(current.length, (index) => index);
+    if (indices.length < 2) return indices;
+    final labels = {
+      'order': globalSearchOrderFilter(capabilities).label.toLowerCase(),
+    };
+    for (final filter in _filterDefinitions) {
+      labels.putIfAbsent(filter.id, () => filter.label.toLowerCase());
+    }
+    return indices..sort((a, b) {
+      final compared = labels[current[a].filterId]!.compareTo(
+        labels[current[b].filterId]!,
+      );
+      return compared == 0 ? a.compareTo(b) : compared;
+    });
+  }
+
   String get order => _orders[scope] ?? orders.first.value;
   bool get hasOrderFilter =>
       scope == GlobalSearchScope.forum && order != 'relevance';
@@ -170,10 +206,8 @@ class GlobalSearchController extends ChangeNotifier {
   }
 
   GlobalSearchFilter? get stagedFilter {
-    final tail = query.endsWith(' ') ? '' : query.split(RegExp(r'\s+')).last;
-    final colon = tail.indexOf(':');
-    if (colon < 0) return null;
-    final key = tail.substring(0, colon).toLowerCase();
+    final key = _tail.lowerKey;
+    if (key == null) return null;
     return availableFilters
         .where(
           (filter) =>
@@ -187,13 +221,11 @@ class GlobalSearchController extends ChangeNotifier {
         .firstOrNull;
   }
 
-  String get stagedTerm => stagedFilter == null
-      ? ''
-      : query.split(RegExp(r'\s+')).last.split(':').skip(1).join(':');
+  String get stagedTerm => stagedFilter == null ? '' : _tail.term;
   String get stagedOperator {
     final filter = stagedFilter;
     if (filter == null) return 'is';
-    final key = query.split(RegExp(r'\s+')).last.split(':').first;
+    final key = _tail.key;
     if (key == '-tags' || key == '-tag') return 'none';
     return filter.opTokens.entries
             .where((entry) => entry.value == key)
@@ -207,9 +239,7 @@ class GlobalSearchController extends ChangeNotifier {
   }
 
   List<GlobalSearchFilter> get hintedFilters {
-    final tail = query.endsWith(' ')
-        ? ''
-        : query.split(RegExp(r'\s+')).last.toLowerCase();
+    final tail = _tail.lowerTail;
     if (tail.length < 2 || tail.contains(':')) return const [];
     return availableFilters
         .where(
@@ -221,19 +251,11 @@ class GlobalSearchController extends ChangeNotifier {
         .toList();
   }
 
-  String get wordsQuery => stagedFilter == null && hintedFilters.isEmpty
-      ? query
-      : query
-            .substring(
-              0,
-              query.lastIndexOf(RegExp(r'\s')) < 0
-                  ? 0
-                  : query.lastIndexOf(RegExp(r'\s')),
-            )
-            .trim();
+  String get wordsQuery =>
+      stagedFilter == null && hintedFilters.isEmpty ? query : _tail.prefix;
 
   void beginFilter(GlobalSearchFilter filter, {String value = ''}) {
-    final tail = query.endsWith(' ') ? '' : query.split(RegExp(r'\s+')).last;
+    final tail = _tail.tail;
     final replacing =
         stagedFilter != null ||
         hintedFilters.any((item) => item.id == filter.id);
@@ -1098,3 +1120,13 @@ class GlobalSearchController extends ChangeNotifier {
     super.dispose();
   }
 }
+
+typedef _SearchQueryTail = ({
+  String query,
+  String tail,
+  String lowerTail,
+  String? key,
+  String? lowerKey,
+  String term,
+  String prefix,
+});
