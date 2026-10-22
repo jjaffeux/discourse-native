@@ -465,7 +465,7 @@ const _drawn = [
   'DiscourseUserOnebox',
   'DiscourseCategoryOnebox',
   'QuoteBlock',
-  '_CookedTable',
+  'CookedTable',
   'CodeBlock',
   'InlineCode',
 ];

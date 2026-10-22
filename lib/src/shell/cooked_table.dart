@@ -44,20 +44,20 @@ Widget? cookedTableWidgetBuilder(
       return null;
     }
   }
-  return _CookedTable(
+  return CookedTable(
     key: ValueKey(content.stateKey(element)),
-    headers: [for (final cell in headers) _Cell(cell)],
+    headers: [for (final cell in headers) CookedTableCell(cell)],
     rows: [
       for (final row in rows.skip(1))
-        [for (final cell in childElements(row)) _Cell(cell)],
+        [for (final cell in childElements(row)) CookedTableCell(cell)],
     ],
     caption: element.querySelector('caption')?.innerHtml,
     content: content,
   );
 }
 
-class _Cell {
-  _Cell(dom.Element element)
+class CookedTableCell {
+  CookedTableCell(dom.Element element)
     : text = element.text.trim().replaceAll(RegExp(r'\s+'), ' '),
       copyText = _copyCellText(element),
       html = _cellHtml(element);
@@ -114,8 +114,8 @@ String _copyCellText(dom.Element element) {
   return text.toString().trim().replaceAll(RegExp(r'\s+'), ' ');
 }
 
-class _CookedTable extends StatefulWidget {
-  const _CookedTable({
+class CookedTable extends StatefulWidget {
+  const CookedTable({
     super.key,
     required this.headers,
     required this.rows,
@@ -123,16 +123,16 @@ class _CookedTable extends StatefulWidget {
     required this.content,
   });
 
-  final List<_Cell> headers;
-  final List<List<_Cell>> rows;
+  final List<CookedTableCell> headers;
+  final List<List<CookedTableCell>> rows;
   final String? caption;
   final CookedContent content;
 
   @override
-  State<_CookedTable> createState() => _CookedTableState();
+  State<CookedTable> createState() => _CookedTableState();
 }
 
-class _CookedTableState extends State<_CookedTable> {
+class _CookedTableState extends State<CookedTable> {
   static const _pageSize = 25;
 
   bool _copied = false;
@@ -148,7 +148,7 @@ class _CookedTableState extends State<_CookedTable> {
   Locale? _columnLocale;
 
   Future<void> _copyTable() async {
-    String line(List<_Cell> cells) =>
+    String line(List<CookedTableCell> cells) =>
         '| ${cells.map((cell) => cell.copyText.replaceAll(r'\', r'\\').replaceAll('|', r'\|')).join(' | ')} |';
     await Clipboard.setData(
       ClipboardData(

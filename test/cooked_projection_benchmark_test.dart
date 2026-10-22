@@ -164,24 +164,20 @@ class _TrackedCell extends dom.Element {
 }
 
 int consumeTableProjection(Widget widget) {
-  final dynamic table = widget;
+  final table = widget as CookedTable;
   var checksum = 2166136261;
-  void consume(dynamic cell) {
-    for (final value in [
-      cell.text as String,
-      cell.html as String,
-      cell.copyText as String,
-    ]) {
+  void consume(CookedTableCell cell) {
+    for (final value in [cell.text, cell.html, cell.copyText]) {
       for (final unit in value.codeUnits) {
         checksum = ((checksum ^ unit) * 16777619) & 0xffffffff;
       }
     }
   }
 
-  for (final cell in table.headers as Iterable<Object>) {
+  for (final cell in table.headers) {
     consume(cell);
   }
-  for (final row in table.rows as Iterable<Iterable<Object>>) {
+  for (final row in table.rows) {
     for (final cell in row) {
       consume(cell);
     }
