@@ -1485,6 +1485,391 @@ void main() {
       expect(retained.read, throwsStateError);
     });
 
+    test(
+      'installed close drains failed session rollback before app teardown',
+      () async {
+        final events = <String>[];
+        final hookStarted = Completer<void>();
+        final releaseHook = Completer<void>();
+        final closeStarted = Completer<void>();
+        final releaseClose = Completer<void>();
+        final constructionError = StateError('factory failed');
+        final installed = PluginInstaller.install(
+          PluginManifest([
+            _Module(
+              'provider',
+              appLifecycle: _GatedAppLifecycle(
+                events,
+                hookStarted: hookStarted,
+                releaseHook: releaseHook,
+              ),
+              sessionFactory: (_, _) => PluginSessionContribution(
+                lifecycle: _GatedSessionCloseLifecycle(
+                  'session',
+                  events,
+                  closeStarted: closeStarted,
+                  releaseClose: releaseClose,
+                ),
+              ),
+            ),
+            _Module(
+              'broken',
+              dependencies: const [PluginDependency(PluginId('provider'))],
+              sessionFactory: (_, _) => throw constructionError,
+            ),
+          ]),
+        );
+        await installed.startPhase(PluginStartupPhase.bootstrap);
+        events.clear();
+        final observing = installed.observeAppState(
+          'paused',
+          foreground: false,
+        );
+        await hookStarted.future;
+
+        expect(
+          () => installed.openSession(const PluginHostBindings.empty()),
+          throwsA(same(constructionError)),
+        );
+        expect(events, ['observe:start', 'session:close:start']);
+        await closeStarted.future;
+        var closed = false;
+        final closing = installed.close().then((_) => closed = true);
+        releaseHook.complete();
+        await observing;
+        await Future<void>.delayed(Duration.zero);
+        var closedAgain = false;
+        final closingAgain = installed.close().then((_) => closedAgain = true);
+        await Future<void>.delayed(Duration.zero);
+        try {
+          expect(closed, isFalse);
+          expect(closedAgain, isFalse);
+          expect(events, [
+            'observe:start',
+            'session:close:start',
+            'observe:end',
+          ]);
+          expect(
+            () => installed.openSession(const PluginHostBindings.empty()),
+            throwsStateError,
+          );
+        } finally {
+          releaseClose.complete();
+          await Future.wait([closing, closingAgain]);
+        }
+        await installed.close();
+        expect(events, [
+          'observe:start',
+          'session:close:start',
+          'observe:end',
+          'session:close:end',
+          'close',
+        ]);
+      },
+    );
+
+    test(
+      'installed close drains several failed sessions and isolates rollback errors',
+      () async {
+        final events = <String>[];
+        final started = List.generate(2, (_) => Completer<void>());
+        final release = List.generate(2, (_) => Completer<void>());
+        final errors = List.generate(
+          2,
+          (index) => StateError('factory:$index'),
+        );
+        final retained = <_RevocableHost>[];
+        var attempt = -1;
+        final installed = PluginInstaller.install(
+          PluginManifest([
+            _Module(
+              'provider',
+              appLifecycle: _AppLifecycle('app', events),
+              sessionFactory: (bindings, _) {
+                attempt += 1;
+                retained.add(bindings.require(_revocableHostPort));
+                return PluginSessionContribution(
+                  lifecycle: _SessionLifecycle(
+                    events,
+                    name: 'provider:$attempt',
+                    failClose: true,
+                  ),
+                );
+              },
+              requiredPorts: const [_revocableHostPort],
+            ),
+            _Module(
+              'consumer',
+              dependencies: const [PluginDependency(PluginId('provider'))],
+              sessionFactory: (bindings, _) {
+                retained.add(bindings.require(_revocableHostPort));
+                return PluginSessionContribution(
+                  lifecycle: _GatedSessionCloseLifecycle(
+                    'consumer:$attempt',
+                    events,
+                    closeStarted: started[attempt],
+                    releaseClose: release[attempt],
+                    failClose: true,
+                  ),
+                );
+              },
+              requiredPorts: const [_revocableHostPort],
+            ),
+            _Module(
+              'broken',
+              dependencies: const [PluginDependency(PluginId('consumer'))],
+              sessionFactory: (bindings, _) {
+                retained.add(bindings.require(_revocableHostPort));
+                throw errors[attempt];
+              },
+              requiredPorts: const [_revocableHostPort],
+            ),
+          ]),
+        );
+        await installed.startPhase(PluginStartupPhase.bootstrap);
+        events.clear();
+        for (var index = 0; index < 2; index += 1) {
+          final hosts = <PluginId, _RevocableHost>{};
+          final bindings = PluginHostBindings([
+            PluginHostPort<Object>(
+              _revocableHostPort,
+              _RevocableHost(),
+              scopeToConsumer: (consumer) =>
+                  hosts.putIfAbsent(consumer, _RevocableHost.new),
+              revokeConsumer: (consumer) => hosts[consumer]?.revoke(),
+            ),
+          ]);
+          expect(
+            () => installed.openSession(bindings),
+            throwsA(same(errors[index])),
+          );
+          expect(retained, hasLength((index + 1) * 3));
+          for (final host in retained) {
+            expect(host.read, throwsStateError);
+          }
+          await started[index].future;
+        }
+        var closed = false;
+        final closing = installed.close().then((_) => closed = true);
+        try {
+          release[1].complete();
+          await Future<void>.delayed(Duration.zero);
+          expect(closed, isFalse);
+          expect(events, [
+            'consumer:0:close:start',
+            'consumer:1:close:start',
+            'consumer:1:close:end',
+            'provider:1:close',
+          ]);
+        } finally {
+          release[0].complete();
+          await closing;
+        }
+        await installed.close();
+        expect(events, [
+          'consumer:0:close:start',
+          'consumer:1:close:start',
+          'consumer:1:close:end',
+          'provider:1:close',
+          'consumer:0:close:end',
+          'provider:0:close',
+          'app:close',
+        ]);
+      },
+    );
+
+    test(
+      'startup failure drains pending session rollback before app teardown',
+      () async {
+        final events = <String>[];
+        final closeStarted = Completer<void>();
+        final releaseClose = Completer<void>();
+        final constructionError = StateError('factory failed');
+        late InstalledPlugins installed;
+        installed = PluginInstaller.install(
+          PluginManifest([
+            _Module(
+              'provider',
+              appLifecycle: _AppLifecycle('app', events),
+              sessionFactory: (_, _) => PluginSessionContribution(
+                lifecycle: _GatedSessionCloseLifecycle(
+                  'session',
+                  events,
+                  closeStarted: closeStarted,
+                  releaseClose: releaseClose,
+                ),
+              ),
+            ),
+            _Module(
+              'broken',
+              dependencies: const [PluginDependency(PluginId('provider'))],
+              appLifecycle: _AppLifecycle(
+                'broken',
+                events,
+                failStart: true,
+                inspectBindings: (_) {
+                  expect(
+                    () =>
+                        installed.openSession(const PluginHostBindings.empty()),
+                    throwsA(same(constructionError)),
+                  );
+                },
+              ),
+              sessionFactory: (_, _) => throw constructionError,
+            ),
+          ]),
+        );
+        var startupSettled = false;
+        final starting = expectLater(
+          installed.startPhase(PluginStartupPhase.bootstrap),
+          throwsA(isA<PluginLifecycleException>()),
+        ).then((_) => startupSettled = true);
+        await closeStarted.future;
+        await Future<void>.delayed(Duration.zero);
+        var closed = false;
+        final closing = installed.close().then((_) => closed = true);
+        await Future<void>.delayed(Duration.zero);
+        try {
+          expect(startupSettled, isFalse);
+          expect(closed, isFalse);
+          expect(events, isNot(contains('app:close')));
+          expect(
+            () => installed.openSession(const PluginHostBindings.empty()),
+            throwsStateError,
+          );
+        } finally {
+          releaseClose.complete();
+          await Future.wait([starting, closing]);
+        }
+        await installed.close();
+        expect(events, [
+          'app:start:bootstrap',
+          'broken:start:bootstrap',
+          'session:close:start',
+          'session:close:end',
+          'app:close',
+        ]);
+      },
+    );
+
+    test(
+      'installed close leaves successfully returned sessions caller owned',
+      () async {
+        final events = <String>[];
+        var attempt = 0;
+        final installed = PluginInstaller.install(
+          PluginManifest([
+            _Module(
+              'feature',
+              sessionFactory: (_, _) {
+                attempt += 1;
+                return PluginSessionContribution(
+                  lifecycle: _SessionLifecycle(
+                    events,
+                    name: attempt == 1 ? 'successful' : 'failed',
+                  ),
+                  services: [
+                    if (attempt > 1)
+                      const PluginService<Object>(
+                        _spoofedServiceKey,
+                        'invalid',
+                      ),
+                  ],
+                );
+              },
+            ),
+          ]),
+        );
+        final session = installed.openSession(const PluginHostBindings.empty());
+        expect(
+          () => installed.openSession(const PluginHostBindings.empty()),
+          throwsA(isA<PluginInstallationException>()),
+        );
+        await installed.close();
+        expect(events, ['failed:close']);
+        await session.close();
+        expect(events, ['failed:close', 'successful:close']);
+      },
+    );
+
+    for (final trigger in ['factory', 'revocation', 'rollback']) {
+      test(
+        'installed close requested during $trigger joins failed session cleanup',
+        () async {
+          final events = <String>[];
+          final closeStarted = Completer<void>();
+          final releaseClose = Completer<void>();
+          final constructionError = StateError('factory failed');
+          Future<void>? reentrantClose;
+          late InstalledPlugins installed;
+          installed = PluginInstaller.install(
+            PluginManifest([
+              _Module(
+                'provider',
+                appLifecycle: _AppLifecycle('app', events),
+                requiredPorts: const [_revocableHostPort],
+                sessionFactory: (_, _) => PluginSessionContribution(
+                  lifecycle: _GatedSessionCloseLifecycle(
+                    'session',
+                    events,
+                    closeStarted: closeStarted,
+                    releaseClose: releaseClose,
+                    onClose: () {
+                      if (trigger == 'rollback') {
+                        reentrantClose = installed.close();
+                      }
+                    },
+                  ),
+                ),
+              ),
+              _Module(
+                'broken',
+                dependencies: const [PluginDependency(PluginId('provider'))],
+                sessionFactory: (_, _) {
+                  if (trigger == 'factory') reentrantClose = installed.close();
+                  throw constructionError;
+                },
+              ),
+            ]),
+          );
+          await installed.startPhase(PluginStartupPhase.bootstrap);
+          events.clear();
+          final bindings = PluginHostBindings([
+            PluginHostPort<Object>(
+              _revocableHostPort,
+              _RevocableHost(),
+              scopeToConsumer: (_) => _RevocableHost(),
+              revokeConsumer: (_) {
+                if (trigger == 'revocation') reentrantClose = installed.close();
+              },
+            ),
+          ]);
+          expect(
+            () => installed.openSession(bindings),
+            throwsA(same(constructionError)),
+          );
+          await closeStarted.future;
+          expect(reentrantClose, isNotNull);
+          final closing = installed.close();
+          var closed = false;
+          final observed = closing.then((_) => closed = true);
+          await Future<void>.delayed(Duration.zero);
+          try {
+            expect(closed, isFalse);
+            expect(events, ['session:close:start']);
+          } finally {
+            releaseClose.complete();
+            await Future.wait([observed, reentrantClose!]);
+          }
+          expect(events, [
+            'session:close:start',
+            'session:close:end',
+            'app:close',
+          ]);
+        },
+      );
+    }
+
     test('session close revokes retained scoped authority', () async {
       late _RevocableHost retained;
       final hosts = <PluginId, _RevocableHost>{};
@@ -2136,6 +2521,34 @@ final class _GatedSessionLifecycle extends PluginSessionLifecycle {
 
   @override
   void close() => events.add('close');
+}
+
+final class _GatedSessionCloseLifecycle extends PluginSessionLifecycle {
+  _GatedSessionCloseLifecycle(
+    this.name,
+    this.events, {
+    required this.closeStarted,
+    required this.releaseClose,
+    this.failClose = false,
+    this.onClose,
+  });
+
+  final String name;
+  final List<String> events;
+  final Completer<void> closeStarted;
+  final Completer<void> releaseClose;
+  final bool failClose;
+  final void Function()? onClose;
+
+  @override
+  Future<void> close() async {
+    events.add('$name:close:start');
+    onClose?.call();
+    closeStarted.complete();
+    await releaseClose.future;
+    events.add('$name:close:end');
+    if (failClose) throw StateError(name);
+  }
 }
 
 final class _RevocableHost {

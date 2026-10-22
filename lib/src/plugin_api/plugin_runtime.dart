@@ -372,6 +372,7 @@ final class InstalledPlugins {
   final Map<_AppLifecycleRegistration, List<void Function()>>
   _appLifecycleRevocations = {};
   final _appLifecycleOperations = _PluginLifecycleOperationQueue();
+  final Set<Future<void>> _pendingSessionSettlements = {};
   PluginHostBindings _appBindings = const PluginHostBindings.empty();
   bool _closing = false;
   bool _closed = false;
@@ -435,9 +436,9 @@ final class InstalledPlugins {
         }
       }
     } catch (error) {
+      _closing = true;
       final failures = <Object>[error];
       await _closeAppLifecycles(failures);
-      _closing = true;
       _closed = true;
       throw PluginLifecycleException('startPhase(${phase.name})', failures);
     }
@@ -502,6 +503,13 @@ final class InstalledPlugins {
     if (_closing || _closed) {
       throw StateError('Installed plugins are closed.');
     }
+    final settlement = Completer<void>();
+    _pendingSessionSettlements.add(settlement.future);
+    unawaited(
+      settlement.future.whenComplete(() {
+        _pendingSessionSettlements.remove(settlement.future);
+      }),
+    );
     final contributions = <_OwnedSessionContribution>[];
     final consumerRevocations = <void Function()>[];
     final services = <PluginServiceKey<Object>, Object>{};
@@ -541,12 +549,14 @@ final class InstalledPlugins {
           _collectServices(contribution, services, serviceOwners);
         }
       }
-      return PluginSession._(contributions, services, {
+      final session = PluginSession._(contributions, services, {
         for (final registration in _registrations) registration.descriptor.id,
       }, consumerRevocations);
+      settlement.complete();
+      return session;
     } catch (error) {
       _revokeConsumers(consumerRevocations, <Object>[]);
-      unawaited(_rollbackSessionContributions(contributions));
+      settlement.complete(_rollbackSessionContributions(contributions));
       rethrow;
     }
   }
@@ -588,9 +598,9 @@ final class InstalledPlugins {
   }
 
   Future<void> close() {
-    if (_closed) return Future<void>.value();
     final pending = _closeFuture;
     if (pending != null) return pending;
+    if (_closed) return Future<void>.value();
     _closing = true;
     final close = _appLifecycleOperations.run(_close);
     _closeFuture = close;
@@ -608,6 +618,7 @@ final class InstalledPlugins {
   }
 
   Future<void> _closeAppLifecycles(List<Object> failures) async {
+    await Future.wait(_pendingSessionSettlements);
     for (final registration in _registrations.reversed) {
       for (final appLifecycle in registration.appLifecycles.reversed) {
         _revokeConsumers(
