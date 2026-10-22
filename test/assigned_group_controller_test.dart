@@ -505,6 +505,298 @@ void main() {
     }
   }
 
+  for (final fail in [false, true]) {
+    for (final refreshing in [false, true]) {
+      test(
+        'stale pagination ${fail ? 'failure' : 'response'} leaves '
+        '${refreshing ? 'refresh' : 'replacement pagination'} pending',
+        () async {
+          final old = Completer<TopicList>();
+          final refresh = Completer<TopicList>();
+          final replacement = Completer<TopicList>();
+          final api = _ControlledAssignedGroupApi()
+            ..topicResults.addAll([
+              _completed(_topics(11, more: '/assigned?page=1')),
+              refresh,
+            ])
+            ..pageResults.addAll([old, replacement]);
+          final store = Store();
+          final controller = AssignedGroupController(
+            api: api,
+            requests: _requests(SiteLifecycle()),
+            topics: store,
+          );
+          addTearDown(controller.dispose);
+          const filter = AssignedGroupFilter.everyone();
+          Future<void> load({bool refresh = false}) => controller.loadTopics(
+            siteUrl: _site,
+            groupName: 'support',
+            filter: filter,
+            refresh: refresh,
+          );
+          Future<void> page() => controller.loadMoreTopics(
+            siteUrl: _site,
+            groupName: 'support',
+            filter: filter,
+          );
+
+          await load();
+          final oldLoad = page();
+          await pumpEventQueue();
+          final refreshLoad = load(refresh: true);
+          await pumpEventQueue();
+          Future<void>? replacementLoad;
+          if (!refreshing) {
+            refresh.complete(_topics(13, more: '/assigned?page=2'));
+            await refreshLoad;
+            replacementLoad = page();
+            await pumpEventQueue();
+          }
+
+          var notifications = 0;
+          controller.addListener(() => notifications++);
+          if (fail) {
+            old.completeError(StateError('old topic page failed'));
+          } else {
+            old.complete(_topics(12));
+          }
+          await oldLoad;
+
+          expect(notifications, 0);
+          expect(store.read<Topic>(_site, 12), isNull);
+          final feed = controller.topicFeedFor(_site, 'support', filter);
+          expect(feed.topicIds, refreshing ? [11] : [13]);
+          expect(feed.loading, refreshing);
+          expect(feed.loadingMore, !refreshing);
+          expect(feed.error, isNull);
+          await load();
+          await page();
+          expect(api.topicCalls, hasLength(2));
+          expect(api.pageCalls, hasLength(refreshing ? 1 : 2));
+
+          if (refreshing) {
+            refresh.complete(_topics(13));
+            await refreshLoad;
+          } else {
+            replacement.complete(_topics(14));
+            await replacementLoad;
+          }
+          expect(
+            controller
+                .topicsFor(_site, 'support', filter)
+                .map((topic) => topic.id),
+            refreshing ? [13] : [13, 14],
+          );
+        },
+      );
+    }
+  }
+
+  test('completing a topic request does not promote its query', () async {
+    final topics = Completer<TopicList>();
+    final api = _ControlledAssignedGroupApi()..topicResults.add(topics);
+    final controller = AssignedGroupController(
+      api: api,
+      requests: _requests(SiteLifecycle()),
+    );
+    addTearDown(controller.dispose);
+    const filter = AssignedGroupFilter.everyone();
+    final load = controller.loadTopics(
+      siteUrl: _site,
+      groupName: 'support',
+      filter: filter,
+    );
+    await pumpEventQueue();
+    for (var index = 0; index < 16; index++) {
+      if (index == 15) {
+        topics.complete(_topics(11));
+        await load;
+      }
+      api.topicResults.add(_completed(_topics(200 + index)));
+      await controller.loadTopics(
+        siteUrl: _site,
+        groupName: 'support',
+        filter: filter,
+        query: AssignedGroupTopicQuery(search: 'query-$index'),
+      );
+    }
+
+    expect(controller.topicFeedFor(_site, 'support', filter).loaded, isFalse);
+    expect(
+      controller
+          .topicFeedFor(
+            _site,
+            'support',
+            filter,
+            query: const AssignedGroupTopicQuery(search: 'query-0'),
+          )
+          .loaded,
+      isTrue,
+    );
+  });
+
+  test(
+    'duplicate-only topic pages retain a changed continuation cursor',
+    () async {
+      final api = _ControlledAssignedGroupApi()
+        ..topicResults.add(_completed(_topics(11, more: '/assigned?page=1')))
+        ..pageResults.addAll([
+          _completed(_topics(11, more: '/assigned?page=2')),
+          _completed(_topics(12)),
+        ]);
+      final controller = AssignedGroupController(
+        api: api,
+        requests: _requests(SiteLifecycle()),
+      );
+      addTearDown(controller.dispose);
+      const filter = AssignedGroupFilter.everyone();
+      Future<void> page() => controller.loadMoreTopics(
+        siteUrl: _site,
+        groupName: 'support',
+        filter: filter,
+      );
+
+      await controller.loadTopics(
+        siteUrl: _site,
+        groupName: 'support',
+        filter: filter,
+      );
+      await page();
+      expect(controller.topicFeedFor(_site, 'support', filter).topicIds, [11]);
+      expect(controller.topicFeedFor(_site, 'support', filter).hasMore, isTrue);
+      await page();
+      expect(api.pageCalls, ['/assigned.json?page=1', '/assigned.json?page=2']);
+      expect(controller.topicFeedFor(_site, 'support', filter).topicIds, [
+        11,
+        12,
+      ]);
+      expect(
+        controller.topicFeedFor(_site, 'support', filter).hasMore,
+        isFalse,
+      );
+    },
+  );
+
+  for (final borrowed in [false, true]) {
+    test(
+      'forget clears feeds with ${borrowed ? 'a borrowed' : 'an owned'} Store',
+      () async {
+        final api = _ControlledAssignedGroupApi()
+          ..topicResults.addAll([
+            _completed(_topics(11)),
+            _completed(_topics(12)),
+          ]);
+        final store = borrowed ? Store() : null;
+        final controller = AssignedGroupController(
+          api: api,
+          requests: _requests(SiteLifecycle()),
+          topics: store,
+        );
+        addTearDown(controller.dispose);
+        const filter = AssignedGroupFilter.everyone();
+
+        for (final site in [_site, _otherSite]) {
+          await controller.loadTopics(
+            siteUrl: site,
+            groupName: 'support',
+            filter: filter,
+          );
+        }
+        controller.forget(_site);
+
+        expect(controller.topicsFor(_site, 'support', filter), isEmpty);
+        expect(
+          controller.topicFeedFor(_site, 'support', filter).loaded,
+          isFalse,
+        );
+        expect(
+          controller.topicsFor(_otherSite, 'support', filter).single.id,
+          12,
+        );
+        if (borrowed) expect(store!.read<Topic>(_site, 11)?.id, 11);
+      },
+    );
+  }
+
+  test(
+    'normalized topic queries share loads and retain sort identity',
+    () async {
+      final first = Completer<TopicList>();
+      final api = _ControlledAssignedGroupApi()
+        ..topicResults.addAll([
+          first,
+          _completed(_topics(12)),
+          _completed(_topics(13)),
+        ]);
+      final controller = AssignedGroupController(
+        api: api,
+        requests: _requests(SiteLifecycle()),
+      );
+      addTearDown(controller.dispose);
+      final filter = AssignedGroupFilter.member(' SAM ');
+      const query = AssignedGroupTopicQuery(
+        order: AssignedGroupOrder.views,
+        ascending: true,
+        search: 'incident',
+      );
+
+      final load = controller.loadTopics(
+        siteUrl: _site,
+        groupName: ' support ',
+        filter: filter,
+        query: const AssignedGroupTopicQuery(
+          order: AssignedGroupOrder.views,
+          ascending: true,
+          search: ' incident ',
+        ),
+      );
+      await pumpEventQueue();
+      await controller.loadTopics(
+        siteUrl: _site,
+        groupName: 'support',
+        filter: AssignedGroupFilter.member('sam'),
+        query: query,
+      );
+      expect(api.topicCalls, hasLength(1));
+      expect(api.topicCalls.single.groupName, 'support');
+      expect(api.topicCalls.single.query, query);
+
+      first.complete(_topics(11));
+      await load;
+      await controller.loadTopics(
+        siteUrl: _site,
+        groupName: 'support',
+        filter: filter,
+        query: query,
+      );
+      expect(api.topicCalls, hasLength(1));
+
+      for (final differentSort in [
+        const AssignedGroupTopicQuery(
+          order: AssignedGroupOrder.posts,
+          ascending: true,
+          search: 'incident',
+        ),
+        const AssignedGroupTopicQuery(
+          order: AssignedGroupOrder.views,
+          search: 'incident',
+        ),
+      ]) {
+        await controller.loadTopics(
+          siteUrl: _site,
+          groupName: 'support',
+          filter: filter,
+          query: differentSort,
+        );
+      }
+      expect(api.topicCalls, hasLength(3));
+      expect(
+        controller.topicsFor(_site, 'support', filter, query: query).single.id,
+        11,
+      );
+    },
+  );
+
   test('a refreshing topic request wins over its older response', () async {
     final old = Completer<TopicList>();
     final fresh = Completer<TopicList>();
