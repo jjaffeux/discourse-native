@@ -1,15 +1,14 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/found_group.dart';
 import '../../theme/d_icons.dart';
 import '../platform.dart';
+import '../shell_controller.dart';
 import '../shell_scope.dart';
 import '../topic_taxonomy_button.dart';
 import 'controller.dart';
+import 'recipient_lookup.dart';
 
 class ComposerRecipients extends StatefulWidget {
   const ComposerRecipients({super.key, required this.composer});
@@ -21,73 +20,46 @@ class ComposerRecipients extends StatefulWidget {
 }
 
 class _ComposerRecipientsState extends State<ComposerRecipients> {
-  String _query = '';
-  Timer? _debounce;
-  int _searchGeneration = 0;
-  FoundUsersAndGroups _results = const FoundUsersAndGroups();
-  bool _rejectedSelection = false;
+  late ShellController _shell;
+  ComposerRecipientLookup? _lookup;
 
-  List<String> get _recipients => widget.composer.target.targetRecipients!
-      .split(',')
-      .where((name) => name.isNotEmpty)
-      .toList();
-
-  void _search(String query) {
-    _debounce?.cancel();
-    final generation = ++_searchGeneration;
-    setState(() {
-      _query = query;
-      _results = const FoundUsersAndGroups();
-    });
-    _debounce = Timer(const Duration(milliseconds: 200), () async {
-      if (!mounted) return;
-      final results = await ShellScope.read(context).searchMessageRecipients(
-        siteUrl: widget.composer.target.siteUrl,
-        term: query.trim(),
-      );
-      if (!mounted || generation != _searchGeneration) return;
-      setState(() => _results = results);
-    });
-  }
-
-  void _selectionChanged(List<String> values) {
-    final current = _recipients;
-    // An old row can still dispatch before the query edit rebuilds the popup.
-    final accepted = values
-        .where(
-          (name) =>
-              current.contains(name) ||
-              _results.users.any((user) => user.username == name) ||
-              _results.groups.any((group) => group.name == name),
-        )
-        .toList();
-    _rejectedSelection = accepted.length != values.length;
-    widget.composer.setRecipients(accepted);
-  }
-
-  void _queryChanged(String query, DComboboxChangeReason reason) {
-    final rejectedReset =
-        _rejectedSelection &&
-        query.isEmpty &&
-        (reason == DComboboxChangeReason.keyboard ||
-            reason == DComboboxChangeReason.itemPress);
-    _rejectedSelection = false;
-    // Keep the replacement query and its lookup after rejecting an old row.
-    if (!rejectedReset) _search(query);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _shell = ShellScope.identityOf(context);
+    _bindLookup();
   }
 
   @override
+  void didUpdateWidget(ComposerRecipients oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _bindLookup();
+  }
+
+  void _bindLookup() {
+    if (_lookup?.matches(widget.composer, _shell) ?? false) return;
+    _lookup?.removeListener(_lookupChanged);
+    _lookup?.dispose();
+    _lookup = ComposerRecipientLookup(composer: widget.composer, shell: _shell)
+      ..addListener(_lookupChanged);
+  }
+
+  void _lookupChanged() => setState(() {});
+
+  @override
   void dispose() {
-    _debounce?.cancel();
-    _searchGeneration++;
+    _lookup?.removeListener(_lookupChanged);
+    _lookup?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _bindLookup();
+    final lookup = _lookup!;
     final mobile = context.isTouch;
-    final recipients = _recipients;
-    final query = _query.trim().toLowerCase();
+    final recipients = lookup.recipients;
+    final query = lookup.query.trim().toLowerCase();
     final picker = DCombobox<String>.multipleControlled(
       key: const ValueKey('composer-private-message-recipients'),
       value: recipients,
@@ -106,7 +78,7 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
         DComboboxOptionGroup(
           label: context.l10n.users,
           options: [
-            for (final user in _results.users)
+            for (final user in lookup.results.users)
               if (!mobile || !recipients.contains(user.username))
                 DComboboxOption(
                   value: user.username,
@@ -119,29 +91,24 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
         DComboboxOptionGroup(
           label: context.l10n.groups,
           options: [
-            for (final group in _results.groups)
+            for (final group in lookup.results.groups)
               if (!mobile || !recipients.contains(group.name))
                 DComboboxOption(value: group.name, label: group.name),
           ],
         ),
       ],
-      query: _query,
+      query: lookup.query,
       filterLocally: false,
       closeOnSelect: false,
       itemToStringLabel: (name) => name,
-      onQueryChanged: _queryChanged,
-      onOpenChanged: (open, reason) {
-        if (mobile) {
-          _debounce?.cancel();
-          _searchGeneration++;
-          if (open) {
-            _search('');
-          }
-        } else if (open && _results.users.isEmpty && _results.groups.isEmpty) {
-          _search(_query);
-        }
-      },
-      onValuesChanged: (values, reason) => _selectionChanged(values),
+      onQueryChanged: (query, reason) => lookup.search(
+        query,
+        selectionReset:
+            reason == DComboboxChangeReason.keyboard ||
+            reason == DComboboxChangeReason.itemPress,
+      ),
+      onOpenChanged: (open, reason) => lookup.setOpen(open, mobile: mobile),
+      onValuesChanged: (values, reason) => lookup.select(values),
       anchor: mobile
           ? DComboboxTrigger<String>(
               builder: (context, trigger) => TopicTaxonomyButton(
@@ -196,23 +163,26 @@ class _ComposerRecipientsState extends State<ComposerRecipients> {
         ],
       ),
     );
-    return Padding(
-      padding: mobile
-          ? const EdgeInsets.fromLTRB(
-              DSpacing.lg,
-              DSpacing.md,
-              DSpacing.lg,
-              DSpacing.controlGap,
-            )
-          : const EdgeInsets.fromLTRB(16, 2, 16, 6),
-      child: mobile
-          ? Align(alignment: AlignmentDirectional.centerStart, child: picker)
-          : DField(
-              children: [
-                DFieldLabel(child: Text(context.l10n.to)),
-                picker,
-              ],
-            ),
+    return KeyedSubtree(
+      key: ObjectKey(lookup),
+      child: Padding(
+        padding: mobile
+            ? const EdgeInsets.fromLTRB(
+                DSpacing.lg,
+                DSpacing.md,
+                DSpacing.lg,
+                DSpacing.controlGap,
+              )
+            : const EdgeInsets.fromLTRB(16, 2, 16, 6),
+        child: mobile
+            ? Align(alignment: AlignmentDirectional.centerStart, child: picker)
+            : DField(
+                children: [
+                  DFieldLabel(child: Text(context.l10n.to)),
+                  picker,
+                ],
+              ),
+      ),
     );
   }
 }

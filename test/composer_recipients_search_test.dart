@@ -26,6 +26,216 @@ Finder _option(String name) => find.byWidgetPredicate(
 void main() {
   for (final mobile in [false, true]) {
     for (final duringLookup in [false, true]) {
+      testWidgets('retained recipient widget retires replaced composer on '
+          '${mobile ? 'mobile' : 'desktop'} '
+          '${duringLookup ? 'during lookup' : 'during debounce'}', (
+        tester,
+      ) async {
+        final pending = Completer<FoundUsersAndGroups>();
+        final api = _RecipientApi(pending);
+        final original = _composer();
+        final replacement = _composer(siteUrl: 'https://other.example');
+        final source = ValueNotifier(original);
+        addTearDown(source.dispose);
+        addTearDown(replacement.dispose);
+        await _pump(tester, mobile: mobile, api: api, composerSource: source);
+        await _findSam(tester, mobile: mobile);
+        final state = tester.state(find.byType(ComposerRecipients));
+        await tester.enterText(_input, 'alice');
+        if (duringLookup) {
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.pump();
+        }
+        source.value = replacement;
+        await tester.pumpAndSettle();
+        expect(tester.state(find.byType(ComposerRecipients)), same(state));
+        pending.complete(const FoundUsersAndGroups(users: [_alice]));
+        await tester.pumpAndSettle();
+        expect(
+          api.terms.where((term) => term == 'alice').length,
+          duringLookup ? 1 : 0,
+        );
+        if (mobile) {
+          await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+          await tester.pumpAndSettle();
+        }
+        expect(_editable(tester).controller.text, isEmpty);
+        expect(_option('alice'), findsNothing);
+        expect(_option('sam'), findsNothing);
+        await _findSam(tester, mobile: false);
+        expect(api.sites.last, 'https://other.example');
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('recipient lookup retires on shell replacement on '
+        '${mobile ? 'mobile' : 'desktop'}', (tester) async {
+      final pending = Completer<FoundUsersAndGroups>();
+      final api = _RecipientApi(pending);
+      final original = _shell(api);
+      final replacementApi = _RecipientApi(Completer<FoundUsersAndGroups>());
+      final replacement = _shell(replacementApi);
+      await original.load();
+      await replacement.load();
+      final source = ValueNotifier(original);
+      addTearDown(source.dispose);
+      addTearDown(replacement.dispose);
+      await _pump(tester, mobile: mobile, api: api, shellSource: source);
+      await _findSam(tester, mobile: mobile);
+      await tester.enterText(_input, 'alice');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+      source.value = replacement;
+      await tester.pumpAndSettle();
+      pending.complete(const FoundUsersAndGroups(users: [_alice]));
+      await tester.pumpAndSettle();
+      if (mobile) {
+        await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+        await tester.pumpAndSettle();
+      }
+      expect(_editable(tester).controller.text, isEmpty);
+      expect(_option('alice'), findsNothing);
+      await _findSam(tester, mobile: false);
+      expect(replacementApi.terms, contains('sa'));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'recipient account retirement rejects a cached row before rebuild on '
+      '${mobile ? 'mobile' : 'desktop'}',
+      (tester) async {
+        final composer = await _pump(
+          tester,
+          mobile: mobile,
+          api: _RecipientApi(Completer<FoundUsersAndGroups>()),
+        );
+        await _findSam(tester, mobile: mobile);
+        final picker = tester.widget<DCombobox<String>>(
+          find.byKey(const ValueKey('composer-private-message-recipients')),
+        );
+        ShellScope.read(
+          tester.element(find.byType(ComposerRecipients)),
+        ).lifecycle.invalidate(_site);
+        picker.onValuesChanged!(['sam'], DComboboxChangeReason.itemPress);
+        expect(composer.target.targetRecipients, isEmpty);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('recipient target update retains current lookup on '
+        '${mobile ? 'mobile' : 'desktop'}', (tester) async {
+      final composer = await _pump(
+        tester,
+        mobile: mobile,
+        api: _RecipientApi(Completer<FoundUsersAndGroups>()),
+      );
+      await _findSam(tester, mobile: mobile);
+      final picker = tester.widget<DCombobox<String>>(
+        find.byKey(const ValueKey('composer-private-message-recipients')),
+      );
+      final target = composer.target;
+      picker.onValuesChanged!(['sam'], DComboboxChangeReason.itemPress);
+      await tester.pump();
+      expect(composer.target, isNot(same(target)));
+      expect(composer.target.targetRecipients, 'sam');
+      expect(_editable(tester).controller.text, 'sa');
+      if (!mobile) expect(_option('sam'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('recipient target update preserves a pending request on '
+        '${mobile ? 'mobile' : 'desktop'}', (tester) async {
+      final pending = Completer<FoundUsersAndGroups>();
+      final composer = await _pump(
+        tester,
+        mobile: mobile,
+        api: _RecipientApi(pending),
+        recipients: 'alex',
+      );
+      await _findSam(tester, mobile: mobile);
+      await tester.enterText(_input, 'alice');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump();
+      composer.setRecipients(['alex', 'sam']);
+      await tester.pump();
+      expect(_editable(tester).controller.text, 'alice');
+      pending.complete(const FoundUsersAndGroups(users: [_alice]));
+      await tester.pumpAndSettle();
+      expect(_option('alice'), findsOneWidget);
+      await tester.tap(_option('alice'));
+      await tester.pumpAndSettle();
+      expect(composer.target.targetRecipients, 'alex,sam,alice');
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'retired recipient row cannot select for replacement composer on '
+      '${mobile ? 'mobile' : 'desktop'}',
+      (tester) async {
+        final original = _composer();
+        final replacement = _composer();
+        final source = ValueNotifier(original);
+        addTearDown(source.dispose);
+        addTearDown(replacement.dispose);
+        await _pump(
+          tester,
+          mobile: mobile,
+          api: _RecipientApi(Completer<FoundUsersAndGroups>()),
+          composerSource: source,
+        );
+        await _findSam(tester, mobile: mobile);
+        final picker = tester.widget<DCombobox<String>>(
+          find.byKey(const ValueKey('composer-private-message-recipients')),
+        );
+        source.value = replacement;
+        await tester.pumpAndSettle();
+        picker.onValuesChanged!(['sam'], DComboboxChangeReason.itemPress);
+        expect(original.target.targetRecipients, isEmpty);
+        expect(replacement.target.targetRecipients, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    for (final duringLookup in [false, true]) {
+      testWidgets('recipient account retirement cancels old lookup on '
+          '${mobile ? 'mobile' : 'desktop'} '
+          '${duringLookup ? 'during lookup' : 'during debounce'}', (
+        tester,
+      ) async {
+        final pending = Completer<FoundUsersAndGroups>();
+        final api = _RecipientApi(pending);
+        final composer = await _pump(tester, mobile: mobile, api: api);
+        await _findSam(tester, mobile: mobile);
+        await tester.enterText(_input, 'alice');
+        if (duringLookup) {
+          await tester.pump(const Duration(milliseconds: 200));
+          await tester.pump();
+        }
+        final shell = ShellScope.read(
+          tester.element(find.byType(ComposerRecipients)),
+        );
+        shell.lifecycle.invalidate(_site);
+        await tester.pumpAndSettle();
+        pending.complete(const FoundUsersAndGroups(users: [_alice]));
+        await tester.pumpAndSettle();
+        expect(
+          api.terms.where((term) => term == 'alice').length,
+          duringLookup ? 1 : 0,
+        );
+        if (mobile) {
+          await tester.tap(find.byKey(const ValueKey('composer-recipients')));
+          await tester.pumpAndSettle();
+        }
+        expect(_editable(tester).controller.text, isEmpty);
+        expect(_option('alice'), findsNothing);
+        expect(composer.target.targetRecipients, isEmpty);
+        await _findSam(tester, mobile: false);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    for (final duringLookup in [false, true]) {
       testWidgets('recipient Enter rejects old results on '
           '${mobile ? 'mobile' : 'desktop'} '
           '${duringLookup ? 'during lookup' : 'during debounce'}', (
@@ -143,29 +353,38 @@ Future<void> _findSam(WidgetTester tester, {required bool mobile}) async {
   expect(_option('sam'), findsOneWidget);
 }
 
+ComposerController _composer({
+  String siteUrl = _site,
+  String recipients = '',
+}) => ComposerController(
+  PrivateMessageComposerTarget(
+    siteUrl: siteUrl,
+    topicTitle: 'New message',
+    targetRecipients: recipients,
+  ),
+);
+
+ShellController _shell(_RecipientApi api) => ShellController(
+  instanceStore: FakeInstanceStore(),
+  api: api,
+  authenticator: FakeAuthenticator()..keys[_site] = 'test-api-key',
+  drafts: FakeDraftStore(),
+  trackers: FakeSiteTracker.reset(),
+);
+
 Future<ComposerController> _pump(
   WidgetTester tester, {
   required bool mobile,
   required _RecipientApi api,
   String recipients = '',
+  ValueNotifier<ComposerController>? composerSource,
+  ValueNotifier<ShellController>? shellSource,
 }) async {
   tester.view.physicalSize = Size(mobile ? 390 : 1180, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  final composer = ComposerController(
-    PrivateMessageComposerTarget(
-      siteUrl: _site,
-      topicTitle: 'New message',
-      targetRecipients: recipients,
-    ),
-  );
-  final shell = ShellController(
-    instanceStore: FakeInstanceStore(),
-    api: api,
-    authenticator: FakeAuthenticator()..keys[_site] = 'test-api-key',
-    drafts: FakeDraftStore(),
-    trackers: FakeSiteTracker.reset(),
-  );
+  final composer = composerSource?.value ?? _composer(recipients: recipients);
+  final shell = shellSource?.value ?? _shell(api);
   await shell.load();
   addTearDown(composer.dispose);
   addTearDown(shell.dispose);
@@ -174,12 +393,21 @@ Future<ComposerController> _pump(
       theme: AppTheme.light.copyWith(
         platform: mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
       ),
-      home: ShellScope(
-        controller: shell,
-        child: Scaffold(
-          body: ListenableBuilder(
-            listenable: composer,
-            builder: (_, _) => ComposerRecipients(composer: composer),
+      home: ListenableBuilder(
+        listenable: shellSource ?? shell,
+        builder: (_, _) => ShellScope(
+          controller: shellSource?.value ?? shell,
+          child: Scaffold(
+            body: ListenableBuilder(
+              listenable: composerSource ?? composer,
+              builder: (_, _) {
+                final current = composerSource?.value ?? composer;
+                return ListenableBuilder(
+                  listenable: current,
+                  builder: (_, _) => ComposerRecipients(composer: current),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -194,6 +422,7 @@ class _RecipientApi extends FakeDiscourseApi {
 
   final Completer<FoundUsersAndGroups> pending;
   final List<String> terms = [];
+  final List<String> sites = [];
 
   @override
   Future<FoundUsersAndGroups> searchUsersAndGroups({
@@ -204,6 +433,7 @@ class _RecipientApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     terms.add(term);
+    sites.add(siteUrl);
     return switch (term) {
       'sa' => const FoundUsersAndGroups(users: [_sam]),
       'alice' => pending.future,
