@@ -11,6 +11,55 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('pending mention results use skeleton rows', (tester) async {
+    final pending = Completer<List<ComposerSuggestion>>();
+    final composer = ComposerController(
+      const ReplyComposerTarget(
+        privateMessageTopic: false,
+        siteUrl: 'https://meta.discourse.org',
+        topicId: 1,
+        slug: 'topic',
+        topicTitle: 'Topic',
+      ),
+      search: (
+        users: (_) => pending.future,
+        hashtags: (_) async => const [],
+        emojis: (_) async => const [],
+      ),
+    );
+    addTearDown(composer.dispose);
+    composer.text.value = _typed('@sa');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ComposerSuggestionField(
+            composer: composer,
+            field: DInput(controller: composer.text, focusNode: composer.focus),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(ComposerAutocomplete.debounce);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSkeleton), findsWidgets);
+    expect(find.byType(DSpinner), findsNothing);
+
+    pending.complete(const [
+      ComposerSuggestion(
+        kind: ComposerTriggerKind.mention,
+        value: 'sam',
+        label: 'sam',
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.text('sam'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final duringLookup in [false, true]) {
     for (final activation in ['Enter', 'Numpad Enter', 'Tab', 'tap']) {
       testWidgets(

@@ -881,11 +881,27 @@ class _StatusAnnouncement extends StatelessWidget {
       ),
       PreferencesState(loading: true) => (
         context.l10n.refreshingPreferences,
-        _StatusKind.progress,
+        _StatusKind.refresh,
       ),
       _ => (null, null),
     };
     if (message == null || kind == null) return const SizedBox.shrink();
+    if (kind == _StatusKind.refresh) {
+      return DSkeletonRegion(
+        semanticsLabel: message,
+        color: skeletonFill(context),
+        child: const Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              DSkeleton(width: 16, height: 16),
+              SizedBox(width: 12),
+              Expanded(child: DSkeleton(height: 14)),
+            ],
+          ),
+        ),
+      );
+    }
 
     final theme = Theme.of(context);
     final (icon, foreground, background) = switch (kind) {
@@ -899,7 +915,7 @@ class _StatusAnnouncement extends StatelessWidget {
         theme.colorScheme.onPrimaryContainer,
         theme.colorScheme.primaryContainer,
       ),
-      _StatusKind.progress => (
+      _StatusKind.progress || _StatusKind.refresh => (
         null,
         theme.colorScheme.onSurfaceVariant,
         theme.colorScheme.surfaceContainerHigh,
@@ -922,7 +938,7 @@ class _StatusAnnouncement extends StatelessWidget {
   }
 }
 
-enum _StatusKind { error, success, progress }
+enum _StatusKind { error, success, progress, refresh }
 
 class _LoadingPreferences extends StatelessWidget {
   const _LoadingPreferences({required this.host});

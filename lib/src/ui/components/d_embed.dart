@@ -13,7 +13,7 @@ import '../foundation/native_webview_scroll.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_card.dart';
-import 'd_spinner.dart';
+import 'd_skeleton.dart';
 
 // Leave the Card's existing outline visible beneath the native platform view.
 const _embedBorderInsets = EdgeInsets.only(left: 1, right: 1, bottom: 1);
@@ -295,19 +295,12 @@ class _DEmbedState extends State<DEmbed> {
                       },
                     ),
                   ),
-                  if (provider && _loading)
-                    DCard(
-                      spacing: 0,
-                      child: SizedBox(
-                        height: _height,
-                        child: Center(
-                          child: DSpinner(
-                            semanticLabel: context.l10n.loadingDembed(
-                              (widget.title).toString(),
-                            ),
-                          ),
-                        ),
+                  if (_loading)
+                    DSkeletonRegion(
+                      semanticsLabel: context.l10n.loadingDembed(
+                        (widget.title).toString(),
                       ),
+                      child: const DSkeleton(),
                     ),
                 ],
               ),
@@ -318,18 +311,7 @@ class _DEmbedState extends State<DEmbed> {
       size: DCardSize.small,
       trailing: _failed ? null : viewport,
       children: [
-        DCardHeader(
-          title: DCardTitle(child: Text(widget.title)),
-          action: _loading
-              ? DCardAction(
-                  child: DSpinner(
-                    semanticLabel: context.l10n.loadingDembed(
-                      (widget.title).toString(),
-                    ),
-                  ),
-                )
-              : null,
-        ),
+        DCardHeader(title: DCardTitle(child: Text(widget.title))),
         if (_failed)
           DCardContent(
             child: Column(

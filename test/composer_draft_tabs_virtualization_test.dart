@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -20,6 +22,30 @@ void main() => composerDraftTabsVirtualizationTests();
 
 void composerDraftTabsVirtualizationTests() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets('draft menu keeps live editors beside loading skeletons', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    await _pumpTabs(tester, count: 2, draftGate: gate);
+    await tester.tap(find.byKey(const ValueKey('composer-all-drafts')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Loading drafts…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSkeleton), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byType(DDropdownMenuContent),
+        matching: find.text('Draft 1'),
+      ),
+      findsOneWidget,
+    );
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.text('All drafts'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final scale in [1.0, 2.0]) {
     for (final direction in TextDirection.values) {
@@ -404,6 +430,7 @@ Future<ShellController> _pumpTabs(
   TextDirection direction = TextDirection.ltr,
   bool hosted = false,
   DAppearanceMaterial material = DAppearanceMaterial.standard,
+  Completer<void>? draftGate,
 }) async {
   const siteUrl = 'https://meta.discourse.org';
   const user = DiscourseUser(id: 7, username: 'writer', canCreateTopic: true);
@@ -413,6 +440,7 @@ Future<ShellController> _pumpTabs(
     ]),
     api: FakeDiscourseApi(
       user: user,
+      userDraftGate: draftGate,
       feeds: const {'/latest.json': []},
       creatableFeedPaths: const {'/latest.json'},
     ),

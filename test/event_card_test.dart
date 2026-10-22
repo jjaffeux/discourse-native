@@ -49,6 +49,33 @@ void main() {
     ),
   );
 
+  testWidgets('unavailable event shows a skeleton until its details arrive', (
+    tester,
+  ) async {
+    var opened = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EventUnavailableCard(loading: true, onWeb: () => opened++),
+        ),
+      ),
+    );
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DProgress), findsNothing);
+    expect(find.text('Event details are unavailable.'), findsNothing);
+    expect(find.textContaining('Loading'), findsNothing);
+    await tester.tap(find.text('Open event on web'));
+    expect(opened, 1);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: EventUnavailableCard(error: 'Event was removed')),
+      ),
+    );
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.text('Event was removed'), findsOneWidget);
+  });
+
   for (final linked in [false, true]) {
     testWidgets(
       'renders event title emoji with wrapping and semantics (linked: $linked)',

@@ -11,6 +11,7 @@ import '../models/user_draft.dart';
 import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'skeleton_fill.dart';
 import 'topic_title.dart';
 
 class TopicCreateButton extends StatelessWidget {
@@ -201,7 +202,17 @@ class _TopicCreateControl extends StatelessWidget {
         if (feed.loading && drafts.isEmpty)
           DDropdownMenuItem(
             key: const ValueKey('recent-drafts-loading'),
-            child: Text(appL10n.loadingDraftsTopiccreatebutton),
+            child: DSkeletonRegion(
+              semanticsLabel: appL10n.loadingDraftsTopiccreatebutton,
+              color: skeletonFill(context, on: SkeletonSurface.floating),
+              child: const Row(
+                spacing: DSpacing.sm,
+                children: [
+                  DSkeleton(width: 16, height: 16),
+                  Expanded(child: DSkeleton(height: 16)),
+                ],
+              ),
+            ),
           )
         else if (feed.error != null && drafts.isEmpty)
           DDropdownMenuLabel(child: Text(appL10n.couldnTLoadDrafts))

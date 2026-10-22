@@ -180,7 +180,16 @@ class _CategoriesPageState extends State<CategoriesPage> {
             .toList();
     _scheduleVisibleEndCheck();
 
-    final loading = feed.categoryIds.isEmpty && (!feed.loaded || feed.loading);
+    final loadingFilteredResults =
+        feed.loadingMore ||
+        feed.hasMore ||
+        (scope == CategoryDirectoryScope.unread && counts == null);
+    final loading =
+        (feed.categoryIds.isEmpty && (!feed.loaded || feed.loading)) ||
+        (entries.isEmpty &&
+            !feed.isEmpty &&
+            feed.error == null &&
+            loadingFilteredResults);
     return DScrollChromePagination(
       hasMore: feed.hasMore,
       loading: feed.loadingMore,
@@ -356,13 +365,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 24),
                               child: DText(
-                                feed.loadingMore ||
-                                        feed.hasMore ||
-                                        (scope ==
-                                                CategoryDirectoryScope.unread &&
-                                            counts == null)
-                                    ? context.l10n.loading
-                                    : scope == CategoryDirectoryScope.unread
+                                scope == CategoryDirectoryScope.unread
                                     ? context.l10n.noUnreadCategories
                                     : scope == CategoryDirectoryScope.withTopics
                                     ? context.l10n.noCategoriesWithTopics

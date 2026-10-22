@@ -130,6 +130,19 @@ void main() {
           }
           expect(fixture.api.requests.last.apiKey, 'opening-key');
           expect(fixture.api.nextResult, isNull);
+          expect(find.byType(DSkeletonRegion), findsOneWidget);
+          expect(find.byType(DSkeleton), findsWidgets);
+          expect(find.byType(DSpinner), findsNothing);
+          expect(find.byType(DProgress), findsNothing);
+          expect(
+            tester
+                .widget<DSkeletonRegion>(find.byType(DSkeletonRegion))
+                .semanticsLabel,
+            'Loading revision',
+          );
+          if (!initial) {
+            expect(find.text('Comparing version 3 to 4 of 4'), findsOneWidget);
+          }
 
           // Do not settle an indeterminate loading indicator before releasing
           // the revision request. Account replacement itself is fully awaited.

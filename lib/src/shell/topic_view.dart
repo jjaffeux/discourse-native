@@ -4254,7 +4254,19 @@ class _PostGapState extends State<_PostGap> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final label = _loading ? context.l10n.loading : _label;
+    if (_loading) {
+      return DSkeletonRegion(
+        semanticsLabel: context.l10n.loadingMorePosts,
+        color: skeletonFill(context),
+        child: const DItem(
+          size: DItemSize.sm,
+          children: [
+            DItemContent(children: [DSkeleton(width: 160, height: 12)]),
+          ],
+        ),
+      );
+    }
+    final label = _label;
 
     return DItem(
       size: DItemSize.sm,

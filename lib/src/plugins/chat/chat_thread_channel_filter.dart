@@ -195,7 +195,37 @@ class _ChatThreadChannelFilterState extends State<ChatThreadChannelFilter> {
                         child: Text(channel.title),
                       ),
                     if (_loading)
-                      DCommandLoading(child: Text(context.l10n.loading)),
+                      DCommandLoading(
+                        child: DSkeletonRegion(
+                          semanticsLabel: context.l10n.loading,
+                          color: skeletonFill(
+                            context,
+                            on: SkeletonSurface.floating,
+                          ),
+                          child: Column(
+                            children: [
+                              for (
+                                var index = 0;
+                                index < (_channels.isEmpty ? 3 : 1);
+                                index++
+                              )
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: DSpacing.sm,
+                                    vertical: DSpacing.sm,
+                                  ),
+                                  child: Row(
+                                    spacing: DSpacing.sm,
+                                    children: [
+                                      DSkeleton(width: 16, height: 16),
+                                      Expanded(child: DSkeleton(height: 16)),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
                     if (!_loading && _error != null)
                       DCommandItem<int>(
                         value: -2,

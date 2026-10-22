@@ -22,6 +22,61 @@ import 'support/media_pipeline.dart';
 const _siteUrl = 'https://meta.example';
 
 void main() {
+  for (final dark in [false, true]) {
+    testWidgets('unknown reaction choices use skeleton cells dark=$dark', (
+      tester,
+    ) async {
+      final site = instance(
+        'meta.example',
+      ).copyWith(user: const DiscourseUser(username: 'reader'));
+      final shell = ShellController(
+        plugins: installedPlugins,
+        instanceStore: FakeInstanceStore([site]),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+      );
+      await shell.load();
+      addTearDown(shell.dispose);
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: dark ? AppTheme.dark : AppTheme.light,
+            home: Scaffold(
+              body: ReactionGrid(
+                controller: shell.pluginSession.require(
+                  reactionsControllerService,
+                ),
+                siteUrl: _siteUrl,
+                post: const Post(
+                  id: 1,
+                  postNumber: 1,
+                  username: 'author',
+                  cooked: '<p>Post</p>',
+                ),
+                onPicked: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final region = find.byType(DSkeletonRegion);
+      expect(region, findsOneWidget);
+      const label = 'Still finding out which reactions this site allows.';
+      expect(tester.widget<DSkeletonRegion>(region).semanticsLabel, label);
+      expect(find.text(label), findsNothing);
+      expect(find.byType(DSkeleton), findsWidgets);
+      expect(find.byType(DToggle), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('reaction cell has one exact name and native keyboard action', (
     tester,
   ) async {

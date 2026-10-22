@@ -711,11 +711,24 @@ void main() {
           controller.categoryUnreadTopicCountsFor('https://meta.discourse.org'),
           isNull,
         );
-        await _selectScope(tester, 'Unread');
+        await tester.tap(find.byType(DSelect<CategoryDirectoryScope>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Unread').last);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
         expect(find.text('No categories with unread topics'), findsNothing);
         expect(_row(1), findsNothing);
+        expect(find.text('Loading…'), findsNothing);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        expect(
+          tester
+              .widget<DSkeletonRegion>(find.byType(DSkeletonRegion))
+              .semanticsLabel,
+          'Loading categories',
+        );
         gate.complete();
         await tester.pumpAndSettle();
+        expect(find.byType(DSkeletonRegion), findsNothing);
         expect(_row(1), findsOneWidget);
       },
     );

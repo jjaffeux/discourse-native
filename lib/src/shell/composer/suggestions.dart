@@ -11,6 +11,7 @@ import '../avatar_image.dart';
 import '../emoji.dart';
 import '../emoji_picker.dart';
 import '../shell_metrics.dart';
+import '../skeleton_fill.dart';
 import '../user_status.dart';
 import 'autocomplete.dart';
 import 'controller.dart';
@@ -419,7 +420,27 @@ class _Suggestions extends StatelessWidget {
                     height: mention ? 288 : null,
                     children: [
                       if (mention) ...[
-                        const DCommandLoading(child: DSpinner()),
+                        DCommandLoading(
+                          child: DSkeletonRegion(
+                            semanticsLabel: context.l10n.searching,
+                            color: skeletonFill(
+                              context,
+                              on: SkeletonSurface.floating,
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(DSpacing.md),
+                              child: Column(
+                                children: [
+                                  DSkeleton(height: 24),
+                                  SizedBox(height: DSpacing.sm),
+                                  DSkeleton(height: 24),
+                                  SizedBox(height: DSpacing.sm),
+                                  DSkeleton(height: 24),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                         DCommandEmpty(
                           child: Text(
                             popup.hasError

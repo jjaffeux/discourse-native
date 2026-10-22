@@ -153,9 +153,7 @@ class _GlobalSearchCategoryEditorState
       fontSize: DiscourseTypography.xs,
       color: tokens.mutedForeground,
     );
-    final count = _loading && _choices.isEmpty
-        ? context.l10n.loadingCategories
-        : _loadError != null && _choices.isEmpty
+    final count = _loadError != null && _choices.isEmpty
         ? context.l10n.categoriesUnavailable
         : _hasMore
         ? _total == null
@@ -221,7 +219,10 @@ class _GlobalSearchCategoryEditorState
               onChanged: (_) => unawaited(_load(debounce: true)),
             ),
             const SizedBox(height: 12),
-            Semantics(liveRegion: true, child: Text(count, style: muted)),
+            if (!_loading || _choices.isNotEmpty)
+              Semantics(liveRegion: true, child: Text(count, style: muted))
+            else
+              const SizedBox(height: 12),
             const SizedBox(height: 8),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 280),
@@ -271,6 +272,33 @@ class _GlobalSearchCategoryEditorState
                     ),
                     SliverList.list(
                       children: [
+                        if (_loading)
+                          DSkeletonRegion(
+                            semanticsLabel: context.l10n.loadingCategories,
+                            color: skeletonFill(
+                              context,
+                              on: SkeletonSurface.floating,
+                            ),
+                            child: Column(
+                              children: [
+                                for (
+                                  var index = 0;
+                                  index < (_choices.isEmpty ? 5 : 1);
+                                  index++
+                                )
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Row(
+                                      spacing: 8,
+                                      children: [
+                                        DSkeleton(width: 16, height: 16),
+                                        Expanded(child: DSkeleton(height: 16)),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         if (_loadError != null)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 12),

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../../../plugin_api/composer_syntax.dart';
 import '../../inline_video.dart';
+import '../../skeleton_fill.dart';
 import '../block_selection.dart';
 import 'image_source.dart';
 
@@ -112,9 +113,10 @@ final class _VideoProjection implements ComposerAtomicSelectionProjection {
                   key: context.pillKey,
                   selected: context.highlighted,
                   child: data == null
-                      ? const SizedBox(
-                          height: 190,
-                          child: Center(child: DSpinner()),
+                      ? DSkeletonRegion(
+                          semanticsLabel: widgetContext.l10n.loading,
+                          color: skeletonFill(widgetContext),
+                          child: const DSkeleton(height: 190),
                         )
                       : InlineVideo(
                           data: data,

@@ -255,20 +255,31 @@ class _AiSummaryDialogState extends State<_AiSummaryDialog> {
     final theme = Theme.of(context);
     final summary = _summary;
     final content = switch ((_loading, _error, summary)) {
-      (true, _, _) => SizedBox(
-        height: 120,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const DSpinner(size: DSpacing.xl),
-              const SizedBox(height: 12),
-              Text(
-                _regenerating
-                    ? context.l10n.regeneratingSummary
-                    : context.l10n.generatingSummary,
-              ),
-            ],
+      (true, _, _) => DSkeletonRegion(
+        semanticsLabel: _regenerating
+            ? context.l10n.regeneratingSummary
+            : context.l10n.generatingSummary,
+        color: skeletonFill(context, on: SkeletonSurface.floating),
+        child: const SizedBox(
+          height: 120,
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: DSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DSkeleton(height: 16),
+                SizedBox(height: DSpacing.md),
+                FractionallySizedBox(
+                  widthFactor: .9,
+                  child: DSkeleton(height: 16),
+                ),
+                SizedBox(height: DSpacing.md),
+                FractionallySizedBox(
+                  widthFactor: .65,
+                  child: DSkeleton(height: 16),
+                ),
+              ],
+            ),
           ),
         ),
       ),

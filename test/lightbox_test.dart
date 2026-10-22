@@ -135,34 +135,32 @@ double containedScale(Size viewport, Size image) {
 }
 
 void main() {
-  testWidgets(
-    'loading spinner keeps its screen size when the image is scaled',
-    (tester) async {
-      debugNetworkImageHttpClientProvider = () => _PendingImageHttpClient();
-      addTearDown(() => debugNetworkImageHttpClientProvider = null);
-      await pumpGallery(
-        tester,
-        images: [parse(singleImage.replaceAll('full.png', 'pending.png'))],
-      );
-      final spinner = find.byType(DSpinner);
-      expect(spinner, findsOneWidget);
+  testWidgets('loading skeleton fills the image slot and follows its scale', (
+    tester,
+  ) async {
+    debugNetworkImageHttpClientProvider = () => _PendingImageHttpClient();
+    addTearDown(() => debugNetworkImageHttpClientProvider = null);
+    await pumpGallery(
+      tester,
+      images: [parse(singleImage.replaceAll('full.png', 'pending.png'))],
+    );
+    final skeleton = find.byType(DSkeleton);
+    expect(skeleton, findsOneWidget);
+    expect(find.byType(DSpinner), findsNothing);
+    expect(tester.getSize(skeleton), tester.getSize(fullImageAt(0)));
+    final size = tester.getSize(skeleton);
+    expect(size.width / size.height, closeTo(1920 / 1080, 0.01));
 
-      void expectScreenSize() {
-        final box = tester.renderObject<RenderBox>(spinner);
-        final origin = box.localToGlobal(Offset.zero);
-        final corner = box.localToGlobal(box.size.bottomRight(Offset.zero));
-        expect((corner - origin).dx, closeTo(32, 0.01));
-        expect((corner - origin).dy, closeTo(32, 0.01));
-      }
-
-      expectScreenSize();
-      photoControllerAt(tester, 0).scale = 2;
-      await tester.pump();
-      expectScreenSize();
-      await tester.pumpWidget(const SizedBox.shrink());
-      debugNetworkImageHttpClientProvider = null;
-    },
-  );
+    photoControllerAt(tester, 0).scale = 2;
+    await tester.pump();
+    final box = tester.renderObject<RenderBox>(skeleton);
+    final origin = box.localToGlobal(Offset.zero);
+    final corner = box.localToGlobal(box.size.bottomRight(Offset.zero));
+    expect((corner - origin).dx, closeTo(size.width * 2, 0.01));
+    expect((corner - origin).dy, closeTo(size.height * 2, 0.01));
+    await tester.pumpWidget(const SizedBox.shrink());
+    debugNetworkImageHttpClientProvider = null;
+  });
 
   group('LightboxImage.from', () {
     test('reads the full-size image off the anchor, not the thumbnail', () {

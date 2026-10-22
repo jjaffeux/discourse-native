@@ -14,6 +14,7 @@ import 'cooked_html.dart';
 import 'relative_time.dart';
 import 'route_aware_selection_area.dart';
 import 'shell_sheet.dart';
+import 'skeleton_fill.dart';
 
 typedef PostRevisionLoader =
     Future<PostRevision?> Function(int? revisionNumber);
@@ -176,9 +177,35 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
         builder: (context, _) {
           final revision = controller.revision;
           if (revision == null && controller.loading) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(child: DSpinner(size: DSpacing.xl)),
+            return DSkeletonRegion(
+              semanticsLabel: context.l10n.loadingRevision,
+              color: skeletonFill(context, on: SkeletonSurface.floating),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        DSkeleton.circle(diameter: 32),
+                        SizedBox(width: 12),
+                        DSkeleton(width: 140, height: 14),
+                      ],
+                    ),
+                    SizedBox(height: 24),
+                    DSkeleton(width: 200, height: 16),
+                    SizedBox(height: 16),
+                    DSkeleton(height: 12),
+                    SizedBox(height: 8),
+                    DSkeleton(height: 12),
+                    SizedBox(height: 8),
+                    FractionallySizedBox(
+                      widthFactor: .7,
+                      child: DSkeleton(height: 12),
+                    ),
+                  ],
+                ),
+              ),
             );
           }
           if (revision == null) {
@@ -193,9 +220,10 @@ class _PostRevisionHistoryBodyState extends State<_PostRevisionHistoryBody> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (controller.loading)
-                  DProgress(
+                  DSkeletonRegion(
                     semanticsLabel: context.l10n.loadingRevision,
-                    track: const DProgressTrack(height: 2),
+                    color: skeletonFill(context, on: SkeletonSurface.floating),
+                    child: const DSkeleton(height: 2),
                   ),
                 if (controller.error case final error?) ...[
                   _InlineError(message: error),

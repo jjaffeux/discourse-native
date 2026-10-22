@@ -980,8 +980,23 @@ class EventUnavailableCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(error ?? context.l10n.eventDetailsAreUnavailable),
-          if (loading) DProgress(semanticsLabel: context.l10n.loadingEvent),
+          if (loading)
+            DSkeletonRegion(
+              semanticsLabel: context.l10n.loadingEvent,
+              color: skeletonFill(context),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DSkeleton(width: 220, height: 20),
+                  SizedBox(height: DSpacing.md),
+                  DSkeleton(width: 160, height: 16),
+                  SizedBox(height: DSpacing.sm),
+                  DSkeleton(width: 120, height: 16),
+                ],
+              ),
+            )
+          else
+            Text(error ?? context.l10n.eventDetailsAreUnavailable),
           Wrap(
             spacing: DSpacing.controlGap,
             children: [

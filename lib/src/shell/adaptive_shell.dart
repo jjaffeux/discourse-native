@@ -39,8 +39,10 @@ import 'shell_metrics.dart';
 import 'shell_panel.dart';
 import 'shell_scope.dart';
 import 'shell_search_controller.dart';
+import 'skeleton_fill.dart';
 import 'title_bar.dart';
 import 'topic_presentation.dart';
+import 'user_menu_message.dart';
 
 enum ShellLayout {
   compact,
@@ -1221,7 +1223,15 @@ class _ShellLoadProgress extends StatelessWidget {
       context,
       Theme.of(context).shell.content,
     ),
-    child: const Center(child: DSpinner(size: DSpacing.xl)),
+    child: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: UserMenuLoading(
+          semanticsLabel: context.l10n.loading,
+          surface: SkeletonSurface.page,
+        ),
+      ),
+    ),
   );
 }
 

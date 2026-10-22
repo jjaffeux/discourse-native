@@ -552,7 +552,10 @@ void main() {
   ) async {
     await tester.pumpWidget(host());
     await tester.pump();
-    expect(find.byType(DSpinner), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSpinner), findsNothing);
+    expect(tester.getSize(find.byType(DSkeleton)).height, 160);
+    expect(find.text('Rendering diagram'), findsNothing);
     final controller = platform.controllers.single;
     expect(controller.documents.single.baseUrl, isNull);
     expect(controller.documents.single.html, contains('flowchart TD'));
@@ -569,7 +572,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Image), findsOneWidget);
     expect(find.byType(WebViewWidget), findsNothing);
-    expect(find.byType(DSpinner), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsNothing);
     expect(controller.channels, isEmpty);
     expect(controller.documents.last.html, '<!doctype html><html></html>');
     expect(await delegate.navigate('about:blank'), NavigationDecision.prevent);

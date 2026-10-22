@@ -16,7 +16,7 @@ import 'd_alert.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
 import 'd_scroll_area.dart';
-import 'd_spinner.dart';
+import 'd_skeleton.dart';
 
 const _assets = 'packages/discourse_native/src/ui/assets/mermaid';
 
@@ -621,8 +621,9 @@ class _DMermaidState extends State<DMermaid> with WidgetsBindingObserver {
                   (widget._expanded
                       ? _MermaidZoom(image: image, label: widget.semanticLabel)
                       : image.build(widget.semanticLabel)),
-                null => Center(
-                  child: DSpinner(semanticLabel: context.l10n.renderingDiagram),
+                null => DSkeletonRegion(
+                  semanticsLabel: context.l10n.renderingDiagram,
+                  child: const DSkeleton(),
                 ),
               },
             );

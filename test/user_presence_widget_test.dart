@@ -216,20 +216,12 @@ void main() {
       await _pumpProfile(tester, shell);
 
       final toggle = find.byKey(_toggleKey);
-      expect(find.text('Loading presence…'), findsOneWidget);
+      expect(find.text('Loading presence…'), findsNothing);
+      expect(find.byType(DSkeleton), findsNWidgets(2));
+      expect(tester.widget(toggle), isA<DSkeletonRegion>());
       expect(
         tester.getSemantics(toggle),
-        isSemantics(
-          label: 'Presence',
-          value: 'Loading',
-          hint: 'Toggle presence features',
-          isButton: true,
-          hasEnabledState: true,
-          isEnabled: false,
-          hasToggledState: true,
-          isToggled: false,
-          isLiveRegion: true,
-        ),
+        isSemantics(label: 'Loading presence…', isLiveRegion: true),
       );
 
       api.response.complete(_user);
@@ -251,6 +243,48 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('presence dropdown uses a skeleton until its value arrives', (
+    tester,
+  ) async {
+    final api = _GatedCurrentUserApi();
+    addTearDown(() {
+      if (!api.response.isCompleted) api.response.complete(_user);
+    });
+    final shell = await _controller(
+      api: api,
+      user: const DiscourseUser(id: 7, username: 'reader'),
+    );
+    addTearDown(shell.dispose);
+    await api.started.future;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        builder: (context, child) =>
+            ShellScope(controller: shell, child: child!),
+        home: const Scaffold(body: UserPresenceMenu(siteUrl: _siteUrl)),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('user-presence-menu')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Loading presence…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(tester.widget(find.byKey(_toggleKey)), isA<DSkeletonRegion>());
+    await tester.tap(find.byKey(_toggleKey), warnIfMissed: false);
+    expect(api.presencePreferencesUpdated, isEmpty);
+
+    api.response.complete(_user);
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.text('Online'), findsOneWidget);
+    expect(
+      tester
+          .widget<DDropdownMenuCheckboxItem>(find.byKey(_toggleKey))
+          .onChanged,
+      isNotNull,
+    );
   });
 }
 

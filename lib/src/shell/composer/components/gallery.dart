@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../site_image.dart';
+import '../../skeleton_fill.dart';
 import '../block_surface.dart';
 import '../source_projection.dart';
 import 'gallery_source.dart';
@@ -425,7 +426,11 @@ class ComposerImageGalleryTile extends StatelessWidget {
                         ? null
                         : item.onNaturalSize,
                     excludeFromSemantics: true,
-                    loadingBuilder: (_) => const Center(child: DSpinner()),
+                    loadingBuilder: (context) => DSkeletonRegion(
+                      semanticsLabel: context.l10n.loading,
+                      color: skeletonFill(context, on: SkeletonSurface.panel),
+                      child: const DSkeleton(),
+                    ),
                     errorBuilder: (_, _, _) => ExcludeSemantics(
                       child: Center(
                         child: Icon(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/linux_preferences_store.dart';
@@ -254,11 +255,15 @@ void main() {
           ),
         );
         expect(store.loadCount, 1);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        expect(find.byType(DSkeleton), findsWidgets);
+        expect(find.byType(DSpinner), findsNothing);
 
         first.completeError(StateError('preferences unavailable'));
         await tester.pumpAndSettle();
 
         expect(find.text("Couldn't load your sites"), findsOneWidget);
+        expect(find.byType(DSkeletonRegion), findsNothing);
         expect(
           find.byKey(const ValueKey('instance-load-retry-panel')),
           findsOneWidget,
@@ -284,6 +289,7 @@ void main() {
             .widget<ShellScope>(find.byType(ShellScope))
             .notifier!;
         expect(shell.loadStatus, InstanceLoadStatus.loading);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
         expect(
           find.byKey(const ValueKey('instance-load-retry-rail')),
           findsNothing,
@@ -293,6 +299,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(shell.loadStatus, InstanceLoadStatus.ready);
+        expect(find.byType(DSkeletonRegion), findsNothing);
         expect(find.text("Couldn't load your sites"), findsNothing);
         expect(
           find.byKey(const ValueKey('mobile-content-panel')),

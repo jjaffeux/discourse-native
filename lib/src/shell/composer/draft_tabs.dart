@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../theme/d_icons.dart';
 import '../shell_controller.dart';
 import '../shell_scope.dart';
+import '../skeleton_fill.dart';
 import 'controller.dart';
 import 'discard.dart';
 import 'presentation.dart';
@@ -243,8 +244,20 @@ class _ComposerDraftTabsState extends State<ComposerDraftTabs> {
                       ),
                     if (feed.loading)
                       DDropdownMenuLabel(
-                        child: Text(
-                          context.l10n.loadingDraftsTopiccreatebutton,
+                        child: DSkeletonRegion(
+                          semanticsLabel:
+                              context.l10n.loadingDraftsTopiccreatebutton,
+                          color: skeletonFill(
+                            context,
+                            on: SkeletonSurface.floating,
+                          ),
+                          child: const Row(
+                            spacing: DSpacing.sm,
+                            children: [
+                              DSkeleton(width: 16, height: 16),
+                              Expanded(child: DSkeleton(height: 16)),
+                            ],
+                          ),
                         ),
                       ),
                     if (feed.error != null)

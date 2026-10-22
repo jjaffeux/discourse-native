@@ -165,7 +165,13 @@ void main() {
     });
     api.browseGate = gate;
     await tester.tap(find.byKey(const ValueKey('chat-threads-channel-filter')));
-    await tester.pumpAndSettle();
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(find.text('Loading…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSkeleton), findsWidgets);
+    expect(find.text('All channels'), findsOneWidget);
     api.browseGate = null;
     await tester.enterText(find.byType(EditableText), 'design');
     await tester.pump(const Duration(milliseconds: 300));

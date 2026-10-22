@@ -410,7 +410,9 @@ void main() {
           matching: find.byType(EditableText),
         );
         final loadingBounds = tester.getRect(menu);
-        expect(find.byType(DSpinner), findsOneWidget);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        expect(find.byType(DSkeleton), findsWidgets);
+        expect(find.byType(DSpinner), findsNothing);
         expect(loadingBounds.bottom, lessThanOrEqualTo(470));
         final body = find.byWidgetPredicate(
           (widget) =>

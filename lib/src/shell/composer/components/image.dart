@@ -6,6 +6,7 @@ import '../../../theme/d_icons.dart';
 import '../../image_decode.dart';
 import '../../shell_scope.dart';
 import '../../site_image.dart';
+import '../../skeleton_fill.dart';
 import '../media_editing_coordinator.dart';
 import '../source_projection.dart';
 import 'gallery_source.dart';
@@ -147,7 +148,11 @@ class ComposerImagePreview extends StatelessWidget {
                       : null,
                   onNaturalSize: image.hasDimensions ? null : onNaturalSize,
                   excludeFromSemantics: true,
-                  loadingBuilder: (_) => const Center(child: DSpinner()),
+                  loadingBuilder: (context) => DSkeletonRegion(
+                    semanticsLabel: context.l10n.loading,
+                    color: skeletonFill(context, on: SkeletonSurface.panel),
+                    child: const DSkeleton(),
+                  ),
                   errorBuilder: (_, _, _) => _ImageFallback(label: image.alt),
                 ),
         ),

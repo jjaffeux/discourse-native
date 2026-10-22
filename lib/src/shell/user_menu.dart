@@ -24,6 +24,7 @@ import 'invite_list.dart';
 import 'notification_list.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'skeleton_fill.dart';
 import 'user_card.dart';
 import 'user_status.dart';
 import 'user_status_editor.dart';
@@ -1039,13 +1040,35 @@ class _HidePresenceTile extends StatelessWidget {
       final theme = Theme.of(context);
       final hidden = state.hidden;
       final loading = hidden == null && state.error == null;
+      if (loading) {
+        return DSkeletonRegion(
+          key: semanticsKey,
+          semanticsLabel: context.l10n.loadingPresence,
+          color: skeletonFill(context, on: SkeletonSurface.floating),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: Row(
+              children: [
+                DSkeleton(width: 16, height: 16),
+                SizedBox(width: 9),
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: DSkeleton(width: 100, height: 14),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       final title = switch ((hidden, state.error)) {
         (true, _) => context.l10n.offline,
         (false, _) => context.l10n.online,
-        (null, null) => context.l10n.loadingPresence,
+        (null, null) => context.l10n.presence,
         (null, _) => context.l10n.presenceUnavailable,
       };
-      final VoidCallback? onTap = state.saving || loading
+      final VoidCallback? onTap = state.saving
           ? null
           : () {
               if (!context.mounted || !lease.isCurrent) return;
@@ -1056,11 +1079,7 @@ class _HidePresenceTile extends StatelessWidget {
               }
             };
       final semanticsLabel = hidden == null ? context.l10n.presence : title;
-      final semanticsValue = state.saving
-          ? context.l10n.savingUsermenu
-          : loading
-          ? context.l10n.loadingDbutton
-          : null;
+      final semanticsValue = state.saving ? context.l10n.savingUsermenu : null;
       final semanticsHint = hidden == null && state.error != null
           ? context.l10n.retryLoadingThePresenceSetting
           : context.l10n.togglePresenceFeatures;
@@ -1099,7 +1118,7 @@ class _HidePresenceTile extends StatelessWidget {
             MergeSemantics(
               child: Semantics(
                 value: semanticsValue,
-                liveRegion: state.saving || loading,
+                liveRegion: state.saving,
                 child: DTooltip(
                   message: context.l10n.togglePresenceFeatures,
                   excludeFromSemantics: true,
@@ -1112,11 +1131,7 @@ class _HidePresenceTile extends StatelessWidget {
                     semanticHint: semanticsHint,
                     visualStyle: const DToggleVisualStyle(expandArtwork: true),
                     icon: DIcon(
-                      loading
-                          ? DIcons.farClock
-                          : hidden == false
-                          ? DIcons.toggleOn
-                          : DIcons.toggleOff,
+                      hidden == false ? DIcons.toggleOn : DIcons.toggleOff,
                     ),
                     child: Row(
                       children: [
@@ -1127,7 +1142,7 @@ class _HidePresenceTile extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (hidden == null && !loading)
+                        if (hidden == null)
                           DText(
                             context.l10n.retry,
                             variant: DTextVariant.muted,

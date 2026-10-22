@@ -20,6 +20,7 @@ import 'media_download_result.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
+import 'skeleton_fill.dart';
 import 'title_bar.dart';
 
 const double _maximumPhotoViewDimension = 10000;
@@ -959,27 +960,11 @@ class _LightboxGalleryState extends State<LightboxGallery>
                   excludeFromSemantics: true,
                   gifPlaybackControls: true,
                   onNaturalSize: (size) => _rememberFullImageSize(index, size),
-                  loadingBuilder: (context) =>
-                      StreamBuilder<PhotoViewControllerValue>(
-                        stream: _photoControllers[index].outputStateStream,
-                        initialData: _photoControllers[index].value,
-                        builder: (context, snapshot) {
-                          final scale =
-                              snapshot.data?.scale ??
-                              _scaleBounds(index, viewport).minimum;
-                          // PhotoView scales the entire image slot, including its
-                          // placeholder. Keep the loading indicator at screen size.
-                          return Center(
-                            child: Transform.scale(
-                              scale: 1 / scale,
-                              child: const DSpinner(
-                                color: Colors.white,
-                                size: 32,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                  loadingBuilder: (context) => DSkeletonRegion(
+                    semanticsLabel: context.l10n.loading,
+                    color: skeletonFill(context),
+                    child: const DSkeleton(),
+                  ),
                   errorBuilder: (context, error, stackTrace) {
                     reportImageError(
                       error,

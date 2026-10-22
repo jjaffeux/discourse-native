@@ -331,7 +331,6 @@ class ReactionGrid extends StatelessWidget {
   );
 
   Widget _buildGrid(BuildContext context) {
-    final theme = Theme.of(context);
     final config = controller.siteConfigFor(siteUrl);
     final current = controller.pickerPost(_session, post);
     final held = current?.reactions?.mine?.id;
@@ -342,13 +341,21 @@ class ReactionGrid extends StatelessWidget {
     final settings = config.reactionsSettings;
     final more = settings.allowAnyEmoji ? onMore : null;
     if (settings.offeredReactions.isEmpty && more == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text(
-          context.l10n.stillFindingOutWhichReactionsThisSiteAllows,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+      return DSkeletonRegion(
+        semanticsLabel:
+            context.l10n.stillFindingOutWhichReactionsThisSiteAllows,
+        color: skeletonFill(context, on: SkeletonSurface.floating),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
+          child: Wrap(
+            spacing: DSpacing.controlGap,
+            runSpacing: DSpacing.controlGap,
+            children: [
+              for (var index = 0; index < 5; index++)
+                DSkeleton.circle(
+                  diameter: DToggle.visualDimensionFor(DToggleSize.post),
+                ),
+            ],
           ),
         ),
       );

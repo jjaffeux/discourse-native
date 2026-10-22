@@ -794,12 +794,38 @@ class _ChatNewDirectMessageDialogState
       semanticLabel: appL10n.chatRecipientsAndConversations,
       children: [
         DCommandLoading(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            spacing: DSpacing.sm,
-            children: [
-              Text(_opening ? appL10n.openingConversation : appL10n.searching),
-            ],
+          child: DSkeletonRegion(
+            semanticsLabel: _opening
+                ? appL10n.openingConversation
+                : appL10n.searching,
+            color: skeletonFill(context, on: SkeletonSurface.floating),
+            child: Column(
+              children: [
+                for (var index = 0; index < 3; index++)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: DSpacing.sm,
+                      vertical: DSpacing.sm,
+                    ),
+                    child: Row(
+                      spacing: DSpacing.sm,
+                      children: [
+                        DSkeleton.circle(diameter: 32),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            spacing: DSpacing.xs,
+                            children: [
+                              DSkeleton(height: 16),
+                              DSkeleton(width: 100, height: 12),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         DCommandEmpty(

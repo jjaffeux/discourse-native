@@ -77,15 +77,18 @@ Future<_Fixture> _fixture({
   Completer<void>? loadGate,
   Completer<void>? writeGate,
   WriteException? writeFailure,
+  FakeDiscourseApi? apiOverride,
 }) async {
   final selectedSite = site ?? _chatSite;
-  final api = FakeDiscourseApi(
-    user: selectedSite.user,
-    userPreferences: preferences,
-    userPreferencesGate: loadGate,
-    userPreferencesWriteGate: writeGate,
-    writeFailure: writeFailure,
-  );
+  final api =
+      apiOverride ??
+      FakeDiscourseApi(
+        user: selectedSite.user,
+        userPreferences: preferences,
+        userPreferencesGate: loadGate,
+        userPreferencesWriteGate: writeGate,
+        writeFailure: writeFailure,
+      );
   final store = _RecordingInstanceStore([selectedSite]);
   final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
   final shell = ShellController(
@@ -475,6 +478,39 @@ void main() {
     }
   }
 
+  testWidgets(
+    'refresh retains preference fields beside an accessible skeleton',
+    (tester) async {
+      final api = _RefreshPreferencesApi();
+      final fixture = await _fixture(apiOverride: api);
+      await _pumpPage(tester, fixture);
+      final field = tester.element(_timezoneMenu);
+      api.refreshGate = Completer<void>();
+      final refresh = fixture.shell.preferences.load(
+        fixture.shell.currentInstance!,
+        refresh: true,
+      );
+      await tester.pump();
+      expect(find.text('Refreshing preferences…'), findsNothing);
+      expect(find.byType(DSpinner), findsNothing);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(
+        tester
+            .widget<DSkeletonRegion>(find.byType(DSkeletonRegion))
+            .semanticsLabel,
+        'Refreshing preferences…',
+      );
+      expect(identical(tester.element(_timezoneMenu), field), isTrue);
+
+      api.refreshGate!.complete();
+      await refresh;
+      await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
+      expect(_timezoneMenu, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('a failed preference load replaces the skeleton with retry', (
     tester,
   ) async {
@@ -697,6 +733,29 @@ void main() {
       BookmarkAutoDeletePreference.never,
     );
   });
+}
+
+class _RefreshPreferencesApi extends FakeDiscourseApi {
+  _RefreshPreferencesApi()
+    : super(user: _chatSite.user, userPreferences: _preferences);
+
+  Completer<void>? refreshGate;
+
+  @override
+  Future<UserPreferences> loadUserPreferences({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  }) async {
+    await refreshGate?.future;
+    return super.loadUserPreferences(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      username: username,
+      clientId: clientId,
+    );
+  }
 }
 
 final class _RecordingInstanceStore implements InstanceStore {

@@ -3654,7 +3654,12 @@ void _registerTopicReadingTests() {
         for (var attempt = 0; attempt < 100; attempt++) {
           await Future<void>.delayed(const Duration(milliseconds: 20));
           await tester.pump();
-          if (find.text('Generating summary…').evaluate().isEmpty) break;
+          if (find
+              .text('A concise AI summary.', findRichText: true)
+              .evaluate()
+              .isNotEmpty) {
+            break;
+          }
         }
       });
       await tester.pumpAndSettle();
@@ -4561,7 +4566,9 @@ void _registerTopicReadingTests() {
     testWidgets('shows and expands server-provided hidden replies', (
       tester,
     ) async {
+      final postGate = Completer<void>();
       final api = FakeDiscourseApi(
+        postGate: postGate,
         feeds: {'/latest.json': listed},
         topics: {
           7: topicPayload(
@@ -4593,6 +4600,14 @@ void _registerTopicReadingTests() {
       expect(api.postFetches, isEmpty);
 
       await tester.tap(find.text('VIEW 2 HIDDEN REPLIES'));
+      await tester.pump();
+      expect(find.text('LOADING…'), findsNothing);
+      expect(find.bySemanticsLabel('Loading more posts'), findsOneWidget);
+      expect(find.byType(DSkeleton), findsWidgets);
+      expect(renderedText('First post body'), findsOneWidget);
+      expect(renderedText('Fourth post body'), findsOneWidget);
+      expect(renderedText('Hidden second post'), findsNothing);
+      postGate.complete();
       await tester.pumpAndSettle();
 
       expect(api.postFetches, [

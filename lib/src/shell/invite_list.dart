@@ -297,17 +297,16 @@ class _InviteListState extends State<InviteList> {
                   onRetry: () => unawaited(controller.load(more: true)),
                 ),
               if (controller.hasMore && controller.error == null)
-                DButton(
-                  label: Text(
-                    controller.loading
-                        ? context.l10n.loading
-                        : context.l10n.loadMore,
+                if (controller.loading)
+                  UserMenuLoading(semanticsLabel: context.l10n.loadingInvites)
+                else
+                  DButton(
+                    label: Text(context.l10n.loadMore),
+                    variant: DButtonVariant.ghost,
+                    onPressed: controller.writing
+                        ? null
+                        : () => unawaited(controller.load(more: true)),
                   ),
-                  variant: DButtonVariant.ghost,
-                  onPressed: controller.loading || controller.writing
-                      ? null
-                      : () => unawaited(controller.load(more: true)),
-                ),
             ],
             const DSeparator(),
             DButton(

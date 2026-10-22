@@ -710,10 +710,24 @@ class _GlobalSearchConditionEditorState
                   child: _highlightTag(context, choice.label, query),
                 ),
               DCommandLoading(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Row(
-                    children: [Expanded(child: Text(context.l10n.findingTags))],
+                child: DSkeletonRegion(
+                  semanticsLabel: context.l10n.findingTags,
+                  color: skeletonFill(context, on: SkeletonSurface.floating),
+                  child: Column(
+                    children: [
+                      for (var index = 0; index < 4; index++)
+                        const Padding(
+                          padding: EdgeInsets.all(DSpacing.sm),
+                          child: Row(
+                            spacing: DSpacing.sm,
+                            children: [
+                              DSkeleton(width: 16, height: 16),
+                              Expanded(child: DSkeleton(height: 16)),
+                              DSkeleton(width: 32, height: 16),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -816,7 +830,22 @@ class _GlobalSearchConditionEditorState
                   forceMount: true,
                   child: Text(context.l10n.use((query.trim()).toString())),
                 ),
-              if (_loading) const DCommandLoading(child: SizedBox.shrink()),
+              if (_loading)
+                DCommandLoading(
+                  child: DSkeletonRegion(
+                    semanticsLabel: context.l10n.loading,
+                    color: skeletonFill(context, on: SkeletonSurface.floating),
+                    child: Column(
+                      children: [
+                        for (var index = 0; index < 3; index++)
+                          const Padding(
+                            padding: EdgeInsets.all(DSpacing.sm),
+                            child: DSkeleton(height: 16),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               if (!_loading && _lookupError == null)
                 DCommandEmpty(child: Text(context.l10n.noMatchingOptions)),
             ],

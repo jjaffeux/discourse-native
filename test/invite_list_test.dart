@@ -182,6 +182,43 @@ void main() {
     );
   });
 
+  testWidgets('paging retains invites beside a skeleton and restores retry', (
+    tester,
+  ) async {
+    transport.onGet = (_) => invitePage([inviteRow(1)], pending: 2);
+    await controller.load();
+    await pumpList(tester);
+    final gate = Completer<Map<String, dynamic>>();
+    transport.onGet = (_) => gate.future;
+    await tester.ensureVisible(find.text('Load more'));
+    await tester.tap(find.text('Load more'));
+    await tester.pump();
+    expect(find.text('Invite 1'), findsOneWidget);
+    expect(find.text('Loading…'), findsNothing);
+    expect(find.text('Load more'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(
+      tester
+          .widget<DSkeletonRegion>(find.byType(DSkeletonRegion))
+          .semanticsLabel,
+      'Loading invites',
+    );
+
+    gate.completeError(StateError('offline'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.text('Invite 1'), findsOneWidget);
+    expect(
+      find.text("Couldn't load invites. Please try again."),
+      findsOneWidget,
+    );
+    transport.onGet = (_) => invitePage([inviteRow(2)], pending: 2);
+    await tapText(tester, 'Retry');
+    expect(find.text('Invite 1'), findsOneWidget);
+    expect(find.text('Invite 2'), findsOneWidget);
+    expect(find.byType(DSkeletonRegion), findsNothing);
+  });
+
   testWidgets('copies an invite and confirms removal before writing', (
     tester,
   ) async {

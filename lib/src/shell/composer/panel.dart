@@ -31,6 +31,7 @@ import '../forum_theme_surfaces.dart';
 import '../platform.dart';
 import '../shell_metrics.dart';
 import '../shell_scope.dart';
+import '../skeleton_fill.dart';
 import '../topic_title.dart';
 import 'autocomplete.dart';
 import 'block_surface.dart';
@@ -267,96 +268,128 @@ class ComposerPanel extends StatelessWidget {
                     mobile ? 16 : 16 - DScrollThumb.containerInset,
                     8,
                   ),
-                  child: ComposerDraftPreview(
-                    composer: composer,
-                    constrainToChild: !mobile,
-                    style: theme.textTheme.bodyLarge,
-                    padding: EdgeInsetsDirectional.only(
-                      start: mobile
-                          ? 0
-                          : ComposerBlockSurface.gutterWidth(context),
-                    ),
-                    child: ComposerEditor(
-                      composer: composer,
-                      expands: !mobile,
-                      onKeyEvent: (event) {
-                        final keyboard = HardwareKeyboard.instance;
-                        final value = composer.text.value;
-                        if ((target.createsTopic ||
-                                target.editsTopicMetadata) &&
-                            (event is KeyDownEvent ||
-                                event is KeyRepeatEvent) &&
-                            !keyboard.isMetaPressed &&
-                            !keyboard.isControlPressed &&
-                            !keyboard.isAltPressed &&
-                            !keyboard.isShiftPressed &&
-                            value.composing.isCollapsed &&
-                            value.selection.isCollapsed &&
-                            value.selection.baseOffset == 0 &&
-                            (event.logicalKey == LogicalKeyboardKey.backspace ||
-                                event.logicalKey ==
-                                    LogicalKeyboardKey.arrowUp)) {
-                          composer.title.selection = TextSelection.collapsed(
-                            offset: composer.title.text.length,
-                          );
-                          composer.titleFocus.requestFocus();
-                          return KeyEventResult.handled;
-                        }
-                        return KeyEventResult.ignored;
-                      },
-                      onEmptyBackspace:
-                          target.createsTopic || target.editsTopicMetadata
-                          ? () {
-                              composer.title.selection =
-                                  TextSelection.collapsed(
-                                    offset: composer.title.text.length,
-                                  );
-                              composer.titleFocus.requestFocus();
-                            }
-                          : null,
-                      pickImages: pickImages,
-                      readClipboardFiles: readClipboardFiles,
-                      pickFiles: pickFiles,
-                      onSuggestionAction:
-                          ({
-                            required context,
-                            required composer,
-                            required suggestion,
-                            anchor,
-                          }) async {
-                            if (suggestion.action !=
-                                ComposerSuggestionAction.openEmojiPicker) {
-                              return;
-                            }
-                            await openEmojiPickerForTopicComposer(
-                              context: context,
-                              composer: composer,
-                              initialQuery:
-                                  composer.autocomplete.trigger?.query ??
-                                  suggestion.value,
-                              anchor: anchor,
-                            );
-                          },
-                      hintText: switch (target) {
-                        _ when composer.loadingBody =>
-                          context.l10n.loadingThatPost,
-                        _ when target.isPrivateMessage =>
-                          context.l10n.writeYourMessage,
-                        _ when target.isNewTopic => context.l10n.writeYourTopic,
-                        _ when target.isEdit =>
-                          context.l10n.editThisPostComposerpanel,
-                        _ when target.replyToUsername != null =>
-                          context.l10n.replyTo(
-                            target.replyToUsername.toString(),
+                  child: composer.loadingBody
+                      ? DSkeletonRegion(
+                          semanticsLabel: context.l10n.loadingThatPost,
+                          color: skeletonFill(context),
+                          child: Padding(
+                            padding: EdgeInsetsDirectional.only(
+                              start: mobile
+                                  ? 0
+                                  : ComposerBlockSurface.gutterWidth(context),
+                            ),
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(height: DSpacing.sm),
+                                DSkeleton(height: 16),
+                                SizedBox(height: DSpacing.sm),
+                                FractionallySizedBox(
+                                  widthFactor: .9,
+                                  child: DSkeleton(height: 16),
+                                ),
+                                SizedBox(height: DSpacing.sm),
+                                FractionallySizedBox(
+                                  widthFactor: .65,
+                                  child: DSkeleton(height: 16),
+                                ),
+                              ],
+                            ),
                           ),
-                        _ => context.l10n.writeAReply,
-                      },
-                      textStyle: theme.textTheme.bodyLarge,
-                      hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
+                        )
+                      : ComposerDraftPreview(
+                          composer: composer,
+                          constrainToChild: !mobile,
+                          style: theme.textTheme.bodyLarge,
+                          padding: EdgeInsetsDirectional.only(
+                            start: mobile
+                                ? 0
+                                : ComposerBlockSurface.gutterWidth(context),
+                          ),
+                          child: ComposerEditor(
+                            composer: composer,
+                            expands: !mobile,
+                            onKeyEvent: (event) {
+                              final keyboard = HardwareKeyboard.instance;
+                              final value = composer.text.value;
+                              if ((target.createsTopic ||
+                                      target.editsTopicMetadata) &&
+                                  (event is KeyDownEvent ||
+                                      event is KeyRepeatEvent) &&
+                                  !keyboard.isMetaPressed &&
+                                  !keyboard.isControlPressed &&
+                                  !keyboard.isAltPressed &&
+                                  !keyboard.isShiftPressed &&
+                                  value.composing.isCollapsed &&
+                                  value.selection.isCollapsed &&
+                                  value.selection.baseOffset == 0 &&
+                                  (event.logicalKey ==
+                                          LogicalKeyboardKey.backspace ||
+                                      event.logicalKey ==
+                                          LogicalKeyboardKey.arrowUp)) {
+                                composer.title.selection =
+                                    TextSelection.collapsed(
+                                      offset: composer.title.text.length,
+                                    );
+                                composer.titleFocus.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            onEmptyBackspace:
+                                target.createsTopic || target.editsTopicMetadata
+                                ? () {
+                                    composer.title.selection =
+                                        TextSelection.collapsed(
+                                          offset: composer.title.text.length,
+                                        );
+                                    composer.titleFocus.requestFocus();
+                                  }
+                                : null,
+                            pickImages: pickImages,
+                            readClipboardFiles: readClipboardFiles,
+                            pickFiles: pickFiles,
+                            onSuggestionAction:
+                                ({
+                                  required context,
+                                  required composer,
+                                  required suggestion,
+                                  anchor,
+                                }) async {
+                                  if (suggestion.action !=
+                                      ComposerSuggestionAction
+                                          .openEmojiPicker) {
+                                    return;
+                                  }
+                                  await openEmojiPickerForTopicComposer(
+                                    context: context,
+                                    composer: composer,
+                                    initialQuery:
+                                        composer.autocomplete.trigger?.query ??
+                                        suggestion.value,
+                                    anchor: anchor,
+                                  );
+                                },
+                            hintText: switch (target) {
+                              _ when target.isPrivateMessage =>
+                                context.l10n.writeYourMessage,
+                              _ when target.isNewTopic =>
+                                context.l10n.writeYourTopic,
+                              _ when target.isEdit =>
+                                context.l10n.editThisPostComposerpanel,
+                              _ when target.replyToUsername != null =>
+                                context.l10n.replyTo(
+                                  target.replyToUsername.toString(),
+                                ),
+                              _ => context.l10n.writeAReply,
+                            },
+                            textStyle: theme.textTheme.bodyLarge,
+                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
                 ),
                 if (composer.tagRemovalNotice case final message?)
                   Positioned(

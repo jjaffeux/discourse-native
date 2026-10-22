@@ -282,10 +282,10 @@ void main() {
     await _pump(tester, userDraftGate: gate);
     await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
     await tester.pump(const Duration(milliseconds: 200));
-    final loadingRow = find.ancestor(
-      of: find.text('Loading drafts…'),
-      matching: find.byType(DDropdownMenuItem),
-    );
+    final loadingRow = find.byKey(const ValueKey('recent-drafts-loading'));
+    expect(find.text('Loading drafts…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSkeleton), findsWidgets);
     final loadingHeight = tester.getSize(loadingRow).height;
     expect(tester.widget<DDropdownMenuItem>(loadingRow).onPressed, isNull);
     gate.complete();
@@ -321,7 +321,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('Loading drafts…'), findsOneWidget);
+    expect(find.text('Loading drafts…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
     gate.complete();
     await tester.pumpAndSettle();
     final title = find.descendant(
@@ -357,7 +358,8 @@ void main() {
     await _pump(tester, userDraftGate: gate);
     await tester.tap(find.byKey(TopicCreateButton.draftsButtonKey));
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('Loading drafts…'), findsOneWidget);
+    expect(find.text('Loading drafts…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
     final createFocus = _focusButton(
@@ -387,7 +389,8 @@ void main() {
         final trigger = find.byKey(TopicCreateButton.draftsButtonKey);
         await tester.tap(trigger);
         await tester.pump(const Duration(milliseconds: 200));
-        expect(find.text('Loading drafts…'), findsOneWidget);
+        expect(find.text('Loading drafts…'), findsNothing);
+        expect(find.byType(DSkeletonRegion), findsOneWidget);
         if (failed) {
           gate.completeError(StateError('Draft request failed'));
         } else {

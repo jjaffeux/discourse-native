@@ -116,7 +116,43 @@ class _ChatHeaderMenuState extends State<ChatHeaderMenu> {
           value: _kind,
           onChanged: (kind) => setState(() => _kind = kind),
           child: chat.channelsLoading(widget.siteUrl) && all.isEmpty
-              ? const Center(child: DSpinner())
+              ? DSkeletonRegion(
+                  semanticsLabel: context.l10n.loadingChatChannels,
+                  color: skeletonFill(context, on: SkeletonSurface.floating),
+                  expand: true,
+                  child: ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.topCenter,
+                      maxHeight: double.infinity,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (var row = 0; row < 6; row++)
+                            const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  DSkeleton.circle(diameter: 32),
+                                  SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        DSkeleton(width: 120, height: 14),
+                                        SizedBox(height: 6),
+                                        DSkeleton(height: 12),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
               : chat.channelsError(widget.siteUrl) != null && all.isEmpty
               ? ChatInboxError(
                   onRetry: () =>

@@ -139,7 +139,9 @@ void main() {
       await pump(tester);
       await tester.enterText(search, 'alias');
       await tester.pump(const Duration(milliseconds: 350));
-      expect(find.text('Searching…'), findsOneWidget);
+      expect(find.text('Searching…'), findsNothing);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSkeleton), findsWidgets);
       api.pendingSearches['alias']!.complete(
         ChatDirectMessageSearchResults([
           const ChatDirectMessageUser(
@@ -301,7 +303,8 @@ void main() {
     api.creationGate = Completer<void>();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
-    expect(find.text('Opening conversation…'), findsOneWidget);
+    expect(find.text('Opening conversation…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(api.directMessageChannelRequests, hasLength(2));

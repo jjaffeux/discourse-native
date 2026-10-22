@@ -125,7 +125,14 @@ void main() {
           await tester.tap(_button(direction));
           await tester.pump();
           expect(api.postRevisionsRequested.last.revision, number);
-          expect(find.byType(DProgress), findsOneWidget);
+          expect(find.byType(DProgress), findsNothing);
+          expect(find.byType(DSkeletonRegion), findsOneWidget);
+          expect(
+            tester
+                .widget<DSkeletonRegion>(find.byType(DSkeletonRegion))
+                .semanticsLabel,
+            'Loading revision',
+          );
           for (final action in ['First', 'Previous', 'Next', 'Latest']) {
             expect(tester.widget<DButton>(_button(action)).onPressed, isNull);
           }

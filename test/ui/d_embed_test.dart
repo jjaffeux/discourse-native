@@ -87,17 +87,24 @@ void main() {
     (tester) async {
       await tester.pumpWidget(host());
       await tester.pump();
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
+      expect(
+        tester.getSize(find.byType(DSkeleton)),
+        tester.getSize(find.byType(WebViewWidget)),
+      );
+      expect(find.textContaining('Loading'), findsNothing);
       expect(tester.getSize(find.byType(WebViewWidget)).height, 300);
       final controller = platform.controllers.single;
       expect(controller.documents.single.baseUrl, 'https://embed.example.com/');
       controller.delegate!.onPageFinished!('https://embed.example.com/');
       await tester.pump();
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
       send('loaded');
       send('{"height":420}');
       await tester.pumpAndSettle();
-      expect(find.byType(DSpinner), findsNothing);
+      expect(find.byType(DSkeletonRegion), findsNothing);
       expect(tester.getSize(find.byType(WebViewWidget)).height, 420);
       expect(find.text('Open in browser'), findsNothing);
       expect(
@@ -148,8 +155,15 @@ void main() {
         ),
       );
       await tester.pump();
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(
+        tester.getSize(find.byType(DSkeleton)),
+        tester.getSize(find.byType(WebViewWidget)),
+      );
+      expect(find.byType(DSpinner), findsNothing);
       send('loaded');
       await tester.pumpAndSettle();
+      expect(find.byType(DSkeletonRegion), findsNothing);
 
       for (final height in [300, 420]) {
         send('{"height":$height}');

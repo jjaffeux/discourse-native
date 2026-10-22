@@ -170,7 +170,8 @@ void main() {
           await _query(tester, 'maya');
           fixture.api.creationGate = Completer<void>();
           await tester.tap(_user('maya'));
-          await tester.pumpAndSettle();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(find.byType(DSkeletonRegion), findsOneWidget);
           expect(fixture.api.creationKeys, ['fixture-key']);
         }
         final state = tester.state(_form());

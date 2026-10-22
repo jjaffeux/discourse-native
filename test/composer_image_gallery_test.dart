@@ -355,6 +355,13 @@ void main() {
       expect(artwork.fit, BoxFit.cover);
       expect(artwork.width, ComposerImageGalleryPreview.tileExtent);
       expect(artwork.height, ComposerImageGalleryPreview.tileExtent);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
+      expect(
+        tester.getSize(find.byType(DSkeleton)),
+        const Size.square(ComposerImageGalleryPreview.tileExtent - 4),
+      );
+      expect(find.textContaining('Loading'), findsNothing);
     });
 
     testWidgets('decodes wide artwork tall enough to cover its tile', (

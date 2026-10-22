@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -90,6 +91,8 @@ void main() {
     final shell = await _openAuthor(tester, api);
     await tester.enterText(_key('global-search-filter-value'), 'al');
     await tester.pump(const Duration(milliseconds: 200));
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSkeleton), findsWidgets);
     await tester.tap(find.text('Use “al”'));
     await tester.pump();
     expect(_value(tester), 'al');

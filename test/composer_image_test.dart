@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
@@ -258,6 +259,12 @@ void main() {
       expect(artwork.url, imageUrl);
       expect(artwork.siteUrl, siteUrl);
       expect(artwork.excludeFromSemantics, isTrue);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
+      final previewSize = tester.getSize(find.byType(ComposerImagePreview));
+      final skeletonSize = tester.getSize(find.byType(DSkeleton));
+      expect(skeletonSize, previewSize - const Offset(4, 4));
+      expect(find.textContaining('Loading'), findsNothing);
     });
 
     testWidgets(

@@ -544,6 +544,9 @@ void main() {
       await tester.enterText(_key('global-search-filter-value'), 'missing');
       await tester.pump(const Duration(milliseconds: 200));
       expect(find.byType(DCheckbox), findsNothing);
+      expect(find.text('Loading categories…'), findsNothing);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSkeleton), findsWidgets);
       expect(find.bySemanticsLabel('Remove Support'), findsOneWidget);
       api.categoryGate!.complete(const GlobalSearchCategoryPage());
       await tester.pumpAndSettle();
@@ -748,7 +751,9 @@ void main() {
       await tester.enterText(_key('global-search-filter-value'), 'a');
       await tester.pump(const Duration(milliseconds: 200));
       await tester.pump();
-      expect(find.text('Finding tags…'), findsOneWidget);
+      expect(find.text('Finding tags…'), findsNothing);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSkeleton), findsWidgets);
       expect(find.text('bug'), findsNothing);
       expect(find.text('Use “a”'), findsNothing);
       await tester.enterText(_key('global-search-filter-value'), 'ap');

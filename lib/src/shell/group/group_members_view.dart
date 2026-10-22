@@ -976,13 +976,36 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
               semanticLabel: context.l10n.matchingUsersAndEmailAddress,
               children: [
                 DComboboxEmpty<_GroupMemberChoice>(
-                  child: Text(
-                    controller.searching
-                        ? context.l10n.searching
-                        : controller.query.trim().length < 2
-                        ? context.l10n.typeAtLeastTwoCharacters
-                        : context.l10n.noMatchingUsers,
-                  ),
+                  child: controller.searching
+                      ? DSkeletonRegion(
+                          semanticsLabel: context.l10n.searching,
+                          color: skeletonFill(
+                            context,
+                            on: SkeletonSurface.floating,
+                          ),
+                          child: Column(
+                            children: [
+                              for (var index = 0; index < 3; index++)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: DSpacing.sm,
+                                  ),
+                                  child: Row(
+                                    spacing: DSpacing.sm,
+                                    children: [
+                                      DSkeleton.circle(diameter: 28),
+                                      Expanded(child: DSkeleton(height: 16)),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        )
+                      : Text(
+                          controller.query.trim().length < 2
+                              ? context.l10n.typeAtLeastTwoCharacters
+                              : context.l10n.noMatchingUsers,
+                        ),
                 ),
                 DComboboxList<_GroupMemberChoice>(
                   itemBuilder: (context, option) {

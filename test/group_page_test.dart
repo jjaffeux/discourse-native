@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/models/found_user.dart';
@@ -722,6 +724,7 @@ void main() {
     String? filtered;
     GroupMemberAction? memberAction;
     List<String>? addedUsernames;
+    final userSearch = Completer<List<FoundUser>>();
     final member = GroupMember(
       id: 3,
       username: 'sam',
@@ -749,9 +752,7 @@ void main() {
         ),
         onMemberFilterChanged: (value) => filtered = value,
         onMemberSortChanged: (_, _) {},
-        onSearchUsers: (_) async => const [
-          FoundUser(username: 'lee', name: 'Lee Example'),
-        ],
+        onSearchUsers: (_) => userSearch.future,
         onAddMembers: (usernames, emails) async {
           addedUsernames = usernames;
           return GroupMembershipMutationResult(usernames: usernames);
@@ -807,6 +808,14 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
+    expect(find.text('Searching…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+    expect(find.byType(DSkeleton), findsWidgets);
+    userSearch.complete(const [
+      FoundUser(username: 'lee', name: 'Lee Example'),
+    ]);
+    await tester.pumpAndSettle();
+    expect(find.byType(DSkeletonRegion), findsNothing);
     await tester.tap(find.byKey(const ValueKey('add-user-lee')));
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('add-members-search')).last);

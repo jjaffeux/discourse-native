@@ -38,6 +38,15 @@ const _siteUrl = 'https://meta.discourse.org';
 const _summaryPath = '/discourse-ai/summarization/t/7.json';
 const _summaryChannel = '/discourse-ai/summaries/topic/7';
 
+void _expectSummaryLoading(WidgetTester tester, String label) {
+  final region = find.byType(DSkeletonRegion);
+  expect(region, findsOneWidget);
+  expect(tester.widget<DSkeletonRegion>(region).semanticsLabel, label);
+  expect(find.byType(DSkeleton), findsWidgets);
+  expect(find.text(label), findsNothing);
+  expect(find.byType(DSpinner), findsNothing);
+}
+
 Map<String, dynamic> summaryResponse({
   bool done = false,
   bool outdated = false,
@@ -327,7 +336,7 @@ void main() {
       oldCallback(summaryResponse(done: true, text: 'Abandoned stream'));
       api.responses.last.complete({});
       await tester.pump();
-      expect(find.text('Generating summary…'), findsOneWidget);
+      _expectSummaryLoading(tester, 'Generating summary…');
       expect(find.textContaining('Abandoned'), findsNothing);
       expect(fixture.callbacks, hasLength(1));
 
@@ -564,7 +573,7 @@ void main() {
 
       await tester.tap(find.text('Regenerate'));
       await tester.pump();
-      expect(find.text('Regenerating summary…'), findsOneWidget);
+      _expectSummaryLoading(tester, 'Regenerating summary…');
       expect(fixture.api.pluginReadPaths, [_summaryPath]);
       expect(fixture.api.pluginWrites.single.body, {
         'stream': true,
@@ -740,13 +749,13 @@ void main() {
   ) async {
     final fixture = _SummaryFixture();
     await fixture.openDialog(tester);
-    expect(find.text('Generating summary…'), findsOneWidget);
+    _expectSummaryLoading(tester, 'Generating summary…');
 
     fixture.deliver(creditLimitPayload());
     // One frame: settling would also run out the stream deadline.
     await tester.pump();
     expect(find.text(_creditLimitCopy), findsOneWidget);
-    expect(find.text('Generating summary…'), findsNothing);
+    expect(find.byType(DSkeletonRegion), findsNothing);
     expect(fixture.callbacks, isEmpty);
 
     await tester.tap(find.text('Try again'));

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -35,6 +36,39 @@ const _site = 'https://meta.discourse.org';
 const _captureKey = ValueKey('desktop-header-capture');
 
 void main() {
+  testWidgets('chat header keeps its filters above channel skeletons', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    await _pump(tester, width: 1000, dark: true, scale: 1, channelGate: gate);
+    await tester.tap(find.byKey(ChatHeaderButton.buttonKey));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final menu = find.byType(ChatHeaderMenu);
+    final region = find.descendant(
+      of: menu,
+      matching: find.byType(DSkeletonRegion),
+    );
+    expect(region, findsOneWidget);
+    expect(
+      tester.widget<DSkeletonRegion>(region).semanticsLabel,
+      'Loading chat channels',
+    );
+    expect(
+      find.descendant(of: menu, matching: find.byType(DSpinner)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: menu, matching: find.text('Channels')),
+      findsOneWidget,
+    );
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(region, findsNothing);
+    expect(find.text('Unread channel'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('all desktop header actions show the hand cursor on hover', (
     tester,
   ) async {
@@ -200,6 +234,7 @@ Future<(ShellController, FakeDiscourseApi)> _pump(
   required double width,
   required bool dark,
   required double scale,
+  Completer<void>? channelGate,
 }) async {
   tester.view.physicalSize = Size(width, 900);
   tester.view.devicePixelRatio = 1;
@@ -226,6 +261,7 @@ Future<(ShellController, FakeDiscourseApi)> _pump(
     ),
   );
   final api = FakeDiscourseApi(
+    chatChannelGate: channelGate,
     user: user,
     siteConfigs: {_site: config},
     feeds: const {'/latest.json': []},
@@ -297,12 +333,21 @@ Future<(ShellController, FakeDiscourseApi)> _pump(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (channelGate == null) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
   final shell = ShellScope.read(tester.element(find.byType(MainContent).first));
   await shell.forumSettings.setShared(
     shell.forumSettings.shared.copyWith(interfaceFont: ForumFont.lato),
   );
-  await tester.pumpAndSettle();
+  if (channelGate == null) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
   return (shell, api);
 }
 

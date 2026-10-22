@@ -206,7 +206,10 @@ void main() {
         <String>{'upload://restored.mp4'},
       ]);
       expect(find.byType(InlineVideo), findsNothing);
-      expect(find.byType(DSpinner), findsOneWidget);
+      expect(find.byType(DSkeletonRegion), findsOneWidget);
+      expect(find.byType(DSpinner), findsNothing);
+      expect(tester.getSize(find.byType(DSkeleton)).height, 190);
+      expect(find.textContaining('Loading'), findsNothing);
       result.complete({
         'upload://restored.mp4': 'https://example.test/restored.mp4',
       });

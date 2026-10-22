@@ -24,6 +24,7 @@ import 'search_words.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
 import 'site_url.dart';
+import 'skeleton_fill.dart';
 
 part 'global_search_category_editor.dart';
 part 'global_search_filter_picker.dart';
@@ -470,7 +471,20 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 ],
               ),
             ),
-          if (_loadingChoices) const Center(child: DSpinner()),
+          if (_loadingChoices)
+            DSkeletonRegion(
+              semanticsLabel: context.l10n.loading,
+              color: skeletonFill(context, on: SkeletonSurface.floating),
+              child: Column(
+                children: [
+                  for (var index = 0; index < 3; index++)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: DSpacing.sm),
+                      child: DSkeleton(height: 16),
+                    ),
+                ],
+              ),
+            ),
           if (_choiceError != null)
             Text(
               _choiceError!,
