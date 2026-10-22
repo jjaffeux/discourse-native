@@ -158,6 +158,7 @@ import 'user_summary_controller.dart';
 
 part 'account_new_topic_dismissals.dart';
 part 'composer_identity_resolution.dart';
+part 'composer_registry.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'instance_rail_transactions.dart';
@@ -4448,7 +4449,7 @@ class ShellController extends FrameSafeNotifier
     if (isDisposed) return;
     _workspace.flushAnchors();
     _workspace.flushSelection();
-    for (final composer in _composers) {
+    for (final composer in _composerRegistry.live) {
       unawaited(composer.flushDraftOnBackground());
     }
     await Future.wait([
@@ -4467,7 +4468,7 @@ class ShellController extends FrameSafeNotifier
     // The OS may suspend the process before a debounce timer fires again.
     if (!foreground) {
       _workspace.flushAnchors();
-      for (final composer in _composers) {
+      for (final composer in _composerRegistry.live) {
         unawaited(composer.flushDraftOnBackground());
       }
     }
@@ -6991,86 +6992,33 @@ class ShellController extends FrameSafeNotifier
     return success ? null : appL10n.couldnTLoadThisTopicSSummary;
   }
 
-  final Set<ComposerController> _composers = {};
-  final Map<String, ComposerController> _selectedComposers = {};
-  int _composerRevealRevision = 0;
-  ComposerController? _composerRevealTarget;
-  ComposerController? get composerRevealTarget => _composerRevealTarget;
+  late final _RetainedComposerRegistry _composerRegistry =
+      _RetainedComposerRegistry(_composerDrafts);
+
+  ComposerController? get composerRevealTarget =>
+      _composerRegistry.revealTarget;
 
   /// Explicit draft selections reveal even an already selected minimized editor.
-  int get composerRevealRevision => _composerRevealRevision;
+  int get composerRevealRevision => _composerRegistry.revealRevision;
   late final _ComposerSubmissionOwner _composerSubmissions =
       _ComposerSubmissionOwner(this);
 
   // Commands target the selected forum; async continuations keep the exact
   // composer that started them even if the user changes forums or drafts.
-  ComposerController? get _composer {
-    final instance = currentInstance;
-    if (instance == null) return null;
-    return _selectedComposers[instance.url];
-  }
-
-  void _setComposer(ComposerController composer) {
-    final target = composer.target;
-    _composers.add(composer);
-    _selectedComposers[target.siteUrl] = composer;
-  }
-
-  bool _ownsComposer(ComposerController? composer) {
-    if (composer == null) return false;
-    return _composers.contains(composer);
-  }
-
-  void _removeComposer(ComposerController composer) {
-    if (!_ownsComposer(composer)) return;
-    final target = composer.target;
-    final selected = identical(_selectedComposers[target.siteUrl], composer);
-    final index = selected
-        ? _composersForSite(target.siteUrl).toList().indexOf(composer)
-        : -1;
-    _composers.remove(composer);
-    if (identical(_composerRevealTarget, composer)) {
-      _composerRevealTarget = null;
-    }
-    if (selected) {
-      final remaining = _composersForSite(target.siteUrl).toList();
-      if (remaining.isEmpty) {
-        _selectedComposers.remove(target.siteUrl);
-      } else {
-        final next = remaining[math.min(index, remaining.length - 1)];
-        _selectedComposers[target.siteUrl] = next;
-        _composerRevealTarget = next;
-        _composerRevealRevision++;
-      }
-    }
-    _composerDrafts.detach(composer);
-  }
-
-  Iterable<ComposerController> _composersForSite(String siteUrl) =>
-      _composers.where((composer) => composer.target.siteUrl == siteUrl);
+  ComposerController? get _composer =>
+      _composerRegistry.selected(currentInstance?.url);
 
   /// Selects a retained draft without replacing its editor or history.
   void selectComposer(ComposerController composer) {
-    if (!_ownsComposer(composer) ||
-        composer.closing ||
-        composer.isDisposed ||
-        composer.target.siteUrl != currentInstance?.url) {
+    if (!_composerRegistry.select(composer, siteUrl: currentInstance?.url)) {
       return;
     }
-    if (!identical(_composer, composer)) {
-      _composer?.focus.unfocus();
-      _composer?.titleFocus.unfocus();
-    }
-    _selectedComposers[composer.target.siteUrl] = composer;
-    _composerRevealTarget = composer;
-    _composerRevealRevision++;
     _notify();
     composer.focus.requestFocus();
   }
 
   /// Every open draft remains account scoped, independently of reader tabs.
-  Iterable<ComposerController> get liveComposers =>
-      List.unmodifiable(_composers);
+  Iterable<ComposerController> get liveComposers => _composerRegistry.live;
 
   // Reported after every frame the reader moves; kept off the facade so a
   // resize or dock drag does not re-run every shell selector.
@@ -7085,7 +7033,7 @@ class ShellController extends FrameSafeNotifier
         credentials: credentials,
         readClientId: authenticator.clientId,
         isDisposed: () => isDisposed,
-        isCurrentComposer: _ownsComposer,
+        isCurrentComposer: (composer) => _composerRegistry.owns(composer),
         readCachedDraft: (target) => target is ExistingTopicComposerTarget
             ? store.read<TopicDetail>(target.siteUrl, target.topicId)?.draft
             : null,
@@ -7121,7 +7069,7 @@ class ShellController extends FrameSafeNotifier
                     null),
         recordDraftDestroyed: _recordDraftDestroyed,
         onComposerClosed: (composer) {
-          _removeComposer(composer);
+          _composerRegistry.remove(composer);
           _notify();
         },
       );
@@ -7220,7 +7168,7 @@ class ShellController extends FrameSafeNotifier
       // Plugin surfaces own and dispose their composers; only topic composers
       // are registered in the shell's per-tab map.
       isCurrentComposer: () =>
-          !isDisposed && (target.isPlugin || _ownsComposer(composer)),
+          !isDisposed && (target.isPlugin || _composerRegistry.owns(composer)),
       imageUploader: !(pluginPolicy?.uploadsEnabled ?? true)
           ? null
           : (file, {required onProgress, required abortTrigger}) =>
@@ -7348,7 +7296,8 @@ class ShellController extends FrameSafeNotifier
 
     // A PM may be parked behind another draft tab. Core uses one shared PM
     // key, so select that owner before applying the mature replacement path.
-    final heldMessage = _composersForSite(siteUrl)
+    final heldMessage = _composerRegistry
+        .forSite(siteUrl)
         .where(
           (held) =>
               held.target.isPrivateMessage &&
@@ -7372,7 +7321,7 @@ class ShellController extends FrameSafeNotifier
       targetRecipients: recipients,
     );
     final composer = _buildTextComposer(target, persistsDraft: true);
-    _setComposer(composer);
+    _composerRegistry.add(composer);
     _notify();
     _composerDrafts.startRestore(composer);
     if (recipients.isNotEmpty) composer.requestFocus();
@@ -7509,7 +7458,7 @@ class ShellController extends FrameSafeNotifier
       persistsDraft: true,
       minimumRequiredTags: selectedCategory?.minimumRequiredTags ?? 0,
     );
-    _setComposer(composer);
+    _composerRegistry.add(composer);
     if (revealContent) _mobilePane = MobilePane.content;
     if (listedDraft == null) {
       _composerDrafts.startNewDraft(composer);
@@ -7537,7 +7486,9 @@ class ShellController extends FrameSafeNotifier
     final siteUrl = instance.url;
     final lease = lifecycle.capture(siteUrl);
     bool isCurrent() =>
-        lease.isCurrent && _ownsComposer(composer) && !composer.isDisposed;
+        lease.isCurrent &&
+        _composerRegistry.owns(composer) &&
+        !composer.isDisposed;
 
     // Categories and capabilities refine an already usable composer. Keeping
     // them off the presentation path makes the first frame independent of the
@@ -7736,11 +7687,11 @@ class ShellController extends FrameSafeNotifier
       persistsDraft: true,
       minimumRequiredTags: minimumRequiredTags,
     );
-    _setComposer(composer);
+    _composerRegistry.add(composer);
     _notify();
     _composerDrafts.startNewDraft(composer);
     if (!lease.isCurrent ||
-        !_ownsComposer(composer) ||
+        !_composerRegistry.owns(composer) ||
         activeTabId != tabId ||
         currentContent?.topicId != sourceTopicId) {
       return;
@@ -7828,7 +7779,7 @@ class ShellController extends FrameSafeNotifier
         persistsDraft: true,
         minimumRequiredTags: category?.minimumRequiredTags ?? 0,
       );
-      _setComposer(composer);
+      _composerRegistry.add(composer);
       _notify();
       _composerDrafts.startNewDraft(composer);
     }
@@ -7838,7 +7789,7 @@ class ShellController extends FrameSafeNotifier
     } catch (_) {}
     if (!forumActive ||
         !lease.isCurrent ||
-        !_ownsComposer(composer) ||
+        !_composerRegistry.owns(composer) ||
         route?.sameDestinationAs(currentContent) != true ||
         !sourceIsCurrent() ||
         activeTabId != tabId) {
@@ -7864,7 +7815,7 @@ class ShellController extends FrameSafeNotifier
     final target = composer.target;
     final lease = lifecycle.capture(target.siteUrl);
     final held = await _credentialForWrite(target.siteUrl, lease: lease);
-    if (!lease.isCurrent || !_ownsComposer(composer)) {
+    if (!lease.isCurrent || !_composerRegistry.owns(composer)) {
       return const TopicTagSearch();
     }
     if (held.failure case final failure?) {
@@ -7937,7 +7888,8 @@ class ShellController extends FrameSafeNotifier
     for (final selected in composer.tags) {
       try {
         final result = await searchComposerTags(composer, selected.name);
-        if (!_ownsComposer(composer) || composer.categoryId != categoryId) {
+        if (!_composerRegistry.owns(composer) ||
+            composer.categoryId != categoryId) {
           return;
         }
         final match = result.results
@@ -7954,7 +7906,8 @@ class ShellController extends FrameSafeNotifier
         return;
       }
     }
-    if (!_ownsComposer(composer) || composer.categoryId != categoryId) {
+    if (!_composerRegistry.owns(composer) ||
+        composer.categoryId != categoryId) {
       return;
     }
     if (kept.length != composer.tags.length) {
@@ -7981,7 +7934,7 @@ class ShellController extends FrameSafeNotifier
         _replyTargetsWhisper(replyToPostNumber, topic: document.currentTopic);
 
     final existing =
-        _composersForSite(instance.url).where((composer) {
+        _composerRegistry.forSite(instance.url).where((composer) {
           final target = composer.target;
           return target is ReplyComposerTarget && target.topicId == topicId;
         }).firstOrNull ??
@@ -8016,7 +7969,7 @@ class ShellController extends FrameSafeNotifier
       privateMessageTopic: document.currentTopic?.privateMessage ?? false,
     );
     final composer = _buildTextComposer(target, persistsDraft: true);
-    _setComposer(composer);
+    _composerRegistry.add(composer);
     _notify();
 
     _composerDrafts.startRestore(composer, listedDraft: listedDraft);
@@ -8069,7 +8022,7 @@ class ShellController extends FrameSafeNotifier
     }
     if (composer == null) return;
 
-    final restore = _ownsComposer(composer)
+    final restore = _composerRegistry.owns(composer)
         ? _composerDrafts.restoreTaskFor(composer)
         : null;
     if (restore != null) {
@@ -8079,7 +8032,7 @@ class ShellController extends FrameSafeNotifier
     }
 
     if (isDisposed ||
-        !_ownsComposer(composer) ||
+        !_composerRegistry.owns(composer) ||
         currentInstance?.url != instance.url ||
         !document.isCurrent ||
         !identical(document.currentContent, route)) {
@@ -8140,7 +8093,7 @@ class ShellController extends FrameSafeNotifier
                 0
           : 0,
     );
-    _setComposer(composer);
+    _composerRegistry.add(composer);
     _notify();
 
     unawaited(_loadEditBody(composer, post, focusText: focusText));
@@ -8326,7 +8279,7 @@ class ShellController extends FrameSafeNotifier
       initialTags: detail.tags,
       privateMessageTopic: detail.privateMessage,
     );
-    _setComposer(
+    _composerRegistry.add(
       ComposerController(
         target,
         minimumRequiredTags:
@@ -8485,7 +8438,7 @@ class ShellController extends FrameSafeNotifier
         target.siteUrl,
         lease,
       ).keyCredentials(credentials);
-      if (!lease.isCurrent || !_ownsComposer(composer)) {
+      if (!lease.isCurrent || !_composerRegistry.owns(composer)) {
         return;
       }
       final fetched = await credential.run(
@@ -9040,7 +8993,7 @@ class ShellController extends FrameSafeNotifier
 
     if (outcome is PostMutationAccepted &&
         lease?.isCurrent == true &&
-        _ownsComposer(editing)) {
+        _composerRegistry.owns(editing)) {
       closeComposer(composer: editing);
     }
     return lease?.isCurrent == false ? _retiredPostMutation(outcome) : outcome;
@@ -10324,43 +10277,24 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  bool _replaceComposer() {
-    final existing = _composer;
-    if (existing == null) return true;
-    if (existing.discarding || existing.closing) return false;
-    if (existing.canSaveDraft &&
-        (!existing.target.isPrivateMessage ||
-            existing.target.draftKey !=
-                ComposerDraft.newPrivateMessageDraftKey)) {
-      existing.focus.unfocus();
-      existing.titleFocus.unfocus();
-      return true;
-    }
-    _composerDrafts.retire(existing);
-    existing.dispose();
-    _removeComposer(existing);
-    return true;
-  }
+  bool _replaceComposer() =>
+      _composerRegistry.replaceSelected(currentInstance?.url);
 
   void closeComposer({ComposerController? composer}) {
-    composer ??= _composer;
-    if (composer == null || composer.discarding || !_ownsComposer(composer)) {
-      return;
-    }
-    _composerDrafts.retire(composer);
-    composer.dispose();
-    _removeComposer(composer);
+    if (!_composerRegistry.close(composer ?? _composer)) return;
     _notify();
   }
 
   bool hideComposerForClose(ComposerController composer) {
-    if (!_ownsComposer(composer) || !composer.beginClose()) return false;
+    if (!_composerRegistry.owns(composer) || !composer.beginClose()) {
+      return false;
+    }
     _notify();
     return true;
   }
 
   void restoreComposerAfterFailedClose(ComposerController composer) {
-    if (!_ownsComposer(composer) || composer.isDisposed) return;
+    if (!_composerRegistry.owns(composer) || composer.isDisposed) return;
     composer.cancelClose();
     _notify();
   }
@@ -10371,13 +10305,13 @@ class ShellController extends FrameSafeNotifier
   /// Preserves a draft before closing its composer. False leaves
   /// the session open for retry or an explicit discard choice by the UI.
   Future<bool> prepareComposerForClose(ComposerController composer) async {
-    if (!_ownsComposer(composer)) return true;
+    if (!_composerRegistry.owns(composer)) return true;
     if (_composerHasPendingOperation(composer)) return false;
     if (!composer.canSaveDraft) {
       return !composer.hasChanges && !composer.metadataChanged;
     }
     if (!await finishComposerDraftRestore(composer)) return false;
-    if (!_ownsComposer(composer)) return true;
+    if (!_composerRegistry.owns(composer)) return true;
     if (_composerHasPendingOperation(composer)) return false;
     if (composer.hasUnappliedDraft && !composer.hasChanges) return true;
 
@@ -10385,7 +10319,7 @@ class ShellController extends FrameSafeNotifier
       await composer.flushDraft();
     }
     await composer.finishDraftSaves();
-    return !_ownsComposer(composer) ||
+    return !_composerRegistry.owns(composer) ||
         (!_composerHasPendingOperation(composer) &&
             !composer.localDraftFailed &&
             !composer.draftPersistencePending);
@@ -10517,12 +10451,11 @@ class ShellController extends FrameSafeNotifier
     if (result is! _SubmissionAccepted) return;
     final composer = attempt.editor;
     final retained =
-        _ownsComposer(composer) && composer.ownsSubmission(attempt);
+        _composerRegistry.owns(composer) && composer.ownsSubmission(attempt);
     if (result.acceptance is! _SubmissionEnqueued && retained) {
-      _closeSubmittedComposer(composer);
-    } else {
-      _notify();
+      _composerRegistry.closeSubmitted(composer);
     }
+    _notify();
     if (isDisposed || !lease.isCurrent) return;
     switch (result.acceptance) {
       case _SubmissionTopic(:final topicId, :final slug, :final title):
@@ -10586,14 +10519,6 @@ class ShellController extends FrameSafeNotifier
       topicId,
       (topic) => topic.copyWith(tags: tags),
     );
-  }
-
-  void _closeSubmittedComposer(ComposerController composer) {
-    if (_ownsComposer(composer)) {
-      composer.dispose();
-      _removeComposer(composer);
-    }
-    _notify();
   }
 
   DiscourseInstance? _instanceAt(String url) {
@@ -10741,7 +10666,7 @@ class ShellController extends FrameSafeNotifier
       onChanged: (artwork) {
         cooking.contextChanged(siteUrl);
         if (artwork) {
-          for (final composer in _composersForSite(siteUrl)) {
+          for (final composer in _composerRegistry.forSite(siteUrl)) {
             composer.text.artworkArrived();
           }
         }
@@ -10898,7 +10823,7 @@ class ShellController extends FrameSafeNotifier
         logSearchQueries: config.logSearchQueries,
       );
     }
-    for (final composer in _composersForSite(siteUrl)) {
+    for (final composer in _composerRegistry.forSite(siteUrl)) {
       if (!config.emojiEnabled) composer.closeEmojiAutocomplete();
       composer.updateEnableAutoGridImages(config.enableAutoGridImages);
       composer.updateMarkdownLinkify(
@@ -11088,13 +11013,7 @@ class ShellController extends FrameSafeNotifier
     _workspace.remove(siteUrl);
     _rotatedWorkspaces.remove(siteUrl);
     search.forget(siteUrl);
-    _composerDrafts.forgetSite(siteUrl);
-
-    for (final composer in _composersForSite(siteUrl).toList()) {
-      composer.draftSettled();
-      composer.dispose();
-      _removeComposer(composer);
-    }
+    _composerRegistry.forgetSite(siteUrl);
 
     accountActivity.forget(siteUrl);
     draftList.forget(siteUrl);
@@ -11757,9 +11676,10 @@ class ShellController extends FrameSafeNotifier
     final instance = currentInstance;
     if (instance == null || instance.url != siteUrl) return;
 
-    final retained = _composersForSite(
-      siteUrl,
-    ).where((composer) => composer.target.draftKey == draft.key).firstOrNull;
+    final retained = _composerRegistry
+        .forSite(siteUrl)
+        .where((composer) => composer.target.draftKey == draft.key)
+        .firstOrNull;
     if (retained != null) {
       selectComposer(retained);
       return;
@@ -12014,7 +11934,7 @@ class ShellController extends FrameSafeNotifier
     _topicData.dispose();
     // Queue the final local draft before lifecycle invalidation without
     // entering the normal remote-sync callback.
-    for (final composer in _composers) {
+    for (final composer in _composerRegistry.live) {
       _composerDrafts.preservePendingLocally(composer);
     }
     _discoverSites?.dispose();
@@ -12118,12 +12038,7 @@ class ShellController extends FrameSafeNotifier
       presentation.removeListener(_notify);
       presentation.dispose();
     }
-    for (final composer in _composers) {
-      composer.dispose();
-    }
-    _composers.clear();
-    _selectedComposers.clear();
-    _composerRevealTarget = null;
+    _composerRegistry.dispose();
     _readerContentBounds.dispose();
     if (ownsApi) api.close();
     super.dispose();

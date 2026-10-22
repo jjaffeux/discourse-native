@@ -139,7 +139,7 @@ final class _ComposerSubmissionOwner {
 
   bool _editorCurrent(_ComposerAttempt attempt) =>
       _accountCurrent(attempt) &&
-      shell._ownsComposer(attempt.editor) &&
+      shell._composerRegistry.owns(attempt.editor) &&
       attempt.editor.ownsSubmission(attempt);
 
   Future<_SubmissionResult> submit(
@@ -147,7 +147,7 @@ final class _ComposerSubmissionOwner {
     void Function(String)? onPreparationNotice,
   ) async {
     if (editor == null ||
-        !shell._ownsComposer(editor) ||
+        !shell._composerRegistry.owns(editor) ||
         editor.discarding ||
         editor.submitting ||
         !editor.canSubmit ||
