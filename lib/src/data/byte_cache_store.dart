@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
@@ -196,18 +197,33 @@ final class FileByteCacheStore implements ByteCacheStore {
   }
 
   Future<void> _performPrune() async {
-    if (!await directory.exists()) return;
-    final files = <({File file, int bytes, DateTime usedAt})>[];
+    final path = directory.path;
+    final entryLimit = maxEntries;
+    final byteLimit = maxBytes;
     final staleTemporaryBefore = _clock().subtract(_staleTemporaryAge);
-    await for (final entity in directory.list(followLinks: false)) {
+    await Isolate.run<void>(
+      () => _pruneDirectory(path, entryLimit, byteLimit, staleTemporaryBefore),
+    );
+  }
+
+  static void _pruneDirectory(
+    String path,
+    int maxEntries,
+    int maxBytes,
+    DateTime staleTemporaryBefore,
+  ) {
+    final directory = Directory(path);
+    if (!directory.existsSync()) return;
+    final files = <({File file, int bytes, DateTime usedAt})>[];
+    for (final entity in directory.listSync(followLinks: false)) {
       if (entity is! File) continue;
       try {
-        final stat = await entity.stat();
+        final stat = entity.statSync();
         if (entity.path.endsWith('.tmp')) {
           // A live writer's temporary file is recent. Old ones can only be
           // leftovers from a killed process and otherwise evade both bounds.
           if (!stat.modified.isAfter(staleTemporaryBefore)) {
-            await _delete(entity);
+            entity.deleteSync();
           }
           continue;
         }
@@ -224,7 +240,11 @@ final class FileByteCacheStore implements ByteCacheStore {
       final fits =
           keptEntries < maxEntries && keptBytes + entry.bytes <= maxBytes;
       if (!fits) {
-        await _delete(entry.file);
+        try {
+          entry.file.deleteSync();
+        } on FileSystemException {
+          // Missing/unavailable cache entries are equivalent to a cache miss.
+        }
         continue;
       }
       keptEntries++;
