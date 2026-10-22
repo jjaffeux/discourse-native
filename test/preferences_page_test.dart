@@ -109,6 +109,7 @@ Future<void> _pumpPage(
   _Fixture fixture, {
   double width = 680,
   bool settle = true,
+  ThemeData? theme,
 }) async {
   tester.view.physicalSize = Size(width, 900);
   tester.view.devicePixelRatio = 1;
@@ -119,7 +120,7 @@ Future<void> _pumpPage(
       child: ShellScope(
         controller: fixture.shell,
         child: MaterialApp(
-          theme: AppTheme.light,
+          theme: theme ?? AppTheme.light,
           home: Scaffold(
             body: SizedBox(
               width: width,
@@ -412,38 +413,88 @@ void main() {
       expect(fixture.api.userPreferenceUpdates, isEmpty);
     },
   );
-  testWidgets('announces loading in a polite live region', (tester) async {
-    final loadGate = Completer<void>();
-    final fixture = await _fixture(loadGate: loadGate);
-    final semantics = tester.ensureSemantics();
-    try {
-      await _pumpPage(tester, fixture, settle: false);
+  for (final width in [320.0, 1000.0]) {
+    for (final brightness in Brightness.values) {
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+        testWidgets('preferences load as an accessible skeleton at $width '
+            '${brightness.name} ${platform.name}', (tester) async {
+          final loadGate = Completer<void>();
+          final fixture = await _fixture(loadGate: loadGate);
+          final semantics = tester.ensureSemantics();
+          try {
+            await _pumpPage(
+              tester,
+              fixture,
+              width: width,
+              settle: false,
+              theme:
+                  (brightness == Brightness.dark
+                          ? AppTheme.dark
+                          : AppTheme.light)
+                      .copyWith(platform: platform),
+            );
 
-      final loading = find.bySemanticsLabel(
-        'Loading preferences from preferences.example.',
-      );
-      expect(loading, findsOneWidget);
-      expect(
-        tester.getSemantics(loading),
-        isSemantics(
-          label: 'Loading preferences from preferences.example.',
-          isLiveRegion: true,
-        ),
-      );
+            final loading = find.bySemanticsLabel(
+              'Loading preferences from preferences.example.',
+            );
+            expect(loading, findsOneWidget);
+            expect(
+              tester.getSemantics(loading),
+              isSemantics(
+                label: 'Loading preferences from preferences.example.',
+                isLiveRegion: true,
+              ),
+            );
+            expect(find.text('Loading preferences…'), findsNothing);
+            expect(find.byType(DSpinner), findsNothing);
+            expect(find.byType(DSkeletonRegion), findsOneWidget);
+            expect(find.byType(DSkeleton), findsWidgets);
+            expect(find.text('Preferences'), findsOneWidget);
+            expect(_timezoneMenu, findsNothing);
+            expect(tester.takeException(), isNull);
 
-      loadGate.complete();
-      await tester.pumpAndSettle();
-      expect(loading, findsNothing);
-    } finally {
-      try {
-        if (!loadGate.isCompleted) {
-          loadGate.complete();
-          await tester.pumpAndSettle();
-        }
-      } finally {
-        semantics.dispose();
+            loadGate.complete();
+            await tester.pumpAndSettle();
+            expect(loading, findsNothing);
+            expect(find.byType(DSkeletonRegion), findsNothing);
+            expect(find.byType(DSkeleton), findsNothing);
+            expect(_timezoneMenu, findsOneWidget);
+            expect(tester.takeException(), isNull);
+          } finally {
+            try {
+              if (!loadGate.isCompleted) {
+                loadGate.complete();
+                await tester.pumpAndSettle();
+              }
+            } finally {
+              semantics.dispose();
+            }
+          }
+        });
       }
     }
+  }
+
+  testWidgets('a failed preference load replaces the skeleton with retry', (
+    tester,
+  ) async {
+    final loadGate = Completer<void>();
+    final fixture = await _fixture(loadGate: loadGate);
+    await _pumpPage(tester, fixture, settle: false);
+    expect(find.byType(DSkeletonRegion), findsOneWidget);
+
+    loadGate.completeError(StateError('Preferences request failed'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DSkeletonRegion), findsNothing);
+    expect(find.byType(DSkeleton), findsNothing);
+    expect(
+      find.text("Couldn't load preferences from preferences.example."),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('preferences-retry')), findsOneWidget);
+    expect(_timezoneMenu, findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('allows an admin to edit Chat when can_chat is false', (
