@@ -152,6 +152,64 @@ void main() {
       }
     }
 
+    test(
+      'pagination advances past rejected records in a decoded page',
+      () async {
+        Map<String, dynamic> row(int id) => {
+          'id': id,
+          'chat_channel_id': 9,
+          'channel': {'id': 9},
+        };
+        final api = FakeDiscourseApi(
+          chatSearchPagesByKey: {
+            FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage.fromJson({
+              'messages': [row(1), <String, dynamic>{}],
+              'meta': {'has_more': true},
+            }, site),
+            FakeDiscourseApi.chatSearchKey(
+              'needle',
+              offset: 2,
+            ): ChatSearchPage.fromJson({
+              'messages': [
+                <String, dynamic>{},
+                {...row(2), 'chat_channel_id': 10},
+              ],
+              'meta': {'has_more': true},
+            }, site),
+            FakeDiscourseApi.chatSearchKey(
+              'needle',
+              offset: 4,
+            ): ChatSearchPage.fromJson({
+              'messages': [row(3)],
+            }, site),
+          },
+        );
+        final search = ChatSearchController(
+          api: api,
+          requests: FakePluginRequestHost(credentials: credentials),
+          store: store,
+          debounceDuration: Duration.zero,
+        );
+        addTearDown(search.dispose);
+        search.setGlobalQuery(site, 'needle');
+        await drain();
+        expect(search.globalState(site).nextOffset, 2);
+        search.loadMore(site);
+        await drain();
+        expect(search.globalState(site).nextOffset, 4);
+        expect(search.globalState(site).hits.map((hit) => hit.id), [1]);
+        search.loadMore(site);
+        await drain();
+        expect(api.chatSearchesRequested.map((request) => request.offset), [
+          0,
+          2,
+          4,
+        ]);
+        expect(search.globalState(site).hits.map((hit) => hit.id), [1, 3]);
+        expect(search.globalState(site).hasMore, isFalse);
+      },
+    );
+
     test('stores results and appends unique pages', () async {
       final api = FakeDiscourseApi(
         chatSearchPagesByKey: {
