@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/site_basic_info.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -203,16 +206,141 @@ void main() {
     expect(_urls(store.saved), _urls(sites));
     expect(store.saveCount, 4);
   });
+
+  test('a failed reorder cannot restore a removed forum', () async {
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    final store = _ControlledInstanceStore(
+      sites,
+      steps: [_SaveStep(gate: gate, started: started, fails: true)],
+    );
+    final controller = _controller(store);
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    final moving = controller.moveInstance(sites.first, 2);
+    await started.future;
+    expect(await controller.removeInstance(sites[1]), isTrue);
+    gate.complete();
+
+    expect(await moving, isFalse);
+    expect(_urls(controller.instances), [sites[2].url, sites[0].url]);
+    expect(_urls(store.saved), [sites[2].url, sites[0].url]);
+    expect(controller.currentInstance?.url, sites[0].url);
+  });
+
+  test('order rollback preserves a replacement and its selection', () async {
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    final basicInfoGate = Completer<void>();
+    final store = _ControlledInstanceStore(
+      sites,
+      steps: [_SaveStep(gate: gate, started: started, fails: true)],
+    );
+    final controller = _controller(
+      store,
+      api: FakeDiscourseApi(
+        basicInfoGate: basicInfoGate,
+        basicInfos: {sites[1].url: const SiteBasicInfo(title: 'Renamed')},
+      ),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    final moving = controller.moveInstance(sites.first, 2);
+    await started.future;
+    controller.selectInstance(0);
+    basicInfoGate.complete();
+    await pumpEventQueue();
+    final replacement = controller.currentInstance;
+    expect(replacement?.title, 'Renamed');
+    expect(replacement, isNot(same(sites[1])));
+    gate.complete();
+
+    expect(await moving, isFalse);
+    expect(_urls(controller.instances), _urls(sites));
+    expect(controller.currentInstance, same(replacement));
+    expect(controller.instanceIndex, 1);
+    expect(store.saved[1], same(replacement));
+  });
+
+  test(
+    'a re-add survives a failed removal through coalescing storage',
+    () async {
+      final persistence = _FailingRemovalPersistence(sites, sites[1].url);
+      final store = InstanceStore(persistence: persistence);
+      final controller = _controller(store);
+      addTearDown(controller.dispose);
+      addTearDown(() {
+        if (!persistence.release.isCompleted) persistence.release.complete();
+      });
+      await controller.load();
+
+      final removing = controller.removeInstance(controller.instances[1]);
+      await persistence.started.future;
+      final readded = instance('two.example', title: 'Re-added');
+      final adding = controller.addInstance(readded);
+      await pumpEventQueue();
+      expect(controller.currentInstance, same(readded));
+      persistence.release.complete();
+
+      expect(await removing, isFalse);
+      expect(await adding, isTrue);
+      expect(_urls(controller.instances), [
+        sites[0].url,
+        sites[2].url,
+        sites[1].url,
+      ]);
+      expect(controller.currentInstance, same(readded));
+      final persisted = await store.load();
+      expect(_urls(persisted), _urls(controller.instances));
+      expect(persisted.last.title, 'Re-added');
+    },
+  );
+
+  test('a superseded add reports its current-snapshot repair result', () async {
+    final gate = Completer<void>();
+    final started = Completer<void>();
+    final configGate = Completer<void>();
+    final added = instance('new.example');
+    final store = _ControlledInstanceStore(
+      sites,
+      steps: [_SaveStep(gate: gate, started: started, fails: true)],
+    );
+    final controller = _controller(
+      store,
+      api: FakeDiscourseApi(
+        siteConfigGate: configGate,
+        siteConfigs: {added.url: const SiteConfig(emojiEnabled: false)},
+      ),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    final adding = controller.addInstance(added);
+    await started.future;
+    configGate.complete();
+    await controller.resolveSiteConfig(added.url);
+    final replacement = controller.currentInstance;
+    expect(replacement, isNot(same(added)));
+    expect(replacement?.config.emojiEnabled, isFalse);
+    gate.complete();
+
+    expect(await adding, isTrue);
+    expect(controller.currentInstance, same(replacement));
+    expect(store.saved.last, same(replacement));
+  });
 }
 
-ShellController _controller(InstanceStore store) => ShellController(
-  instanceStore: store,
-  api: FakeDiscourseApi(),
-  authenticator: FakeAuthenticator(),
-  drafts: FakeDraftStore(),
-  trackers: FakeSiteTracker.reset(),
-  updateStore: FakeUpdateStore(),
-);
+ShellController _controller(InstanceStore store, {FakeDiscourseApi? api}) =>
+    ShellController(
+      instanceStore: store,
+      api: api ?? FakeDiscourseApi(),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
 
 List<String> _urls(Iterable<DiscourseInstance> instances) => [
   for (final instance in instances) instance.url,
@@ -250,4 +378,29 @@ final class _SaveStep {
   final Completer<void>? gate;
   final Completer<void>? started;
   final bool fails;
+}
+
+final class _FailingRemovalPersistence implements InstancePersistence {
+  _FailingRemovalPersistence(List<DiscourseInstance> sites, this.removingUrl)
+    : value = jsonEncode([for (final site in sites) site.toJson()]);
+
+  String value;
+  final String removingUrl;
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<String?> read() async => value;
+
+  @override
+  Future<void> write(String next) async {
+    final sites = jsonDecode(next) as List<dynamic>;
+    if (!started.isCompleted &&
+        !sites.any((dynamic site) => site['url'] == removingUrl)) {
+      started.complete();
+      await release.future;
+      throw StateError('removal unavailable');
+    }
+    value = next;
+  }
 }
