@@ -435,6 +435,42 @@ void main({bool useDeviceMetrics = false}) {
     expect(tester.takeException(), isNull);
   });
 
+  for (final submit in [true, false]) {
+    _testPresentation('mobile search keeps its query and results while '
+        '${submit ? 'submitting' : 'going back'} slides the page away', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      final shell = await _pumpSearch(tester, size: phone);
+      await _openAndSearch(tester, 'design');
+      final result = _panelText('A calmer, more useful global search');
+      expect(result, findsOneWidget);
+      if (submit) {
+        await tester.testTextInput.receiveAction(TextInputAction.search);
+      } else {
+        await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+      }
+      var closingFrames = 0;
+      for (
+        ;
+        find.byKey(ForumSearch.panelKey).evaluate().isNotEmpty;
+        closingFrames++
+      ) {
+        final reason = 'closing frame $closingFrames';
+        expect(_editor(tester).controller.text, 'design', reason: reason);
+        expect(result, findsOneWidget, reason: reason);
+        expect(closingFrames, lessThan(100));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(closingFrames, greaterThan(1));
+      expect(shell.globalSearch.query, submit ? isEmpty : 'design');
+      await tester.tap(find.byKey(const ValueKey('mobile-search-button')));
+      await tester.pumpAndSettle();
+      expect(_editor(tester).controller.text, submit ? 'design ' : 'design');
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final (kind, label) in [
     ('post', 'A calmer, more useful global search'),
     ('chat', 'The search design is ready for a keyboard review.'),
