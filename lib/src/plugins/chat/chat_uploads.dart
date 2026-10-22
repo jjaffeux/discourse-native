@@ -178,25 +178,11 @@ class _Image extends StatelessWidget {
     final index = gallery.indexOf(upload);
 
     unawaited(
-      Navigator.of(context, rootNavigator: true).push(
-        PageRouteBuilder<void>(
-          opaque: false,
-          barrierColor: Colors.black.withValues(alpha: 0.92),
-          barrierDismissible: true,
-          barrierLabel: MaterialLocalizations.of(
-            context,
-          ).modalBarrierDismissLabel,
-          transitionDuration: const Duration(milliseconds: 200),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              LightboxGallery(
-                images: images,
-                initialIndex: index < 0 ? 0 : index,
-                siteUrl: siteUrl,
-              ),
-          transitionsBuilder: (context, animation, secondary, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
+      showLightboxGallery(
+        context,
+        images: images,
+        initialIndex: index < 0 ? 0 : index,
+        siteUrl: siteUrl,
       ),
     );
   }

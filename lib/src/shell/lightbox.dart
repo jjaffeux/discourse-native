@@ -364,29 +364,39 @@ class LightboxTile extends StatelessWidget {
     final index = gallery.indexWhere((i) => i.heroTag == image.heroTag);
 
     unawaited(
-      Navigator.of(context, rootNavigator: true).push(
-        PageRouteBuilder<void>(
-          opaque: false,
-          barrierColor: Colors.black.withValues(alpha: 0.92),
-          barrierDismissible: true,
-          barrierLabel: MaterialLocalizations.of(
-            context,
-          ).modalBarrierDismissLabel,
-          transitionDuration: const Duration(milliseconds: 200),
-          reverseTransitionDuration: const Duration(milliseconds: 200),
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              LightboxGallery(
-                images: gallery,
-                initialIndex: index < 0 ? 0 : index,
-                siteUrl: siteUrl,
-              ),
-          transitionsBuilder: (context, animation, secondary, child) =>
-              FadeTransition(opacity: animation, child: child),
-        ),
+      showLightboxGallery(
+        context,
+        images: gallery,
+        initialIndex: index < 0 ? 0 : index,
+        siteUrl: siteUrl,
       ),
     );
   }
 }
+
+/// Opens [images] above every navigator. The route draws no barrier colour:
+/// [LightboxGallery] paints its own backdrop so a drag to close can clear it.
+Future<void> showLightboxGallery(
+  BuildContext context, {
+  required List<LightboxImage> images,
+  required int initialIndex,
+  String? siteUrl,
+}) => Navigator.of(context, rootNavigator: true).push(
+  PageRouteBuilder<void>(
+    opaque: false,
+    barrierDismissible: true,
+    barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    transitionDuration: const Duration(milliseconds: 200),
+    reverseTransitionDuration: const Duration(milliseconds: 200),
+    pageBuilder: (context, animation, secondaryAnimation) => LightboxGallery(
+      images: images,
+      initialIndex: initialIndex,
+      siteUrl: siteUrl,
+    ),
+    transitionsBuilder: (context, animation, secondary, child) =>
+        FadeTransition(opacity: animation, child: child),
+  ),
+);
 
 class LightboxGallery extends StatefulWidget {
   const LightboxGallery({
@@ -406,8 +416,21 @@ class LightboxGallery extends StatefulWidget {
   State<LightboxGallery> createState() => _LightboxGalleryState();
 }
 
-class _LightboxGalleryState extends State<LightboxGallery> {
+class _LightboxGalleryState extends State<LightboxGallery>
+    with SingleTickerProviderStateMixin {
   static const double _zoomStep = 1.25;
+
+  static const double _backdropAlpha = 0.92;
+
+  // The thresholds of PhotoSwipe's vertical drag to close, which core's
+  // lightbox leaves on: the backdrop clears as the image moves a third of the
+  // image area's height, and a release closes once the image, projected along
+  // its velocity, has moved 40% of that third in the direction it was going.
+  static const double _closeDragRatio = 0.4;
+
+  // PhotoSwipe projects a release by decelerating 0.995 per millisecond:
+  // v·0.995/(1 − 0.995) for v in px/ms, which is 0.199 s for v in px/s.
+  static const double _closeDragProjection = 0.199;
 
   final GlobalKey _viewportKey = GlobalKey();
   late final PageController _controller = PageController(
@@ -420,6 +443,12 @@ class _LightboxGalleryState extends State<LightboxGallery> {
   Size? _viewportSize;
   bool _chromeVisible = true;
   bool _downloading = false;
+
+  /// The vertical offset of the current page while a drag to close moves it.
+  late final AnimationController _closeDrag = AnimationController.unbounded(
+    vsync: this,
+  );
+  bool _closeDragging = false;
   late final LightboxImageDownloader _imageDownloader =
       widget.imageDownloader ?? NativeLightboxImageDownloader();
 
@@ -439,6 +468,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
 
   @override
   void dispose() {
+    _closeDrag.dispose();
     _controller.dispose();
     for (final controller in _photoControllers) {
       controller.dispose();
@@ -667,6 +697,60 @@ class _LightboxGalleryState extends State<LightboxGallery> {
     setState(() => _chromeVisible = true);
   }
 
+  /// A zoomed image keeps every drag for panning; only one resting at its
+  /// minimum scale can be dragged away.
+  bool get _canStartCloseDrag {
+    final viewport = _viewportSize;
+    if (viewport == null) return false;
+    final bounds = _scaleBounds(_index, viewport);
+    final scale = _photoControllers[_index].scale ?? bounds.minimum;
+    return scale <= bounds.minimum + bounds.maximum * 1e-9;
+  }
+
+  double get _closeDragThird => (_viewportSize?.height ?? 0) / 3;
+
+  double get _backdropOpacity {
+    final third = _closeDragThird;
+    if (third <= 0) return 1;
+    return (1 - _closeDrag.value.abs() / third).clamp(0.0, 1.0);
+  }
+
+  void _startCloseDrag(DragStartDetails details) {
+    _closeDrag.stop();
+    setState(() => _closeDragging = true);
+  }
+
+  void _updateCloseDrag(DragUpdateDetails details) {
+    _closeDrag.value += details.primaryDelta ?? 0;
+  }
+
+  Future<void> _endCloseDrag(DragEndDetails details) async {
+    final offset = _closeDrag.value;
+    final projected =
+        offset + (details.primaryVelocity ?? 0) * _closeDragProjection;
+    final closes =
+        offset != 0 &&
+        projected.sign == offset.sign &&
+        projected.abs() > _closeDragThird * _closeDragRatio;
+    if (closes && await Navigator.of(context).maybePop()) return;
+    if (mounted) _settleCloseDrag();
+  }
+
+  void _settleCloseDrag() {
+    setState(() => _closeDragging = false);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _closeDrag.value = 0;
+      return;
+    }
+    unawaited(
+      _closeDrag.animateTo(
+        0,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return CallbackShortcuts(
@@ -694,47 +778,102 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       },
       child: Focus(
         autofocus: true,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Column(
-            children: [
-              Listener(
-                onPointerSignal: (signal) {
-                  final viewport = _viewportSize;
-                  if (viewport != null) _pointerSignal(signal, viewport);
-                },
-                child: _chrome(
-                  _viewportSize ?? MediaQuery.sizeOf(context),
-                  toolbar: true,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedBuilder(
+              animation: _closeDrag,
+              builder: (context, _) => ColoredBox(
+                color: Colors.black.withValues(
+                  alpha: _backdropAlpha * _backdropOpacity,
                 ),
               ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final viewport = constraints.biggest;
-                    _rememberViewportSize(viewport);
-                    return MouseRegion(
-                      onEnter: (_) => _revealChrome(),
-                      onHover: (_) => _revealChrome(),
-                      child: Listener(
-                        key: _viewportKey,
-                        behavior: HitTestBehavior.opaque,
-                        onPointerSignal: (signal) =>
-                            _pointerSignal(signal, viewport),
-                        child: ClipRect(
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [_pages(viewport), _chrome(viewport)],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+            _scaffold(context),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          Listener(
+            onPointerSignal: (signal) {
+              final viewport = _viewportSize;
+              if (viewport != null) _pointerSignal(signal, viewport);
+            },
+            child: _chrome(
+              _viewportSize ?? MediaQuery.sizeOf(context),
+              toolbar: true,
+            ),
+          ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final viewport = constraints.biggest;
+                _rememberViewportSize(viewport);
+                return MouseRegion(
+                  onEnter: (_) => _revealChrome(),
+                  onHover: (_) => _revealChrome(),
+                  child: Listener(
+                    key: _viewportKey,
+                    behavior: HitTestBehavior.opaque,
+                    onPointerSignal: (signal) =>
+                        _pointerSignal(signal, viewport),
+                    // A page dragged to close leaves the image area, so
+                    // it must not be cut at the edge of the toolbar.
+                    child: AnimatedBuilder(
+                      animation: _closeDrag,
+                      builder: (context, child) => ClipRect(
+                        clipBehavior: _closeDrag.value == 0
+                            ? Clip.hardEdge
+                            : Clip.none,
+                        child: child,
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _draggableToClose(_pages(viewport)),
+                          _chrome(viewport),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _draggableToClose(Widget pages) {
+    return RawGestureDetector(
+      gestures: {
+        _CloseDragRecognizer:
+            GestureRecognizerFactoryWithHandlers<_CloseDragRecognizer>(
+              () => _CloseDragRecognizer(
+                canStart: () => _canStartCloseDrag,
+                debugOwner: this,
+              ),
+              (recognizer) => recognizer
+                ..onStart = _startCloseDrag
+                ..onUpdate = _updateCloseDrag
+                ..onEnd = _endCloseDrag,
+            ),
+      },
+      child: AnimatedBuilder(
+        animation: _closeDrag,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, _closeDrag.value),
+          child: child,
+        ),
+        child: pages,
       ),
     );
   }
@@ -757,7 +896,7 @@ class _LightboxGalleryState extends State<LightboxGallery> {
             value.position.distanceSquared > 1e-12;
         return _Chrome(
           toolbar: toolbar,
-          visible: _chromeVisible,
+          visible: _chromeVisible && !_closeDragging,
           index: _index,
           total: widget.images.length,
           image: _current,
@@ -859,6 +998,26 @@ class _LightboxGalleryState extends State<LightboxGallery> {
       ),
     );
   }
+}
+
+/// A vertical drag that claims a touch only while [canStart] holds when the
+/// finger lands. Mouse drags are left alone: pointers already close with the
+/// toolbar or Escape, and their wheel zooms.
+class _CloseDragRecognizer extends VerticalDragGestureRecognizer {
+  _CloseDragRecognizer({required this.canStart, super.debugOwner})
+    : super(
+        supportedDevices: const {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.invertedStylus,
+        },
+      );
+
+  final bool Function() canStart;
+
+  @override
+  bool isPointerAllowed(PointerEvent event) =>
+      canStart() && super.isPointerAllowed(event);
 }
 
 class _Chrome extends StatelessWidget {
