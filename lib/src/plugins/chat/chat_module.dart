@@ -70,7 +70,7 @@ final class ChatModule implements PluginModule {
         final accountEvents = bindings.require(corePluginAccountEventsPort);
         final composerHost = bindings.require(corePluginComposerPort);
         final navigation = bindings.require(corePluginNavigationPort);
-        final reporter = bindings.require(pluginDiagnosticsReporterPort);
+
         final chatApi = apiFactory?.call(transport) ?? ChatApiClient(transport);
         final gifs = dependencies.maybe(gifsPickerSessionService);
         final controller = ChatController(
@@ -84,7 +84,7 @@ final class ChatModule implements PluginModule {
           cookingTimezoneFor: (siteUrl) => timezone.readerTimezone(
             siteState.currentUserFor(siteUrl)?.timezone,
           ),
-          reporter: reporter,
+
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateNotificationCounter(
                 siteUrl,
@@ -108,7 +108,6 @@ final class ChatModule implements PluginModule {
           api: chatApi,
           requests: requests,
           store: store,
-          reporter: reporter,
         );
         final bookmarkHost = bindings
             .require(corePluginBookmarkPort)
@@ -143,7 +142,7 @@ final class ChatModule implements PluginModule {
             PluginService<Object>(chatShellService, shell),
             PluginService<Object>(chatBookmarkHostService, bookmarkHost),
             PluginService<Object>(chatComposerHostService, composerHost),
-            PluginService<Object>(chatDiagnosticsReporterService, reporter),
+
             PluginService<Object>(
               chatEmojiHostService,
               bindings.require(corePluginEmojiPort),
@@ -175,7 +174,7 @@ final class ChatModule implements PluginModule {
         corePluginComposerPort,
         corePluginEmojiPort,
         corePluginNotificationFeedPort,
-        pluginDiagnosticsReporterPort,
+
         corePluginPostFlagCatalogPort,
       ],
     );

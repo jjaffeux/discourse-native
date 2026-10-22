@@ -1,6 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/topic_presentation_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -33,7 +33,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
-import 'support/topic_scroll_capture.dart';
 
 final _reader = find.byType(TopicView);
 final _allLists = find.byType(TopicListView, skipOffstage: false);
@@ -1154,36 +1153,23 @@ _setup(
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
   );
-  final diagnostics = (await tester.runAsync(
-    () => DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      topicScrollCapture: topicScrollCaptureWithoutVm(),
-    ),
-  ))!;
-  addTearDown(() async {
-    await tester.pumpWidget(const SizedBox.shrink());
-    shell.dispose();
-    await tester.runAsync(diagnostics.close);
-  });
+
   await shell.load();
   await shell.loadFeed('latest');
   await tester.pumpWidget(
-    DiagnosticsScope(
-      controller: diagnostics,
-      child: ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: theme ?? AppTheme.light,
-          builder: (context, child) => DFocusHighlight(child: child!),
-          home: DDirection(
-            textDirection: direction,
-            child: settings == null
-                ? const AdaptiveShell()
-                : ContentSettingsScope(
-                    controller: settings,
-                    child: const AdaptiveShell(),
-                  ),
-          ),
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: theme ?? AppTheme.light,
+        builder: (context, child) => DFocusHighlight(child: child!),
+        home: DDirection(
+          textDirection: direction,
+          child: settings == null
+              ? const AdaptiveShell()
+              : ContentSettingsScope(
+                  controller: settings,
+                  child: const AdaptiveShell(),
+                ),
         ),
       ),
     ),

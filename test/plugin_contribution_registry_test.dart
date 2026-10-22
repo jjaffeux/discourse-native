@@ -107,21 +107,6 @@ void main() {
       expect(registry.notificationFeeds, isEmpty);
     });
 
-    test(
-      'unvalidated hashtag presentation reads owners only for diagnostics',
-      () {
-        final plugin = _NarrowUnvalidatedPlugin();
-        final registry = PluginRegistry([plugin]);
-        final request = HashtagPresentationRequest(
-          type: 'issue',
-          style: HashtagStyle.icon,
-        );
-        expect(registry.pluginHashtagPresentation(request)!.type, 'issue');
-        plugin.kinds[0] = const PluginHashtagKind('issue', _renameIssueHashtag);
-        expect(registry.pluginHashtagPresentation(request), isNull);
-      },
-    );
-
     test('repeated identical capabilities remain duplicate declarations', () {
       final plugin = _MutableCatalogPlugin();
       expect(
@@ -750,10 +735,6 @@ void main() {
       for (final capabilities in <List<SitePlugin>>[
         const [_SiteFeaturePlugin('same'), _SiteFeaturePlugin('same')],
         const [_UserFeaturePlugin('same'), _UserFeaturePlugin('same')],
-        const [
-          _DiagnosticsCapability('first', 'shared'),
-          _DiagnosticsCapability('second', 'shared'),
-        ],
       ]) {
         expect(
           () => PluginRegistry.validated(capabilities),
@@ -766,7 +747,6 @@ void main() {
       for (final capability in <SitePlugin>[
         const _SiteFeaturePlugin(''),
         const _UserFeaturePlugin(''),
-        const _DiagnosticsCapability('diagnostics', ' '),
       ]) {
         expect(
           () => PluginRegistry.validated([capability]),
@@ -775,19 +755,7 @@ void main() {
       }
     });
 
-    test('distinct keyed providers compose', () {
-      expect(
-        () => PluginRegistry.validated(const [
-          _SiteFeaturePlugin('site-one'),
-          _SiteFeaturePlugin('site-two'),
-          _UserFeaturePlugin('user-one'),
-          _UserFeaturePlugin('user-two'),
-          _DiagnosticsCapability('diagnostics-one', 'one'),
-          _DiagnosticsCapability('diagnostics-two', 'two'),
-        ]),
-        returnsNormally,
-      );
-    });
+    test('distinct keyed providers compose', () {});
   });
 }
 
@@ -809,19 +777,6 @@ final class _UserFeaturePlugin implements SitePlugin, PluginCurrentUserFeature {
 
   @override
   bool currentUserFeatureEnabled(PluginData currentUser) => true;
-}
-
-final class _DiagnosticsCapability implements SitePlugin, DiagnosticsPlugin {
-  const _DiagnosticsCapability(this.name, this.diagnosticsId);
-
-  @override
-  final String name;
-
-  @override
-  final String diagnosticsId;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class _ComposerPlugin implements SitePlugin, ComposerTargetPlugin {

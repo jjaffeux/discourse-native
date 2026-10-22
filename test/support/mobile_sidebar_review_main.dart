@@ -83,7 +83,7 @@ class _ReviewState extends State<_Review> {
       notificationOpenUrls: const Stream.empty(),
       pluginManifest: PluginManifest([
         ChatModule(apiFactory: (transport) => transport as ChatApi),
-        const VoiceModule.withoutDiagnostics(),
+        const VoiceModule(),
       ]),
       api: FakeDiscourseApi(
         user: user,

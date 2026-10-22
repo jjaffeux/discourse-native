@@ -9,10 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
-import '../data/diagnostics_panel_width_store.dart';
+
 import '../data/sidebar_width_store.dart';
-import '../diagnostics/diagnostics_controller.dart';
-import '../diagnostics/diagnostics_scope.dart';
+
 import '../models/bookmark.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
@@ -22,7 +21,7 @@ import 'composer/panel.dart';
 import 'composer/presentation.dart';
 import 'desktop_navigation.dart';
 import 'desktop_panels.dart';
-import 'diagnostics_panel.dart';
+
 import 'empty_state.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
@@ -86,10 +85,7 @@ class AdaptiveShell extends StatefulWidget {
 }
 
 class _AdaptiveShellState extends State<AdaptiveShell> {
-  static const DiagnosticsPanelWidthStore _diagnosticsWidthStore =
-      DiagnosticsPanelWidthStore();
   static const SidebarWidthStore _sidebarWidthStore = SidebarWidthStore();
-  late final PanelWidthController _diagnosticsWidth;
   late final PanelWidthController _sidebarWidth;
   // A forum's gate replaces the forum shell while it is
   // shown. The sidebar and panel layouts belong to the window, so they are
@@ -102,12 +98,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   void initState() {
     super.initState();
-    _diagnosticsWidth = PanelWidthController(
-      initialWidth: diagnosticsPanelWidth,
-      minimumWidth: diagnosticsPanelMinWidth,
-      readWidth: _diagnosticsWidthStore.read,
-      writeWidth: _diagnosticsWidthStore.write,
-    );
     _sidebarWidth = PanelWidthController(
       initialWidth: AdaptiveShell.sidebarWidth,
       minimumWidth: AdaptiveShell.sidebarMinWidth,
@@ -121,7 +111,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void dispose() {
     _cancelPendingReply?.call();
     HardwareKeyboard.instance.removeHandler(_handleShortcut);
-    _diagnosticsWidth.dispose();
+
     _sidebarWidth.dispose();
     _sidebarExpanded.dispose();
     _panelsLayout.dispose();
@@ -508,29 +498,12 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           );
         }
 
-        final diagnostics = DiagnosticsScope.maybeRead(context);
-        if (diagnostics == null) {
-          return _buildScaffold(context, null, false);
-        }
-
-        // Panel visibility is the only diagnostics-controller state that
-        // rebuilds this frame. HTTP traffic is listened to by DiagnosticsPanel
-        // itself, below the shell chrome, so it cannot rebuild the rail,
-        // sidebar, topic list, or chat stream.
-        return ValueListenableBuilder<bool>(
-          valueListenable: diagnostics.panelListenable,
-          builder: (context, open, _) =>
-              _buildScaffold(context, diagnostics, open),
-        );
+        return _buildScaffold(context);
       },
     );
   }
 
-  Widget _buildScaffold(
-    BuildContext context,
-    DiagnosticsController? diagnostics,
-    bool diagnosticsOpen,
-  ) {
+  Widget _buildScaffold(BuildContext context) {
     final mobile = ShellScope.read(context).mobileNavigationEnabled;
     return _ShellScaffold(
       mobile: mobile,
@@ -545,112 +518,19 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                     sidebarWidth: _sidebarWidth,
                     sidebarExpanded: _sidebarExpanded,
                     panelsLayout: _panelsLayout,
-                    atWindowEdge:
-                        !diagnosticsOpen || layout != ShellLayout.expanded,
+                    atWindowEdge: true,
                   );
-
-            Widget framedShell(Widget body) => Stack(
+            return Stack(
               children: [
                 Positioned.fill(
-                  child: Column(children: [Expanded(child: body)]),
+                  child: Column(children: [Expanded(child: shell)]),
                 ),
                 ...PluginScope.of(context).registry.shellOverlays(context),
               ],
             );
-
-            if (diagnostics == null) return framedShell(shell);
-            final showDiagnostics = diagnosticsOpen;
-            final panel = DiagnosticsPanel(
-              controller: diagnostics,
-              plugins: DiagnosticsScope.pluginsOf(context),
-              onClose: diagnostics.closePanel,
-            );
-
-            final panelMaximumWidth = math.max(
-              diagnosticsPanelMinWidth,
-              constraints.maxWidth - AdaptiveShell.compactRailWidth,
-            );
-
-            Widget resizablePanel(Key key) => ResizablePane(
-              key: key,
-              controller: _diagnosticsWidth,
-              edge: ResizablePaneEdge.leading,
-              resizeKey: 'diagnostics',
-              semanticsLabel: appL10n.resizeDiagnosticsPanel,
-              maximumWidth: panelMaximumWidth,
-              dividerWidth: 1,
-              child: panel,
-            );
-
-            final dockDiagnostics = layout == ShellLayout.expanded;
-            final reader = framedShell(
-              Row(
-                children: [
-                  Expanded(child: shell),
-                  if (showDiagnostics && dockDiagnostics)
-                    resizablePanel(const ValueKey('diagnostics-docked-slot')),
-                ],
-              ),
-            );
-            final phoneWidth = constraints.maxWidth < 600;
-            final overlay = Stack(
-              children: [
-                Positioned.fill(child: reader),
-                if (showDiagnostics && !dockDiagnostics)
-                  Positioned.fill(
-                    child: ModalBarrier(
-                      key: const ValueKey('diagnostics-modal-barrier'),
-                      dismissible: true,
-                      onDismiss: diagnostics.closePanel,
-                      color: Colors.black.withValues(alpha: 0.32),
-                    ),
-                  ),
-                if (showDiagnostics && !dockDiagnostics)
-                  Positioned.fill(
-                    child: Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: phoneWidth
-                          ? SizedBox(
-                              key: const ValueKey('diagnostics-overlay-slot'),
-                              width: constraints.maxWidth,
-                              child: panel,
-                            )
-                          : resizablePanel(
-                              const ValueKey('diagnostics-overlay-slot'),
-                            ),
-                    ),
-                  ),
-              ],
-            );
-            return _withDiagnosticsBackHandling(
-              open: showDiagnostics,
-              diagnostics: diagnostics,
-              child: overlay,
-            );
           },
         ),
       ),
-    );
-  }
-
-  Widget _withDiagnosticsBackHandling({
-    required bool open,
-    required DiagnosticsController diagnostics,
-    required Widget child,
-  }) {
-    // Keep this wrapper stable when docking a composer changes the layout.
-    // Recreating the reader also reopens its sheet and takes focus from the
-    // composer. The mobile shell owns back handling at every viewport width.
-    return PopScope(
-      canPop: ShellScope.read(context).mobileNavigationEnabled || !open,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!ShellScope.read(context).mobileNavigationEnabled &&
-            !didPop &&
-            diagnostics.isPanelOpen) {
-          diagnostics.closePanel();
-        }
-      },
-      child: child,
     );
   }
 }
@@ -957,11 +837,9 @@ class _MobileShell extends StatelessWidget {
     canPop: false,
     onPopInvokedWithResult: (didPop, result) {
       if (didPop) return;
-      if (ComposerPresentationHost.hasMobileSheetOf(context)) return;
-      final diagnostics = DiagnosticsScope.maybeRead(context);
-      if (diagnostics?.isPanelOpen ?? false) {
-        diagnostics!.closePanel();
-      } else if (!ShellScope.read(context).handleBack()) {
+      if (ComposerPresentationHost.hasMobileSheetOf(context))
+        return;
+      else if (!ShellScope.read(context).handleBack()) {
         unawaited(SystemNavigator.pop());
       }
     },

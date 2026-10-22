@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../plugin_api/topic_recommendation_source.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class TopicRecommendationsTabPersistence {
   Future<String?> readStoredSourceId({required String siteUrl});
@@ -99,12 +98,7 @@ final class TopicRecommendationsTabStore {
       }
       return _sourceIdFromStoredValue(stored, sourceMigrations) ??
           coreSuggestedTopicRecommendationSourceId;
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'topicRecommendationsTab.readTab',
-      );
+    } catch (error) {
       return coreSuggestedTopicRecommendationSourceId;
     }
   }
@@ -136,13 +130,7 @@ final class TopicRecommendationsTabStore {
       if (!saved) {
         throw StateError('Could not persist the more topics tab.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'topicRecommendationsTab.writeTab',
-      );
-    }
+    } catch (error) {}
   }
 }
 

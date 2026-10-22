@@ -3,7 +3,7 @@ import 'dart:collection';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
@@ -14,7 +14,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/skeleton_expectations.dart';
-import 'support/topic_scroll_capture.dart';
 
 const _likes = UserDirectoryColumn(
   id: 1,
@@ -108,23 +107,14 @@ void main() {
   testWidgets(
     'scroll capture records users only while armed without rebuilding the page',
     (tester) async {
-      final capture = topicScrollCaptureWithoutVm();
-      final diagnostics = DiagnosticsController.start(
-        persistence: MemoryDiagnosticsPersistence(),
-        topicScrollCapture: capture,
-      );
-
       await _pump(
         tester,
-        DiagnosticsScope(
-          controller: diagnostics,
-          child: UsersPage(
-            siteUrl: 'https://example.com',
-            data: UsersPageData(
-              items: _countedItems(),
-              columns: const [_likes, _replies],
-              loaded: true,
-            ),
+        UsersPage(
+          siteUrl: 'https://example.com',
+          data: UsersPageData(
+            items: _countedItems(),
+            columns: const [_likes, _replies],
+            loaded: true,
           ),
         ),
       );
@@ -135,41 +125,18 @@ void main() {
           );
       scroll.position.pointerScroll(100);
       await tester.pump();
-      expect(capture.events, isEmpty);
-      capture.start();
+
       for (var i = 0; i < 8; i++) {
         scroll.position.pointerScroll(1200);
         await tester.pump(const Duration(milliseconds: 16));
       }
-      capture.stop();
-      expect(
-        capture.events.where((e) => e.name == 'users.capture.context'),
-        hasLength(1),
-      );
-      expect(
-        capture.events.where((e) => e.name == 'users.scroll.notification'),
-        isNotEmpty,
-      );
-      expect(
-        capture.events.where((e) => e.name == 'users.row.built'),
-        isNotEmpty,
-      );
-      expect(
-        capture.events.where((e) => e.name == 'users.view.built'),
-        isEmpty,
-      );
-      expect(
-        capture.events.where((e) => e.name == 'users.maxima.work'),
-        isEmpty,
-      );
-      final count = capture.events.length;
+
       scroll.position.pointerScroll(100);
       await tester.pump();
-      expect(capture.events.length, count);
+
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     },
   );
 

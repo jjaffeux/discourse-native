@@ -5,7 +5,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import '../diagnostics/diagnostics_controller.dart';
 import 'byte_cache_store.dart';
 import 'discourse_api.dart';
 import 'http_transport.dart';
@@ -149,9 +148,7 @@ abstract class ByteCache<T extends Object> {
         key: url,
         operation: () => persistent.remove(url),
       );
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, url, 'image.cacheDelete');
-    }
+    } catch (error) {}
   }
 
   Future<void> _persist(
@@ -180,8 +177,7 @@ abstract class ByteCache<T extends Object> {
           await persistent.write(url, bytes, expiresAt: expiresAt);
         },
       );
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, url, 'image.cacheWrite');
+    } catch (error) {
     } finally {
       _pendingStoreWrites--;
       _pendingStoreBytes -= byteSize;
@@ -212,8 +208,7 @@ abstract class ByteCache<T extends Object> {
     if (_closed) return owner.._complete(null);
     try {
       requireSafeHttpUrl(Uri.parse(url));
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, url, 'image.url');
+    } catch (error) {
       return owner.._complete(null);
     }
     if (_cooledDown(url)) {
@@ -341,10 +336,9 @@ abstract class ByteCache<T extends Object> {
               return decoded;
             }
           }
-        } catch (error, stackTrace) {
+        } catch (error) {
           // Cache corruption or an unavailable cache directory is a miss,
           // never a reason to leave a drawable image blank.
-          _report(error, stackTrace, url, 'image.cacheRead');
         }
       }
       transfer.checkDemand();
@@ -371,25 +365,13 @@ abstract class ByteCache<T extends Object> {
         // The URL is the cache key, and an image too large to accept is no more
         // drawable than a format [decode] rejects. Remembering that result also
         // prevents a rebuild from downloading and rejecting it again.
-        _report(
-          HttpResponseTooLargeException(Uri.parse(url), maxResponseBytes),
-          StackTrace.current,
-          url,
-          'image.download',
-        );
+
         if (current()) _put(url, null, byteSize: 0);
         return null;
       }
 
       final decoded = decode(response);
-      if (decoded == null) {
-        _report(
-          FormatException(appL10n.downloadedImageCouldNotBeDecoded),
-          StackTrace.current,
-          url,
-          'image.decode',
-        );
-      }
+
       if (current()) {
         _put(
           url,
@@ -419,8 +401,7 @@ abstract class ByteCache<T extends Object> {
       return null;
     } on MediaOriginRateLimitedException {
       // This URL never reached the network: another native-managed media
-      // request put its whole origin into cooldown. Remember it as transient
-      // without producing one diagnostic per rejected avatar/emoji.
+      // request put its whole origin into cooldown. Remember it as transient.
       if (current()) {
         _rememberTransientFailure(url);
         _put(url, null, byteSize: 0);
@@ -432,11 +413,11 @@ abstract class ByteCache<T extends Object> {
       // overflow it is neither cached nor remembered as a failure, so a later
       // visible rebuild can try again once the backlog drains.
       return null;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (transfer.cancelled || !identical(_generation, generation)) {
         return null;
       }
-      _report(error, stackTrace, url, 'image.load');
+
       if (current()) {
         _rememberTransientFailure(url);
         _put(url, null, byteSize: 0);
@@ -445,25 +426,6 @@ abstract class ByteCache<T extends Object> {
     } finally {
       _release();
     }
-  }
-
-  static void _report(
-    Object error,
-    StackTrace stackTrace,
-    String url,
-    String operation,
-  ) {
-    final uri = Uri.tryParse(url);
-    final location = uri == null ? '' : ' ${uri.host}${uri.path}';
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: '$operation$location',
-      source: 'image',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 
   Future<ByteCacheDownload> _download(_ByteCacheTransfer<T> transfer) async {

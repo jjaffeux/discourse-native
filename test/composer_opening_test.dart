@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:discourse_native/src/diagnostics/surface_opening_trace.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
@@ -202,15 +201,12 @@ void main({bool profile = false}) {
       final boundaries = {
         for (final name in ['main', 'secondary']) name: boundaryFor(name),
       };
-      addTearDown(() => SurfaceOpeningTrace.observer = null);
+
       for (var iteration = 0; iteration < 3; iteration++) {
         final elapsed = Stopwatch()..start();
         final marks = <String, double>{};
         var builds = 0;
-        SurfaceOpeningTrace.observer = (name, _) {
-          if (name == 'composer.build') builds++;
-          marks.putIfAbsent(name, () => elapsed.elapsedMicroseconds / 1000);
-        };
+
         final opening = shell.openNewTopicFromSidebar();
         await tester.pump();
         await tester.pump();
@@ -219,20 +215,16 @@ void main({bool profile = false}) {
         expect(find.byType(ComposerPanel), findsOneWidget);
         expect(shell.topicPanelsVisible, isFalse);
         expect(shell.visibleComposer!.focus.hasPrimaryFocus, isTrue);
-        expect(
-          builds,
-          1,
-          reason: 'Initial focus must not rebuild the entire composer.',
-        );
+
         for (final entry in boundaries.entries) {
           expect(boundaryFor(entry.key), same(entry.value));
         }
         if (profile) {
           debugPrint(
-            'COMPOSER_OPENING_PROFILE ${jsonEncode({'label': const String.fromEnvironment('PROFILE_LABEL', defaultValue: 'current'), 'iteration': iteration, 'milestonesMs': marks, 'composerBuilds': builds, 'settledMs': elapsed.elapsedMicroseconds / 1000})}',
+            'COMPOSER_OPENING_PROFILE ${jsonEncode({'label': const String.fromEnvironment('PROFILE_LABEL', defaultValue: 'current'), 'iteration': iteration, 'milestonesMs': marks, 'settledMs': elapsed.elapsedMicroseconds / 1000})}',
           );
         }
-        SurfaceOpeningTrace.observer = null;
+
         shell.closeComposer();
         await tester.pumpAndSettle();
         expect(shell.topicPanelsVisible, isTrue);

@@ -8,7 +8,7 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/groups_api.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/group.dart';
@@ -539,7 +539,7 @@ final class GroupsController extends FrameSafeNotifier {
         );
       });
     } catch (error, stackTrace) {
-      _fail(token, 'groups.directory', error, stackTrace, () {
+      _fail(token, () {
         // The failure keeps whatever the list holds now, for the same reason
         // the commit does: a mutation may have changed it since the request.
         final current = _directories[key];
@@ -586,8 +586,7 @@ final class GroupsController extends FrameSafeNotifier {
       return _current(token)
           ? List.unmodifiable(page.members.take(4))
           : const [];
-    } catch (error, stackTrace) {
-      if (_current(token)) _report(error, stackTrace, 'groups.memberPreview');
+    } catch (error) {
       return const [];
     } finally {
       _finish(token);
@@ -636,7 +635,7 @@ final class GroupsController extends FrameSafeNotifier {
         _details[key] = GroupDetailState(detail: detail, loaded: true);
       });
     } catch (error, stackTrace) {
-      _fail(token, 'groups.detail', error, stackTrace, () {
+      _fail(token, () {
         _details[key] = GroupDetailState(
           detail: held.detail,
           loaded: true,
@@ -746,7 +745,7 @@ final class GroupsController extends FrameSafeNotifier {
         return;
       }
     } catch (error, stackTrace) {
-      _fail(token, 'groups.members', error, stackTrace, () {
+      _fail(token, () {
         final current = _members[key];
         if (current == null) return;
         _members[key] = GroupMembersState._(
@@ -847,7 +846,7 @@ final class GroupsController extends FrameSafeNotifier {
         return;
       }
     } catch (error, stackTrace) {
-      _fail(token, 'groups.requests', error, stackTrace, () {
+      _fail(token, () {
         final current = _requesters[key];
         if (current == null) return;
         _requesters[key] = GroupRequestersState._(
@@ -938,7 +937,7 @@ final class GroupsController extends FrameSafeNotifier {
         );
       });
     } catch (error, stackTrace) {
-      _fail(token, 'groups.activity', error, stackTrace, () {
+      _fail(token, () {
         final current = _activities[key];
         if (current == null) return;
         _activities[key] = GroupActivityState._(
@@ -998,7 +997,7 @@ final class GroupsController extends FrameSafeNotifier {
         );
       });
     } catch (error, stackTrace) {
-      _fail(token, 'groups.permissions', error, stackTrace, () {
+      _fail(token, () {
         _permissions[key] = GroupPermissionsState._(
           permissions: held.permissions,
           loaded: true,
@@ -1065,7 +1064,7 @@ final class GroupsController extends FrameSafeNotifier {
         );
       });
     } catch (error, stackTrace) {
-      _fail(token, 'groups.logs', error, stackTrace, () {
+      _fail(token, () {
         final current = _logs[key];
         if (current == null) return;
         _logs[key] = GroupLogsState._(
@@ -1087,7 +1086,7 @@ final class GroupsController extends FrameSafeNotifier {
   Future<bool> join(DiscourseInstance instance, Group group) => _mutate(
     instance,
     group,
-    'groups.join',
+
     (apiKey, clientId) => api.join(
       siteUrl: instance.url,
       apiKey: apiKey,
@@ -1099,7 +1098,7 @@ final class GroupsController extends FrameSafeNotifier {
   Future<bool> leave(DiscourseInstance instance, Group group) => _mutate(
     instance,
     group,
-    'groups.leave',
+
     (apiKey, clientId) => api.leave(
       siteUrl: instance.url,
       apiKey: apiKey,
@@ -1121,7 +1120,7 @@ final class GroupsController extends FrameSafeNotifier {
     final sent = await _mutate(
       instance,
       group,
-      'groups.requestMembership',
+
       (apiKey, clientId) async {
         messageUrl = await api.requestMembership(
           siteUrl: instance.url,
@@ -1153,7 +1152,7 @@ final class GroupsController extends FrameSafeNotifier {
   }) => _mutate(
     instance,
     group,
-    accept ? 'groups.requests.accept' : 'groups.requests.deny',
+
     (apiKey, clientId) => api.handleMembershipRequest(
       siteUrl: instance.url,
       apiKey: apiKey,
@@ -1201,10 +1200,7 @@ final class GroupsController extends FrameSafeNotifier {
     bool ascending = true,
   }) async {
     GroupMembershipMutationResult? output;
-    final saved = await _mutate(instance, group, 'groups.members.add', (
-      apiKey,
-      clientId,
-    ) async {
+    final saved = await _mutate(instance, group, (apiKey, clientId) async {
       output = await api.addMembers(
         siteUrl: instance.url,
         apiKey: apiKey,
@@ -1235,10 +1231,7 @@ final class GroupsController extends FrameSafeNotifier {
     DateTime? expiresAt,
   }) async {
     GroupInvite? output;
-    final saved = await _mutate(instance, group, 'groups.invite', (
-      apiKey,
-      clientId,
-    ) async {
+    final saved = await _mutate(instance, group, (apiKey, clientId) async {
       output = await api.createInvite(
         siteUrl: instance.url,
         apiKey: apiKey,
@@ -1260,7 +1253,7 @@ final class GroupsController extends FrameSafeNotifier {
   ) => _mutate(
     instance,
     group,
-    'groups.members.remove',
+
     (apiKey, clientId) => api.removeMembers(
       siteUrl: instance.url,
       apiKey: apiKey,
@@ -1303,7 +1296,7 @@ final class GroupsController extends FrameSafeNotifier {
     final saved = await _mutate(
       instance,
       group,
-      owner ? 'groups.members.makeOwner' : 'groups.members.removeOwner',
+
       (apiKey, clientId) => owner
           ? api.addOwners(
               siteUrl: instance.url,
@@ -1334,7 +1327,7 @@ final class GroupsController extends FrameSafeNotifier {
     final saved = await _mutate(
       instance,
       group,
-      primary ? 'groups.members.makePrimary' : 'groups.members.removePrimary',
+
       (apiKey, clientId) => api.setPrimaryGroup(
         siteUrl: instance.url,
         apiKey: apiKey,
@@ -1353,7 +1346,7 @@ final class GroupsController extends FrameSafeNotifier {
     final saved = await _mutate(
       instance,
       group,
-      'groups.delete',
+
       (apiKey, clientId) => api.deleteGroup(
         siteUrl: instance.url,
         apiKey: apiKey,
@@ -1461,7 +1454,7 @@ final class GroupsController extends FrameSafeNotifier {
   }) => _mutate(
     instance,
     group,
-    'groups.update',
+
     (apiKey, clientId) => api.updateGroup(
       siteUrl: instance.url,
       apiKey: apiKey,
@@ -1476,7 +1469,7 @@ final class GroupsController extends FrameSafeNotifier {
   Future<bool> _mutate(
     DiscourseInstance instance,
     Group group,
-    String operation,
+
     Future<void> Function(String apiKey, String clientId) write, {
     bool refreshDetail = true,
     VoidCallback? removeCachedRows,
@@ -1531,9 +1524,8 @@ final class GroupsController extends FrameSafeNotifier {
       }
       saved =
           !isDisposed && lease.isCurrent && identical(_mutations[key], token);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (lease.isCurrent && identical(_mutations[key], token)) {
-        _report(error, stackTrace, operation);
         _details[key] = GroupDetailState(
           detail: held.detail,
           loaded: held.loaded,
@@ -1661,15 +1653,9 @@ final class GroupsController extends FrameSafeNotifier {
     });
   }
 
-  void _fail(
-    _GroupRequest request,
-    String operation,
-    Object error,
-    StackTrace stackTrace,
-    VoidCallback mutation,
-  ) {
+  void _fail(_GroupRequest request, VoidCallback mutation) {
     if (!_current(request)) return;
-    _report(error, stackTrace, operation);
+
     _commit(request, mutation);
   }
 
@@ -1677,17 +1663,6 @@ final class GroupsController extends FrameSafeNotifier {
     if (identical(_requests[request.key], request)) {
       _requests.remove(request.key);
     }
-  }
-
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'groups',
-      handled: true,
-      degraded: true,
-    );
   }
 
   static _GroupKey _groupKey(String siteUrl, String groupName) =>

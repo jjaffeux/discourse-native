@@ -8,7 +8,7 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/serial_operation_queue.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
@@ -255,9 +255,9 @@ final class PreferencesController extends FrameSafeNotifier {
               : appL10n.thisAccountIsNotAllowedToEditThesePreferences,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_isCurrentLoad(lease, lane, request)) return;
-      _report(error, stackTrace, 'preferences.load');
+
       _commitLoad(lease, lane, request, () {
         final state = _states[siteUrl]!;
         _states[siteUrl] = state.copyWith(
@@ -390,9 +390,9 @@ final class PreferencesController extends FrameSafeNotifier {
         onSaved?.call(instance.url, section, mergedConfirmed);
       }
       return sectionUnchanged;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_isCurrentSave(lease, saveKey, request)) return false;
-      _report(error, stackTrace, 'preferences.save');
+
       if ((_sectionRevisions[saveKey] ?? 0) == sectionRevision &&
           identical(_latestSaves[saveKey], request)) {
         final current = _states[instance.url]!;
@@ -507,17 +507,6 @@ final class PreferencesController extends FrameSafeNotifier {
       };
     }
     return appL10n.couldnTUpdatePreferencesOn((host).toString());
-  }
-
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'preferences',
-      handled: true,
-      degraded: true,
-    );
   }
 
   @override

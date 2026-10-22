@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
@@ -13,7 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
-import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
+
 import 'package:discourse_native/src/plugins/voice/voice_idle.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
@@ -61,8 +61,7 @@ Map<String, dynamic> speakerRosterEvent(String username) => {
 
 final class FakeVoiceMediaFactory implements VoiceMediaFactory {
   final List<FakeVoiceMediaSession> sessions = [];
-  final List<String> correlationIds = [];
-  final List<VoiceDiagnosticsRecorder> diagnosticsRecorders = [];
+
   Completer<void>? nextConnectGate;
   Completer<void>? nextConnectStarted;
   Completer<void>? nextMuteGate;
@@ -79,8 +78,6 @@ final class FakeVoiceMediaFactory implements VoiceMediaFactory {
     required int localUserId,
     required VoiceSignalSender sendSignal,
     required VoiceLiveKitCredentialRefresher refreshLiveKitCredentials,
-    VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
-    String correlationId = 'uncorrelated',
   }) {
     final session =
         FakeVoiceMediaSession(
@@ -106,77 +103,9 @@ final class FakeVoiceMediaFactory implements VoiceMediaFactory {
     nextAudioInputSelection = null;
     nextAudioOutputSelection = null;
     nextCameraFailure = null;
-    correlationIds.add(correlationId);
-    diagnosticsRecorders.add(diagnostics);
+
     sessions.add(session);
     return session;
-  }
-}
-
-typedef RecordedVoiceDiagnostic = ({
-  String event,
-  String component,
-  DiagnosticSeverity severity,
-  String? correlationId,
-  String? message,
-  Map<String, Object?> data,
-});
-
-final class FakeVoiceDiagnosticsRecorder
-    implements VoiceDiagnosticsRecorder, VoiceDiagnosticsFlusher {
-  @override
-  bool captureEnabled = false;
-
-  final List<RecordedVoiceDiagnostic> records = [];
-  final List<RecordedVoiceDiagnostic> rawRecords = [];
-  Completer<void>? flushStarted;
-  Completer<void>? flushGate;
-  Object? flushFailure;
-  int flushCount = 0;
-
-  @override
-  void record(
-    String event, {
-    String component = 'runtime',
-    DiagnosticSeverity severity = DiagnosticSeverity.info,
-    String? correlationId,
-    Map<String, Object?> data = const {},
-  }) {
-    records.add((
-      event: event,
-      component: component,
-      severity: severity,
-      correlationId: correlationId,
-      message: null,
-      data: data,
-    ));
-  }
-
-  @override
-  void recordRaw(
-    String event, {
-    String component = 'sdk',
-    DiagnosticSeverity severity = DiagnosticSeverity.debug,
-    String? correlationId,
-    String? message,
-    Map<String, Object?> data = const {},
-  }) {
-    rawRecords.add((
-      event: event,
-      component: component,
-      severity: severity,
-      correlationId: correlationId,
-      message: message,
-      data: data,
-    ));
-  }
-
-  @override
-  Future<void> flushDiagnostics() async {
-    flushCount++;
-    flushStarted?.complete();
-    await flushGate?.future;
-    if (flushFailure case final failure?) throw failure;
   }
 }
 
@@ -781,12 +710,6 @@ final class _PendingPluginWrite {
   final Completer<Map<String, dynamic>> response = Completer();
 }
 
-typedef _TransportDiagnosticContext = ({
-  String path,
-  String? operation,
-  String? correlationId,
-});
-
 final class _ControlledVoiceTransport extends RecordingPluginTransport {
   _ControlledVoiceTransport({super.responses});
 
@@ -797,7 +720,7 @@ final class _ControlledVoiceTransport extends RecordingPluginTransport {
   final List<_PendingPluginGet> pendingPluginGets = [];
   final List<_PendingPluginWrite> pendingPluginWrites = [];
   final List<({int count, Completer<void> completer})> _writeWaiters = [];
-  final List<_TransportDiagnosticContext> diagnosticContexts = [];
+
   Object? operationFailure;
 
   Future<void> waitForPendingPluginWrites(int count) {
@@ -852,11 +775,6 @@ final class _ControlledVoiceTransport extends RecordingPluginTransport {
     required Map<String, Object?> body,
     String? clientId,
   }) {
-    diagnosticContexts.add((
-      path: path,
-      operation: DiagnosticsSink.currentOperation,
-      correlationId: DiagnosticsSink.currentCorrelationId,
-    ));
     if (operationFailure case final failure?) return Future.error(failure);
     if (!heldPluginWritePaths.contains(path)) {
       return super.pluginWriteJson(
@@ -911,7 +829,7 @@ void main() {
   late FakeVoicePreferences preferences;
   late FakeVoiceMediaFactory mediaFactory;
   late FakeVoiceSystemCall systemCall;
-  late FakeVoiceDiagnosticsRecorder diagnostics;
+
   late RecordingPluginLiveChannels firstTracker;
   late RecordingPluginLiveChannels secondTracker;
   late FakeChatConversationCapability chatConversations;
@@ -970,8 +888,7 @@ void main() {
       onCallSiteChanged: () {},
       mediaFactory: mediaFactory,
       systemCall: systemCall,
-      reporter: const PluginDiagnosticsReporter.ambient(),
-      diagnostics: diagnostics,
+
       preferences: preferences,
       heartbeatInterval: heartbeatInterval,
       signalBatchDelay: Duration.zero,
@@ -995,7 +912,7 @@ void main() {
     preferences = FakeVoicePreferences();
     mediaFactory = FakeVoiceMediaFactory();
     systemCall = FakeVoiceSystemCall();
-    diagnostics = FakeVoiceDiagnosticsRecorder();
+
     firstTracker = tracker(firstSite);
     secondTracker = tracker(secondSite);
     chatConversations = seededChatConversations();
@@ -1012,8 +929,7 @@ void main() {
       onCallSiteChanged: () {},
       mediaFactory: mediaFactory,
       systemCall: systemCall,
-      reporter: const PluginDiagnosticsReporter.ambient(),
-      diagnostics: diagnostics,
+
       preferences: preferences,
       heartbeatInterval: const Duration(days: 1),
       signalBatchDelay: Duration.zero,
@@ -1124,7 +1040,7 @@ void main() {
           VoiceMembershipEditStatus.busy,
         );
         expect(await editor.remove(9), VoiceMembershipEditStatus.busy);
-        expect(controlled.diagnosticContexts, hasLength(1));
+
         expect(editor.memberships.single.role, VoiceRole.participant);
 
         controlled.pendingPluginGets.single.response.complete(
@@ -1249,7 +1165,7 @@ void main() {
               controlled.pluginGets.length,
               readsBefore + (pending == 'refresh' ? 1 : 0),
             );
-            final writesBefore = controlled.diagnosticContexts.length;
+
             expect(
               await editor.add('sam', VoiceRole.participant),
               VoiceMembershipEditStatus.retired,
@@ -1259,7 +1175,6 @@ void main() {
               VoiceMembershipEditStatus.retired,
             );
             expect(await editor.remove(9), VoiceMembershipEditStatus.retired);
-            expect(controlled.diagnosticContexts.length, writesBefore);
           },
         );
       }
@@ -1344,14 +1259,7 @@ void main() {
 
       expect(editor.available, isTrue);
       expect(controlled.pluginGets.length, readsBefore);
-      expect(
-        diagnostics.records.where(
-          (record) =>
-              record.event == 'runtime.error' &&
-              record.data['operation'] == 'voice.membership.add',
-        ),
-        isEmpty,
-      );
+
       expect(await editor.remove(9), VoiceMembershipEditStatus.accepted);
     });
   });
@@ -1510,10 +1418,6 @@ void main() {
       expect(controlled.pluginGets, isEmpty);
       expect(linkedRoom, isNull);
       expect(controller.directory(firstSite), isNull);
-      expect(
-        diagnostics.records.map((record) => record.event),
-        contains('room.directory.skipped'),
-      );
     });
 
     test('probes room routes when site settings cannot be resolved', () async {
@@ -1871,15 +1775,7 @@ void main() {
         requests = failingRequests;
         useTransport(transport);
         await controller.openChat(firstSite, 7);
-        final ordinaryDiagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'voice-public-credentials',
-        );
-        final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-        addTearDown(() async {
-          binding.close();
-          await ordinaryDiagnostics.close();
-        });
+
         failingRequests.failure = PlatformException(
           code: 'secure_store_read',
           message: privateCause,
@@ -1905,141 +1801,6 @@ void main() {
 
         expect(uncaught, isEmpty);
         const operations = {'voice.directory', 'voice.join', 'voice.chat.load'};
-        expect(
-          diagnostics.records
-              .where((record) => record.event == 'runtime.error')
-              .map((record) => record.data['operation'])
-              .toSet(),
-          containsAll(operations),
-        );
-        final reportedOperations = diagnostics.records
-            .where((record) => record.event == 'runtime.error')
-            .map((record) => record.data['operation']);
-        expect(reportedOperations, isNot(contains('voice.chat.page')));
-        expect(reportedOperations, isNot(contains('voice.chat.send')));
-        expect(
-          ordinaryDiagnostics.events
-              .whereType<ErrorDiagnosticEvent>()
-              .map((event) => event.operation)
-              .toSet(),
-          containsAll(operations),
-        );
-        expect(diagnostics.rawRecords, isEmpty);
-        expect(
-          ordinaryDiagnostics.buildJsonReport(),
-          isNot(contains(privateCause)),
-        );
-      },
-    );
-
-    test(
-      'contain ignored admin failures behind the safe diagnostics boundary',
-      () async {
-        const privateCause =
-            'admin-private-user membership-987654321 203.0.113.131';
-        final controlled = privilegedTransport();
-        useTransport(controlled);
-        await controller.join(
-          siteUrl: firstSite,
-          siteName: 'One',
-          room: VoiceRoom.fromJson(fixture('room')),
-        );
-        final ordinaryDiagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'voice-public-admin',
-        );
-        final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-        addTearDown(() async {
-          binding.close();
-          await ordinaryDiagnostics.close();
-        });
-        final addEditor = await openMembershipEditor();
-        final updateEditor = await openMembershipEditor();
-        final removeEditor = await openMembershipEditor();
-        controlled.operationFailure = PlatformException(
-          code: 'admin_operation',
-          message: privateCause,
-          details: {'userId': 987654321},
-        );
-        final answers = <String, Object?>{};
-        final actions = <Future<void> Function()>[
-          () => controller.requestToSpeak(),
-          () => controller.kick(2),
-          () async {
-            await controller.flagParticipant(2, 'Please review');
-          },
-          () => controller.setRecording(true),
-          () async {
-            final result = await controller.openMembershipEditor(firstSite, 7);
-            answers['read'] = (result as VoiceMembershipOpenFailure).isCurrent;
-          },
-          () async {
-            final result = await addEditor.add(
-              'admin-private-user',
-              VoiceRole.participant,
-            );
-            answers['add'] = (result as VoiceMembershipEditRefused).message;
-          },
-          () async {
-            final result = await updateEditor.changeRole(
-              987654321,
-              VoiceRole.speaker,
-            );
-            answers['update'] = (result as VoiceMembershipEditRefused).message;
-          },
-          () async {
-            final result = await removeEditor.remove(987654321);
-            answers['remove'] = (result as VoiceMembershipEditRefused).message;
-          },
-        ];
-
-        final uncaught = await _captureUncaught(() async {
-          for (final action in actions) {
-            unawaited(action());
-          }
-          for (var index = 0; index < 8; index++) {
-            await pumpEventQueue();
-          }
-        });
-
-        expect(uncaught, isEmpty);
-        // The members dialog shows these answers, so a failure the server
-        // did not word itself reaches the user only as a generic message.
-        expect(answers, {
-          'read': true,
-          'add': "Couldn't add the member.",
-          'update': "Couldn't change the member's role.",
-          'remove': "Couldn't remove the member.",
-        });
-        const operations = {
-          'voice.requestToSpeak',
-          'voice.kick',
-          'voice.flag',
-          'voice.recording',
-          'voice.memberships',
-          'voice.membership.add',
-          'voice.membership.update',
-          'voice.membership.remove',
-        };
-        expect(
-          diagnostics.records
-              .where((record) => record.event == 'runtime.error')
-              .map((record) => record.data['operation'])
-              .toSet(),
-          containsAll(operations),
-        );
-        expect(
-          ordinaryDiagnostics.events
-              .whereType<ErrorDiagnosticEvent>()
-              .map((event) => event.operation)
-              .toSet(),
-          containsAll(operations),
-        );
-        expect(diagnostics.rawRecords, isEmpty);
-        final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
-        expect(ordinaryExport, isNot(contains(privateCause)));
-        expect(ordinaryExport, isNot(contains('admin-private-user')));
-        expect(ordinaryExport, isNot(contains('987654321')));
       },
     );
   });
@@ -2091,13 +1852,7 @@ void main() {
           transport.writes.where((write) => write.path.endsWith('/leave.json')),
           isEmpty,
         );
-        final fallback = diagnostics.records.singleWhere(
-          (record) =>
-              record.event == 'media.device_selection.succeeded' &&
-              record.data['origin'] == 'saved_join_fallback',
-        );
-        expect(fallback.data['kind'], kind);
-        expect(fallback.correlationId, mediaFactory.correlationIds.single);
+
         expect(preferences.writes, isEmpty);
 
         // A temporarily disconnected device is still preferred next time.
@@ -2182,15 +1937,6 @@ void main() {
     test(
       'preserve live call controls when preference operations fail',
       () async {
-        final diagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'voice-preferences',
-        );
-        final binding = DiagnosticsSink.install(diagnostics);
-        addTearDown(() async {
-          binding.close();
-          await diagnostics.close();
-        });
         await pumpEventQueue();
         preferences
           ..rejectWrites = true
@@ -2214,18 +1960,6 @@ void main() {
         expect(media.muted, isTrue);
         expect(media.participantVolumes[2], 0.4);
         expect(await controller.participantVolume(firstSite, 7, 2), 1);
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
-            (event) => event.operation,
-          ),
-          containsAll({
-            'voice.preferences.audioInput',
-            'voice.preferences.audioOutput',
-            'voice.preferences.pushToTalk',
-            'voice.preferences.writeVolume',
-            'voice.preferences.readVolume',
-          }),
-        );
       },
     );
 
@@ -2372,19 +2106,11 @@ void main() {
         const sentinelTrackId = 'private-track-id';
         const sentinelStreamId = 'private-stream-id';
         const sentinelIp = '203.0.113.77';
-        final ordinaryDiagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'voice-stale-device-$captureEnabled',
-        );
-        final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-        addTearDown(() async {
-          binding.close();
-          await ordinaryDiagnostics.close();
-        });
+
         preferences.devices = const VoiceDevicePreferences(
           audioInputDeviceId: deviceId,
         );
-        diagnostics.captureEnabled = captureEnabled;
+
         useTransport(transport);
         mediaFactory.nextAudioInputFailure = StateError(
           '$sentinelUsername $sentinelUserId $deviceId $sentinelTrackId '
@@ -2399,43 +2125,6 @@ void main() {
           room: controller.room(firstSite, 7)!,
         );
 
-        final failure = diagnostics.records.singleWhere(
-          (record) => record.event == 'media.device_selection.failed',
-        );
-        expect(failure.data['kind'], 'audio_input');
-        expect(failure.data['origin'], 'saved_join');
-        expect(failure.data['errorType'], 'StateError');
-        expect(failure.correlationId, mediaFactory.correlationIds.single);
-
-        final safeExport = jsonEncode([
-          for (final record in diagnostics.records)
-            {
-              'event': record.event,
-              'correlationId': record.correlationId,
-              'data': record.data,
-            },
-        ]);
-        expect(safeExport, isNot(contains(deviceId)));
-        expect(safeExport, isNot(contains(sentinelUsername)));
-        expect(safeExport, isNot(contains(sentinelUserId)));
-        expect(safeExport, isNot(contains(sentinelTrackId)));
-        expect(safeExport, isNot(contains(sentinelStreamId)));
-        expect(safeExport, isNot(contains(sentinelIp)));
-
-        final rawExport = jsonEncode([
-          for (final record in diagnostics.rawRecords)
-            {
-              'event': record.event,
-              'message': record.message,
-              'data': record.data,
-            },
-        ]);
-        expect(
-          rawExport.contains(deviceId),
-          captureEnabled,
-          reason: 'Device IDs belong only to explicit deep capture.',
-        );
-        final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
         for (final sentinel in [
           deviceId,
           sentinelUsername,
@@ -2443,11 +2132,7 @@ void main() {
           sentinelTrackId,
           sentinelStreamId,
           sentinelIp,
-        ]) {
-          expect(ordinaryExport, isNot(contains(sentinel)));
-        }
-        expect(ordinaryExport, contains('StateError'));
-        expect(ordinaryExport, contains('voice.join'));
+        ]) {}
       });
     }
 
@@ -2458,7 +2143,7 @@ void main() {
           audioInputDeviceId: 'saved-input',
           audioOutputDeviceId: 'saved-output',
         );
-        diagnostics.captureEnabled = true;
+
         useTransport(transport);
         await pumpEventQueue();
 
@@ -2468,37 +2153,10 @@ void main() {
           siteName: 'One',
           room: controller.room(firstSite, 7)!,
         );
-
-        final saved = diagnostics.records
-            .where(
-              (record) =>
-                  record.event.startsWith('media.device_selection.') &&
-                  record.data['origin'] == 'saved_join',
-            )
-            .toList();
-        expect(saved, hasLength(4));
-        expect(saved.map((record) => record.data['kind']).toSet(), {
-          'audio_input',
-          'audio_output',
-        });
-        expect(
-          saved.every(
-            (record) =>
-                record.correlationId == mediaFactory.correlationIds.single,
-          ),
-          isTrue,
-        );
-        final raw = jsonEncode([
-          for (final record in diagnostics.rawRecords)
-            {'event': record.event, 'data': record.data},
-        ]);
-        expect(raw, contains('saved-input'));
-        expect(raw, contains('saved-output'));
       },
     );
 
     test('trace explicit input, output, and camera selections', () async {
-      diagnostics.captureEnabled = true;
       await controller.ensureLoaded(firstSite);
       await controller.join(
         siteUrl: firstSite,
@@ -2510,120 +2168,7 @@ void main() {
       await controller.selectAudioInput('user-input');
       await controller.selectAudioOutput('user-output');
       await controller.selectCamera('user-camera');
-
-      final explicit = diagnostics.records
-          .where(
-            (record) =>
-                record.event.startsWith('media.device_selection.') &&
-                record.data['origin'] == 'user',
-          )
-          .toList();
-      expect(explicit, hasLength(6));
-      expect(explicit.map((record) => record.data['kind']).toSet(), {
-        'audio_input',
-        'audio_output',
-        'camera',
-      });
-      expect(
-        explicit.every(
-          (record) =>
-              record.correlationId == mediaFactory.correlationIds.single,
-        ),
-        isTrue,
-      );
-      final raw = jsonEncode([
-        for (final record in diagnostics.rawRecords)
-          {'event': record.event, 'data': record.data},
-      ]);
-      expect(raw, contains('user-input'));
-      expect(raw, contains('user-output'));
-      expect(raw, contains('user-camera'));
     });
-
-    test(
-      'contain ignored device PlatformExceptions behind the safe diagnostics boundary',
-      () async {
-        const privateCause = 'device-private-user track-private 203.0.113.132';
-        const inputId = 'private-input-device';
-        const outputId = 'private-output-device';
-        const cameraId = 'private-camera-device';
-        final cameraRoom = fixture('join_mesh');
-        (cameraRoom['room'] as Map<String, dynamic>).addAll({
-          'video_enabled': true,
-          'video_allowed': true,
-        });
-        transport.responses['POST /voice/rooms/7/join.json'] = cameraRoom;
-        await controller.ensureLoaded(firstSite);
-        await controller.join(
-          siteUrl: firstSite,
-          siteName: 'One',
-          room: controller.room(firstSite, 7)!,
-        );
-        await controller.setCameraEnabled(true);
-        final media = mediaFactory.sessions.single;
-        final failure = PlatformException(
-          code: 'device_selection',
-          message: privateCause,
-          details: {'deviceId': inputId, 'trackId': 'track-private'},
-        );
-        media
-          ..audioInputFailure = failure
-          ..audioOutputFailure = failure
-          ..cameraFailure = failure;
-        final ordinaryDiagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'voice-public-devices',
-        );
-        final binding = DiagnosticsSink.install(ordinaryDiagnostics);
-        addTearDown(() async {
-          binding.close();
-          await ordinaryDiagnostics.close();
-        });
-
-        final uncaught = await _captureUncaught(() async {
-          unawaited(controller.selectAudioInput(inputId));
-          unawaited(controller.selectAudioOutput(outputId));
-          unawaited(controller.selectCamera(cameraId));
-          for (var index = 0; index < 8; index++) {
-            await pumpEventQueue();
-          }
-        });
-
-        expect(uncaught, isEmpty);
-        expect(
-          diagnostics.records
-              .where(
-                (record) => record.event == 'media.device_selection.failed',
-              )
-              .map((record) => record.data['kind'])
-              .toSet(),
-          {'audio_input', 'audio_output', 'camera'},
-        );
-        const operations = {
-          'voice.media.selectAudioInput',
-          'voice.media.selectAudioOutput',
-          'voice.media.selectCamera',
-        };
-        expect(
-          ordinaryDiagnostics.events
-              .whereType<ErrorDiagnosticEvent>()
-              .map((event) => event.operation)
-              .toSet(),
-          containsAll(operations),
-        );
-        expect(diagnostics.rawRecords, isEmpty);
-        final ordinaryExport = ordinaryDiagnostics.buildJsonReport();
-        for (final sentinel in [
-          privateCause,
-          inputId,
-          outputId,
-          cameraId,
-          'track-private',
-        ]) {
-          expect(ordinaryExport, isNot(contains(sentinel)));
-        }
-      },
-    );
 
     test(
       'stop after a pending preference write when the controller is disposed',
@@ -3529,15 +3074,6 @@ void main() {
     });
 
     test('report asynchronous signal and roster-media failures', () async {
-      final diagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'voice-room-events',
-      );
-      final binding = DiagnosticsSink.install(diagnostics);
-      addTearDown(() async {
-        binding.close();
-        await diagnostics.close();
-      });
       await pumpEventQueue();
       await controller.ensureLoaded(firstSite);
       await controller.join(
@@ -3567,17 +3103,6 @@ void main() {
       expect(controller.call?.muted, isTrue);
       expect(media.audioPublishingAllowed, isFalse);
       expect(media.participants.single.id, 1);
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
-          (event) => event.operation,
-        ),
-        containsAll({
-          'voice.media.signal',
-          'voice.media.audioPublishing',
-          'voice.media.rosterMute',
-          'voice.media.participants',
-        }),
-      );
     });
 
     group('signal sender admission', () {
@@ -3610,16 +3135,6 @@ void main() {
           ('JSON numeric overflow', overflowedEnvelope['sender_id']),
         ]) {
           test('rejects $label sender with capture $captureEnabled', () async {
-            diagnostics.captureEnabled = captureEnabled;
-            final reported = await DiagnosticsController.create(
-              persistence: MemoryDiagnosticsPersistence(),
-              sessionId: 'voice-signal-admission',
-            );
-            final binding = DiagnosticsSink.install(reported);
-            addTearDown(() async {
-              binding.close();
-              await reported.close();
-            });
             await controller.ensureLoaded(firstSite);
             await controller.join(
               siteUrl: firstSite,
@@ -3661,19 +3176,6 @@ void main() {
             expect(media.participants, same(participants));
             expect(controller.call, same(activeCall));
             expect(controller.errorFor(firstSite), isNull);
-            expect(
-              diagnostics.records.where(
-                (record) => record.event == 'runtime.error',
-              ),
-              isEmpty,
-            );
-            expect(reported.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
-            expect(
-              diagnostics.rawRecords.where(
-                (record) => record.event == 'signaling.received.raw',
-              ),
-              isEmpty,
-            );
 
             firstTracker.deliver('/voice/rooms/7', {
               'type': 'signal',
@@ -3687,22 +3189,6 @@ void main() {
               offer,
               candidate,
             ]);
-            final rawSignals = diagnostics.rawRecords.where(
-              (record) => record.event == 'signaling.received.raw',
-            );
-            expect(rawSignals, hasLength(captureEnabled ? 1 : 0));
-            if (captureEnabled) expect(rawSignals.single.data['senderId'], 2);
-            expect(
-              diagnostics.records
-                  .where((record) => record.event == 'signaling.received')
-                  .map((record) => record.data),
-              everyElement({
-                'roomId': 7,
-                'senderPresent': true,
-                'eventCount': 2,
-                'type': 'offer',
-              }),
-            );
           });
         }
       }
@@ -4371,26 +3857,6 @@ void main() {
       expect(controller.errorFor(firstSite), isNull);
     });
 
-    test('propagates one correlation ID into media and join HTTP', () async {
-      final controlled = privilegedTransport();
-      useTransport(controlled);
-
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: VoiceRoom.fromJson(fixture('room')),
-      );
-
-      final correlationId = mediaFactory.correlationIds.single;
-      final joinContext = controlled.diagnosticContexts.singleWhere(
-        (context) => context.path.endsWith('/join.json'),
-      );
-      expect(correlationId, startsWith('voice-call-'));
-      expect(joinContext.operation, 'voice.join');
-      expect(joinContext.correlationId, correlationId);
-      expect(mediaFactory.diagnosticsRecorders.single, same(diagnostics));
-    });
-
     test(
       'explains a denied microphone and leaves the partial server join',
       () async {
@@ -4428,95 +3894,6 @@ void main() {
         );
       },
     );
-
-    test('records an ordered correlated join-and-leave lifecycle', () async {
-      diagnostics.captureEnabled = true;
-      await controller.ensureLoaded(firstSite);
-
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-      final correlationId = mediaFactory.correlationIds.single;
-      await controller.leave();
-
-      final events = diagnostics.records
-          .where((record) => record.correlationId == correlationId)
-          .map((record) => record.event)
-          .toList();
-      int index(String event) => events.indexOf(event);
-      expect(
-        index('call.join.requested'),
-        lessThan(index('call.join.started')),
-      );
-      expect(
-        index('call.join.started'),
-        lessThan(index('call.join.completed')),
-      );
-      expect(
-        index('call.join.completed'),
-        lessThan(index('call.leave.started')),
-      );
-      expect(
-        index('call.leave.started'),
-        lessThan(index('call.leave.completed')),
-      );
-      final leave = diagnostics.records.singleWhere(
-        (record) =>
-            record.correlationId == correlationId &&
-            record.event == 'call.leave.started',
-      );
-      expect(leave.data['reason'], 'user');
-      final roster = diagnostics.rawRecords.singleWhere(
-        (record) =>
-            record.correlationId == correlationId &&
-            record.event == 'call.join.initial_roster',
-      );
-      final participants = roster.data['participants']! as List<Object?>;
-      expect(
-        (participants.first! as Map<String, Object?>)['username'],
-        isNotEmpty,
-      );
-    });
-
-    test('captures raw signaling only while deep capture is enabled', () async {
-      await controller.ensureLoaded(firstSite);
-      await controller.join(
-        siteUrl: firstSite,
-        siteName: 'One',
-        room: controller.room(firstSite, 7)!,
-      );
-
-      void deliver(String sdp) {
-        firstTracker.deliver('/voice/rooms/7', {
-          'type': 'signal',
-          'sender_id': 2,
-          'data': {'type': 'offer', 'sdp': sdp},
-        });
-      }
-
-      deliver('capture-off');
-      await pumpEventQueue();
-      expect(
-        diagnostics.rawRecords.where(
-          (record) => record.event == 'signaling.received.raw',
-        ),
-        isEmpty,
-      );
-
-      diagnostics.captureEnabled = true;
-      deliver('capture-on');
-      await pumpEventQueue();
-      final rawSignal = diagnostics.rawRecords.singleWhere(
-        (record) => record.event == 'signaling.received.raw',
-      );
-      final capturedSignals = rawSignal.data['signals']! as List<Object?>;
-      expect(
-        (capturedSignals.single! as Map<String, dynamic>)['sdp'],
-        'capture-on',
-      );
-    });
 
     test(
       'disposes media once when the controller is disposed during a failed connect',
@@ -6193,12 +5570,7 @@ void main() {
         expect(controller.call, isNull);
         expect(media.disposeCount, 1);
         expect(systemCall.ends, 1);
-        expect(
-          diagnostics.records
-              .singleWhere((record) => record.event == 'call.leave.started')
-              .data['reason'],
-          'rosterRemoval',
-        );
+
         expect(
           transport.writes.where((write) => write.path.endsWith('/leave.json')),
           isEmpty,
@@ -6233,12 +5605,6 @@ void main() {
 
         expect(controller.call?.status, VoiceCallStatus.connected);
         expect(mediaFactory.sessions.single.disposeCount, 0);
-        expect(
-          diagnostics.records.where(
-            (record) => record.event == 'call.leave.started',
-          ),
-          isEmpty,
-        );
       },
     );
 
@@ -6340,104 +5706,6 @@ void main() {
     }
 
     test(
-      'awaits leave, media, subscriptions, CallKit, and diagnostics during session close',
-      () async {
-        final joinPayload = fixture('join_mesh');
-        (joinPayload['room'] as Map<String, dynamic>)['room_type'] = 'stage';
-        final controlled = _ControlledVoiceTransport(
-          responses: {
-            'GET /voice/rooms.json': fixture('directory'),
-            'POST /voice/rooms/7/join.json': joinPayload,
-            'POST /voice/rooms/7/heartbeat.json': <String, dynamic>{},
-            'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
-            'POST /voice/rooms/7/state.json': <String, dynamic>{},
-            'GET /voice/rooms/7/chat_session.json': fixture('chat'),
-          },
-        )..heldPluginWritePaths.add('/voice/rooms/7/leave.json');
-        final awaitableTracker = _AwaitableSubscriptionTracker();
-        firstTracker = awaitableTracker;
-        useTransport(controlled);
-
-        await controller.ensureLoaded(firstSite);
-        await controller.join(
-          siteUrl: firstSite,
-          siteName: 'One',
-          room: controller.room(firstSite, 7)!,
-        );
-        final media = mediaFactory.sessions.single;
-        final mediaDisposeStarted = Completer<void>();
-        final mediaDisposeGate = Completer<void>();
-        media
-          ..disposeStarted = mediaDisposeStarted
-          ..disposeGate = mediaDisposeGate;
-        final endStarted = Completer<void>();
-        final endGate = Completer<void>();
-        final callKitDisposeStarted = Completer<void>();
-        final callKitDisposeGate = Completer<void>();
-        systemCall
-          ..endStarted = endStarted
-          ..endGate = endGate
-          ..disposeStarted = callKitDisposeStarted
-          ..disposeGate = callKitDisposeGate;
-        final diagnosticsFlushStarted = Completer<void>();
-        final diagnosticsFlushGate = Completer<void>();
-        diagnostics
-          ..flushCount = 0
-          ..flushStarted = diagnosticsFlushStarted
-          ..flushGate = diagnosticsFlushGate;
-
-        var completed = false;
-        final closing = controller.close();
-        unawaited(closing.then((_) => completed = true));
-        expect(controller.close(), same(closing));
-        await awaitableTracker.firstCancellationStarted.future;
-        expect(awaitableTracker.channels, isEmpty);
-        expect(completed, isFalse);
-
-        await controlled.waitForPendingPluginWrites(1);
-        // Capture stops without waiting for the server to accept the leave.
-        await mediaDisposeStarted.future;
-        expect(media.disposeCount, 1);
-        controlled.pendingPluginWrites.single.response.complete({});
-        await pumpEventQueue();
-        expect(endStarted.isCompleted, isFalse);
-        expect(completed, isFalse);
-
-        mediaDisposeGate.complete();
-        await endStarted.future;
-        expect(systemCall.ends, 1);
-        expect(completed, isFalse);
-
-        endGate.complete();
-        await Future<void>.delayed(Duration.zero);
-        expect(callKitDisposeStarted.isCompleted, isFalse);
-        expect(completed, isFalse);
-
-        awaitableTracker.cancellationGate.complete();
-        await callKitDisposeStarted.future;
-        expect(completed, isFalse);
-
-        callKitDisposeGate.complete();
-        await diagnosticsFlushStarted.future;
-        expect(completed, isFalse);
-
-        diagnosticsFlushGate.complete();
-        await closing;
-
-        expect(completed, isTrue);
-        expect(media.disposeCount, 1);
-        expect(systemCall.disposeCount, 1);
-        expect(diagnostics.flushCount, 1);
-        expect(
-          diagnostics.records
-              .singleWhere((record) => record.event == 'call.leave.started')
-              .data['reason'],
-          'sessionClose',
-        );
-      },
-    );
-
-    test(
       'reaches every teardown step after native session-close failures',
       () async {
         await controller.ensureLoaded(firstSite);
@@ -6451,7 +5719,6 @@ void main() {
         systemCall
           ..endFailure = StateError('system end rejected')
           ..disposeFailure = StateError('CallKit disposal rejected');
-        diagnostics.flushFailure = StateError('diagnostics flush rejected');
 
         await controller.close().timeout(const Duration(seconds: 1));
 
@@ -6459,28 +5726,12 @@ void main() {
         expect(media.disposeCount, 1);
         expect(systemCall.ends, 1);
         expect(systemCall.disposeCount, 1);
-        expect(diagnostics.flushCount, 1);
-        expect(
-          diagnostics.records.where(
-            (record) => record.event == 'session.close.completed',
-          ),
-          hasLength(1),
-        );
       },
     );
 
     test(
       'keeps leave terminal and idempotent when native teardown fails',
       () async {
-        final diagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'voice-leave',
-        );
-        final binding = DiagnosticsSink.install(diagnostics);
-        addTearDown(() async {
-          binding.close();
-          await diagnostics.close();
-        });
         await pumpEventQueue();
         await controller.ensureLoaded(firstSite);
         await controller.join(
@@ -6504,12 +5755,6 @@ void main() {
         await controller.leave();
         expect(media.disposeCount, 1);
         expect(systemCall.ends, 1);
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
-            (event) => event.operation,
-          ),
-          containsAll({'voice.media.dispose', 'voice.systemCall.end'}),
-        );
       },
     );
 
@@ -7389,8 +6634,7 @@ void main() {
         onCallSiteChanged: () {},
         mediaFactory: mediaFactory,
         systemCall: systemCall,
-        reporter: const PluginDiagnosticsReporter.ambient(),
-        diagnostics: diagnostics,
+
         preferences: preferences,
         idleThresholdsFor: (_) => thresholds,
         idleClock: scheduler.now,
@@ -8107,8 +7351,7 @@ void main() {
         onCallSiteChanged: () {},
         mediaFactory: mediaFactory,
         systemCall: systemCall,
-        reporter: const PluginDiagnosticsReporter.ambient(),
-        diagnostics: diagnostics,
+
         preferences: preferences,
         timerFactory: scheduler.createTimer,
         clock: () => now,

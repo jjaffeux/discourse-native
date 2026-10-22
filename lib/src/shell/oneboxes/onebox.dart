@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../foundation/diagnostic_errors.dart';
 import '../../theme/app_theme.dart';
 import '../cooked_dom.dart';
 import '../cooked_html.dart';
@@ -350,7 +349,6 @@ class _Header extends StatelessWidget {
             height: 16,
             cacheWidth: imagePhysicalPixels(context, 16),
             errorBuilder: (context, error, stackTrace) {
-              reportImageError(error, stackTrace, operation: 'onebox.icon');
               return const SizedBox();
             },
           ),
@@ -396,7 +394,6 @@ class _Thumbnail extends StatelessWidget {
         cacheWidth: imagePhysicalPixels(context, width),
         gifPlaybackControls: true,
         errorBuilder: (context, error, stackTrace) {
-          reportImageError(error, stackTrace, operation: 'onebox.thumbnail');
           return const SizedBox();
         },
       ),

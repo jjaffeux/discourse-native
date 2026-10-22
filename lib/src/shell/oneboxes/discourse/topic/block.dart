@@ -3,7 +3,6 @@ import 'package:html/dom.dart' as dom;
 
 import '../../../../../discourse_ui.dart';
 
-import '../../../../foundation/diagnostic_errors.dart';
 import '../../../../theme/d_icons.dart';
 import '../../../cooked_dom.dart';
 import '../../../image_decode.dart';
@@ -135,11 +134,6 @@ class _Thumbnail extends StatelessWidget {
             cacheWidth: imagePhysicalPixels(context, 88),
             gifPlaybackControls: true,
             errorBuilder: (context, error, stackTrace) {
-              reportImageError(
-                error,
-                stackTrace,
-                operation: 'onebox.topicThumbnail',
-              );
               return const SizedBox();
             },
           ),

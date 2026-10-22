@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'preference_snapshots.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class SidebarSectionPersistence {
   Future<bool?> readCollapsed({
@@ -98,8 +97,7 @@ final class SidebarSectionStore {
             sectionId: sectionId,
           ) ??
           false;
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'sidebarSections.readCollapsed');
+    } catch (error) {
       return false;
     }
   }
@@ -139,8 +137,6 @@ final class SidebarSectionStore {
         collapsed: collapsed,
       );
       if (!saved) throw StateError('Could not persist sidebar section state.');
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'sidebarSections.writeCollapsed');
-    }
+    } catch (error) {}
   }
 }

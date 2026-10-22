@@ -7,7 +7,7 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/recent_search_store.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import 'global_search_api.dart';
 import 'global_search_filters.dart';
 import 'global_search_models.dart';
@@ -167,17 +167,9 @@ class RecentSearchHistory extends ChangeNotifier {
       _serverTerms = List.unmodifiable(recent);
       _loaded = true;
       _notify();
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (current()) {
         _loaded = true;
-        DiagnosticsSink.current.reportError(
-          error,
-          stackTrace,
-          operation: 'search.loadRecent',
-          source: 'search',
-          handled: true,
-          degraded: false,
-        );
       }
     } finally {
       if (identical(_loadRequest, request)) _loadRequest = null;

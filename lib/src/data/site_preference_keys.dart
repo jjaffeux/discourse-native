@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
 
 part 'owned_site_preferences.dart';
 
@@ -183,9 +182,7 @@ Future<void> forgetSitePreferences(
     if (results.contains(false)) {
       throw StateError('Could not remove a forgotten forum\'s preferences.');
     }
-  } catch (error, stackTrace) {
-    reportStorageFailure(error, stackTrace, 'sitePreferences.forget');
-  }
+  } catch (error) {}
 }
 
 abstract class _PreferenceRetirementObserver {

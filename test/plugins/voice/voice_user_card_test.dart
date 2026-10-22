@@ -7,7 +7,7 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
-import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
+
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_plugin.dart';
@@ -380,8 +380,6 @@ final class _MediaFactory implements VoiceMediaFactory {
     required int localUserId,
     required VoiceSignalSender sendSignal,
     required VoiceLiveKitCredentialRefresher refreshLiveKitCredentials,
-    VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
-    String correlationId = 'uncorrelated',
   }) {
     final session = _MediaSession();
     sessions.add(session);

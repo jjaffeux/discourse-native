@@ -4,7 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -210,38 +210,30 @@ class ChatScrollFixture extends StatelessWidget {
   const ChatScrollFixture({
     super.key,
     required this.controller,
-    required this.diagnostics,
+
     this.width = 800,
     this.dark = false,
   });
 
   final ShellController controller;
-  final DiagnosticsController diagnostics;
+
   final double width;
   final bool dark;
 
   @override
-  Widget build(BuildContext context) => DiagnosticsScope(
-    controller: diagnostics,
-    child: ShellScope(
-      controller: controller,
-      child: PluginUiScope.own(
-        chatPluginId,
-        MaterialApp(
-          theme: dark ? AppTheme.dark : AppTheme.light,
-          builder: (context, child) => DToaster(child: child!),
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: width,
-                height: 600,
-                // These suites measure the transcript against a fixed
-                // viewport. The channel header retracts with scrolling and
-                // wraps its metadata by width, so it would make that viewport
-                // vary per case; chat_channel_header_test and the lifecycle
-                // suite cover it.
-                child: const ChatChannelView(channelId: 9, showHeader: false),
-              ),
+  Widget build(BuildContext context) => ShellScope(
+    controller: controller,
+    child: PluginUiScope.own(
+      chatPluginId,
+      MaterialApp(
+        theme: dark ? AppTheme.dark : AppTheme.light,
+        builder: (context, child) => DToaster(child: child!),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: width,
+              height: 600,
+              child: const ChatChannelView(channelId: 9, showHeader: false),
             ),
           ),
         ),

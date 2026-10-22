@@ -76,7 +76,6 @@ void main() {
       credentials: credentials,
       lifecycle: SiteLifecycle(),
       store: store,
-      reportError: (error, _, _) => errors.add(error),
     );
   });
 

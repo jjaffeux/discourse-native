@@ -79,7 +79,6 @@ final class AssignModule implements PluginModule {
             );
           },
           reloadTopic: topicRefresh.reloadTopic,
-          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         final shell = AssignShellService(
           host: bindings.require(corePluginRouteNavigationPort),
@@ -95,7 +94,6 @@ final class AssignModule implements PluginModule {
             bindings.require(corePluginModelCodecPort),
           ),
           requests: bindings.require(corePluginRequestPort),
-          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         return PluginSessionContribution(
           lifecycle: _AssignSessionLifecycle(controller, assignedGroups),
@@ -124,7 +122,6 @@ final class AssignModule implements PluginModule {
         corePluginSiteStatePort,
         corePluginRouteNavigationPort,
         corePluginNotificationFeedPort,
-        pluginDiagnosticsReporterPort,
       ],
     );
   }

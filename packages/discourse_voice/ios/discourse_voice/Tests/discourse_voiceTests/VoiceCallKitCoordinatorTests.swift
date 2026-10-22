@@ -582,12 +582,10 @@ final class VoiceCallKitCoordinatorTests: XCTestCase {
             let incoming = HeldIncomingCallRecorder()
             defer { incoming.requests.removeAll() }
             var ended: [UUID] = []
-            var events: [String] = []
             let coordinator = VoiceCallKitCoordinator(
               requestTransaction: transactions.request,
               reportIncomingCall: incoming.report,
-              reportCallEnded: { uuid, _ in ended.append(uuid) },
-              emitDiagnosticEvent: { event, _ in events.append(event) }
+              reportCallEnded: { uuid, _ in ended.append(uuid) }
             )
             let completed = expectation(description: "retired report completed")
             completed.assertForOverFulfill = true
@@ -624,16 +622,13 @@ final class VoiceCallKitCoordinatorTests: XCTestCase {
               }
             }
             let previouslyEnded = ended
-            let previouslyPresented = events.filter { $0 == "callkit.incoming.presented" }.count
+
 
             first.completion(fails ? NSError(domain: "RunnerTests", code: 3) : nil)
             wait(for: [completed], timeout: 1)
 
             XCTAssertEqual(results, [false])
             XCTAssertEqual(ended, previouslyEnded)
-            XCTAssertEqual(
-              events.filter { $0 == "callkit.incoming.presented" }.count, previouslyPresented
-            )
             if let replacementState {
               let replacement = tryUnwrap(incoming.requests.last)
               if replacementState != .ringing {

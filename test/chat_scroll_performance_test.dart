@@ -4,7 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -32,7 +32,6 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'support/chat_scroll_fixture.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
-import 'support/topic_scroll_capture.dart';
 
 void main() {
   testWidgets('hover and scroll suppression do not rebuild message bodies', (
@@ -43,21 +42,14 @@ void main() {
     addTearDown(tester.view.reset);
     final controller = await chatScrollController();
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
     // returned.
     try {
       await tester.pumpWidget(
-        ChatScrollFixture(
-          controller: controller,
-          diagnostics: diagnostics,
-          width: 800,
-        ),
+        ChatScrollFixture(controller: controller, width: 800),
       );
       await tester.pumpAndSettle();
       final body = find.byType(CookedHtml).hitTestable().first;
@@ -114,7 +106,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -129,21 +120,14 @@ void main() {
       addTearDown(() => MediaPipeline.replace(MediaPipeline()));
       final controller = await chatScrollController(rich: true);
       addTearDown(controller.dispose);
-      final diagnostics = DiagnosticsController.start(
-        persistence: MemoryDiagnosticsPersistence(),
-      );
-      addTearDown(diagnostics.close);
+
       // Close under the fake clock even when the body fails: a close first
       // reached from a tearDown never completes, because it waits on futures
       // created under the fake clock, which nothing drives once the body has
       // returned.
       try {
         await tester.pumpWidget(
-          ChatScrollFixture(
-            controller: controller,
-            diagnostics: diagnostics,
-            width: 800,
-          ),
+          ChatScrollFixture(controller: controller, width: 800),
         );
         await tester.pumpAndSettle();
         final scrollable = find.descendant(
@@ -236,7 +220,6 @@ void main() {
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
-        await diagnostics.close();
       }
       expect(tester.takeException(), isNull);
     },
@@ -251,21 +234,14 @@ void main() {
     addTearDown(tester.view.reset);
     final controller = await chatScrollController();
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
     // returned.
     try {
       await tester.pumpWidget(
-        ChatScrollFixture(
-          controller: controller,
-          diagnostics: diagnostics,
-          width: 800,
-        ),
+        ChatScrollFixture(controller: controller, width: 800),
       );
       await tester.pumpAndSettle();
       final chat = controller.pluginSession.require(chatControllerService);
@@ -314,7 +290,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   });
 
@@ -338,13 +313,9 @@ void main() {
         rich: true,
         directMessage: layout.directMessage,
       );
-      final capture = topicScrollCaptureWithoutVm();
-      final diagnostics = DiagnosticsController.start(
-        persistence: MemoryDiagnosticsPersistence(),
-        topicScrollCapture: capture,
-      );
+
       addTearDown(controller.dispose);
-      addTearDown(diagnostics.close);
+
       // Close under the fake clock even when the body fails: a close first
       // reached from a tearDown never completes, because it waits on futures
       // created under the fake clock, which nothing drives once the body has
@@ -353,7 +324,7 @@ void main() {
         await tester.pumpWidget(
           ChatScrollFixture(
             controller: controller,
-            diagnostics: diagnostics,
+
             width: layout.width,
             dark: layout.dark,
           ),
@@ -369,7 +340,7 @@ void main() {
         );
         final position = tester.state<ScrollableState>(scrollable).position;
         final seen = <Type>{};
-        capture.start();
+
         for (final delta in [40.0, 1200.0, -1200.0]) {
           for (var step = 0; step < 40; step++) {
             for (final type in [SiteImage, OneboxCard, QuoteBlock]) {
@@ -381,22 +352,14 @@ void main() {
           }
         }
         await tester.pumpAndSettle();
-        capture.stop();
+
         final activity = <String, int>{};
-        for (final event in capture.events) {
-          activity.update(event.name, (count) => count + 1, ifAbsent: () => 1);
-        }
+
         debugPrint('CHAT_RICH_COUNTS ${jsonEncode(activity)}');
         expect(seen, containsAll([SiteImage, OneboxCard, QuoteBlock]));
-        expect(
-          capture.events.where((event) => event.name == 'chat.stream.built'),
-          isEmpty,
-        );
       } finally {
-        capture.stop();
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
-        await diagnostics.close();
       }
     },
     variant: richLayouts,
@@ -426,13 +389,9 @@ void main() {
       directMessage: layouts.currentValue!.directMessage,
       group: layouts.currentValue!.group,
     );
-    final capture = topicScrollCaptureWithoutVm();
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-      topicScrollCapture: capture,
-    );
+
     addTearDown(controller.dispose);
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
@@ -441,7 +400,7 @@ void main() {
       await tester.pumpWidget(
         ChatScrollFixture(
           controller: controller,
-          diagnostics: diagnostics,
+
           width: layouts.currentValue!.width,
           dark: layouts.currentValue!.dark,
         ),
@@ -472,13 +431,13 @@ void main() {
         position.pointerScroll(10);
         await tester.pump(const Duration(milliseconds: 16));
       }
-      expect(capture.events, isEmpty);
+
       expect(rebuiltMessages, isEmpty);
-      capture.start();
+
       for (final (delta, steps) in [(10.0, 360), (1200.0, 12), (-1200.0, 12)]) {
         for (var step = 0; step < steps; step++) {
           final before = rebuiltMessages.length;
-          final beforeEvents = delta.abs() > 10 ? capture.events.length : 0;
+
           position.pointerScroll(delta);
           await tester.pump(const Duration(milliseconds: 16));
           // Fast jumps can detach and reactivate an edge row as the virtualizer
@@ -501,22 +460,16 @@ void main() {
                       .overlaps(viewport),
                 )
                 .length;
-            final builtRows = capture.events
-                .skip(beforeEvents)
-                .where((event) => event.name == 'chat.row.built')
-                .length;
+
             // Allow date separators and an estimated edge, without constructing
             // another screen of rich messages outside the viewport.
-            expect(builtRows, lessThanOrEqualTo(visibleMessages + 3));
           }
         }
       }
       await tester.pumpAndSettle();
-      capture.stop();
+
       final counts = <String, int>{};
-      for (final event in capture.events) {
-        counts.update(event.name, (count) => count + 1, ifAbsent: () => 1);
-      }
+
       // Useful for comparing the instrumented baseline with the fix.
       debugPrint(
         'CHAT_SCROLL_COUNTS ${jsonEncode({...counts, 'messageRebuilds': rebuiltMessages.length})}',
@@ -529,20 +482,11 @@ void main() {
       expect(counts['chat.row.layout'], greaterThan(0));
       expect(counts['chat.dayExtents.scanned'] ?? 0, 0);
       expect(counts['chat.dayExtents.updated'] ?? 0, greaterThan(0));
-      final context = capture.events.singleWhere(
-        (event) => event.name == 'chat.capture.context',
-      );
-      expect(
-        context.data['directMessage'],
-        layouts.currentValue!.directMessage,
-      );
-      expect(context.data['group'], layouts.currentValue!.group);
+
       expect(tester.takeException(), isNull);
     } finally {
-      capture.stop();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   }, variant: layouts);
 
@@ -553,21 +497,15 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final controller = await chatScrollController();
-    final capture = topicScrollCaptureWithoutVm();
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-      topicScrollCapture: capture,
-    );
+
     addTearDown(controller.dispose);
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
     // returned.
     try {
-      await tester.pumpWidget(
-        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-      );
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
       await tester.pumpAndSettle();
       final held = await _fillRetentionWindow(tester);
       expect(held.length, greaterThanOrEqualTo(20));
@@ -579,7 +517,6 @@ void main() {
       channelRef.addListener(countChannelChange);
       addTearDown(() => channelRef.removeListener(countChannelChange));
       final rebuilt = _recordMessageRebuilds();
-      capture.start();
 
       // The reader's dwell credits the visible edge every half second.
       controller.chatRecords.put(
@@ -603,7 +540,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      capture.stop();
 
       expect(channelChanges, greaterThanOrEqualTo(3));
       expect(channel().tracking.unreadCount, 0);
@@ -611,15 +547,9 @@ void main() {
       expect(find.byType(CookedHtml, skipOffstage: false).evaluate().toSet(), {
         ...held,
       });
-      expect(
-        capture.events.where((event) => event.name == 'chat.stream.built'),
-        isEmpty,
-      );
     } finally {
-      capture.stop();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   });
 
@@ -631,18 +561,13 @@ void main() {
     addTearDown(tester.view.reset);
     final controller = await chatScrollController();
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
     // returned.
     try {
-      await tester.pumpWidget(
-        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-      );
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
       await tester.pumpAndSettle();
       final held = await _fillRetentionWindow(tester);
       final shell = controller.pluginSession.require(chatShellService);
@@ -668,7 +593,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   });
 
@@ -681,18 +605,13 @@ void main() {
     const reader = DiscourseUser(id: 1, username: 'reader1');
     final controller = await chatScrollController(reader: reader);
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
     // returned.
     try {
-      await tester.pumpWidget(
-        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-      );
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
       await tester.pumpAndSettle();
       final held = await _fillRetentionWindow(tester);
       final shell = controller.pluginSession.require(chatShellService);
@@ -723,7 +642,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   });
 
@@ -739,18 +657,13 @@ void main() {
       sessionUser: sessionUser,
     );
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
     // returned.
     try {
-      await tester.pumpWidget(
-        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-      );
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
       await tester.pumpAndSettle();
       await _fillRetentionWindow(tester);
       final held = [
@@ -788,7 +701,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -801,18 +713,13 @@ void main() {
     const reader = DiscourseUser(id: 1, username: 'reader1');
     final controller = await chatScrollController(reader: reader);
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
     // returned.
     try {
-      await tester.pumpWidget(
-        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-      );
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
       await tester.pumpAndSettle();
       await _fillRetentionWindow(tester);
       final chat = controller.pluginSession.require(chatControllerService);
@@ -909,7 +816,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
@@ -954,18 +860,13 @@ void main() {
         },
       );
       addTearDown(controller.dispose);
-      final diagnostics = DiagnosticsController.start(
-        persistence: MemoryDiagnosticsPersistence(),
-      );
-      addTearDown(diagnostics.close);
+
       // Close under the fake clock even when the body fails: a close first
       // reached from a tearDown never completes, because it waits on futures
       // created under the fake clock, which nothing drives once the body has
       // returned.
       try {
-        await tester.pumpWidget(
-          ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-        );
+        await tester.pumpWidget(ChatScrollFixture(controller: controller));
         await tester.pumpAndSettle();
 
         final floating = find.byWidgetPredicate(
@@ -999,7 +900,6 @@ void main() {
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
-        await diagnostics.close();
       }
     });
   }
@@ -1104,14 +1004,9 @@ void main() {
     addTearDown(tester.view.reset);
     final controller = await chatScrollController(count: 48);
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
+
     try {
-      await tester.pumpWidget(
-        ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-      );
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
       await tester.pumpAndSettle();
       final list = tester.widget<DMessageScrollerViewport>(
         find.byType(DMessageScrollerViewport),
@@ -1169,7 +1064,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   });
 
@@ -1183,13 +1077,9 @@ void main() {
       count: 14,
       directMessage: true,
     );
-    final capture = topicScrollCaptureWithoutVm();
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-      topicScrollCapture: capture,
-    );
+
     addTearDown(controller.dispose);
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
@@ -1197,11 +1087,7 @@ void main() {
     try {
       Future<void> mount(double width) async {
         await tester.pumpWidget(
-          ChatScrollFixture(
-            controller: controller,
-            diagnostics: diagnostics,
-            width: width,
-          ),
+          ChatScrollFixture(controller: controller, width: width),
         );
         await tester.pumpAndSettle();
       }
@@ -1211,7 +1097,7 @@ void main() {
       final firstDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 1)));
       final secondDay = ValueKey(('chat-floating-day', DateTime(2026, 8, 2)));
       expect(find.byKey(firstDay), findsOneWidget);
-      capture.start();
+
       final original = controller.chat.messageRef(chatScrollSite, 14).value!;
       controller.chatRecords.put(
         chatScrollSite,
@@ -1227,44 +1113,19 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(secondDay), findsOneWidget);
       _expectChatFloatingMatchesFullScan(tester);
-      expect(
-        capture.events.where(
-          (event) => event.name == 'chat.dayExtents.scanned',
-        ),
-        isEmpty,
-      );
-      expect(
-        capture.events.where(
-          (event) => event.name == 'chat.dayExtents.updated',
-        ),
-        isNotEmpty,
-      );
-      capture.start();
+
       await mount(360);
       expect(find.byKey(secondDay), findsOneWidget);
       _expectChatFloatingMatchesFullScan(tester);
-      expect(
-        capture.events.where(
-          (event) => event.name == 'chat.dayExtents.scanned',
-        ),
-        isEmpty,
-      );
-      expect(
-        capture.events.where(
-          (event) => event.name == 'chat.dayExtents.updated',
-        ),
-        isNotEmpty,
-      );
+
       tester.platformDispatcher.textScaleFactorTestValue = 1.35;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await tester.pumpAndSettle();
       _expectChatFloatingMatchesFullScan(tester);
       expect(tester.takeException(), isNull);
     } finally {
-      capture.stop();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   });
 }

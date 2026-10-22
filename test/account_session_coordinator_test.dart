@@ -257,9 +257,6 @@ final class _Fixture {
       lifecycle: lifecycle,
       api: api,
       host: host,
-      reportError: (error, stackTrace, operation, {required bool warning}) {
-        reportedOperations.add(operation);
-      },
     );
   }
 
@@ -343,9 +340,6 @@ final class _RealStoreFixture {
       lifecycle: lifecycle,
       api: api,
       host: host,
-      reportError: (error, stackTrace, operation, {required bool warning}) {
-        reports.add((operation: operation, warning: warning));
-      },
     );
   }
 
@@ -486,10 +480,6 @@ void main() {
       expect(fixture.current.user, _accountB);
       expect((await fixture.durable).user, _accountB);
       fixture.expectPrivateStateIsCoherent();
-      expect(
-        fixture.reportedOperations,
-        contains('authentication.revokePreviousKey'),
-      );
     });
 
     test('rolls back the key when the connected snapshot fails', () async {
@@ -813,9 +803,6 @@ void main() {
       expect((await fixture.durable).user, _accountA);
       expect(fixture.authenticator.keys[_siteUrl], _oldKey);
       expect(fixture.events, ['credential:read']);
-      expect(fixture.reportedOperations, [
-        'authentication.readCredentialForExpiry',
-      ]);
     });
 
     test('leaves a key stored since the empty read alone', () async {
@@ -886,7 +873,6 @@ void main() {
           for (final instance in snapshot) instance.user,
       ], everyElement(isNull));
       expect(fixture.authenticator.keys, isEmpty);
-      expect(fixture.reports, isEmpty);
     });
 
     for (final reorder in [false, true]) {
@@ -999,10 +985,6 @@ void main() {
           fixture.events.where((event) => event.startsWith('presentation:')),
           ['presentation:disconnecting', 'presentation:restored'],
         );
-        expect(fixture.reports, [
-          (operation: 'authentication.persistSignedOut', warning: true),
-          (operation: 'authentication.persistSignedOut', warning: false),
-        ]);
       },
     );
 
@@ -1038,7 +1020,6 @@ void main() {
         expect(durable.map((item) => item.user), [null, null]);
         expect(fixture.authenticator.keys, isEmpty);
         expect(fixture.snapshotsAtDeletion.keys, [_siteUrl, _otherSiteUrl]);
-        expect(fixture.reports, isEmpty);
       },
     );
 

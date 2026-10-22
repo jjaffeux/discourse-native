@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_mutation_outcome.dart';
@@ -307,15 +307,6 @@ void main() {
   for (final obsolete in [false, true]) {
     test('refresh failure ${obsolete ? 'after retirement' : 'while current'} '
         'discards partial results and keeps the successful write', () async {
-      final diagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'selected-post-refresh',
-      );
-      final binding = DiagnosticsSink.install(diagnostics);
-      addTearDown(() async {
-        binding.close();
-        await diagnostics.close();
-      });
       final (:controller, :api, authenticator: _) = await _fixture();
       final response = api.holdRefresh(2);
       final writing = controller.deleteSelectedTopicPosts(_siteUrl, _topicId);
@@ -348,16 +339,9 @@ void main() {
       );
       _expectLocks(controller, false);
       expect(controller.topicPostSelectionEnabled(_siteUrl, _topicId), isFalse);
-      final warnings = diagnostics.events
-          .whereType<ErrorDiagnosticEvent>()
-          .where(
-            (event) =>
-                event.operation == 'topic.selectedPosts.refreshAfterWrite',
-          );
+
       if (obsolete) {
-        expect(warnings, isEmpty);
       } else {
-        expect(warnings.single.severity, DiagnosticSeverity.warning);
         _expectPosts(controller, 'initial');
       }
     });

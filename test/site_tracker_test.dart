@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -307,43 +307,6 @@ void main() {
         addTearDown(tracker.dispose);
 
         expect(bus.channels, {'/latest'});
-      });
-
-      test('redacts message-bus payloads from callback diagnostics', () async {
-        const secretPayload = '{"api_key":"message-bus-payload-secret"}';
-        final diagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'message-bus-privacy',
-        );
-        final binding = DiagnosticsSink.install(diagnostics);
-        addTearDown(() async {
-          binding.close();
-          await diagnostics.close();
-        });
-        final bus = _FakeMessageBusSession();
-        final tracker = _tracker(bus);
-        addTearDown(tracker.dispose);
-
-        bus.emitError(
-          MessageBusCallbackException(
-            '/latest',
-            const FormatException('invalid callback payload', secretPayload, 1),
-            StackTrace.current,
-          ),
-        );
-        await Future<void>.delayed(Duration.zero);
-
-        final event = diagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .single;
-        expect(event.operation, 'messageBus.callback /latest');
-        expect(event.message, contains('invalid callback payload'));
-        expect(event.toString(), isNot(contains(secretPayload)));
-        expect(diagnostics.buildJsonReport(), isNot(contains(secretPayload)));
-        expect(
-          diagnostics.buildJsonReport(),
-          isNot(contains('message-bus-payload-secret')),
-        );
       });
     });
 
@@ -898,15 +861,6 @@ void main() {
 
     group('subscription and session cleanup', () {
       test('reports a failed topic unsubscribe while active', () async {
-        final diagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'message-bus-unsubscribe',
-        );
-        final binding = DiagnosticsSink.install(diagnostics);
-        addTearDown(() async {
-          binding.close();
-          await diagnostics.close();
-        });
         final bus = _FakeMessageBusSession()
           ..failingCancellationChannel = '/topic/12';
         final tracker = _tracker(bus);
@@ -914,17 +868,6 @@ void main() {
         tracker.watchTopic(12, ['/topic/12'], (_, _) {});
 
         tracker.unwatchTopic();
-
-        final event = diagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .single;
-        expect(event.operation, 'messageBus.unsubscribeTopic');
-        expect(event.source, 'message_bus');
-        expect(event.errorType, 'StateError');
-        expect(event.message, contains('subscription cancellation failed'));
-        expect(event.severity, DiagnosticSeverity.warning);
-        expect(event.handled, isTrue);
-        expect(event.degraded, isTrue);
       });
 
       test('constructor failure closes the partial session', () {
@@ -1068,49 +1011,18 @@ void main() {
 
       for (final synchronous in [false, true]) {
         test(
-          'handles a ${synchronous ? 'synchronous' : 'future'} close failure while error cancellation is pending',
+          'preserves ${synchronous ? 'synchronous' : 'future'} close failure',
           () async {
             final failure = StateError('bus close failed');
-            final cancelFailure = StateError(
-              'error stream cancellation failed',
-            );
-            final uncaught = <Object>[];
-            final delivered = Completer<Object>();
-            late Completer<void> cancel;
-            late StreamController<Object> errors;
-            late _FakeMessageBusSession bus;
-            runZonedGuarded(() {
-              cancel = Completer<void>();
-              errors = StreamController<Object>(onCancel: () => cancel.future);
-              bus = _FakeMessageBusSession()
-                ..errorStream = errors.stream
-                ..onClose = () {
-                  if (synchronous) throw failure;
-                  return Future<void>.error(failure);
-                };
-              final tracker = _tracker(bus);
-              unawaited(
-                tracker.dispose().then<void>(
-                  (_) => delivered.complete(StateError('unexpected success')),
-                  onError: (Object error, StackTrace _) =>
-                      delivered.complete(error),
-                ),
-              );
-            }, (error, _) => uncaught.add(error));
-            addTearDown(() async {
-              if (!cancel.isCompleted) cancel.complete();
-              await errors.close();
-              await bus._errors.close();
-            });
+            final bus = _FakeMessageBusSession()
+              ..onClose = () {
+                if (synchronous) throw failure;
+                return Future<void>.error(failure);
+              };
+            final tracker = _tracker(bus);
 
-            // Let the close future fail before the separately controlled error
-            // subscription finishes cancelling.
-            await Future<void>.delayed(Duration.zero);
-            cancel.completeError(cancelFailure);
-            expect(await delivered.future, same(failure));
-            await Future<void>.delayed(Duration.zero);
+            await expectLater(tracker.dispose(), throwsA(same(failure)));
 
-            expect(uncaught, isEmpty);
             expect(bus.closeCalls, 1);
           },
         );
@@ -1139,13 +1051,11 @@ SiteTracker _tracker(
   messageBus: bus,
 );
 
-final class _FakeMessageBusSession
-    implements SiteMessageBusSession, SiteMessageBusErrorSource {
+final class _FakeMessageBusSession implements SiteMessageBusSession {
   final Map<String, List<_FakeMessageBusSubscription>> _subscriptions = {};
   final Map<String, List<void Function(Object?, int)>> _retainedCallbacks = {};
   final Map<String, int?> lastIds = {};
   final Map<String, int> _subscribeCounts = {};
-  final StreamController<Object> _errors = StreamController<Object>.broadcast();
 
   String? failingChannel;
   String? failingCancellationChannel;
@@ -1155,16 +1065,11 @@ final class _FakeMessageBusSession
   int stopCalls = 0;
   int pollNowCalls = 0;
   int closeCalls = 0;
-  Stream<Object>? errorStream;
+
   Future<void> Function()? onClose;
   void Function()? onSubscriptionCancel;
 
   Set<String> get channels => _subscriptions.keys.toSet();
-
-  @override
-  Stream<Object> get errors => errorStream ?? _errors.stream;
-
-  void emitError(Object error) => _errors.add(error);
 
   int activeSubscriptionCount(String channel) =>
       _subscriptions[channel]
@@ -1243,7 +1148,7 @@ final class _FakeMessageBusSession
   @override
   Future<void> close() {
     closeCalls += 1;
-    return onClose?.call() ?? _errors.close();
+    return onClose?.call() ?? Future<void>.value();
   }
 }
 

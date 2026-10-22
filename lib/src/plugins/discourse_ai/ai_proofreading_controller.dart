@@ -21,7 +21,6 @@ final class AiProofreadingController extends FrameSafeNotifier
     required PluginFreshAccountHost freshAccount,
     required PluginUserIdReader currentUserId,
     this.preferences = const AiProofreadingPreferenceStore(),
-    this.diagnostics = const PluginDiagnosticsReporter.noop(),
   }) : _requests = requests,
        _siteState = siteState,
        _freshAccount = freshAccount,
@@ -33,7 +32,6 @@ final class AiProofreadingController extends FrameSafeNotifier
   final PluginFreshAccountHost _freshAccount;
   final PluginUserIdReader _currentUserId;
   final AiProofreadingPreferenceStore preferences;
-  final PluginDiagnosticsReporter diagnostics;
 
   /// The choice belongs to the signed-in account: another account on the same
   /// forum has not agreed to send its posts to the helper.
@@ -176,15 +174,7 @@ final class AiProofreadingController extends FrameSafeNotifier
           text: source,
         ),
       );
-    } catch (error, stackTrace) {
-      diagnostics.reportError(
-        error,
-        stackTrace,
-        operation: 'ai.proofreadComposer',
-        source: 'discourse-ai',
-        handled: true,
-        degraded: true,
-      );
+    } catch (error) {
       if (!lease.isCurrent) {
         return const PluginComposerSubmitPreparation.failed(
           WriteException(WriteFailure.conflict),

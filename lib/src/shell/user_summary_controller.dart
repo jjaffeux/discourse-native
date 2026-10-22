@@ -5,7 +5,7 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_summary.dart';
@@ -93,16 +93,9 @@ final class UserSummaryController extends FrameSafeNotifier {
       _commit(lease, siteUrl, request, () {
         _states[siteUrl] = stateFor(siteUrl).withSummary(summary);
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_isCurrent(lease, siteUrl, request)) return;
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'summary.load',
-        source: 'summary',
-        handled: true,
-        degraded: true,
-      );
+
       _commit(lease, siteUrl, request, () {
         _states[siteUrl] = stateFor(siteUrl).withError(
           appL10n.couldnTLoadYourSummaryFrom((instance.host).toString()),

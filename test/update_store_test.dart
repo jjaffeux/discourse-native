@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/update_store.dart';
 import 'package:discourse_native/src/data/updater.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -32,17 +32,12 @@ void main() {
       final persistence = _ControlledUpdatePersistence(
         acceptChannelWrites: false,
       );
-      final diagnostics = await _installDiagnostics('update-channel-write');
 
       await UpdateStore(
         persistence: persistence,
       ).writeChannel(UpdateChannel.canary);
 
       expect(persistence.channelName, isNull);
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-        _isRejectedStorageWrite('updates.writeChannel'),
-      );
     });
 
     test(
@@ -121,18 +116,12 @@ void main() {
       final persistence = _ControlledUpdatePersistence(
         acceptLastCheckedWrites: false,
       );
-      final diagnostics = await _installDiagnostics(
-        'update-last-checked-write',
-      );
+
       final at = DateTime.fromMillisecondsSinceEpoch(1720000000000);
 
       await UpdateStore(persistence: persistence).writeLastChecked(at);
 
       expect(persistence.lastCheckedMillis, isNull);
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-        _isRejectedStorageWrite('updates.writeLastChecked'),
-      );
     });
 
     test('remains independent from the channel preference', () async {
@@ -165,27 +154,6 @@ void main() {
     });
   });
 }
-
-Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: sessionId,
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  addTearDown(() async {
-    binding.close();
-    await diagnostics.close();
-  });
-  return diagnostics;
-}
-
-Matcher _isRejectedStorageWrite(String operation) => isA<ErrorDiagnosticEvent>()
-    .having((event) => event.operation, 'operation', operation)
-    .having((event) => event.source, 'source', 'storage')
-    .having((event) => event.severity, 'severity', DiagnosticSeverity.warning)
-    .having((event) => event.errorType, 'error type', 'StateError')
-    .having((event) => event.handled, 'handled', isTrue)
-    .having((event) => event.degraded, 'degraded', isTrue);
 
 final class _ControlledUpdatePersistence implements UpdatePersistence {
   _ControlledUpdatePersistence({

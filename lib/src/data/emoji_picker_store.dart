@@ -8,7 +8,6 @@ import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/emoji_usage.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class EmojiPickerPersistence {
   Future<String?> readPreferences({required String siteUrl});
@@ -220,9 +219,9 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
         return _EmojiPickerPreferences.empty;
       }
       return _EmojiPickerPreferences.fromEncoded(encoded);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_owns(siteUrl, owner)) _unreadable.add(siteUrl);
-      reportStorageFailure(error, stackTrace, 'emojiPicker.read');
+
       return _EmojiPickerPreferences.empty;
     }
   }
@@ -239,9 +238,7 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
       if (!saved) {
         throw StateError('Could not persist emoji picker preferences.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'emojiPicker.write');
-    }
+    } catch (error) {}
   }
 
   static List<String> _rankFavorites(

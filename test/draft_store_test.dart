@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:discourse_native/src/data/draft_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -44,42 +44,6 @@ void main() {
 
       expect(persistence.values, isEmpty);
     });
-
-    test(
-      'diagnostics never retain a storage parser source or draft text',
-      () async {
-        const secretDraft = 'private draft body sentinel';
-        final diagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'draft-privacy',
-        );
-        final binding = DiagnosticsSink.install(diagnostics);
-        addTearDown(() async {
-          binding.close();
-          await diagnostics.close();
-        });
-        final privateStore = DraftStore(
-          persistence: const _ThrowingDraftPersistence(
-            FormatException('secure write failed', secretDraft, 1),
-          ),
-        );
-
-        await expectLater(
-          privateStore.write(siteUrl, draftKey, secretDraft),
-          throwsA(
-            isA<DraftWriteException>().having(
-              (error) => '$error',
-              'toString',
-              isNot(contains(secretDraft)),
-            ),
-          ),
-        );
-
-        final report = diagnostics.buildJsonReport();
-        expect(report, contains('secure write failed'));
-        expect(report, isNot(contains(secretDraft)));
-      },
-    );
 
     test('reads drafts from secure persistence', () async {
       persistence.values[storageKey] = '{"reply": "Half a thought"}';
@@ -280,43 +244,6 @@ void main() {
         expect(prefs.containsKey(storageKey), isFalse);
       });
     }
-
-    test('malformed lookup diagnostics omit preference contents', () async {
-      const secretDraft = 'private legacy draft sentinel';
-      const unrelatedValue = 'unrelated preference sentinel';
-      SharedPreferences.setMockInitialValues({
-        storageKey: <String>[secretDraft],
-        'unrelated': unrelatedValue,
-      });
-      final diagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        sessionId: 'legacy-draft-privacy',
-      );
-      final binding = DiagnosticsSink.install(diagnostics);
-      addTearDown(() async {
-        binding.close();
-        await diagnostics.close();
-      });
-
-      expect(await store.readChecked(siteUrl, draftKey), (
-        value: null,
-        succeeded: false,
-      ));
-
-      final event = diagnostics.events.whereType<ErrorDiagnosticEvent>().single;
-      expect(event.operation, 'draft.readLegacy');
-      expect(event.source, 'storage');
-      expect(event.severity, DiagnosticSeverity.warning);
-      expect(event.handled, isTrue);
-      expect(event.degraded, isTrue);
-      final report = diagnostics.buildJsonReport();
-      expect(report, isNot(contains(secretDraft)));
-      expect(report, isNot(contains(unrelatedValue)));
-      expect(
-        (await SharedPreferences.getInstance()).getString('unrelated'),
-        unrelatedValue,
-      );
-    });
 
     test('migrates a plaintext legacy draft into secure persistence', () async {
       SharedPreferences.setMockInitialValues({storageKey: 'legacy text'});

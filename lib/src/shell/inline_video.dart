@@ -10,7 +10,7 @@ import 'package:html/dom.dart' as dom;
 import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -204,15 +204,7 @@ class _InlineVideoState extends State<InlineVideo> {
           id: 'video-download',
         );
       }
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'video.download',
-        source: 'platform',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-      );
+    } catch (error) {
       if (mounted && toast?.isDisposed == false) {
         toast!.add(
           DToastOptions(

@@ -119,14 +119,9 @@ final class _ProfileWriteTransactions {
         return;
       }
       await _shell._sessionUser(siteUrl, apiKey, lease: lease);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_shell.accountSessionDisposed || !lease.isCurrent) return;
-      _shell._reportOperationalError(
-        error,
-        stackTrace,
-        'presence.read',
-        severity: DiagnosticSeverity.warning,
-      );
+
       lease.commit(() {
         state.presenceError = appL10n.couldnTLoadThePresenceSettingTryAgain;
         _shell._notify();
@@ -180,10 +175,7 @@ final class _ProfileWriteTransactions {
       _settlePresence(siteUrl, write, confirmed: write.desired);
     } on WriteException catch (error) {
       _settlePresence(siteUrl, write, error: _presenceError(error));
-    } catch (error, stackTrace) {
-      if (_ownsPresence(siteUrl, write)) {
-        _shell._reportOperationalError(error, stackTrace, 'presence.update');
-      }
+    } catch (error) {
       _settlePresence(
         siteUrl,
         write,
@@ -361,14 +353,11 @@ final class _ProfileWriteTransactions {
       return _ProfileStatusUnconfirmed(
         _ownsStatus(siteUrl, write) ? error.message : null,
       );
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_ownsStatus(siteUrl, write)) {
         return const _ProfileStatusUnconfirmed(null);
       }
-      _shell._reportOperationalError(error, stackTrace, switch (intent) {
-        _SetProfileStatus() => 'userStatus.set',
-        _ClearProfileStatus() => 'userStatus.clear',
-      });
+
       return _ProfileStatusUnconfirmed(
         const WriteException(WriteFailure.unreachable).message,
       );

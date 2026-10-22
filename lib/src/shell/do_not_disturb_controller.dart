@@ -7,7 +7,7 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/do_not_disturb.dart';
 
@@ -121,16 +121,9 @@ final class DoNotDisturbController extends FrameSafeNotifier {
       return null;
     } on WriteException catch (error) {
       return isCurrent() ? error.message : null;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!isCurrent()) return null;
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'doNotDisturb.write',
-        source: 'shell',
-        handled: true,
-        degraded: true,
-      );
+
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       if (identical(_requests[siteUrl], request)) {

@@ -5,7 +5,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/uri_path.dart';
 import '../../foundation/uri_query.dart';
 import '../open_link.dart';
@@ -140,15 +139,7 @@ Widget? redditOneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
             canNavigate: data.allowsNavigation,
             onOpenLink: (uri) =>
                 unawaited(openLink(context, uri.toString(), siteUrl: siteUrl)),
-            onError: (error, stackTrace) => DiagnosticsSink.current.reportError(
-              error,
-              stackTrace,
-              operation: 'reddit.embed.load',
-              source: 'platform',
-              severity: DiagnosticSeverity.warning,
-              handled: true,
-              degraded: true,
-            ),
+            onError: (error, stackTrace) {},
           ),
         ),
       ),

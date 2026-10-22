@@ -1,4 +1,3 @@
-import 'package:discourse_native/l10n/strings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/topic_presentation.dart';
@@ -17,13 +16,7 @@ class TopicPresentationStore {
   final ScalarPreferencePersistence<String> persistence;
 
   ScalarPreferenceRepository<String> get _repository =>
-      ScalarPreferenceRepository(
-        persistence: persistence,
-        key: storageKey,
-        readOperation: 'topicPresentation.read',
-        writeOperation: 'topicPresentation.write',
-        writeFailureMessage: appL10n.couldNotSaveTopicView,
-      );
+      ScalarPreferenceRepository(persistence: persistence, key: storageKey);
 
   Future<TopicPresentation> read() async {
     final stored = await _repository.read();

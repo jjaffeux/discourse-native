@@ -7,7 +7,7 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
@@ -182,9 +182,9 @@ final class DraftListController extends FrameSafeNotifier {
           deletedCount: deletedFromPage.length,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!lease.isCurrent || !identical(_requests[siteUrl], request)) return;
-      _report(error, stackTrace, 'drafts.load');
+
       _commit(lease, siteUrl, request, () {
         final current = feedFor(siteUrl);
         _feeds[siteUrl] = current.withError(
@@ -242,9 +242,8 @@ final class DraftListController extends FrameSafeNotifier {
       if (!_isCurrentDeletion(lease, identity, request)) return false;
       recordDeleted(instance.url, draft.key, knownToExist: true);
       return true;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_isCurrentDeletion(lease, identity, request)) {
-        _report(error, stackTrace, 'drafts.delete');
         _feeds[instance.url] = feedFor(
           instance.url,
         ).withError(appL10n.couldnTRemoveThatDraftTryAgain);
@@ -293,17 +292,6 @@ final class DraftListController extends FrameSafeNotifier {
       mutation();
       notifySafely();
     });
-  }
-
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'drafts',
-      handled: true,
-      degraded: true,
-    );
   }
 
   @override

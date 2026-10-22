@@ -15,7 +15,7 @@ final class CustomSidebarSections {
     required this._instanceFor,
     required this._selectedSite,
     required this._onChanged,
-    required this._reportFailure,
+
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
@@ -25,7 +25,7 @@ final class CustomSidebarSections {
   final DiscourseInstance? Function(String) _instanceFor;
   final String? Function() _selectedSite;
   final void Function() _onChanged;
-  final void Function(Object, StackTrace) _reportFailure;
+
   final DateTime Function() _clock;
   final Map<String, _AccountSidebar> _accounts = {};
   bool _disposed = false;
@@ -183,11 +183,7 @@ final class CustomSidebarSections {
       account.sections = _freeze(sections);
       account.loaded = true;
       _onChanged();
-    } catch (error, stackTrace) {
-      if (_current(account) && account.readVersion == version) {
-        _reportFailure(error, stackTrace);
-      }
-    }
+    } catch (error) {}
   }
 
   void invalidate(String siteUrl, {required SiteLease account}) {

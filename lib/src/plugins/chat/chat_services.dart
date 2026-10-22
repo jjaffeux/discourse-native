@@ -36,12 +36,6 @@ const chatEmojiHostService = PluginServiceKey<PluginEmojiHost>(
   name: 'emoji-host',
 );
 
-const chatDiagnosticsReporterService =
-    PluginServiceKey<PluginDiagnosticsReporter>(
-      owner: chatPluginId,
-      name: 'diagnostics-reporter',
-    );
-
 const chatNotificationHostService =
     PluginServiceKey<PluginNotificationFeedHost>(
       owner: chatPluginId,

@@ -45,8 +45,7 @@ final class ChatThreadPanelWidthStore {
       try {
         final width = await _persistence.readWidth();
         return width != null && width.isFinite && width > 0 ? width : null;
-      } catch (error, stackTrace) {
-        reportStorageFailure(error, stackTrace, 'chatThreadPanel.readWidth');
+      } catch (error) {
         return null;
       }
     },
@@ -62,9 +61,7 @@ final class ChatThreadPanelWidthStore {
           if (!await _persistence.writeWidth(width)) {
             throw StateError('Could not persist the thread panel width.');
           }
-        } catch (error, stackTrace) {
-          reportStorageFailure(error, stackTrace, 'chatThreadPanel.writeWidth');
-        }
+        } catch (error) {}
       },
     );
   }

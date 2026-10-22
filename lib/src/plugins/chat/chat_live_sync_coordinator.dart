@@ -65,7 +65,6 @@ final class ChatLiveSyncHost {
     required this.forgetReconciliation,
     required this.disposeReconciliation,
     required this.resyncChannels,
-    required this.report,
   });
 
   final bool Function() isDisposed;
@@ -168,13 +167,6 @@ final class ChatLiveSyncHost {
   // Re-reads the channel snapshot in the background. Its state and cursors
   // arrive through [ChatLiveSyncCoordinator.replace].
   final void Function(String siteUrl) resyncChannels;
-  final void Function(
-    Object error,
-    StackTrace stackTrace,
-    String operation,
-    DiagnosticSeverity severity,
-  )
-  report;
 }
 
 /// Owns every persistent and view-scoped Chat MessageBus lifecycle.
@@ -1187,10 +1179,7 @@ final class ChatLiveSyncCoordinator {
         }
         _host.notifyCanonicalChange();
       });
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _report(error, stackTrace, 'chat.followNewDirectChannel');
-      }
+    } catch (error) {
     } finally {
       final notify = isCurrent();
       _host.endChannelFollow(site.siteUrl, incoming.id, token);
@@ -1554,8 +1543,7 @@ final class ChatLiveSyncCoordinator {
         if (!_accepts(site, owned)) return;
         try {
           onMessage(data, messageId);
-        } catch (error, stackTrace) {
-          _report(error, stackTrace, '$operation.apply');
+        } catch (error) {
         } finally {
           if (_accepts(site, owned)) onDelivered?.call(messageId);
         }
@@ -1568,18 +1556,10 @@ final class ChatLiveSyncCoordinator {
         owned.cancel(this, '$operation.unsubscribe');
         return false;
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       owned.cancel(this, '$operation.unsubscribe');
-      _report(error, stackTrace, operation);
-      return false;
-    }
-  }
 
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    try {
-      _host.report(error, stackTrace, operation, DiagnosticSeverity.warning);
-    } catch (_) {
-      // Diagnostics cannot become a second MessageBus failure.
+      return false;
     }
   }
 
@@ -1764,9 +1744,7 @@ final class _OwnedLiveSubscription {
     _active = false;
     try {
       _cancelUnderlying();
-    } catch (error, stackTrace) {
-      owner._report(error, stackTrace, operation);
-    }
+    } catch (error) {}
   }
 
   void _cancelUnderlying() {

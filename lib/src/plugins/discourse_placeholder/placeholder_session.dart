@@ -47,9 +47,7 @@ final class PlaceholderSession {
   void _track(Future<void> Function() operation) {
     late final Future<void> future;
     future = Future<void>.sync(operation)
-        .catchError((Object error, StackTrace stack) {
-          reportStorageFailure(error, stack, 'placeholder.session');
-        })
+        .catchError((Object error, StackTrace stack) {})
         .whenComplete(() => _pending.remove(future));
     _pending.add(future);
   }
@@ -72,9 +70,7 @@ final class PlaceholderSession {
     await flush();
     try {
       await persistence.forget(siteUrl);
-    } catch (error, stack) {
-      reportStorageFailure(error, stack, 'placeholder.session.forget');
-    }
+    } catch (error) {}
   }
 
   Future<void> close() async {

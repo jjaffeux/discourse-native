@@ -382,7 +382,6 @@ final class _Fixture {
         forgetReconciliation: (_) {},
         disposeReconciliation: () {},
         resyncChannels: resyncs.add,
-        report: (_, _, _, _) {},
       ),
     );
   }

@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class UserDirectoryColumnWidthPersistence {
   Future<String?> readWidths({required String siteUrl});
@@ -144,8 +143,7 @@ final class UserDirectoryColumnWidthStore {
         return const UserDirectoryColumnWidths.empty();
       }
       return UserDirectoryColumnWidths.decode(encoded);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'userDirectoryColumnWidths.read');
+    } catch (error) {
       return const UserDirectoryColumnWidths.empty();
     }
   }
@@ -177,12 +175,6 @@ final class UserDirectoryColumnWidthStore {
       if (!saved) {
         throw StateError('Could not persist user directory column widths.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'userDirectoryColumnWidths.write',
-      );
-    }
+    } catch (error) {}
   }
 }

@@ -24,8 +24,7 @@ import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
-import 'diagnostics/diagnostics.dart';
-import 'diagnostics/surface_opening_trace.dart';
+
 import 'foundation/bounded_lru_cache.dart';
 import 'foundation/foreground_lifecycle.dart';
 import 'foundation/timezone_environment.dart';
@@ -34,7 +33,6 @@ import 'models/forum_background.dart';
 import 'models/site_appearance.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
-import 'plugin_api/site_plugin_api.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/app_motion.dart';
 import 'shell/app_text_scale.dart';
@@ -58,7 +56,7 @@ class DiscourseApp extends StatefulWidget {
     this.trackers,
     this.updater,
     this.updateStore,
-    this.diagnostics,
+
     this.plugins,
     this.pluginManifest = corePluginManifest,
     this.initialRootMode = ShellRootMode.forum,
@@ -78,7 +76,7 @@ class DiscourseApp extends StatefulWidget {
   final SiteTrackerFactory? trackers;
   final Updater? updater;
   final UpdateStore? updateStore;
-  final DiagnosticsController? diagnostics;
+
   final InstalledPlugins? plugins;
   final PluginManifest pluginManifest;
   final ShellRootMode initialRootMode;
@@ -106,8 +104,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   late SiteTrackerFactory _trackers;
   late Updater _updater;
   late UpdateStore _updateStore;
-  DiagnosticsController? _pluginDiagnosticsSink;
-  late final PluginDiagnosticsReporter _pluginDiagnosticsReporter;
+
   late ShellController _controller;
   late InstalledPlugins _plugins;
   late bool _ownsPlugins;
@@ -195,7 +192,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     updater: _updater,
     updateStore: _updateStore,
     plugins: _plugins,
-    pluginDiagnosticsReporter: _pluginDiagnosticsReporter,
+
     ownsApi: false,
     initialRootMode: usesMobileNavigation(defaultTargetPlatform)
         ? ShellRootMode.forum
@@ -219,10 +216,6 @@ class _DiscourseAppState extends State<DiscourseApp>
     _trackers = widget.trackers ?? SiteTracker.new;
     _updater = widget.updater ?? const UnsupportedUpdater();
     _updateStore = widget.updateStore ?? UpdateStore();
-    _pluginDiagnosticsSink = widget.diagnostics;
-    _pluginDiagnosticsReporter = PluginDiagnosticsReporter.resolving(
-      () => _pluginDiagnosticsSink,
-    );
     _foreground = isForegroundLifecycle(WidgetsBinding.instance.lifecycleState);
     _controller = _createController()..setForeground(_foreground);
     _platformNotificationOpens = PlatformNotificationOpens();
@@ -244,13 +237,7 @@ class _DiscourseAppState extends State<DiscourseApp>
         widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
       );
     }
-    if (!identical(widget.diagnostics, oldWidget.diagnostics)) {
-      // Repoint the stable, already-injected capability before releasing the
-      // old recorder. Existing plugin lifecycles and sessions therefore cannot
-      // write into a controller the app has begun closing.
-      _pluginDiagnosticsSink = widget.diagnostics;
-      _releaseDiagnostics(oldWidget.diagnostics);
-    }
+
     if (!_dependenciesChanged(oldWidget)) return;
 
     _notificationNavigationController = null;
@@ -355,8 +342,7 @@ class _DiscourseAppState extends State<DiscourseApp>
         ? _closePlugins(_plugins, after: controller.pluginTeardown)
         : _settled(controller.pluginTeardown);
     _closeApiAfter(_api, teardown);
-    _pluginDiagnosticsSink = null;
-    _releaseDiagnostics(widget.diagnostics);
+
     super.dispose();
   }
 
@@ -371,7 +357,7 @@ class _DiscourseAppState extends State<DiscourseApp>
     try {
       await plugins.startPhase(
         PluginStartupPhase.bootstrap,
-        bindings: _pluginHostBindings,
+        bindings: const PluginHostBindings.empty(),
       );
       if (!mounted || !identical(_controller, controller)) return;
       await _observePluginAppState(
@@ -379,9 +365,7 @@ class _DiscourseAppState extends State<DiscourseApp>
         WidgetsBinding.instance.lifecycleState?.name ?? 'unknown',
       );
       pluginsStarted = true;
-    } catch (error, stackTrace) {
-      _reportPluginStartFailure(error, stackTrace);
-    }
+    } catch (error) {}
     if (!mounted || !identical(_controller, controller)) return;
     try {
       await controller.load();
@@ -391,41 +375,17 @@ class _DiscourseAppState extends State<DiscourseApp>
       if (pluginsStarted) {
         await plugins.startPhase(
           PluginStartupPhase.appReady,
-          bindings: _pluginHostBindings,
+          bindings: const PluginHostBindings.empty(),
         );
       }
-    } catch (error, stackTrace) {
-      _reportPluginStartFailure(error, stackTrace);
-    }
-  }
-
-  void _reportPluginStartFailure(Object error, StackTrace stackTrace) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: 'app.plugins.start',
-      source: 'plugins',
-      severity: DiagnosticSeverity.error,
-      handled: true,
-      degraded: true,
-    );
+    } catch (error) {}
   }
 
   void _listenToNotificationOpens(Stream<String> urls) {
     unawaited(_notificationOpenSubscription?.cancel());
     _notificationOpenSubscription = urls.listen(
       _queueNotificationUrl,
-      onError: (Object error, StackTrace stackTrace) {
-        DiagnosticsSink.current.reportError(
-          error,
-          stackTrace,
-          operation: 'push.notificationOpens',
-          source: 'push',
-          severity: DiagnosticSeverity.warning,
-          handled: true,
-          degraded: false,
-        );
-      },
+      onError: (Object error, StackTrace stackTrace) {},
     );
   }
 
@@ -457,17 +417,7 @@ class _DiscourseAppState extends State<DiscourseApp>
         final pending = _pendingNotificationUrls.first;
         try {
           await controller.openNotificationUrl(pending.url);
-        } catch (error, stackTrace) {
-          DiagnosticsSink.current.reportError(
-            error,
-            stackTrace,
-            operation: 'push.openNotification',
-            source: 'push',
-            severity: DiagnosticSeverity.warning,
-            handled: true,
-            degraded: false,
-          );
-        }
+        } catch (error) {}
         if (!mounted || !identical(_controller, controller)) return;
         // A burst of taps can evict this entry while its navigation is in
         // flight. Remove only this delivery, even when a later tap has the
@@ -483,20 +433,10 @@ class _DiscourseAppState extends State<DiscourseApp>
   /// Closes [plugins] once the session they served has torn down, and
   /// answers when they have; a failure is reported, not raised.
   Future<void> _closePlugins(InstalledPlugins plugins, {Future<void>? after}) {
-    final closing = _closePluginsAfterSession(plugins, after).onError((
-      Object error,
-      StackTrace stackTrace,
-    ) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'app.plugins.close',
-        source: 'plugins',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
-    });
+    final closing = _closePluginsAfterSession(
+      plugins,
+      after,
+    ).onError((Object error, StackTrace stackTrace) {});
     unawaited(closing);
     return closing;
   }
@@ -526,26 +466,6 @@ class _DiscourseAppState extends State<DiscourseApp>
     await plugins.close();
   }
 
-  void _releaseDiagnostics(DiagnosticsController? diagnostics) {
-    if (diagnostics == null) return;
-    unawaited(
-      diagnostics.close().onError((Object error, StackTrace stackTrace) {
-        // The app cannot await teardown from a widget lifecycle callback, but
-        // a persistence-close failure must still be observed rather than
-        // escaping as an unhandled asynchronous error.
-        DiagnosticsSink.current.reportError(
-          error,
-          stackTrace,
-          operation: 'app.diagnostics.close',
-          source: 'diagnostics',
-          severity: DiagnosticSeverity.warning,
-          handled: true,
-          degraded: false,
-        );
-      }),
-    );
-  }
-
   /// `inactive` is transient (for example, a system dialog), so only hidden,
   /// paused, and detached states pace down the live connection.
   @override
@@ -559,7 +479,6 @@ class _DiscourseAppState extends State<DiscourseApp>
       );
     }
     if (!_foreground) {
-      unawaited(widget.diagnostics?.flush());
       unawaited(_flushPlugins(_plugins));
     }
   }
@@ -573,7 +492,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   Future<AppExitResponse> didRequestAppExit() async {
     await Future.wait([
       _controller.flushForExit(),
-      if (widget.diagnostics case final diagnostics?) diagnostics.flush(),
+
       _flushPlugins(_plugins),
     ]).timeout(DiscourseApp.exitFlushTimeout, onTimeout: () => const []);
     return AppExitResponse.exit;
@@ -604,7 +523,6 @@ class _DiscourseAppState extends State<DiscourseApp>
             return ListenableBuilder(
               listenable: _controller.forumSettings,
               builder: (context, _) {
-                SurfaceOpeningTrace.mark('forum.theme.start');
                 final appearance = _controller.forumSettings.appearanceFor(
                   selection.siteUrl ?? ForumSettingsController.homeSite,
                   selection.appearance,
@@ -626,7 +544,7 @@ class _DiscourseAppState extends State<DiscourseApp>
                   _controller.forumSettings.shared.readingFamily,
                   effects,
                 );
-                SurfaceOpeningTrace.mark('forum.theme.end');
+
                 final shown = _controller.forumSettings.previewBrightnessFor(
                   selection.siteUrl ?? ForumSettingsController.homeSite,
                 );
@@ -654,22 +572,8 @@ class _DiscourseAppState extends State<DiscourseApp>
         ),
       ),
     );
-    final diagnostics = widget.diagnostics;
-    return diagnostics == null
-        ? app
-        : DiagnosticsScope(
-            controller: diagnostics,
-            plugins: _diagnosticsPlugins,
-            child: app,
-          );
+    return app;
   }
-
-  PluginHostBindings get _pluginHostBindings => PluginHostBindings([
-    PluginHostPort<Object>(
-      pluginDiagnosticsReporterPort,
-      _pluginDiagnosticsReporter,
-    ),
-  ]);
 
   Future<void> _observePluginAppState(
     InstalledPlugins plugins,
@@ -677,37 +581,14 @@ class _DiscourseAppState extends State<DiscourseApp>
   ) async {
     try {
       await plugins.observeAppState(state, foreground: _foreground);
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'app.plugins.observeAppState',
-        source: 'plugins',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
-    }
+    } catch (error) {}
   }
 
   Future<void> _flushPlugins(InstalledPlugins plugins) async {
     try {
       await plugins.flush();
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'app.plugins.flush',
-        source: 'plugins',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
-    }
+    } catch (error) {}
   }
-
-  List<DiagnosticsPlugin> get _diagnosticsPlugins =>
-      _plugins.registry.diagnosticsPlugins;
 
   Widget _materialApp({
     required ThemeData theme,
@@ -780,11 +661,6 @@ class _MouseNavigationRegion extends StatelessWidget {
     }
 
     final controller = ShellScope.read(context);
-    final diagnostics = DiagnosticsScope.maybeRead(context);
-    if (diagnostics?.isPanelOpen ?? false) {
-      if (backPressed) diagnostics!.closePanel();
-      return;
-    }
 
     if (backPressed) {
       if (controller.rootMode == ShellRootMode.forum &&

@@ -6,7 +6,7 @@ import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
-import 'package:discourse_native/src/diagnostics/surface_opening_trace.dart';
+
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -959,7 +959,7 @@ void main() {
   });
 
   group('active theme selection', () {
-    testWidgets('equal palettes reuse themes and rapid switches trace once', (
+    testWidgets('equal palettes reuse themes across rapid switches', (
       tester,
     ) async {
       final first = siteAppearance(alternateAccent: const Color(0xFF80CED7));
@@ -982,22 +982,17 @@ void main() {
       expect(_materialApp(tester).theme, same(light));
       expect(_materialApp(tester).darkTheme, same(dark));
 
-      final events = <String>[];
-      SurfaceOpeningTrace.observer = (name, _) => events.add(name);
-      addTearDown(() => SurfaceOpeningTrace.observer = null);
       controller.selectInstance(0);
       controller.selectInstance(1);
       controller.selectInstance(0);
-      expect(events.where((event) => event == 'forum.frame'), isEmpty);
+
       await tester.pump();
-      expect(events.where((event) => event == 'forum.frame'), hasLength(1));
+
       expect(controller.currentInstance?.url, siteA);
 
-      events.clear();
       controller.selectInstance(1);
       controller.selectInstance(0);
       await tester.pump();
-      expect(events.where((event) => event == 'forum.frame'), hasLength(1));
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
     testWidgets(

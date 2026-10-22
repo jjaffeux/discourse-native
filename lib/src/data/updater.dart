@@ -1,8 +1,6 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
-import '../diagnostics/diagnostic_error_cause.dart';
-
 enum UpdateChannel {
   stable,
   canary;
@@ -44,7 +42,7 @@ class UpdateRelease {
 
 enum UpdateFailure { unreachable, malformed, untrusted, install }
 
-class UpdateException implements Exception, DiagnosticErrorCause {
+class UpdateException implements Exception {
   const UpdateException(this.failure, [this.detail])
     : cause = null,
       causeStackTrace = null;
@@ -61,12 +59,6 @@ class UpdateException implements Exception, DiagnosticErrorCause {
   final String? detail;
   final Object? cause;
   final StackTrace? causeStackTrace;
-
-  @override
-  Object get diagnosticCause => cause ?? this;
-
-  @override
-  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message => switch (failure) {
     UpdateFailure.unreachable => appL10n.couldnTReachTheUpdateServer,

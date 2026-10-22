@@ -4,9 +4,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/linux_preferences_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 // The Linux plugins this store replaces, to prove it reads and leaves their
 // file exactly where and how they keep it.
@@ -162,32 +160,12 @@ void main() {
       ),
     ]) {
       test('$name is set aside, reported once, and read as empty', () async {
-        final diagnostics = await _installDiagnostics();
         await file.writeAsBytes(bytes);
 
         expect(await store().getAll(), isEmpty);
         expect(await store().getAll(), isEmpty);
         expect(await store().setValue('String', 'flutter.next', 'v'), isTrue);
 
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-          isA<ErrorDiagnosticEvent>()
-              .having(
-                (event) => event.operation,
-                'operation',
-                'preferences.decode',
-              )
-              .having((event) => event.source, 'source', 'storage')
-              .having(
-                (event) => event.severity,
-                'severity',
-                DiagnosticSeverity.error,
-              ),
-        );
-        expect(
-          diagnostics.buildJsonReport(),
-          isNot(contains('discourse_native.instances')),
-        );
         final copies = [
           for (final entity in directory.listSync())
             if (entity.path.contains('.damaged-')) entity as File,
@@ -289,19 +267,6 @@ Future<bool> _setElsewhere(String path, String key, String value) =>
     LinuxPreferencesStore(
       file: () => File(path),
     ).setValue('String', key, value);
-
-Future<DiagnosticsController> _installDiagnostics() async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: 'linux-preferences',
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  addTearDown(() async {
-    binding.close();
-    await diagnostics.close();
-  });
-  return diagnostics;
-}
 
 final class _SupportPath extends PathProviderLinux {
   _SupportPath(this.path);

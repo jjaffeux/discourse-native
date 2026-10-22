@@ -5,7 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/avatar_loader.dart';
 import '../data/media_pipeline.dart';
-import '../foundation/diagnostic_errors.dart';
+
 import 'image_decode.dart';
 
 class AvatarImage extends StatefulWidget {
@@ -122,9 +122,6 @@ class _AvatarImageState extends State<AvatarImage> {
     Object error,
     StackTrace? stackTrace,
   ) {
-    if (loader?.rejectAfterDecodeFailure(url, image) != false) {
-      reportImageError(error, stackTrace, operation: 'avatar.decode');
-    }
     if (widget.url == url && identical(_bytes, image)) _bytes = null;
     return widget.fallback;
   }

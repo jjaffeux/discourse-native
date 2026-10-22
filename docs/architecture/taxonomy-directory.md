@@ -22,7 +22,7 @@ The existing pure directory, category path, and sidebar algorithms retain their 
 
 ## Request and account lifetime
 
-The owner uses the existing account request capability and its key, client-ID, anonymous, cancellation, priority, and diagnostic policies. Initial category loads share their request intent. Targeted category IDs register their pending result before credential IO. Directory and scoped-tag requests retain their exact request tokens.
+The owner uses the existing account request capability and its key, client-ID, anonymous, cancellation, and priority policies. Initial category loads share their request intent. Targeted category IDs register their pending result before credential IO. Directory and scoped-tag requests retain their exact request tokens.
 
 A site record retains readable projections after its lease is revoked. New asynchronous work and late publication require current authority. Explicit account teardown discards the record, so a replacement account cannot inherit its requests or cache. Revoking a lease alone must not erase a category projection staged immediately before a synchronous Store listener.
 

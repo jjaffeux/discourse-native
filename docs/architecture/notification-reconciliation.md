@@ -2,7 +2,7 @@
 
 `NotificationReconciliation` owns effective notification rows and count authority
 for one `SiteLease`. `AccountActivityController` retains transport, credentials,
-request coalescing, diagnostics, refresh sequencing, and persistence callbacks.
+request coalescing, refresh sequencing, and persistence callbacks.
 Its existing public API and plugin hosts continue to use the same feeds.
 
 ## Feed registration

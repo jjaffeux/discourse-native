@@ -181,7 +181,7 @@ void main() {
           ),
           throwsA(
             isA<SiteLookupException>().having(
-              (error) => error.diagnosticCause,
+              (error) => error.cause,
               'diagnosticCause',
               isA<UnsafeHttpTransportException>(),
             ),

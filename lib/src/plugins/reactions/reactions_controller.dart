@@ -46,7 +46,6 @@ class ReactionsController extends FrameSafeNotifier {
     required PluginSiteConfigResolver resolveSiteConfig,
     required PluginEmojiHost emoji,
     Store? cache,
-    this.diagnostics = const PluginDiagnosticsReporter.noop(),
   }) : _api = api,
        _writes =
            writes ??
@@ -66,7 +65,6 @@ class ReactionsController extends FrameSafeNotifier {
   final PluginSiteConfigResolver _resolveSiteConfig;
   final PluginEmojiHost _emoji;
   final Store _cache;
-  final PluginDiagnosticsReporter diagnostics;
 
   final Map<_ReactionRequestKey, Object> _requests = {};
   final Map<_ReactionRequestKey, String> _errors = {};
@@ -141,10 +139,7 @@ class ReactionsController extends FrameSafeNotifier {
         _catalogChanges.changed(siteUrl);
         notifySafely();
       }
-    } catch (error, stackTrace) {
-      if (lease.isCurrent && _ownsCatalogRequest(siteUrl, request)) {
-        _report(error, stackTrace, 'reactions.loadEmojiCatalog');
-      }
+    } catch (error) {
     } finally {
       if (_ownsCatalogRequest(siteUrl, request)) {
         _emojiCatalogRequests.remove(siteUrl);
@@ -223,16 +218,9 @@ class ReactionsController extends FrameSafeNotifier {
         _cache.put(siteUrl, fetched);
         _errors.remove(key);
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_canSend(lease, key, request)) return;
-      diagnostics.reportError(
-        error,
-        stackTrace,
-        operation: 'reactions.loadUsers',
-        source: 'reactions',
-        handled: true,
-        degraded: true,
-      );
+
       lease.commit(() {
         if (reactors(siteUrl, postId, filter: filter) == null) {
           _errors[key] = appL10n.couldNotFindOutWhoReacted;
@@ -359,9 +347,6 @@ class ReactionsController extends FrameSafeNotifier {
             ? ReactionToggleResult.uncertain(error, isCurrent: current())
             : ReactionToggleResult.refused(error, isCurrent: current());
       } catch (error, stackTrace) {
-        if (current()) {
-          _report(error, stackTrace, 'post.toggleReaction');
-        }
         revert();
         final failure = WriteException(
           WriteFailure.unreachable,
@@ -414,17 +399,6 @@ class ReactionsController extends FrameSafeNotifier {
 
   bool _isCurrentRequest(_ReactionRequestKey key, Object request) =>
       !isDisposed && identical(_requests[key], request);
-
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    diagnostics.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'reactions',
-      handled: true,
-      degraded: true,
-    );
-  }
 
   @override
   void dispose() {

@@ -10,7 +10,7 @@ final class _ChatChannelDirectory {
     required this.liveSync,
     required this.currentUserFor,
     required this.onChanged,
-    required this.report,
+
     required this.onChatNotificationsDelta,
     required this.hasThreads,
     required this.replaceHasThreads,
@@ -25,8 +25,7 @@ final class _ChatChannelDirectory {
   final ChatLiveSyncCoordinator liveSync;
   final DiscourseUser? Function(String) currentUserFor;
   final void Function() onChanged;
-  final void Function(Object, StackTrace, String, {DiagnosticSeverity severity})
-  report;
+
   final ChatNotificationsDelta? onChatNotificationsDelta;
   final bool Function() hasThreads;
   final void Function(bool, bool) replaceHasThreads;
@@ -220,14 +219,8 @@ final class _ChatChannelDirectory {
     } on WriteException catch (error) {
       if (isCurrentRequest()) projectStarred(held.membership.starred);
       return error.message;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isCurrentRequest()) {
-        report(
-          error,
-          stackTrace,
-          'chat.updateChannelStarred',
-          severity: DiagnosticSeverity.warning,
-        );
         projectStarred(held.membership.starred);
       }
       return const WriteException(WriteFailure.unreachable).message;
@@ -331,14 +324,8 @@ final class _ChatChannelDirectory {
     } on WriteException catch (error) {
       if (isCurrentRequest()) project(held.membership);
       return error.message;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isCurrentRequest()) {
-        report(
-          error,
-          stackTrace,
-          'chat.updateChannelNotifications',
-          severity: DiagnosticSeverity.warning,
-        );
         project(held.membership);
       }
       return const WriteException(WriteFailure.unreachable).message;
@@ -387,15 +374,7 @@ final class _ChatChannelDirectory {
           }
           liveSync.unmuteChannel(siteUrl, fresh);
         });
-      } catch (error, stackTrace) {
-        if (isCurrentRequest()) {
-          report(
-            error,
-            stackTrace,
-            'chat.resumeChannelMessages',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
+      } catch (error) {
       } finally {
         if (identical(_channels[key]?.messageResume, run)) {
           _channels[key]?.messageResume = null;
@@ -448,15 +427,9 @@ final class _ChatChannelDirectory {
       return isCurrentRequest()
           ? (page: page, error: null)
           : (page: null, error: null);
-    } on SiteLookupException catch (error, stackTrace) {
-      if (isCurrentRequest()) {
-        report(error, stackTrace, 'chat.loadChannelMembers');
-      }
+    } on SiteLookupException catch (error) {
       return (page: null, error: error.message);
-    } catch (error, stackTrace) {
-      if (isCurrentRequest()) {
-        report(error, stackTrace, 'chat.loadChannelMembers');
-      }
+    } catch (error) {
       return (page: null, error: appL10n.couldnTLoadThisChannelSMembers);
     }
   }
@@ -501,11 +474,9 @@ final class _ChatChannelDirectory {
       return isCurrentRequest()
           ? (page: page, error: null)
           : (page: null, error: null);
-    } on SiteLookupException catch (error, stackTrace) {
-      if (isCurrentRequest()) report(error, stackTrace, 'chat.browseChannels');
+    } on SiteLookupException catch (error) {
       return (page: null, error: error.message);
-    } catch (error, stackTrace) {
-      if (isCurrentRequest()) report(error, stackTrace, 'chat.browseChannels');
+    } catch (error) {
       return (page: null, error: appL10n.couldnTLoadChatChannels);
     }
   }
@@ -646,11 +617,9 @@ final class _ChatChannelDirectory {
     } on WriteException catch (error) {
       restoreThreading();
       return error.message;
-    } catch (error, stackTrace) {
+    } catch (error) {
       restoreThreading();
-      if (isCurrentRequest()) {
-        report(error, stackTrace, 'chat.updateChannelMetadata');
-      }
+
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       if (identical(_channels[key]?.settingsWrite, token)) {
@@ -740,10 +709,7 @@ final class _ChatChannelDirectory {
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (isCurrentRequest()) {
-        report(error, stackTrace, 'chat.setChannelClosed');
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       if (identical(_channels[key]?.settingsWrite, token)) {
@@ -853,15 +819,7 @@ final class _ChatChannelDirectory {
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (isCurrentRequest()) {
-        report(
-          error,
-          stackTrace,
-          'chat.updateChannelFollowing',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       if (identical(_channels[key]?.followWrite, token)) {
@@ -946,10 +904,7 @@ final class _ChatChannelDirectory {
         onChanged();
       });
       return channel;
-    } catch (error, stackTrace) {
-      if (isCurrent && lease.isCurrent) {
-        report(error, stackTrace, 'chat.createDirectMessage');
-      }
+    } catch (error) {
       rethrow;
     }
   }
@@ -1308,10 +1263,7 @@ final class _ChatChannelDirectory {
           })
           ? channel(channelId)
           : null;
-    } catch (error, stackTrace) {
-      if (_requestIsCurrent(lease, ownsRequest)) {
-        report(error, stackTrace, 'chat.loadChannel');
-      }
+    } catch (error) {
       rethrow;
     }
   }
@@ -1418,9 +1370,9 @@ final class _ChatChannelDirectory {
         _error = null;
         _attempts = 0;
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_requestIsCurrent(lease, ownsRequest)) return;
-      report(error, stackTrace, 'chat.loadChannels');
+
       if (_revalidating) return;
       lease.commit(() {
         _error = appL10n.couldNotLoadThisSiteSChatChannels;

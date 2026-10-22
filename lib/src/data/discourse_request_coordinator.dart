@@ -17,9 +17,8 @@ import 'retry_after.dart';
 /// process-local and is never logged. Redirects are checked by each caller
 /// after the shared hop completes.
 ///
-/// A caller that joins a shared hop sends nothing itself, so the one HTTP
-/// exchange keeps the diagnostics operation and correlation of the caller
-/// that started it; each joiner receives the shared result in its own.
+/// A caller that joins a shared hop sends nothing itself. The exchange runs
+/// in its initiating caller's zone; each joiner receives the result in its own.
 final class DiscourseGetRequestKey {
   DiscourseGetRequestKey(
     this.url, {

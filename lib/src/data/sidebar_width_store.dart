@@ -1,4 +1,3 @@
-import 'package:discourse_native/l10n/strings.dart';
 import 'preference_storage_scope.dart';
 import 'scalar_preference_repository.dart';
 
@@ -40,9 +39,6 @@ final class SidebarWidthStore {
         persistence: _SidebarWidthScalarPersistence(_persistence),
         owner: _persistence,
         key: storageKey,
-        readOperation: 'sidebar.readWidth',
-        writeOperation: 'sidebar.writeWidth',
-        writeFailureMessage: appL10n.couldNotPersistTheSidebarWidth,
       );
 
   Future<double?> read() => _repository.read();

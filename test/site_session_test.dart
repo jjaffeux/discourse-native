@@ -10,7 +10,7 @@ import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -1011,11 +1011,6 @@ void main() {
     test(
       'reports and isolates a throwing plugin current-user observer',
       () async {
-        final diagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'current-user-observer-isolation',
-        );
-        final diagnosticsBinding = DiagnosticsSink.install(diagnostics);
         final calls = <String>[];
         final recordingObserver = _RecordingCurrentUserObserver(calls);
         final plugins = PluginInstaller.install(
@@ -1042,13 +1037,6 @@ void main() {
           trackers: FakeSiteTracker.reset(),
           plugins: plugins,
         );
-        addTearDown(() async {
-          shell.dispose();
-          await Future<void>.delayed(Duration.zero);
-          await plugins.close();
-          diagnosticsBinding.close();
-          await diagnostics.close();
-        });
 
         await shell.load();
         expect(await recordingObserver.called.future, _siteUrl);
@@ -1056,16 +1044,6 @@ void main() {
 
         expect(shell.freshCurrentUserFor(_siteUrl)?.username, 'fresh-account');
         expect(calls, ['throwing:$_siteUrl', 'recording:$_siteUrl']);
-        final event = diagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .singleWhere(
-              (candidate) =>
-                  candidate.operation == 'plugins.session.currentUserRefreshed',
-            );
-        expect(event.source, 'shell');
-        expect(event.severity, DiagnosticSeverity.warning);
-        expect(event.handled, isTrue);
-        expect(event.degraded, isTrue);
       },
     );
 

@@ -42,7 +42,6 @@ final class DiscourseAiModule implements PluginModule {
           siteState: bindings.require(corePluginSiteStatePort),
           freshAccount: bindings.require(corePluginFreshAccountPort),
           currentUserId: bindings.require(corePluginUserPort),
-          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         final conversations = AiConversationsService(
           transport: bindings.require(corePluginTransportPort),
@@ -74,7 +73,6 @@ final class DiscourseAiModule implements PluginModule {
         corePluginTopicListNavigationPort,
         corePluginFreshAccountPort,
         corePluginUserPort,
-        pluginDiagnosticsReporterPort,
       ],
     );
   }

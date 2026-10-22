@@ -7,9 +7,6 @@ import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../models/topic.dart';
 
-typedef TopicReadErrorReporter =
-    void Function(Object error, StackTrace stackTrace, String operation);
-
 typedef _TopicReadKey = (String siteUrl, int topicId);
 
 typedef _TopicReadReceipt = ({
@@ -25,14 +22,12 @@ final class TopicReadController {
     required this.credentials,
     required this.lifecycle,
     required this.store,
-    required this.reportError,
   });
 
   final TopicReadsApi api;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final Store store;
-  final TopicReadErrorReporter reportError;
 
   final Map<_TopicReadKey, int> _positions = {};
   final Map<_TopicReadKey, _TopicReadCredits> _credits = {};
@@ -289,13 +284,12 @@ final class TopicReadController {
             postNumbers: receipt.postNumbers.toList(),
           ),
         );
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (_canSend(key, run, receipt.lease)) {
           // Notifications are cleared for exact timing keys. A newer local or
           // server position cannot acknowledge these posts. Retry only after
           // another observation, while still attempting pending newer reads.
           _retain(_retries, key, receipt);
-          reportError(error, stackTrace, 'topic.markRead');
         }
         // A newer queued position must still be attempted after this failure.
       }

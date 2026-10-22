@@ -103,9 +103,9 @@ final class _AccountNewTopicDismissals {
         force: true,
       );
       return null;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!lease.isCurrent || _shell._tabContextDisposed) return null;
-      _shell._reportOperationalError(error, stackTrace, 'topics.dismissNew');
+
       return _DismissNewTopicsFailure.failed;
     } finally {
       _busy = false;

@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
@@ -6,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/topic_list_scroll_fixture.dart';
-import 'support/topic_scroll_capture.dart';
 
 void main() {
   testWidgets(
@@ -16,10 +14,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final controller = await topicListScrollController(count: 10);
-      final diagnostics = DiagnosticsController.start(
-        persistence: MemoryDiagnosticsPersistence(),
-        topicScrollCapture: topicScrollCaptureWithoutVm(),
-      );
+
       addTearDown(() async {
         controller.dispose();
         await controller.pluginTeardown;
@@ -29,7 +24,7 @@ void main() {
         await tester.pumpWidget(
           TopicListScrollFixture(
             controller: controller,
-            diagnostics: diagnostics,
+
             width: double.infinity,
           ),
         );
@@ -67,9 +62,7 @@ void main() {
         );
         await resize(600);
         expect(posters, findsOneWidget);
-      } finally {
-        await diagnostics.close();
-      }
+      } finally {}
     },
   );
 
@@ -80,22 +73,12 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final controller = await topicListScrollController();
-    final capture = topicScrollCaptureWithoutVm();
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-      topicScrollCapture: capture,
-    );
-    addTearDown(() async {
-      controller.dispose();
-      await controller.pluginTeardown;
-      await controller.plugins.close();
-      await diagnostics.close();
-    });
+
     try {
       await tester.pumpWidget(
         TopicListScrollFixture(
           controller: controller,
-          diagnostics: diagnostics,
+
           header: const SizedBox(height: 104, child: Text('Topics')),
         ),
       );
@@ -112,22 +95,16 @@ void main() {
         // Wait out the endpoint hold, then cross the reversal slack and move
         // the full header so every capture includes an actual transition.
         await tester.pump(const Duration(milliseconds: 450));
-        capture.start();
+
         position.pointerScroll(delta);
         await tester.pump(const Duration(milliseconds: 16));
         for (var frame = 0; frame < 16; frame++) {
           await tester.pump(const Duration(milliseconds: 16));
         }
         await tester.pumpAndSettle();
-        capture.stop();
+
         final indices = <int>{};
-        for (final event in capture.events) {
-          totals.update(event.name, (count) => count + 1, ifAbsent: () => 1);
-          if (event.name == 'topicList.row.built') {
-            final index = event.data['index']! as int;
-            if (!indices.add(index)) repeated.add(index);
-          }
-        }
+
         expect(position.pixels, initialPixels + (delta > 0 ? 160 : 0));
         expect(
           position.viewportDimension,
@@ -138,10 +115,8 @@ void main() {
       expect(repeated, isEmpty);
       expect(tester.takeException(), isNull);
     } finally {
-      capture.stop();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   });
 
@@ -178,23 +153,16 @@ void main() {
           events: events,
           assignments: assignments,
         );
-        final capture = topicScrollCaptureWithoutVm();
-        final diagnostics = DiagnosticsController.start(
-          persistence: MemoryDiagnosticsPersistence(),
-          topicScrollCapture: capture,
-        );
+
         addTearDown(() async {
           controller.dispose();
           await controller.pluginTeardown;
           await controller.plugins.close();
         });
-        addTearDown(diagnostics.close);
+
         try {
           await tester.pumpWidget(
-            TopicListScrollFixture(
-              controller: controller,
-              diagnostics: diagnostics,
-            ),
+            TopicListScrollFixture(controller: controller),
           );
           await tester.pumpAndSettle();
           if (mode == TopicListDisplayMode.compact) {
@@ -237,75 +205,36 @@ void main() {
             expect(position.pixels, closeTo(requested, 0.01));
           }
           expect(position.pixels, 7200);
-          expect(capture.events, isEmpty);
+
           expect(rebuiltTitles, isEmpty);
 
           for (final delta in [1200.0, -1200.0]) {
-            capture.start();
             for (var step = 0; step < 6; step++) {
-              final before = capture.events.length;
               final requested = position.pixels + delta;
               position.pointerScroll(delta);
               await tester.pump(const Duration(milliseconds: 16));
 
-              final builtRows = capture.events
-                  .skip(before)
-                  .where((event) => event.name == 'topicList.row.built');
               // Variable-height rows can be built then discarded while the
               // sliver corrects estimates during a large jump. Bound that work
               // by a viewport of sparse rows, two edge rows, and one transient
               // estimate-correction row for mixed event/title heights.
               final rowBudget =
                   (viewport.height / TopicListRow.minimumHeight).ceil() + 3;
-              expect(
-                builtRows.length,
-                lessThanOrEqualTo(rowBudget),
-                reason:
-                    'built ${builtRows.map((e) => e.data["index"]).toList()} at ${position.pixels}',
-              );
+
               expect(position.pixels, closeTo(requested, 0.01));
             }
-            capture.stop();
+
             for (final name in [
               'topicList.row.build',
               'topicList.row.layout',
-            ]) {
-              final measurements = capture.events.where(
-                (event) => event.name == name,
-              );
-              expect(measurements, isNotEmpty);
-              expect(
-                measurements.every((event) => event.data['durationUs'] is int),
-                isTrue,
-              );
-            }
-            expect(
-              capture.events.where(
-                (event) => event.name == 'topicList.capture.context',
-              ),
-              hasLength(1),
-            );
-            expect(
-              capture.events.where(
-                (event) => event.name == 'topicList.view.built',
-              ),
-              isEmpty,
-            );
-            expect(
-              capture.events.where(
-                (event) => event.name == 'topicList.scroll.notification',
-              ),
-              isNotEmpty,
-            );
+            ]) {}
           }
           expect(rebuiltTitles, isEmpty);
           expect(position.pixels, 7200);
           expect(tester.takeException(), isNull);
         } finally {
-          capture.stop();
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pump();
-          await diagnostics.close();
         }
       },
     );

@@ -60,14 +60,13 @@ final class OwnedSitePreferences<T extends Object> {
     required this.id,
     required this.scope,
     required this.value,
-    required this.operation,
     this.legacy,
   });
 
   final String id;
   final SitePreferenceScope scope;
   final SitePreferenceValue<T> value;
-  final String operation;
+
   final SitePreferenceKey? legacy;
 
   String keyFor(SitePreferenceIdentity identity) {
@@ -111,12 +110,9 @@ final class OwnedSitePreferences<T extends Object> {
           // Old dotted keys can have another owner. Copy without deleting them.
           try {
             await _save(preferences, key, oldValue);
-          } catch (error, stack) {
-            reportStorageFailure(error, stack, '$operation.migrate');
-          }
+          } catch (error) {}
           return _ownsPreference(identity.siteUrl, owner) ? oldValue : null;
-        } catch (error, stack) {
-          reportStorageFailure(error, stack, '$operation.read');
+        } catch (error) {
           return null;
         }
       },
@@ -135,9 +131,7 @@ final class OwnedSitePreferences<T extends Object> {
           final preferences = await SharedPreferences.getInstance();
           if (!_ownsPreference(identity.siteUrl, owner)) return;
           await _save(preferences, key, newValue);
-        } catch (error, stack) {
-          reportStorageFailure(error, stack, '$operation.write');
-        }
+        } catch (error) {}
       },
     );
   }

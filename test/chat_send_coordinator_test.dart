@@ -667,7 +667,6 @@ final class _Projection {
       onContext?.call();
       return messageContext;
     },
-    report: (_, _, _, _) {},
   );
 }
 

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
 import 'package:discourse_native/src/models/badge.dart';
 import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
@@ -72,7 +71,7 @@ import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/plugins/solved/solved_post.dart';
 import 'package:discourse_native/src/plugins/voice/voice_agents.dart';
-import 'package:discourse_native/src/plugins/voice/voice_diagnostics_models.dart';
+
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -2154,25 +2153,7 @@ void main() {
         ),
         (permission) => permission.botId != null,
       );
-      probe(
-        'VoiceDiagnosticRecord',
-        () => VoiceDiagnosticRecord.fromJson(
-          gate(
-            withFields({
-              'sequence': 1,
-              'timestampUtc': '2020-01-01T00:00:00Z',
-              'captureId': 'c',
-              'event': 'e',
-              'component': 'x',
-              'severity': DiagnosticSeverity.info.name,
-              'message': loose,
-              'data': {'value': loose},
-              'truncated': false,
-            }),
-          ),
-        ),
-        (record) => record != null,
-      );
+
       probe(
         'VoiceParticipant',
         () => VoiceParticipant.fromJson(withFields({'id': loose})),

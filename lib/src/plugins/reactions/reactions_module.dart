@@ -45,7 +45,6 @@ final class ReactionsModule implements PluginModule {
           siteState: bindings.require(corePluginSiteStatePort),
           resolveSiteConfig: bindings.require(corePluginPresentationPort),
           emoji: emoji,
-          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         return PluginSessionContribution(
           lifecycle: _ReactionsSessionLifecycle(controller),
@@ -63,7 +62,6 @@ final class ReactionsModule implements PluginModule {
         corePluginSiteStatePort,
         corePluginPresentationPort,
         corePluginEmojiPort,
-        pluginDiagnosticsReporterPort,
       ],
     );
   }

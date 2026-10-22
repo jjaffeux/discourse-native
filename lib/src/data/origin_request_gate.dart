@@ -68,8 +68,7 @@ final class OriginRequestGate {
   ///
   /// Queued work is granted from whichever lease release or cooldown wake
   /// frees capacity, but always starts in the zone that called [run]: that
-  /// zone carries the caller's diagnostics operation and correlation, which
-  /// an HTTP request records when it starts.
+  /// zone retains the caller's account and request context.
   Future<T> run<T>(
     Uri url,
     Future<T> Function(OriginRequestContext context) operation, {

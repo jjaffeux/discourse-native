@@ -27,7 +27,6 @@ final class AssignedGroupController extends FrameSafeNotifier {
     required this.api,
     required PluginRequestHost requests,
     Store? topics,
-    this.diagnostics = const PluginDiagnosticsReporter.noop(),
   }) : _requests = requests,
        _topics = topics ?? Store(policy: _assignedTopicStorePolicy),
        _ownsTopicStore = topics == null;
@@ -40,7 +39,6 @@ final class AssignedGroupController extends FrameSafeNotifier {
   final PluginRequestHost _requests;
   final Store _topics;
   final bool _ownsTopicStore;
-  final PluginDiagnosticsReporter diagnostics;
 
   final Map<_MemberKey, AssignedGroupMembersState> _memberStates = {};
   final Map<_MemberKey, Object> _memberRequests = {};
@@ -151,9 +149,9 @@ final class AssignedGroupController extends FrameSafeNotifier {
       _commitMember(lease, key, request, () {
         _memberStates[key] = (_memberStates[key] ?? held).withPage(page);
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_memberRequestCurrent(lease, key, request)) return;
-      _report(error, stackTrace, 'assign.groupMembers');
+
       _commitMember(lease, key, request, () {
         _memberStates[key] = held.withError(
           appL10n.couldnTLoadThisGroupSAssignedMembers,
@@ -216,14 +214,9 @@ final class AssignedGroupController extends FrameSafeNotifier {
       _commitMember(lease, key, request, () {
         _memberStates[key] = held.withPage(page);
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_memberRequestCurrent(lease, key, request)) return;
-      _report(
-        error,
-        stackTrace,
-        'assign.groupMembers.loadMore',
-        severity: DiagnosticSeverity.warning,
-      );
+
       _commitMember(lease, key, request, () {
         _memberStates[key] = held.withError(
           appL10n.couldnTLoadMoreAssignedMembers,
@@ -252,7 +245,6 @@ final class AssignedGroupController extends FrameSafeNotifier {
           requests: _requests,
           topics: _topics,
           notify: notifySafely,
-          diagnostics: diagnostics,
         ));
     _trimTopicQueries(siteUrl);
     await owner.load(refresh: refresh);
@@ -345,23 +337,6 @@ final class AssignedGroupController extends FrameSafeNotifier {
     }
   }
 
-  void _report(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    DiagnosticSeverity severity = DiagnosticSeverity.error,
-  }) {
-    diagnostics.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'assign',
-      severity: severity,
-      handled: true,
-      degraded: true,
-    );
-  }
-
   @override
   void dispose() {
     _memberStates.clear();
@@ -381,7 +356,6 @@ final class _AssignedTopicQuery {
     required this.requests,
     required this.topics,
     required this.notify,
-    required this.diagnostics,
   });
 
   final _TopicKey key;
@@ -389,7 +363,6 @@ final class _AssignedTopicQuery {
   final PluginRequestHost requests;
   final Store topics;
   final void Function() notify;
-  final PluginDiagnosticsReporter diagnostics;
 
   TopicFeed feed = const TopicFeed();
   Object? _request;
@@ -481,17 +454,9 @@ final class _AssignedTopicQuery {
           clearError: true,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_current(lease, request)) return;
-      diagnostics.reportError(
-        error,
-        stackTrace,
-        operation: page ? 'assign.groupTopics.loadMore' : 'assign.groupTopics',
-        source: 'assign',
-        severity: page ? DiagnosticSeverity.warning : DiagnosticSeverity.error,
-        handled: true,
-        degraded: true,
-      );
+
       _commit(lease, request, () {
         feed = held.withError(
           page

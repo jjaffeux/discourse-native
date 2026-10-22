@@ -937,7 +937,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _shell({
     PluginManifest([
       discourseAiModule,
       if (voice) ChatModule(apiFactory: (transport) => transport as ChatApi),
-      if (voice) const VoiceModule.withoutDiagnostics(),
+      if (voice) const VoiceModule(),
     ]),
   );
   addTearDown(plugins.close);

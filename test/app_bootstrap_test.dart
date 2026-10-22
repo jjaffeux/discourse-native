@@ -1,321 +1,81 @@
-import 'dart:async';
-
 import 'package:discourse_native/src/app_bootstrap.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('launches before optional startup operations', () async {
-    final host = _RecordingBootstrapHost();
+    final host = _BootstrapHost();
 
     AppBootstrap(host: host).start();
-    await host.launched.future;
 
-    expect(host.calls, [
-      'ensureFlutterInitialized',
-      'installPreferencesStore',
-      'createDiagnostics',
-      'installDiagnosticsSink',
-      'installRecordingHttpOverrides',
-      'installGlobalErrorHandlers',
-      'initializePlugins',
-      'launchApplication',
-      'hydrateDiagnostics',
-      'scheduleAfterFirstFrame',
-    ]);
-    expect(host.deferred.isCompleted, isFalse);
+    expect(host.calls, ['binding', 'preferences', 'plugins', 'launch']);
+    expect(host.deferred, isNotNull);
 
-    await host.runDeferred();
-    expect(host.calls.skip(10), [
-      'initializeTimezoneEnvironment',
-      'initializePersistentMediaCache',
-      'restrictApplicationDirectories',
-    ]);
-    expect(host.reportedErrors, isEmpty);
-    expect(host.unhandledErrors, isEmpty);
+    await host.deferred!();
+    expect(host.calls.skip(4), ['timezone', 'cache', 'directories']);
   });
 
-  test('reports deferred failures after the app has launched', () async {
-    final host = _RecordingBootstrapHost(
-      failureStage: 'initializePersistentMediaCache',
-    );
+  for (final stage in ['timezone', 'cache', 'directories']) {
+    test('contains optional $stage failure after launch', () async {
+      final host = _BootstrapHost(failAt: stage);
+      AppBootstrap(host: host).start();
 
-    AppBootstrap(host: host).start();
-    await host.launched.future;
+      await expectLater(host.deferred!(), completes);
 
-    expect(host.calls, [
-      'ensureFlutterInitialized',
-      'installPreferencesStore',
-      'createDiagnostics',
-      'installDiagnosticsSink',
-      'installRecordingHttpOverrides',
-      'installGlobalErrorHandlers',
-      'initializePlugins',
-      'launchApplication',
-      'hydrateDiagnostics',
-      'scheduleAfterFirstFrame',
-    ]);
+      expect(
+        host.calls,
+        containsAllInOrder(['launch', 'timezone', 'cache', 'directories']),
+      );
+    });
+  }
 
-    await host.runDeferred();
-    expect(host.calls.skip(10), [
-      'initializeTimezoneEnvironment',
-      'initializePersistentMediaCache',
-      'restrictApplicationDirectories',
-      'reportError',
-    ]);
-    expect(host.reportedErrors, hasLength(1));
-    final reported = host.reportedErrors.single;
-    expect(reported.error, same(host.failure));
-    expect(reported.operation, 'image.initializePersistentCache');
-    expect(reported.source, 'image');
-    expect(reported.handled, isTrue);
-    expect(reported.degraded, isTrue);
-  });
+  for (final stage in ['binding', 'preferences', 'plugins', 'launch']) {
+    test('propagates fatal $stage failure', () {
+      final host = _BootstrapHost(failAt: stage);
 
-  test(
-    'reports a failure to restrict application directories after launch',
-    () async {
-      final host = _RecordingBootstrapHost(
-        failureStage: 'restrictApplicationDirectories',
+      expect(
+        () => AppBootstrap(host: host).start(),
+        throwsA(same(host.failure)),
       );
 
-      AppBootstrap(host: host).start();
-      await host.launched.future;
-
-      expect(host.calls, contains('launchApplication'));
-      expect(host.calls, isNot(contains('restrictApplicationDirectories')));
-
-      await host.runDeferred();
-      expect(host.calls.skip(10), [
-        'initializeTimezoneEnvironment',
-        'initializePersistentMediaCache',
-        'restrictApplicationDirectories',
-        'reportError',
-      ]);
-      final reported = host.reportedErrors.single;
-      expect(reported.error, same(host.failure));
-      expect(reported.operation, 'storage.restrictApplicationDirectories');
-      expect(reported.source, 'storage');
-      expect(reported.handled, isTrue);
-      expect(reported.degraded, isTrue);
-      expect(host.unhandledErrors, isEmpty);
-    },
-  );
-
-  test('records and forwards a fatal error after handlers install', () async {
-    final host = _RecordingBootstrapHost(failureStage: 'initializePlugins');
-
-    final forwarded = await _startAndCaptureFatalError(host);
-
-    expect(forwarded.error, same(host.failure));
-    expect(host.unhandledErrors, hasLength(1));
-    expect(host.unhandledErrors.single.error, same(host.failure));
-    expect(host.unhandledErrors.single.stackTrace, same(forwarded.stackTrace));
-    expect(host.unhandledErrors.single.source, 'zone');
-    expect(host.calls, [
-      'ensureFlutterInitialized',
-      'installPreferencesStore',
-      'createDiagnostics',
-      'installDiagnosticsSink',
-      'installRecordingHttpOverrides',
-      'installGlobalErrorHandlers',
-      'initializePlugins',
-      'hydrateDiagnostics',
-      'reportUnhandledError',
-    ]);
-    expect(host.launched.isCompleted, isFalse);
-  });
-
-  test('forwards a fatal error before handlers can install', () async {
-    final host = _RecordingBootstrapHost(failureStage: 'createDiagnostics');
-
-    final forwarded = await _startAndCaptureFatalError(host);
-
-    expect(forwarded.error, same(host.failure));
-    expect(host.unhandledErrors, isEmpty);
-    expect(host.calls, [
-      'ensureFlutterInitialized',
-      'installPreferencesStore',
-      'createDiagnostics',
-    ]);
-    expect(host.launched.isCompleted, isFalse);
-  });
-
-  test('does not wait for diagnostics hydration before launching', () async {
-    final hydrationGate = Completer<void>();
-    final host = _RecordingBootstrapHost(hydrationGate: hydrationGate.future);
-
-    AppBootstrap(host: host).start();
-    await host.launched.future;
-
-    expect(
-      host.calls.indexOf('launchApplication'),
-      lessThan(host.calls.indexOf('hydrateDiagnostics')),
-    );
-    expect(host.hydrated.isCompleted, isFalse);
-
-    hydrationGate.complete();
-    await host.hydrated.future;
-  });
+      expect(host.deferred, isNull);
+    });
+  }
 }
 
-Future<({Object error, StackTrace stackTrace})> _startAndCaptureFatalError(
-  _RecordingBootstrapHost host,
-) async {
-  final forwarded = Completer<({Object error, StackTrace stackTrace})>();
-  runZonedGuarded<void>(() => AppBootstrap(host: host).start(), (
-    error,
-    stackTrace,
-  ) {
-    if (!forwarded.isCompleted) {
-      forwarded.complete((error: error, stackTrace: stackTrace));
-    }
-  });
-  // Startup deliberately crosses several completed Future boundaries. Give
-  // that finite chain enough event turns to reach the parent zone, then fail
-  // diagnostically instead of leaving a missed forwarder to hang the suite.
-  await pumpEventQueue(times: 20);
-  expect(
-    forwarded.isCompleted,
-    isTrue,
-    reason: 'a fatal bootstrap error was not forwarded to the parent zone',
-  );
-  return forwarded.future;
-}
+final class _BootstrapHost implements AppBootstrapHost {
+  _BootstrapHost({this.failAt});
 
-typedef _ReportedError = ({
-  Object error,
-  StackTrace stackTrace,
-  String operation,
-  String source,
-  bool handled,
-  bool degraded,
-});
+  final String? failAt;
+  final failure = StateError('startup failed');
+  final calls = <String>[];
+  Future<void> Function()? deferred;
 
-typedef _UnhandledError = ({
-  Object error,
-  StackTrace stackTrace,
-  String source,
-});
-
-final class _RecordingBootstrapHost implements AppBootstrapHost {
-  _RecordingBootstrapHost({this.failureStage, this.hydrationGate});
-
-  final String? failureStage;
-  final Future<void>? hydrationGate;
-  final Object failure = StateError('startup failed');
-  final List<String> calls = [];
-  final List<_ReportedError> reportedErrors = [];
-  final List<_UnhandledError> unhandledErrors = [];
-  final Completer<void> launched = Completer<void>();
-  final Completer<void> hydrated = Completer<void>();
-  final Completer<void> deferred = Completer<void>();
-  Future<void> Function()? _deferredWork;
-
-  void _record(String stage) {
+  void _call(String stage) {
     calls.add(stage);
-    if (failureStage == stage) throw failure;
+    if (failAt == stage) throw failure;
   }
 
   @override
-  void createDiagnostics() {
-    _record('createDiagnostics');
-  }
+  void ensureFlutterInitialized() => _call('binding');
 
   @override
-  Future<void> hydrateDiagnostics() async {
-    _record('hydrateDiagnostics');
-    final gate = hydrationGate;
-    if (gate != null) await gate;
-    hydrated.complete();
-  }
+  void installPreferencesStore() => _call('preferences');
 
   @override
-  void initializePlugins() {
-    _record('initializePlugins');
-  }
+  void initializePlugins() => _call('plugins');
 
   @override
-  void ensureFlutterInitialized() {
-    _record('ensureFlutterInitialized');
-  }
+  void launchApplication() => _call('launch');
 
   @override
-  void installPreferencesStore() {
-    _record('installPreferencesStore');
-  }
+  void scheduleAfterFirstFrame(Future<void> Function() work) => deferred = work;
 
   @override
-  Future<void> initializeTimezoneEnvironment() async {
-    _record('initializeTimezoneEnvironment');
-  }
+  Future<void> initializeTimezoneEnvironment() async => _call('timezone');
 
   @override
-  Future<void> initializePersistentMediaCache() async {
-    _record('initializePersistentMediaCache');
-  }
+  Future<void> initializePersistentMediaCache() async => _call('cache');
 
   @override
-  Future<void> restrictApplicationDirectories() async {
-    _record('restrictApplicationDirectories');
-  }
-
-  @override
-  void installDiagnosticsSink() {
-    _record('installDiagnosticsSink');
-  }
-
-  @override
-  AppBootstrapUnhandledErrorReporter installGlobalErrorHandlers() {
-    _record('installGlobalErrorHandlers');
-    return (Object error, StackTrace stackTrace, {required String source}) {
-      calls.add('reportUnhandledError');
-      unhandledErrors.add((
-        error: error,
-        stackTrace: stackTrace,
-        source: source,
-      ));
-    };
-  }
-
-  @override
-  void installRecordingHttpOverrides() {
-    _record('installRecordingHttpOverrides');
-  }
-
-  @override
-  void launchApplication() {
-    _record('launchApplication');
-    launched.complete();
-  }
-
-  @override
-  void scheduleAfterFirstFrame(Future<void> Function() work) {
-    _record('scheduleAfterFirstFrame');
-    _deferredWork = work;
-  }
-
-  Future<void> runDeferred() async {
-    await _deferredWork!();
-    deferred.complete();
-  }
-
-  @override
-  void reportError(
-    Object error,
-    StackTrace stackTrace, {
-    required String operation,
-    required String source,
-    required bool handled,
-    required bool degraded,
-  }) {
-    _record('reportError');
-    reportedErrors.add((
-      error: error,
-      stackTrace: stackTrace,
-      operation: operation,
-      source: source,
-      handled: handled,
-      degraded: degraded,
-    ));
-  }
+  Future<void> restrictApplicationDirectories() async => _call('directories');
 }

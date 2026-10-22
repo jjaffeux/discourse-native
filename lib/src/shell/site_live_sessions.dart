@@ -238,13 +238,9 @@ final class _SiteLiveSession {
       // An anonymous bus sends no client id, and a signed-out forum must not
       // raise the platform's notification prompt by reading one.
       clientId = apiKey == null ? null : requestCredentials.clientId;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!isCurrent) return;
-      _shell._reportOperationalError(
-        error,
-        stackTrace,
-        'messageBus.readCredentials',
-      );
+
       return;
     }
 
@@ -373,9 +369,9 @@ final class _SiteLiveSession {
             () => _shell.accountActivity.applyReviewableCounts(siteUrl, data),
           ),
         );
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (loadTicket != null) tracking.cancelSnapshot(loadTicket);
-        _shell._reportOperationalError(error, stackTrace, 'messageBus.start');
+
         return;
       }
       if (!isCurrent) {
@@ -395,14 +391,7 @@ final class _SiteLiveSession {
               ),
               lastIds: initialLastIds,
             );
-          } catch (error, stackTrace) {
-            _shell._reportOperationalError(
-              error,
-              stackTrace,
-              'messageBus.subscribeTopicTracking',
-              severity: DiagnosticSeverity.warning,
-            );
-          }
+          } catch (error) {}
         }
         if (shouldLoadTopicTracking) {
           unawaited(
@@ -424,14 +413,7 @@ final class _SiteLiveSession {
                 bootstrap?.currentUser?.status?.messageBusLastId ??
                 _shell._instanceAt(siteUrl)?.user?.status?.messageBusLastId,
           );
-        } catch (error, stackTrace) {
-          _shell._reportOperationalError(
-            error,
-            stackTrace,
-            'messageBus.subscribeUserStatus',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
+        } catch (error) {}
         try {
           tracker.watchPluginChannel(
             '/refresh-sidebar-sections',
@@ -439,14 +421,7 @@ final class _SiteLiveSession {
               () => _shell._customSidebar.invalidate(siteUrl, account: lease),
             ),
           );
-        } catch (error, stackTrace) {
-          _shell._reportOperationalError(
-            error,
-            stackTrace,
-            'messageBus.subscribeSidebarSections',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
+        } catch (error) {}
         if (userId != null) {
           try {
             tracker.watchPluginChannel(
@@ -454,14 +429,7 @@ final class _SiteLiveSession {
               (data) =>
                   commit(() => _shell._applyUserDraftsMessage(siteUrl, data)),
             );
-          } catch (error, stackTrace) {
-            _shell._reportOperationalError(
-              error,
-              stackTrace,
-              'messageBus.subscribeUserDrafts',
-              severity: DiagnosticSeverity.warning,
-            );
-          }
+          } catch (error) {}
           try {
             final user = _shell._instanceAt(siteUrl)?.user;
             tracker.watchPluginChannel(
@@ -472,14 +440,7 @@ final class _SiteLiveSession {
                   bootstrap?.currentUser?.doNotDisturbChannelPosition ??
                   user?.doNotDisturbChannelPosition,
             );
-          } catch (error, stackTrace) {
-            _shell._reportOperationalError(
-              error,
-              stackTrace,
-              'messageBus.subscribeDoNotDisturb',
-              severity: DiagnosticSeverity.warning,
-            );
-          }
+          } catch (error) {}
         }
       }
       if (!isCurrent) return;
@@ -494,14 +455,7 @@ final class _SiteLiveSession {
               _shell.plugins.liveChannelScopesFor(owned.owner),
             ),
           );
-        } catch (error, stackTrace) {
-          _shell._reportOperationalError(
-            error,
-            stackTrace,
-            'plugins.attachTracker.${owned.owner.value}',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
+        } catch (error) {}
       }
       if (!isCurrent) return;
       if (demand.watchesVisibleTopics) _shell._syncTopicWatch(siteUrl, tracker);
@@ -530,18 +484,7 @@ final class _SiteLiveSession {
         _shell._notify();
       }
       return bootstrap;
-    } catch (error, stackTrace) {
-      if (isCurrent) {
-        // The endpoint is the ordinary application document, so older and
-        // customized sites may not expose every preload entry. Existing JSON
-        // snapshots remain the compatibility path.
-        _shell._reportOperationalError(
-          error,
-          stackTrace,
-          'messageBus.preload',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return null;
     }
   }
@@ -595,14 +538,8 @@ final class _SiteLiveSession {
           if (_shell.currentInstance?.url == siteUrl) _shell._notify();
         }
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (ownsLoad()) {
-        _shell._reportOperationalError(
-          error,
-          stackTrace,
-          'topicTracking.load',
-          severity: DiagnosticSeverity.warning,
-        );
         tracking.failSnapshot(ticket);
         _retry = (
           tracking: tracking,
@@ -649,14 +586,8 @@ final class _SiteLiveSession {
           ticket: ticket,
           requestCredentials: requestCredentials,
         );
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (ownsResync()) {
-          _shell._reportOperationalError(
-            error,
-            stackTrace,
-            'topicTracking.readCredentials',
-            severity: DiagnosticSeverity.warning,
-          );
           tracking.cancelSnapshot(ticket);
         }
       }

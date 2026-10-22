@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/content_route.dart';
 import 'coalescing_snapshot_writer.dart';
 import 'preference_storage_scope.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class RecentDestinationsPersistence {
   Future<String?> read();
@@ -136,9 +135,9 @@ class RecentDestinationsStore {
     try {
       raw = await _snapshots.read(_persistence.read);
       _unreadable = false;
-    } catch (error, stackTrace) {
+    } catch (error) {
       _unreadable = true;
-      reportStorageFailure(error, stackTrace, 'recentDestinations.load');
+
       return;
     }
     _entries.clear();
@@ -154,9 +153,7 @@ class RecentDestinationsStore {
           _entries[_key(entry.siteUrl, entry.accountIdentity)] = entry;
         }
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'recentDestinations.decode');
-    }
+    } catch (error) {}
   }
 
   Future<void> save() {
@@ -174,9 +171,7 @@ class RecentDestinationsStore {
       if (!await _persistence.write(encoded)) {
         throw StateError('Could not persist recent destinations.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'recentDestinations.save');
-    }
+    } catch (error) {}
   }
 }
 

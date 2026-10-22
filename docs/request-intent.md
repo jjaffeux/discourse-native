@@ -15,7 +15,7 @@ slots. Cooldowns, backlog bounds and separate upload capacity still apply.
 A speculative owner promotes its dedicated source when navigation adopts the
 existing future. Safe GET sharing retains each caller's source and resolves the
 highest intent. Joining a request never promotes its caller's other work. The
-first sender keeps its diagnostics context; each waiter resumes in its own Zone.
+first sender runs in its initiating Zone; each waiter resumes in its own Zone.
 Cancellable reads remain unshared, and credentials, headers and response limits
 remain part of GET identity.
 

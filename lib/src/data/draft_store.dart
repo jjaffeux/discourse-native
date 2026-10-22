@@ -8,11 +8,9 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/private_file_document.dart';
 import 'preference_storage_scope.dart';
 import 'private_storage.dart';
-import 'store_diagnostics.dart';
 
 typedef DraftPersistenceRead = ({String? value, bool allowPreferenceFallback});
 typedef DraftStoreRead = ({String? value, bool succeeded});
@@ -297,8 +295,7 @@ class DraftStore {
     final DraftPersistenceRead stored;
     try {
       stored = await _persistence.read(key);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.readSecure');
+    } catch (error) {
       // A failed read means durable key/site blockers are also unknown. Fail
       // closed: a preference value could belong to an account that was cleared
       // while this backend was healthy. Leave it untouched for a later retry.
@@ -322,8 +319,7 @@ class DraftStore {
     final String? legacy;
     try {
       legacy = prefs?.getString(key);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.readLegacy');
+    } catch (error) {
       // An unreadable legacy value is an unknown draft, not an empty one.
       // Leave it untouched so a later read can retry.
       return (value: null, succeeded: false);
@@ -333,9 +329,7 @@ class DraftStore {
     try {
       await _persistence.write(key, legacy);
       await prefs?.remove(key);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.migrateLegacy');
-    }
+    } catch (error) {}
     return (value: legacy, succeeded: true);
   }
 
@@ -362,19 +356,11 @@ class DraftStore {
     try {
       await _persistence.write(key, data);
     } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'draft.writeSecure',
-        severity: DiagnosticSeverity.error,
-      );
       Error.throwWithStackTrace(DraftWriteException(error), stackTrace);
     }
     try {
       await prefs?.remove(key);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.removeLegacy');
-    }
+    } catch (error) {}
   }
 
   Future<void> clear(
@@ -407,14 +393,12 @@ class DraftStore {
     var succeeded = preferences.succeeded;
     try {
       await _persistence.delete(key);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.clearSecure');
+    } catch (error) {
       succeeded = false;
     }
     try {
       await prefs?.remove(key);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.clearLegacy');
+    } catch (error) {
       succeeded = false;
     }
     return succeeded;
@@ -431,7 +415,6 @@ class DraftStore {
     try {
       await _persistence.deletePrefix(prefix);
     } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.clearSiteSecure');
       // This is an account boundary. Continuing without a durable site blocker
       // could expose the previous account's text after reconnecting.
       Error.throwWithStackTrace(error, stackTrace);
@@ -442,9 +425,7 @@ class DraftStore {
           for (final key in prefs.getKeys())
             if (key.startsWith(prefix)) prefs.remove(key),
         ]);
-      } catch (error, stackTrace) {
-        reportStorageFailure(error, stackTrace, 'draft.clearSiteLegacy');
-      }
+      } catch (error) {}
     }
   }
 
@@ -456,8 +437,7 @@ class DraftStore {
   _preferencesChecked() async {
     try {
       return (value: await SharedPreferences.getInstance(), succeeded: true);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.openPreferences');
+    } catch (error) {
       return (value: null, succeeded: false);
     }
   }
@@ -466,9 +446,7 @@ class DraftStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(key);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'draft.removeLegacy');
-    }
+    } catch (error) {}
   }
 
   Future<T> _serialize<T>(String siteUrl, Future<T> Function() operation) {

@@ -8,8 +8,7 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
-import '../diagnostics/diagnostics_controller.dart';
-import '../diagnostics/surface_opening_trace.dart';
+
 import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
 import '../models/topic.dart';
@@ -18,14 +17,6 @@ import 'bookmark_transactions.dart';
 import 'topic_prefetch_controller.dart';
 
 typedef TopicDataPosition = ({String slug, int postNumber});
-typedef TopicDataErrorReporter =
-    void Function(
-      Object error,
-      StackTrace stackTrace,
-      String operation, {
-      bool degraded,
-      DiagnosticSeverity severity,
-    });
 
 final class TopicOpening {
   const TopicOpening({
@@ -51,7 +42,7 @@ final class TopicDataOwner {
     required this.liveChanged,
     required this.published,
     required this.prepareCategories,
-    required this.report,
+
     required this.loadTimeout,
     required this.bookmarkReads,
   });
@@ -67,7 +58,7 @@ final class TopicDataOwner {
   final bool Function(String siteUrl, TopicDetail detail) published;
   final Future<void> Function(String siteUrl, Iterable<int> ids)
   prepareCategories;
-  final TopicDataErrorReporter report;
+
   final Duration loadTimeout;
   final BookmarkReadProjection Function(String, SiteLease) bookmarkReads;
   final _prefetch = TopicPrefetchController();
@@ -215,24 +206,6 @@ final class TopicDataSession implements BookmarkTopicData {
 
   void _changed() {
     if (isCurrent) _owner.changed();
-  }
-
-  void _report(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    bool degraded = true,
-    DiagnosticSeverity severity = DiagnosticSeverity.warning,
-  }) {
-    if (isCurrent) {
-      _owner.report(
-        error,
-        stackTrace,
-        operation,
-        degraded: degraded,
-        severity: severity,
-      );
-    }
   }
 
   void _update<T extends Storable<T>>(Object id, T Function(T) change) {
@@ -523,7 +496,6 @@ final class TopicDataSession implements BookmarkTopicData {
         !force &&
         !state.stale &&
         _hasPost(topicId, postNumber)) {
-      SurfaceOpeningTrace.mark('topic.cacheHit');
       if (_owner.published(siteUrl, held)) _changed();
       return;
     }
@@ -569,7 +541,6 @@ final class TopicDataSession implements BookmarkTopicData {
             );
       if (!isCurrent) return;
       if (warmed != null) {
-        SurfaceOpeningTrace.mark('topic.prefetchUsed');
         stamp = (
           bookmarks: warmed.bookmarkVersion,
           archive: warmed.archiveVersion,
@@ -594,7 +565,7 @@ final class TopicDataSession implements BookmarkTopicData {
             'loading topic $topicId',
           );
       if (!isCurrent) return;
-      SurfaceOpeningTrace.mark('topic.response');
+
       try {
         await _stage(
           _owner.prepareCategories(siteUrl, [
@@ -607,12 +578,11 @@ final class TopicDataSession implements BookmarkTopicData {
           elapsed,
           'loading the category for topic $topicId',
         );
-      } on TimeoutException catch (error, stackTrace) {
+      } on TimeoutException {
         if (!isCurrent) return;
-        _report(error, stackTrace, 'topic.categories');
       }
       if (!isCurrent) return;
-      SurfaceOpeningTrace.mark('topic.publish');
+
       received = _publishTopic(fetched, stamp, positioned: postNumber != null);
       if (received != null && isCurrent) {
         opening.received(received);
@@ -620,14 +590,7 @@ final class TopicDataSession implements BookmarkTopicData {
           resumeNumber = received.resumePostNumber;
         }
       }
-    } catch (error, stackTrace) {
-      _report(
-        error,
-        stackTrace,
-        'topic.load',
-        degraded: false,
-        severity: DiagnosticSeverity.error,
-      );
+    } catch (error) {
     } finally {
       if (isCurrent && identical(state.reading, reading)) {
         state.reading = null;
@@ -708,9 +671,8 @@ final class TopicDataSession implements BookmarkTopicData {
         ),
       );
       _publishTopic(payload, stamp, positioned: postNumber != null);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isCurrent) state.stale = true;
-      _report(error, stackTrace, 'topic.refetchAfterWrite');
     } finally {
       if (isCurrent && identical(state.reading, reading)) {
         state.reading = null;
@@ -803,12 +765,7 @@ final class TopicDataSession implements BookmarkTopicData {
               : held,
         );
       }
-    } catch (error, stackTrace) {
-      _report(
-        error,
-        stackTrace,
-        newer ? 'topic.loadMorePosts' : 'topic.loadEarlierPosts',
-      );
+    } catch (error) {
     } finally {
       if (isCurrent) {
         if (newer && identical(state.newerPage, reading)) {
@@ -873,12 +830,7 @@ final class TopicDataSession implements BookmarkTopicData {
           lastPostIdAtDispatch: detail.lastPostId,
         ),
       );
-    } catch (error, stackTrace) {
-      _report(
-        error,
-        stackTrace,
-        newer ? 'topic.loadMorePosts' : 'topic.loadEarlierPosts',
-      );
+    } catch (error) {
     } finally {
       if (isCurrent) {
         if (newer && identical(state.newerPage, reading)) {
@@ -950,8 +902,7 @@ final class TopicDataSession implements BookmarkTopicData {
         ),
       );
       _changed();
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'topic.expandPostGap');
+    } catch (error) {
     } finally {
       if (isCurrent && identical(state.gaps[key], reading)) {
         state.gaps.remove(key);
@@ -993,8 +944,7 @@ final class TopicDataSession implements BookmarkTopicData {
         );
       }
       return true;
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'topic.loadSummary');
+    } catch (error) {
       return false;
     } finally {
       if (isCurrent && identical(state.summaryRead, reading)) {
@@ -1208,10 +1158,7 @@ final class TopicDataSession implements BookmarkTopicData {
         }
       }
       if (changed) _changed();
-    } catch (error, stackTrace) {
-      if (isCurrent && wanted.any(current)) {
-        _report(error, stackTrace, 'post.refreshFromMessageBus');
-      }
+    } catch (error) {
     } finally {
       if (isCurrent) {
         final retry = <int>{};
@@ -1360,8 +1307,7 @@ final class TopicDataSession implements BookmarkTopicData {
             ),
           );
           if (!isCurrent) return PostProjectionFreshness.retired;
-        } catch (error, stackTrace) {
-          _report(error, stackTrace, 'topic.reconcileUncertainMutation');
+        } catch (error) {
           return isCurrent
               ? PostProjectionFreshness.stale
               : PostProjectionFreshness.retired;
@@ -1384,7 +1330,6 @@ final class TopicDataSession implements BookmarkTopicData {
         ids.toList(),
         recovery.apiKey,
         lease,
-        'post.reconcileMutation',
       );
       if (projection != PostProjectionFreshness.fresh) return projection;
       if (payload != null &&
@@ -1409,27 +1354,20 @@ final class TopicDataSession implements BookmarkTopicData {
     int postId,
     String? apiKey,
     SiteLease original,
-  ) => _repair(topicId, [postId], apiKey, original, 'post.refreshAfterWrite');
+  ) => _repair(topicId, [postId], apiKey, original);
 
   Future<PostProjectionFreshness> repairSelectedPosts(
     int topicId,
     List<int> postIds,
     String? apiKey,
     SiteLease original,
-  ) => _repair(
-    topicId,
-    postIds,
-    apiKey,
-    original,
-    'topic.selectedPosts.refreshAfterWrite',
-  );
+  ) => _repair(topicId, postIds, apiKey, original);
 
   Future<PostProjectionFreshness> _repair(
     int topicId,
     List<int> postIds,
     String? apiKey,
     SiteLease original,
-    String operation,
   ) async {
     if (!_ownsLease(original)) return PostProjectionFreshness.retired;
     final removals = _topic(topicId).removals;
@@ -1459,9 +1397,9 @@ final class TopicDataSession implements BookmarkTopicData {
           if (postIds.contains(post.id)) fresh[post.id] = post;
         }
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isCurrent) _topic(topicId).stale = true;
-      _report(error, stackTrace, operation);
+
       return isCurrent
           ? PostProjectionFreshness.stale
           : PostProjectionFreshness.retired;

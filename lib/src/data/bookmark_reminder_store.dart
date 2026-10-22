@@ -12,7 +12,7 @@ final class BookmarkReminderStore {
     id: 'bookmark.last-custom',
     scope: SitePreferenceScope.account,
     value: SitePreferenceValue.string,
-    operation: 'bookmarkReminders',
+
     legacy: keys,
   );
 

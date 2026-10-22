@@ -156,11 +156,6 @@ class _OptimisticGif extends StatelessWidget {
               gifPlaybackControls: true,
               knownAnimated: true,
               errorBuilder: (context, error, stackTrace) {
-                reportImageError(
-                  error,
-                  stackTrace,
-                  operation: 'chat.optimisticGif',
-                );
                 return Center(
                   child: Padding(
                     padding: const EdgeInsets.all(12),

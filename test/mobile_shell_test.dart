@@ -208,7 +208,7 @@ Future<ShellController> pumpMobileShellFixture(
         pluginManifest ??
         PluginManifest([
           ...bundledWidgetTestManifest.modules,
-          if (voice) const VoiceModule.withoutDiagnostics(),
+          if (voice) const VoiceModule(),
         ]),
     instances: [
       instance(

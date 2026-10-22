@@ -1,10 +1,10 @@
+import '../foundation/redacted_uri.dart';
 import 'dart:async';
 import 'dart:convert' show HtmlEscape;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
-import '../diagnostics/diagnostics_redactor.dart';
 import '../models/bookmark.dart';
 import '../models/bookmark_reminder.dart';
 import '../models/composer_draft.dart';

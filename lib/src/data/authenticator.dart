@@ -6,7 +6,7 @@ import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'api_credentials.dart';
 import 'push_registration.dart';
 import 'secure_store.dart';
-import 'store_diagnostics.dart';
+
 import 'user_api_key.dart';
 
 typedef WebAuthLauncher =
@@ -189,10 +189,9 @@ class Authenticator implements ApiCredentialReader {
     if (registration == null) return;
     try {
       await store.writePushClientId(registration.clientId);
-    } catch (error, stackTrace) {
+    } catch (error) {
       // The registration still works for this launch; only a relaunch that
       // cannot reach the platform loses it.
-      reportStorageFailure(error, stackTrace, 'credentials.pushClientId');
     }
     _knownPushRegistration = registration;
   }

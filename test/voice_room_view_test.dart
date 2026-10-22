@@ -24,9 +24,7 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart'
     show WriteException, WriteFailure;
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
-import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
@@ -41,7 +39,7 @@ import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_chat_inbox.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
-import 'package:discourse_native/src/plugins/voice/voice_diagnostics.dart';
+
 import 'package:discourse_native/src/plugins/voice/voice_incoming_call.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
@@ -5139,12 +5137,10 @@ Future<_Harness> _openMobileVoiceForm(
 
 void _microphoneTests() {
   group('microphone test', () {
-    late DiagnosticsController diagnostics;
-    late VoiceDiagnosticsController microphoneDiagnostics;
     final harnesses = <_Harness>[];
 
     Future<_Harness> open(WidgetTester tester) async {
-      final harness = await _openMicrophoneTest(tester, microphoneDiagnostics);
+      final harness = await _openMicrophoneTest(tester);
       harnesses.add(harness);
       return harness;
     }
@@ -5154,14 +5150,6 @@ void _microphoneTests() {
       Future<void> Function(WidgetTester) runTest,
     ) {
       testWidgets(description, (tester) async {
-        diagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'voice-microphone-test',
-        );
-        microphoneDiagnostics = await VoiceDiagnosticsController.create(
-          reporter: PluginDiagnosticsReporter.fixed(diagnostics),
-          persistence: MemoryVoiceDiagnosticsPersistence(),
-        );
         try {
           await runTest(tester);
         } finally {
@@ -5174,16 +5162,9 @@ void _microphoneTests() {
           }
           await tester.pump();
           harnesses.clear();
-          await microphoneDiagnostics.close();
-          await diagnostics.close();
         }
       });
     }
-
-    List<DiagnosticLogEvent> failures() => diagnostics.events
-        .whereType<DiagnosticLogEvent>()
-        .where((event) => event.name == 'microphone.test.failed')
-        .toList();
 
     testMicrophone('handles permission denial and allows an explicit retry', (
       tester,
@@ -5211,13 +5192,6 @@ void _microphoneTests() {
       expect(find.text('Microphone is available.'), findsNothing);
       expect(find.text('Testing…'), findsNothing);
       expect(calls.map((call) => call.method), ['initialize', 'getUserMedia']);
-      expect(
-        failures().single.attributes['operation'],
-        'voice.microphone.test.capture',
-      );
-      expect(failures().single.handled, isTrue);
-      expect(failures().single.severity, DiagnosticSeverity.warning);
-      expect(failures().single.source, 'voice');
 
       denied = false;
       await tester.pump(const Duration(seconds: 5));
@@ -5268,11 +5242,7 @@ void _microphoneTests() {
             findsOneWidget,
           );
           expect(find.text('Testing…'), findsNothing);
-          expect(failures().map((event) => event.attributes['operation']), [
-            if (failure.track) 'voice.microphone.test.stopTrack',
-            if (failure.stream) 'voice.microphone.test.disposeStream',
-          ]);
-          expect(failures().every((event) => event.handled), isTrue);
+
           expect(
             calls.where((call) => call.method == 'getUserMedia'),
             hasLength(1),
@@ -5318,7 +5288,6 @@ void _microphoneTests() {
       _expectMicrophoneReleased(calls);
       expect(find.text('Microphone is available.'), findsOneWidget);
       expect(harness.media.sessions.single.muted, isTrue);
-      expect(failures(), isEmpty);
     });
 
     for (final retirement in [
@@ -5387,9 +5356,7 @@ void _microphoneTests() {
             expect(tester.takeException(), isNull);
             expect(find.byType(SnackBar), findsNothing);
             if (!denied) _expectMicrophoneReleased(calls);
-            expect(failures().map((event) => event.attributes['operation']), [
-              if (denied) 'voice.microphone.test.capture',
-            ]);
+
             await tester.pumpWidget(const SizedBox.shrink());
             await tester.pumpAndSettle();
           },
@@ -5399,12 +5366,9 @@ void _microphoneTests() {
   });
 }
 
-Future<_Harness> _openMicrophoneTest(
-  WidgetTester tester,
-  VoiceDiagnosticsRecorder diagnostics,
-) async {
+Future<_Harness> _openMicrophoneTest(WidgetTester tester) async {
   final room = _room(participants: const []);
-  final harness = _Harness(joinRoom: room, diagnostics: diagnostics);
+  final harness = _Harness(joinRoom: room);
   addTearDown(harness.dispose);
   await _join(harness, room);
   await tester.pumpWidget(
@@ -5836,7 +5800,6 @@ final class _Harness {
     RecordingPluginLiveChannels? tracker,
     _SystemCall? systemCall,
     DateTime Function()? clock,
-    VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
   }) : preferences = preferences ?? _Preferences(),
        chatConversations =
            chatConversations ?? FakeChatConversationCapability(),
@@ -5882,7 +5845,7 @@ final class _Harness {
       onCallSiteChanged: () {},
       mediaFactory: media,
       systemCall: systemCall ?? _SystemCall(),
-      diagnostics: diagnostics,
+
       preferences: persistentPreferences ?? this.preferences,
       heartbeatInterval: const Duration(days: 1),
       clock: clock,
@@ -6636,8 +6599,6 @@ final class _MediaFactory implements VoiceMediaFactory {
     required int localUserId,
     required VoiceSignalSender sendSignal,
     required VoiceLiveKitCredentialRefresher refreshLiveKitCredentials,
-    VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
-    String correlationId = 'uncorrelated',
   }) => createSession(join.transport);
 }
 

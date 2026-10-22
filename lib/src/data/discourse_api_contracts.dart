@@ -1,6 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
 
-import '../diagnostics/diagnostic_error_cause.dart';
 import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
@@ -44,7 +43,7 @@ const List<String> defaultDiscourseHashtagOrder = ['category', 'tag'];
 
 enum SiteLookupFailure { notDiscourse, unreachable }
 
-class SiteLookupException implements Exception, DiagnosticErrorCause {
+class SiteLookupException implements Exception {
   const SiteLookupException(
     this.failure,
     this.term, {
@@ -63,12 +62,6 @@ class SiteLookupException implements Exception, DiagnosticErrorCause {
   final String? errorType;
   final Object? cause;
   final StackTrace? causeStackTrace;
-
-  @override
-  Object get diagnosticCause => cause ?? this;
-
-  @override
-  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message => switch (failure) {
     SiteLookupFailure.notDiscourse =>
@@ -122,7 +115,7 @@ enum WriteFailure {
   unreachable,
 }
 
-class WriteException implements Exception, DiagnosticErrorCause {
+class WriteException implements Exception {
   const WriteException(
     this.failure, {
     this.errors = const [],
@@ -155,12 +148,6 @@ class WriteException implements Exception, DiagnosticErrorCause {
 
   final Object? cause;
   final StackTrace? causeStackTrace;
-
-  @override
-  Object get diagnosticCause => cause ?? this;
-
-  @override
-  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message {
     if (errors.isNotEmpty) return errors.join('\n');

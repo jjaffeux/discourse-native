@@ -82,12 +82,6 @@ void main() {
     expect(discourseAi.liveChannelScopes.map((scope) => scope.path), {
       '/discourse-ai',
     });
-    expect(
-      installed.registry.diagnosticsPlugins.map(
-        (plugin) => plugin.diagnosticsId,
-      ),
-      ['voice'],
-    );
   });
 
   test('core manifest installs without optional features', () async {

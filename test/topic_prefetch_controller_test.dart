@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/diagnostics/topic_prefetch_trace.dart';
 import 'package:discourse_native/src/shell/topic_prefetch_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -51,72 +50,6 @@ void main() {
       response.complete(result(1));
       expect((await adopted)?.payload.detail.id, 1);
       expect(loads, 1);
-    },
-  );
-
-  testWidgets(
-    'trace distinguishes ready, adopted, cancelled and unused requests',
-    (tester) async {
-      final events = <(String, Map<String, Object>)>[];
-      TopicPrefetchTrace.observer = (event, data) => events.add((event, data));
-      addTearDown(() => TopicPrefetchTrace.observer = null);
-      final controller = TopicPrefetchController(
-        clock: tester.binding.clock.now,
-      );
-      addTearDown(controller.clear);
-      void start(int id) => controller.hover(
-        key(id),
-        isCurrent: () => true,
-        intent: TopicPrefetchIntent.trajectory,
-        load: (_) async => result(id),
-      );
-      start(1);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 30));
-      await controller.take(key(1));
-      final adoption = events.singleWhere((e) => e.$1 == 'adopted').$2;
-      expect(adoption['intent'], 'trajectory');
-      expect(adoption['elapsedMs'], 30);
-      expect(adoption['completed'], isTrue);
-      start(2);
-      await tester.pump();
-      start(3);
-      expect(events.where((e) => e.$1 == 'unused'), hasLength(1));
-      await tester.pump();
-      expect(events.map((e) => e.$2['request']).toSet(), hasLength(3));
-    },
-  );
-
-  testWidgets(
-    'failed and cancelled requests are not counted as unused responses',
-    (tester) async {
-      final events = <String>[];
-      TopicPrefetchTrace.observer = (event, _) => events.add(event);
-      addTearDown(() => TopicPrefetchTrace.observer = null);
-      final controller = TopicPrefetchController();
-      addTearDown(controller.clear);
-      controller.hover(
-        key(1),
-        isCurrent: () => true,
-        intent: TopicPrefetchIntent.trajectory,
-        load: (token) async {
-          token.cancel(); // The shell aborts its loader on failure too.
-          return null;
-        },
-      );
-      await tester.pump();
-      expect(events, ['started', 'failed']);
-      final response = Completer<PrefetchedTopic?>();
-      final release = controller.hover(
-        key(2),
-        isCurrent: () => true,
-        intent: TopicPrefetchIntent.trajectory,
-        load: (_) => response.future,
-      );
-      release();
-      response.complete(result(2));
-      await tester.pump();
-      expect(events, ['started', 'failed', 'started', 'cancelled']);
     },
   );
 

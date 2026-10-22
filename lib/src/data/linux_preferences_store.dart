@@ -7,9 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:shared_preferences_platform_interface/types.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/private_file_document.dart';
-import 'store_diagnostics.dart';
 
 /// The name `shared_preferences_linux` gave the preferences file inside the
 /// application support directory. Keeping it carries earlier builds' data over.
@@ -60,7 +58,7 @@ final class LinuxPreferencesStore extends SharedPreferencesStorePlatform {
         empty: () => <String, Object>{},
         decode: _decode,
         encode: _encode,
-        setAsideUndecodable: _reportSetAside,
+        setAsideUndecodable: (_) {},
       );
 
   @override
@@ -185,16 +183,4 @@ final class LinuxPreferencesStore extends SharedPreferencesStorePlatform {
     ),
     _ => null,
   };
-
-  static void _reportSetAside(File damaged) => reportStorageFailure(
-    // Never quote the contents: they hold forum titles and usernames.
-    FormatException(
-      appL10n.unreadablePreferencesWereSetAsideAs(
-        (damaged.uri.pathSegments.last).toString(),
-      ),
-    ),
-    StackTrace.current,
-    'preferences.decode',
-    severity: DiagnosticSeverity.error,
-  );
 }

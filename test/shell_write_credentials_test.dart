@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -26,20 +26,8 @@ void main() {
   late _InstrumentedFailureApi api;
   late _InstrumentedDraftStore drafts;
   late ShellController controller;
-  late DiagnosticsController diagnostics;
-  late DiagnosticsSinkBinding diagnosticsBinding;
 
   setUp(() async {
-    diagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      sessionId: 'shell-write-credentials',
-    );
-    diagnosticsBinding = DiagnosticsSink.install(diagnostics);
-    addTearDown(() async {
-      diagnosticsBinding.close();
-      await diagnostics.close();
-    });
-
     authenticator = _InstrumentedAuthenticator()..keys[_siteUrl] = 'api-key';
     api = _InstrumentedFailureApi(
       feeds: const {'/latest.json': []},
@@ -147,12 +135,6 @@ void main() {
         expect(held.likeCount, 0);
         expect(held.canLike, isTrue);
         expect(api.liked, [1]);
-
-        final event = _singleOperation(diagnostics, 'post.toggleLike');
-        expect(event.severity, DiagnosticSeverity.error);
-        expect(event.errorType, 'StateError');
-        expect(event.message, contains('opaque like transport failure'));
-        expect(event.stackTrace, contains('_InstrumentedFailureApi.likePost'));
       },
     );
 
@@ -170,7 +152,6 @@ void main() {
       await write;
 
       expect(controller.store.read<Post>(_siteUrl, 1), isNull);
-      expect(_operationEvents(diagnostics, 'post.toggleLike'), isEmpty);
     });
   });
 
@@ -180,8 +161,7 @@ void main() {
       // credential failure. Let that optional work settle before exercising
       // and inspecting the disconnect boundary.
       await pumpEventQueue();
-      await diagnostics.clear();
-      await diagnostics.flush();
+
       authenticator
         ..readError = StateError('secure credential read failed')
         ..deleteError = StateError('secure credential delete failed');
@@ -190,23 +170,6 @@ void main() {
 
       expect(controller.currentInstance?.user, isNull);
       expect(authenticator.disconnected, isEmpty);
-      final read = _singleOperation(
-        diagnostics,
-        'authentication.readCredentialForDisconnect',
-      );
-      expect(read.severity, DiagnosticSeverity.warning);
-      expect(read.message, contains('secure credential read failed'));
-      expect(read.stackTrace, contains('_InstrumentedAuthenticator.apiKeyFor'));
-      final deletion = _singleOperation(
-        diagnostics,
-        'authentication.deleteCredential',
-      );
-      expect(deletion.severity, DiagnosticSeverity.warning);
-      expect(deletion.message, contains('secure credential delete failed'));
-      expect(
-        deletion.stackTrace,
-        contains('_InstrumentedAuthenticator.disconnect'),
-      );
     });
 
     test(
@@ -219,13 +182,6 @@ void main() {
         expect(controller.currentInstance?.user, isNull);
         expect(authenticator.disconnected, [_siteUrl]);
         expect(api.revoked, [_siteUrl]);
-        final event = _singleOperation(diagnostics, 'authentication.revokeKey');
-        expect(event.severity, DiagnosticSeverity.warning);
-        expect(event.message, contains('remote revoke unavailable'));
-        expect(
-          event.stackTrace,
-          contains('_InstrumentedFailureApi.revokeApiKey'),
-        );
       },
     );
 
@@ -244,8 +200,6 @@ void main() {
         expect(authenticator.keys, isNot(contains(_siteUrl)));
         expect(authenticator.disconnected, [_siteUrl]);
         expect(api.revoked, [_siteUrl]);
-        final event = _singleOperation(diagnostics, 'authentication.revokeKey');
-        expect(event.severity, DiagnosticSeverity.warning);
       },
     );
 
@@ -327,10 +281,6 @@ void main() {
       expect(authenticator.keys, isNot(contains(_siteUrl)));
       expect(authenticator.disconnected, [_siteUrl]);
       expect(api.revoked, [_siteUrl]);
-      expect(
-        _operationEvents(diagnostics, 'authentication.revokeKey'),
-        isEmpty,
-      );
     });
 
     test(
@@ -392,19 +342,6 @@ void _expectForumKept(ShellController controller, List<String> tabIds) {
   expect(controller.currentContent?.topicId, 7);
   expect(_liveTrackers, hasLength(1));
 }
-
-List<ErrorDiagnosticEvent> _operationEvents(
-  DiagnosticsController diagnostics,
-  String operation,
-) => diagnostics.events
-    .whereType<ErrorDiagnosticEvent>()
-    .where((event) => event.operation == operation)
-    .toList();
-
-ErrorDiagnosticEvent _singleOperation(
-  DiagnosticsController diagnostics,
-  String operation,
-) => _operationEvents(diagnostics, operation).single;
 
 final class _InstrumentedAuthenticator extends FakeAuthenticator {
   Object? readError;

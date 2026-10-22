@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -140,11 +139,10 @@ bool _isRetained(Element element) {
 }
 
 class _RetentionFixture {
-  _RetentionFixture(this.tester, this.controller, this.diagnostics);
+  _RetentionFixture(this.tester, this.controller);
 
   final WidgetTester tester;
   final ShellController controller;
-  final DiagnosticsController diagnostics;
 
   static Future<_RetentionFixture> open(
     WidgetTester tester, {
@@ -184,14 +182,9 @@ class _RetentionFixture {
       },
     );
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
-    final fixture = _RetentionFixture(tester, controller, diagnostics);
-    await tester.pumpWidget(
-      ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-    );
+
+    final fixture = _RetentionFixture(tester, controller);
+    await tester.pumpWidget(ChatScrollFixture(controller: controller));
     await fixture.frames();
     final scrollable = find.descendant(
       of: find.byType(ChatMessageStream),
@@ -270,7 +263,7 @@ class _RetentionFixture {
   Future<void> close() async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
-    await diagnostics.close();
+
     expect(tester.takeException(), isNull);
   }
 }

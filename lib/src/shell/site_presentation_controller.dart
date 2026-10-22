@@ -4,7 +4,7 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/request_intent.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_emoji_aliases.dart';
 import '../models/site_appearance.dart';
@@ -94,18 +94,6 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   final _appearances = _RetryingSiteCache<SiteAppearance>();
 
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'presentation',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
-  }
-
   final _configs = _RetryingSiteCache<SiteConfig>();
   final Map<String, RequestIntentOperation<void>> _configRequests = {};
   final Map<String, RequestIntentOperation<void>> _appearanceRequests = {};
@@ -193,13 +181,11 @@ final class SitePresentationController extends FrameSafeNotifier {
 
       try {
         await onAppearanceLoaded(siteUrl, appearance);
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (isDisposed || !lease.isCurrent) return;
-        _report(error, stackTrace, 'siteAppearance.persist');
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed || !lease.isCurrent) return;
-      _report(error, stackTrace, 'siteAppearance.load');
     } finally {
       if (!isDisposed) lease.commit(() => _appearances.finish(siteUrl));
     }
@@ -292,13 +278,11 @@ final class SitePresentationController extends FrameSafeNotifier {
 
       try {
         await onConfigLoaded(siteUrl, config);
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (isDisposed || !lease.isCurrent) return;
-        _report(error, stackTrace, 'siteConfig.persist');
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed || !lease.isCurrent) return;
-      _report(error, stackTrace, 'siteConfig.load');
     } finally {
       if (!isDisposed) lease.commit(() => _configs.finish(siteUrl));
     }
@@ -342,9 +326,8 @@ final class SitePresentationController extends FrameSafeNotifier {
           _notifyPresentationChanged(siteUrl);
         }
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed || !lease.isCurrent) return;
-      _report(error, stackTrace, 'emoji.loadCustom');
     } finally {
       if (!isDisposed) lease.commit(() => _customEmojis.finish(siteUrl));
     }
@@ -426,10 +409,10 @@ final class SitePresentationController extends FrameSafeNotifier {
         _emojiCatalogs.complete(siteUrl, catalog);
       });
       return accepted && lease.isCurrent && !isDisposed ? catalog : null;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed || !lease.isCurrent) return null;
       _failedEmojiCatalogs.add(siteUrl);
-      _report(error, stackTrace, 'emoji.loadCatalog');
+
       return null;
     } finally {
       if (!isDisposed) lease.commit(() => _emojiCatalogs.finish(siteUrl));
@@ -498,10 +481,10 @@ final class SitePresentationController extends FrameSafeNotifier {
         _emojiSearchAliases.complete(siteUrl, immutable);
       });
       return accepted && lease.isCurrent && !isDisposed ? immutable : null;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed || !lease.isCurrent) return null;
       _failedEmojiSearchAliases.add(siteUrl);
-      _report(error, stackTrace, 'emoji.loadSearchAliases');
+
       return null;
     } finally {
       if (!isDisposed) lease.commit(() => _emojiSearchAliases.finish(siteUrl));

@@ -98,7 +98,6 @@ final class _ChatThreadCatalog {
     required this.store,
     required this.hydrateChannel,
     required this.onChanged,
-    required this.report,
   });
 
   final String siteUrl;
@@ -108,7 +107,7 @@ final class _ChatThreadCatalog {
   final Store store;
   final void Function(ChatChannel) hydrateChannel;
   final void Function() onChanged;
-  final void Function(Object, StackTrace, String) report;
+
   final Map<_ChatThreadListId, _ChatThreadListEntry> _lists = {};
   int? _projectionGeneration;
   bool _retired = false;
@@ -334,15 +333,9 @@ final class _ChatThreadCatalog {
           }
         }
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!ownsRequest()) return;
-      report(
-        error,
-        stackTrace,
-        id is _MyChatThreadList
-            ? 'chat.loadMyThreads'
-            : 'chat.loadChannelThreads',
-      );
+
       if (run.mode == _ChatThreadPageMode.prepend) return;
       lease.commit(() {
         entry.snapshot = entry.snapshot.copyWith(

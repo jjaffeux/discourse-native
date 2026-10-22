@@ -7,7 +7,7 @@ import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -506,14 +506,10 @@ void main() {
                 'detail',
                 contains('UNAVAILABLE'),
               )
+              .having((error) => error.cause, 'cause', same(platformError))
               .having(
-                (error) => error.diagnosticCause,
-                'diagnostic cause',
-                same(platformError),
-              )
-              .having(
-                (error) => error.diagnosticCauseStackTrace,
-                'diagnostic cause stack',
+                (error) => error.causeStackTrace,
+                'cause stack',
                 isNotNull,
               ),
         ),
@@ -740,8 +736,6 @@ void main() {
     test(
       'authorization still works when the push token cannot be recorded',
       () async {
-        final diagnostics = _RecordingDiagnosticsSink();
-        addTearDown(DiagnosticsSink.install(diagnostics).close);
         final error = StateError('preferences unavailable');
         final install = _Install()..pushClientIds.writeError = error;
         final protocol = _FakeProtocol();
@@ -756,8 +750,6 @@ void main() {
         await authenticator.authorize(_site);
         expect(protocol.clientId, _macosRegistration.clientId);
         expect(await authenticator.clientId(), isEmpty);
-        expect(diagnostics.errors, [same(error)]);
-        expect(diagnostics.operations, ['credentials.pushClientId']);
       },
     );
   });
@@ -965,38 +957,4 @@ final class _UnusedPrivateStorage implements PrivateStorage {
 
   @override
   Future<void> delete(String key) => throw StateError('unexpected delete');
-}
-
-final class _RecordingDiagnosticsSink implements DiagnosticsSink {
-  final List<Object> errors = [];
-  final List<String?> operations = [];
-
-  @override
-  void recordLog({
-    required String name,
-    String source = 'application',
-    String? component,
-    String? message,
-    Map<String, Object?> attributes = const {},
-    DiagnosticSeverity severity = DiagnosticSeverity.info,
-    String? operation,
-    String? correlationId,
-    bool handled = true,
-    bool degraded = false,
-  }) {}
-
-  @override
-  void reportError(
-    Object error,
-    StackTrace stackTrace, {
-    String? operation,
-    String source = 'application',
-    DiagnosticSeverity severity = DiagnosticSeverity.error,
-    bool handled = true,
-    bool degraded = true,
-    String? correlationId,
-  }) {
-    errors.add(error);
-    operations.add(operation);
-  }
 }

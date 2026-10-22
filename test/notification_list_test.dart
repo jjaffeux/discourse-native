@@ -3,8 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
+
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification.dart';
@@ -24,7 +23,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' show watchBrowser;
 import 'support/topic_post_list.dart';
-import 'support/topic_scroll_capture.dart';
 
 const _siteUrl = 'https://forum.example';
 const _rowKey = ValueKey('notification-row-1');
@@ -34,11 +32,6 @@ void main() {
     testWidgets(
       'notification opens post 137 in the current tab from post $startingPost',
       (tester) async {
-        final diagnostics = await DiagnosticsController.create(
-          topicScrollCapture: topicScrollCaptureWithoutVm(),
-          persistence: MemoryDiagnosticsPersistence(),
-          sessionId: 'notification-scroll-frames',
-        );
         final posts = [
           for (var number = 1; number <= 180; number++)
             Post(
@@ -59,7 +52,7 @@ void main() {
         final gate = Completer<void>();
         final (controller, api) = await _pumpMenu(
           tester,
-          diagnostics: diagnostics,
+
           topicGate: gate,
           postNumber: 137,
           topics: {42: (detail: topic, posts: posts)},
@@ -76,16 +69,12 @@ void main() {
         final originalTabId = controller.activeTabId;
         await tester.tap(find.byKey(UserMenuButton.bellKey));
         await tester.pumpAndSettle();
-        diagnostics.topicScrollCapture.start();
+
         await tester.tap(find.byKey(_rowKey));
 
         for (var frame = 0; frame < 20; frame++) {
           if (frame == 4) gate.complete();
           await tester.pump(const Duration(milliseconds: 16));
-          diagnostics.topicScrollCapture.recordTopicEvent(
-            'notification.test.frame',
-            {'frame': frame, 'loading': controller.currentTopicLoading},
-          );
         }
         await tester.pumpAndSettle();
         expect(controller.activeTabId, originalTabId);
@@ -97,17 +86,7 @@ void main() {
         expect(api.topicPostNumbersOpened, [137]);
         expect(controller.topicScrollPostNumber(42), 137);
         expect(tester.takeException(), isNull);
-        if (const bool.fromEnvironment('TRACE_NOTIFICATION_SCROLL')) {
-          for (final event in diagnostics.topicScrollCapture.events) {
-            if (event.name == 'notification.test.frame' ||
-                event.name == 'topic.controllers.sync' ||
-                event.name.startsWith('scroll.jump') ||
-                event.name.startsWith('viewport.anchor')) {
-              debugPrint(jsonEncode(event.toJson()));
-            }
-          }
-        }
-        diagnostics.topicScrollCapture.stop();
+
         await tester.pumpWidget(const SizedBox.shrink());
       },
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
@@ -426,7 +405,7 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
   NotificationWireType type = CoreNotificationTypes.replied,
   int postNumber = 7,
   Map<int, TopicPayload> topics = const {},
-  DiagnosticsController? diagnostics,
+
   Completer<void>? topicGate,
   DiscourseNotification? notification,
   List<String> messageGroupNames = const [],
@@ -464,7 +443,6 @@ Future<(ShellController, FakeDiscourseApi)> _pumpMenu(
   );
   await tester.pumpWidget(
     DiscourseApp(
-      diagnostics: diagnostics,
       store: FakeInstanceStore([
         instance('forum.example').copyWith(user: user),
       ]),

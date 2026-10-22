@@ -4,7 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
@@ -458,67 +458,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Diagnostics is the bottom-most rail destination when present', (
-    tester,
-  ) async {
-    final semantics = tester.ensureSemantics();
-    final controller = _controller();
-    addTearDown(controller.dispose);
-    await controller.load();
-    final diagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-
-    try {
-      await _pumpRail(tester, controller, diagnostics: diagnostics);
-
-      final settings = find.byKey(const ValueKey('settings-rail-button'));
-      final diagnosticsButton = find.byKey(
-        const ValueKey('diagnostics-rail-button'),
-      );
-      expect(settings, findsOneWidget);
-      expect(find.byTooltip('Settings'), findsOneWidget);
-      expect(
-        find.descendant(of: settings, matching: find.dIcon(DIcons.gear)),
-        findsOneWidget,
-      );
-      for (final key in [
-        'styleguide-rail-button',
-        'settings-rail-button',
-        'diagnostics-rail-button',
-      ]) {
-        final control = find.byKey(ValueKey(key));
-        final button = tester.widget<DButton>(control);
-        expect(button.variant, DButtonVariant.ghost);
-        expect(button.size, DButtonSize.large);
-        expect(tester.getSize(control), const Size.square(48));
-      }
-      expect(
-        tester.getRect(diagnosticsButton).top,
-        greaterThan(tester.getRect(settings).bottom),
-      );
-      expect(
-        tester.getRect(find.byType(InstanceRail)).bottom -
-            tester.getRect(diagnosticsButton).bottom,
-        6,
-      );
-
-      final data = tester.getSemantics(settings).getSemanticsData();
-      expect(data.label, 'Settings');
-      expect(data.flagsCollection.isButton, isTrue);
-
-      await tester.tap(settings);
-      await tester.pumpAndSettle();
-
-      expect(controller.rootMode, ShellRootMode.forum);
-      expect(controller.currentInstance, isNull);
-      expect(controller.appSettingsModalOpen, isTrue);
-    } finally {
-      await diagnostics.close();
-      semantics.dispose();
-    }
-  });
-
   testWidgets('the gear remains available before sites have loaded', (
     tester,
   ) async {
@@ -674,19 +613,12 @@ Future<void> _pumpPage(
   await tester.pumpAndSettle();
 }
 
-Future<void> _pumpRail(
-  WidgetTester tester,
-  ShellController controller, {
-  DiagnosticsController? diagnostics,
-}) async {
+Future<void> _pumpRail(WidgetTester tester, ShellController controller) async {
   tester.view.physicalSize = const Size(360, 640);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
   Widget rail = const SizedBox(width: 72, child: InstanceRail());
-  if (diagnostics != null) {
-    rail = DiagnosticsScope(controller: diagnostics, child: rail);
-  }
   await tester.pumpWidget(
     ShellScope(
       controller: controller,

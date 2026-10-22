@@ -1,6 +1,5 @@
 import 'dart:collection';
 
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -16,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
-import 'support/topic_scroll_capture.dart';
+
 import 'support/topic_scroll_fixture.dart';
 
 void main() {
@@ -327,12 +326,9 @@ void main() {
     tester,
   ) async {
     final controller = await topicScrollController();
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-      topicScrollCapture: topicScrollCaptureWithoutVm(),
-    );
+
     addTearDown(controller.dispose);
-    addTearDown(diagnostics.close);
+
     // Close under the fake clock even when the body fails: a close first
     // reached from a tearDown never completes, because it waits on futures
     // created under the fake clock, which nothing drives once the body has
@@ -355,9 +351,7 @@ void main() {
           ),
         );
       }
-      await tester.pumpWidget(
-        TopicScrollFixture(controller: controller, diagnostics: diagnostics),
-      );
+      await tester.pumpWidget(TopicScrollFixture(controller: controller));
       await _pumpUntilRendered(tester, 'Post 1:');
       Finder htmlFor(int id, {bool offscreen = false}) =>
           find.byWidgetPredicate(
@@ -426,7 +420,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
   });
 }

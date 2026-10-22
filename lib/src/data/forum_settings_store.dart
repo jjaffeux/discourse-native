@@ -13,7 +13,7 @@ import 'preference_storage_scope.dart';
 import 'scalar_preference_repository.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
-import 'store_diagnostics.dart';
+
 import 'stored_forum_base.dart';
 
 final class ForumSettingsStore {
@@ -85,9 +85,9 @@ final class ForumSettingsStore {
             jsonDecode(raw) as Map<String, dynamic>,
           );
         }
-      } catch (error, stackTrace) {
+      } catch (error) {
         // Unreadable is not absent: adopting would replace a stored choice.
-        reportStorageFailure(error, stackTrace, 'forumSettings.readAppearance');
+
         return SharedAppearance.defaults;
       }
       final adopted = await _adoptAppearance(sites);
@@ -114,8 +114,7 @@ final class ForumSettingsStore {
       )) {
         throw StateError('Could not save the appearance.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'forumSettings.writeAppearance');
+    } catch (error) {
       rethrow;
     }
   }
@@ -134,8 +133,7 @@ final class ForumSettingsStore {
         );
         if (raw == null) continue;
         json = jsonDecode(raw) as Map<String, dynamic>;
-      } catch (error, stackTrace) {
-        reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
+      } catch (error) {
         continue;
       }
       final own = ForumFont.fromName(json['font']);
@@ -215,8 +213,7 @@ final class ForumSettingsStore {
         while (library == null) {
           try {
             library = await _readThemeLibrary();
-          } catch (error, stackTrace) {
-            reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
+          } catch (error) {
             if (--attempts == 0) return _themeLibrary;
           }
         }
@@ -224,21 +221,14 @@ final class ForumSettingsStore {
         for (final site in sites) {
           try {
             migrated = await _migrateThemes(migrated, site);
-          } catch (error, stackTrace) {
-            reportStorageFailure(error, stackTrace, 'forumSettings.readThemes');
-          }
+          } catch (error) {}
         }
         if (!identical(library, migrated) ||
             _pendingThemeMigrations.isNotEmpty) {
           // Keep the legacy document until the whole migration is durable.
           try {
             await _writeThemeLibrary(migrated);
-          } catch (error, stackTrace) {
-            reportStorageFailure(
-              error,
-              stackTrace,
-              'forumSettings.migrateThemes',
-            );
+          } catch (error) {
             // Keep showing the legacy choice and retry migration next load.
             _themeLibrary = migrated;
           }
@@ -273,8 +263,7 @@ final class ForumSettingsStore {
             previous: previous ?? library.forSite(site),
           ),
         );
-      } catch (error, stackTrace) {
-        reportStorageFailure(error, stackTrace, 'forumSettings.writeThemes');
+      } catch (error) {
         rethrow;
       }
     },
@@ -328,12 +317,7 @@ final class ForumSettingsStore {
             (mode) => mode.name == stored,
             orElse: () => AppThemeMode.system,
           );
-        } catch (error, stackTrace) {
-          reportStorageFailure(
-            error,
-            stackTrace,
-            'forumSettings.readThemeMode',
-          );
+        } catch (error) {
           return initialMode;
         }
       },
@@ -364,9 +348,7 @@ final class ForumSettingsStore {
       if (!await _persistence.write(key, mode.name)) {
         throw StateError('Could not persist the forum theme mode.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'forumSettings.writeThemeMode');
-    }
+    } catch (error) {}
   }
 }
 

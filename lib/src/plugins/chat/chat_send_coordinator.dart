@@ -37,7 +37,7 @@ final class ChatSendCoordinatorHost {
     required this.onSent,
     required this.hasUnsettledMessages,
     required this.reconcileSentEvent,
-    required this.report,
+
     this.messageContextFor = _noChatMessageContext,
   });
 
@@ -90,13 +90,7 @@ final class ChatSendCoordinatorHost {
     Object? payload,
   )
   reconcileSentEvent;
-  final void Function(
-    Object error,
-    StackTrace stackTrace,
-    String operation,
-    DiagnosticSeverity severity,
-  )
-  report;
+
   final ChatMessageContext? Function(String siteUrl) messageContextFor;
 }
 
@@ -406,20 +400,10 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
   Future<void> _guardSend(_ChatSendQueue queue, _QueuedChatSend item) async {
     try {
       await _send(queue, item);
-    } catch (error, stackTrace) {
+    } catch (error) {
       item.complete(
         _owns(queue, item) ? ChatSendResult.failed : ChatSendResult.cancelled,
       );
-      try {
-        _host.report(
-          error,
-          stackTrace,
-          'chat.sendMessage',
-          DiagnosticSeverity.error,
-        );
-      } catch (_) {
-        // A broken diagnostic sink must not prevent settlement or queue progress.
-      }
     }
   }
 
@@ -514,7 +498,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
             ? ChatSendResult.sent
             : ChatSendResult.cancelled,
       );
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_requestIsCurrent(item.lease, queue, item)) {
         final failure = error is WriteException
             ? error
@@ -536,12 +520,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
         item.lease.commit(
           () => releaseReconciliationIfSettled(siteUrl, target),
         );
-        _host.report(
-          error,
-          stackTrace,
-          'chat.sendMessage',
-          DiagnosticSeverity.error,
-        );
+
         item.complete(
           canonicalAlreadyArrived ? ChatSendResult.sent : ChatSendResult.failed,
         );
@@ -596,13 +575,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
         return;
       }
       _subscriptions[key] = subscription;
-    } catch (error, stackTrace) {
-      _host.report(
-        error,
-        stackTrace,
-        'chat.sendMessage.subscribe',
-        DiagnosticSeverity.warning,
-      );
+    } catch (error) {
       // POST marks the row sent; a later ordinary fetch supplies canonical data.
     }
   }
@@ -713,9 +686,7 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     if (subscription == null) return;
     try {
       subscription.cancel();
-    } catch (error, stackTrace) {
-      _host.report(error, stackTrace, operation, DiagnosticSeverity.warning);
-    }
+    } catch (error) {}
   }
 
   @override

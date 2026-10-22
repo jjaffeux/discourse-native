@@ -3506,7 +3506,7 @@ void _feedGroups() {
       expect(jsonDecode(sent.body), {'hide_presence': true});
     });
 
-    test('preserves a failed response status for diagnostics', () async {
+    test('preserves a failed response status on failure', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('', 503)),
       );

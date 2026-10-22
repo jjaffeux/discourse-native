@@ -49,7 +49,7 @@ final class DiscourseSiteApi {
       // credentials or query values. Replace it at this user-input boundary.
       throw SiteLookupException(
         SiteLookupFailure.unreachable,
-        DiagnosticsRedactor.uri(trimmed),
+        redactUri(trimmed),
         cause: const FormatException('Invalid forum URL.'),
         causeStackTrace: stackTrace,
       );

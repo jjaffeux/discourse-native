@@ -1,22 +1,11 @@
 import 'package:url_launcher/url_launcher.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
-
 Future<bool> openExternalLink(String url) async {
   final uri = Uri.tryParse(url);
   if (uri == null || !_isAllowedExternalUri(uri)) return false;
   try {
     return await launchUrl(uri, mode: LaunchMode.externalApplication);
-  } catch (error, stackTrace) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: 'externalLink.open',
-      source: 'platform',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
+  } catch (error) {
     return false;
   }
 }

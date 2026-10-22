@@ -1059,7 +1059,6 @@ final class ChatApiClient implements ChatApi {
     if (reaction.isNotEmpty && reaction.length <= maximumSearchTermLength) {
       return;
     }
-    // Plugin response values may reach diagnostics.
     throw ArgumentError(
       'Reaction names must contain between 1 and '
       '$maximumSearchTermLength characters.',
@@ -1072,7 +1071,6 @@ final class ChatApiClient implements ChatApi {
   }) {
     if ((!allowEmpty && value.isEmpty) ||
         value.length > maximumSearchTermLength) {
-      // Composer values can contain private names and may reach diagnostics.
       throw ArgumentError(
         'Composer lookup values must be ${allowEmpty ? appL10n.atMost : appL10n.between1And} '
         '$maximumSearchTermLength characters.',

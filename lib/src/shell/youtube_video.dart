@@ -14,7 +14,6 @@ import 'package:html/dom.dart' as dom;
 import 'package:webview_all/webview_all.dart';
 import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/uri_path.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
@@ -707,16 +706,16 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
           attachment,
         ).catchError((Object error, StackTrace stack) {
           if (!_isCurrent(controller, attachment)) return;
-          _report(error, stack);
+
           _retire();
           setState(() {
             _error = error;
           });
         }),
       );
-    } on Object catch (error, stack) {
+    } on Object catch (error) {
       _controller = null;
-      _report(error, stack);
+
       _error = error;
     }
   }
@@ -844,18 +843,6 @@ class _YoutubePlayerSurfaceState extends State<YoutubePlayerSurface>
   void dispose() {
     _retire();
     super.dispose();
-  }
-
-  void _report(Object error, StackTrace stackTrace) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: 'youtube.player.initialize',
-      source: 'platform',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
   }
 
   @override

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../data/discourse_api.dart';
 import '../data/discover_sites.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../models/discourse_instance.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
@@ -221,8 +221,8 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       return _SiteCheckResult.success(
         await controller.api.siteLookup.lookup(term),
       );
-    } catch (error, stackTrace) {
-      return _SiteCheckResult.failure(error, stackTrace);
+    } catch (error) {
+      return _SiteCheckResult.failure(error);
     }
   }
 
@@ -290,15 +290,7 @@ class _AddInstanceFormState extends State<_AddInstanceForm> {
       }
     } else {
       final error = result.error!;
-      final stackTrace = result.stackTrace!;
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'site.add',
-        source: 'shell',
-        handled: true,
-        degraded: false,
-      );
+
       failure = error is SiteLookupException
           ? error.message
           : appL10n.couldnTReachAddinstancesheet((term).toString());
@@ -401,12 +393,10 @@ enum _SiteCheckState { idle, checking, valid, invalid }
 
 final class _SiteCheckResult {
   const _SiteCheckResult.success(DiscourseInstance this.instance)
-    : error = null,
-      stackTrace = null;
+    : error = null;
 
-  const _SiteCheckResult.failure(this.error, this.stackTrace) : instance = null;
+  const _SiteCheckResult.failure(this.error) : instance = null;
 
   final DiscourseInstance? instance;
   final Object? error;
-  final StackTrace? stackTrace;
 }

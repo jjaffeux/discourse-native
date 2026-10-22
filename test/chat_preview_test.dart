@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
@@ -402,7 +401,6 @@ void main() {
     testWidgets(
       'a broken contribution renderer logs and falls back the whole source',
       (tester) async {
-        final diagnostics = await _installDiagnostics('chat-preview-plugin');
         // Close under the fake clock even when the body fails: a close first
         // reached from a tearDown never completes, because it waits on futures
         // created under the fake clock, which nothing drives once the body has
@@ -413,7 +411,6 @@ void main() {
             plugins: const [
               _RenderingPlugin('date', '[date]', throwsWhileBuilding: true),
             ],
-            reporter: PluginDiagnosticsReporter.fixed(diagnostics),
           );
           final projected =
               project(raw, withEngine: renderer) as ProjectedPreview;
@@ -432,27 +429,9 @@ void main() {
 
           expect(find.text(raw), findsOneWidget);
           expect(find.text('before'), findsNothing);
-          expect(
-            diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-            isA<ErrorDiagnosticEvent>()
-                .having(
-                  (event) => event.operation,
-                  'operation',
-                  'chat.previewPlugin.render',
-                )
-                .having((event) => event.source, 'source', 'chat')
-                .having(
-                  (event) => event.severity,
-                  'severity',
-                  DiagnosticSeverity.warning,
-                )
-                .having((event) => event.handled, 'handled', isTrue)
-                .having((event) => event.degraded, 'degraded', isTrue),
-          );
         } finally {
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pump();
-          await diagnostics.close();
         }
       },
     );
@@ -764,17 +743,4 @@ final class _RenderingPlugin implements ChatPreviewContribution {
     if (throwsWhileBuilding) throw StateError('test renderer failed');
     return Text(previewFeatureId);
   }
-}
-
-Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: sessionId,
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  addTearDown(() async {
-    binding.close();
-    await diagnostics.close();
-  });
-  return diagnostics;
 }

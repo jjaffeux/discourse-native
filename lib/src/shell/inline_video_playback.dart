@@ -11,7 +11,7 @@ import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_video_source.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import 'external_link.dart';
 import 'media_webview.dart';
 import 'reader_media_activity.dart';
@@ -193,15 +193,12 @@ abstract base class _InlineVideoPlaybackSessionBase extends ChangeNotifier
       await initialize();
     } on Object catch (error, stackTrace) {
       if (_disposed) return;
-      reportFailure(error, stackTrace, initializeOperation);
+      reportFailure(error);
     }
   }
 
   @protected
   Future<void> initialize();
-
-  @protected
-  String get initializeOperation;
 
   @protected
   void replaceState(InlineVideoPlaybackState state) {
@@ -211,10 +208,10 @@ abstract base class _InlineVideoPlaybackSessionBase extends ChangeNotifier
   }
 
   @protected
-  void reportFailure(Object error, StackTrace stackTrace, String operation) {
+  void reportFailure(Object error) {
     if (_disposed || _state.phase == InlineVideoPlaybackPhase.failed) return;
     releasePlatformResources();
-    _reportVideoError(error, stackTrace, operation);
+
     replaceState(
       InlineVideoPlaybackState(
         phase: InlineVideoPlaybackPhase.failed,
@@ -244,9 +241,6 @@ final class _NativeInlineVideoPlaybackSession
   _NativeControllerLease? _controllerLease;
 
   VideoPlayerController? get _controller => _controllerLease?.controller;
-
-  @override
-  String get initializeOperation => 'video.native.initialize';
 
   @override
   Future<void> initialize() async {
@@ -282,7 +276,7 @@ final class _NativeInlineVideoPlaybackSession
         value.errorDescription ?? appL10n.thePlatformVideoPlayerFailed,
       );
       _releaseController();
-      reportFailure(error, StackTrace.current, 'video.native.playback');
+      reportFailure(error);
       return;
     }
     _publishControllerState(controller);
@@ -318,22 +312,18 @@ final class _NativeInlineVideoPlaybackSession
   }
 
   @override
-  Future<void> play() =>
-      _runControl((controller) => controller.play(), 'video.native.controls');
+  Future<void> play() => _runControl((controller) => controller.play());
 
   @override
   Future<void> pausePlayback() =>
-      _runControl((controller) => controller.pause(), 'video.native.controls');
+      _runControl((controller) => controller.pause());
 
   @override
-  Future<void> seekTo(Duration position) => _runControl(
-    (controller) => controller.seekTo(position),
-    'video.native.controls',
-  );
+  Future<void> seekTo(Duration position) =>
+      _runControl((controller) => controller.seekTo(position));
 
   Future<void> _runControl(
     Future<void> Function(VideoPlayerController controller) action,
-    String operation,
   ) async {
     final controller = _controller;
     if (isDisposed ||
@@ -347,7 +337,7 @@ final class _NativeInlineVideoPlaybackSession
     } on Object catch (error, stackTrace) {
       if (isDisposed || !identical(controller, _controller)) return;
       _releaseController();
-      reportFailure(error, stackTrace, operation);
+      reportFailure(error);
     }
   }
 
@@ -417,9 +407,6 @@ final class _WebViewInlineVideoPlaybackSession
   bool _released = false;
 
   @override
-  String get initializeOperation => 'video.webview.initialize';
-
-  @override
   Future<void> initialize() async {
     final resolution = _VideoSourceResolution(request);
     _sourceResolution = resolution;
@@ -458,8 +445,6 @@ final class _WebViewInlineVideoPlaybackSession
           case 'error':
             _fail(
               StateError('The WebKit media element could not play the video.'),
-              StackTrace.current,
-              'video.webview.playback',
             );
         }
       },
@@ -485,7 +470,7 @@ final class _WebViewInlineVideoPlaybackSession
         },
         onWebResourceError: (error) {
           if (error.isForMainFrame == false || !_isCurrent(controller)) return;
-          _fail(error, StackTrace.current, 'video.webview.playback');
+          _fail(error);
         },
       ),
     );
@@ -537,7 +522,7 @@ final class _WebViewInlineVideoPlaybackSession
             : _playVideoScript,
       );
     } on Object catch (error, stackTrace) {
-      _fail(error, stackTrace, 'video.webview.controls');
+      _fail(error);
     }
   }
 
@@ -562,7 +547,7 @@ final class _WebViewInlineVideoPlaybackSession
         "document.querySelector('audio').currentTime = $seconds;",
       );
     } on Object catch (error, stackTrace) {
-      _fail(error, stackTrace, 'audio.webview.seek');
+      _fail(error);
     }
   }
 
@@ -593,9 +578,9 @@ final class _WebViewInlineVideoPlaybackSession
     }
   }
 
-  void _fail(Object error, StackTrace stackTrace, String operation) {
+  void _fail(Object error) {
     if (isDisposed || state.phase == InlineVideoPlaybackPhase.failed) return;
-    reportFailure(error, stackTrace, operation);
+    reportFailure(error);
   }
 
   Future<void> _pauseIgnoringErrors(WebViewController controller) async {
@@ -644,9 +629,6 @@ final class _UnsupportedInlineVideoPlaybackSession
   _UnsupportedInlineVideoPlaybackSession(super.request, this.platform);
 
   final TargetPlatform platform;
-
-  @override
-  String get initializeOperation => 'video.unsupported.initialize';
 
   @override
   Future<void> initialize() async {
@@ -776,15 +758,3 @@ Uri _originOf(Uri url) => Uri(
   port: url.hasPort ? url.port : null,
   path: '/',
 );
-
-void _reportVideoError(Object error, StackTrace stackTrace, String operation) {
-  DiagnosticsSink.current.reportError(
-    error,
-    stackTrace,
-    operation: operation,
-    source: 'platform',
-    severity: DiagnosticSeverity.warning,
-    handled: true,
-    degraded: true,
-  );
-}

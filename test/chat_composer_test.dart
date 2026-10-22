@@ -5,7 +5,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -3107,10 +3107,8 @@ void main() {
     testWidgets('reports file picker failures through the Chat session', (
       tester,
     ) async {
-      final diagnostics = _RecordingDiagnosticsSink();
       final fixture = await _fixture(
         pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
-        pluginDiagnosticsReporter: PluginDiagnosticsReporter.fixed(diagnostics),
       );
       addTearDown(fixture.shell.dispose);
       await tester.pumpWidget(
@@ -3128,15 +3126,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text("Couldn't open the file picker."), findsOneWidget);
-      expect(diagnostics.errors, [
-        (
-          operation: 'chatComposer.pickFiles',
-          source: 'platform',
-          severity: DiagnosticSeverity.warning,
-          handled: true,
-          degraded: true,
-        ),
-      ]);
     });
 
     testWidgets('keeps both send actions idle while the GIF picker is open', (
@@ -4082,8 +4071,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
   bool following = true,
   bool canJoin = false,
   WriteException? followFailure,
-  PluginDiagnosticsReporter pluginDiagnosticsReporter =
-      const PluginDiagnosticsReporter.noop(),
+
   CookingServicePort? cookingService,
 }) async {
   final account =
@@ -4118,7 +4106,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _fixture({
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     plugins: installedPlugins,
-    pluginDiagnosticsReporter: pluginDiagnosticsReporter,
+
     cookingService: cookingService,
   );
   await shell.load();
@@ -4482,51 +4470,4 @@ final class _RecordingCookingService implements CookingServicePort {
 
   @override
   Future<void> dispose() async {}
-}
-
-final class _RecordingDiagnosticsSink implements DiagnosticsSink {
-  final errors =
-      <
-        ({
-          String? operation,
-          String source,
-          DiagnosticSeverity severity,
-          bool handled,
-          bool degraded,
-        })
-      >[];
-
-  @override
-  void reportError(
-    Object error,
-    StackTrace stackTrace, {
-    String? operation,
-    String source = 'application',
-    DiagnosticSeverity severity = DiagnosticSeverity.error,
-    bool handled = true,
-    bool degraded = true,
-    String? correlationId,
-  }) {
-    errors.add((
-      operation: operation,
-      source: source,
-      severity: severity,
-      handled: handled,
-      degraded: degraded,
-    ));
-  }
-
-  @override
-  void recordLog({
-    required String name,
-    String source = 'application',
-    String? component,
-    String? message,
-    Map<String, Object?> attributes = const {},
-    DiagnosticSeverity severity = DiagnosticSeverity.info,
-    String? operation,
-    String? correlationId,
-    bool handled = true,
-    bool degraded = false,
-  }) {}
 }

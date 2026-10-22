@@ -11,7 +11,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart'
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/application_cooking.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/cooking_plugin.dart';
@@ -1050,10 +1050,6 @@ final class _SummaryFixture {
           _EmptyFreshAccount(),
         ),
         PluginHostPort<PluginUserIdReader>(corePluginUserPort, (_) => null),
-        const PluginHostPort<Object>(
-          pluginDiagnosticsReporterPort,
-          PluginDiagnosticsReporter.noop(),
-        ),
       ]),
     );
     addTearDown(session.close);

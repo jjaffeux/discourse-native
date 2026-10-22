@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'preference_snapshots.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class TopicSidebarPersistence {
   Future<bool?> readCollapsed({required String siteUrl});
@@ -85,8 +84,7 @@ final class TopicSidebarStore {
       if (!identical(_siteOwners[siteUrl], owner)) return false;
       final collapsed = await _persistence.readCollapsed(siteUrl: siteUrl);
       return collapsed ?? false;
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'topicSidebar.readCollapsed');
+    } catch (error) {
       return false;
     }
   }
@@ -116,8 +114,6 @@ final class TopicSidebarStore {
       if (!saved) {
         throw StateError('Could not persist topic sidebar state.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'topicSidebar.writeCollapsed');
-    }
+    } catch (error) {}
   }
 }

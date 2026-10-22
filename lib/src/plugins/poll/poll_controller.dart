@@ -50,7 +50,6 @@ class PollController extends FrameSafeNotifier
     required PluginSiteStateHost siteState,
     required PluginFreshAccountHost freshAccount,
     required PluginAccountConnectionHost accounts,
-    this.diagnostics = const PluginDiagnosticsReporter.noop(),
   }) : _api = api,
        _requests = requests,
        _posts = posts,
@@ -64,7 +63,6 @@ class PollController extends FrameSafeNotifier
   final PluginSiteStateHost _siteState;
   final PluginFreshAccountHost _freshAccount;
   final PluginAccountConnectionHost _accounts;
-  final PluginDiagnosticsReporter diagnostics;
 
   SiteConfig siteConfigFor(String siteUrl) => _siteState.siteConfigFor(siteUrl);
 
@@ -222,14 +220,6 @@ class PollController extends FrameSafeNotifier
         }
         return await _recover(siteUrl, topicId, post.id, apiKey, lease, error);
       } catch (error, stackTrace) {
-        diagnostics.reportError(
-          error,
-          stackTrace,
-          operation: 'poll.vote',
-          source: 'poll',
-          handled: true,
-          degraded: true,
-        );
         if (!dispatched) {
           return PollVoteWriteResult._(
             PollVoteWriteKind.notSent,

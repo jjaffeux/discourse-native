@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import 'support/topic_list_scroll_fixture.dart';
-import 'support/topic_scroll_capture.dart';
 
 void main() {
   final binding = _SemanticsBinding();
@@ -28,25 +27,11 @@ void main() {
       events: true,
       assignments: true,
     );
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-      topicScrollCapture: topicScrollCaptureWithoutVm(),
-    );
-    addTearDown(() async {
-      controller.dispose();
-      await controller.pluginTeardown;
-      await controller.plugins.close();
-      await diagnostics.close();
-    });
+
     final semantics = tester.ensureSemantics();
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     try {
-      await tester.pumpWidget(
-        TopicListScrollFixture(
-          controller: controller,
-          diagnostics: diagnostics,
-        ),
-      );
+      await tester.pumpWidget(TopicListScrollFixture(controller: controller));
       await tester.pumpAndSettle();
       await mouse.addPointer(location: const Offset(300, 200));
       await tester.pumpAndSettle();
@@ -127,7 +112,6 @@ void main() {
       await mouse.removePointer();
       await tester.pumpWidget(const SizedBox.shrink());
       semantics.dispose();
-      await diagnostics.close();
     }
     expect(binding.errors, isEmpty);
   });

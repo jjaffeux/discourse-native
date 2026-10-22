@@ -9,7 +9,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
-import '../diagnostics/diagnostics_scope.dart';
+
 import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_appearance.dart';
@@ -917,11 +917,6 @@ class _RailFooter extends StatelessWidget {
             ),
           ),
         ),
-        if (DiagnosticsScope.maybeRead(context) != null)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(0, 2, 0, 6),
-            child: Center(child: _DiagnosticsButton()),
-          ),
       ],
     );
   }
@@ -940,14 +935,12 @@ class _RailFooterButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.icon,
-    this.expanded = false,
   });
 
   final Key buttonKey;
   final String tooltip;
   final VoidCallback onTap;
   final Widget icon;
-  final bool expanded;
 
   @override
   Widget build(BuildContext context) => DButton.iconOnly(
@@ -960,7 +953,7 @@ class _RailFooterButton extends StatelessWidget {
     interactiveBackgroundColor: Colors.transparent,
     foregroundColor: _railActionForeground(context),
     size: DButtonSize.large,
-    expanded: expanded,
+
     onPressed: onTap,
     icon: icon,
   );
@@ -978,98 +971,6 @@ class _SettingsButton extends StatelessWidget {
       tooltip: context.l10n.settings,
       onTap: onTap,
       icon: const DIcon(DIcons.gear, size: _railFooterIconSize),
-    );
-  }
-}
-
-class _DiagnosticsButton extends StatelessWidget {
-  const _DiagnosticsButton();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final diagnostics = DiagnosticsScope.read(context);
-    final pluginDiagnostics = DiagnosticsScope.pluginsOf(context);
-
-    return ListenableBuilder(
-      listenable: Listenable.merge([
-        diagnostics.panelListenable,
-        diagnostics.unseenErrorsListenable,
-        for (final plugin in pluginDiagnostics)
-          plugin.diagnosticsStatusListenable,
-      ]),
-      builder: (context, _) {
-        final open = diagnostics.isPanelOpen;
-        final unseen = diagnostics.unseenErrorCountListenable.value;
-        final baseTooltip = unseen == 0
-            ? context.l10n.diagnostics
-            : context.l10n.diagnosticsUnseen(unseen);
-        final recordingLabels = [
-          for (final plugin in pluginDiagnostics)
-            if (plugin.isDiagnosticsRecording) plugin.diagnosticsRecordingLabel,
-        ].whereType<String>();
-        final tooltip = recordingLabels.isEmpty
-            ? baseTooltip
-            : '$baseTooltip, ${recordingLabels.join(', ')}';
-
-        return Semantics(
-          selected: open,
-          child: _RailFooterButton(
-            buttonKey: const ValueKey('diagnostics-rail-button'),
-            tooltip: tooltip,
-            expanded: open,
-            onTap: diagnostics.togglePanel,
-            icon: SizedBox.square(
-              dimension: _railVisualSize,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  const DIcon(DIcons.bug, size: _railFooterIconSize),
-                  if (unseen > 0)
-                    Positioned(
-                      right: -4,
-                      bottom: -4,
-                      // The button announces the exact unseen count. Keep the
-                      // visually capped badge from adding a contradictory
-                      // second number to the accessible label.
-                      child: ExcludeSemantics(
-                        child: _CountBadge(
-                          key: const ValueKey('diagnostics-rail-badge'),
-                          count: unseen,
-                          background: theme.colorScheme.error,
-                          foreground: theme.colorScheme.onError,
-                        ),
-                      ),
-                    ),
-                  if (recordingLabels.isNotEmpty)
-                    Positioned(
-                      key: const ValueKey(
-                        'plugin-diagnostics-recording-indicator',
-                      ),
-                      right: -3,
-                      top: -3,
-                      child: ExcludeSemantics(
-                        child: Container(
-                          width: 11,
-                          height: 11,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.error,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _railSurface(context),
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -1520,42 +1421,6 @@ class _AddInstanceButton extends StatelessWidget {
       foregroundColor: DTokens.of(context).foreground,
       onPressed: () => showAddInstanceSheet(context),
       icon: const DIcon(DIcons.plus, size: 17),
-    );
-  }
-}
-
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({
-    super.key,
-    required this.count,
-    required this.background,
-    required this.foreground,
-  });
-
-  final int count;
-  final Color background;
-  final Color foreground;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-      constraints: const BoxConstraints(minWidth: 18),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: _railSurface(context), width: 2),
-      ),
-      child: Text(
-        count > 99 ? '99+' : '$count',
-        textAlign: TextAlign.center,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
     );
   }
 }

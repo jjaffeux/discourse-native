@@ -5,7 +5,6 @@ import 'package:basic_utils/basic_utils.dart' show CryptoUtils;
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:pointycastle/export.dart';
 
-import '../diagnostics/diagnostic_error_cause.dart';
 import 'http_transport.dart';
 
 class UserApiCredentials {
@@ -34,7 +33,7 @@ enum UserApiAuthFailure {
   badReply,
 }
 
-class UserApiAuthException implements Exception, DiagnosticErrorCause {
+class UserApiAuthException implements Exception {
   const UserApiAuthException(this.failure, [this.detail])
     : cause = null,
       causeStackTrace = null;
@@ -50,12 +49,6 @@ class UserApiAuthException implements Exception, DiagnosticErrorCause {
   final String? detail;
   final Object? cause;
   final StackTrace? causeStackTrace;
-
-  @override
-  Object get diagnosticCause => cause ?? this;
-
-  @override
-  StackTrace? get diagnosticCauseStackTrace => causeStackTrace;
 
   String get message => switch (failure) {
     UserApiAuthFailure.cancelled => appL10n.connectionCancelled,

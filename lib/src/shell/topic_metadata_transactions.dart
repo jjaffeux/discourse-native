@@ -8,12 +8,6 @@ sealed class _TopicMetadataCommand {
     _TopicCategoryCommand() => appL10n.theForumChangedBeforeTheCategorySaved,
     _TopicTagsCommand() => appL10n.theSiteChangedBeforeTagsWereSaved,
   };
-
-  String get diagnosticOperation => switch (this) {
-    _TopicTitleCommand() => 'topic.editTitle',
-    _TopicCategoryCommand() => 'topic.editCategory',
-    _TopicTagsCommand() => 'topicSidebar.editTopicTags',
-  };
 }
 
 final class _TopicTitleCommand extends _TopicMetadataCommand {
@@ -101,10 +95,7 @@ extension _TopicMetadataTransactions on ShellController {
       }
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, command.diagnosticOperation);
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     }
     if (!lease.isCurrent) return command.staleMessage;

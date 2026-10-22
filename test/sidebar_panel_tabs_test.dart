@@ -65,7 +65,7 @@ Future<ShellController> pumpTabs(
     pluginManifest: PluginManifest([
       if (installed) ...[
         ChatModule(apiFactory: (transport) => transport as ChatApi),
-        const VoiceModule.withoutDiagnostics(),
+        const VoiceModule(),
       ],
     ]),
     instances: [

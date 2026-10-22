@@ -4,7 +4,7 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/invites_api.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/invite.dart';
@@ -113,9 +113,9 @@ final class InvitesController extends FrameSafeNotifier {
             (this.search.isNotEmpty || _offset < (counts[this.filter] ?? 0));
       }
       loaded = true;
-    } catch (exception, stackTrace) {
+    } catch (exception) {
       if (!current()) return;
-      _report(exception, stackTrace, 'invites.load');
+
       error = appL10n.couldnTLoadInvitesPleaseTryAgain;
     } finally {
       if (current()) {
@@ -130,7 +130,6 @@ final class InvitesController extends FrameSafeNotifier {
       return Future.value();
     }
     return _write(
-      'invites.create',
       draft.sendEmail ? appL10n.invitationEmailSent : appL10n.inviteLinkCreated,
       (auth) => api.create(
         siteUrl: instance.url,
@@ -143,7 +142,7 @@ final class InvitesController extends FrameSafeNotifier {
 
   Future<bool?> remove(DiscourseInvite invite) async {
     if (!invite.canDelete || !invites.contains(invite)) return false;
-    return _write('invites.remove', appL10n.inviteRemoved, (auth) async {
+    return _write(appL10n.inviteRemoved, (auth) async {
       await api.remove(
         siteUrl: instance.url,
         apiKey: auth.apiKey!,
@@ -161,7 +160,7 @@ final class InvitesController extends FrameSafeNotifier {
         !instance.config.invites.allowEmail) {
       return false;
     }
-    return _write('invites.resend', appL10n.invitationEmailSent, (auth) async {
+    return _write(appL10n.invitationEmailSent, (auth) async {
       await api.resend(
         siteUrl: instance.url,
         apiKey: auth.apiKey!,
@@ -173,7 +172,6 @@ final class InvitesController extends FrameSafeNotifier {
   }
 
   Future<T?> _write<T>(
-    String operation,
     String success,
     Future<T> Function(AccountRequestCredentials auth) action,
   ) async {
@@ -190,9 +188,9 @@ final class InvitesController extends FrameSafeNotifier {
       message = success;
       await load();
       return isCurrent ? result : null;
-    } catch (exception, stackTrace) {
+    } catch (exception) {
       if (!isCurrent) return null;
-      _report(exception, stackTrace, operation);
+
       actionError = exception is WriteException
           ? exception.message
           : appL10n.couldnTSaveTheInvitePleaseTryAgain;
@@ -203,16 +201,5 @@ final class InvitesController extends FrameSafeNotifier {
         notifySafely();
       }
     }
-  }
-
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'network',
-      handled: true,
-      degraded: true,
-    );
   }
 }

@@ -453,7 +453,7 @@ LiveKitVoiceMediaSession _session(
   audioPublishingAllowed: audioPublishingAllowed,
   refreshCredentials: () async =>
       const VoiceLiveKitCredentials(url: '', token: ''),
-  rawStatsInterval: Duration.zero,
+
   roomAdapter: adapter,
 );
 

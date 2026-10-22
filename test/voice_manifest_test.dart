@@ -22,22 +22,11 @@ void main() {
     );
   });
 
-  test(
-    'module declares its routing, media, live, and diagnostics contracts',
-    () {
-      final descriptor = installed.descriptors.last;
+  test('module declares its routing, media, and live contracts', () {
+    final descriptor = installed.descriptors.last;
 
-      expect(descriptor.routeNamespaces, {'voice'});
-      expect(descriptor.exclusiveClaims, {'app-global-media-session'});
-      expect(descriptor.liveChannelScopes.map((scope) => scope.path), [
-        '/voice',
-      ]);
-      expect(
-        installed.registry.diagnosticsPlugins.map(
-          (plugin) => plugin.diagnosticsId,
-        ),
-        ['voice'],
-      );
-    },
-  );
+    expect(descriptor.routeNamespaces, {'voice'});
+    expect(descriptor.exclusiveClaims, {'app-global-media-session'});
+    expect(descriptor.liveChannelScopes.map((scope) => scope.path), ['/voice']);
+  });
 }

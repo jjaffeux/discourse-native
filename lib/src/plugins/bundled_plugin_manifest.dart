@@ -36,23 +36,3 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   chatModule,
   voiceModule,
 ]);
-
-final PluginManifest bundledPluginManifestWithoutDiagnostics = PluginManifest([
-  cookingModule,
-  solvedModule,
-  topicVotingModule,
-  localDatesModule,
-  discourseGithubModule,
-  discourseLazyVideosModule,
-  discourseMermaidModule,
-  discoursePlaceholderModule,
-  reactionsModule,
-  pollModule,
-  discourseEventsModule,
-  prometheusAlertReceiverModule,
-  gifsModule,
-  discourseAiModule,
-  assignModule,
-  chatModule,
-  const VoiceModule.withoutDiagnostics(),
-]);

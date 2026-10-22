@@ -36,7 +36,7 @@ final class SiteAppearanceLoadException implements Exception {
   final Uri url;
   final int? statusCode;
 
-  /// Diagnostic context only. Appearance loading is deliberately quiet in the
+  /// Failure context only. Appearance loading is deliberately quiet in the
   /// UI, so callers should not present this value directly to a reader.
   final Object? detail;
 

@@ -2,12 +2,11 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import '../models/discourse_instance.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import 'coalescing_snapshot_writer.dart';
 import 'preference_storage_scope.dart';
-import 'store_diagnostics.dart';
+
 import 'stored_forum_base.dart';
 
 abstract interface class InstancePersistence {
@@ -61,8 +60,7 @@ class InstanceStore {
     Object? decoded;
     try {
       decoded = jsonDecode(raw);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'instances.decode');
+    } catch (error) {
       return const [];
     }
     if (decoded is! List<dynamic>) return const [];
@@ -80,8 +78,7 @@ class InstanceStore {
           'url': requireStoredForumBase(entry['url']),
         });
         if (seenUrls.add(instance.url)) instances.add(instance);
-      } catch (error, stackTrace) {
-        reportStorageFailure(error, stackTrace, 'instances.decodeEntry');
+      } catch (error) {
         // A stale or damaged entry must not erase the other connected sites.
       }
     }
@@ -96,13 +93,7 @@ class InstanceStore {
     try {
       final encoded = jsonEncode(instances.map(_models.storeInstance).toList());
       await _persistence.write(encoded);
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'instances.save',
-        severity: DiagnosticSeverity.error,
-      );
+    } catch (error) {
       rethrow;
     }
   }

@@ -1017,9 +1017,6 @@ final class _Harness {
         composers.remove(composer);
         if (identical(activeComposer, composer)) activeComposer = null;
       },
-      reportError: (error, stackTrace, operation) {
-        errors.add((error: error, operation: operation));
-      },
     );
   }
 

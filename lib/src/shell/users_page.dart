@@ -7,8 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/user_directory_column_width_store.dart';
-import '../diagnostics/diagnostics_scope.dart';
-import '../diagnostics/topic_scroll_capture.dart';
+
 import '../foundation/short_number.dart';
 import '../models/user_directory.dart';
 import '../theme/d_icons.dart';
@@ -179,57 +178,14 @@ class _UsersPageState extends State<UsersPage> {
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
   Timer? _searchDebounce;
-  TopicScrollCaptureController? _scrollCapture;
-  (TopicScrollCaptureController, int, int, int)? _captureContext;
-  bool get _recording => _scrollCapture?.isRecording == true;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
-  }
-
-  void _recordScrollEvent(String name, Map<String, Object?> data) {
-    final capture = _scrollCapture;
-    if (capture == null || !capture.isRecording) return;
-    final identity = (
-      capture,
-      capture.captureId,
-      widget.data.items.length,
-      widget.data.columns.length,
-    );
-    if (_captureContext != identity) {
-      _captureContext = identity;
-      capture.recordTopicEvent('users.capture.context', {
-        'rowCount': widget.data.items.length,
-        'columnCount': widget.data.columns.length + 2,
-        'devicePixelRatio': View.of(context).devicePixelRatio,
-        if (_vertical.hasClients)
-          'viewportExtent': _vertical.position.viewportDimension,
-      });
-    }
-    capture.recordTopicEvent(name, data);
   }
 
   void _onVerticalScroll() {
-    final stopwatch = _recording ? (Stopwatch()..start()) : null;
     _scheduleLoadMoreCheck();
-    if (stopwatch != null) {
-      _recordScrollEvent('users.scroll.notification', {
-        'axis': 'vertical',
-        'pixels': _vertical.offset,
-        'durationUs': stopwatch.elapsedMicroseconds,
-      });
-    }
-  }
-
-  void _onHorizontalScroll() {
-    if (_recording) {
-      _recordScrollEvent('users.scroll.notification', {
-        'axis': 'horizontal',
-        'pixels': _horizontal.offset,
-      });
-    }
   }
 
   Set<String> _hiddenColumnIds = {};
@@ -246,7 +202,7 @@ class _UsersPageState extends State<UsersPage> {
     _searchText = widget.data.query.search;
     _deriveColumnMaxima();
     _vertical.addListener(_onVerticalScroll);
-    _horizontal.addListener(_onHorizontalScroll);
+
     _restoreColumnWidths();
   }
 
@@ -314,7 +270,6 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _deriveColumnMaxima() {
-    final stopwatch = _recording ? (Stopwatch()..start()) : null;
     _columnMaxima = {
       for (final column in widget.data.columns)
         _metricColumnWidthKey(column): widget.data.items.fold<double>(
@@ -325,11 +280,6 @@ class _UsersPageState extends State<UsersPage> {
           ),
         ),
     };
-    if (stopwatch != null) {
-      _recordScrollEvent('users.maxima.work', {
-        'durationUs': stopwatch.elapsedMicroseconds,
-      });
-    }
   }
 
   Widget _metricCell(
@@ -479,9 +429,6 @@ class _UsersPageState extends State<UsersPage> {
           : (a, b) => a.user.username.compareTo(b.user.username),
       headerBuilder: _header,
       cellBuilder: (context, cell) {
-        if (_recording) {
-          _recordScrollEvent('users.row.built', {'index': cell.index});
-        }
         return Row(
           key: ValueKey('user-row-${cell.row.user.username}'),
           children: [
@@ -582,12 +529,7 @@ class _UsersPageState extends State<UsersPage> {
           _ => 96.0,
         }) *
         textScale;
-    if (_recording) {
-      _recordScrollEvent('users.view.built', {
-        'rowCount': data.items.length,
-        'loadingMore': data.loadingMore,
-      });
-    }
+
     _scheduleLoadMoreCheck();
     final orderById = {
       _identityColumnWidthKey: 'username',

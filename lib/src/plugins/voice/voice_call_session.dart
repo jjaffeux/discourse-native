@@ -8,7 +8,6 @@ final class _VoiceCallSession {
     required this.siteName,
     required this.requestedRoom,
     required this.siteSession,
-    required this.correlationId,
   }) {
     _idleTracker = VoiceIdleTracker(
       thresholds: _activeIdleThresholds,
@@ -26,7 +25,7 @@ final class _VoiceCallSession {
   final String siteName;
   final VoiceRoom requestedRoom;
   final Object siteSession;
-  final String correlationId;
+
   VoiceCallSnapshot? _call;
   VoiceMediaSession? _media;
   String? _participantSessionId;
@@ -37,7 +36,7 @@ final class _VoiceCallSession {
   Future<void>? _membershipLeave;
   Future<void>? _startOperation;
   Future<void>? _leaveOperation;
-  bool _leaving = false;
+
   bool? _notifyServerOnClose;
   bool _retired = false;
   final Completer<void> _retirement = Completer<void>();
@@ -127,11 +126,9 @@ final class _VoiceCallSession {
     _mediaDisposal = completion.future;
     try {
       media.removeListener(_mediaChanged);
-    } catch (error, stackTrace) {
-      controller._report(error, stackTrace, 'voice.media.removeListener');
-    }
+    } catch (error) {}
     unawaited(
-      controller._runHandled(media.dispose, operation).then((_) {
+      controller._runHandled(media.dispose).then((_) {
         if (!completion.isCompleted) completion.complete();
       }),
     );
@@ -157,17 +154,6 @@ final class _VoiceCallSession {
     );
     final userId = controller._userIdFor(siteUrl);
     if (credentials == null || userId == null || !isCurrent()) {
-      controller._record(
-        'call.join.skipped',
-        correlationId: correlationId,
-        data: {
-          'reason': !isCurrent()
-              ? 'cancelled'
-              : credentials == null
-              ? 'missing_api_key'
-              : 'missing_user_id',
-        },
-      );
       return;
     }
     controller._setSiteError(siteUrl, null);
@@ -178,11 +164,6 @@ final class _VoiceCallSession {
     try {
       late VoiceJoinResponse response;
       try {
-        controller._record(
-          'call.join.server_request.started',
-          correlationId: correlationId,
-          data: {'roomId': room.id},
-        );
         response = await credentials.run(
           () => controller.api.join(
             siteUrl: siteUrl,
@@ -195,15 +176,7 @@ final class _VoiceCallSession {
         );
       } on WriteException catch (error) {
         if (error.failure != WriteFailure.rateLimited) rethrow;
-        controller._record(
-          'call.join.server_request.rate_limited',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-          data: {
-            'retryAfterMilliseconds':
-                (error.retryAfter ?? const Duration(seconds: 1)).inMilliseconds,
-          },
-        );
+
         // A 429 is the one write failure that is safe to retry: Discourse
         // rejected it before the room mutation ran. Native user API keys share
         // a site-wide request budget, so a room switch can legitimately land
@@ -229,40 +202,21 @@ final class _VoiceCallSession {
       if (!isCurrent()) {
         await controller._runHandled(
           () => _leaveMembership(apiKey: apiKey, clientId: clientId),
-          'voice.leaveSupersededJoin',
         );
         _serverJoinActive = false;
         return;
       }
-      controller._record(
-        'call.join.server_request.completed',
-        correlationId: correlationId,
-        data: {
-          'transport': response.transport.name,
-          'participantCount': response.room.participants.length,
-        },
-      );
-      controller._recordRoster(
-        'call.join.initial_roster',
-        siteUrl,
-        room.id,
-        response.room.participants,
-        correlationId: correlationId,
-      );
+
       final signalBatcher = _signals = VoiceSignalBatcher(
         batchDelay: controller.signalBatchDelay,
         sendBatch: (payload) async {
-          await controller._reporter.runOperation(
-            'voice.signal',
-            () => controller.api.signal(
-              siteUrl: siteUrl,
-              roomId: room.id,
-              apiKey: apiKey,
-              payload: payload,
-              participantSessionId: _participantSessionId,
-              clientId: clientId,
-            ),
-            correlationId: correlationId,
+          await controller.api.signal(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            payload: payload,
+            participantSessionId: _participantSessionId,
+            clientId: clientId,
           );
         },
       );
@@ -276,53 +230,10 @@ final class _VoiceCallSession {
         localUserId: userId,
         sendSignal: (recipientId, event) async {
           if (!mediaIsCurrent()) return;
-          controller._record(
-            'signaling.send.started',
-            component: 'signaling',
-            correlationId: correlationId,
-            data: {
-              'roomId': room.id,
-              'recipientPresent': true,
-              'type': _voiceSignalingDiagnosticType(event['type']),
-            },
-          );
-          controller._recordRaw(
-            'signaling.send.raw',
-            component: 'signaling',
-            correlationId: correlationId,
-            data: {
-              'siteUrl': siteUrl,
-              'roomId': room.id,
-              'recipientId': recipientId,
-              'signal': event,
-            },
-          );
+
           try {
             await signalBatcher.send(recipientId, event);
-            controller._record(
-              'signaling.send.completed',
-              component: 'signaling',
-              correlationId: correlationId,
-            );
-          } catch (error, stackTrace) {
-            controller._record(
-              'signaling.send.failed',
-              component: 'signaling',
-              correlationId: correlationId,
-              severity: DiagnosticSeverity.warning,
-              data: {'errorType': error.runtimeType.toString()},
-            );
-            controller._recordRaw(
-              'signaling.send.failure_detail',
-              component: 'signaling',
-              correlationId: correlationId,
-              severity: DiagnosticSeverity.warning,
-              message: error.toString(),
-              data: {
-                'recipientId': recipientId,
-                'stackTrace': stackTrace.toString(),
-              },
-            );
+          } catch (error) {
             rethrow;
           }
         },
@@ -332,47 +243,27 @@ final class _VoiceCallSession {
             throw StateError('LiveKit credentials are unavailable.');
           }
           if (!mediaIsCurrent()) return fallback;
-          controller._record(
-            'livekit.credentials.refresh.requested',
-            component: 'livekit',
-            correlationId: correlationId,
-            data: {'roomId': room.id},
-          );
+
           final refreshCredentials = await controller._requests.credentialsFor(
             siteUrl,
           );
           if (!mediaIsCurrent()) return fallback;
-          final refreshed = await controller._reporter.runOperation(
-            'voice.livekitToken',
-            () => controller.api.livekitToken(
-              siteUrl: siteUrl,
-              roomId: room.id,
-              apiKey: apiKey,
-              clientId: refreshCredentials.clientId,
-            ),
-            correlationId: correlationId,
+          final refreshed = await controller.api.livekitToken(
+            siteUrl: siteUrl,
+            roomId: room.id,
+            apiKey: apiKey,
+            clientId: refreshCredentials.clientId,
           );
           if (refreshed.participantSessionId case final renewed?) {
             _participantSessionId = renewed;
           }
-          controller._record(
-            'livekit.credentials.refresh.received',
-            component: 'livekit',
-            correlationId: correlationId,
-          );
+
           return mediaIsCurrent() ? refreshed : fallback;
         },
-        diagnostics: controller.diagnostics,
-        correlationId: correlationId,
       );
       _media = media;
       callbackMedia = media;
-      controller._record(
-        'media.session.created',
-        component: 'media',
-        correlationId: correlationId,
-        data: {'transport': media.transport.name},
-      );
+
       final joinedRoom = VoiceController._mergeRoom(
         controller.room(siteUrl, room.id) ?? room,
         response.room,
@@ -388,14 +279,8 @@ final class _VoiceCallSession {
           );
       await media.setMuted(initiallyMuted);
       if (!isCurrent()) {
-        controller._record(
-          'call.join.cancelled',
-          correlationId: correlationId,
-          data: {'reason': 'cancelled_after_media_creation'},
-        );
         await controller._runHandled(
           () => _leaveMembership(apiKey: apiKey, clientId: clientId),
-          'voice.leaveCancelledJoin',
         );
         _serverJoinActive = false;
         await disposeMedia('voice.media.disposeAfterCancelledJoin');
@@ -419,60 +304,29 @@ final class _VoiceCallSession {
         muted: initiallyMuted,
       );
       _restoreParticipantVolumes(_call!);
-      if (controller.systemCall
-          case final NativeVoiceSystemCall nativeSystemCall) {
-        nativeSystemCall.associateDiagnostics(correlationId);
-      }
-      controller._record(
-        'call.status_changed',
-        correlationId: correlationId,
-        data: {
-          'from': null,
-          'to': VoiceCallStatus.joining.name,
-          'transport': media.transport.name,
-        },
-      );
+
       controller._onCallSiteChanged();
       controller.attachTracker(siteUrl);
       controller._notifyCallChanged();
       if (!isCurrent()) return;
-      controller._record(
-        'callkit.command.requested',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'start'},
-      );
+
       await controller.systemCall.start(
         roomName: room.name,
         siteName: siteName,
       );
-      controller._record(
-        'callkit.command.completed',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'start'},
-      );
+
       if (!isCurrent()) return;
-      controller._record(
-        'media.connect.started',
-        component: 'media',
-        correlationId: correlationId,
-      );
+
       await media.connect();
-      controller._record(
-        'media.connect.completed',
-        component: 'media',
-        correlationId: correlationId,
-      );
+
       if (!isCurrent()) return;
       if (controller._audioInputDeviceId case final deviceId?) {
         await controller._selectSavedAudioDevice(
-          kind: 'audio_input',
           media: media,
           preference: VoiceDevicePreference.audioInput,
           choice: controller._devicePreferences.audioInput,
           deviceId: deviceId,
-          correlationId: correlationId,
+
           selectDevice: media.selectAudioInput,
           isCurrent: isCurrent,
         );
@@ -480,12 +334,11 @@ final class _VoiceCallSession {
       }
       if (controller._audioOutputDeviceId case final deviceId?) {
         await controller._selectSavedAudioDevice(
-          kind: 'audio_output',
           media: media,
           preference: VoiceDevicePreference.audioOutput,
           choice: controller._devicePreferences.audioOutput,
           deviceId: deviceId,
-          correlationId: correlationId,
+
           selectDevice: media.selectAudioOutput,
           isCurrent: isCurrent,
         );
@@ -495,14 +348,7 @@ final class _VoiceCallSession {
         status: VoiceCallStatus.connected,
         clearError: true,
       );
-      controller._record(
-        'call.status_changed',
-        correlationId: correlationId,
-        data: {
-          'from': VoiceCallStatus.joining.name,
-          'to': VoiceCallStatus.connected.name,
-        },
-      );
+
       await _requestStateSync();
       if (!isCurrent()) return;
       if (initiallyMuted) {
@@ -510,57 +356,26 @@ final class _VoiceCallSession {
         if (!isCurrent()) return;
       }
       await controller.systemCall.connected();
-      controller._record(
-        'callkit.command.completed',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'connected'},
-      );
+
       if (!isCurrent()) return;
       _startHeartbeat();
       _idleTracker.start();
-      controller._record(
-        'call.join.completed',
-        correlationId: correlationId,
-        data: {
-          ...controller._roomDiagnosticData(response.room),
-          'transport': response.transport.name,
-        },
-      );
+
       controller._notifyCallChanged();
       _restorePreferredCamera();
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (media != null) {
         await disposeMedia('voice.media.disposeAfterJoin');
       }
       if (_serverJoinActive) {
         await controller._runHandled(
           () => _leaveMembership(apiKey: apiKey, clientId: clientId),
-          'voice.leaveFailedJoin',
         );
       }
       if (!isCurrent()) return;
-      controller._record(
-        'call.join.failed',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        data: {'errorType': error.runtimeType.toString()},
-      );
-      controller._recordRaw(
-        'call.join.failure_detail',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        message: error.toString(),
-        data: {'stackTrace': stackTrace.toString()},
-      );
-      await controller._runHandled(
-        controller.systemCall.failed,
-        'voice.systemCall.failed',
-      );
-      if (controller.systemCall
-          case final NativeVoiceSystemCall nativeSystemCall) {
-        nativeSystemCall.associateDiagnostics(null);
-      }
+
+      await controller._runHandled(controller.systemCall.failed);
+
       if (isCurrent()) {
         _call = null;
         if (_serverJoinActive) {
@@ -570,21 +385,13 @@ final class _VoiceCallSession {
         controller._onCallSiteChanged();
         controller._notifyCallChanged();
       }
-      if (isCurrent()) controller._report(error, stackTrace, 'voice.join');
     }
   }
 
   void _startHeartbeat() {
     _heartbeat?.cancel();
     _heartbeatPending = false;
-    controller._recordRaw(
-      'heartbeat.started',
-      component: 'heartbeat',
-      correlationId: correlationId,
-      data: {
-        'intervalMilliseconds': controller.heartbeatInterval.inMilliseconds,
-      },
-    );
+
     _scheduleHeartbeat();
   }
 
@@ -638,53 +445,26 @@ final class _VoiceCallSession {
         controller._isCurrentCall(call, siteSession) &&
         _call?.status == VoiceCallStatus.connected;
     try {
-      controller._recordRaw(
-        'heartbeat.requested',
-        component: 'heartbeat',
-        correlationId: correlationId,
-        data: {
-          'siteUrl': call.siteUrl,
-          'roomId': call.room.id,
-          'idleState': _idleState.name,
-        },
-      );
       final credentials = await controller._keyRequestCredentials(
         call.siteUrl,
         ifCurrent: isCurrent,
       );
       if (credentials == null) {
         if (!isCurrent()) return;
-        controller._record(
-          'heartbeat.credentials_missing',
-          component: 'heartbeat',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-        );
-        await close(
-          notifyServer: false,
-          reason: _VoiceLeaveReason.credentialsMissing,
-        );
+
+        await close(notifyServer: false);
         return;
       }
-      await controller._reporter.runOperation(
-        'voice.heartbeat',
-        () => credentials.run(
-          () => controller.api.heartbeat(
-            siteUrl: call.siteUrl,
-            roomId: call.room.id,
-            apiKey: credentials.apiKey!,
-            idle: _idleState,
-            participantSessionId: _participantSessionId,
-          ),
+      await credentials.run(
+        () => controller.api.heartbeat(
+          siteUrl: call.siteUrl,
+          roomId: call.room.id,
+          apiKey: credentials.apiKey!,
+          idle: _idleState,
+          participantSessionId: _participantSessionId,
         ),
-        correlationId: correlationId,
       );
-      controller._recordRaw(
-        'heartbeat.completed',
-        component: 'heartbeat',
-        correlationId: correlationId,
-      );
-    } on WriteException catch (error, stackTrace) {
+    } on WriteException catch (error) {
       if (!isCurrent()) return;
       if (VoiceController._isExpulsion(error)) {
         // The server no longer recognizes this session — it lapsed while the
@@ -692,54 +472,17 @@ final class _VoiceCallSession {
         // Every later beat would be refused the same way, and if nobody else
         // is in the room no roster broadcast will ever prune the local
         // user, so the call is unwound here the way the web client does.
-        controller._record(
-          'heartbeat.expelled',
-          component: 'heartbeat',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-          data: {'statusCode': error.statusCode},
-        );
+
         controller._setSiteError(
           call.siteUrl,
           error.errors.isNotEmpty
               ? error.errors.join('\n')
               : appL10n.yourCallSessionHasExpiredRejoinTheRoomToStartA,
         );
-        await close(
-          notifyServer: error.statusCode != HttpStatus.notFound,
-          reason: _VoiceLeaveReason.sessionExpired,
-        );
+        await close(notifyServer: error.statusCode != HttpStatus.notFound);
         return;
       }
-      controller._recordRaw(
-        'heartbeat.failed',
-        component: 'heartbeat',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        message: error.toString(),
-        data: {
-          'errorType': error.runtimeType.toString(),
-          'statusCode': error.statusCode,
-          'stackTrace': stackTrace.toString(),
-        },
-      );
-      controller._report(error, stackTrace, 'voice.heartbeat');
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        controller._recordRaw(
-          'heartbeat.failed',
-          component: 'heartbeat',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-          message: error.toString(),
-          data: {
-            'errorType': error.runtimeType.toString(),
-            'stackTrace': stackTrace.toString(),
-          },
-        );
-        controller._report(error, stackTrace, 'voice.heartbeat');
-      }
-    }
+    } catch (error) {}
   }
 
   VoiceIdleThresholds _activeIdleThresholds() {
@@ -747,8 +490,7 @@ final class _VoiceCallSession {
     if (call == null) return VoiceController._defaultIdleThresholds('');
     try {
       return controller._idleThresholdsFor(call.siteUrl);
-    } catch (error, stackTrace) {
-      controller._report(error, stackTrace, 'voice.idle.thresholds');
+    } catch (error) {
       return VoiceController._defaultIdleThresholds(call.siteUrl);
     }
   }
@@ -758,12 +500,7 @@ final class _VoiceCallSession {
     final call = _call;
     if (call == null || call.status == VoiceCallStatus.leaving) return;
     _idleState = state;
-    controller._record(
-      'idle.state_changed',
-      component: 'idle',
-      correlationId: correlationId,
-      data: {'state': state.name, 'wasAutoMuted': wasAutoMuted},
-    );
+
     final userId = controller._userIdFor(call.siteUrl);
     if (userId != null) {
       controller._updateRoom(
@@ -793,17 +530,9 @@ final class _VoiceCallSession {
         call.status == VoiceCallStatus.leaving) {
       return;
     }
-    controller._record(
-      'idle.auto_muted',
-      component: 'idle',
-      correlationId: correlationId,
-      data: {'alreadyMuted': call.muted},
-    );
+
     if (!call.muted) {
-      controller._observe(
-        () => _setMuted(true, syncSystem: true),
-        'voice.idle.autoMute',
-      );
+      controller._observe(() => _setMuted(true, syncSystem: true));
     }
   }
 
@@ -814,22 +543,14 @@ final class _VoiceCallSession {
         call.status == VoiceCallStatus.leaving) {
       return;
     }
-    controller._record(
-      'idle.disconnected',
-      component: 'idle',
-      correlationId: correlationId,
-      severity: DiagnosticSeverity.warning,
-    );
+
     controller._setSiteError(
       call.siteUrl,
       appL10n.youWereDisconnectedFromDueToInactivity(
         (call.room.name).toString(),
       ),
     );
-    controller._observe(
-      () => close(notifyServer: true, reason: _VoiceLeaveReason.idleDisconnect),
-      'voice.idle.disconnect',
-    );
+    controller._observe(() => close(notifyServer: true));
   }
 
   void _userActed() {
@@ -887,14 +608,13 @@ final class _VoiceCallSession {
               applied = true;
               _call = _call!.copyWith(cameraEnabled: enabled);
               controller._notifyCallChanged();
-            } catch (error, stackTrace) {
+            } catch (error) {
               if (isCurrent()) {
                 _call = _call!.copyWith(
                   error: appL10n.theMediaSettingWasNotApplied,
                 );
                 controller._notifyCallChanged();
               }
-              controller._report(error, stackTrace, 'voice.mediaState');
             }
           },
         )
@@ -1019,7 +739,6 @@ final class _VoiceCallSession {
           })()
           .catchError((Object error, StackTrace stackTrace) {
             // An automatic attempt must leave the audio call usable without a modal.
-            controller._report(error, stackTrace, 'voice.camera.restore');
           })
           .whenComplete(() {
             _cameraRestore = null;
@@ -1056,67 +775,57 @@ final class _VoiceCallSession {
         ? (media: call.media, revision: revision, remember: remember)
         : null;
     controller._notifyCallChanged();
-    final correlationId =
-        controller._activeDiagnosticCorrelationId ??
-        controller._reporter.newCorrelationId('voice-device');
+
     try {
-      await controller._traceDeviceSelection(
-        kind: 'camera',
-        origin: 'user',
-        deviceId: deviceId ?? facing!.name,
-        applied: switchCamera,
-        correlationId: correlationId,
-        action: () async {
-          if (deviceId != null) {
-            await controller._persistPreference(
-              () => controller._preferences.writeDevice(
-                VoiceDevicePreference.camera,
-                deviceId,
-              ),
-              'voice.preferences.camera',
-            );
-          }
-          if (controller._disposed ||
-              revision != _cameraRevision ||
-              !controller._devicePreferences.camera.isCurrent(selection)) {
-            return;
-          }
-          if (!switchCamera) {
-            _restorePreferredCamera();
-            return;
-          }
-          final media = call.media;
-          var applied = false;
-          await _cameraOperations.run(
-            owner: this,
-            key: media,
-            operation: () async {
-              if (!isCurrent()) return;
-              await media.setCameraEnabled(false);
-              if (!controller._isCurrentCall(call, siteSession!)) return;
-              _call = _call!.copyWith(cameraEnabled: false);
-              controller._notifyCallChanged();
-              if (!isCurrent()) return;
-              await media.setCameraEnabled(
-                true,
-                deviceId: deviceId,
-                facing: facing,
-                shouldContinue: isCurrent,
-              );
-              if (!isCurrent()) {
-                await media.setCameraEnabled(false);
-                return;
-              }
-              applied = true;
-              _call = _call!.copyWith(cameraEnabled: true);
-              controller._notifyCallChanged();
-            },
+      await (() async {
+        if (deviceId != null) {
+          await controller._runHandled(
+            () => controller._preferences.writeDevice(
+              VoiceDevicePreference.camera,
+              deviceId,
+            ),
           );
-          if (applied && remember && isCurrent()) {
-            await controller._rememberCamera(call.siteUrl, userId!, true);
-          }
-        },
-      );
+        }
+        if (controller._disposed ||
+            revision != _cameraRevision ||
+            !controller._devicePreferences.camera.isCurrent(selection)) {
+          return;
+        }
+        if (!switchCamera) {
+          _restorePreferredCamera();
+          return;
+        }
+        final media = call.media;
+        var applied = false;
+        await _cameraOperations.run(
+          owner: this,
+          key: media,
+          operation: () async {
+            if (!isCurrent()) return;
+            await media.setCameraEnabled(false);
+            if (!controller._isCurrentCall(call, siteSession!)) return;
+            _call = _call!.copyWith(cameraEnabled: false);
+            controller._notifyCallChanged();
+            if (!isCurrent()) return;
+            await media.setCameraEnabled(
+              true,
+              deviceId: deviceId,
+              facing: facing,
+              shouldContinue: isCurrent,
+            );
+            if (!isCurrent()) {
+              await media.setCameraEnabled(false);
+              return;
+            }
+            applied = true;
+            _call = _call!.copyWith(cameraEnabled: true);
+            controller._notifyCallChanged();
+          },
+        );
+        if (applied && remember && isCurrent()) {
+          await controller._rememberCamera(call.siteUrl, userId!, true);
+        }
+      })();
     } catch (_) {
       if (isCurrent()) {
         _call = _call!.copyWith(error: appL10n.theMediaSettingWasNotApplied);
@@ -1156,7 +865,7 @@ final class _VoiceCallSession {
           return;
         }
         await call.media.setParticipantVolume(userId, volume);
-      }, 'voice.media.restoreParticipantVolume');
+      });
     }
   }
 
@@ -1179,7 +888,7 @@ final class _VoiceCallSession {
     controller._notifyCallChanged();
     try {
       await media(call);
-    } catch (error, stackTrace) {
+    } catch (error) {
       final current = _call;
       if (!controller._disposed &&
           current != null &&
@@ -1193,7 +902,7 @@ final class _VoiceCallSession {
         ).copyWith(error: appL10n.theMediaSettingWasNotApplied);
         controller._notifyCallChanged();
       }
-      controller._report(error, stackTrace, 'voice.mediaState');
+
       return;
     }
 
@@ -1213,22 +922,16 @@ final class _VoiceCallSession {
     }
     try {
       await system(current);
-    } catch (error, stackTrace) {
+    } catch (error) {
       // The local media operation already succeeded. A platform call-control
       // sync failure must not roll it back or claim that the device rejected
       // the setting.
-      controller._report(error, stackTrace, 'voice.systemCallState');
     }
   }
 
   Future<void> _requestStateSync() {
     _stateSyncPending = true;
-    controller._recordRaw(
-      'state_sync.queued',
-      component: 'state',
-      correlationId: correlationId,
-      data: {'coalesced': _stateSync != null || _stateRetry != null},
-    );
+
     final active = _stateSync;
     if (active != null || _stateRetry != null) {
       return active ?? Future<void>.value();
@@ -1253,63 +956,30 @@ final class _VoiceCallSession {
       final siteSession = controller._siteSession(call.siteUrl);
       bool isCurrent() => controller._isCurrentCall(call, siteSession);
       try {
-        controller._recordRaw(
-          'state_sync.requested',
-          component: 'state',
-          correlationId: correlationId,
-          data: {
-            'siteUrl': call.siteUrl,
-            'roomId': call.room.id,
-            'muted': call.muted,
-            'deafened': call.deafened,
-            'video': call.cameraEnabled,
-            'screen': call.screenSharing,
-            'watching': controller._isWatching(call),
-          },
-        );
         final credentials = await controller._keyRequestCredentials(
           call.siteUrl,
           ifCurrent: isCurrent,
         );
         if (credentials == null) return;
-        await controller._reporter.runOperation(
-          'voice.state',
-          () => credentials.run(
-            () => controller.api.state(
-              siteUrl: call.siteUrl,
-              roomId: call.room.id,
-              apiKey: credentials.apiKey!,
-              muted: call.muted,
-              deafened: call.deafened,
-              video: call.cameraEnabled,
-              screen: call.screenSharing,
-              watching: controller._isWatching(call),
-              participantSessionId: _participantSessionId,
-            ),
+        await credentials.run(
+          () => controller.api.state(
+            siteUrl: call.siteUrl,
+            roomId: call.room.id,
+            apiKey: credentials.apiKey!,
+            muted: call.muted,
+            deafened: call.deafened,
+            video: call.cameraEnabled,
+            screen: call.screenSharing,
+            watching: controller._isWatching(call),
+            participantSessionId: _participantSessionId,
           ),
-          correlationId: correlationId,
         );
-        controller._recordRaw(
-          'state_sync.completed',
-          component: 'state',
-          correlationId: correlationId,
-        );
-      } on WriteException catch (error, stackTrace) {
+      } on WriteException catch (error) {
         if (!isCurrent()) return;
         if (error.failure != WriteFailure.rateLimited) {
-          controller._report(error, stackTrace, 'voice.state');
           return;
         }
-        controller._recordRaw(
-          'state_sync.rate_limited',
-          component: 'state',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-          data: {
-            'retryAfterMilliseconds':
-                (error.retryAfter ?? const Duration(seconds: 1)).inMilliseconds,
-          },
-        );
+
         _stateSyncPending = true;
         _stateRetry = Timer(
           (error.retryAfter ?? const Duration(seconds: 1)) +
@@ -1319,8 +989,7 @@ final class _VoiceCallSession {
             if (!controller._disposed) unawaited(_requestStateSync());
           },
         );
-      } catch (error, stackTrace) {
-        if (isCurrent()) controller._report(error, stackTrace, 'voice.state');
+      } catch (error) {
         return;
       }
     }
@@ -1360,18 +1029,6 @@ final class _VoiceCallSession {
                   ))) &&
           call.status != VoiceCallStatus.leaving &&
           call.status != VoiceCallStatus.joining) {
-        controller._record(
-          'call.status_changed',
-          correlationId: correlationId,
-          severity: status == VoiceCallStatus.failed
-              ? DiagnosticSeverity.error
-              : DiagnosticSeverity.info,
-          data: {
-            'from': call.status.name,
-            'to': status.name,
-            'mediaConnectionState': view.connectionState.name,
-          },
-        );
         updated = updated.copyWith(
           status: status,
           error: status == VoiceCallStatus.failed
@@ -1390,12 +1047,6 @@ final class _VoiceCallSession {
           updated.screenSharing &&
           !view.screenSharing;
       if (screenShareEnded) {
-        controller._record(
-          'media.screen_share.ended',
-          component: 'media',
-          correlationId: correlationId,
-          data: {'cause': 'track_ended'},
-        );
         updated = updated.copyWith(screenSharing: false);
       }
       _call = updated;
@@ -1406,13 +1057,7 @@ final class _VoiceCallSession {
         // capture or send a leave against a replacement instance. The room's
         // existing error surface explains why the user needs to rejoin.
         controller._setSiteError(call.siteUrl, error.message);
-        controller._observe(
-          () => close(
-            notifyServer: false,
-            reason: _VoiceLeaveReason.sessionExpired,
-          ),
-          'voice.reconnect.instanceEnded',
-        );
+        controller._observe(() => close(notifyServer: false));
         return;
       }
       // A heartbeat that fires while the call is away from connected declines
@@ -1477,28 +1122,18 @@ final class _VoiceCallSession {
         // microphone first; the publishing change can wait behind queued
         // media work.
         if (!canPublishAudio) {
-          await controller._runHandled(
-            () => call.media.setMuted(true),
-            'voice.media.rosterMute',
-          );
+          await controller._runHandled(() => call.media.setMuted(true));
         }
         await controller._runHandled(
           () => call.media.setAudioPublishingAllowed(canPublishAudio),
-          'voice.media.audioPublishing',
         );
-      }, 'voice.media.roomUpdate');
+      });
     }
     if (stopsVideo) {
-      controller._record(
-        'media.video.room_disallowed',
-        component: 'media',
-        correlationId: correlationId,
-        data: {'roomId': room.id},
-      );
       controller._observe(() async {
         if (call.cameraEnabled) await _setCameraEnabled(false);
         if (call.screenSharing) await _setScreenSharing(false);
-      }, 'voice.media.roomVideoDisabled');
+      });
       controller._notify(appL10n.videoWasTurnedOffInThisRoom);
     }
   }
@@ -1550,12 +1185,7 @@ final class _VoiceCallSession {
           userId != null &&
           !participants.any((participant) => participant.id == userId)) {
         controller._observe(
-          () => close(
-            notifyServer: false,
-            clearImmediately: true,
-            reason: _VoiceLeaveReason.rosterRemoval,
-          ),
-          'voice.rosterRemoval',
+          () => close(notifyServer: false, clearImmediately: true),
         );
         return;
       }
@@ -1578,39 +1208,29 @@ final class _VoiceCallSession {
           // microphone first; the publishing change can wait behind queued
           // media work.
           if (!canPublishAudio) {
-            await controller._runHandled(
-              () => call.media.setMuted(true),
-              'voice.media.rosterMute',
-            );
+            await controller._runHandled(() => call.media.setMuted(true));
           }
           await controller._runHandled(
             () => call.media.setAudioPublishingAllowed(canPublishAudio),
-            'voice.media.audioPublishing',
           );
         }
         await controller._runHandled(
           () => call.media.syncParticipants(participants),
-          'voice.media.participants',
         );
-      }, 'voice.media.participantUpdate');
+      });
     }
     controller._notifyCallChanged();
   }
 
   Future<void> close({
     required bool notifyServer,
-    required _VoiceLeaveReason reason,
+
     bool clearImmediately = false,
   }) {
     controller._retireIncomingAnswer();
     final active = _leaveOperation;
     final call = _call;
     if (active != null) {
-      controller._record(
-        'call.leave.coalesced',
-        correlationId: correlationId,
-        data: {'reason': reason.name, 'clearImmediately': clearImmediately},
-      );
       if (clearImmediately &&
           call != null &&
           identical(_call?.media, call.media)) {
@@ -1623,7 +1243,7 @@ final class _VoiceCallSession {
 
     final completion = Completer<void>();
     final operation = completion.future;
-    _leaving = true;
+
     _leaveOperation = operation;
     _notifyServerOnClose = notifyServer;
     retire();
@@ -1631,52 +1251,20 @@ final class _VoiceCallSession {
       unawaited(_finishUnpublishedClose(completion));
       return operation;
     }
-    controller._record(
-      'call.leave.started',
-      correlationId: correlationId,
-      data: {
-        ...controller._roomDiagnosticData(call.room),
-        'reason': reason.name,
-        'notifyServer': notifyServer,
-        'clearImmediately': clearImmediately,
-        'status': call.status.name,
-      },
-    );
-    controller._recordRaw(
-      'call.leave.context',
-      correlationId: correlationId,
-      data: {
-        ...controller._rawRoomDiagnosticData(
-          call.siteUrl,
-          call.room,
-          siteName: call.siteName,
-        ),
-        'reason': reason.name,
-      },
-    );
+
     _call = clearImmediately
         ? null
         : call.copyWith(status: VoiceCallStatus.leaving);
     // A delayed roster broadcast must not leave our avatar beside Join room.
     controller._removeLocalParticipant(call.siteUrl, call.room.id);
-    if (!clearImmediately && call.status != VoiceCallStatus.leaving) {
-      controller._record(
-        'call.status_changed',
-        correlationId: correlationId,
-        data: {
-          'from': call.status.name,
-          'to': VoiceCallStatus.leaving.name,
-          'reason': reason.name,
-        },
-      );
-    }
+
     if (clearImmediately) controller._onCallSiteChanged();
     if (!controller._disposed) controller._notifyCallChanged();
     unawaited(
       _finishLeave(
         call,
         notifyServer: notifyServer,
-        reason: reason,
+
         operation: operation,
         completion: completion,
       ),
@@ -1689,12 +1277,11 @@ final class _VoiceCallSession {
     try {
       final start = _startOperation;
       if (start != null) {
-        await controller._runHandled(() => start, 'voice.join.close');
+        await controller._runHandled(() => start);
       }
       await mediaDisposal;
       await disposeMedia('voice.media.disposeUnpublished');
     } finally {
-      _leaving = false;
       if (!completion.isCompleted) completion.complete();
       manager.release(this);
     }
@@ -1703,124 +1290,39 @@ final class _VoiceCallSession {
   Future<void> _finishLeave(
     VoiceCallSnapshot call, {
     required bool notifyServer,
-    required _VoiceLeaveReason reason,
+
     required Future<void> operation,
     required Completer<void> completion,
   }) async {
     try {
-      controller._record(
-        'media.dispose.started',
-        component: 'media',
-        correlationId: correlationId,
-      );
       final mediaDisposal = disposeMedia('voice.media.dispose');
       if (notifyServer) {
         try {
-          controller._record(
-            'call.leave.server_request.started',
-            correlationId: correlationId,
-            data: {'roomId': call.room.id},
-          );
           final credentials = await controller._requestCredentials(
             call.siteUrl,
           );
           if (credentials != null) {
-            await controller._reporter.runOperation(
-              'voice.leave',
-              () => _leaveMembership(apiKey: credentials.apiKey!),
-              correlationId: correlationId,
-            );
-            controller._record(
-              'call.leave.server_request.completed',
-              correlationId: correlationId,
-            );
-          } else {
-            controller._record(
-              'call.leave.server_request.skipped',
-              correlationId: correlationId,
-              severity: DiagnosticSeverity.warning,
-              data: {'reason': 'missing_api_key'},
-            );
-          }
-        } catch (error, stackTrace) {
-          controller._record(
-            'call.leave.server_request.failed',
-            correlationId: correlationId,
-            severity: DiagnosticSeverity.warning,
-            data: {'errorType': error.runtimeType.toString()},
-          );
-          controller._recordRaw(
-            'call.leave.server_request.failure_detail',
-            correlationId: correlationId,
-            severity: DiagnosticSeverity.warning,
-            message: error.toString(),
-            data: {'stackTrace': stackTrace.toString()},
-          );
-          controller._report(error, stackTrace, 'voice.leave');
-        }
-      } else {
-        controller._record(
-          'call.leave.server_request.skipped',
-          correlationId: correlationId,
-          data: {'reason': 'local_only'},
-        );
-      }
+            await _leaveMembership(apiKey: credentials.apiKey!);
+          } else {}
+        } catch (error) {}
+      } else {}
 
       await mediaDisposal;
-      controller._record(
-        'media.dispose.completed',
-        component: 'media',
-        correlationId: correlationId,
-      );
-      controller._record(
-        'callkit.command.requested',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'end'},
-      );
-      await controller._runHandled(
-        controller.systemCall.end,
-        'voice.systemCall.end',
-      );
-      controller._record(
-        'callkit.command.completed',
-        component: 'callkit',
-        correlationId: correlationId,
-        data: {'command': 'end'},
-      );
-    } catch (error, stackTrace) {
-      controller._report(error, stackTrace, 'voice.leave.dispose');
+
+      await controller._runHandled(controller.systemCall.end);
+    } catch (error) {
     } finally {
-      if (identical(_leaveOperation, operation)) {
-        _leaving = false;
-      }
       if (identical(_call?.media, call.media)) {
         _call = null;
         try {
           controller._onCallSiteChanged();
-        } catch (error, stackTrace) {
-          controller._report(
-            error,
-            stackTrace,
-            'voice.callSiteChanged.dispose',
-          );
-        }
+        } catch (error) {}
       }
-      controller._record(
-        'call.leave.completed',
-        correlationId: correlationId,
-        data: {'reason': reason.name},
-      );
-      if (controller.systemCall
-          case final NativeVoiceSystemCall nativeSystemCall) {
-        nativeSystemCall.associateDiagnostics(null);
-      }
+
       if (!controller._disposed) {
         try {
           controller._notifyCallChanged();
-        } catch (error, stackTrace) {
-          controller._report(error, stackTrace, 'voice.listeners.dispose');
-        }
+        } catch (error) {}
       }
       if (!completion.isCompleted) completion.complete();
       manager.release(this);

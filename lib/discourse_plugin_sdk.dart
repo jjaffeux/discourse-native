@@ -60,17 +60,11 @@ export 'src/data/site_preference_keys.dart'
         SitePreferenceScope,
         SitePreferenceValue;
 export 'src/data/store.dart' show Ref, Store, StorePolicy, Storable;
-export 'src/data/store_diagnostics.dart' show reportStorageFailure;
-export 'src/diagnostics/diagnostic_event.dart';
-export 'src/diagnostics/diagnostics_controller.dart';
-export 'src/diagnostics/diagnostics_persistence.dart';
-export 'src/diagnostics/diagnostics_redactor.dart' show redactHomeDirectories;
-export 'src/diagnostics/diagnostics_scope.dart' show DiagnosticsScope;
-export 'src/diagnostics/topic_scroll_capture.dart';
+
 export 'src/foundation/calendar_day.dart';
 export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
-export 'src/foundation/diagnostic_errors.dart' show reportImageError;
+
 export 'src/foundation/frame_safe_notifier.dart'
     show FrameSafeNotifier, FrameSafeValueNotifier;
 export 'src/foundation/loopback_host.dart';
@@ -191,7 +185,7 @@ export 'src/shell/cooked_html.dart';
 export 'src/shell/desktop_header_menu.dart';
 export 'src/shell/destination_bookmark_ui.dart'
     show DestinationBookmarkMenuItem;
-export 'src/shell/diagnostics_text.dart';
+
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 export 'src/shell/external_link.dart' show openExternalLink;

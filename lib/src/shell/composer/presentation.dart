@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../../diagnostics/surface_opening_trace.dart';
 import '../../models/composer_placement.dart';
 import '../../theme/app_theme.dart';
 import '../desktop_panels.dart';
@@ -686,15 +685,7 @@ class _ComposerDockState extends State<ComposerDock> {
         );
       }
     });
-    if (entry != null) {
-      SurfaceOpeningTrace.afterFrame(
-        'composer.visibleFrame',
-        isCurrent: () =>
-            mounted &&
-            identical(owner._activeDock, this) &&
-            identical(owner._presentableComposer, composer),
-      );
-    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final placement = owner._presentation.effectivePlacement(

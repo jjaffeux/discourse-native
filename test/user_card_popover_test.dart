@@ -148,7 +148,7 @@ void main() {
       final cardPlugins = PluginInstaller.install(
         PluginManifest([
           ...bundledWidgetTestManifest.modules,
-          const VoiceModule.withoutDiagnostics(),
+          const VoiceModule(),
         ]),
       );
       final recorder = ui.PictureRecorder();

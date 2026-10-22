@@ -307,7 +307,7 @@ final class _TaxonomyDirectoryController {
     if (!lease.isCurrent) return const [];
     final categories = await _shell._filterLookup(
       siteUrl,
-      'topics.filter.categories',
+
       (apiKey, clientId) => apiKey == null
           ? Future.value(const <TopicCategory>[])
           : _shell.api.categories.searchCategories(
@@ -336,7 +336,7 @@ final class _TaxonomyDirectoryController {
     if (!lease.isCurrent) return const [];
     final remote = await _shell._filterLookup(
       siteUrl,
-      'topics.filter.tags',
+
       (apiKey, clientId) => _shell.api.lookups.searchFilterTags(
         siteUrl: siteUrl,
         term: term,
@@ -503,14 +503,9 @@ final class _TaxonomyDirectoryController {
         site.tagDirectoryFeed = held.withTags(visibleTags);
         _shell._notify();
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_shell.accountSessionDisposed || !lease.isCurrent) return;
-      _shell._reportOperationalError(
-        error,
-        stackTrace,
-        'tags.load',
-        severity: DiagnosticSeverity.warning,
-      );
+
       lease.commit(() {
         site.tagDirectoryFeed = held.withError(
           appL10n.couldnTLoadTagsFrom((instance.host).toString()),
@@ -651,14 +646,8 @@ final class _TaxonomyDirectoryController {
               parentId,
         ]);
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!requestIsCurrent()) return;
-      _shell._reportOperationalError(
-        error,
-        stackTrace,
-        'categories.find',
-        severity: DiagnosticSeverity.warning,
-      );
     }
   }
 
@@ -681,14 +670,9 @@ final class _TaxonomyDirectoryController {
       if (lease.isCurrent && categoryId != null) {
         await ensureCategoryIds(instance, [categoryId]);
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_shell.accountSessionDisposed || !lease.isCurrent) return;
-      _shell._reportOperationalError(
-        error,
-        stackTrace,
-        'categories.readCredentials',
-        severity: DiagnosticSeverity.warning,
-      );
+
       lease.commit(() {
         final held = site.categoryFeed;
         site.categoryFeed = held.withError(
@@ -776,14 +760,9 @@ final class _TaxonomyDirectoryController {
         if (!result.complete) site.categorised = false;
         _shell._notify();
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_shell.accountSessionDisposed || !session.isCurrent) return;
-      _shell._reportOperationalError(
-        error,
-        stackTrace,
-        'categories.load',
-        severity: DiagnosticSeverity.warning,
-      );
+
       session.commit(() {
         site.categorised = false;
         final held = site.categoryFeed;
@@ -882,14 +861,9 @@ final class _TaxonomyDirectoryController {
         );
         _shell._notify();
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!requestIsCurrent()) return;
-      _shell._reportOperationalError(
-        error,
-        stackTrace,
-        'categories.loadMore',
-        severity: DiagnosticSeverity.warning,
-      );
+
       lease.commit(() {
         if (!identical(site.categoryPageRequest, request)) return;
         site.categoryPageRequest = null;

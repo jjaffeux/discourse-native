@@ -178,7 +178,7 @@ class ChatComposer extends StatefulWidget {
 class _ChatComposerState extends State<ChatComposer> {
   PluginComposerHost? _host;
   PluginEmojiHost? _emoji;
-  PluginDiagnosticsReporter? _diagnostics;
+
   ChatController? _chat;
   VoidCallback? _chatAccountListener;
   ({ChatController chat, String siteUrl, int messageId})? _editCooking;
@@ -235,7 +235,7 @@ class _ChatComposerState extends State<ChatComposer> {
     _useComposer(
       PluginUiScope.require(context, chatComposerHostService),
       PluginUiScope.require(context, chatEmojiHostService),
-      PluginUiScope.require(context, chatDiagnosticsReporterService),
+
       PluginUiScope.require(context, chatControllerService),
     );
   }
@@ -243,7 +243,7 @@ class _ChatComposerState extends State<ChatComposer> {
   void _useComposer(
     PluginComposerHost host,
     PluginEmojiHost emoji,
-    PluginDiagnosticsReporter diagnostics,
+
     ChatController chat,
   ) {
     chat.setCookingLocale(widget.siteUrl, _cookingLocale);
@@ -251,7 +251,6 @@ class _ChatComposerState extends State<ChatComposer> {
         '${widget.siteUrl}~${widget.channelId}~${widget.threadId ?? 'channel'}';
     if (identical(_host, host) &&
         identical(_emoji, emoji) &&
-        identical(_diagnostics, diagnostics) &&
         identical(_chat, chat) &&
         _sourceKey == sourceKey) {
       _prepareEditCooking();
@@ -287,7 +286,7 @@ class _ChatComposerState extends State<ChatComposer> {
     final channel = chat.channel(widget.siteUrl, widget.channelId);
     _host = host;
     _emoji = emoji;
-    _diagnostics = diagnostics;
+
     _chat = chat;
     _sourceKey = sourceKey;
     final cookingSite = widget.siteUrl;
@@ -552,8 +551,6 @@ class _ChatComposerState extends State<ChatComposer> {
     _useComposer(
       _host ?? PluginUiScope.require(context, chatComposerHostService),
       _emoji ?? PluginUiScope.require(context, chatEmojiHostService),
-      _diagnostics ??
-          PluginUiScope.require(context, chatDiagnosticsReporterService),
       _chat ?? PluginUiScope.require(context, chatControllerService),
     );
   }
@@ -856,18 +853,7 @@ class _ChatComposerState extends State<ChatComposer> {
       final files = await picker();
       if (!ownsPicker()) return;
       composer.addFiles(files, offset);
-    } catch (error, stackTrace) {
-      _diagnostics!.reportError(
-        error,
-        stackTrace,
-        operation: photos
-            ? 'chatComposer.pickImages'
-            : 'chatComposer.pickFiles',
-        source: 'platform',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
+    } catch (error) {
       if (ownsPicker()) {
         composer.showNotice(
           photos

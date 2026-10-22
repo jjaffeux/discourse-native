@@ -2,7 +2,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class ScalarPreferencePersistence<T extends Object> {
   Future<T?> read(String key);
@@ -55,9 +54,7 @@ final class ScalarPreferenceRepository<T extends Object> {
   const ScalarPreferenceRepository({
     required this.persistence,
     required this.key,
-    required this.readOperation,
-    required this.writeOperation,
-    required this.writeFailureMessage,
+
     this.isCurrent,
     Object? owner,
   }) : owner = owner ?? persistence;
@@ -67,9 +64,7 @@ final class ScalarPreferenceRepository<T extends Object> {
   final ScalarPreferencePersistence<T> persistence;
   final Object owner;
   final String key;
-  final String readOperation;
-  final String writeOperation;
-  final String writeFailureMessage;
+
   final bool Function()? isCurrent;
 
   Future<T?> read() =>
@@ -80,8 +75,7 @@ final class ScalarPreferenceRepository<T extends Object> {
     try {
       final value = await persistence.read(key);
       return isCurrent?.call() == false ? null : value;
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, readOperation);
+    } catch (error) {
       return null;
     }
   }
@@ -95,11 +89,7 @@ final class ScalarPreferenceRepository<T extends Object> {
   Future<void> _write(T value) async {
     if (isCurrent?.call() == false) return;
     try {
-      if (!await persistence.write(key, value)) {
-        throw StateError(writeFailureMessage);
-      }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, writeOperation);
-    }
+      await persistence.write(key, value);
+    } catch (error) {}
   }
 }

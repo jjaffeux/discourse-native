@@ -184,15 +184,7 @@ final class _ComposerSubmissionOwner {
       final PluginComposerSubmitPreparation prepared;
       try {
         prepared = await preparer.prepareComposerSubmit(editor);
-      } catch (error, stackTrace) {
-        shell._pluginDiagnosticsReporter.reportError(
-          error,
-          stackTrace,
-          operation: 'composer.prepareSubmit',
-          source: 'plugin',
-          handled: true,
-          degraded: true,
-        );
+      } catch (error) {
         if (!_editorCurrent(attempt)) return _SubmissionInactive(attempt);
         if (preparationChanged) await editor.flushDraft();
         return _refuse(
@@ -279,10 +271,7 @@ final class _ComposerSubmissionOwner {
         return _refuse(attempt, failure);
       }
       return _reconcile(sent, failure);
-    } catch (error, stackTrace) {
-      if (_accountCurrent(attempt)) {
-        shell._reportOperationalError(error, stackTrace, 'composer.submit');
-      }
+    } catch (error) {
       return _reconcile(sent, const WriteException(WriteFailure.unreachable));
     }
     return _acceptCreation(sent, creation);
@@ -417,17 +406,7 @@ final class _ComposerSubmissionOwner {
         case EditComposerTarget() || PluginComposerTarget():
           throw StateError('Only creates can be reconciled');
       }
-    } catch (error, stackTrace) {
-      if (_accountCurrent(attempt)) {
-        shell._reportOperationalError(
-          error,
-          stackTrace,
-          target is TopicCreationComposerTarget
-              ? 'composer.reconcileTopic'
-              : 'composer.reconcile',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return _unresolved(attempt);
     }
   }
@@ -539,14 +518,7 @@ final class _ComposerSubmissionOwner {
           );
         } on WriteException catch (failure) {
           return _editFailure(attempt, failure, null);
-        } catch (error, stackTrace) {
-          if (_accountCurrent(attempt)) {
-            shell._reportOperationalError(
-              error,
-              stackTrace,
-              'composer.editTopicTags',
-            );
-          }
+        } catch (error) {
           return _editFailure(
             attempt,
             const WriteException(WriteFailure.unreachable),
@@ -591,16 +563,7 @@ final class _ComposerSubmissionOwner {
           );
         } on WriteException catch (failure) {
           return _editFailure(attempt, failure, null);
-        } catch (error, stackTrace) {
-          if (_accountCurrent(attempt)) {
-            shell._reportOperationalError(
-              error,
-              stackTrace,
-              target is CategoryEditComposerTarget
-                  ? 'composer.editTopicCategory'
-                  : 'composer.editTopic',
-            );
-          }
+        } catch (error) {
           return _editFailure(
             attempt,
             const WriteException(WriteFailure.unreachable),
@@ -659,10 +622,7 @@ final class _ComposerSubmissionOwner {
         );
       } on WriteException catch (failure) {
         return _editFailure(attempt, failure, metadata);
-      } catch (error, stackTrace) {
-        if (_accountCurrent(attempt)) {
-          shell._reportOperationalError(error, stackTrace, 'composer.edit');
-        }
+      } catch (error) {
         return _editFailure(
           attempt,
           const WriteException(WriteFailure.unreachable),

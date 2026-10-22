@@ -126,10 +126,7 @@ final class _AccountChatReactions {
     } on WriteException catch (error) {
       rollback();
       return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        chat._report(error, stackTrace, 'chat.toggleReaction');
-      }
+    } catch (error) {
       rollback();
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
@@ -179,14 +176,9 @@ final class _AccountChatReactions {
         chat._store.put(siteUrl, fetched);
         _reactorErrors.remove(key);
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!ownsRequest()) return;
-      chat._report(
-        error,
-        stackTrace,
-        'chat.loadReactionUsers',
-        severity: DiagnosticSeverity.warning,
-      );
+
       lease.commit(() {
         if (chat.messageReactors(
               siteUrl,

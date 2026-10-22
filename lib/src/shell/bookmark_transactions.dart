@@ -62,7 +62,6 @@ final class BookmarkTransactions {
     required this.changed,
     required this.refreshMenu,
     required this.refreshList,
-    required this.report,
   });
 
   final BookmarksWriteApi api;
@@ -79,7 +78,7 @@ final class BookmarkTransactions {
   final void Function() changed;
   final Future<void> Function(DiscourseInstance) refreshMenu;
   final Future<void> Function(DiscourseInstance) refreshList;
-  final void Function(Object, StackTrace, String) report;
+
   final Map<String, BookmarkAccountSession> _accounts = {};
   final Map<BookmarkTargetType, _CoreBookmarkTargetHost> _coreHosts = {};
   final Map<BookmarkTargetType, _PluginBookmarkTargetHost> _pluginHosts = {};
@@ -233,14 +232,6 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     if (isCurrent) _owner.changed();
   }
 
-  void _reportOperationalError(
-    Object error,
-    StackTrace stackTrace,
-    String operation,
-  ) {
-    if (isCurrent) _owner.report(error, stackTrace, operation);
-  }
-
   BookmarkWriteResult _retiredResult() => BookmarkWriteResult.reconciled(
     appL10n.theForumChangedBeforeTheBookmarkFinished,
   );
@@ -258,12 +249,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
               failure: const WriteException(WriteFailure.forbidden),
             )
           : (apiKey: request.apiKey, request: request, failure: null);
-    } catch (error, stackTrace) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'authentication.readWriteCredential',
-      );
+    } catch (error) {
       return (
         apiKey: null,
         request: null,
@@ -415,9 +401,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         current,
       );
       _notify();
-    } catch (error, stackTrace) {
-      _reportOperationalError(error, stackTrace, 'bookmark.refreshAfterWrite');
-    }
+    } catch (error) {}
   }
 
   bool bookmarkWriteInFlight({
@@ -576,9 +560,8 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           );
         }
         return BookmarkWriteResult.refused(error.message);
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (isCurrent) {
-          _reportOperationalError(error, stackTrace, 'bookmark.create');
           _reconcileBookmarks(
             instance,
             context,
@@ -705,9 +688,8 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           );
         }
         return BookmarkWriteResult.refused(error.message);
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (isCurrent) {
-          _reportOperationalError(error, stackTrace, 'bookmark.update');
           _reconcileBookmarks(
             instance,
             context,
@@ -832,9 +814,8 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           );
         }
         return BookmarkWriteResult.refused(error.message);
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (isCurrent) {
-          _reportOperationalError(error, stackTrace, 'bookmark.delete');
           _reconcileBookmarks(
             instance,
             context,
@@ -932,9 +913,8 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           );
         }
         return BookmarkWriteResult.refused(error.message);
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (isCurrent) {
-          _reportOperationalError(error, stackTrace, 'bookmark.deleteAll');
           _reconcileBookmarks(instance, context);
         }
         return BookmarkWriteResult.reconciled(
@@ -1063,13 +1043,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
       unawaited(
         Future<void>.sync(
           () => plugin.reconcilePluginBookmark(siteUrl, targetId),
-        ).catchError((Object error, StackTrace stackTrace) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            'plugins.session.reconcileBookmark',
-          );
-        }),
+        ).catchError((Object error, StackTrace stackTrace) {}),
       );
     } else {
       final topicId = (context as _TopicBookmarkWriteContext).topicId;

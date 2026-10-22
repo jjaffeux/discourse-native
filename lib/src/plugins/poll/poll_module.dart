@@ -36,7 +36,6 @@ final class PollModule implements PluginModule {
           siteState: bindings.require(corePluginSiteStatePort),
           freshAccount: bindings.require(corePluginFreshAccountPort),
           accounts: bindings.require(corePluginAccountConnectionPort),
-          diagnostics: bindings.require(pluginDiagnosticsReporterPort),
         );
         return PluginSessionContribution(
           lifecycle: _PollSessionLifecycle(controller),
@@ -51,7 +50,6 @@ final class PollModule implements PluginModule {
         corePluginSiteStatePort,
         corePluginFreshAccountPort,
         corePluginAccountConnectionPort,
-        pluginDiagnosticsReporterPort,
       ],
     );
   }

@@ -12,8 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
-import '../../diagnostics/diagnostics_controller.dart';
-import '../../diagnostics/surface_opening_trace.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import '../../models/composer_placement.dart';
 import '../../models/site_config.dart';
@@ -176,7 +174,6 @@ class ComposerPanel extends StatelessWidget {
     final panel = ListenableBuilder(
       listenable: composer,
       builder: (context, _) {
-        SurfaceOpeningTrace.mark('composer.build');
         final target = composer.target;
         final error = composer.error;
         final notice = composer.notice;
@@ -1546,7 +1543,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
   @override
   void initState() {
     super.initState();
-    SurfaceOpeningTrace.mark('composer.editorMount');
+
     _scroll = ScrollController()..addListener(_scheduleMediaLayoutRefresh);
     _blockquoteFieldGeneration = widget.composer.fieldGeneration;
     widget.composer.text.addListener(_observeBlockquoteValue);
@@ -1998,16 +1995,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
           composer.text.value == expected) {
         composer.addFiles(files, expected.selection.extentOffset);
       }
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'composer.pickFiles',
-        source: 'platform',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
+    } catch (error) {
       if (mounted && identical(widget.composer, composer)) {
         composer.showNotice(appL10n.couldnTOpenTheFilePicker);
       }
@@ -3762,7 +3750,6 @@ final class _ComposerSelectionOverlay {
   }
 
   void _editorFocusChanged() {
-    if (_composer.focus.hasFocus) SurfaceOpeningTrace.mark('composer.focus');
     sync();
   }
 
@@ -4700,16 +4687,7 @@ class _ComposerUploadButtonState extends State<_ComposerUploadButton> {
         return;
       }
       composer.addFiles(files, composer.rebaseOffset(measuredAgainst, offset));
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: photos ? 'composer.pickImages' : 'composer.pickFiles',
-        source: 'platform',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
+    } catch (error) {
       if (mounted &&
           identical(widget.composer, composer) &&
           composer.canUpload) {

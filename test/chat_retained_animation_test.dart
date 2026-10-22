@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
@@ -25,14 +24,8 @@ void main() {
       ),
     );
     addTearDown(controller.dispose);
-    final diagnostics = DiagnosticsController.start(
-      persistence: MemoryDiagnosticsPersistence(),
-    );
-    addTearDown(diagnostics.close);
-    final fixture = ChatScrollFixture(
-      controller: controller,
-      diagnostics: diagnostics,
-    );
+
+    final fixture = ChatScrollFixture(controller: controller);
     // Close under the fake clock even when the body fails, so nothing in the
     // finally may throw before the close: a close first reached from a tearDown
     // never completes, because it waits on futures created under the fake
@@ -231,7 +224,6 @@ void main() {
     } finally {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
-      await diagnostics.close();
     }
     expect(tester.takeException(), isNull);
   });

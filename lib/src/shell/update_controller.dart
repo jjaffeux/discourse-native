@@ -3,7 +3,7 @@ import 'dart:async';
 import '../data/app_release.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 
 enum UpdateStatus {
@@ -22,23 +22,6 @@ class UpdateController extends FrameSafeNotifier {
 
   final Updater updater;
   final UpdateStore store;
-
-  void _report(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    DiagnosticSeverity severity = DiagnosticSeverity.error,
-  }) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'updater',
-      severity: severity,
-      handled: true,
-      degraded: true,
-    );
-  }
 
   static const Duration _recheckAfter = Duration(hours: 24);
 
@@ -77,13 +60,7 @@ class UpdateController extends FrameSafeNotifier {
     try {
       storedChannel = await store.readChannel();
       storedLastChecked = await store.readLastChecked();
-    } catch (error, stackTrace) {
-      _report(
-        error,
-        stackTrace,
-        'updater.loadPreferences',
-        severity: DiagnosticSeverity.warning,
-      );
+    } catch (error) {
       // Update preferences are optional. A later launch or explicit action can
       // retry them without making the shell's startup Future fail.
       return;
@@ -102,7 +79,7 @@ class UpdateController extends FrameSafeNotifier {
       mustCheckHydratedChannel = _status != UpdateStatus.idle;
       _resetForChannel(channel);
       revision = _revision;
-      await _discardForChannelChange('updater.discardHydratedChannel');
+      await _discardForChannelChange();
       if (!_isCurrent(revision)) return;
     }
     _lastChecked = storedLastChecked;
@@ -154,7 +131,7 @@ class UpdateController extends FrameSafeNotifier {
         stackTrace,
         UpdateFailure.unreachable,
       );
-      _report(e, stackTrace, 'updater.check');
+
       if (silent) {
         // Put back whatever was on screen before, so a failed background check
         // cannot clear a release the user has already been offered.
@@ -197,7 +174,7 @@ class UpdateController extends FrameSafeNotifier {
         stackTrace,
         UpdateFailure.unreachable,
       );
-      _report(e, stackTrace, 'updater.download');
+
       _error = e.message;
       // Back to `available`, not `failed`: the release is still on offer and
       // the button to try again is the same button.
@@ -222,7 +199,7 @@ class UpdateController extends FrameSafeNotifier {
     } catch (error, stackTrace) {
       if (!_isCurrent(revision)) return;
       final e = _asUpdateException(error, stackTrace, UpdateFailure.install);
-      _report(e, stackTrace, 'updater.install');
+
       _error = e.message;
       // The download is still staged and still good, so offer the restart
       // again rather than making the user fetch it a second time.
@@ -258,19 +235,13 @@ class UpdateController extends FrameSafeNotifier {
 
         try {
           await store.writeChannel(channel);
-        } catch (error, stackTrace) {
-          _report(
-            error,
-            stackTrace,
-            'updater.persistChannel',
-            severity: DiagnosticSeverity.warning,
-          );
+        } catch (error) {
           // Keep the session's selection useful even when preferences are
           // temporarily unavailable. A later channel change can persist it.
         }
         if (!_isCurrent(revision) || _queuedChannel != null) continue;
 
-        await _discardForChannelChange('updater.discard');
+        await _discardForChannelChange();
         if (!_isCurrent(revision) || _queuedChannel != null) continue;
 
         await check();
@@ -280,16 +251,10 @@ class UpdateController extends FrameSafeNotifier {
     }
   }
 
-  Future<void> _discardForChannelChange(String operation) async {
+  Future<void> _discardForChannelChange() async {
     try {
       await updater.discard();
-    } catch (error, stackTrace) {
-      _report(
-        error,
-        stackTrace,
-        operation,
-        severity: DiagnosticSeverity.warning,
-      );
+    } catch (error) {
       // Nothing staged, or it could not be removed. Neither is worth telling
       // the user about; the check which follows is the useful outcome.
     }
@@ -333,22 +298,9 @@ class UpdateController extends FrameSafeNotifier {
     // the resulting late completion.
     try {
       unawaited(
-        updater.discard().onError((Object error, StackTrace stackTrace) {
-          _report(
-            error,
-            stackTrace,
-            'updater.dispose',
-            severity: DiagnosticSeverity.warning,
-          );
-        }),
+        updater.discard().onError((Object error, StackTrace stackTrace) {}),
       );
-    } catch (error, stackTrace) {
-      _report(
-        error,
-        stackTrace,
-        'updater.dispose',
-        severity: DiagnosticSeverity.warning,
-      );
+    } catch (error) {
       // Disposal must still finish if an adapter fails before returning its
       // Future. There is no live controller left to surface the failure on.
     }

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/l10n/strings.dart';
 import 'package:path_provider/path_provider.dart';
 
 typedef PlaceholderPostId = ({
@@ -64,8 +63,7 @@ final class PlaceholderStore implements PlaceholderPersistence {
         }
         return PrivateFileResult(result);
       });
-    } catch (error, stack) {
-      reportStorageFailure(error, stack, 'placeholder.read');
+    } catch (error) {
       return {};
     }
   }
@@ -93,9 +91,7 @@ final class PlaceholderStore implements PlaceholderPersistence {
         }
         return PrivateFileResult.done;
       });
-    } catch (error, stack) {
-      reportStorageFailure(error, stack, 'placeholder.write');
-    }
+    } catch (error) {}
   }
 
   @override
@@ -105,9 +101,7 @@ final class PlaceholderStore implements PlaceholderPersistence {
         values.removeWhere((key, _) => _identity(key)?.post.siteUrl == siteUrl);
         return PrivateFileResult.done;
       });
-    } catch (error, stack) {
-      reportStorageFailure(error, stack, 'placeholder.forget');
-    }
+    } catch (error) {}
   }
 
   static void _prune(Map<String, _SavedValue> values, DateTime now) {
@@ -119,12 +113,6 @@ final class PlaceholderStore implements PlaceholderPersistence {
     try {
       json = jsonDecode(contents);
     } on FormatException {
-      // Never include entered values in a diagnostic's exception message.
-      reportStorageFailure(
-        FormatException(appL10n.invalidPlaceholderStore),
-        StackTrace.current,
-        'placeholder.decode',
-      );
       return {};
     }
     if (json is! Map || json['version'] != 1 || json['values'] is! Map) {

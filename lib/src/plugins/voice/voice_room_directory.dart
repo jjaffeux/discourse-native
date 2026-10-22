@@ -87,12 +87,12 @@ final class _VoiceRoomDirectory {
       room = acceptWrite(room);
       await controller.ensureLoaded(siteUrl, force: true);
       return isCurrent ? room : null;
-    } catch (failure, stackTrace) {
+    } catch (failure) {
       if (!isCurrent) return null;
       _error = failure is WriteException
           ? failure.message
           : appL10n.couldnTSaveTheVoiceRoom;
-      controller._report(failure, stackTrace, 'voice.saveRoom');
+
       _notifyChanged();
       return null;
     }
@@ -139,8 +139,7 @@ final class _VoiceRoomDirectory {
       if (!ownsRequest()) return null;
       _notifyChanged();
       return ownsRequest() ? room : null;
-    } catch (failure, stackTrace) {
-      if (ownsRequest()) controller._report(failure, stackTrace, 'voice.room');
+    } catch (failure) {
       return null;
     }
   }
@@ -169,16 +168,7 @@ final class _VoiceRoomDirectory {
       controller.attachTracker(siteUrl);
       return;
     }
-    controller._record(
-      'room.directory.load_started',
-      component: 'room',
-      data: {'force': force},
-    );
-    controller._recordRaw(
-      'room.directory.load_context',
-      component: 'room',
-      data: {'siteUrl': siteUrl},
-    );
+
     final request = Object();
     _directoryRequest = request;
     bool ownsRequest() => isCurrent && identical(_directoryRequest, request);
@@ -188,7 +178,7 @@ final class _VoiceRoomDirectory {
       _snapshot = null;
       controller._pruneChatAssociations(siteUrl, const {});
       _directoryRequest = null;
-      controller._record('room.directory.skipped', component: 'room');
+
       _notifyChanged();
       return;
     }
@@ -247,13 +237,9 @@ final class _VoiceRoomDirectory {
       _roomResponseVersions.removeWhere((id, _) => !retainedIds.contains(id));
       _roomLiveVersions.removeWhere((id, _) => !retainedIds.contains(id));
       controller._pruneChatAssociations(siteUrl, retainedIds);
-      controller._record(
-        'room.directory.load_completed',
-        component: 'room',
-        data: {'roomCount': directory.rooms.length},
-      );
+
       syncSubscriptions();
-    } on SiteLookupException catch (failure, stackTrace) {
+    } on SiteLookupException catch (failure) {
       if (!ownsRequest()) return;
       if (_isUnavailableDirectoryFailure(failure)) {
         _snapshot = null;
@@ -261,12 +247,10 @@ final class _VoiceRoomDirectory {
         _unavailable = true;
       } else {
         _error = appL10n.couldnTLoadVoiceRooms;
-        controller._report(failure, stackTrace, 'voice.directory');
       }
-    } catch (failure, stackTrace) {
+    } catch (failure) {
       if (!ownsRequest()) return;
       _error = appL10n.couldnTLoadVoiceRooms;
-      controller._report(failure, stackTrace, 'voice.directory');
     } finally {
       if (ownsRequest()) {
         _directoryRequest = null;
@@ -287,15 +271,7 @@ final class _VoiceRoomDirectory {
     final rawRoom = data['room'];
     if (rawRoom is! Map<String, dynamic>) return;
     final incoming = VoiceRoom.fromJson(rawRoom);
-    controller._record(
-      'room.directory_event',
-      component: 'room',
-      correlationId: controller._correlationForRoom(siteUrl, incoming.id),
-      data: {
-        ...controller._roomDiagnosticData(incoming),
-        'type': _voiceDirectoryDiagnosticType(data['type']),
-      },
-    );
+
     final held = snapshot;
     if (held == null) return;
     final rooms = [...held.rooms];
@@ -451,14 +427,6 @@ final class _VoiceRoomDirectory {
     }
     changed =
         controller._syncAuxiliarySubscriptions(siteUrl, tracker) || changed;
-    if (changed) {
-      controller._record(
-        'room.subscriptions.synced',
-        component: 'room',
-        correlationId: controller._correlationForSite(siteUrl),
-        data: {'roomCount': wanted.length},
-      );
-    }
   }
 
   List<PluginLiveChannelSubscription> _takeSubscriptions() {

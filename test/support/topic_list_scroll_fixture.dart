@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -143,7 +143,7 @@ class TopicListScrollFixture extends StatelessWidget {
   const TopicListScrollFixture({
     super.key,
     required this.controller,
-    required this.diagnostics,
+
     this.listKey,
     this.width = 800,
     this.height = 600,
@@ -151,35 +151,30 @@ class TopicListScrollFixture extends StatelessWidget {
   });
 
   final ShellController controller;
-  final DiagnosticsController diagnostics;
+
   final GlobalKey? listKey;
   final double width;
   final double height;
   final Widget? header;
 
   @override
-  Widget build(BuildContext context) => DiagnosticsScope(
-    controller: diagnostics,
-    child: ShellScope(
-      controller: controller,
-      child: MaterialApp(
-        theme: AppTheme.light,
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: width,
-              height: height,
-              child: DPageSurface(
-                framed: false,
-                hideHeaderOnScroll: header != null,
-                header: header,
-                child: ListenableBuilder(
-                  listenable: controller.topicFeeds,
-                  builder: (context, _) => TopicListView(
-                    key: listKey,
-                    feed: controller.currentFeed!,
-                  ),
-                ),
+  Widget build(BuildContext context) => ShellScope(
+    controller: controller,
+    child: MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: DPageSurface(
+              framed: false,
+              hideHeaderOnScroll: header != null,
+              header: header,
+              child: ListenableBuilder(
+                listenable: controller.topicFeeds,
+                builder: (context, _) =>
+                    TopicListView(key: listKey, feed: controller.currentFeed!),
               ),
             ),
           ),

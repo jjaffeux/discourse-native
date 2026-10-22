@@ -7227,7 +7227,10 @@ void main() {
         );
         expect(subject.chat.pinsListenable(site, 9).value.pins, isEmpty);
         expect(api.pinResponses, hasLength(2));
-        api.pinResponses.last.complete((pins: const <ChatPin>[], membership: null));
+        api.pinResponses.last.complete((
+          pins: const <ChatPin>[],
+          membership: null,
+        ));
         await load;
         expect(subject.chat.pinsListenable(site, 9).value.loading, isFalse);
       },
@@ -7266,7 +7269,10 @@ void main() {
       expect(subject.store.read<ChatMessage>(site, 12), isNull);
       expect(current.value.loading, isTrue);
       expect(previous.value.pins, isEmpty);
-      api.pinResponses.last.complete((pins: const <ChatPin>[], membership: null));
+      api.pinResponses.last.complete((
+        pins: const <ChatPin>[],
+        membership: null,
+      ));
       await newLoad;
       expect(current.value.fetched, isTrue);
       expect(current.value.loading, isFalse);
@@ -7280,14 +7286,20 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       final newLoad = subject.chat.loadPinnedMessages(site, 9, force: true);
       await Future<void>.delayed(Duration.zero);
-      api.pinResponses.first.complete((pins: const <ChatPin>[], membership: null));
+      api.pinResponses.first.complete((
+        pins: const <ChatPin>[],
+        membership: null,
+      ));
       await oldLoad;
       final ref = subject.chat.pinsListenable(site, 9);
       expect(ref.value.loading, isTrue);
       expect(ref.value.fetched, isFalse);
       await subject.chat.loadPinnedMessages(site, 9);
       expect(api.pinResponses, hasLength(2));
-      api.pinResponses.last.complete((pins: const <ChatPin>[], membership: null));
+      api.pinResponses.last.complete((
+        pins: const <ChatPin>[],
+        membership: null,
+      ));
       await newLoad;
       expect(ref.value.fetched, isTrue);
       expect(ref.value.loading, isFalse);
@@ -7310,7 +7322,10 @@ void main() {
           'chat_message_id': 12,
           'pinned_message_count': 1,
         });
-        api.pinResponses.first.complete((pins: const <ChatPin>[], membership: null));
+        api.pinResponses.first.complete((
+          pins: const <ChatPin>[],
+          membership: null,
+        ));
         await Future<void>.delayed(Duration.zero);
         expect(api.pinResponses, hasLength(2));
         api.pinResponses.last.completeError(

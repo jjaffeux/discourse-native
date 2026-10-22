@@ -16,7 +16,7 @@ class RecentSearchStore {
     id: 'search.removed',
     scope: SitePreferenceScope.account,
     value: SitePreferenceValue.stringList,
-    operation: 'recentSearch',
+
     legacy: keys,
   );
 

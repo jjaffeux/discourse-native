@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:livekit_client/livekit_client.dart' as lk;
 
-import 'voice_diagnostics.dart';
 import 'voice_livekit_endpoint.dart';
 import 'voice_models.dart';
 import 'voice_reconnect.dart';
@@ -28,8 +27,6 @@ typedef VoiceMediaDeviceEnumerator =
     Future<List<rtc.MediaDeviceInfo>> Function();
 typedef VoiceTrackVolumeSetter =
     Future<void> Function(double volume, rtc.MediaStreamTrack track);
-typedef VoiceLiveKitRawStatsCollector =
-    Future<List<Map<String, Object?>>> Function(lk.Room room);
 
 enum VoiceMicrophoneFailureKind { permissionDenied, unavailable }
 
@@ -76,16 +73,6 @@ Future<T> _withMicrophoneFailure<T>(Future<T> Function() action) async {
   } catch (error, stackTrace) {
     Error.throwWithStackTrace(VoiceMicrophoneException.from(error), stackTrace);
   }
-}
-
-final class _VoiceMediaDiagnosticFailure implements Exception {
-  const _VoiceMediaDiagnosticFailure(this.operation);
-
-  final String operation;
-
-  @override
-  String toString() =>
-      appL10n.voiceMediaOperationFailed((operation).toString());
 }
 
 abstract interface class VoiceLiveKitRoomAdapter {
@@ -149,8 +136,6 @@ abstract interface class VoiceMediaFactory {
     required int localUserId,
     required VoiceSignalSender sendSignal,
     required VoiceLiveKitCredentialRefresher refreshLiveKitCredentials,
-    VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
-    String correlationId = 'uncorrelated',
   });
 }
 
@@ -163,24 +148,18 @@ final class NativeVoiceMediaFactory implements VoiceMediaFactory {
     required int localUserId,
     required VoiceSignalSender sendSignal,
     required VoiceLiveKitCredentialRefresher refreshLiveKitCredentials,
-    VoiceDiagnosticsRecorder diagnostics = const NoopVoiceDiagnosticsRecorder(),
-    String correlationId = 'uncorrelated',
   }) => switch (join.transport) {
     VoiceTransport.mesh => MeshVoiceMediaSession(
       join: join,
       localUserId: localUserId,
       sendSignal: sendSignal,
       audioPublishingAllowed: _canPublishAudio(join.room, localUserId),
-      diagnostics: diagnostics,
-      correlationId: correlationId,
     ),
     VoiceTransport.livekit => LiveKitVoiceMediaSession(
       join: join,
       localUserId: localUserId,
       audioPublishingAllowed: _canPublishAudio(join.room, localUserId),
       refreshCredentials: refreshLiveKitCredentials,
-      diagnostics: diagnostics,
-      correlationId: correlationId,
     ),
   };
 
@@ -192,165 +171,6 @@ final class NativeVoiceMediaFactory implements VoiceMediaFactory {
         ?.role;
     final effective = role ?? room.membership?.role;
     return effective == VoiceRole.moderator || effective == VoiceRole.speaker;
-  }
-}
-
-void _recordDiagnostic(
-  VoiceDiagnosticsRecorder diagnostics,
-  String event, {
-  required String component,
-  required String correlationId,
-  DiagnosticSeverity severity = DiagnosticSeverity.info,
-  Map<String, Object?> data = const {},
-}) {
-  try {
-    diagnostics.record(
-      event,
-      component: component,
-      severity: severity,
-      correlationId: correlationId,
-      data: data,
-    );
-  } catch (_) {}
-}
-
-void _recordRawDiagnostic(
-  VoiceDiagnosticsRecorder diagnostics,
-  String event, {
-  required String component,
-  required String correlationId,
-  DiagnosticSeverity severity = DiagnosticSeverity.debug,
-  String? message,
-  Map<String, Object?> data = const {},
-}) {
-  try {
-    if (!diagnostics.captureEnabled) return;
-    diagnostics.recordRaw(
-      event,
-      component: component,
-      severity: severity,
-      correlationId: correlationId,
-      message: message,
-      data: data,
-    );
-  } catch (_) {}
-}
-
-String _diagnosticEnumName(Object? value) {
-  final text = '$value';
-  final separator = text.lastIndexOf('.');
-  return separator < 0 ? text : text.substring(separator + 1);
-}
-
-String _diagnosticSignalType(Object? value) => switch (value) {
-  'offer' => 'offer',
-  'answer' => 'answer',
-  'candidate' => 'candidate',
-  null => 'batch',
-  _ => 'unknown',
-};
-
-List<Map<String, Object?>> _serializeStatsReports(
-  List<rtc.StatsReport> reports,
-) => [
-  for (final report in reports)
-    {
-      'id': report.id,
-      'type': report.type,
-      'timestamp': report.timestamp,
-      'values': {
-        for (final value in report.values.entries) '${value.key}': value.value,
-      },
-    },
-];
-
-Future<List<Map<String, Object?>>> _collectLiveKitRawStats(lk.Room room) async {
-  final samples = <Map<String, Object?>>[];
-  final participants = <lk.Participant>[
-    ?room.localParticipant,
-    ...room.remoteParticipants.values,
-  ];
-  for (final participant in participants) {
-    for (final publication in participant.trackPublications.values) {
-      final track = publication.track;
-      if (track == null) continue;
-      final endpoints = <(String, Object?)>[
-        ('sender', track.sender),
-        ('receiver', track.receiver),
-      ];
-      for (final (direction, endpoint) in endpoints) {
-        if (endpoint == null) continue;
-        final context = <String, Object?>{
-          'participantSid': participant.sid,
-          'participantIdentity': participant.identity,
-          'participantName': participant.name,
-          'trackSid': publication.sid,
-          'trackName': publication.name,
-          'kind': publication.kind.name,
-          'source': publication.source.name,
-          'direction': direction,
-        };
-        try {
-          final reports = switch (endpoint) {
-            rtc.RTCRtpSender sender => await sender.getStats(),
-            rtc.RTCRtpReceiver receiver => await receiver.getStats(),
-            _ => const <rtc.StatsReport>[],
-          };
-          samples.add({...context, 'reports': _serializeStatsReports(reports)});
-        } catch (error, stackTrace) {
-          samples.add({
-            ...context,
-            'errorType': error.runtimeType.toString(),
-            'error': error.toString(),
-            'stackTrace': stackTrace.toString(),
-          });
-        }
-      }
-    }
-  }
-  return samples;
-}
-
-Future<List<rtc.MediaDeviceInfo>> _enumerateDevicesWithDiagnostics({
-  required VoiceMediaDeviceEnumerator enumerateDevices,
-  required VoiceDiagnosticsRecorder diagnostics,
-  required String correlationId,
-}) async {
-  try {
-    final devices = await enumerateDevices();
-    _recordRawDiagnostic(
-      diagnostics,
-      'media.devices.enumerated',
-      component: 'webrtc',
-      correlationId: correlationId,
-      data: {
-        'count': devices.length,
-        'devices': [
-          for (final device in devices)
-            {
-              'deviceId': device.deviceId,
-              'groupId': device.groupId,
-              'kind': device.kind,
-              'label': device.label,
-            },
-        ],
-      },
-    );
-    return devices;
-  } catch (error, stackTrace) {
-    _recordRawDiagnostic(
-      diagnostics,
-      'media.devices.enumeration_failed',
-      component: 'webrtc',
-      correlationId: correlationId,
-      severity: DiagnosticSeverity.warning,
-      message: error.toString(),
-      data: {
-        'errorType': error.runtimeType.toString(),
-        'stackTrace': stackTrace.toString(),
-      },
-    );
-    rethrow;
   }
 }
 
@@ -549,9 +369,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     required this.localUserId,
     required this.sendSignal,
     required this.audioPublishingAllowed,
-    this.diagnostics = const NoopVoiceDiagnosticsRecorder(),
-    this.correlationId = 'uncorrelated',
-    this.rawStatsInterval = const Duration(seconds: 5),
+
     VoicePeerConnectionCreator? createPeerConnection,
     VoiceUserMediaGetter? getUserMedia,
     VoiceUserMediaGetter? getDisplayMedia,
@@ -574,17 +392,14 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   final VoiceJoinResponse join;
   final int localUserId;
   final VoiceSignalSender sendSignal;
-  final VoiceDiagnosticsRecorder diagnostics;
-  final String correlationId;
-  final Duration rawStatsInterval;
+
   final VoicePeerConnectionCreator _createPeerConnection;
   final VoiceUserMediaGetter _getUserMedia;
   final VoiceUserMediaGetter _getDisplayMedia;
   final VoiceMediaDeviceEnumerator _enumerateDevices;
   final VoiceTrackVolumeSetter _setTrackVolume;
   final Map<int, rtc.RTCPeerConnection> _peers = {};
-  final Map<int, String> _peerDiagnosticAliases = {};
-  final Expando<String> _trackDiagnosticAliases = Expando<String>();
+
   final Map<int, Future<void>> _peerCreations = {};
   final Map<int, _MeshSendSlots> _sendSlots = {};
   final Map<int, _MeshRemoteSlots> _remoteTracks = {};
@@ -610,26 +425,15 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   int _screenShareRevision = 0;
   bool audioPublishingAllowed;
   Timer? _speakingTimer;
-  Timer? _rawStatsTimer;
+
   bool _pollingSpeaking = false;
-  bool _pollingRawStats = false;
-  bool _deviceInventoryCaptured = false;
-  int _nextPeerDiagnosticAlias = 1;
-  int _nextTrackDiagnosticAlias = 1;
+
   Set<int> _speaking = const {};
   String? _audioInputDeviceId;
   Future<void> _mutationTail = Future<void>.value();
   bool _closing = false;
 
   final _videoHandles = VoiceVideoHandleAdapter();
-
-  String _peerDiagnosticAlias(int peerId) => _peerDiagnosticAliases.putIfAbsent(
-    peerId,
-    () => 'peer-${_nextPeerDiagnosticAlias++}',
-  );
-
-  String _trackDiagnosticAlias(rtc.MediaStreamTrack track) =>
-      _trackDiagnosticAliases[track] ??= 'track-${_nextTrackDiagnosticAlias++}';
 
   @override
   VoiceTransport get transport => VoiceTransport.mesh;
@@ -673,14 +477,8 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
 
   @override
   Future<List<rtc.MediaDeviceInfo>> devices() async {
-    final result = await _enumerateDevicesWithDiagnostics(
-      enumerateDevices: _enumerateDevices,
-      diagnostics: diagnostics,
-      correlationId: correlationId,
-    );
-    try {
-      if (diagnostics.captureEnabled) _deviceInventoryCaptured = true;
-    } catch (_) {}
+    final result = await _enumerateDevices();
+
     return result;
   }
 
@@ -688,18 +486,6 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   Future<void> connect() => _serialize(_connect);
 
   Future<void> _connect() async {
-    _recordDiagnostic(
-      diagnostics,
-      'mesh.session.connect.started',
-      component: 'mesh',
-      correlationId: correlationId,
-      data: {
-        'participantCount': join.room.participants.length,
-        'audioPublishingAllowed': audioPublishingAllowed,
-        'relayOnly': join.ice.relayOnly,
-        'iceServerCount': join.ice.servers.length,
-      },
-    );
     try {
       if (audioPublishingAllowed) await _ensureAudioTrack();
       await _syncParticipants(join.room.participants);
@@ -708,37 +494,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         const Duration(milliseconds: 250),
         (_) => unawaited(_pollSpeakingLevels()),
       );
-      if (rawStatsInterval > Duration.zero) {
-        _rawStatsTimer = Timer.periodic(
-          rawStatsInterval,
-          (_) => unawaited(_pollRawStats()),
-        );
-      }
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.session.connect.completed',
-        component: 'mesh',
-        correlationId: correlationId,
-        data: {'peerCount': _peers.length},
-      );
-    } catch (error, stackTrace) {
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.session.connect.failed',
-        component: 'mesh',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        data: {'errorType': error.runtimeType.toString()},
-      );
-      _recordRawDiagnostic(
-        diagnostics,
-        'mesh.session.connect.failure_detail',
-        component: 'mesh',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        message: error.toString(),
-        data: {'stackTrace': stackTrace.toString()},
-      );
+    } catch (error) {
       rethrow;
     }
   }
@@ -799,56 +555,6 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       }
     } finally {
       _pollingSpeaking = false;
-    }
-  }
-
-  Future<void> _pollRawStats() async {
-    if (_pollingRawStats || _closing || disposed) return;
-    try {
-      if (!diagnostics.captureEnabled) {
-        _deviceInventoryCaptured = false;
-        return;
-      }
-    } catch (_) {
-      return;
-    }
-    _pollingRawStats = true;
-    try {
-      if (!_deviceInventoryCaptured) {
-        try {
-          await devices();
-        } catch (_) {}
-      }
-      for (final entry in _peers.entries.toList()) {
-        if (_closing || disposed) return;
-        if (!identical(_peers[entry.key], entry.value)) continue;
-        try {
-          final reports = await entry.value.getStats();
-          if (!identical(_peers[entry.key], entry.value)) continue;
-          _recordRawDiagnostic(
-            diagnostics,
-            'mesh.peer.stats',
-            component: 'webrtc',
-            correlationId: correlationId,
-            data: {
-              'peerId': entry.key,
-              'reports': _serializeStatsReports(reports),
-            },
-          );
-        } catch (error, stackTrace) {
-          _recordRawDiagnostic(
-            diagnostics,
-            'mesh.peer.stats_failed',
-            component: 'webrtc',
-            correlationId: correlationId,
-            severity: DiagnosticSeverity.warning,
-            message: error.toString(),
-            data: {'peerId': entry.key, 'stackTrace': stackTrace.toString()},
-          );
-        }
-      }
-    } finally {
-      _pollingRawStats = false;
     }
   }
 
@@ -947,35 +653,6 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       _serialize(() => _syncParticipants(participants));
 
   Future<void> _syncParticipants(List<VoiceParticipant> participants) async {
-    _recordRawDiagnostic(
-      diagnostics,
-      'mesh.roster.sync',
-      component: 'mesh',
-      correlationId: correlationId,
-      data: {
-        'participants': [
-          for (final participant in participants)
-            {
-              'peerAlias': participant.id == localUserId
-                  ? 'local'
-                  : _peerDiagnosticAlias(participant.id),
-              'id': participant.id,
-              'username': participant.username,
-              'name': participant.name,
-              'role': participant.role.name,
-              'muted': participant.muted,
-              'deafened': participant.deafened,
-              'videoOn': participant.videoOn,
-              'screenSharing': participant.screenSharing,
-              'watchingVideo': participant.watchingVideo,
-              'idleState': participant.idleState.name,
-              'handRaisedAt': participant.handRaisedAt
-                  ?.toUtc()
-                  .toIso8601String(),
-            },
-        ],
-      },
-    );
     final currentRemoteIds = {
       for (final participant in participants)
         if (participant.id != localUserId) participant.id,
@@ -1039,49 +716,11 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
 
   Future<void> _createPeerNow(int peerId) async {
     if (_closing || disposed || _peers.containsKey(peerId)) return;
-    final peerAlias = _peerDiagnosticAlias(peerId);
-    _recordRawDiagnostic(
-      diagnostics,
-      'mesh.peer.identity',
-      component: 'webrtc',
-      correlationId: correlationId,
-      data: {'peerAlias': peerAlias, 'peerId': peerId},
-    );
-    _recordDiagnostic(
-      diagnostics,
-      'mesh.peer.create.started',
-      component: 'webrtc',
-      correlationId: correlationId,
-      data: {'peerAlias': peerAlias},
-    );
+
     late final rtc.RTCPeerConnection peer;
     try {
       peer = await _createPeerConnection(_configuration);
-    } catch (error, stackTrace) {
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.peer.create.failed',
-        component: 'webrtc',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        data: {
-          'peerAlias': peerAlias,
-          'errorType': error.runtimeType.toString(),
-        },
-      );
-      _recordRawDiagnostic(
-        diagnostics,
-        'mesh.peer.create.failure_detail',
-        component: 'webrtc',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        message: error.toString(),
-        data: {
-          'peerAlias': peerAlias,
-          'peerId': peerId,
-          'stackTrace': stackTrace.toString(),
-        },
-      );
+    } catch (error) {
       rethrow;
     }
     if (_closing || disposed || _peers.containsKey(peerId)) {
@@ -1092,49 +731,13 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     try {
       peer.onIceCandidate = (candidate) {
         if (candidate.candidate == null) return;
-        _recordRawDiagnostic(
-          diagnostics,
-          'mesh.ice.candidate.local',
-          component: 'webrtc',
-          correlationId: correlationId,
-          data: {
-            'peerAlias': peerAlias,
-            'peerId': peerId,
-            'candidate': candidate.toMap(),
-          },
-        );
+
         _queueCandidate(peerId, candidate);
       };
       peer.onTrack = (event) {
         if (!identical(_peers[peerId], peer)) return;
-        final trackAlias = _trackDiagnosticAlias(event.track);
-        _recordRawDiagnostic(
-          diagnostics,
-          'mesh.track.received',
-          component: 'webrtc',
-          correlationId: correlationId,
-          data: {
-            'peerAlias': peerAlias,
-            'peerId': peerId,
-            'trackAlias': trackAlias,
-            'trackId': event.track.id,
-            'kind': event.track.kind,
-            'streamIds': [for (final stream in event.streams) stream.id],
-          },
-        );
+
         if (!_remoteTrackAllowed(peerId, event)) {
-          _recordDiagnostic(
-            diagnostics,
-            'mesh.track.rejected',
-            component: 'webrtc',
-            correlationId: correlationId,
-            severity: DiagnosticSeverity.warning,
-            data: {
-              'peerAlias': peerAlias,
-              'trackAlias': trackAlias,
-              'kind': event.track.kind,
-            },
-          );
           unawaited(_stopRemoteTrackBestEffort(event.track));
           return;
         }
@@ -1142,17 +745,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         slots.accept(event);
         event.track.onEnded = () {
           if (!identical(_peers[peerId], peer)) return;
-          _recordDiagnostic(
-            diagnostics,
-            'mesh.track.ended',
-            component: 'webrtc',
-            correlationId: correlationId,
-            data: {
-              'peerAlias': peerAlias,
-              'trackAlias': trackAlias,
-              'kind': event.track.kind,
-            },
-          );
+
           slots.remove(event.track);
           _applyRemoteAudio(peerId);
           changed();
@@ -1162,50 +755,10 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       };
       peer.onConnectionState = (state) {
         if (!identical(_peers[peerId], peer)) return;
-        _recordDiagnostic(
-          diagnostics,
-          'mesh.peer.connection_state',
-          component: 'webrtc',
-          correlationId: correlationId,
-          severity:
-              state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed
-              ? DiagnosticSeverity.warning
-              : DiagnosticSeverity.info,
-          data: {'peerAlias': peerAlias, 'state': _diagnosticEnumName(state)},
-        );
+
         if (state == rtc.RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
           unawaited(_serialize(() => _restartPeer(peerId)));
         }
-      };
-      peer.onIceConnectionState = (state) {
-        if (!identical(_peers[peerId], peer)) return;
-        _recordDiagnostic(
-          diagnostics,
-          'mesh.peer.ice_connection_state',
-          component: 'webrtc',
-          correlationId: correlationId,
-          data: {'peerAlias': peerAlias, 'state': _diagnosticEnumName(state)},
-        );
-      };
-      peer.onIceGatheringState = (state) {
-        if (!identical(_peers[peerId], peer)) return;
-        _recordDiagnostic(
-          diagnostics,
-          'mesh.peer.ice_gathering_state',
-          component: 'webrtc',
-          correlationId: correlationId,
-          data: {'peerAlias': peerAlias, 'state': _diagnosticEnumName(state)},
-        );
-      };
-      peer.onSignalingState = (state) {
-        if (!identical(_peers[peerId], peer)) return;
-        _recordDiagnostic(
-          diagnostics,
-          'mesh.peer.signaling_state',
-          component: 'webrtc',
-          correlationId: correlationId,
-          data: {'peerAlias': peerAlias, 'state': _diagnosticEnumName(state)},
-        );
       };
 
       final microphone = _microphoneTrack;
@@ -1241,44 +794,14 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         screenAudio: screenAudio.sender,
       );
       _peers[peerId] = peer;
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.peer.create.completed',
-        component: 'webrtc',
-        correlationId: correlationId,
-        data: {'peerAlias': peerAlias, 'initiatesOffer': localUserId < peerId},
-      );
+
       if (microphone != null) await _applyAudioQuality(microphoneSender);
       if (_screenAudioTrack != null) {
         await _applyAudioQuality(screenAudio.sender);
       }
       if (localUserId < peerId) await _offer(peerId);
       setupSucceeded = true;
-    } catch (error, stackTrace) {
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.peer.setup_failed',
-        component: 'webrtc',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        data: {
-          'peerAlias': peerAlias,
-          'errorType': error.runtimeType.toString(),
-        },
-      );
-      _recordRawDiagnostic(
-        diagnostics,
-        'mesh.peer.setup_failure_detail',
-        component: 'webrtc',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        message: error.toString(),
-        data: {
-          'peerAlias': peerAlias,
-          'peerId': peerId,
-          'stackTrace': stackTrace.toString(),
-        },
-      );
+    } catch (error) {
       rethrow;
     } finally {
       if (!setupSucceeded) {
@@ -1347,16 +870,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
 
   Future<void> _restartPeer(int peerId) async {
     if (disposed || !_peers.containsKey(peerId)) return;
-    _recordDiagnostic(
-      diagnostics,
-      'mesh.peer.ice_restart.requested',
-      component: 'webrtc',
-      correlationId: correlationId,
-      data: {
-        'peerAlias': _peerDiagnosticAlias(peerId),
-        'isOfferer': localUserId < peerId,
-      },
-    );
+
     if (localUserId < peerId) {
       await _offer(peerId, restartIce: true);
     }
@@ -1365,83 +879,13 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
   @override
   Future<void> handleSignal(int senderId, Map<String, dynamic> data) =>
       _serialize(() {
-        _recordDiagnostic(
-          diagnostics,
-          'mesh.signaling.received',
-          component: 'webrtc',
-          correlationId: correlationId,
-          data: {
-            'peerAlias': _peerDiagnosticAlias(senderId),
-            'type': _diagnosticSignalType(data['type']),
-            if (data['events'] is List)
-              'eventCount': (data['events'] as List).length,
-          },
-        );
-        _recordRawDiagnostic(
-          diagnostics,
-          'mesh.signaling.received.raw',
-          component: 'webrtc',
-          correlationId: correlationId,
-          data: {
-            'peerAlias': _peerDiagnosticAlias(senderId),
-            'peerId': senderId,
-            'signal': data,
-          },
-        );
         return _handleSignal(senderId, data);
       });
 
   Future<void> _sendPeerSignal(int peerId, Map<String, Object?> event) async {
-    _recordDiagnostic(
-      diagnostics,
-      'mesh.signaling.sent',
-      component: 'webrtc',
-      correlationId: correlationId,
-      data: {
-        'peerAlias': _peerDiagnosticAlias(peerId),
-        'type': _diagnosticSignalType(event['type']),
-        if (event['events'] is List)
-          'eventCount': (event['events'] as List).length,
-      },
-    );
-    _recordRawDiagnostic(
-      diagnostics,
-      'mesh.signaling.sent.raw',
-      component: 'webrtc',
-      correlationId: correlationId,
-      data: {
-        'peerAlias': _peerDiagnosticAlias(peerId),
-        'peerId': peerId,
-        'signal': event,
-      },
-    );
     try {
       await sendSignal(peerId, event);
-    } catch (error, stackTrace) {
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.signaling.send_failed',
-        component: 'webrtc',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        data: {
-          'peerAlias': _peerDiagnosticAlias(peerId),
-          'errorType': error.runtimeType.toString(),
-        },
-      );
-      _recordRawDiagnostic(
-        diagnostics,
-        'mesh.signaling.send_failure_detail',
-        component: 'webrtc',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        message: error.toString(),
-        data: {
-          'peerAlias': _peerDiagnosticAlias(peerId),
-          'peerId': peerId,
-          'stackTrace': stackTrace.toString(),
-        },
-      );
+    } catch (error) {
       rethrow;
     }
   }
@@ -1469,17 +913,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
           // offerer. Keep that negotiation when both clients briefly offer:
           // flutter_webrtc's Darwin bridge cannot represent a rollback
           // description because the native SDK rejects its required empty SDP.
-          _recordDiagnostic(
-            diagnostics,
-            'mesh.signaling.offer_ignored',
-            component: 'webrtc',
-            correlationId: correlationId,
-            data: {
-              'peerAlias': _peerDiagnosticAlias(senderId),
-              'makingOffer': _makingOffer.contains(senderId),
-              'signalingState': _diagnosticEnumName(signalingState),
-            },
-          );
+
           return;
         }
         await peer.setRemoteDescription(
@@ -1511,31 +945,11 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
           final pending = _pendingCandidates[senderId] ??= [];
           if (pending.length >= _maxPendingMeshCandidatesPerPeer) return;
           pending.add(parsed);
-          _recordDiagnostic(
-            diagnostics,
-            'mesh.ice.candidate.queued',
-            component: 'webrtc',
-            correlationId: correlationId,
-            data: {'peerAlias': _peerDiagnosticAlias(senderId)},
-          );
         } else {
           await peer.addCandidate(parsed);
-          _recordDiagnostic(
-            diagnostics,
-            'mesh.ice.candidate.added',
-            component: 'webrtc',
-            correlationId: correlationId,
-            data: {'peerAlias': _peerDiagnosticAlias(senderId)},
-          );
         }
       case _MeshEndOfCandidatesSignal():
-        _recordDiagnostic(
-          diagnostics,
-          'mesh.ice.end_of_candidates.received',
-          component: 'webrtc',
-          correlationId: correlationId,
-          data: {'peerAlias': _peerDiagnosticAlias(senderId)},
-        );
+        {}
     }
   }
 
@@ -1670,18 +1084,6 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
         _pendingCandidates.remove(peerId) ?? const <rtc.RTCIceCandidate>[];
     for (final candidate in pending) {
       await peer.addCandidate(candidate);
-    }
-    if (pending.isNotEmpty) {
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.ice.candidates.flushed',
-        component: 'webrtc',
-        correlationId: correlationId,
-        data: {
-          'peerAlias': _peerDiagnosticAlias(peerId),
-          'count': pending.length,
-        },
-      );
     }
   }
 
@@ -1863,39 +1265,9 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     rtc.MediaStreamTrack track,
     double volume,
   ) async {
-    final peerAlias = _peerDiagnosticAlias(participantId);
-    final trackAlias = _trackDiagnosticAlias(track);
     try {
       await _setTrackVolume(volume, track);
-    } catch (error, stackTrace) {
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.track.volume_failed',
-        component: 'webrtc',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        data: {
-          'peerAlias': peerAlias,
-          'trackAlias': trackAlias,
-          'errorType': error.runtimeType.toString(),
-        },
-      );
-      _recordRawDiagnostic(
-        diagnostics,
-        'mesh.track.volume_failure_detail',
-        component: 'webrtc',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        message: error.toString(),
-        data: {
-          'peerAlias': peerAlias,
-          'peerId': participantId,
-          'trackAlias': trackAlias,
-          'trackId': track.id,
-          'stackTrace': stackTrace.toString(),
-        },
-      );
-    }
+    } catch (error) {}
   }
 
   @override
@@ -2121,21 +1493,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
             await sender.replaceTrack(replacement);
           }
           break;
-        } catch (error) {
-          _recordDiagnostic(
-            diagnostics,
-            'mesh.screen_share.sender_cleanup.failed',
-            component: 'webrtc',
-            correlationId: correlationId,
-            severity: DiagnosticSeverity.warning,
-            data: {
-              'peerAlias': _peerDiagnosticAlias(entry.key),
-              'source': source.name,
-              'replacement': replacement == null ? 'none' : 'camera',
-              'errorType': error.runtimeType.toString(),
-            },
-          );
-        }
+        } catch (error) {}
       }
     }
   }
@@ -2247,21 +1605,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
     _outgoingCandidates.remove(id);
     _makingOffer.remove(id);
     if (peer != null) {
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.peer.close.started',
-        component: 'webrtc',
-        correlationId: correlationId,
-        data: {'peerAlias': _peerDiagnosticAlias(id)},
-      );
       await _disposePeerConnection(peer);
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.peer.close.completed',
-        component: 'webrtc',
-        correlationId: correlationId,
-        data: {'peerAlias': _peerDiagnosticAlias(id)},
-      );
     }
     changed();
   }
@@ -2292,8 +1636,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       silenceCapture();
       _speakingTimer?.cancel();
       _speakingTimer = null;
-      _rawStatsTimer?.cancel();
-      _rawStatsTimer = null;
+
       for (final timer in _candidateTimers.values) {
         timer.cancel();
       }
@@ -2327,12 +1670,7 @@ final class MeshVoiceMediaSession extends _VoiceMediaNotifier {
       _participantRoles.clear();
       _currentRemoteParticipantIds.clear();
       _peerEligibleParticipantIds.clear();
-      _recordDiagnostic(
-        diagnostics,
-        'mesh.session.disposed',
-        component: 'mesh',
-        correlationId: correlationId,
-      );
+
       await super.dispose();
     }
   }
@@ -2394,17 +1732,14 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     required this.localUserId,
     required this.audioPublishingAllowed,
     required this.refreshCredentials,
-    this.diagnostics = const NoopVoiceDiagnosticsRecorder(),
-    this.correlationId = 'uncorrelated',
-    this.rawStatsInterval = const Duration(seconds: 5),
-    VoiceLiveKitRawStatsCollector? collectRawStats,
+
     VoiceMediaDeviceEnumerator? enumerateDevices,
     VoiceLiveKitRoomAdapter? roomAdapter,
     VoiceTrackVolumeSetter? setTrackVolume,
     Future<lk.LocalVideoTrack> Function(lk.CameraCaptureOptions)?
     createCameraTrack,
   }) : _setTrackVolume = setTrackVolume ?? rtc.Helper.setVolume,
-       _collectRawStats = collectRawStats ?? _collectLiveKitRawStats,
+
        _createCameraTrack =
            createCameraTrack ?? lk.LocalVideoTrack.createCameraTrack,
        _enumerateDevices =
@@ -2423,61 +1758,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
       shouldRetry: (error) =>
           error is! WriteException || error.statusCode != HttpStatus.gone,
       onStateChanged: (state) {
-        _recordDiagnostic(
-          diagnostics,
-          'livekit.reconnect.state_changed',
-          component: 'livekit',
-          correlationId: correlationId,
-          severity: state == VoiceMediaConnectionState.failed
-              ? DiagnosticSeverity.error
-              : DiagnosticSeverity.info,
-          data: {'state': state.name},
-        );
         changed();
-      },
-      onAttemptStarted: (attemptNumber, delay) {
-        _recordDiagnostic(
-          diagnostics,
-          'livekit.reconnect.attempt_started',
-          component: 'livekit',
-          correlationId: correlationId,
-          data: {
-            'attempt': attemptNumber,
-            'delayMilliseconds': delay.inMilliseconds,
-          },
-        );
-      },
-      onAttemptFailed: (attemptNumber, error, stackTrace) {
-        _recordDiagnostic(
-          diagnostics,
-          'livekit.reconnect.attempt_failed',
-          component: 'livekit',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-          data: {
-            'attempt': attemptNumber,
-            'errorType': error.runtimeType.toString(),
-          },
-        );
-        _recordRawDiagnostic(
-          diagnostics,
-          'livekit.reconnect.attempt_failure_detail',
-          component: 'livekit',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.warning,
-          message: error.toString(),
-          data: {'attempt': attemptNumber, 'stackTrace': stackTrace.toString()},
-        );
-      },
-      onExhausted: (attemptCount) {
-        _recordDiagnostic(
-          diagnostics,
-          'livekit.reconnect.exhausted',
-          component: 'livekit',
-          correlationId: correlationId,
-          severity: DiagnosticSeverity.error,
-          data: {'attemptCount': attemptCount},
-        );
       },
     );
   }
@@ -2485,10 +1766,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   final VoiceJoinResponse join;
   final int localUserId;
   final VoiceLiveKitCredentialRefresher refreshCredentials;
-  final VoiceDiagnosticsRecorder diagnostics;
-  final String correlationId;
-  final Duration rawStatsInterval;
-  final VoiceLiveKitRawStatsCollector _collectRawStats;
+
   final VoiceMediaDeviceEnumerator _enumerateDevices;
   late final VoiceLiveKitRoomAdapter _roomAdapter;
   final Future<lk.LocalVideoTrack> Function(lk.CameraCaptureOptions)
@@ -2535,9 +1813,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   @visibleForTesting
   bool get cameraEnabled => _cameraEnabled;
   bool _closing = false;
-  bool _pollingRawStats = false;
-  bool _deviceInventoryCaptured = false;
-  Timer? _rawStatsTimer;
+
   late final VoiceReconnectCoordinator _reconnect;
   final Set<Future<void>> _roomConnections = {};
   Future<void>? _disposeFuture;
@@ -2667,14 +1943,8 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
   @override
   Future<List<rtc.MediaDeviceInfo>> devices() async {
-    final result = await _enumerateDevicesWithDiagnostics(
-      enumerateDevices: _enumerateDevices,
-      diagnostics: diagnostics,
-      correlationId: correlationId,
-    );
-    try {
-      if (diagnostics.captureEnabled) _deviceInventoryCaptured = true;
-    } catch (_) {}
+    final result = await _enumerateDevices();
+
     return result;
   }
 
@@ -2687,13 +1957,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
         credentials.token.isEmpty) {
       throw FormatException(appL10n.missingLiveKitCredentials);
     }
-    _recordDiagnostic(
-      diagnostics,
-      'livekit.session.connect.started',
-      component: 'livekit',
-      correlationId: correlationId,
-      data: {'audioPublishingAllowed': audioPublishingAllowed},
-    );
+
     _roomAdapter.listen(
       onChanged: _remoteMediaChanged,
       onDisconnected: () {
@@ -2701,7 +1965,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
       },
       onRoomEvent: (event) {
         if (_closing || disposed) return;
-        _recordRoomEvent(event);
+
         changed();
         if (event is lk.TrackSubscribedEvent &&
             !_wantsPublication(event.participant, event.publication)) {
@@ -2731,183 +1995,26 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
         );
         if (_closing || disposed) return;
       }
-      _startRawStatsTimer();
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.session.connect.completed',
-        component: 'livekit',
-        correlationId: correlationId,
-      );
+
       changed();
-    } catch (error, stackTrace) {
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.session.connect.failed',
-        component: 'livekit',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        data: {'errorType': error.runtimeType.toString()},
-      );
-      _recordRawDiagnostic(
-        diagnostics,
-        'livekit.session.connect.failure_detail',
-        component: 'livekit',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.error,
-        message: error.toString(),
-        data: {'stackTrace': stackTrace.toString()},
-      );
+    } catch (error) {
       rethrow;
     }
   }
 
-  Future<void> _pollRawStats() async {
-    if (_pollingRawStats || _closing || disposed) return;
-    try {
-      if (!diagnostics.captureEnabled) {
-        _deviceInventoryCaptured = false;
-        return;
-      }
-    } catch (_) {
-      return;
-    }
-    _pollingRawStats = true;
-    try {
-      if (!_deviceInventoryCaptured) {
-        try {
-          await devices();
-        } catch (_) {}
-      }
-      final samples = await _collectRawStats(_room);
-      if (_closing || disposed) return;
-      if (samples.isEmpty) {
-        _recordRawDiagnostic(
-          diagnostics,
-          'livekit.room.stats',
-          component: 'livekit',
-          correlationId: correlationId,
-          data: {
-            'connectionState': _room.connectionState.name,
-            'participantCount':
-                _room.remoteParticipants.length +
-                (_room.localParticipant == null ? 0 : 1),
-            'trackEndpointCount': 0,
-          },
-        );
-      } else {
-        for (final sample in samples) {
-          _recordRawDiagnostic(
-            diagnostics,
-            'livekit.track.stats',
-            component: 'livekit',
-            correlationId: correlationId,
-            data: sample,
-          );
-        }
-      }
-    } catch (error, stackTrace) {
-      _recordRawDiagnostic(
-        diagnostics,
-        'livekit.room.stats_failed',
-        component: 'livekit',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        message: error.toString(),
-        data: {
-          'errorType': error.runtimeType.toString(),
-          'stackTrace': stackTrace.toString(),
-        },
-      );
-    } finally {
-      _pollingRawStats = false;
-    }
-  }
-
-  void _startRawStatsTimer() {
-    if (rawStatsInterval <= Duration.zero || _rawStatsTimer != null) return;
-    _rawStatsTimer = Timer.periodic(
-      rawStatsInterval,
-      (_) => unawaited(_pollRawStats()),
-    );
-  }
-
-  @visibleForTesting
-  void startRawStatsTimerForTesting() => _startRawStatsTimer();
-
   void _startReconnect({lk.DisconnectReason? reason}) {
-    _recordDiagnostic(
-      diagnostics,
-      'livekit.reconnect.requested',
-      component: 'livekit',
-      correlationId: correlationId,
-      severity: DiagnosticSeverity.warning,
-      data: {'cause': reason?.name ?? 'room_disconnected'},
-    );
     final observed = _reconnect.reconnect().then<void>(
       (_) {},
-      onError: _reportUnexpectedReconnectFailure,
+      onError: (Object _, StackTrace _) {},
     );
     unawaited(observed);
   }
 
-  @visibleForTesting
-  void reportUnexpectedReconnectFailureForTesting(
-    Object error,
-    StackTrace stackTrace,
-  ) => _reportUnexpectedReconnectFailure(error, stackTrace);
-
-  void _reportUnexpectedReconnectFailure(Object error, StackTrace stackTrace) =>
-      _reportLiveKitFailure(error, stackTrace, 'reconnect');
-
-  void _reportLiveKitFailure(
-    Object error,
-    StackTrace stackTrace,
-    String operation,
-  ) {
-    _recordDiagnostic(
-      diagnostics,
-      'livekit.$operation.unhandled_failure',
-      component: 'livekit',
-      correlationId: correlationId,
-      severity: DiagnosticSeverity.error,
-      data: {'errorType': error.runtimeType.toString()},
-    );
-    _recordRawDiagnostic(
-      diagnostics,
-      'livekit.$operation.unhandled_failure_detail',
-      component: 'livekit',
-      correlationId: correlationId,
-      severity: DiagnosticSeverity.error,
-      message: error.toString(),
-      data: {'stackTrace': stackTrace.toString()},
-    );
-    FlutterError.reportError(
-      FlutterErrorDetails(
-        exception: _VoiceMediaDiagnosticFailure('livekit.$operation'),
-        stack: stackTrace,
-        library: appL10n.voiceMedia,
-        context: ErrorDescription(
-          appL10n.duringLiveKit((operation).toString()),
-        ),
-      ),
-    );
-  }
-
   Future<void> _reconnectOnce() async {
     final cameraRevision = _cameraRevision;
-    _recordDiagnostic(
-      diagnostics,
-      'livekit.credentials.refresh.started',
-      component: 'livekit',
-      correlationId: correlationId,
-    );
+
     final credentials = await refreshCredentials();
-    _recordDiagnostic(
-      diagnostics,
-      'livekit.credentials.refresh.completed',
-      component: 'livekit',
-      correlationId: correlationId,
-    );
+
     if (_closing || disposed || _reconnect.cancelled) return;
     await _connectRoom(credentials);
     if (_closing || disposed || _reconnect.cancelled) return;
@@ -2929,12 +2036,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
   Future<void> _connectRoom(VoiceLiveKitCredentials credentials) async {
     if (_closing || disposed) return;
-    _recordDiagnostic(
-      diagnostics,
-      'livekit.room.connect.started',
-      component: 'livekit',
-      correlationId: correlationId,
-    );
+
     final endpoint = requireSafeLiveKitEndpoint(credentials.url);
     final connection = _roomAdapter.connect(
       endpoint.toString(),
@@ -2944,266 +2046,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     _roomConnections.add(connection);
     try {
       await connection;
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.room.connect.completed',
-        component: 'livekit',
-        correlationId: correlationId,
-      );
     } finally {
       _roomConnections.remove(connection);
     }
   }
-
-  void _recordRoomEvent(lk.RoomEvent event) {
-    if (event is lk.RoomConnectedEvent) {
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.room.connected',
-        component: 'livekit',
-        correlationId: correlationId,
-      );
-      return;
-    }
-    if (event is lk.RoomReconnectingEvent) {
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.room.reconnecting',
-        component: 'livekit',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        data: {'mode': 'full'},
-      );
-      return;
-    }
-    if (event is lk.RoomResumingEvent) {
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.room.reconnecting',
-        component: 'livekit',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        data: {'mode': 'signal_resume'},
-      );
-      return;
-    }
-    if (event is lk.RoomAttemptReconnectEvent) {
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.room.reconnect_attempt',
-        component: 'livekit',
-        correlationId: correlationId,
-        data: {
-          'attempt': event.attempt,
-          'maxAttempts': event.maxAttemptsRetry,
-          'nextDelayMilliseconds': event.nextRetryDelaysInMs,
-        },
-      );
-      return;
-    }
-    if (event is lk.RoomReconnectedEvent) {
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.room.reconnected',
-        component: 'livekit',
-        correlationId: correlationId,
-      );
-      return;
-    }
-    if (event is lk.RoomDisconnectedEvent) {
-      final expected =
-          _closing || event.reason == lk.DisconnectReason.clientInitiated;
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.room.disconnected',
-        component: 'livekit',
-        correlationId: correlationId,
-        severity: expected
-            ? DiagnosticSeverity.info
-            : DiagnosticSeverity.warning,
-        data: {'reason': event.reason?.name ?? 'unknown', 'expected': expected},
-      );
-      return;
-    }
-    if (event is lk.ParticipantConnectedEvent) {
-      _recordLiveKitParticipantEvent(
-        'livekit.participant.connected',
-        event.participant,
-      );
-      return;
-    }
-    if (event is lk.ParticipantDisconnectedEvent) {
-      _recordLiveKitParticipantEvent(
-        'livekit.participant.disconnected',
-        event.participant,
-      );
-      return;
-    }
-    if (event is lk.ParticipantConnectionQualityUpdatedEvent) {
-      _recordRawDiagnostic(
-        diagnostics,
-        'livekit.participant.connection_quality',
-        component: 'livekit',
-        correlationId: correlationId,
-        data: {
-          'participant': _liveKitParticipantData(event.participant),
-          'quality': event.connectionQuality.name,
-        },
-      );
-      return;
-    }
-    if (event is lk.TrackPublishedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.published',
-        event.participant,
-        event.publication,
-      );
-      return;
-    }
-    if (event is lk.TrackUnpublishedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.unpublished',
-        event.participant,
-        event.publication,
-      );
-      return;
-    }
-    if (event is lk.LocalTrackPublishedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.local_published',
-        event.participant,
-        event.publication,
-      );
-      return;
-    }
-    if (event is lk.LocalTrackUnpublishedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.local_unpublished',
-        event.participant,
-        event.publication,
-      );
-      return;
-    }
-    if (event is lk.TrackSubscribedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.subscribed',
-        event.participant,
-        event.publication,
-      );
-      return;
-    }
-    if (event is lk.TrackUnsubscribedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.unsubscribed',
-        event.participant,
-        event.publication,
-      );
-      return;
-    }
-    if (event is lk.TrackMutedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.muted',
-        event.participant,
-        event.publication,
-      );
-      return;
-    }
-    if (event is lk.TrackUnmutedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.unmuted',
-        event.participant,
-        event.publication,
-      );
-      return;
-    }
-    if (event is lk.TrackStreamStateUpdatedEvent) {
-      _recordLiveKitTrackEvent(
-        'livekit.track.stream_state',
-        event.participant,
-        event.publication,
-        extra: {'state': event.streamState.name},
-      );
-      return;
-    }
-    if (event is lk.TrackSubscriptionExceptionEvent) {
-      _recordRawDiagnostic(
-        diagnostics,
-        'livekit.track.subscription_failed',
-        component: 'livekit',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        data: {
-          if (event.participant case final participant?)
-            'participant': _liveKitParticipantData(participant),
-          'trackSid': event.sid,
-          'reason': event.reason.name,
-        },
-      );
-      return;
-    }
-    if (event is lk.RoomRecordingStatusChanged) {
-      _recordDiagnostic(
-        diagnostics,
-        'livekit.room.recording_changed',
-        component: 'livekit',
-        correlationId: correlationId,
-        data: {'active': event.activeRecording},
-      );
-    }
-  }
-
-  @visibleForTesting
-  void recordRoomEventForTesting(lk.RoomEvent event) => _recordRoomEvent(event);
-
-  void _recordLiveKitParticipantEvent(
-    String event,
-    lk.Participant participant,
-  ) {
-    _recordRawDiagnostic(
-      diagnostics,
-      event,
-      component: 'livekit',
-      correlationId: correlationId,
-      data: {'participant': _liveKitParticipantData(participant)},
-    );
-  }
-
-  void _recordLiveKitTrackEvent(
-    String event,
-    lk.Participant participant,
-    lk.TrackPublication publication, {
-    Map<String, Object?> extra = const {},
-  }) {
-    _recordRawDiagnostic(
-      diagnostics,
-      event,
-      component: 'livekit',
-      correlationId: correlationId,
-      data: {
-        'participant': _liveKitParticipantData(participant),
-        'publication': {
-          'sid': publication.sid,
-          'name': publication.name,
-          'kind': publication.kind.name,
-          'source': publication.source.name,
-          'muted': publication.muted,
-          'subscribed': publication.subscribed,
-          'mimeType': publication.mimeType,
-        },
-        ...extra,
-      },
-    );
-  }
-
-  Map<String, Object?> _liveKitParticipantData(lk.Participant participant) => {
-    'sid': participant.sid,
-    'identity': participant.identity,
-    'name': participant.name,
-    'kind': participant.kind.name,
-    'state': participant.state.name,
-    'isSpeaking': participant.isSpeaking,
-    'isMuted': participant.isMuted,
-  };
 
   @override
   Future<void> syncParticipants(List<VoiceParticipant> participants) {
@@ -3294,12 +2140,10 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     // unlike enabled, LiveKit does not reset it when starting a track.
     if (track is lk.RemoteAudioTrack) {
       unawaited(
-        _setTrackVolume(0, mediaTrack).catchError((
-          Object error,
-          StackTrace stack,
-        ) {
-          _reportLiveKitFailure(error, stack, 'remote_media');
-        }),
+        _setTrackVolume(
+          0,
+          mediaTrack,
+        ).catchError((Object error, StackTrace stack) {}),
       );
     }
     mediaTrack.enabled = false;
@@ -3308,9 +2152,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
 
   void _remoteMediaChanged() {
     unawaited(
-      _applyRemoteMedia().catchError((Object error, StackTrace stack) {
-        _reportLiveKitFailure(error, stack, 'remote_media');
-      }),
+      _applyRemoteMedia().catchError((Object error, StackTrace stack) {}),
     );
     changed();
   }
@@ -3529,8 +2371,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
         } catch (_) {}
       }
     } catch (_) {}
-    _rawStatsTimer?.cancel();
-    _rawStatsTimer = null;
+
     _reconnect.cancel();
     final pendingConnections = _roomConnections.toList();
     final roomCleanup = _disposeLiveKit(pendingConnections);
@@ -3572,12 +2413,6 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
     }
     await clean(_roomAdapter.disposeRoom);
     _roomConnections.clear();
-    _recordDiagnostic(
-      diagnostics,
-      'livekit.session.disposed',
-      component: 'livekit',
-      correlationId: correlationId,
-    );
 
     final error = firstError;
     if (error != null) {

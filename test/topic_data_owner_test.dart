@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -167,14 +167,7 @@ final class _Fixture {
       liveChanged: (_) => changes++,
       published: (_, _) => false,
       prepareCategories: (_, _) async {},
-      report:
-          (
-            error,
-            stackTrace,
-            operation, {
-            bool degraded = true,
-            DiagnosticSeverity severity = DiagnosticSeverity.error,
-          }) => errors.add(operation),
+
       loadTimeout: const Duration(seconds: 5),
       bookmarkReads: (siteUrl, lease) => bookmarks.forLease(siteUrl, lease)!,
     );
@@ -203,7 +196,6 @@ final class _Fixture {
     },
     refreshMenu: (_) async {},
     refreshList: (_) async {},
-    report: (_, _, operation) => errors.add(operation),
   );
   final api = _Api();
   final store = Store();

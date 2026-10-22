@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/composer_placement.dart';
 import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
 
 class ComposerLayoutPreference {
   const ComposerLayoutPreference({
@@ -102,8 +101,7 @@ final class ComposerLayoutStore {
           ? const ComposerLayoutPreference()
           : ComposerLayoutPreference.fromJson(jsonDecode(encoded)) ??
                 const ComposerLayoutPreference();
-    } catch (error, stack) {
-      reportStorageFailure(error, stack, 'composer.readLayout');
+    } catch (error) {
       return const ComposerLayoutPreference();
     }
   }
@@ -116,9 +114,7 @@ final class ComposerLayoutStore {
         if (!await _persistence.writeLayout(jsonEncode(value.toJson()))) {
           throw StateError('Could not save composer layout.');
         }
-      } catch (error, stack) {
-        reportStorageFailure(error, stack, 'composer.writeLayout');
-      }
+      } catch (error) {}
     },
   );
 }

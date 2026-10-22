@@ -4,7 +4,7 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/request_intent.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -129,7 +129,6 @@ void main() {
       test(
         'failed refresh keeps persisted colors and bounds retries',
         () async {
-          final diagnostics = await _installDiagnostics('appearance-load');
           final stored = siteAppearance(accent: const Color(0xFF112233));
           final api = _PresentationApi()
             ..appearanceError = StateError('offline');
@@ -159,17 +158,10 @@ void main() {
           expect(controller.appearanceFor(site), stored);
           expect(persistenceCalls, 0);
           expect(notifications, 0);
-          final events = diagnostics.events.whereType<ErrorDiagnosticEvent>();
-          expect(events, isNotEmpty);
-          expect(
-            events,
-            everyElement(_isAppearanceFailure('siteAppearance.load')),
-          );
         },
       );
 
       test('failed persistence keeps fetched colors and reports it', () async {
-        final diagnostics = await _installDiagnostics('appearance-persist');
         final fetched = siteAppearance(accent: const Color(0xFF445566));
         final api = _PresentationApi()..appearance = fetched;
         final controller = _controller(
@@ -182,10 +174,6 @@ void main() {
         await controller.ensureAppearance(site);
 
         expect(controller.appearanceFor(site), fetched);
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-          _isAppearanceFailure('siteAppearance.persist'),
-        );
       });
 
       test('site invalidation rejects a late response', () async {
@@ -646,7 +634,6 @@ void main() {
       );
 
       test('catalog warming retries a failure but reuses a hit', () async {
-        await _installDiagnostics('emoji-catalog-warm');
         final api = _PresentationApi()
           ..emojiError = StateError('catalog unavailable');
         final controller = _controller(api);
@@ -702,7 +689,6 @@ void main() {
       );
 
       test('explicit refresh recovers failed metadata', () async {
-        await _installDiagnostics('emoji-metadata-retry');
         final api = _PresentationApi()
           ..emojiError = StateError('catalog unavailable')
           ..emojiAliasError = StateError('aliases unavailable');
@@ -875,26 +861,6 @@ void main() {
     });
   });
 }
-
-Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: sessionId,
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  addTearDown(() async {
-    binding.close();
-    await diagnostics.close();
-  });
-  return diagnostics;
-}
-
-Matcher _isAppearanceFailure(String operation) => isA<ErrorDiagnosticEvent>()
-    .having((event) => event.operation, 'operation', operation)
-    .having((event) => event.source, 'source', 'presentation')
-    .having((event) => event.severity, 'severity', DiagnosticSeverity.warning)
-    .having((event) => event.handled, 'handled', isTrue)
-    .having((event) => event.degraded, 'degraded', isTrue);
 
 SitePresentationController _controller(
   _PresentationApi api, {

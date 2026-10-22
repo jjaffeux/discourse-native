@@ -382,7 +382,7 @@ class ChatController extends FrameSafeNotifier {
     PluginCookingHost? cookingHost,
     ChatCookingCoordinator? cookingScheduler,
     String Function(String siteUrl)? cookingTimezoneFor,
-    this.reporter = const PluginDiagnosticsReporter.noop(),
+
     this.onChatNotificationsDelta,
     this.onSiteUnreachable,
     this.minimumWindowRefreshInterval = const Duration(seconds: 30),
@@ -444,8 +444,6 @@ class ChatController extends FrameSafeNotifier {
       hasUnsettledMessages: _hasUnsettledOutgoingMessages,
       reconcileSentEvent: _applySendMessage,
       messageContextFor: messageContextFor ?? (_) => null,
-      report: (error, stackTrace, operation, severity) =>
-          _report(error, stackTrace, operation, severity: severity),
     );
     _sendCoordinator =
         sendCoordinatorFactory?.call(sendHost) ??
@@ -552,8 +550,6 @@ class ChatController extends FrameSafeNotifier {
         disposeReconciliation: _sendCoordinator.dispose,
         resyncChannels: (siteUrl) =>
             unawaited(loadChannels(siteUrl, revalidate: true)),
-        report: (error, stackTrace, operation, severity) =>
-            _report(error, stackTrace, operation, severity: severity),
       ),
     );
   }
@@ -571,7 +567,7 @@ class ChatController extends FrameSafeNotifier {
   final Map<String, String> _cookingLocales = {};
   final Map<String, int> _cookingLocaleRevisions = {};
   final Map<(String, int), Object> _messageCookingTokens = {};
-  final PluginDiagnosticsReporter reporter;
+
   final ChatNotificationsDelta? onChatNotificationsDelta;
   final ValueChanged<String>? onSiteUnreachable;
   final DateTime Function() _clock;
@@ -696,24 +692,6 @@ class ChatController extends FrameSafeNotifier {
 
   PluginSiteLease captureSession(String siteUrl) => _requests.capture(siteUrl);
 
-  void _report(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    DiagnosticSeverity severity = DiagnosticSeverity.error,
-    bool degraded = true,
-  }) {
-    reporter.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'chat',
-      severity: severity,
-      handled: true,
-      degraded: degraded,
-    );
-  }
-
   /// Discourse caps chat pages at 50.
   static const int pageSize = 50;
 
@@ -756,7 +734,7 @@ class ChatController extends FrameSafeNotifier {
       liveSync: _liveSync,
       currentUserFor: _currentUserFor,
       onChanged: notifySafely,
-      report: _report,
+
       onChatNotificationsDelta: onChatNotificationsDelta,
       hasThreads: () => hasThreads(siteUrl),
       replaceHasThreads: (previous, next) {
@@ -793,7 +771,6 @@ class ChatController extends FrameSafeNotifier {
       hydrateChannel: (channel) =>
           _directory(siteUrl).hydratePartialIfMissing(channel),
       onChanged: notifySafely,
-      report: _report,
     );
   }
 
@@ -1515,16 +1492,7 @@ class ChatController extends FrameSafeNotifier {
           channelId: channelId,
         ),
       );
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _report(
-          error,
-          stackTrace,
-          'chat.markPinnedMessagesRead',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-    }
+    } catch (error) {}
   }
 
   /// Reads a linked message without replacing a channel/thread's visible window.
@@ -1873,10 +1841,7 @@ class ChatController extends FrameSafeNotifier {
           : (markdown: null, error: null);
     } on WriteException catch (error) {
       return (markdown: null, error: error.message);
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        _report(error, stackTrace, 'chat.generateMessageQuote');
-      }
+    } catch (error) {
       return (
         markdown: null,
         error: const WriteException(WriteFailure.unreachable).message,
@@ -3166,11 +3131,7 @@ class ChatController extends FrameSafeNotifier {
     if (window.newestId == null) {
       // With no edge to page from, a fresh read replaces nothing on screen.
       unawaited(
-        reporter.runOperation(
-          'chat.loadWindow',
-          () =>
-              conversation!.fetchWindow(fromLastRead: target.threadId == null),
-        ),
+        conversation!.fetchWindow(fromLastRead: target.threadId == null),
       );
       return;
     }
@@ -3274,12 +3235,9 @@ class ChatController extends FrameSafeNotifier {
     }
     if (!backed) _discardStaleCanonicalWindow(siteUrl, target, held);
     final conversation = _conversationFor(siteUrl, target);
-    await reporter.runOperation(
-      'chat.loadWindow',
-      () => conversation.fetchWindow(
-        fromLastRead: targetMessageId == null,
-        targetMessageId: targetMessageId,
-      ),
+    await conversation.fetchWindow(
+      fromLastRead: targetMessageId == null,
+      targetMessageId: targetMessageId,
     );
   }
 
@@ -3329,19 +3287,13 @@ class ChatController extends FrameSafeNotifier {
     final detail = await refreshThreadDetail(siteUrl, target);
     if (detail == null || !conversation.isCurrent) return;
     _liveSync.ensureThreadSubscription(siteUrl, target);
-    final result = await reporter.runOperation(
-      'chat.loadThreadWindow',
-      () => conversation.fetchWindow(
-        fromLastRead: false,
-        targetMessageId: targetMessageId,
-      ),
+    final result = await conversation.fetchWindow(
+      fromLastRead: false,
+      targetMessageId: targetMessageId,
     );
     if (result == _ChatWindowFetchResult.missingTarget &&
         targetMessageId != null) {
-      final fallback = await reporter.runOperation(
-        'chat.loadThreadWindowFallback',
-        () => conversation.fetchWindow(fromLastRead: false),
-      );
+      final fallback = await conversation.fetchWindow(fromLastRead: false);
       if (fallback == _ChatWindowFetchResult.loaded) {
         conversation.showNotice(
           appL10n.thatMessageIsUnavailableShowingTheThreadInstead,
@@ -3444,14 +3396,14 @@ class ChatController extends FrameSafeNotifier {
         });
         _liveSync.ensureThreadSubscription(siteUrl, target);
         return stored;
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (!_requestIsCurrent(lease, ownsRequest)) return null;
         if (metadata.detailDirty) continue;
 
         final terminal =
             error is SiteLookupException &&
             (error.statusCode == 403 || error.statusCode == 404);
-        _report(error, stackTrace, 'chat.loadThreadDetail', degraded: false);
+
         lease.commit(() {
           if (terminal) _store.remove<ChatThread>(siteUrl, target.threadId);
           final window = streamFor(siteUrl, target);
@@ -3523,10 +3475,7 @@ class ChatController extends FrameSafeNotifier {
         notifySafely();
       });
       return created;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
-        _report(error, stackTrace, 'chat.createThread');
-      }
+    } catch (error) {
       return null;
     }
   }
@@ -3601,15 +3550,7 @@ class ChatController extends FrameSafeNotifier {
         metadata.detailDirty = true;
       });
       return true;
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _report(
-          error,
-          stackTrace,
-          'chat.updateThreadTitle',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return false;
     } finally {
       if (identical(metadata.titleWrite, token)) {
@@ -3748,14 +3689,8 @@ class ChatController extends FrameSafeNotifier {
         });
       }
       write.complete(true);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isCurrent()) {
-        _report(
-          error,
-          stackTrace,
-          'chat.updateThreadNotificationLevel',
-          severity: DiagnosticSeverity.warning,
-        );
         if (isLatest()) _rollbackThreadNotification(queue, write);
       }
       write.complete(false);
@@ -3803,10 +3738,7 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed || target.channelId <= 0) return;
     if (streamFor(siteUrl, target).atPresent) return;
     final conversation = _conversationFor(siteUrl, target);
-    await reporter.runOperation(
-      'chat.loadLatest',
-      () => conversation.fetchWindow(fromLastRead: false, anchorAtEnd: true),
-    );
+    await conversation.fetchWindow(fromLastRead: false, anchorAtEnd: true);
   }
 
   Future<void> loadOlder(String siteUrl, int channelId) async {

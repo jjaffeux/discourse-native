@@ -112,8 +112,7 @@ final class _AccountMessageWrites {
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) chat._report(error, stackTrace, 'chat.flagMessage');
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       _release(ticket);
@@ -177,13 +176,8 @@ final class _AccountMessageWrites {
       } on WriteException catch (error) {
         if (ownsRequest()) project(held.pinned);
         return error.message;
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (ownsRequest()) {
-          chat._report(
-            error,
-            stackTrace,
-            'chat.${pinned ? 'pin' : 'unpin'}Message',
-          );
           project(held.pinned);
         }
         return const WriteException(WriteFailure.unreachable).message;
@@ -236,10 +230,7 @@ final class _AccountMessageWrites {
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        chat._report(error, stackTrace, 'chat.deleteMessages');
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       _release(ticket);
@@ -300,8 +291,7 @@ final class _AccountMessageWrites {
       return (move: move, error: null);
     } on WriteException catch (error) {
       return (move: null, error: error.message);
-    } catch (error, stackTrace) {
-      if (ownsRequest()) chat._report(error, stackTrace, 'chat.moveMessages');
+    } catch (error) {
       return (
         move: null,
         error: const WriteException(WriteFailure.unreachable).message,
@@ -390,14 +380,7 @@ final class _AccountMessageWrites {
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        chat._report(
-          error,
-          stackTrace,
-          'chat.${deleted ? 'delete' : 'restore'}Message',
-        );
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       _release(ticket);
@@ -438,8 +421,7 @@ final class _AccountMessageWrites {
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (ownsRequest()) chat._report(error, stackTrace, 'chat.rebakeMessage');
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       _release(ticket);
@@ -549,9 +531,9 @@ final class _AccountMessageWrites {
         if (canonicalEditArrived()) return null;
         rollback();
         return error.message;
-      } catch (error, stackTrace) {
+      } catch (error) {
         if (canonicalEditArrived()) return null;
-        if (ownsRequest()) chat._report(error, stackTrace, 'chat.editMessage');
+
         rollback();
         return const WriteException(WriteFailure.unreachable).message;
       }

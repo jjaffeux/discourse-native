@@ -1,17 +1,16 @@
+import '../foundation/redacted_uri.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
-import '../diagnostics/diagnostics_redactor.dart';
 import '../foundation/loopback_host.dart';
 
 final class UnsafeHttpTransportException implements Exception {
-  UnsafeHttpTransportException(Uri url)
-    : url = Uri.parse(DiagnosticsRedactor.uri(url));
+  UnsafeHttpTransportException(Uri url) : url = Uri.parse(redactUri(url));
 
-  /// A diagnostic-safe representation with credentials, fragments, and query
+  /// A safe representation with credentials, fragments, and query
   /// values removed. Rejected request data must not outlive the safety check.
   final Uri url;
 

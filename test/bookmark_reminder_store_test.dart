@@ -1,6 +1,6 @@
 import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,27 +19,17 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   const store = BookmarkReminderStore();
-  late DiagnosticsController diagnostics;
-  late DiagnosticsSinkBinding binding;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    diagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      sessionId: 'bookmark-reminder-preferences',
-    );
-    binding = DiagnosticsSink.install(diagnostics);
   });
 
   tearDown(() async {
-    binding.close();
-    await diagnostics.close();
     SharedPreferences.setMockInitialValues({});
   });
 
   test('missing choices decode as absent without a warning', () async {
     expect(await store.read(_site, 'reader'), isNull);
-    expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
   });
 
   test('last custom reminders are isolated by site and account', () async {
@@ -57,7 +47,6 @@ void main() {
       (await SharedPreferences.getInstance()).getString(_key),
       '2030-01-02T02:04:05.000Z',
     );
-    expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
   });
 
   test('malformed persisted choices decode as absent', () async {
@@ -68,7 +57,6 @@ void main() {
       (await SharedPreferences.getInstance()).getString(_legacyKey),
       'not-a-date',
     );
-    expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
   });
 
   for (final (type, value) in <(String, Object)>[
@@ -89,12 +77,6 @@ void main() {
       await preferences.reload();
       expect(preferences.get(_legacyKey), value);
       expect(preferences.getString('unrelated'), 'kept');
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-        _isStorageWarning('bookmarkReminders.read'),
-      );
-      expect(diagnostics.buildJsonReport(), isNot(contains(_privateValue)));
-      expect(diagnostics.buildJsonReport(), isNot(contains(_key)));
     });
   }
 
@@ -113,11 +95,6 @@ void main() {
 
       expect(await store.read(_site, 'reader'), isNull);
       expect(preferences.writes, isEmpty);
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-        _isStorageWarning('bookmarkReminders.read'),
-      );
-      expect(diagnostics.buildJsonReport(), isNot(contains(_privateValue)));
 
       preferences.readError = null;
       final reminder = await store.read(_site, 'reader');
@@ -144,11 +121,7 @@ void main() {
       await store.write(_site, 'reader', DateTime.utc(2030, 2, 3));
 
       expect(preferences.writes, isEmpty);
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-        _isStorageWarning('bookmarkReminders.write'),
-      );
-      expect(diagnostics.buildJsonReport(), isNot(contains(_privateValue)));
+
       preferences.readError = null;
       expect(
         await store.read(_site, 'reader'),
@@ -188,15 +161,7 @@ void main() {
             value: '2030-02-03T03:05:06.000Z',
           ),
         ]);
-        final event = diagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .single;
-        expect(event, _isStorageWarning('bookmarkReminders.write'));
-        expect(
-          event.errorType,
-          throwsError ? 'PlatformException' : 'StateError',
-        );
-        expect(diagnostics.buildJsonReport(), isNot(contains(_privateValue)));
+
         final cached = await SharedPreferences.getInstance();
         await cached.reload();
         expect(cached.getString(_legacyKey), '2030-01-02T03:04:05Z');
@@ -205,13 +170,6 @@ void main() {
     );
   }
 }
-
-Matcher _isStorageWarning(String operation) => isA<ErrorDiagnosticEvent>()
-    .having((event) => event.operation, 'operation', operation)
-    .having((event) => event.source, 'source', 'storage')
-    .having((event) => event.severity, 'severity', DiagnosticSeverity.warning)
-    .having((event) => event.handled, 'handled', isTrue)
-    .having((event) => event.degraded, 'degraded', isTrue);
 
 final class _ControlledPreferences extends InMemorySharedPreferencesStore {
   _ControlledPreferences(super.data) : super.withData();

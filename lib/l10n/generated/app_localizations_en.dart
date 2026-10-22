@@ -2751,10 +2751,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get thePreviousCaptureEndedWithoutAStopMarker =>
-      'The previous capture ended without a stop marker.';
-
-  @override
   String get inviteAgent => 'Invite agent';
 
   @override
@@ -2804,22 +2800,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shareReport => 'Share report';
-
-  @override
-  String get jSONLinesDiagnostics => 'JSON Lines diagnostics';
-
-  @override
-  String get voiceDiagnostics => 'Voice diagnostics';
-
-  @override
-  String get voice => 'Voice';
-
-  @override
-  String get voiceCaptureRecording => 'Voice capture recording';
-
-  @override
-  String get voiceDiagnosticsAreUnavailable =>
-      'Voice diagnostics are unavailable.';
 
   @override
   String get couldnTStartTheCall => 'Couldn\'t start the call.';
@@ -2943,9 +2923,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get hTTPPathContainsVoice => 'HTTP path contains /voice/';
-
-  @override
   String get recording => 'Recording';
 
   @override
@@ -2956,16 +2933,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leaveRoom => 'Leave room';
-
-  @override
-  String cand(
-    String head,
-    String redactMatchGroup,
-    String redactMatchGroupValue3,
-    String matchGroup,
-  ) {
-    return 'Cand[$head:$redactMatchGroup:$redactMatchGroupValue3$matchGroup';
-  }
 
   @override
   String get notAllowed => 'not allowed';
@@ -3034,127 +3001,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get participantVolume => 'participant volume';
-
-  @override
-  String get searchVoiceCapture => 'Search Voice capture';
-
-  @override
-  String get turnOnDeepVoiceCapture => 'Turn on deep Voice capture?';
-
-  @override
-  String get thisRecordsUsernamesAndUserIDsNetworkAddressesRawSDPAnd =>
-      'This records usernames and user IDs, network addresses, raw SDP and ICE negotiation, media statistics, and device details. Credentials and other secrets are redacted. Capture stays on until you turn it off or restart the app.';
-
-  @override
-  String get turnOnCapture => 'Turn on capture';
-
-  @override
-  String get deepCaptureIsOn => 'Deep capture is on';
-
-  @override
-  String get deepCaptureStopped => 'Deep capture stopped';
-
-  @override
-  String get clearVoiceCapture => 'Clear Voice capture?';
-
-  @override
-  String
-  get thisPermanentlyRemovesTheRetainedDeepCaptureRecordsFromThisDevice =>
-      'This permanently removes the retained deep-capture records from this device.';
-
-  @override
-  String get clearCapture => 'Clear capture';
-
-  @override
-  String get voiceCaptureCleared => 'Voice capture cleared';
-
-  @override
-  String get recentReportCopiedFullReportIsTooLarge =>
-      'Recent report copied (full report is too large)';
-
-  @override
-  String get voiceReportCopied => 'Voice report copied';
-
-  @override
-  String get captureEventCopied => 'Capture event copied';
-
-  @override
-  String get voiceReportSaved => 'Voice report saved';
-
-  @override
-  String get voiceReportShared => 'Voice report shared';
-
-  @override
-  String voiceDiagnosticsFailed(String error) {
-    return 'Voice diagnostics failed: $error';
-  }
-
-  @override
-  String get recordingOn => 'Recording On';
-
-  @override
-  String get recordingOff => 'Recording Off';
-
-  @override
-  String
-  get deepCaptureStoresIdentitiesNetworkAndMediaNegotiationDeviceDetailsAnd =>
-      'Deep capture stores identities, network and media negotiation, device details, and SDK logs. Secrets are redacted. Restarting the app turns recording off.';
-
-  @override
-  String get truncated => 'Truncated';
-
-  @override
-  String since(String diagnosticTimeTextStateStartedAtUtc) {
-    return 'Since $diagnosticTimeTextStateStartedAtUtc';
-  }
-
-  @override
-  String capture(String stateCaptureId) {
-    return 'Capture $stateCaptureId';
-  }
-
-  @override
-  String get copyReport => 'Copy report';
-
-  @override
-  String get turnRecordingOffBeforeClearing =>
-      'Turn recording off before clearing';
-
-  @override
-  String get backToCapture => 'Back to capture';
-
-  @override
-  String get noMatchingCaptureEvents => 'No matching capture events';
-
-  @override
-  String get waitingForVoiceActivity => 'Waiting for Voice activity';
-
-  @override
-  String get noDeepCaptureRecords => 'No deep-capture records';
-
-  @override
-  String get changeTheSearchToSeeMore => 'Change the search to see more.';
-
-  @override
-  String get callAndSignalingEventsWillAppearHere =>
-      'Call and signaling events will appear here.';
-
-  @override
-  String get turnRecordingOnBeforeReproducingTheCallProblem =>
-      'Turn recording on before reproducing the call problem.';
-
-  @override
-  String get captureEvent => 'capture event';
-
-  @override
-  String kiB(String bytesToStringAsFixed) {
-    return '$bytesToStringAsFixed KiB';
-  }
-
-  @override
-  String miB(String bytesToStringAsFixed) {
-    return '$bytesToStringAsFixed MiB';
-  }
 
   @override
   String get beforeYouJoinThisRoom => 'Before you join this room';
@@ -9121,9 +8967,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get resizeDiagnosticsPanel => 'Resize diagnostics panel';
-
-  @override
   String get signInToContinue => 'Sign in to continue';
 
   @override
@@ -9566,20 +9409,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openComponentStyleguide => 'Open component styleguide';
-
-  @override
-  String get diagnostics => 'Diagnostics';
-
-  @override
-  String diagnosticsUnseen(num unseen) {
-    String _temp0 = intl.Intl.pluralLogic(
-      unseen,
-      locale: localeName,
-      other: 'Diagnostics, $unseen unseen errors',
-      one: 'Diagnostics, $unseen unseen error',
-    );
-    return '$_temp0';
-  }
 
   @override
   String updateTo(String version) {
@@ -10499,142 +10328,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get useRRGGBB => 'Use #RRGGBB.';
 
   @override
-  String get errors => 'Errors';
-
-  @override
-  String get searchDiagnostics => 'Search diagnostics';
-
-  @override
-  String get severity => 'Severity';
-
-  @override
-  String get eventCopied => 'Event copied';
-
-  @override
-  String get filteredReportCopied => 'Filtered report copied';
-
-  @override
-  String get clearDiagnosticsHistory => 'Clear diagnostics history?';
-
-  @override
-  String get thisRemovesTheRecordedRequestsAndErrorsFromThisDeviceRequests =>
-      'This removes the recorded requests and errors from this device. Requests already in progress will not be restored afterward.';
-
-  @override
-  String get backToDiagnostics => 'Back to diagnostics';
-
-  @override
-  String get eventDetails => 'Event details';
-
-  @override
-  String get resumeLiveUpdates => 'Resume live updates';
-
-  @override
-  String get freezeVisibleEvents => 'Freeze visible events';
-
-  @override
-  String get copyFilteredReport => 'Copy filtered report';
-
-  @override
-  String get closeDiagnostics => 'Close diagnostics';
-
-  @override
-  String get general => 'General';
-
-  @override
-  String get scrollPerformance => 'Scroll performance';
-
-  @override
-  String get scrollPerformanceCapture => 'Scroll performance capture';
-
-  @override
-  String get recordScrollingInATopicTopicListOrUsersDirectoryThen =>
-      'Record scrolling in a topic, topic list or users directory, then copy a performance report to share for investigation. The capture stays in memory and never includes post bodies, titles, site URLs, or credentials.';
-
-  @override
-  String closeDiagnosticsReproduceTheIssueInATopicTopicListOr(
-    String controllerMaximumDurationInMinutes,
-    String controllerMaximumEvents,
-  ) {
-    return 'Close Diagnostics, reproduce the issue in a topic, topic list or users directory, then return here and stop the capture. Scroll for 5–10 seconds, then wait a second for frame timings before stopping. Recording stops automatically after $controllerMaximumDurationInMinutes minutes or $controllerMaximumEvents events.';
-  }
-
-  @override
-  String get stopCapture => 'Stop capture';
-
-  @override
-  String get copyPerformanceReport => 'Copy performance report';
-
-  @override
-  String get copyFullJSONCapture => 'Copy full JSON capture';
-
-  @override
-  String get startANewCapture => 'Start a new capture';
-
-  @override
-  String get discardCapture => 'Discard capture';
-
-  @override
-  String get theTraceIncludesTopicListRowBuildsAndScrollBookkeepingTopic =>
-      'The trace includes topic-list row builds and scroll bookkeeping, topic scroll notifications, post-sliver visible range and geometry update, paging and anchor decision, row layout cost, viewport bookkeeping cost, and Flutter frame timing. The performance report summarizes slow frames and the most expensive posts without copying the full event log.';
-
-  @override
-  String get startCapture => 'Start capture';
-
-  @override
-  String get performanceReportCopied => 'Performance report copied';
-
-  @override
-  String get scrollCaptureCopied => 'Scroll capture copied';
-
-  @override
-  String eventsOverSTopicEventsFramesSlowBuildsSlowRastersBudget(
-    String stateEventCount,
-    String secondsToStringAsFixed,
-    String stateTopicEventCount,
-    String stateFrameCount,
-    String stateSlowBuildFrameCount,
-    String stateSlowRasterFrameCount,
-    String stateFrameBudgetMicrosecondsToStringAsFi,
-    String stateDisplayRefreshRateToStringAsFixed,
-  ) {
-    return '$stateEventCount events over ${secondsToStringAsFixed}s\n$stateTopicEventCount topic events · $stateFrameCount frames\n$stateSlowBuildFrameCount slow builds · $stateSlowRasterFrameCount slow rasters\nBudget: $stateFrameBudgetMicrosecondsToStringAsFi ms at $stateDisplayRefreshRateToStringAsFixed Hz';
-  }
-
-  @override
-  String get stoppedAtTimeLimit => 'Stopped at time limit';
-
-  @override
-  String get stoppedAtEventLimit => 'Stopped at event limit';
-
-  @override
-  String get captureReady => 'Capture ready';
-
-  @override
-  String filterBy(String label) {
-    return 'Filter by $label';
-  }
-
-  @override
-  String get noMatchingEvents => 'No matching events';
-
-  @override
-  String get noDiagnosticsYet => 'No diagnostics yet';
-
-  @override
-  String get changeTheFiltersOrSearchToSeeMore =>
-      'Change the filters or search to see more.';
-
-  @override
-  String get requestsLogsAndOperationalErrorsWillAppearHere =>
-      'Requests, logs, and operational errors will appear here.';
-
-  @override
-  String session(String stateName) {
-    return 'Session $stateName';
-  }
-
-  @override
   String get previousMessage => 'Previous message';
 
   @override
@@ -11403,474 +11096,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabler => 'Tabler';
 
   @override
-  String get inProcessDartHTTP => 'in-process Dart HTTP';
-
-  @override
-  String get flutterFrameworkErrors => 'Flutter framework errors';
-
-  @override
-  String get rootIsolatePlatformErrors => 'root-isolate platform errors';
-
-  @override
-  String get reportedOperationalErrors => 'reported operational errors';
-
-  @override
-  String get reportedStructuredApplicationLogs =>
-      'reported structured application logs';
-
-  @override
-  String get externalBrowserAndWebAuthTraffic =>
-      'external browser and web-auth traffic';
-
-  @override
-  String get nativePluginInternalNetworking =>
-      'native-plugin-internal networking';
-
-  @override
-  String get spawnedIsolatesWithoutTheHTTPOverride =>
-      'spawned isolates without the HTTP override';
-
-  @override
-  String get nativeProcessCrashes => 'native process crashes';
-
-  @override
-  String diagnosticsPersistenceIsUnavailableHistoryIsMemoryOnly(
-    String safeErrorMessageError,
-  ) {
-    return 'Diagnostics persistence is unavailable; history is memory-only. $safeErrorMessageError';
-  }
-
-  @override
-  String get topicScrollAndMetricsNotifications =>
-      'topic scroll and metrics notifications';
-
-  @override
-  String get superListViewSliverLayoutAndVisibleRanges =>
-      'SuperListView sliver layout and visible ranges';
-
-  @override
-  String get visiblePostGeometryAndRowAttachmentLifecycle =>
-      'visible post geometry and row attachment lifecycle';
-
-  @override
-  String get topicWindowPagingAndExtentInvalidationDecisions =>
-      'topic window, paging, and extent invalidation decisions';
-
-  @override
-  String get viewportAnchorCaptureAndCorrectionDecisions =>
-      'viewport anchor capture and correction decisions';
-
-  @override
-  String get flutterUIThreadBuildAndRasterFrameTimings =>
-      'Flutter UI-thread build and raster frame timings';
-
-  @override
-  String get postLayoutAndViewportBookkeepingDurations =>
-      'post layout and viewport bookkeeping durations';
-
-  @override
-  String get topicListRowSubtreeBuildAndLayoutDurations =>
-      'topic-list row subtree build and layout durations';
-
-  @override
-  String get sampledCPUFunctionsInSlowTopicFramesWhenAvailable =>
-      'sampled CPU functions in slow topic frames when available';
-
-  @override
-  String get recordedRenderingPhasesInSlowTopicRasterFramesWhenAvailable =>
-      'recorded rendering phases in slow topic raster frames when available';
-
-  @override
-  String get postBodiesAndTitles => 'post bodies and titles';
-
-  @override
-  String get siteURLsAndCredentials => 'site URLs and credentials';
-
-  @override
-  String get nativeCompositorAndOperatingSystemTraces =>
-      'native compositor and operating-system traces';
-
-  @override
-  String topicScrollingPerformanceReportV(String reportVersion) {
-    return 'Topic scrolling performance report (v$reportVersion)';
-  }
-
-  @override
-  String app(
-    String appVersion,
-    String appBuildChannel,
-    String appBuildMode,
-    String appPlatform,
-    String appVersionValue5,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(appVersion, {
-      'true':
-          'App: local build | $appBuildChannel | $appBuildMode | $appPlatform',
-      'other':
-          'App: $appVersionValue5 | $appBuildChannel | $appBuildMode | $appPlatform',
-    });
-    return '$_temp0';
-  }
-
-  @override
-  String recordedS(
-    String startedAtUtcNoCapture,
-    String captureDurationUsToStringAsFixed,
-    String captureStatus,
-    String stopReasonInProgress,
-  ) {
-    return 'Recorded: $startedAtUtcNoCapture | ${captureDurationUsToStringAsFixed}s | $captureStatus ($stopReasonInProgress)';
-  }
-
-  @override
-  String displayAtStartHzFrameBudgetMs(
-    String summaryDisplayRefreshRate,
-    String msAnalysisFrameBudgetUs,
-  ) {
-    return 'Display at start: $summaryDisplayRefreshRate Hz | frame budget $msAnalysisFrameBudgetUs ms';
-  }
-
-  @override
-  String eventsSampledFramesFramesWithTopicActivity(
-    String summaryEventCount,
-    String allFramesCount,
-    String topicFramesCount,
-  ) {
-    return 'Events: $summaryEventCount | sampled frames: $allFramesCount | frames with topic activity: $topicFramesCount';
-  }
-
-  @override
-  String accessibilityAtStartAtEndPlatformRequestStateChanges(
-    String enabledAccessibilityFrameworkEnabledAtSt,
-    String enabledAccessibilityFrameworkEnabledAtEn,
-    String enabledAccessibilityPlatformEnabledAtSta,
-    String accessibilityStateChanges,
-  ) {
-    return 'Accessibility: $enabledAccessibilityFrameworkEnabledAtSt at start, $enabledAccessibilityFrameworkEnabledAtEn at end | platform request $enabledAccessibilityPlatformEnabledAtSta | $accessibilityStateChanges state changes';
-  }
-
-  @override
-  String get debugBuildRepeatInAProfileOrReleaseBuildToAssess =>
-      'Debug build: repeat in a profile or release build to assess the scrolling performance users experience.';
-
-  @override
-  String get theEventLimitEndedThisCaptureEarlyReproduceWithAShorter =>
-      'The event limit ended this capture early. Reproduce with a shorter capture if the slow moment was missed.';
-
-  @override
-  String get noContextWasRecordedStartInTheAffectedScreenAndScroll =>
-      'No context was recorded. Start in the affected screen and scroll before stopping.';
-
-  @override
-  String get noFrameTimingsWereDeliveredScrollForSeveralSecondsAndWait =>
-      'No frame timings were delivered. Scroll for several seconds and wait a second before stopping.';
-
-  @override
-  String get framesWithScrollActivity => 'Frames with scroll activity:';
-
-  @override
-  String get allSampledAppFramesNoTopicFrameMatches =>
-      'All sampled app frames (no topic frame matches):';
-
-  @override
-  String overBudgetUIRaster(
-    String measuredOverBudget,
-    String measuredCount,
-    String measuredCountToStringAsFixed,
-    String measuredSlowBuilds,
-    String measuredSlowRasters,
-  ) {
-    return 'Over budget: $measuredOverBudget/$measuredCount ($measuredCountToStringAsFixed%) | UI: $measuredSlowBuilds | raster: $measuredSlowRasters';
-  }
-
-  @override
-  String raster(String mapMeasuredRasterUs) {
-    return 'Raster: $mapMeasuredRasterUs';
-  }
-
-  @override
-  String vsyncDelay(String mapMeasuredVsyncOverheadUs) {
-    return 'Vsync delay: $mapMeasuredVsyncOverheadUs';
-  }
-
-  @override
-  String totalFrameLatency(String mapMeasuredTotalSpanUs) {
-    return 'Total frame latency: $mapMeasuredTotalSpanUs';
-  }
-
-  @override
-  String viewportBookkeeping(String mapAnalysisViewportWorkUs) {
-    return 'Viewport bookkeeping: $mapAnalysisViewportWorkUs';
-  }
-
-  @override
-  String postRowLayout(String mapAnalysisPostLayoutUs) {
-    return 'Post row layout: $mapAnalysisPostLayoutUs';
-  }
-
-  @override
-  String topicListScrollBookkeeping(String mapAnalysisTopicListScrollWorkUs) {
-    return 'Topic-list scroll bookkeeping: $mapAnalysisTopicListScrollWorkUs';
-  }
-
-  @override
-  String topicListRowBuild(String mapAnalysisTopicListRowBuildUs) {
-    return 'Topic-list row build: $mapAnalysisTopicListRowBuildUs';
-  }
-
-  @override
-  String topicListRowLayout(String mapAnalysisTopicListRowLayoutUs) {
-    return 'Topic-list row layout: $mapAnalysisTopicListRowLayoutUs';
-  }
-
-  @override
-  String topicListLoadedTopicsInboxViewportExtent(
-    String listTopicCount,
-    String listInbox,
-    String listViewportExtent,
-  ) {
-    return 'Topic list: $listTopicCount loaded topics | inbox $listInbox | viewport extent $listViewportExtent';
-  }
-
-  @override
-  String usersDirectoryLoadedUsersColumnsViewportExtent(
-    String usersRowCount,
-    String usersColumnCount,
-    String usersViewportExtent,
-  ) {
-    return 'Users directory: $usersRowCount loaded users | $usersColumnCount columns | viewport extent $usersViewportExtent';
-  }
-
-  @override
-  String usersMetricMaxima(String mapAnalysisUsersMaximaWorkUs) {
-    return 'Users metric maxima: $mapAnalysisUsersMaximaWorkUs';
-  }
-
-  @override
-  String topicLoadedPostsViewportPixelRatio(
-    String topicTopicId,
-    String topicLoadedPostCount,
-    String topicStreamPostCount,
-    String topicViewportLogicalSizeWidth,
-    String topicViewportLogicalSizeHeight,
-    String topicDevicePixelRatio,
-  ) {
-    return 'Topic $topicTopicId: $topicLoadedPostCount loaded / $topicStreamPostCount posts | viewport $topicViewportLogicalSizeWidth × $topicViewportLogicalSizeHeight | pixel ratio $topicDevicePixelRatio';
-  }
-
-  @override
-  String get mostExpensivePostLayoutsUpTo8ByWorstLayout =>
-      'Most expensive post layouts (up to 8, by worst layout):';
-
-  @override
-  String topicPostIdHTMLCharacters(
-    String postTopicId,
-    String postPostId,
-    String postHtmlCharacters,
-    String mapPostLayoutUs,
-  ) {
-    return '  Topic $postTopicId, post id $postPostId, $postHtmlCharacters HTML characters: $mapPostLayoutUs';
-  }
-
-  @override
-  String get worstSampledFramesUpTo5ByUIRasterDuration =>
-      'Worst sampled frames (up to 5, by UI/raster duration):';
-
-  @override
-  String frameUIMsRasterMs(
-    String frameFrameNumber,
-    String msFrameBuildUs,
-    String msFrameRasterUs,
-    String frameTopicActivityLimit,
-  ) {
-    return '  Frame $frameFrameNumber: UI $msFrameBuildUs ms, raster $msFrameRasterUs ms; $frameTopicActivityLimit';
-  }
-
-  @override
-  String measuredRowLayoutMsViewportMsTopicListBuildMsLayout(
-    String workPostLayout,
-    String workViewportWork,
-    String topicListRowBuild,
-    String topicListRowLayout,
-  ) {
-    return '    Measured row layout $workPostLayout ms; viewport $workViewportWork ms; topic-list build $topicListRowBuild ms, layout $topicListRowLayout ms';
-  }
-
-  @override
-  String renderingMsOutsidePhaseMarkers(
-    String phasesIsEmpty,
-    String msRenderingOutsidePhaseMarkersUs,
-    String durationUsMsJoin,
-  ) {
-    String _temp0 = intl.Intl.selectLogic(phasesIsEmpty, {
-      'true':
-          '    Rendering: no named phases; $msRenderingOutsidePhaseMarkersUs ms outside phase markers',
-      'other':
-          '    Rendering: $durationUsMsJoin; $msRenderingOutsidePhaseMarkersUs ms outside phase markers',
-    });
-    return '$_temp0';
-  }
-
-  @override
-  String activityCounts(String analysisActivityCountsLimit) {
-    return 'Activity counts: $analysisActivityCountsLimit';
-  }
-
-  @override
-  String
-  get interpretationUIOverrunsPointToBuildLayoutPaintWorkRasterOverruns =>
-      'Interpretation: UI overruns point to build/layout/paint work; raster overruns point to drawing/compositing. Viewport and row timings measure those operations only; they do not cover all UI work. Activity in a slow frame is correlation, not proof of its cause.';
-
-  @override
-  String get timingsCoverFramesDeliveredBeforeStopNotIdleTimeOrNative =>
-      'Timings cover frames delivered before Stop, not idle time or native compositor stalls. UI and raster overlap; their sum is not a dropped-frame count. Topic frame matches use engine frame numbers.';
-
-  @override
-  String get postContentsTitlesSiteURLsAndCredentialsAreExcludedTheFull =>
-      'Post contents, titles, site URLs, and credentials are excluded. The full JSON capture is available separately.';
-
-  @override
-  String get cPUSamplingRequiresADebugOrProfileBuild =>
-      'CPU sampling requires a debug or profile build.';
-
-  @override
-  String get runFlutterWithEnableDartProfilingAndCaptureAgain =>
-      'Run Flutter with --enable-dart-profiling and capture again.';
-
-  @override
-  String get startTheAppWithFlutterRunInDebugOrProfileMode =>
-      'Start the app with flutter run in debug or profile mode.';
-
-  @override
-  String get stopTheCaptureBeforeExportingCPUSamples =>
-      'Stop the capture before exporting CPU samples.';
-
-  @override
-  String get noCaptureHasBeenRecorded => 'No capture has been recorded.';
-
-  @override
-  String get theDartVMServiceCouldNotSupplyCPUSamples =>
-      'The Dart VM service could not supply CPU samples.';
-
-  @override
-  String cPUProfileUnavailable(String reason) {
-    return 'CPU profile unavailable: $reason';
-  }
-
-  @override
-  String cPUSamplingCaptureSamplesInSlowTopicUIFramesPeriodMs(
-    String captureSampleCount,
-    String slowSampleCount,
-    String msProfileSamplePeriodUs,
-  ) {
-    return 'CPU sampling: $captureSampleCount capture samples | $slowSampleCount in slow topic UI frames | period $msProfileSamplePeriodUs ms';
-  }
-
-  @override
-  String get noCPUSamplesRemainForThisCaptureCopySoonAfterStopping =>
-      'No CPU samples remain for this capture. Copy soon after stopping; the VM overwrites old samples.';
-
-  @override
-  String get cPUFunctionsInSlowTopicFramesExclusiveSamples =>
-      'CPU functions in slow topic frames (exclusive samples):';
-
-  @override
-  String get cPUFunctionsAcrossTheCaptureNoSlowFrameSamples =>
-      'CPU functions across the capture (no slow-frame samples):';
-
-  @override
-  String cPURuntimeTags(String selectedSampleCountJoin) {
-    return 'CPU runtime tags: $selectedSampleCountJoin';
-  }
-
-  @override
-  String get frequentSampledCallPathsLeafCallers =>
-      'Frequent sampled call paths (leaf ← callers):';
-
-  @override
-  String get cPUSamplesAreStatisticalAndMayBeIncompleteTheyAreNot =>
-      'CPU samples are statistical and may be incomplete. They are not exact durations; debug compilation, assertions, and GC can appear here.';
-
-  @override
-  String get renderingTimelineUnavailableRunInProfileModeToRecordEnginePhases =>
-      'Rendering timeline unavailable. Run in profile mode to record engine phases.';
-
-  @override
-  String get renderingTimelineNoOverBudgetTopicRasterFrames =>
-      'Rendering timeline: no over-budget topic raster frames.';
-
-  @override
-  String renderingTimelineProfiledSlowRasterFramesMatchedUpTo20Of(
-    String profileMatchedFrameCount,
-    String profileProfiledFrameCount,
-    String requested,
-  ) {
-    return 'Rendering timeline: $profileMatchedFrameCount/$profileProfiledFrameCount profiled slow raster frames matched (up to 20 of $requested).';
-  }
-
-  @override
-  String engineMarkersRetainedDuringCaptureIncludingTheFinalSnapshotDiscardedAt(
-    String intProfileStreamedEventCount,
-    String intProfileRetainedEventCount,
-    String intProfileDiscardedEventCount,
-  ) {
-    return 'Engine markers retained during capture: $intProfileStreamedEventCount; $intProfileRetainedEventCount including the final snapshot; $intProfileDiscardedEventCount discarded at the capture limit.';
-  }
-
-  @override
-  String get liveTimelineCollectionAddsDiagnosticOverheadDuringRecording =>
-      'Live timeline collection adds diagnostic overhead during recording.';
-
-  @override
-  String get finalEngineSnapshotUnavailableTheLastEventBlockMayBeMissing =>
-      'Final engine snapshot unavailable; the last event block may be missing.';
-
-  @override
-  String get renderingUsesTheRollingVMBufferLiveRecordingWasUnavailable =>
-      'Rendering uses the rolling VM buffer; live recording was unavailable.';
-
-  @override
-  String get olderThanTheRetainedEngineTrace =>
-      'older than the retained engine trace';
-
-  @override
-  String get newerThanTheRetainedEngineTrace =>
-      'newer than the retained engine trace';
-
-  @override
-  String get multipleRasterThreadsMatch => 'multiple raster threads match';
-
-  @override
-  String get noEngineFrameMarkersWereRecorded =>
-      'no engine frame markers were recorded';
-
-  @override
-  String get noOverlappingEngineFrameMarker =>
-      'no overlapping engine frame marker';
-
-  @override
-  String renderingFrameUnmatched(String frameFrameNumber, String reason) {
-    return '  Rendering frame $frameFrameNumber unmatched: $reason.';
-  }
-
-  @override
-  String get renderingDataIsIncompleteTheStallCannotBeAttributedToAn =>
-      'Rendering data is incomplete; the stall cannot be attributed to an engine phase.';
-
-  @override
-  String
-  get renderingPhasesAreRecordedEngineDurationsNotGPUExecutionTimesNested =>
-      'Rendering phases are recorded engine durations, not GPU execution times. Nested phases overlap; do not add them.';
-
-  @override
-  String get noSamples => 'no samples';
-
-  @override
-  String moreEventTypesInJSON(String rankedLengthLimit) {
-    return '$rankedLengthLimit more event types in JSON';
-  }
-
-  @override
   String get expectedAJSONList => 'Expected a JSON list';
 
   @override
@@ -12016,10 +11241,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get invalidStoredForumBaseURL => 'Invalid stored forum base URL.';
-
-  @override
-  String get couldNotPersistTheDiagnosticsPanelWidth =>
-      'Could not persist the diagnostics panel width.';
 
   @override
   String retryAfter(String retryAfter) {
@@ -12397,18 +11618,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get voiceRoom => 'Voice room';
 
   @override
-  String ms(String eventTotalDurationInMilliseconds) {
-    return '$eventTotalDurationInMilliseconds ms';
-  }
-
-  @override
   String present(String callSiteName, String callParticipantCount) {
     return '$callSiteName · $callParticipantCount present';
-  }
-
-  @override
-  String dropped(String stateDroppedRecords) {
-    return '$stateDroppedRecords dropped';
   }
 
   @override
@@ -12928,11 +12139,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String msDiagnosticspanel(String millisecondsRound) {
-    return '$millisecondsRound ms';
-  }
-
-  @override
   String get suspended => 'suspended';
 
   @override
@@ -13001,43 +12207,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get foundations => 'Foundations';
-
-  @override
-  String offset(String errorMessage, String offset) {
-    return '$errorMessage (offset $offset)';
-  }
-
-  @override
-  String get noCapture => 'no capture';
-
-  @override
-  String get inProgress => 'in progress';
-
-  @override
-  String uIBuildLayoutPaint(String mapMeasuredBuildUs) {
-    return 'UI build/layout/paint: $mapMeasuredBuildUs';
-  }
-
-  @override
-  String cPUSamples(String cpuSampleCount, String cpuFunctionsLineCpuLimit) {
-    return '    CPU ($cpuSampleCount samples): $cpuFunctionsLineCpuLimit';
-  }
-
-  @override
-  String msTopicscrollreport(String phaseName, String msPhaseDurationUs) {
-    return '$phaseName $msPhaseDurationUs ms';
-  }
-
-  @override
-  String samplesP50MsP95MsP99MsMaxMs(
-    String statsCount,
-    String msStatsP50,
-    String msStatsP95,
-    String msStatsP99,
-    String msStatsMax,
-  ) {
-    return '$statsCount samples | p50 $msStatsP50 ms | p95 $msStatsP95 ms | p99 $msStatsP99 ms | max $msStatsMax ms';
-  }
 
   @override
   String messageAlerttables(

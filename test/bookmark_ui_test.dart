@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -284,63 +284,43 @@ void main() {
 
   testWidgets(
     'editor opens and saves with a wrong-typed last custom preference',
-    (tester) => _withBookmarkDiagnostics((diagnostics) async {
+    (tester) => (() async {
       const malformed = <String>['private reminder suggestion'];
       SharedPreferences.setMockInitialValues({_lastCustomKey: malformed});
       final reminder = DateTime.utc(2026, 4, 17, 8);
-
       final api = await _openEditor(
         tester,
         now: DateTime.utc(2026, 4, 15, 12),
         reminder: reminder,
       );
-
       expect(tester.takeException(), isNull);
       expect(find.text('Last custom time'), findsNothing);
       expect(find.text('Tomorrow'), findsOneWidget);
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().where(
-          (event) => event.operation == 'bookmarkReminders.read',
-        ),
-        hasLength(1),
-      );
       final preferences = await SharedPreferences.getInstance();
       await preferences.reload();
       expect(preferences.get(_lastCustomKey), malformed);
-
       await _saveEditor(tester);
-
       expect(tester.takeException(), isNull);
       expect(api.updatedBookmarks.single.reminderAt, reminder);
       expect(find.text('Open editor'), findsOneWidget);
-    }),
+    })(),
   );
 
   for (final throwsError in [true, false]) {
     testWidgets(
       'custom reminder stays usable when preference write ${throwsError ? 'throws' : 'is rejected'}',
-      (tester) => _withBookmarkDiagnostics((diagnostics) async {
+      (tester) => (() async {
         final now = DateTime.utc(2026, 4, 15, 12);
         final api = await _openEditor(tester, now: now);
         final preferences = _FailingBookmarkPreferences(
           throwsError: throwsError,
         );
         SharedPreferencesStorePlatform.instance = preferences;
-
         await _openCustomPicker(tester);
         await _confirmPicker(tester);
         await _confirmPicker(tester);
-
         expect(preferences.writes, 1);
         expect(find.text('Last custom time'), findsOneWidget);
-        final warning = diagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .where((event) => event.operation == 'bookmarkReminders.write')
-            .single;
-        expect(warning.operation, 'bookmarkReminders.write');
-        expect(warning.handled, isTrue);
-        expect(warning.severity, DiagnosticSeverity.warning);
-
         await tester.ensureVisible(find.text('No reminder'));
         await tester.tap(find.text('No reminder'));
         await tester.pump();
@@ -348,7 +328,6 @@ void main() {
         await tester.tap(find.text('Last custom time'));
         await tester.pump();
         await _saveEditor(tester);
-
         expect(tester.takeException(), isNull);
         expect(
           api.updatedBookmarks.single.reminderAt,
@@ -358,7 +337,7 @@ void main() {
         final cached = await SharedPreferences.getInstance();
         await cached.reload();
         expect(cached.containsKey(_lastCustomKey), isFalse);
-      }),
+      })(),
     );
   }
 
@@ -827,22 +806,6 @@ void main() {
     );
     expect(find.text('Delete all bookmarks'), findsOneWidget);
   });
-}
-
-Future<void> _withBookmarkDiagnostics(
-  Future<void> Function(DiagnosticsController diagnostics) runTest,
-) async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: 'bookmark-editor-preferences',
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  try {
-    await runTest(diagnostics);
-  } finally {
-    binding.close();
-    await diagnostics.close();
-  }
 }
 
 final class _FailingBookmarkPreferences extends InMemorySharedPreferencesStore {

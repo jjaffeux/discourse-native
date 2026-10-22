@@ -104,9 +104,6 @@ void main() {
       credentials: credentials,
       lifecycle: lifecycle,
       store: store,
-      reportError: (error, _, operation) {
-        errors.add((error: error, operation: operation));
-      },
     );
   });
 
@@ -1173,9 +1170,6 @@ void main() {
         credentials: gatedCredentials,
         lifecycle: lifecycle,
         store: store,
-        reportError: (error, _, operation) {
-          errors.add((error: error, operation: operation));
-        },
       );
       addTearDown(guarded.dispose);
       addTearDown(() {
@@ -1203,9 +1197,6 @@ void main() {
         credentials: gatedCredentials,
         lifecycle: lifecycle,
         store: store,
-        reportError: (error, _, operation) {
-          errors.add((error: error, operation: operation));
-        },
       );
       addTearDown(guarded.dispose);
       addTearDown(() {
@@ -1300,9 +1291,6 @@ void main() {
         credentials: gatedCredentials,
         lifecycle: lifecycle,
         store: store,
-        reportError: (error, _, operation) {
-          errors.add((error: error, operation: operation));
-        },
       );
       addTearDown(guarded.dispose);
       addTearDown(() {

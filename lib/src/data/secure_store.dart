@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'preference_storage_scope.dart';
 import 'private_storage.dart';
 import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class ClientIdPersistence {
   Future<String?> read();
@@ -357,8 +356,7 @@ class SecureStore {
     if (previous == null) return;
     try {
       await previous;
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'credentials.previousMutation');
+    } catch (error) {
       // A newer credential operation must still get a chance to repair state.
     }
   }

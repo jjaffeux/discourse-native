@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -62,13 +61,13 @@ class TopicScrollFixture extends StatelessWidget {
   const TopicScrollFixture({
     super.key,
     required this.controller,
-    this.diagnostics,
+
     this.inbox = true,
     this.dark = false,
   });
 
   final ShellController controller;
-  final DiagnosticsController? diagnostics;
+
   final bool inbox;
   final bool dark;
 
@@ -83,9 +82,7 @@ class TopicScrollFixture extends StatelessWidget {
         ),
       ),
     );
-    final diagnostics = this.diagnostics;
-    return diagnostics == null
-        ? app
-        : DiagnosticsScope(controller: diagnostics, child: app);
+
+    return app;
   }
 }

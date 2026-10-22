@@ -100,14 +100,6 @@ final class AccountDisconnectionResult {
   final SiteLease? lease;
 }
 
-typedef AccountSessionErrorReporter =
-    void Function(
-      Object error,
-      StackTrace stackTrace,
-      String operation, {
-      required bool warning,
-    });
-
 /// Owns the durable account boundary across public metadata and private state.
 ///
 /// A forum is signed out in its durable instance snapshot before a replacement
@@ -122,8 +114,7 @@ final class AccountSessionCoordinator {
     required this.lifecycle,
     required this.api,
     required this.host,
-    AccountSessionErrorReporter? reportError,
-  }) : _reportError = reportError ?? _ignoreError;
+  });
 
   final Authenticator authenticator;
   final InstanceStore instances;
@@ -131,7 +122,7 @@ final class AccountSessionCoordinator {
   final SiteLifecycle lifecycle;
   final ShellSiteApi api;
   final AccountSessionHost host;
-  final AccountSessionErrorReporter _reportError;
+
   final Map<String, Object> _operations = {};
 
   Future<AccountConnectionResult> connect(String siteUrl) async {
@@ -222,7 +213,7 @@ final class AccountSessionCoordinator {
         await _revokeBestEffort(
           siteUrl,
           previousKey,
-          operation: 'authentication.revokePreviousKey',
+
           ifCurrent: () => _isCurrent(siteUrl, operation, pendingLease),
         );
       }
@@ -258,7 +249,6 @@ final class AccountSessionCoordinator {
           credentials: credentials,
           credentialsPersisted: credentialsPersisted,
           error: error,
-          stackTrace: stackTrace,
         );
         return recovered;
       }
@@ -268,19 +258,14 @@ final class AccountSessionCoordinator {
       if (error.failure == UserApiAuthFailure.cancelled) {
         return const AccountConnectionResult.cancelled();
       }
-      _reportError(error, stackTrace, 'authentication.connect', warning: false);
+
       return AccountConnectionResult.failed(error.message);
     } on SiteLookupException catch (error, stackTrace) {
       if (credentials == null) {
         if (!_isCurrent(siteUrl, operation)) {
           return const AccountConnectionResult.stale();
         }
-        _reportError(
-          error,
-          stackTrace,
-          'authentication.loadAccount',
-          warning: false,
-        );
+
         return AccountConnectionResult.failed(error.message);
       }
       final recovered = await _recoverConnection(
@@ -290,7 +275,6 @@ final class AccountSessionCoordinator {
         credentials: credentials,
         credentialsPersisted: credentialsPersisted,
         error: error,
-        stackTrace: stackTrace,
       );
       return recovered;
     } catch (error, stackTrace) {
@@ -301,12 +285,7 @@ final class AccountSessionCoordinator {
         if (!_isCurrent(siteUrl, operation)) {
           return const AccountConnectionResult.stale();
         }
-        _reportError(
-          error,
-          stackTrace,
-          'authentication.connect',
-          warning: false,
-        );
+
         return AccountConnectionResult.failed(
           appL10n.couldNotConnectTo((initial.host).toString()),
         );
@@ -318,7 +297,6 @@ final class AccountSessionCoordinator {
         credentials: credentials,
         credentialsPersisted: credentialsPersisted,
         error: error,
-        stackTrace: stackTrace,
       );
       return recovered;
     } finally {
@@ -333,16 +311,10 @@ final class AccountSessionCoordinator {
     required UserApiCredentials credentials,
     required bool credentialsPersisted,
     required Object error,
-    required StackTrace stackTrace,
   }) async {
     if (!_isCurrent(siteUrl, operation)) {
       return const AccountConnectionResult.stale();
     }
-
-    final failureOperation = error is SiteLookupException
-        ? 'authentication.loadAccount'
-        : 'authentication.connect';
-    _reportError(error, stackTrace, failureOperation, warning: false);
 
     var refreshSignedOutPresentation = false;
     if (!credentialsPersisted) {
@@ -376,14 +348,7 @@ final class AccountSessionCoordinator {
         try {
           await authenticator.disconnect(siteUrl);
           refreshSignedOutPresentation = initial.loginRequired == false;
-        } catch (deleteError, deleteStackTrace) {
-          _reportError(
-            deleteError,
-            deleteStackTrace,
-            'authentication.deleteCredential',
-            warning: true,
-          );
-        }
+        } catch (deleteError, deleteStackTrace) {}
       }
     }
 
@@ -424,14 +389,6 @@ final class AccountSessionCoordinator {
           ifCurrent: () => _isCurrent(siteUrl, operation, lease),
         );
       } catch (error, stackTrace) {
-        if (_isCurrent(siteUrl, operation, lease)) {
-          _reportError(
-            error,
-            stackTrace,
-            'authentication.clearDrafts',
-            warning: false,
-          );
-        }
         // The opening rotation has already forgotten the account's session
         // state, so even this early abort must publish the restored phase.
         return await _restoreFailedDisconnect(
@@ -453,16 +410,7 @@ final class AccountSessionCoordinator {
       String? apiKey;
       try {
         apiKey = await authenticator.apiKeyFor(siteUrl);
-      } catch (error, stackTrace) {
-        if (_isCurrent(siteUrl, operation, lease)) {
-          _reportError(
-            error,
-            stackTrace,
-            'authentication.readCredentialForDisconnect',
-            warning: true,
-          );
-        }
-      }
+      } catch (error, stackTrace) {}
       if (!_isCurrent(siteUrl, operation, lease)) {
         return AccountDisconnectionResult.stale(lease);
       }
@@ -470,7 +418,7 @@ final class AccountSessionCoordinator {
         final revocation = _revokeBestEffort(
           siteUrl,
           apiKey,
-          operation: 'authentication.revokeKey',
+
           ifCurrent: () => _isCurrent(siteUrl, operation, lease),
         );
         if (waitForRemoteRevocation) {
@@ -539,14 +487,6 @@ final class AccountSessionCoordinator {
       try {
         stored = await authenticator.apiKeyFor(siteUrl);
       } catch (error, stackTrace) {
-        if (_isCurrent(siteUrl, operation, lease)) {
-          _reportError(
-            error,
-            stackTrace,
-            'authentication.readCredentialForExpiry',
-            warning: true,
-          );
-        }
         return const AccountDisconnectionResult.failed();
       }
       final initial = host.accountSessionInstance(siteUrl);
@@ -616,16 +556,7 @@ final class AccountSessionCoordinator {
   ) async {
     try {
       await authenticator.disconnect(siteUrl);
-    } catch (error, stackTrace) {
-      if (_isCurrent(siteUrl, operation, lease)) {
-        _reportError(
-          error,
-          stackTrace,
-          'authentication.deleteCredential',
-          warning: true,
-        );
-      }
-    }
+    } catch (error, stackTrace) {}
     if (!_isCurrent(siteUrl, operation, lease)) {
       return AccountDisconnectionResult.stale(lease);
     }
@@ -684,14 +615,7 @@ final class AccountSessionCoordinator {
       try {
         await instances.save(List.of(host.accountSessionInstances));
         return true;
-      } catch (error, stackTrace) {
-        _reportError(
-          error,
-          stackTrace,
-          'authentication.persistSignedOut',
-          warning: attempt == 0,
-        );
-      }
+      } catch (error, stackTrace) {}
     }
     return false;
   }
@@ -706,29 +630,17 @@ final class AccountSessionCoordinator {
       try {
         await instances.save(List.of(host.accountSessionInstances));
         return;
-      } catch (error, stackTrace) {
-        _reportError(
-          error,
-          stackTrace,
-          'authentication.repairSnapshot',
-          warning: true,
-        );
-      }
+      } catch (error, stackTrace) {}
     }
   }
 
   Future<void> _revokeIssued(String siteUrl, String apiKey) async {
-    await _revokeBestEffort(
-      siteUrl,
-      apiKey,
-      operation: 'authentication.revokeKey',
-    );
+    await _revokeBestEffort(siteUrl, apiKey);
   }
 
   Future<void> _revokeBestEffort(
     String siteUrl,
     String apiKey, {
-    required String operation,
     bool Function()? ifCurrent,
   }) async {
     if (ifCurrent?.call() == false) return;
@@ -736,11 +648,7 @@ final class AccountSessionCoordinator {
       await AccountRequestScope.withoutSession(
         () => api.revokeApiKey(siteUrl: siteUrl, apiKey: apiKey),
       );
-    } catch (error, stackTrace) {
-      if (ifCurrent?.call() != false) {
-        _reportError(error, stackTrace, operation, warning: true);
-      }
-    }
+    } catch (error, stackTrace) {}
   }
 
   Object _begin(String siteUrl) {
@@ -768,11 +676,4 @@ final class AccountSessionCoordinator {
       identical(_operations[siteUrl], operation) &&
       host.accountSessionInstance(siteUrl) != null &&
       (lease?.isCurrent ?? true);
-
-  static void _ignoreError(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    required bool warning,
-  }) {}
 }

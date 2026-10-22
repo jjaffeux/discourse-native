@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import '../data/request_intent.dart';
-import '../diagnostics/topic_prefetch_trace.dart';
+
 import '../models/post.dart';
 
 enum TopicPrefetchIntent { hover, keyboard, trajectory }
@@ -99,7 +99,7 @@ final class TopicPrefetchController {
     }
     entry.requestIntent.promote();
     entry.adopted = true;
-    _trace(entry, 'adopted');
+
     _candidate = null;
     _hoverOwner = null;
     _timer?.cancel();
@@ -128,11 +128,8 @@ final class TopicPrefetchController {
     final entry = _candidate;
     if (entry != null) {
       if (entry.started && entry.completedAt == null) {
-        _trace(entry, 'cancelled');
-      } else if (entry.hasResult) {
-        _trace(entry, 'unused');
-      }
-      entry.discarded = true;
+      } else
+        entry.discarded = true;
       entry.cancellation.cancel();
     }
     _candidate = null;
@@ -149,7 +146,7 @@ final class TopicPrefetchController {
     }
     entry.started = true;
     entry.startedAt = _clock();
-    _trace(entry, 'started');
+
     _active = entry;
     unawaited(_load(entry));
   }
@@ -166,27 +163,12 @@ final class TopicPrefetchController {
       if (entry.cancellation.isCancelled) result = null;
       entry.completedAt = _clock();
       entry.hasResult = result != null;
-      if (!entry.discarded) {
-        _trace(entry, result == null ? 'failed' : 'ready');
-      }
+
       entry.result.complete(result);
       if (result == null && identical(_candidate, entry)) _discardCandidate();
       _active = null;
       _drain();
     }
-  }
-
-  void _trace(_Prefetch entry, String event) {
-    if (!TopicPrefetchTrace.enabled) return;
-    TopicPrefetchTrace.record(event, {
-      'request': entry.traceId,
-      'intent': entry.intent.name,
-      'elapsedMs': entry.startedAt == null
-          ? 0
-          : _clock().difference(entry.startedAt!).inMilliseconds,
-      'completed': entry.completedAt != null,
-      'adopted': entry.adopted,
-    });
   }
 
   /// Used when the window closes or the account session is retired, including
@@ -195,7 +177,6 @@ final class TopicPrefetchController {
     _discardCandidate();
     final active = _active;
     if (active != null && !active.discarded) {
-      _trace(active, 'cancelled');
       active.discarded = true;
       active.cancellation.cancel();
     }
@@ -208,7 +189,7 @@ final class _Prefetch {
   final requestIntent = RequestIntent.background();
   final TopicPrefetchKey key;
   final TopicPrefetchIntent intent;
-  final traceId = TopicPrefetchTrace.nextId();
+
   DateTime? startedAt;
   bool adopted = false;
   bool discarded = false;

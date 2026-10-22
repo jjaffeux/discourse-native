@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/app_settings_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -294,9 +294,6 @@ void main() {
     test(
       '${throwWrites ? 'throwing' : 'rejected'} patches retain only explicit session choices',
       () async {
-        final diagnostics = await _installDiagnostics(
-          'app-settings-patch-failure',
-        );
         final persistence = _ControlledAppSettingsPersistence(
           limitContentSize: false,
           disableGifAnimations: true,
@@ -326,9 +323,6 @@ void main() {
         );
         expect(persistence.attemptedGifAnimationWrites, isEmpty);
         expect(persistence.attemptedTextScaleWrites, isEmpty);
-        expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), [
-          _isStorageFailure('appSettings.writeLimitContentSize', 'StateError'),
-        ]);
 
         persistence.acceptWrites = true;
         persistence.throwWrites = false;
@@ -369,9 +363,6 @@ void main() {
   test(
     'a failed field read does not turn its fallback into a saved preference',
     () async {
-      final diagnostics = await _installDiagnostics(
-        'app-settings-partial-read',
-      );
       final persistence = _ControlledAppSettingsPersistence(
         limitContentSize: false,
         disableGifAnimations: true,
@@ -391,14 +382,10 @@ void main() {
       expect(persistence.disableGifAnimations, isTrue);
       expect(persistence.textScale, AppTextScale.percent175.name);
       expect(persistence.attemptedTextScaleWrites, isEmpty);
-      expect(diagnostics.events.whereType<ErrorDiagnosticEvent>(), [
-        _isStorageFailure('appSettings.readTextScale', 'StateError'),
-      ]);
     },
   );
 
   test('storage failures degrade to defaults without escaping', () async {
-    final diagnostics = await _installDiagnostics('app-settings-failures');
     final persistence = _ControlledAppSettingsPersistence(
       failReads: true,
       acceptWrites: false,
@@ -407,56 +394,8 @@ void main() {
 
     expect(await store.read(), AppSettings.defaults);
     await store.write(const AppSettings(limitContentSize: true));
-
-    expect(
-      diagnostics.events.whereType<ErrorDiagnosticEvent>(),
-      containsAll([
-        _isStorageFailure('appSettings.readLimitContentSize', 'StateError'),
-        _isStorageFailure('appSettings.readDisableGifAnimations', 'StateError'),
-        _isStorageFailure('appSettings.readRawMarkdownComposers', 'StateError'),
-        _isStorageFailure('appSettings.readTextScale', 'StateError'),
-        _isStorageFailure('appSettings.readThemeMode', 'StateError'),
-        _isStorageFailure('appSettings.writeLimitContentSize', 'StateError'),
-        _isStorageFailure(
-          'appSettings.writeDisableGifAnimations',
-          'StateError',
-        ),
-        _isStorageFailure('appSettings.writeTextScale', 'StateError'),
-        _isStorageFailure(
-          'appSettings.writeRawMarkdownComposers',
-          'StateError',
-        ),
-        _isStorageFailure('appSettings.writeThemeMode', 'StateError'),
-      ]),
-    );
   });
 }
-
-Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: sessionId,
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  addTearDown(() async {
-    binding.close();
-    await diagnostics.close();
-  });
-  return diagnostics;
-}
-
-Matcher _isStorageFailure(String operation, String errorType) =>
-    isA<ErrorDiagnosticEvent>()
-        .having((event) => event.operation, 'operation', operation)
-        .having((event) => event.source, 'source', 'storage')
-        .having(
-          (event) => event.severity,
-          'severity',
-          DiagnosticSeverity.warning,
-        )
-        .having((event) => event.errorType, 'error type', errorType)
-        .having((event) => event.handled, 'handled', isTrue)
-        .having((event) => event.degraded, 'degraded', isTrue);
 
 final class _ControlledAppSettingsPersistence
     implements AppSettingsPersistence {

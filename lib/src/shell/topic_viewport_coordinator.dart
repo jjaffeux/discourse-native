@@ -46,9 +46,6 @@ typedef TopicViewportInspector =
 typedef TopicViewportControllersFactory = TopicViewportControllers Function();
 typedef TopicViewportControllersDisposer =
     void Function(TopicViewportControllers controllers);
-typedef TopicViewportDiagnosticRecorder =
-    void Function(String name, Map<String, Object?> data);
-typedef TopicViewportLayoutDiagnostics = Map<String, Object?> Function();
 
 abstract interface class TopicViewportTimer {
   void cancel();
@@ -279,9 +276,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     DateTime Function()? clock,
     TopicViewportControllersFactory? controllersFactory,
     TopicViewportControllersDisposer? controllersDisposer,
-    bool Function()? diagnosticsEnabled,
-    TopicViewportDiagnosticRecorder? recordDiagnostic,
-    TopicViewportLayoutDiagnostics? layoutDiagnostics,
+
     this.pagingThreshold = 900,
     this.readInterval = const Duration(milliseconds: 500),
   }) : _postFrame = postFrame,
@@ -292,10 +287,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
        _clock = clock ?? DateTime.now,
        _controllersFactory = controllersFactory ?? _defaultControllersFactory,
        _controllersDisposer =
-           controllersDisposer ?? _defaultControllersDisposer,
-       _diagnosticsEnabled = diagnosticsEnabled,
-       _recordDiagnostic = recordDiagnostic,
-       _layoutDiagnostics = layoutDiagnostics;
+           controllersDisposer ?? _defaultControllersDisposer;
 
   final TopicViewportPostFrameScheduler _postFrame;
   final TopicViewportGeometry _geometry;
@@ -305,9 +297,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   final DateTime Function() _clock;
   final TopicViewportControllersFactory _controllersFactory;
   final TopicViewportControllersDisposer _controllersDisposer;
-  final bool Function()? _diagnosticsEnabled;
-  final TopicViewportDiagnosticRecorder? _recordDiagnostic;
-  final TopicViewportLayoutDiagnostics? _layoutDiagnostics;
+
   final double pagingThreshold;
   final Duration readInterval;
 
@@ -369,19 +359,6 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   ) {
     controllers.scroll.dispose();
     controllers.list.dispose();
-  }
-
-  void _record(
-    String name,
-    Map<String, Object?> data, {
-    bool includeLayout = false,
-  }) {
-    if (_diagnosticsEnabled?.call() != true) return;
-    _recordDiagnostic?.call(name, {
-      ...data,
-      if (includeLayout && _layoutDiagnostics != null)
-        'sliverLayout': _layoutDiagnostics(),
-    });
   }
 
   TopicViewportBinding? get binding => _binding;
@@ -657,11 +634,6 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
 
     if (anchor != null) {
       _restoreAfterWindowChange(anchor);
-    } else if (shouldRestoreAnchor) {
-      _record('viewport.prependAnchor.unavailable', {
-        'prepended': prepended,
-        'headerChanged': headerChanged,
-      }, includeLayout: true);
     }
 
     return TopicViewportWindowChange(
@@ -738,21 +710,11 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _anchorRestoreViewportOffset = viewportOffset;
     _anchorRestoreTopInset = _geometry.viewportTopInset;
     _anchorRestoreBoundary = null;
-    _record('viewport.anchor.held', {
-      'postId': postId,
-      'viewportOffset': viewportOffset,
-    });
+
     scheduleAnchorCorrection();
   }
 
   void cancelViewportAnchor() {
-    if (_anchorRestoreToken != null) {
-      _record('viewport.anchor.cancelled', {
-        'postId': _anchorRestorePostId,
-        'viewportOffset': _anchorRestoreViewportOffset,
-        'userDragging': _userDragging,
-      });
-    }
     _anchorRestoreToken = null;
     _anchorRestorePostId = null;
     _anchorRestoreBoundary = null;
@@ -763,9 +725,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     if (_anchorRestoreToken == null || _anchorCorrectionScheduled) return;
     final generation = _generation;
     _anchorCorrectionScheduled = true;
-    _record('viewport.anchor.correctionScheduled', {
-      'postId': _anchorRestorePostId,
-    });
+
     _postFrame(() {
       if (generation != _generation || isDisposed) return;
       _anchorCorrectionScheduled = false;
@@ -807,12 +767,6 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         if ((target - position.pixels).abs() >= 0.5) {
           _applyingAnchorRestore = true;
           try {
-            _record('viewport.anchor.boundaryCorrecting', {
-              'postId': postId,
-              'boundary': boundary.name,
-              'fromPixels': position.pixels,
-              'toPixels': target,
-            });
             _geometry.jumpToPixels(target);
           } finally {
             _applyingAnchorRestore = false;
@@ -825,12 +779,6 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       final leading = snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
       _applyingAnchorRestore = true;
       try {
-        _record('viewport.anchor.jumpToItem', {
-          'postId': postId,
-          'postIndex': postIndex,
-          'leadingItemCount': leading,
-          'viewportOffset': _anchorRestoreViewportOffset,
-        });
         _jumpTo(
           postIndex + leading,
           viewportOffset: anchorRestoreViewportOffset,
@@ -853,25 +801,10 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         ? _TopicViewportAnchorBoundary.trailing
         : null;
     if ((target - position.pixels).abs() < 0.5) {
-      _record('viewport.anchor.aligned', {
-        'postId': postId,
-        'pixels': position.pixels,
-        'currentViewportOffset': currentOffset,
-        'requestedViewportOffset': anchorRestoreViewportOffset,
-        if (_anchorRestoreBoundary case final boundary?)
-          'boundary': boundary.name,
-      });
       return;
     }
     _applyingAnchorRestore = true;
     try {
-      _record('viewport.anchor.correcting', {
-        'postId': postId,
-        'fromPixels': position.pixels,
-        'toPixels': target,
-        'currentViewportOffset': currentOffset,
-        'requestedViewportOffset': anchorRestoreViewportOffset,
-      });
       _geometry.jumpToPixels(target);
     } finally {
       _applyingAnchorRestore = false;
@@ -991,10 +924,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     final generation = _generation;
     _loadMoreToken = token;
     _loadMoreTarget = target;
-    _record('paging.newer.scheduled', {
-      'topicId': topicId,
-      'loadedPostCount': snapshot.postIds.length,
-    }, includeLayout: true);
+
     _postFrame(() {
       if (!identical(_loadMoreToken, token) || generation != _generation) {
         return;
@@ -1002,16 +932,10 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       _loadMoreToken = null;
       if (!isCurrent(binding) || binding.currentSnapshot() != snapshot) {
         if (_loadMoreTarget == target) _loadMoreTarget = null;
-        _record('paging.newer.cancelled', {
-          'topicId': topicId,
-          'loadedPostCount': snapshot.postIds.length,
-        });
+
         return;
       }
-      _record('paging.newer.dispatched', {
-        'topicId': topicId,
-        'loadedPostCount': snapshot.postIds.length,
-      });
+
       unawaited(binding.loadMore());
     });
   }
@@ -1026,10 +950,6 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     final target = (siteUrl, topicId, snapshot.postIds.length);
     if (_loadMoreTarget == target) {
       _loadMoreTarget = null;
-      _record('paging.newer.retryArmed', {
-        'topicId': topicId,
-        'loadedPostCount': snapshot.postIds.length,
-      });
     }
   }
 
@@ -1069,11 +989,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     final generation = _generation;
     _loadEarlierToken = token;
     _loadEarlierTarget = target;
-    _record('paging.earlier.scheduled', {
-      'topicId': topicId,
-      'firstLoadedPostId': snapshot.postIds.first,
-      'loadedPostCount': snapshot.postIds.length,
-    }, includeLayout: true);
+
     _postFrame(() {
       if (!identical(_loadEarlierToken, token) || generation != _generation) {
         return;
@@ -1083,16 +999,10 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
           !isCurrent(binding) ||
           binding.currentSnapshot() != snapshot) {
         if (_loadEarlierTarget == target) _loadEarlierTarget = null;
-        _record('paging.earlier.cancelled', {
-          'topicId': topicId,
-          'firstLoadedPostId': snapshot.postIds.first,
-        });
+
         return;
       }
-      _record('paging.earlier.dispatched', {
-        'topicId': topicId,
-        'firstLoadedPostId': snapshot.postIds.first,
-      });
+
       unawaited(binding.loadEarlier());
     });
   }
@@ -1109,10 +1019,6 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     final target = (siteUrl, topicId, snapshot.postIds.first);
     if (_loadEarlierTarget == target) {
       _loadEarlierTarget = null;
-      _record('paging.earlier.retryArmed', {
-        'topicId': topicId,
-        'firstLoadedPostId': snapshot.postIds.first,
-      });
     }
   }
 

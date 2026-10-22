@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
@@ -494,11 +493,6 @@ class ImageGridTile extends StatelessWidget {
                 cacheWidth: cacheWidth,
                 gifPlaybackControls: true,
                 errorBuilder: (context, error, stackTrace) {
-                  reportImageError(
-                    error,
-                    stackTrace,
-                    operation: 'imageGrid.image',
-                  );
                   return UnavailableImage(
                     color: Theme.of(context).shell.placeholder,
                   );

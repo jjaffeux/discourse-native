@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/user_directory.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/recent_search_history.dart';
@@ -330,7 +330,6 @@ void main() {
 
   group('recent-search failure handling', () {
     test('reports a failed load once without degrading search', () async {
-      final diagnostics = await _installDiagnostics('recent-search-failure');
       final api = _SearchApi()..recentFailure = StateError('offline');
       final credentials = FakeApiCredentialReader()..keys[site] = 'secret';
       final search = _search(
@@ -348,33 +347,8 @@ void main() {
 
       expect(search.recentSearches, isEmpty);
       expect(api.recentSites, [site]);
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-        isA<ErrorDiagnosticEvent>()
-            .having(
-              (event) => event.operation,
-              'operation',
-              'search.loadRecent',
-            )
-            .having((event) => event.source, 'source', 'search')
-            .having((event) => event.handled, 'handled', isTrue)
-            .having((event) => event.degraded, 'degraded', isFalse),
-      );
     });
   });
-}
-
-Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: sessionId,
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  addTearDown(() async {
-    binding.close();
-    await diagnostics.close();
-  });
-  return diagnostics;
 }
 
 final class _RecordingCredentials extends FakeApiCredentialReader {

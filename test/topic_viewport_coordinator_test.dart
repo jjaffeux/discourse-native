@@ -402,11 +402,7 @@ void main() {
       final frames = _FrameQueue();
       final geometry = _Geometry();
       final diagnostics = <String>[];
-      final subject = _coordinator(
-        frames: frames,
-        geometry: geometry,
-        diagnostics: diagnostics,
-      );
+      final subject = _coordinator(frames: frames, geometry: geometry);
       _disposeAfter(subject, frames);
       final first = _snapshot(topicId: 1, postIds: const [10], hasMore: true);
       final owner = _Owner(first);
@@ -437,18 +433,6 @@ void main() {
       subject.scheduleLoadMore(owner.snapshot);
       frames.flushFrame();
       expect(owner.loadMoreCount, 2);
-      expect(
-        diagnostics,
-        containsAllInOrder(const [
-          'paging.newer.scheduled',
-          'paging.newer.dispatched',
-          'paging.newer.retryArmed',
-          'paging.newer.scheduled',
-          'paging.newer.cancelled',
-          'paging.newer.scheduled',
-          'paging.newer.dispatched',
-        ]),
-      );
     });
 
     test('topic switches reject paging queued by the previous generation', () {
@@ -479,11 +463,7 @@ void main() {
         ..offsets[11] = 40
         ..position = (pixels: 100, minScrollExtent: 0, maxScrollExtent: 500);
       final diagnostics = <String>[];
-      final subject = _coordinator(
-        frames: frames,
-        geometry: geometry,
-        diagnostics: diagnostics,
-      );
+      final subject = _coordinator(frames: frames, geometry: geometry);
       _disposeAfter(subject, frames);
       final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
       subject
@@ -501,15 +481,6 @@ void main() {
       frames.flushFrame();
 
       expect(geometry.itemJumps, const [(itemIndex: 1, viewportOffset: 10)]);
-      expect(
-        diagnostics,
-        containsAll(const [
-          'viewport.anchor.held',
-          'viewport.anchor.correctionScheduled',
-          'viewport.anchor.correcting',
-          'viewport.anchor.jumpToItem',
-        ]),
-      );
     });
 
     test('a boundary-aligned anchor does not recycle its detached target', () {
@@ -518,11 +489,7 @@ void main() {
         ..offsets[11] = 300
         ..position = (pixels: 1000, minScrollExtent: 0, maxScrollExtent: 1000);
       final diagnostics = <String>[];
-      final subject = _coordinator(
-        frames: frames,
-        geometry: geometry,
-        diagnostics: diagnostics,
-      );
+      final subject = _coordinator(frames: frames, geometry: geometry);
       _disposeAfter(subject, frames);
       final owner = _Owner(_snapshot(topicId: 1, postIds: const [10, 11]));
       subject
@@ -544,7 +511,6 @@ void main() {
 
       expect(geometry.itemJumps, isEmpty);
       expect(geometry.pixelJumps, [1400]);
-      expect(diagnostics, contains('viewport.anchor.boundaryCorrecting'));
     });
 
     for (final insets in [(80.0, 0.0), (0.0, 80.0)]) {
@@ -603,9 +569,6 @@ TopicViewportCoordinator _coordinator({
   timerFactory: clock?.startTimer,
   clock: clock?.now,
   controllersDisposer: controllersDisposer,
-  diagnosticsEnabled: () => diagnostics != null,
-  recordDiagnostic: (name, data) => diagnostics?.add(name),
-  layoutDiagnostics: () => const {'attached': false},
 );
 
 TopicViewportSnapshot _snapshot({

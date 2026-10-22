@@ -8,7 +8,7 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/incoming_topics.dart';
@@ -731,9 +731,9 @@ final class TopicFeedController extends FrameSafeNotifier {
           );
         }
       });
-    } on SiteLookupException catch (error, stackTrace) {
+    } on SiteLookupException catch (error) {
       if (!requestIsCurrent()) return;
-      _report(error, stackTrace, 'topics.loadFeed');
+
       _commit(lease, () {
         if (!requestIsCurrent()) return;
         incoming?.restore(destinationId, announced);
@@ -745,9 +745,9 @@ final class TopicFeedController extends FrameSafeNotifier {
         );
         notifySafely();
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!requestIsCurrent()) return;
-      _report(error, stackTrace, 'topics.loadFeed');
+
       _commit(lease, () {
         if (!requestIsCurrent()) return;
         incoming?.restore(destinationId, announced);
@@ -901,14 +901,9 @@ final class TopicFeedController extends FrameSafeNotifier {
           );
         }
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!requestIsCurrent()) return;
-      _report(
-        error,
-        stackTrace,
-        'topics.loadIncoming',
-        severity: DiagnosticSeverity.warning,
-      );
+
       _commit(lease, () {
         if (!requestIsCurrent()) return;
         session.feed = (session.feed ?? feed).copyWith(loadingIncoming: false);
@@ -1047,14 +1042,9 @@ final class TopicFeedController extends FrameSafeNotifier {
           );
         }
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!requestIsCurrent()) return;
-      _report(
-        error,
-        stackTrace,
-        'topics.loadMore',
-        severity: DiagnosticSeverity.warning,
-      );
+
       _commit(lease, () {
         if (!requestIsCurrent()) return;
         final held = session.feed;
@@ -1180,15 +1170,7 @@ final class TopicFeedController extends FrameSafeNotifier {
           );
         }
       });
-    } catch (error, stackTrace) {
-      if (requestIsCurrent()) {
-        _report(
-          error,
-          stackTrace,
-          'topics.restoreSelection',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
     } finally {
       if (identical(session.topicRequest, request)) {
         session.topicRequest = null;
@@ -1447,14 +1429,9 @@ final class TopicFeedController extends FrameSafeNotifier {
           session.feed = window.publish(held.copyWith(clearError: true));
         }
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!requestIsCurrent()) return;
-      _report(
-        error,
-        stackTrace,
-        'topics.restoreRange',
-        severity: DiagnosticSeverity.warning,
-      );
+
       _commit(lease, () {
         if (!requestIsCurrent()) return;
         final held = session.feed;
@@ -1517,23 +1494,6 @@ final class TopicFeedController extends FrameSafeNotifier {
   void _commit(SiteLease lease, void Function() mutation) {
     if (isDisposed || !lease.isCurrent) return;
     lease.commit(mutation);
-  }
-
-  void _report(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    DiagnosticSeverity severity = DiagnosticSeverity.error,
-  }) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'topics',
-      severity: severity,
-      handled: true,
-      degraded: true,
-    );
   }
 
   @override

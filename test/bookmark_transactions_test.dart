@@ -101,7 +101,6 @@ final class _Fixture {
       refreshList: (_) async {
         list++;
       },
-      report: (_, _, operation) => errors.add(operation),
     );
     store.put(_site, _post);
     store.put(

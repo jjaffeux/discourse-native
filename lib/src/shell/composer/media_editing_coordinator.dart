@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../diagnostics/diagnostics_controller.dart';
 import '../../foundation/frame_safe_notifier.dart';
 import '../../models/composer_upload.dart';
 import 'clipboard.dart';
@@ -427,16 +426,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
         return;
       }
       composer.addImagesToGallery(files, gallery);
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'composer.gallery.pickImages',
-        source: 'platform',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
+    } catch (error) {
       if (_isCurrent(composer, lifecycle) &&
           operation == _pickerGeneration &&
           composer.canUpload) {
@@ -502,16 +492,7 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     List<ComposerUploadFile> files;
     try {
       files = await readClipboardFiles();
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'composer.readClipboardFiles',
-        source: 'platform',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
+    } catch (error) {
       return !_isCurrent(composer, lifecycle) || !composer.canUpload;
     }
     if (!_isCurrent(composer, lifecycle) || !composer.canUpload) return true;

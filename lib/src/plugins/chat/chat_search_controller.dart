@@ -65,7 +65,7 @@ final class ChatSearchController {
     required this.api,
     required PluginRequestHost requests,
     required Store store,
-    this.reporter = const PluginDiagnosticsReporter.noop(),
+
     this.debounceDuration = const Duration(milliseconds: 400),
   }) : assert(debounceDuration >= Duration.zero),
        _requests = requests,
@@ -74,7 +74,7 @@ final class ChatSearchController {
   final ChatApi api;
   final PluginRequestHost _requests;
   final Store _store;
-  final PluginDiagnosticsReporter reporter;
+
   final Duration debounceDuration;
 
   static const int maximumQueryLength = 2048;
@@ -276,9 +276,9 @@ final class ChatSearchController {
           ),
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!current()) return;
-      _report(error, stackTrace, 'chat.search');
+
       lease.commit(() {
         _setGlobal(
           siteUrl,
@@ -329,17 +329,6 @@ final class ChatSearchController {
   void _cancelGlobal(String siteUrl) {
     _globalTimers.remove(siteUrl)?.cancel();
     _globalRequests.remove(siteUrl);
-  }
-
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    reporter.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'chat',
-      handled: true,
-      degraded: true,
-    );
   }
 
   void forget(String siteUrl) {

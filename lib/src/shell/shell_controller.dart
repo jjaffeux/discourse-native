@@ -48,8 +48,7 @@ import '../data/topic_tracking_reconciler.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
-import '../diagnostics/diagnostics_controller.dart';
-import '../diagnostics/surface_opening_trace.dart';
+
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/timezone_environment.dart';
@@ -333,7 +332,6 @@ class ShellController extends FrameSafeNotifier
     ShellRootMode initialRootMode = ShellRootMode.forum,
     InstalledPlugins? plugins,
     CookingServicePort? cookingService,
-    PluginDiagnosticsReporter? pluginDiagnosticsReporter,
   }) : api = ShellApiPorts.fromCapabilities(api),
        forumTabs = forumTabs ?? ForumTabStore.memory(),
        recentDestinations =
@@ -361,9 +359,7 @@ class ShellController extends FrameSafeNotifier
        _rootMode = initialRootMode,
        _providedCookingService = cookingService,
        _ownsPlugins = plugins == null,
-       _pluginDiagnosticsReporter =
-           pluginDiagnosticsReporter ??
-           const PluginDiagnosticsReporter.ambient(),
+
        plugins = plugins ?? PluginInstaller.install(corePluginManifest),
        updates = UpdateController(
          updater: updater,
@@ -588,23 +584,13 @@ class ShellController extends FrameSafeNotifier
         lifecycle: lifecycle,
         api: api.site,
         host: this,
-        reportError: (error, stackTrace, operation, {required bool warning}) {
-          _reportOperationalError(
-            error,
-            stackTrace,
-            operation,
-            severity: warning
-                ? DiagnosticSeverity.warning
-                : DiagnosticSeverity.error,
-          );
-        },
       );
   final SiteImageRepository? _providedSiteImages;
   final SiteVideoThumbnailRepository? _providedVideoThumbnails;
   final SitePdfThumbnailRepository? _providedPdfThumbnails;
   final InstalledPlugins plugins;
   final bool _ownsPlugins;
-  final PluginDiagnosticsReporter _pluginDiagnosticsReporter;
+
   Future<void>? _pluginTeardownFuture;
 
   Future<void> get pluginTeardown =>
@@ -718,10 +704,7 @@ class ShellController extends FrameSafeNotifier
         corePluginAccountConnectionPort,
         _ShellPluginAccountConnectionHost(this),
       ),
-      PluginHostPort<Object>(
-        pluginDiagnosticsReporterPort,
-        _pluginDiagnosticsReporter,
-      ),
+
       PluginHostPort<Object>(
         corePluginSiteStatePort,
         PluginSiteStateHost(
@@ -964,12 +947,7 @@ class ShellController extends FrameSafeNotifier
         ),
         failure: null,
       );
-    } catch (error, stackTrace) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'authentication.readWriteCredential',
-      );
+    } catch (error) {
       return (
         credentials: null,
         failure: const WriteException(WriteFailure.unreachable),
@@ -1000,35 +978,8 @@ class ShellController extends FrameSafeNotifier
 
   void notifyPluginStateChanged() => _notify();
 
-  void _reportOperationalError(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    bool degraded = true,
-    DiagnosticSeverity severity = DiagnosticSeverity.error,
-  }) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'shell',
-      severity: severity,
-      handled: true,
-      degraded: degraded,
-    );
-  }
-
-  void _observePluginLifecycle(Future<void> task, String operation) {
-    unawaited(
-      task.onError((Object error, StackTrace stackTrace) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          operation,
-          severity: DiagnosticSeverity.warning,
-        );
-      }),
-    );
+  void _observePluginLifecycle(Future<void> task) {
+    unawaited(task.onError((Object error, StackTrace stackTrace) {}));
   }
 
   Future<_ShellWriteCredential> _credentialForWrite(
@@ -1052,12 +1003,7 @@ class ShellController extends FrameSafeNotifier
               failure: const WriteException(WriteFailure.forbidden),
             )
           : (apiKey: apiKey, request: request, failure: null);
-    } catch (error, stackTrace) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'authentication.readWriteCredential',
-      );
+    } catch (error) {
       return (
         apiKey: null,
         request: null,
@@ -1194,14 +1140,6 @@ class ShellController extends FrameSafeNotifier
     credentials: credentials,
     lifecycle: lifecycle,
     store: store,
-    reportError: (error, stackTrace, operation) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        operation,
-        severity: DiagnosticSeverity.warning,
-      );
-    },
   );
 
   late final GlobalSearchApi _globalSearchApi = GlobalSearchApi(
@@ -1671,13 +1609,7 @@ class ShellController extends FrameSafeNotifier
           _destinationBookmarksRevision++;
           _notify();
           return const BookmarkWriteResult.saved();
-        } catch (error, stack) {
-          _reportOperationalError(
-            error,
-            stack,
-            'destinationBookmarks.save',
-            degraded: true,
-          );
+        } catch (error) {
           return BookmarkWriteResult.refused(appL10n.couldNotSaveChanges);
         }
       },
@@ -1977,7 +1909,6 @@ class ShellController extends FrameSafeNotifier
               Future.sync(
                 () => hydrator.hydratePluginRoute(instance.url, route.id),
               ),
-              'plugins.session.hydrateRoute',
             );
           }
         } else if (force ||
@@ -2101,23 +2032,12 @@ class ShellController extends FrameSafeNotifier
     final storedWorkspaces = forumTabs.load();
     final recentDestinationsLoad = recentDestinations.load();
     final destinationBookmarksLoad = destinationBookmarks.load().catchError(
-      (Object error, StackTrace stack) => _reportOperationalError(
-        error,
-        stack,
-        'destinationBookmarks.load',
-        degraded: true,
-      ),
+      (Object error, StackTrace stack) {},
     );
     final List<DiscourseInstance> stored;
     try {
       stored = await instanceStore.load();
-    } catch (error, stackTrace) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'instances.load',
-        degraded: false,
-      );
+    } catch (error) {
       if (!isDisposed) {
         _loadStatus = InstanceLoadStatus.failed;
         _notify();
@@ -2370,14 +2290,7 @@ class ShellController extends FrameSafeNotifier
         unawaited(
           destinationBookmarks
               .forgetSite(held.url)
-              .catchError(
-                (Object error, StackTrace stack) => _reportOperationalError(
-                  error,
-                  stack,
-                  'destinationBookmarks.forgetSite',
-                  degraded: true,
-                ),
-              ),
+              .catchError((Object error, StackTrace stack) {}),
         );
         if (recentDestinations.forgetSite(held.url)) {
           unawaited(recentDestinations.save());
@@ -2623,12 +2536,7 @@ class ShellController extends FrameSafeNotifier
     instanceFor: _instanceAt,
     selectedSite: () => currentInstance?.url,
     onChanged: _notify,
-    reportFailure: (error, stackTrace) => _reportOperationalError(
-      error,
-      stackTrace,
-      'sidebar.loadCustomSections',
-      severity: DiagnosticSeverity.warning,
-    ),
+
     clock: _clock,
   );
 
@@ -2728,14 +2636,7 @@ class ShellController extends FrameSafeNotifier
         in _pluginSession.capabilities<PluginUserPreferenceMirror>()) {
       try {
         updated = mirror.mirrorUserPreference(updated, section, preferences);
-      } catch (error, stackTrace) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'preferences.pluginMirror',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+      } catch (error) {}
     }
     if (updated == user) return;
     _replaceInstance(instance, instance.copyWith(user: updated));
@@ -2748,14 +2649,7 @@ class ShellController extends FrameSafeNotifier
   ) async {
     try {
       await instanceStore.save(instances);
-    } catch (error, stackTrace) {
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'preferences.persistMirror',
-        severity: DiagnosticSeverity.warning,
-      );
-    }
+    } catch (error) {}
   }
 
   void _notifyPluginTotals(
@@ -2774,7 +2668,6 @@ class ShellController extends FrameSafeNotifier
             selected: currentInstance?.url == instance.url,
           ),
         ),
-        'plugins.session.totalsLoaded',
       );
     }
   }
@@ -3589,7 +3482,7 @@ class ShellController extends FrameSafeNotifier
   Future<List<TopicFilterOption>> loadTopicFilterOptions(String siteUrl) =>
       _filterLookup(
         siteUrl,
-        'topics.filter.options',
+
         (apiKey, clientId) async => (await api.topicFeeds.topicList(
           siteUrl: siteUrl,
           path: '/filter.json',
@@ -3657,7 +3550,7 @@ class ShellController extends FrameSafeNotifier
     required String term,
   }) => _filterLookup(
     siteUrl,
-    'topics.filter.tagGroups',
+
     (apiKey, clientId) => api.lookups.searchFilterTagGroups(
       siteUrl: siteUrl,
       term: term,
@@ -3671,7 +3564,7 @@ class ShellController extends FrameSafeNotifier
     required String term,
   }) => _filterLookup(
     siteUrl,
-    'topics.filter.groups',
+
     (apiKey, clientId) => apiKey == null
         ? Future.value(const [])
         : api.lookups.searchFilterGroups(
@@ -3687,7 +3580,7 @@ class ShellController extends FrameSafeNotifier
     required String term,
   }) => _filterLookup(
     siteUrl,
-    'topics.filter.users',
+
     (apiKey, clientId) async => [
       for (final user in await api.lookups.searchUsers(
         siteUrl: siteUrl,
@@ -3701,7 +3594,7 @@ class ShellController extends FrameSafeNotifier
 
   Future<List<T>> _filterLookup<T>(
     String siteUrl,
-    String operation,
+
     Future<List<T>> Function(String? apiKey, String? clientId) lookup,
   ) async {
     final lease = lifecycle.capture(siteUrl);
@@ -3715,16 +3608,7 @@ class ShellController extends FrameSafeNotifier
         () => lookup(credential.apiKey, credential.clientId),
       );
       return !isDisposed && lease.isCurrent ? found : const [];
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          operation,
-          degraded: false,
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return const [];
     }
   }
@@ -4294,14 +4178,9 @@ class ShellController extends FrameSafeNotifier
         () =>
             api.site.currentUser(siteUrl: siteUrl, apiKey: credential.apiKey!),
       );
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed || !lease.isCurrent) return null;
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'messageBus.resolveAccount',
-        severity: DiagnosticSeverity.warning,
-      );
+
       if (error is ApiKeyRejectedException) {
         await _expireRejectedAccount(siteUrl, apiKey, lease);
         return null;
@@ -4428,7 +4307,6 @@ class ShellController extends FrameSafeNotifier
           in _pluginSession.capabilities<PluginCurrentUserObserver>()) {
         _observePluginLifecycle(
           Future.sync(() => observer.pluginCurrentUserRefreshed(siteUrl)),
-          'plugins.session.currentUserRefreshed',
         );
       }
     }
@@ -4607,10 +4485,7 @@ class ShellController extends FrameSafeNotifier
         unawaited(composer.flushDraftOnBackground());
       }
     }
-    _observePluginLifecycle(
-      _pluginSession.setForeground(foreground),
-      'plugins.session.setForeground',
-    );
+    _observePluginLifecycle(_pluginSession.setForeground(foreground));
     _syncTracking();
     if (!foreground) return;
     doNotDisturb.checkExpirations();
@@ -4653,8 +4528,6 @@ class ShellController extends FrameSafeNotifier
         accountActivity.loadBookmarks(instance, force: true),
     refreshList: (instance) =>
         accountActivity.refreshLoadedBookmarkList(instance),
-    report: (error, stackTrace, operation) =>
-        _reportOperationalError(error, stackTrace, operation),
   );
 
   late final TopicDataOwner _topicData = TopicDataOwner(
@@ -4677,7 +4550,7 @@ class ShellController extends FrameSafeNotifier
       final instance = _instanceAt(siteUrl);
       if (instance != null) await _taxonomy.ensureCategoryIds(instance, ids);
     },
-    report: _reportOperationalError,
+
     loadTimeout: topicLoadTimeout,
     bookmarkReads: (siteUrl, lease) => _bookmarks.forLease(siteUrl, lease)!,
   );
@@ -5234,7 +5107,7 @@ class ShellController extends FrameSafeNotifier
                 true
         ? search.wordsFor(currentInstance!.url, document.tabId, source.id)
         : '';
-    SurfaceOpeningTrace.mark('topic.request');
+
     if (currentInstance case final instance?) {
       _topicData.forSite(instance.url).clearSummary(topicId);
     }
@@ -5505,15 +5378,7 @@ class ShellController extends FrameSafeNotifier
         targetId: targetId,
         bookmark: bookmark,
       );
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'bookmark.resolveLink',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return null;
     }
   }
@@ -5848,15 +5713,7 @@ class ShellController extends FrameSafeNotifier
       if (!isCurrent()) return false;
       openCurrentTopicPost(target.postNumber, loadAroundPost: loadAroundPost);
       return true;
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'topic.jumpToIndex',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return false;
     } finally {
       if (identical(_topicJumpRuns[key], token)) {
@@ -5934,15 +5791,12 @@ class ShellController extends FrameSafeNotifier
     bool force = false,
     int? postNumber,
     ShellTabContext? context,
-  }) => DiagnosticsSink.runOperation(
-    'topic.load',
-    () => _loadTopic(
-      topicId,
-      slug,
-      force: force,
-      postNumber: postNumber,
-      context: context ?? focusedTabContext,
-    ),
+  }) => _loadTopic(
+    topicId,
+    slug,
+    force: force,
+    postNumber: postNumber,
+    context: context ?? focusedTabContext,
   );
 
   Future<void> _loadTopic(
@@ -6247,14 +6101,8 @@ class ShellController extends FrameSafeNotifier
         _projectTopicNotificationLevel(queue, write, visible);
       }
       write.complete(true);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (queue.isCurrent && !isDisposed) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'topic.updateNotificationLevel',
-          severity: DiagnosticSeverity.warning,
-        );
         if (isLatest()) _rollbackTopicNotification(queue, write);
       }
       write.complete(false);
@@ -6417,14 +6265,8 @@ class ShellController extends FrameSafeNotifier
           clientId: clientId,
         ),
       );
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (queue.account.isCurrent && !isDisposed) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'category.updateNotificationLevel',
-          severity: DiagnosticSeverity.warning,
-        );
         if (isLatest()) _rollbackCategoryNotification(queue, write);
       }
       write.complete(false);
@@ -6674,9 +6516,8 @@ class ShellController extends FrameSafeNotifier
     } on WriteException catch (error) {
       if (lease.isCurrent && !isDisposed) rollback();
       return error.message;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (lease.isCurrent && !isDisposed) {
-        _reportOperationalError(error, stackTrace, 'topic.updatePinPreference');
         rollback();
       }
       return const WriteException(WriteFailure.unreachable).message;
@@ -6745,10 +6586,7 @@ class ShellController extends FrameSafeNotifier
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
-        _reportOperationalError(error, stackTrace, 'message.updateArchived');
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       lease.commit(() => _messageArchiveWrites.remove(key));
@@ -6883,10 +6721,7 @@ class ShellController extends FrameSafeNotifier
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
-        _reportOperationalError(error, stackTrace, 'topic.updateStatus');
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       lease.commit(() {
@@ -6965,10 +6800,7 @@ class ShellController extends FrameSafeNotifier
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent && !isDisposed) {
-        _reportOperationalError(error, stackTrace, 'topic.setDeleted');
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       lease.commit(() {
@@ -7072,7 +6904,6 @@ class ShellController extends FrameSafeNotifier
         if (error is WriteException) {
           failure = lease.isCurrent ? error.message : null;
         } else if (lease.isCurrent && !isDisposed) {
-          _reportOperationalError(error, stackTrace, 'topic.markUnread');
           failure = const WriteException(WriteFailure.unreachable).message;
         }
       },
@@ -7194,7 +7025,6 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _setComposer(ComposerController composer) {
-    SurfaceOpeningTrace.mark('composer.publish');
     final target = composer.target;
     _composers.add(composer);
     _selectedComposers[target.siteUrl] = composer;
@@ -7308,7 +7138,6 @@ class ShellController extends FrameSafeNotifier
           _removeComposer(composer);
           _notify();
         },
-        reportError: _reportOperationalError,
       );
 
   ComposerController? get visibleComposer {
@@ -7337,7 +7166,6 @@ class ShellController extends FrameSafeNotifier
     bool persistsDraft = false,
     int minimumRequiredTags = 0,
   }) {
-    SurfaceOpeningTrace.mark('composer.create');
     final config = siteConfigFor(target.siteUrl);
     final pluginPolicy = target is PluginComposerTarget ? target.policy : null;
     final draftSession = persistsDraft
@@ -7766,16 +7594,7 @@ class ShellController extends FrameSafeNotifier
             _taxonomy.mergeCategories(siteUrl, found);
             _notify();
           }
-        } catch (error, stackTrace) {
-          if (isCurrent()) {
-            _reportOperationalError(
-              error,
-              stackTrace,
-              'composer.category',
-              severity: DiagnosticSeverity.warning,
-            );
-          }
-        }
+        } catch (error) {}
       }
     }
     if (!isCurrent()) return;
@@ -8431,10 +8250,7 @@ class ShellController extends FrameSafeNotifier
       return null;
     } on WriteException catch (error) {
       return error.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, 'post.fastEdit');
-      }
+    } catch (error) {
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       lease.commit(releasePost);
@@ -8571,16 +8387,7 @@ class ShellController extends FrameSafeNotifier
         _topicComposerCapabilities[siteUrl] = capabilities;
         _notify();
       });
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'composer.topicCapabilities',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
-    }
+    } catch (error) {}
   }
 
   ComposerSearch _composerSearch(ComposerTarget target) {
@@ -8715,9 +8522,9 @@ class ShellController extends FrameSafeNotifier
           );
         }
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed || !lease.isCurrent) return;
-      _reportOperationalError(error, stackTrace, 'post.loadEditBody');
+
       lease.commit(composer.bodyLoadFailed);
     }
   }
@@ -9000,15 +8807,7 @@ class ShellController extends FrameSafeNotifier
         destinations: const <TopicMoveDestination>[],
         error: _topicPostMoveRefusal(target) ?? error.message,
       );
-    } catch (error, stackTrace) {
-      if (isTopicPostMoveTargetCurrent(target)) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'topic.selectedPosts.searchDestination',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return (
         destinations: const <TopicMoveDestination>[],
         error:
@@ -9344,16 +9143,11 @@ class ShellController extends FrameSafeNotifier
       return result.allowed
           ? null
           : result.reason ?? appL10n.thisPostCannotBePermanentlyDeletedYet;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!lease.isCurrent || isDisposed) {
         return _obsoletePermanentPostDeletion;
       }
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'post.permanentDeletionCheck',
-        severity: DiagnosticSeverity.warning,
-      );
+
       return const WriteException(WriteFailure.unreachable).message;
     }
   }
@@ -9649,9 +9443,9 @@ class ShellController extends FrameSafeNotifier
       return lease.isCurrent ? null : _obsoletePostNotice;
     } on WriteException catch (error) {
       return lease.isCurrent ? error.message : _obsoletePostNotice;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!lease.isCurrent) return _obsoletePostNotice;
-      _reportOperationalError(error, stackTrace, 'post.setNotice');
+
       return const WriteException(WriteFailure.unreachable).message;
     } finally {
       lease.commit(releasePost);
@@ -9733,10 +9527,7 @@ class ShellController extends FrameSafeNotifier
         return null;
       } on WriteException catch (error) {
         return error.message;
-      } catch (error, stackTrace) {
-        if (lease.isCurrent) {
-          _reportOperationalError(error, stackTrace, 'post.flag');
-        }
+      } catch (error) {
         return const WriteException(WriteFailure.unreachable).message;
       }
     } finally {
@@ -9817,10 +9608,7 @@ class ShellController extends FrameSafeNotifier
         return null;
       } on WriteException catch (error) {
         return error.message;
-      } catch (error, stackTrace) {
-        if (lease.isCurrent) {
-          _reportOperationalError(error, stackTrace, 'topic.flag');
-        }
+      } catch (error) {
         return const WriteException(WriteFailure.unreachable).message;
       }
     } finally {
@@ -9984,10 +9772,7 @@ class ShellController extends FrameSafeNotifier
     } on WriteException catch (e) {
       revert();
       return e.message;
-    } catch (error, stackTrace) {
-      if (lease.isCurrent) {
-        _reportOperationalError(error, stackTrace, 'post.toggleLike');
-      }
+    } catch (error) {
       revert();
       return const WriteException(WriteFailure.unreachable).message;
     }
@@ -10128,33 +9913,23 @@ class ShellController extends FrameSafeNotifier
         ),
       );
       lease.commit(() => store.put(targetSite, fetched));
-    } on SiteLookupException catch (e, stackTrace) {
+    } on SiteLookupException catch (e) {
       if (isDisposed ||
           !lease.isCurrent ||
           !likerRequests.isPending(targetSite, postId)) {
         return;
       }
-      _reportOperationalError(
-        e,
-        stackTrace,
-        'post.loadLikers',
-        severity: DiagnosticSeverity.warning,
-      );
+
       failure = e.failure == SiteLookupFailure.notDiscourse
           ? appL10n.couldnTSeeWhoLikedThis
           : appL10n.couldnTReach((instance.host).toString());
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed ||
           !lease.isCurrent ||
           !likerRequests.isPending(targetSite, postId)) {
         return;
       }
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'post.loadLikers',
-        severity: DiagnosticSeverity.warning,
-      );
+
       failure = appL10n.couldnTLoadWhoLikedThis;
     } finally {
       lease.commit(
@@ -10185,15 +9960,7 @@ class ShellController extends FrameSafeNotifier
         ),
       );
       return lease.isCurrent ? fetched : null;
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'post.loadRevision',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       rethrow;
     }
   }
@@ -10257,9 +10024,7 @@ class ShellController extends FrameSafeNotifier
           ? PostMutationNotSent(problem)
           : PostMutationRefused(problem);
     }
-    if (error is! WriteException && data.isCurrent && !isDisposed) {
-      _reportOperationalError(error, stackTrace, 'post.mutate');
-    }
+
     return data.reconcileUncertainMutation(
       topicId,
       ids,
@@ -10905,33 +10670,23 @@ class ShellController extends FrameSafeNotifier
         ),
       );
       lease.commit(() => store.put(targetSite, card));
-    } on SiteLookupException catch (e, stackTrace) {
+    } on SiteLookupException catch (e) {
       if (isDisposed ||
           !lease.isCurrent ||
           !userCardRequests.isPending(targetSite, key)) {
         return;
       }
-      _reportOperationalError(
-        e,
-        stackTrace,
-        'userCard.load',
-        severity: DiagnosticSeverity.warning,
-      );
+
       failure = e.failure == SiteLookupFailure.notDiscourse
           ? appL10n.couldnTSeeThatProfile
           : appL10n.couldnTReach((instance.host).toString());
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed ||
           !lease.isCurrent ||
           !userCardRequests.isPending(targetSite, key)) {
         return;
       }
-      _reportOperationalError(
-        error,
-        stackTrace,
-        'userCard.load',
-        severity: DiagnosticSeverity.warning,
-      );
+
       failure = appL10n.couldnTLoadShellcontroller((username).toString());
     } finally {
       lease.commit(
@@ -11024,15 +10779,7 @@ class ShellController extends FrameSafeNotifier
           clientId: credential.clientId,
         ),
       );
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'hashtags.search',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return const [];
     }
 
@@ -11106,15 +10853,7 @@ class ShellController extends FrameSafeNotifier
           composer.text.artworkArrived();
         }
       });
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent && ask.any(inFlight.contains)) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'hashtags.resolve',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
     }
@@ -11163,15 +10902,7 @@ class ShellController extends FrameSafeNotifier
           composer.text.artworkArrived();
         }
       });
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent && ask.any(inFlight.contains)) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'mentions.resolve',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
     } finally {
       if (!isDisposed) lease.commit(() => inFlight.removeAll(ask));
     }
@@ -11201,15 +10932,7 @@ class ShellController extends FrameSafeNotifier
         ),
       );
       return lease.isCurrent ? found : const FoundUsersAndGroups();
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'message.recipients.search',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return const FoundUsersAndGroups();
     }
   }
@@ -11239,15 +10962,7 @@ class ShellController extends FrameSafeNotifier
           clientId: credential.clientId,
         ),
       );
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'mentions.search',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       if (lease.isCurrent) rethrow;
       return const FoundUsersAndGroups();
     }
@@ -11294,15 +11009,7 @@ class ShellController extends FrameSafeNotifier
           clientId: credential.clientId,
         ),
       );
-    } catch (error, stackTrace) {
-      if (!isDisposed && lease.isCurrent) {
-        _reportOperationalError(
-          error,
-          stackTrace,
-          'users.search',
-          severity: DiagnosticSeverity.warning,
-        );
-      }
+    } catch (error) {
       return const [];
     }
 
@@ -11663,7 +11370,7 @@ class ShellController extends FrameSafeNotifier
     final forgetPlugins = _pluginSession
         .forget(siteUrl)
         .whenComplete(() => _backgroundRetention.releaseSite(siteUrl));
-    _observePluginLifecycle(forgetPlugins, 'plugins.session.forget');
+    _observePluginLifecycle(forgetPlugins);
     topicFeeds.forget(siteUrl);
     _sessionUsersRefreshed.remove(siteUrl);
     _sessionUserRequests.remove(siteUrl)?.retire();
@@ -11767,7 +11474,6 @@ class ShellController extends FrameSafeNotifier
             connected: instance.isConnected,
           ),
         ),
-        'plugins.session.activateSite',
       );
     }
     _syncTracking();
@@ -11851,13 +11557,10 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  int _forumSwitchTraceGeneration = 0;
-
   @override
   void selectInstance(int index) {
     assert(index >= 0 && index < _instances.length);
-    SurfaceOpeningTrace.mark('forum.select');
-    final traceGeneration = ++_forumSwitchTraceGeneration;
+
     _rootMode = ShellRootMode.forum;
     if (mobileNavigationEnabled) mobileNavigation.reset();
     final switched = index != _instanceIndex;
@@ -11871,7 +11574,6 @@ class ShellController extends FrameSafeNotifier
       _restoreInstanceWorkspace();
     }
     if (switched) {
-      SurfaceOpeningTrace.mark('forum.workspaceRestored');
       final selected = currentInstance;
       if (selected != null && selected.isConnected) {
         unawaited(
@@ -11884,15 +11586,6 @@ class ShellController extends FrameSafeNotifier
     }
     _mobilePane = MobilePane.sidebar;
     _notify();
-    SurfaceOpeningTrace.mark('forum.notified');
-    SurfaceOpeningTrace.afterFrame(
-      'forum.frame',
-      isCurrent: () =>
-          !isDisposed &&
-          _rootMode == ShellRootMode.forum &&
-          _instanceIndex == index &&
-          traceGeneration == _forumSwitchTraceGeneration,
-    );
   }
 
   void openCurrentSettings() {
@@ -12629,13 +12322,13 @@ class ShellController extends FrameSafeNotifier
     pdfThumbnails.dispose();
     final closePluginSession = _pluginSession.close();
     _backgroundRetention.close();
-    _observePluginLifecycle(closePluginSession, 'plugins.session.close');
+    _observePluginLifecycle(closePluginSession);
     if (_ownsPlugins) {
       final closeOwnedPlugins = closePluginSession
           .onError((_, _) {})
           .then((_) => plugins.close());
       _pluginTeardownFuture = closeOwnedPlugins;
-      _observePluginLifecycle(closeOwnedPlugins, 'plugins.close');
+      _observePluginLifecycle(closeOwnedPlugins);
     } else {
       _pluginTeardownFuture = closePluginSession;
     }

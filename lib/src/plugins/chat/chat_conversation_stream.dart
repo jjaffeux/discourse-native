@@ -445,16 +445,11 @@ final class _ChatConversationStream {
         );
       });
       return _ChatWindowFetchResult.loaded;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return _ChatWindowFetchResult.cancelled;
       }
-      _controller._report(
-        error,
-        stackTrace,
-        'chat.loadWindow',
-        degraded: false,
-      );
+
       lease.commit(() {
         if (!ownsRequest()) return;
         final current = _window ?? const ChatStreamState();
@@ -584,16 +579,10 @@ final class _ChatConversationStream {
           target,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return;
       }
-      _controller._report(
-        error,
-        stackTrace,
-        'chat.loadOlder',
-        severity: DiagnosticSeverity.warning,
-      );
     } finally {
       if (_controller._requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
@@ -710,16 +699,10 @@ final class _ChatConversationStream {
           target,
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return;
       }
-      _controller._report(
-        error,
-        stackTrace,
-        'chat.loadNewer',
-        severity: DiagnosticSeverity.warning,
-      );
     } finally {
       if (_controller._requestIsCurrent(lease, ownsRequest)) {
         lease.commit(() {
@@ -796,16 +779,7 @@ final class _ChatConversationStream {
             ),
           );
         }
-      } catch (error, stackTrace) {
-        if (_controller._requestIsCurrent(receipt.lease, ownsRequest)) {
-          _controller._report(
-            error,
-            stackTrace,
-            'chat.markRead',
-            severity: DiagnosticSeverity.warning,
-          );
-        }
-      }
+      } catch (error) {}
     }
   }
 }

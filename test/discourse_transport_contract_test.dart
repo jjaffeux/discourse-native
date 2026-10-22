@@ -310,7 +310,7 @@ void main() {
           read('overflow'),
           throwsA(
             isA<SiteLookupException>().having(
-              (error) => error.diagnosticCause,
+              (error) => error.cause,
               'diagnosticCause',
               isA<DiscourseRequestOverloadException>()
                   .having(
@@ -391,7 +391,7 @@ void main() {
                   WriteFailure.unreachable,
                 )
                 .having(
-                  (error) => error.diagnosticCause,
+                  (error) => error.cause,
                   'diagnosticCause',
                   isA<DiscourseRequestOverloadException>(),
                 ),
@@ -687,7 +687,7 @@ void main() {
       }
     });
 
-    test('malformed object reads preserve a diagnostic cause', () async {
+    test('malformed object reads preserve a cause', () async {
       final api = DiscourseApi(
         client: MockClient((_) async => http.Response('[]', 200)),
       );
@@ -706,12 +706,12 @@ void main() {
               )
               .having((error) => error.term, 'term', 'https://example.com')
               .having(
-                (error) => error.diagnosticCause,
+                (error) => error.cause,
                 'diagnosticCause',
                 isA<FormatException>(),
               )
               .having(
-                (error) => error.diagnosticCauseStackTrace,
+                (error) => error.causeStackTrace,
                 'diagnosticCauseStackTrace',
                 isNotNull,
               ),
@@ -1033,7 +1033,7 @@ void main() {
 
           expect(failure.failure, WriteFailure.unreachable);
           expect(failure.notSent, notSent);
-          expect(failure.diagnosticCause, same(error));
+          expect(failure.cause, same(error));
         },
       );
     }
@@ -1071,7 +1071,7 @@ void main() {
       );
 
       expect(failure.notSent, isTrue);
-      expect(failure.diagnosticCause, isA<DiscourseRequestOverloadException>());
+      expect(failure.cause, isA<DiscourseRequestOverloadException>());
       gate.complete();
       await Future.wait([active, queued]);
       expect(started, ['/active.json', '/queued.json']);
@@ -1088,7 +1088,7 @@ void main() {
         transport,
         Uri.parse('http://127.0.0.1:$closedPort/chat/9.json'),
       );
-      expect(refused.diagnosticCause, isA<SocketException>());
+      expect(refused.cause, isA<SocketException>());
       expect(refused.notSent, isTrue);
 
       // The site read the whole request before the connection dropped: it

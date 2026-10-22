@@ -5,7 +5,7 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/badges_api.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/badge.dart';
 import '../models/badge_route.dart';
@@ -195,16 +195,9 @@ final class BadgesController extends FrameSafeNotifier {
         );
       }
       notifySafely();
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!current()) return;
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: fetchingRecipients ? 'badges.recipients' : 'badges.load',
-        source: 'badges',
-        handled: true,
-        degraded: true,
-      );
+
       _states[key] = _states[key]!.copyWith(
         loading: false,
         loadingMore: false,

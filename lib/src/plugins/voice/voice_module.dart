@@ -6,8 +6,7 @@ import 'voice_call_controller_port.dart';
 import 'voice_call_port.dart';
 import 'voice_chat_inbox.dart';
 import 'voice_controller.dart';
-import 'voice_diagnostics.dart';
-import 'voice_diagnostics_plugin.dart';
+
 import 'voice_idle.dart';
 import 'voice_plugin.dart';
 import 'voice_services.dart';
@@ -17,11 +16,7 @@ import 'voice_shell_service.dart';
 const voiceModule = VoiceModule();
 
 final class VoiceModule implements PluginModule {
-  const VoiceModule() : _includeDiagnostics = true;
-
-  const VoiceModule.withoutDiagnostics() : _includeDiagnostics = false;
-
-  final bool _includeDiagnostics;
+  const VoiceModule();
 
   @override
   PluginDescriptor get descriptor => PluginDescriptor(
@@ -34,20 +29,12 @@ final class VoiceModule implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
-    final diagnostics = _includeDiagnostics ? VoiceDiagnosticsPlugin() : null;
     registrar.addCapability(const VoicePlugin());
     registrar.addRouteNamespace('voice');
     registrar.addExclusiveClaim('app-global-media-session');
     registrar.addLiveChannelScope(
       const PluginLiveChannelScope.prefix('/voice'),
     );
-    if (diagnostics != null) {
-      registrar.addCapability(diagnostics);
-      registrar.addAppLifecycle(
-        diagnostics,
-        requires: const [pluginDiagnosticsReporterPort],
-      );
-    }
     registrar.addSession(
       (bindings, dependencies) {
         final transport = bindings.require(corePluginTransportPort);
@@ -92,8 +79,6 @@ final class VoiceModule implements PluginModule {
               icon: DIcons.microphoneLines,
             ),
           ),
-          diagnostics: diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
-          reporter: bindings.require(pluginDiagnosticsReporterPort),
         );
         shell = VoiceShellService(
           controller: controller,
@@ -141,7 +126,6 @@ final class VoiceModule implements PluginModule {
         corePluginSiteStatePort,
         corePluginBackgroundRetentionPort,
         corePluginRouteNavigationPort,
-        pluginDiagnosticsReporterPort,
       ],
     );
   }

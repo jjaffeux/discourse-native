@@ -149,7 +149,7 @@ final class _Harness {
       instanceFor: (site) => site == _site ? instance : null,
       selectedSite: () => selected,
       onChanged: () => changes++,
-      reportFailure: (error, stack) => failures.add(error),
+
       clock: () => now,
     );
     addTearDown(owner.dispose);

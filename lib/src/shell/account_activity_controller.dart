@@ -7,7 +7,7 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
 import '../models/discourse_instance.dart';
@@ -51,17 +51,6 @@ final class AccountActivityController extends FrameSafeNotifier {
   final GroupedUnreadAuthorityAdvanced? onGroupedUnreadAuthorityAdvanced;
   final Duration minimumRefreshInterval;
   final DateTime Function() _clock;
-
-  void _report(Object error, StackTrace stackTrace, String operation) {
-    DiagnosticsSink.current.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: 'account',
-      handled: true,
-      degraded: true,
-    );
-  }
 
   final _totalsChanges = _ActivityAspect();
   final _notificationChanges = _ActivityAspect();
@@ -279,13 +268,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         }
       });
       return accepted ? applied : null;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed ||
           !lease.isCurrent ||
           !identical(_totalsRequests[instance.url], request)) {
         return null;
       }
-      _report(error, stackTrace, 'account.refreshTotals');
+
       return null;
     } finally {
       _commit(lease, () {
@@ -344,7 +333,6 @@ final class AccountActivityController extends FrameSafeNotifier {
           failureMessage: appL10n.couldnTLoadNotificationsFrom(
             (instance.host).toString(),
           ),
-          operation: 'account.loadNotifications',
         ),
       );
 
@@ -367,7 +355,6 @@ final class AccountActivityController extends FrameSafeNotifier {
           failureMessage: appL10n.couldnTLoadRepliesFrom(
             (instance.host).toString(),
           ),
-          operation: 'account.loadReplyNotifications',
         ),
       );
 
@@ -390,7 +377,6 @@ final class AccountActivityController extends FrameSafeNotifier {
           failureMessage: appL10n.couldnTLoadLikesFrom(
             (instance.host).toString(),
           ),
-          operation: 'account.loadLikeNotifications',
         ),
       );
 
@@ -420,7 +406,6 @@ final class AccountActivityController extends FrameSafeNotifier {
       failureMessage: appL10n.couldnTLoadOtherNotificationsFrom(
         (instance.host).toString(),
       ),
-      operation: 'account.loadOtherNotifications',
     ),
   );
 
@@ -452,7 +437,6 @@ final class AccountActivityController extends FrameSafeNotifier {
         ),
         reconnectMessage: source.reconnectMessage,
         failureMessage: source.failureMessage,
-        operation: 'account.loadPluginNotifications.${source.id.id}',
       ),
     );
   }
@@ -604,11 +588,7 @@ final class AccountActivityController extends FrameSafeNotifier {
       await refresh(instance, force: true);
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
-      _report(
-        error,
-        stackTrace,
-        'account.dismissPluginNotifications.${source?.id.id ?? 'all'}',
-      );
+
       Error.throwWithStackTrace(error, stackTrace);
     }
   }
@@ -670,7 +650,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     fetch,
     required String reconnectMessage,
     required String failureMessage,
-    required String operation,
   }) async {
     if (isDisposed || !instance.isConnected) return;
     final lease = lifecycle.capture(instance.url);
@@ -717,13 +696,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         if (!identical(requests[instance.url], request)) return;
         owner.publish(slot, NotificationFeed.of(notifications));
       });
-    } on SiteLookupException catch (error, stackTrace) {
+    } on SiteLookupException catch (error) {
       if (isDisposed ||
           !lease.isCurrent ||
           !identical(requests[instance.url], request)) {
         return;
       }
-      _report(error, stackTrace, operation);
+
       _commit(lease, () {
         if (!identical(requests[instance.url], request)) return;
         fail(
@@ -732,13 +711,13 @@ final class AccountActivityController extends FrameSafeNotifier {
               : appL10n.couldnTReach((instance.host).toString()),
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed ||
           !lease.isCurrent ||
           !identical(requests[instance.url], request)) {
         return;
       }
-      _report(error, stackTrace, operation);
+
       _commit(lease, () {
         if (!identical(requests[instance.url], request)) return;
         fail(failureMessage);
@@ -882,13 +861,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
         owner.publish(_bookmarks, BookmarkFeed.of(bookmarks));
       });
-    } on SiteLookupException catch (error, stackTrace) {
+    } on SiteLookupException catch (error) {
       if (isDisposed ||
           !lease.isCurrent ||
           !identical(_bookmarkRequests[instance.url], request)) {
         return;
       }
-      _report(error, stackTrace, 'account.loadBookmarks');
+
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
         fail(
@@ -897,13 +876,13 @@ final class AccountActivityController extends FrameSafeNotifier {
               : appL10n.couldnTReach((instance.host).toString()),
         );
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isDisposed ||
           !lease.isCurrent ||
           !identical(_bookmarkRequests[instance.url], request)) {
         return;
       }
-      _report(error, stackTrace, 'account.loadBookmarks');
+
       _commit(lease, () {
         if (!identical(_bookmarkRequests[instance.url], request)) return;
         fail(appL10n.couldnTLoadBookmarksFrom((instance.host).toString()));
@@ -1032,11 +1011,11 @@ final class AccountActivityController extends FrameSafeNotifier {
         );
         _notifyBookmarkList();
       });
-    } on SiteLookupException catch (error, stackTrace) {
+    } on SiteLookupException catch (error) {
       if (!request.isCurrent) {
         return;
       }
-      _report(error, stackTrace, 'account.loadBookmarkList');
+
       request.commit(() {
         fail(
           error.failure == SiteLookupFailure.notDiscourse
@@ -1045,11 +1024,11 @@ final class AccountActivityController extends FrameSafeNotifier {
         );
         _notifyBookmarkList();
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!request.isCurrent) {
         return;
       }
-      _report(error, stackTrace, 'account.loadBookmarkList');
+
       request.commit(() {
         fail(appL10n.couldnTLoadBookmarksFrom((instance.host).toString()));
         _notifyBookmarkList();
@@ -1169,11 +1148,11 @@ final class AccountActivityController extends FrameSafeNotifier {
         );
         _notifyUserActivity();
       });
-    } on SiteLookupException catch (error, stackTrace) {
+    } on SiteLookupException catch (error) {
       if (!request.isCurrent) {
         return;
       }
-      _report(error, stackTrace, 'account.loadUserActivity');
+
       request.commit(() {
         fail(
           error.failure == SiteLookupFailure.notDiscourse
@@ -1182,11 +1161,11 @@ final class AccountActivityController extends FrameSafeNotifier {
         );
         _notifyUserActivity();
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!request.isCurrent) {
         return;
       }
-      _report(error, stackTrace, 'account.loadUserActivity');
+
       request.commit(() {
         fail(appL10n.couldnTLoadActivityFrom((instance.host).toString()));
         _notifyUserActivity();
@@ -1245,12 +1224,12 @@ final class AccountActivityController extends FrameSafeNotifier {
           id: notification.id,
         ),
       );
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_ownsRequest(lease, _notificationReadRequests[key], request)) {
         return;
       }
       owner.failRead(attempt);
-      _report(error, stackTrace, 'account.markNotificationRead');
+
       return;
     }
 

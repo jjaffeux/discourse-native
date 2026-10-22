@@ -11,9 +11,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 import '../app_shortcuts.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
-import '../diagnostics/diagnostics_scope.dart';
-import '../diagnostics/surface_opening_trace.dart';
-import '../diagnostics/topic_scroll_capture.dart';
+
 import '../foundation/calendar_day.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/content_route.dart';
@@ -217,12 +215,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   // header, footer and body frame around it.
   final _warmCacheIdentity = ValueNotifier<(String, int, int)?>(null);
   (String, int, int)? _scheduledCacheIdentity;
-  TopicScrollCaptureController? _scrollCapture;
-  TopicScrollCaptureController? _reportedScrollCaptureController;
-  int? _reportedScrollCaptureId;
-  (String, int, int)? _reportedScrollCaptureTopic;
-  late Size _viewportLogicalSize;
-  late double _devicePixelRatio;
+
   final _morePanelKey = GlobalKey();
   final _moreTopicsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
@@ -242,8 +235,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   };
   bool get _restored => _viewport.restored;
   bool get _restoring => _viewport.restoring;
-  bool get _userDragging => _viewport.userDragging;
-  bool get _applyingAnchorRestore => _viewport.applyingAnchorRestore;
+
   int? get _savedAnchorPostNumber => _viewport.savedAnchorPostNumber;
   TopicViewportListenable get _viewportState => _viewport;
   DateTime? get _floatingDay => _viewportState.floatingDay;
@@ -251,195 +243,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   int? get _progressPosition => _viewportState.progressPosition;
   TopicViewportSnapshot? get _laidOutSnapshot => _viewport.laidOutSnapshot;
-  int? get _anchorRestorePostId => _viewport.anchorRestorePostId;
-  double get _anchorRestoreViewportOffset =>
-      _viewport.anchorRestoreViewportOffset;
-
-  bool get _isScrollCaptureRecording => _scrollCapture?.isRecording == true;
-
-  void _recordTopicScrollEvent(String name, Map<String, Object?> data) {
-    final capture = _scrollCapture;
-    if (capture == null || !capture.isRecording) return;
-    if (!identical(_reportedScrollCaptureController, capture) ||
-        _reportedScrollCaptureId != capture.captureId ||
-        _reportedScrollCaptureTopic != _topicIdentity) {
-      _reportedScrollCaptureController = capture;
-      _reportedScrollCaptureId = capture.captureId;
-      _reportedScrollCaptureTopic = _topicIdentity;
-      final snapshot = _laidOutSnapshot;
-      capture.recordTopicEvent('topic.capture.context', {
-        'topicId': _topicIdentity?.$2 ?? snapshot?.topicId,
-        'navigationRevision': _topicIdentity?.$3,
-        'viewportLogicalSize': {
-          'width': _viewportLogicalSize.width,
-          'height': _viewportLogicalSize.height,
-        },
-        'devicePixelRatio': _devicePixelRatio,
-        'list': {
-          'widget': 'CustomScrollView',
-          'sliver': 'SuperSliverList',
-          'listController': 'ListController',
-          'scrollController': 'ScrollController',
-          'physics': 'SuperRangeMaintainingScrollPhysics',
-          'postExtentEstimate': 199,
-          'separatorExtentEstimate': 1,
-        },
-        if (snapshot != null) 'topicWindow': _topicWindowData(snapshot),
-      });
-    }
-    capture.recordTopicEvent(name, data);
-  }
-
-  Map<String, Object?> _topicWindowData(TopicViewportSnapshot snapshot) => {
-    'topicId': snapshot.topicId,
-    'navigationRevision': snapshot.navigationRevision,
-    'loadedPostCount': snapshot.postIds.length,
-    'streamPostCount': snapshot.streamIds.length,
-    'loading': snapshot.loading,
-    'loadingEarlier': snapshot.loadingEarlier,
-    'loadingMore': snapshot.loadingMore,
-    'hasEarlier': snapshot.hasEarlier,
-    'hasMore': snapshot.hasMore,
-    'restored': _restored,
-    'restoring': _restoring,
-    'userDragging': _userDragging,
-    'applyingAnchorRestore': _applyingAnchorRestore,
-    'extentGeneration': _reader.extentGeneration,
-  };
-
-  Map<String, Object?> _scrollMetricsData(ScrollMetrics metrics) {
-    try {
-      return {
-        'type': metrics.runtimeType.toString(),
-        'axis': metrics.axis.name,
-        'axisDirection': metrics.axisDirection.name,
-        'pixels': metrics.pixels,
-        'minScrollExtent': metrics.minScrollExtent,
-        'maxScrollExtent': metrics.maxScrollExtent,
-        'viewportDimension': metrics.viewportDimension,
-        'extentBefore': metrics.extentBefore,
-        'extentInside': metrics.extentInside,
-        'extentAfter': metrics.extentAfter,
-        'atEdge': metrics.atEdge,
-        'outOfRange': metrics.outOfRange,
-        'hasContentDimensions': metrics.hasContentDimensions,
-        'devicePixelRatio': metrics.devicePixelRatio,
-        if (metrics is ScrollPosition) ...{
-          'isScrolling': metrics.isScrollingNotifier.value,
-          'userScrollDirection': metrics.userScrollDirection.name,
-        },
-      };
-    } on Object catch (error) {
-      return {'unavailable': error.runtimeType.toString()};
-    }
-  }
-
-  Map<String, Object?> _sliverLayoutData() {
-    final list = _list;
-    final scroll = _scroll;
-    final data = <String, Object?>{
-      'listAttached': list?.isAttached ?? false,
-      'scrollAttached': scroll?.hasClients ?? false,
-      'attachedPostCount': _reader.attachedPostCount,
-    };
-    if (list != null && list.isAttached) {
-      try {
-        final range = list.visibleRange;
-        final unobstructed = list.unobstructedVisibleRange;
-        final visibleChildExtents = <Map<String, Object?>>[];
-        if (range != null) {
-          for (
-            var childIndex = range.$1;
-            childIndex <= range.$2;
-            childIndex++
-          ) {
-            final extent = list.extentForIndex(childIndex);
-            visibleChildExtents.add({
-              'index': childIndex,
-              'extent': extent.$1,
-              'estimated': extent.$2,
-            });
-          }
-        }
-        data.addAll({
-          'visibleRange': range == null ? null : [range.$1, range.$2],
-          'unobstructedVisibleRange': unobstructed == null
-              ? null
-              : [unobstructed.$1, unobstructed.$2],
-          'numberOfItems': list.numberOfItems,
-          'estimatedItemCount': list.numberOfItemsWithEstimatedExtent,
-          'totalExtent': list.totalExtent,
-          'isLocked': list.isLocked,
-          if (range != null) 'visibleChildExtents': visibleChildExtents,
-        });
-      } on Object catch (error) {
-        data['sliverReadError'] = error.runtimeType.toString();
-      }
-    }
-    if (scroll != null && scroll.hasClients) {
-      data['scrollMetrics'] = _scrollMetricsData(scroll.position);
-    }
-    return data;
-  }
-
-  void _recordScrollNotification(ScrollNotification notification) {
-    final data = <String, Object?>{
-      'notification': notification.runtimeType.toString(),
-      'depth': notification.depth,
-      'metrics': _scrollMetricsData(notification.metrics),
-      if (notification is ScrollStartNotification)
-        'drag': notification.dragDetails != null,
-      if (notification is ScrollUpdateNotification) ...{
-        'scrollDelta': notification.scrollDelta,
-        'drag': notification.dragDetails != null,
-      },
-      if (notification is OverscrollNotification) ...{
-        'overscroll': notification.overscroll,
-        'velocity': notification.velocity,
-        'drag': notification.dragDetails != null,
-      },
-      if (notification is ScrollEndNotification)
-        'drag': notification.dragDetails != null,
-      if (notification is UserScrollNotification)
-        'direction': notification.direction.name,
-    };
-    _recordTopicScrollEvent('scroll.notification', data);
-  }
-
-  void _recordViewportInspection(TopicViewportSnapshot snapshot) {
-    final list = _list;
-    final visiblePosts = <Map<String, Object?>>[];
-    if (list != null && list.isAttached) {
-      final range = list.visibleRange;
-      if (range != null) {
-        for (final postIndex in _reader.window.postIndexesInRange(range)) {
-          final postId = snapshot.postIds[postIndex];
-          final post = _controller?.store.read<Post>(snapshot.siteUrl!, postId);
-          final bounds = _reader.boundsForPost(postId);
-          visiblePosts.add({
-            'childIndex': _reader.window.childIndexForPostIndex(postIndex),
-            'postIndex': postIndex,
-            'postId': postId,
-            'postNumber': post?.postNumber,
-            if (bounds != null) ...{
-              'top': bounds.top,
-              'bottom': bounds.bottom,
-              'height': bounds.bottom - bounds.top,
-            },
-          });
-        }
-      }
-    }
-    _recordTopicScrollEvent('viewport.inspected', {
-      'topicWindow': _topicWindowData(snapshot),
-      'sliverLayout': _sliverLayoutData(),
-      'visiblePosts': visiblePosts,
-      'savedAnchorPostNumber': _savedAnchorPostNumber,
-      'progressPosition': _progressPosition,
-      'anchorRestorePostId': _anchorRestorePostId,
-      'anchorRestoreViewportOffset': _anchorRestoreViewportOffset,
-    });
-  }
 
   @override
   void initState() {
@@ -464,9 +267,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       startsAtBeginning: () => _laidOutSnapshot?.hasEarlier == false,
       postFrame: (callback) =>
           WidgetsBinding.instance.addPostFrameCallback((_) => callback()),
-      diagnosticsEnabled: () => _isScrollCaptureRecording,
-      recordDiagnostic: _recordTopicScrollEvent,
-      layoutDiagnostics: _sliverLayoutData,
     );
     _viewport = TopicViewportCoordinator(
       postFrame: (callback) =>
@@ -500,9 +300,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
         list: ListController(),
       ),
       listLayoutChanged: _onListLayoutChanged,
-      diagnosticsEnabled: () => _isScrollCaptureRecording,
-      recordDiagnostic: _recordTopicScrollEvent,
-      layoutDiagnostics: _sliverLayoutData,
+
       pagingThreshold: TopicView._loadPostsThreshold,
     );
     if (WidgetsBinding.instance.lifecycleState case final lifecycle?) {
@@ -514,8 +312,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _viewportLogicalSize = MediaQuery.sizeOf(context);
-    _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+
     _bindTickerMode();
   }
 
@@ -593,21 +390,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       postIds: const [],
     );
 
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('topic.controllers.sync', {
-        'previousTopicId': previousIdentity?.$2,
-        'previousNavigationRevision': previousIdentity?.$3,
-        'topicId': snapshot.topicId,
-        'navigationRevision': snapshot.navigationRevision,
-        'controllerChanged': !identical(previousController, controller),
-        'tabChanged': previousTabId != ForumTabScope.tabOf(context).activeTabId,
-        'viewportRetained': identical(previousScroll, _scroll),
-        'targetPostNumber': ForumTabScope.tabOf(
-          context,
-        ).currentContent?.postNumber,
-        'loading': snapshot.loading,
-      });
-    }
     if (identical(previousScroll, _scroll)) return;
     _moreTopicsCovered.value = false;
     _initialBodyChecked = false;
@@ -817,11 +599,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _sidebarRestoreGeneration++;
     _recommendationsTabRestoreGeneration++;
     _dayJumpToken = null;
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('topic.controllers.disposeScheduled', {
-        'sliverLayout': _sliverLayoutData(),
-      });
-    }
+
     _headerGeometry?.removeListener(_scheduleLook);
     _viewport.dispose();
     _warmCacheIdentity.dispose();
@@ -959,20 +737,10 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       return;
     }
     if (_revealKeyboardPostEnd()) return;
-    final timer = _isScrollCaptureRecording ? (Stopwatch()..start()) : null;
+
     _syncMoreTopicsCoverage();
     _syncFloatingDay(snapshot);
     _noteWhatIsOnScreen(controller, snapshot, saveAnchor: saveAnchor);
-    if (timer != null) {
-      timer.stop();
-      _recordTopicScrollEvent('viewport.work', {
-        'durationUs': timer.elapsedMicroseconds,
-        'topicId': snapshot.topicId,
-        'attachedPostCount': _reader.attachedPostCount,
-        'saveAnchor': saveAnchor,
-      });
-    }
-    if (_isScrollCaptureRecording) _recordViewportInspection(snapshot);
   }
 
   ({double top, double height})? _morePanelBounds() {
@@ -1407,8 +1175,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       readablePostNumbers.add(readablePost.postNumber);
     }
 
-    final previousProgress = _progressPosition;
-    final previousSavedAnchor = _savedAnchorPostNumber;
     _viewport.recordObservation(
       snapshot: snapshot,
       saveAnchor: saveAnchor,
@@ -1418,22 +1184,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       readablePostNumbers: readablePostNumbers,
       atTopicEnd: atTopicEnd,
     );
-    if (_isScrollCaptureRecording && previousProgress != _progressPosition) {
-      _recordTopicScrollEvent('topic.progress.changed', {
-        'previous': previousProgress,
-        'current': _progressPosition,
-      });
-    }
-    if (_isScrollCaptureRecording &&
-        previousSavedAnchor != _savedAnchorPostNumber &&
-        leadingPost != null) {
-      _recordTopicScrollEvent('viewport.anchor.saved', {
-        'postId': leadingPost.postId,
-        'postNumber': leadingPost.postNumber,
-        'viewportOffset': _reader.postViewportOffset(leadingPost.postId),
-        'saveAfterScrollEnd': saveAnchor,
-      });
-    }
   }
 
   int _terminalReadPostNumber(
@@ -1516,14 +1266,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     if (!setEquals(_animatedPostIds.value, visible)) {
       _animatedPostIds.value = visible;
     }
-    if (_isScrollCaptureRecording) {
-      // This can notify more than once inside one layout. Keep the marker
-      // cheap; _scheduleLook coalesces the full geometry read after the frame.
-      _recordTopicScrollEvent('sliver.layout.changed', {
-        'listAttached': _list?.isAttached ?? false,
-        'scrollAttached': _scroll?.hasClients ?? false,
-      });
-    }
   }
 
   void _scheduleRetainedPostGeometryRefresh() {
@@ -1542,12 +1284,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
 
   void _registerPostContext(int postId, BuildContext context) {
     _reader.attachPost(postId, context);
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('sliver.post.attached', {
-        'postId': postId,
-        'attachedPostCount': _reader.attachedPostCount,
-      });
-    }
   }
 
   void _unregisterPostContext(
@@ -1568,12 +1304,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           _reader.rememberPostExtent(postId, post: post, snapshot: snapshot);
       _reader.detachPost(postId, context);
       if (retainedExtentChanged) _scheduleRetainedPostGeometryRefresh();
-      if (_isScrollCaptureRecording) {
-        _recordTopicScrollEvent('sliver.post.detached', {
-          'postId': postId,
-          'attachedPostCount': _reader.attachedPostCount,
-        });
-      }
     }
   }
 
@@ -1916,10 +1646,9 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     TopicViewportSnapshot snapshot,
     double viewportWidth,
   ) {
-    SurfaceOpeningTrace.mark('topic.build');
     final theme = Theme.of(context);
     final controller = ShellScope.read(context);
-    _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
+
     if (snapshot.siteUrl case final siteUrl?) {
       _syncRecommendationsSite(siteUrl);
     }
@@ -2019,13 +1748,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       );
     }
 
-    SurfaceOpeningTrace.afterFrame(
-      'topic.contentFrame',
-      isCurrent: () =>
-          mounted &&
-          ForumTabScope.tabOf(context).currentContent?.topicId ==
-              snapshot.topicId,
-    );
     final showFooter = snapshot.loadingMore;
     final showHeader = snapshot.hasEarlier || snapshot.loadingEarlier;
     final hasRecommendations = snapshot.recommendations?.isNotEmpty == true;
@@ -2117,18 +1839,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
     _reader.applyWindowChange(
       _viewport.updateWindow(snapshot, hasHeader: showHeader),
     );
-    if (_isScrollCaptureRecording) {
-      _recordTopicScrollEvent('topic.view.built', {
-        'viewportWidth': viewportWidth,
-        'pinnedSidebarInset': pinnedSidebarInset,
-        'showHeader': showHeader,
-        'showFooter': showFooter,
-        'showRecommendations': showRecommendations,
-        'itemCount':
-            postIds.length + (showHeader ? 1 : 0) + (showFooter ? 1 : 0),
-        'topicWindow': _topicWindowData(snapshot),
-      });
-    }
+
     _scheduleLook();
 
     final itemCount =
@@ -2143,13 +1854,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       itemCount: itemCount,
       separatorBuilder: (context, index) {
         final nextPostIndex = index + 1 - (showHeader ? 1 : 0);
-        if (_isScrollCaptureRecording) {
-          _recordTopicScrollEvent('sliver.separator.built', {
-            'separatorIndex': index,
-            'nextPostIndex': nextPostIndex,
-            'isDayBoundary': dayByPostIndex.containsKey(nextPostIndex),
-          });
-        }
+
         return KeyedSubtree(
           key: postWindow.separatorKeyAfterItem(index),
           child:
@@ -2182,41 +1887,18 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       },
       itemBuilder: (context, index) {
         if (showHeader && index == 0) {
-          if (_isScrollCaptureRecording) {
-            _recordTopicScrollEvent('sliver.child.built', {
-              'itemIndex': index,
-              'kind': 'earlier-posts',
-              'loading': snapshot.loadingEarlier,
-            });
-          }
           return _EarlierPostsRow(loading: snapshot.loadingEarlier);
         }
 
         final postIndex = index - (showHeader ? 1 : 0);
         if (postIndex >= postIds.length) {
-          if (_isScrollCaptureRecording) {
-            _recordTopicScrollEvent('sliver.child.built', {
-              'itemIndex': index,
-              'kind': 'loading-more',
-            });
-          }
           return const _LoadingPostsRow();
         }
 
         final postId = postIds[postIndex];
         final day = dayByPostIndex[postIndex];
         final post = controller.store.read<Post>(siteUrl, postId);
-        if (_isScrollCaptureRecording) {
-          _recordTopicScrollEvent('sliver.child.built', {
-            'itemIndex': index,
-            'postIndex': postIndex,
-            'postId': postId,
-            'postNumber': post?.postNumber,
-            'wasAttached': (_reader.postContext(postId) != null),
-            'hasDayBoundary': day != null,
-            'hasTimeGap': timeGapByPostIndex.containsKey(postIndex),
-          });
-        }
+
         return _TopicPostItem(
           key: ValueKey(postId),
           postId: postId,
@@ -2224,7 +1906,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
           post: controller.postRef(siteUrl, postId),
           retention: _postRetention,
           animatedPostIds: _animatedPostIds,
-          scrollCapture: _scrollCapture,
+
           viewportState: _viewportState,
           retainedMinimumHeight: _reader.minimumHeightFor(
             postId,
@@ -2322,12 +2004,6 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
       final postStream = NotificationListener<ScrollMetricsNotification>(
         onNotification: (notification) {
           if (notification.depth == 0) {
-            if (_isScrollCaptureRecording) {
-              _recordTopicScrollEvent('scroll.metricsChanged', {
-                'depth': notification.depth,
-                'metrics': _scrollMetricsData(notification.metrics),
-              });
-            }
             _scheduleLook();
           }
           return false;
@@ -2340,9 +2016,7 @@ class _TopicViewState extends State<TopicView> with WidgetsBindingObserver {
                 _keyboardPost.value = null;
                 _keyboardPostEndTarget = null;
               }
-              if (_isScrollCaptureRecording) {
-                _recordScrollNotification(notification);
-              }
+
               _viewport.handleScroll(notification, snapshot);
             }
             return false;
@@ -3990,7 +3664,7 @@ class _TopicPostItem extends StatefulWidget {
     required this.post,
     required this.retention,
     required this.animatedPostIds,
-    required this.scrollCapture,
+
     required this.viewportState,
     required this.retainedMinimumHeight,
     required this.day,
@@ -4013,7 +3687,7 @@ class _TopicPostItem extends StatefulWidget {
   final ValueListenable<Post?> post;
   final TopicPostRetention retention;
   final ValueListenable<Set<int>> animatedPostIds;
-  final TopicScrollCaptureController? scrollCapture;
+
   final TopicViewportListenable viewportState;
   final double? retainedMinimumHeight;
   final DateTime? day;
@@ -4195,10 +3869,7 @@ class _TopicPostItemState extends State<_TopicPostItem>
       },
       child: _RetainedMinimumHeight(
         minimumHeight: retainedMinimumHeight ?? 0,
-        topicId: widget.topicId,
-        postId: widget.postId,
-        htmlCharacters: widget.post.value?.cooked.length ?? 0,
-        scrollCapture: widget.scrollCapture,
+
         onNaturalHeightRestored: retainedMinimumHeight == null
             ? null
             : _releaseRetainedMinimumHeight,
@@ -5362,29 +5033,18 @@ class _RetainedMinimumHeight extends SingleChildRenderObjectWidget {
   const _RetainedMinimumHeight({
     required this.minimumHeight,
     required this.onNaturalHeightRestored,
-    required this.topicId,
-    required this.postId,
-    required this.htmlCharacters,
-    required this.scrollCapture,
+
     required super.child,
   });
 
   final double minimumHeight;
   final VoidCallback? onNaturalHeightRestored;
-  final int topicId;
-  final int postId;
-  final int htmlCharacters;
-  final TopicScrollCaptureController? scrollCapture;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
       _RenderRetainedMinimumHeight(
         minimumHeight: minimumHeight,
         onNaturalHeightRestored: onNaturalHeightRestored,
-        topicId: topicId,
-        postId: postId,
-        htmlCharacters: htmlCharacters,
-        scrollCapture: scrollCapture,
       );
 
   @override
@@ -5394,11 +5054,7 @@ class _RetainedMinimumHeight extends SingleChildRenderObjectWidget {
   ) {
     renderObject
       ..minimumHeight = minimumHeight
-      ..onNaturalHeightRestored = onNaturalHeightRestored
-      ..topicId = topicId
-      ..postId = postId
-      ..htmlCharacters = htmlCharacters
-      ..scrollCapture = scrollCapture;
+      ..onNaturalHeightRestored = onNaturalHeightRestored;
   }
 }
 
@@ -5406,18 +5062,10 @@ class _RenderRetainedMinimumHeight extends RenderProxyBox {
   _RenderRetainedMinimumHeight({
     required this._minimumHeight,
     required this._onNaturalHeightRestored,
-    required this.topicId,
-    required this.postId,
-    required this.htmlCharacters,
-    required this.scrollCapture,
   });
 
   double _minimumHeight;
   VoidCallback? _onNaturalHeightRestored;
-  int topicId;
-  int postId;
-  int htmlCharacters;
-  TopicScrollCaptureController? scrollCapture;
 
   set minimumHeight(double value) {
     if (value == _minimumHeight) return;
@@ -5431,28 +5079,6 @@ class _RenderRetainedMinimumHeight extends RenderProxyBox {
 
   @override
   void performLayout() {
-    final capture = scrollCapture;
-    if (capture == null || !capture.isRecording) {
-      _layout();
-      return;
-    }
-    // Reuse the row's existing render object. An unarmed recorder adds no
-    // wrapper, stopwatch, event allocation, or widget subscription.
-    final timer = Stopwatch()..start();
-    try {
-      _layout();
-    } finally {
-      timer.stop();
-      capture.recordTopicEvent('post.layout', {
-        'topicId': topicId,
-        'postId': postId,
-        'htmlCharacters': htmlCharacters,
-        'durationUs': timer.elapsedMicroseconds,
-      });
-    }
-  }
-
-  void _layout() {
     final child = this.child;
     if (child == null) {
       size = constraints.constrain(Size(0, _minimumHeight));

@@ -5,7 +5,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 import 'package:message_bus_client/message_bus_client.dart';
 
-import '../diagnostics/diagnostics_controller.dart';
 import '../foundation/bounded_lru_cache.dart';
 import '../models/incoming_topics.dart';
 import '../plugin_api/live_channels.dart';
@@ -41,10 +40,6 @@ abstract interface class SiteMessageBusSession {
   void pollNow();
 
   Future<void> close();
-}
-
-abstract interface class SiteMessageBusErrorSource {
-  Stream<Object> get errors;
 }
 
 abstract interface class SiteMessageBusSubscription {
@@ -102,7 +97,6 @@ class SiteTracker {
     _http = transport;
     _bus = bus;
     try {
-      _listenForErrors();
       _subscribe();
     } catch (_) {
       dispose().ignore();
@@ -130,7 +124,6 @@ class SiteTracker {
   final Map<String, int?> _initialLastIds;
   late final SafeHttpClient _http;
   late final SiteMessageBusSession _bus;
-  StreamSubscription<Object>? _errorSubscription;
 
   bool _polling = false;
   bool _disposed = false;
@@ -138,71 +131,6 @@ class SiteTracker {
 
   final IncomingTopics incoming = IncomingTopics();
   void Function(Object? data)? _onTopicTrackingState;
-
-  void _listenForErrors() {
-    final bus = _bus;
-    if (bus is! SiteMessageBusErrorSource) return;
-    _errorSubscription = (bus as SiteMessageBusErrorSource).errors.listen(
-      _onMessageBusError,
-    );
-  }
-
-  void _onMessageBusError(Object error) {
-    if (_disposed) return;
-    final (
-      Object safeError,
-      StackTrace stackTrace,
-      String operation,
-    ) = switch (error) {
-      MessageBusHttpException(:final statusCode, :final retryAfter) => (
-        StateError(
-          'Message bus HTTP $statusCode'
-          '${retryAfter == null ? '' : appL10n.retryAfter((retryAfter).toString())}',
-        ),
-        StackTrace.current,
-        'messageBus.poll',
-      ),
-      MessageBusTransportException(:final cause, :final stackTrace) => (
-        cause,
-        stackTrace ?? StackTrace.current,
-        'messageBus.poll',
-      ),
-      MessageBusTimeoutException(:final timeout) => (
-        TimeoutException(appL10n.messageBusPollTimedOut, timeout),
-        StackTrace.current,
-        'messageBus.poll',
-      ),
-      MessageBusProtocolException(:final message) => (
-        FormatException(message),
-        StackTrace.current,
-        'messageBus.poll',
-      ),
-      MessageBusCallbackException(
-        :final channel,
-        :final cause,
-        :final stackTrace,
-      ) =>
-        (
-          // Preserve the original exception type so the central privacy
-          // boundary can strip fields such as FormatException.source. Never
-          // interpolate a callback exception into a wrapper string: it may
-          // retain the message-bus payload it was parsing.
-          cause,
-          stackTrace ?? StackTrace.current,
-          'messageBus.callback $channel',
-        ),
-      _ => (error, StackTrace.current, 'messageBus.poll'),
-    };
-    DiagnosticsSink.current.reportError(
-      safeError,
-      stackTrace,
-      operation: operation,
-      source: 'message_bus',
-      severity: DiagnosticSeverity.warning,
-      handled: true,
-      degraded: true,
-    );
-  }
 
   void _subscribe() {
     // `/latest` is public, while `/new` is meaningful only to a signed-in user.
@@ -318,18 +246,7 @@ class SiteTracker {
     if (position != null) _topicPositions.put(channel, position);
     try {
       subscription.cancel();
-    } catch (error, stackTrace) {
-      if (!_disposed) {
-        DiagnosticsSink.current.reportError(
-          error,
-          stackTrace,
-          operation: 'messageBus.unsubscribeTopic',
-          source: 'message_bus',
-          severity: DiagnosticSeverity.warning,
-          handled: true,
-          degraded: true,
-        );
-      }
+    } catch (error) {
       // The bus close is the final cleanup boundary. One broken channel
       // handle must not retain every later subscription or prevent close.
     }
@@ -457,35 +374,11 @@ class SiteTracker {
     // sessions likewise promise that [close] is invoked synchronously,
     // including when construction fails part-way through subscribing.
     try {
-      // Both futures need error handlers immediately. Awaiting cancellation
-      // first leaves an early bus-close failure unhandled while it is pending.
-      await Future.wait<void>([
-        _cancelErrorSubscription(),
-        Future<void>.sync(_bus.close),
-      ], eagerError: true);
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'messageBus.close',
-        source: 'message_bus',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
+      await Future<void>.sync(_bus.close);
+    } catch (error) {
       rethrow;
     } finally {
       _http.close();
-    }
-  }
-
-  Future<void> _cancelErrorSubscription() async {
-    try {
-      await _errorSubscription?.cancel();
-    } catch (_) {
-      // The bus close remains the authoritative cleanup boundary.
-    } finally {
-      _errorSubscription = null;
     }
   }
 
@@ -577,8 +470,7 @@ SiteMessageBusSession _createMessageBus({
   ),
 );
 
-final class _MessageBusSession
-    implements SiteMessageBusSession, SiteMessageBusErrorSource {
+final class _MessageBusSession implements SiteMessageBusSession {
   _MessageBusSession(this._client) {
     // `subscribe` starts a client that was never started or stopped. Stopping
     // it first leaves [SiteTracker.start] as the only way polling begins.
@@ -586,9 +478,6 @@ final class _MessageBusSession
   }
 
   final MessageBusClient _client;
-
-  @override
-  Stream<Object> get errors => _client.errors;
 
   @override
   SiteMessageBusSubscription subscribe(

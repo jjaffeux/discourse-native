@@ -13,7 +13,7 @@ import 'voice_agent_invite.dart';
 import 'voice_call_port.dart';
 import 'voice_call_widget.dart';
 import 'voice_controller.dart';
-import 'voice_diagnostics.dart';
+
 import 'voice_icons.dart';
 import 'voice_incoming_call.dart';
 import 'voice_join.dart';
@@ -1730,10 +1730,7 @@ Future<void> _showMediaSettings(
                   if (testing) return;
                   setState(() => testing = true);
                   try {
-                    final available = await _testMicrophone(
-                      input,
-                      controller.diagnostics,
-                    );
+                    final available = await _testMicrophone(input);
                     if (ownerContext.mounted &&
                         context.mounted &&
                         ModalRoute.of(context)?.isCurrent == true) {
@@ -1851,33 +1848,9 @@ Future<void> _showMediaSettings(
   );
 }
 
-Future<bool> _testMicrophone(
-  String? input,
-  VoiceDiagnosticsRecorder diagnostics,
-) async {
+Future<bool> _testMicrophone(String? input) async {
   rtc.MediaStream? stream;
   var available = true;
-
-  void failed(Object error, StackTrace stackTrace, String operation) {
-    available = false;
-    try {
-      diagnostics.record(
-        'microphone.test.failed',
-        component: 'media',
-        severity: DiagnosticSeverity.warning,
-        data: {'operation': operation, 'errorType': '${error.runtimeType}'},
-      );
-      diagnostics.recordRaw(
-        'microphone.test.failure_detail',
-        component: 'media',
-        severity: DiagnosticSeverity.warning,
-        message: error.toString(),
-        data: {'operation': operation, 'stackTrace': stackTrace.toString()},
-      );
-    } catch (_) {
-      // Diagnostics must not interrupt the remaining native cleanup.
-    }
-  }
 
   try {
     stream = await rtc.navigator.mediaDevices.getUserMedia({
@@ -1892,17 +1865,17 @@ Future<bool> _testMicrophone(
       try {
         await track.stop();
       } catch (error, stackTrace) {
-        failed(error, stackTrace, 'voice.microphone.test.stopTrack');
+        available = false;
       }
     }
   } catch (error, stackTrace) {
-    failed(error, stackTrace, 'voice.microphone.test.capture');
+    available = false;
   } finally {
     if (stream != null) {
       try {
         await stream.dispose();
       } catch (error, stackTrace) {
-        failed(error, stackTrace, 'voice.microphone.test.disposeStream');
+        available = false;
       }
     }
   }

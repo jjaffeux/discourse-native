@@ -156,24 +156,6 @@ void main() {
     expect(plugin.reads, _expectedReads);
   });
 
-  test('preference key identity and diagnostics identity survive mutation', () {
-    final plugin = _MutableDeclarations();
-    final key = plugin.preferences.single;
-    final registry = PluginRegistry.validated([plugin]);
-    plugin.preferences.clear();
-    plugin.diagnosticId = 'changed';
-    plugin.live = 'recording';
-    expect(registry.sitePreferenceKeys.single, same(key));
-    expect(() => registry.sitePreferenceKeys.clear(), throwsUnsupportedError);
-    final diagnostic = registry.diagnosticsPlugins.single;
-    expect(diagnostic.diagnosticsId, 'catalog-diagnostics');
-    expect(diagnostic.diagnosticsLabel, 'recording');
-    expect(diagnostic.isDiagnosticsRecording, isTrue);
-    plugin.live = '';
-    expect(diagnostic.isDiagnosticsRecording, isFalse);
-    expect(plugin.reads, _expectedReads);
-  });
-
   test(
     'homepages freeze identities, retain first-owner order and call live availability',
     () {
@@ -203,14 +185,6 @@ void main() {
     expect(first, second);
     final registry = PluginRegistry.validated(const [first, second]);
     expect(registry.pluginHashtagWireTypes, ['first', 'second']);
-  });
-
-  test('unvalidated diagnostics adapters retain live identifiers', () {
-    final plugin = _MutableDeclarations();
-    final adapter = PluginRegistry([plugin]).diagnosticsPlugins.single;
-    expect(adapter.diagnosticsId, 'catalog-diagnostics');
-    plugin.diagnosticId = 'changed';
-    expect(adapter.diagnosticsId, 'changed');
   });
 
   test('record and group declarations reject foreign ownership', () {
@@ -285,7 +259,6 @@ const _expectedReads = {
   'icons': 1,
   'recommendations': 1,
   'preferences': 1,
-  'diagnostics': 1,
 };
 
 final class _MutableDeclarations
@@ -301,7 +274,6 @@ final class _MutableDeclarations
         IconCatalogPlugin,
         TopicRecommendationSourcePlugin,
         SitePreferencesPlugin,
-        DiagnosticsPlugin,
         PluginSiteFeature,
         PluginCurrentUserFeature {
   _MutableDeclarations() {
@@ -319,7 +291,7 @@ final class _MutableDeclarations
   final preferences = <SitePreferenceKey>[
     const SitePreferenceKey('catalog.preference'),
   ];
-  String diagnosticId = 'catalog-diagnostics';
+
   final reads = <String, int>{};
   T _read<T>(String key, T value) {
     reads.update(key, (n) => n + 1, ifAbsent: () => 1);
@@ -347,12 +319,7 @@ final class _MutableDeclarations
   @override
   List<SitePreferenceKey> get sitePreferenceKeys =>
       _read('preferences', preferences);
-  @override
-  String get diagnosticsId => _read('diagnostics', diagnosticId);
-  @override
-  String get diagnosticsLabel => live;
-  @override
-  bool get isDiagnosticsRecording => live.isNotEmpty;
+
   @override
   bool siteFeatureEnabled(PluginData data) => live.isNotEmpty;
   @override

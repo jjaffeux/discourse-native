@@ -410,7 +410,7 @@ void main() {
     },
   );
 
-  test('queued shared work keeps the first sender diagnostics Zone', () async {
+  test('queued shared work keeps the first sender request Zone', () async {
     final fixture = _Fixture(concurrency: 1);
     addTearDown(fixture.api.close);
     final marker = Object();

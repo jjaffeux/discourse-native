@@ -90,7 +90,7 @@ class AssignmentController extends FrameSafeNotifier
     AssignmentPermissionSnapshotReader? permissionSnapshot,
     AssignmentStatusOptionsReader? statusOptionsReader,
     required AssignmentTopicReloader reloadTopic,
-    this.diagnostics = const PluginDiagnosticsReporter.noop(),
+
     AssignmentFallbackInvalidator? invalidateLegacyFallback,
   }) : assert(canAssign != null || permissionSnapshot != null),
        _requests = requests,
@@ -104,7 +104,7 @@ class AssignmentController extends FrameSafeNotifier
   final PluginRequestHost _requests;
   final AssignmentPermissionReader? _legacyCanAssign;
   final AssignmentPermissionSnapshotReader? _permissionSnapshot;
-  final PluginDiagnosticsReporter diagnostics;
+
   final AssignmentStatusOptionsReader? _statusOptionsReader;
   final AssignmentTopicReloader _reloadTopic;
   final AssignmentFallbackInvalidator? _legacyInvalidator;
@@ -329,17 +329,6 @@ class AssignmentController extends FrameSafeNotifier
     notifySafely();
 
     bool current() => _isCurrent(lease) && identical(_writes[key], token);
-    void report(Object error, StackTrace stackTrace, String operation) {
-      if (!current()) return;
-      diagnostics.reportError(
-        error,
-        stackTrace,
-        operation: operation,
-        source: 'assign',
-        handled: true,
-        degraded: true,
-      );
-    }
 
     try {
       final PluginRequestCredentials session;
@@ -373,7 +362,6 @@ class AssignmentController extends FrameSafeNotifier
             ? AssignmentWriteResult.uncertain(error)
             : AssignmentWriteResult.refused(error);
       } catch (error, stackTrace) {
-        report(error, stackTrace, 'assign.write');
         final failure = WriteException(
           WriteFailure.unreachable,
           notSent: !dispatched,
@@ -390,7 +378,6 @@ class AssignmentController extends FrameSafeNotifier
         // Assign returns no assignment snapshot and can also change tracking.
         await _reloadTopic(siteUrl, target.topicId);
       } catch (error, stackTrace) {
-        report(error, stackTrace, 'assign.refresh');
         if (!current()) return const AssignmentWriteResult.acceptedRetired();
         return AssignmentWriteResult.acceptedRefreshFailed(
           error is WriteException
@@ -453,16 +440,7 @@ class AssignmentController extends FrameSafeNotifier
   Future<void> _reconcileUnavailable(String siteUrl, int topicId) async {
     try {
       await _reloadTopic(siteUrl, topicId);
-    } catch (error, stackTrace) {
-      diagnostics.reportError(
-        error,
-        stackTrace,
-        operation: 'assign.reconcileUnavailable',
-        source: 'assign',
-        handled: true,
-        degraded: true,
-      );
-    }
+    } catch (error) {}
   }
 
   Future<PluginRequestCredentials> _session(

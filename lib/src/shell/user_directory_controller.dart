@@ -5,7 +5,7 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../data/user_directory_api.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_directory.dart';
@@ -221,16 +221,9 @@ final class UserDirectoryController extends FrameSafeNotifier {
         );
         notifySafely();
       });
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!_isCurrent(key, token, lease)) return;
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'users.directory',
-        source: 'users-directory',
-        handled: true,
-        degraded: true,
-      );
+
       lease.commit(() {
         if (!_isCurrent(key, token, lease)) return;
         final current = _states[key] ?? held;
@@ -306,17 +299,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
       notifySafely();
       await load(instance, query: query, refresh: true);
       return isCurrent();
-    } catch (error, stackTrace) {
-      if (isCurrent()) {
-        DiagnosticsSink.current.reportError(
-          error,
-          stackTrace,
-          operation: 'users.directory.columns.update',
-          source: 'users-directory',
-          handled: true,
-          degraded: true,
-        );
-      }
+    } catch (error) {
       return false;
     } finally {
       if (!isDisposed && identical(_columnUpdates[instance.url], token)) {

@@ -83,10 +83,9 @@ final class _VoiceChatAssociation {
       syncTracker();
       final conversation = _bindConversation();
       if (conversation != null) await conversation.refresh(force: force);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!ownsRequest()) return;
       this.error = appL10n.couldnTLoadRoomChat;
-      controller._report(error, stackTrace, 'voice.chat.load');
     } finally {
       if (ownsRequest()) {
         _request = null;
@@ -105,7 +104,7 @@ final class _VoiceChatAssociation {
         return;
       }
       if (data is Map && data['type'] == 'updated') {
-        controller._observe(_refreshSession, 'voice.chat.refresh');
+        controller._observe(_refreshSession);
       }
     });
   }
@@ -144,10 +143,7 @@ final class _VoiceChatAssociation {
         await conversation.refresh(force: true);
       }
       if (ownsRequest()) _notifyChanged();
-    } catch (error, stackTrace) {
-      if (ownsRequest()) {
-        controller._report(error, stackTrace, 'voice.chat.refresh');
-      }
+    } catch (error) {
     } finally {
       if (identical(_request, request)) _request = null;
     }
@@ -225,12 +221,12 @@ final class _VoiceChatAssociation {
         if (!retainConversation) conversation?.close();
       }
       if (isCurrent) _notifyChanged();
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!isCurrent) return;
       this
         ..sending = false
         ..error = appL10n.messageNotSent;
-      controller._report(error, stackTrace, 'voice.chat.send');
+
       _notifyChanged();
     }
   }

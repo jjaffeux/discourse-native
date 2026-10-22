@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../data/site_preference_keys.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
@@ -902,25 +902,6 @@ abstract interface class ShellHeaderPlugin {
 
 abstract interface class ShellOverlayPlugin {
   List<Widget> shellOverlays(BuildContext context);
-}
-
-abstract interface class DiagnosticsPlugin {
-  /// Stable identity used to preserve the selected diagnostics surface when
-  /// the application replaces a plugin capability instance.
-  String get diagnosticsId;
-
-  String get diagnosticsLabel;
-
-  Listenable get diagnosticsStatusListenable;
-
-  bool get isDiagnosticsRecording;
-
-  String? get diagnosticsRecordingLabel;
-
-  Widget buildDiagnostics(
-    BuildContext context,
-    PluginDiagnosticsReadExportHost diagnostics,
-  );
 }
 
 abstract interface class BookmarkReminderPlugin {

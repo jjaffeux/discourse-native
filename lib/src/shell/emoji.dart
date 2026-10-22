@@ -7,7 +7,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../data/emoji_cache.dart';
 import '../data/media_pipeline.dart';
-import '../foundation/diagnostic_errors.dart';
+
 import '../theme/discourse_typography.dart';
 import 'image_decode.dart';
 import 'site_url.dart';
@@ -126,9 +126,6 @@ class _EmojiImageState extends State<EmojiImage> {
     Object error,
     StackTrace? stackTrace,
   ) {
-    if (cache?.rejectAfterDecodeFailure(url, image) != false) {
-      reportImageError(error, stackTrace, operation: 'emoji.decode');
-    }
     if (widget.url == url && identical(_bytes, image)) _bytes = null;
     return _fallback();
   }

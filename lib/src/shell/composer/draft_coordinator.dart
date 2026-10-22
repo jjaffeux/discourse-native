@@ -28,8 +28,6 @@ typedef ComposerDraftDestroyedCallback =
       String draftKey, {
       required bool knownToExist,
     });
-typedef ComposerDraftErrorReporter =
-    void Function(Object error, StackTrace stackTrace, String operation);
 
 typedef _DraftSessionKey = ({String siteUrl, String draftKey, Object session});
 
@@ -86,7 +84,6 @@ final class ComposerDraftCoordinator {
     required bool Function(ComposerTarget target) isServerDraftKnown,
     required ComposerDraftDestroyedCallback recordDraftDestroyed,
     required void Function(ComposerController composer) onComposerClosed,
-    required ComposerDraftErrorReporter reportError,
   }) : _localStore = localStore,
        _persistence = persistence,
        _draftsApi = draftsApi,
@@ -101,8 +98,7 @@ final class ComposerDraftCoordinator {
        _minimumRequiredTagsFor = minimumRequiredTagsFor,
        _isServerDraftKnown = isServerDraftKnown,
        _recordDraftDestroyed = recordDraftDestroyed,
-       _onComposerClosed = onComposerClosed,
-       _reportError = reportError;
+       _onComposerClosed = onComposerClosed;
 
   final DraftStore _localStore;
   final ComposerPersistenceApi _persistence;
@@ -119,7 +115,6 @@ final class ComposerDraftCoordinator {
   final bool Function(ComposerTarget target) _isServerDraftKnown;
   final ComposerDraftDestroyedCallback _recordDraftDestroyed;
   final void Function(ComposerController composer) _onComposerClosed;
-  final ComposerDraftErrorReporter _reportError;
 
   final Expando<ComposerDraftSession> _sessions = Expando();
   final Expando<Future<bool>> _restoreTasks = Expando();
@@ -440,9 +435,9 @@ final class ComposerDraftCoordinator {
         _minimumRequiredTagsFor(target.siteUrl, composer.categoryId),
       );
       return (revision: restoredRevision, error: null);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!current()) return (revision: null, error: null);
-      _reportError(error, stackTrace, 'composer.rollbackDraft');
+
       // A failed remote write may have staged the candidate locally. Put the
       // unchanged live edits back so reopening cannot silently discard them.
       var localFailed = false;
@@ -688,9 +683,8 @@ final class ComposerDraftCoordinator {
       }
       _close(composer);
       return null;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isCurrent()) {
-        _reportError(error, stackTrace, 'composer.preserveUnappliedDraft');
         return failAndResaveCurrentDraft();
       }
       return null;
@@ -785,9 +779,8 @@ final class ComposerDraftCoordinator {
       if (!isCurrent()) return null;
       _close(composer);
       return null;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (isCurrent()) {
-        _reportError(error, stackTrace, 'composer.discardDraft');
         if (composer.canSaveDraft) unawaited(composer.flushDraft());
         return _discardFailure;
       }
@@ -1170,10 +1163,7 @@ final class ComposerDraftCoordinator {
         );
       }
       return (request: request, failure: null);
-    } catch (error, stackTrace) {
-      if (!_isDisposed() && lease.isCurrent) {
-        _reportError(error, stackTrace, 'authentication.readWriteCredential');
-      }
+    } catch (error) {
       return (
         request: null,
         failure: const WriteException(WriteFailure.unreachable),

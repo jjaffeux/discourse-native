@@ -40,9 +40,7 @@ class HeaderPreferencesController extends FrameSafeNotifier {
     _store = ScalarPreferenceRepository(
       persistence: persistence,
       key: '${keys.of(siteUrl)}.${Uri.encodeComponent(accountIdentity)}',
-      readOperation: 'headerPreferences.read',
-      writeOperation: 'headerPreferences.write',
-      writeFailureMessage: 'Could not save header preferences.',
+
       isCurrent: () => !isDisposed && !_retired,
     );
     keys.track(this, (controller, sites) => controller.forgetSites(sites));

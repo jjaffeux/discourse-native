@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
@@ -1143,15 +1142,10 @@ class _StreamState extends State<ChatMessageStream>
         visibleBounds: _visibleMessageBounds,
       );
       if (_anchorIfFresh()) return;
-      final started = _recording ? developer.Timeline.now : null;
+
       _syncFloatingDay();
       _fillTowardsPresent();
       _noteWhatIsOnScreen(recheckVisibleRead: recheckVisibleRead);
-      if (started != null) {
-        _recordScrollEvent('chat.viewport.work', {
-          'durationUs': developer.Timeline.now - started,
-        });
-      }
     });
   }
 
@@ -1471,16 +1465,8 @@ class _StreamState extends State<ChatMessageStream>
       return;
     }
 
-    final started = _recording ? developer.Timeline.now : null;
     final extents = _dayExtents.sync(days, _list);
-    if (started != null && extents.rows > 0) {
-      _recordScrollEvent(
-        extents.initialized
-            ? 'chat.dayExtents.scanned'
-            : 'chat.dayExtents.updated',
-        {'rows': extents.rows, 'durationUs': developer.Timeline.now - started},
-      );
-    }
+
     final fromBottom =
         _scroll.position.viewportDimension -
         _streamPadding.bottom -
@@ -1517,12 +1503,7 @@ class _StreamState extends State<ChatMessageStream>
       return;
     }
     if (!mounted) return;
-    if (_recording) {
-      _recordScrollEvent('chat.floatingDay.changed', {
-        'dayChanged': dayChanged,
-        'offset': offset,
-      });
-    }
+
     _floatingDayOffset.value = offset;
     _floatingDay.value = day;
   }
@@ -1643,39 +1624,6 @@ class _StreamState extends State<ChatMessageStream>
   /// Held because dispose cannot depend on an inherited-widget lookup.
   ChatController? _chat;
   ChatShellService? _shell;
-  TopicScrollCaptureController? _scrollCapture;
-  (TopicScrollCaptureController, int, String, ChatStreamTarget)?
-  _captureContext;
-
-  bool get _recording => _scrollCapture?.isRecording == true;
-
-  void _recordScrollEvent(String name, Map<String, Object?> data) {
-    final capture = _scrollCapture;
-    if (capture == null || !capture.isRecording) return;
-    final identity = (
-      capture,
-      capture.captureId,
-      widget.siteUrl,
-      widget.target,
-    );
-    if (_captureContext != identity) {
-      _captureContext = identity;
-      capture.recordTopicEvent('chat.capture.context', {
-        'messageCount': widget.stream.messageIds.length,
-        'rowCount': widget.items.length,
-        'thread': widget.target.threadId != null,
-        'directMessage':
-            _chat?.channel(widget.siteUrl, widget.channelId)?.isDirectMessage ??
-            false,
-        'group':
-            _chat?.channel(widget.siteUrl, widget.channelId)?.isGroup ?? false,
-        if (_scroll.hasClients)
-          'viewportExtent': _scroll.position.viewportDimension,
-        'devicePixelRatio': View.of(context).devicePixelRatio,
-      });
-    }
-    capture.recordTopicEvent(name, data);
-  }
 
   void _handleShellChanged() => _syncReadDwellVisibility();
 
@@ -1732,7 +1680,7 @@ class _StreamState extends State<ChatMessageStream>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
+
     final header = DPageSurface.headerGeometryOf(context);
     if (!identical(header, _headerGeometry)) {
       _headerGeometry?.removeListener(_scheduleLook);
@@ -1758,9 +1706,6 @@ class _StreamState extends State<ChatMessageStream>
     final stream = widget.stream;
     final chat = PluginUiScope.require(context, chatControllerService);
     _startHighlightIfReady();
-    if (_recording) {
-      _recordScrollEvent('chat.stream.built', {'rowCount': items.length});
-    }
 
     final leading = _leadingRows;
     final lastRow = leading + items.length - 1;
@@ -1824,7 +1769,7 @@ class _StreamState extends State<ChatMessageStream>
                     !_adjustingArrival) {
                   _arrivalHold = null;
                 }
-                final started = _recording ? developer.Timeline.now : null;
+
                 // In the reversed list, extentAfter points toward older messages
                 // and extentBefore back toward the present.
                 if (notification.metrics.extentAfter <
@@ -1837,22 +1782,14 @@ class _StreamState extends State<ChatMessageStream>
                 }
                 _syncAwayFromPresent();
                 _scheduleLook();
-                if (started != null) {
-                  _recordScrollEvent('chat.scroll.notification', {
-                    'pixels': notification.metrics.pixels,
-                    'durationUs': developer.Timeline.now - started,
-                  });
-                }
+
                 return false;
               },
               itemBuilder: (context, row) {
                 if (row == contentRows && header != null) return header.spacer;
-                if (_recording) {
-                  _recordScrollEvent('chat.row.built', {'index': row});
-                }
+
                 if (row < leading) {
                   return ChatScrollLayoutObserver(
-                    capture: _scrollCapture,
                     index: row,
                     onLayout: _noteDayRowLayout,
                     child: const _LoadingNewerRow(),
@@ -1961,7 +1898,6 @@ class _StreamState extends State<ChatMessageStream>
                   null => const SizedBox.shrink(),
                 };
                 return ChatScrollLayoutObserver(
-                  capture: _scrollCapture,
                   index: row,
                   onLayout: _noteDayRowLayout,
                   child: child,

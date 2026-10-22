@@ -26,7 +26,7 @@ Plugin callers use `PluginRequestCredentials.run`. The shell creates its executo
 
 ## Shape and acceptance contract
 
-`SiteLifecycle` owns each generation and its detachable retirement observers. The map loses the old generation before observers run. Completed requests detach, so an account does not retain every completed request until sign-out. `AccountRequestSession` checks credential acquisition. Its immutable `AccountRequestCredentials` creates an independent scope for each `run` operation. Each run installs an internal `AccountRequestScope` in a child Dart Zone. The transport is the only consumer of that Zone value. It preserves the caller's diagnostics Zone.
+`SiteLifecycle` owns each generation and its detachable retirement observers. The map loses the old generation before observers run. Completed requests detach, so an account does not retain every completed request until sign-out. `AccountRequestSession` checks credential acquisition. Its immutable `AccountRequestCredentials` creates an independent scope for each `run` operation. Each run installs an internal `AccountRequestScope` in a child Dart Zone. The transport is the only consumer of that Zone value.
 
 `DiscourseRequestCoordinator` owns one physical GET exchange and a separate waiter per caller. Its key includes URL, normalized headers, response limit, timeout, and session generation. Per-caller cancellation removes only that waiter. The last departing waiter removes the exchange from the sharing map before aborting HTTP. A successor generation cannot join an abandoned or previous-generation exchange, even when credentials are identical.
 

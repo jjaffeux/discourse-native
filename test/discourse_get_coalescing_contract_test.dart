@@ -143,7 +143,7 @@ void main() {
             appearance
                 ? _appearanceFailure(SiteAppearanceLoadFailure.responseTooLarge)
                 : isA<SiteLookupException>().having(
-                    (error) => error.diagnosticCause,
+                    (error) => error.cause,
                     'diagnosticCause',
                     isA<HttpResponseTooLargeException>().having(
                       (error) => error.maxBytes,
@@ -215,7 +215,7 @@ void main() {
             appearance
                 ? _appearanceFailure(SiteAppearanceLoadFailure.timedOut)
                 : isA<SiteLookupException>().having(
-                    (error) => error.diagnosticCause,
+                    (error) => error.cause,
                     'diagnosticCause',
                     isA<TimeoutException>(),
                   ),

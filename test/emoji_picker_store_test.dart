@@ -3,9 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
-import 'package:discourse_native/src/diagnostics/diagnostic_event.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_persistence.dart';
+
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/plugins/chat/chat_emoji_usage.dart';
@@ -493,9 +491,7 @@ void main() {
   group('storage failure handling', () {
     test('falls back safely and reports a corrupt read', () async {
       final persistence = _MemoryPersistence()..values[meta] = '{not json';
-      final diagnostics = await _installDiagnostics(
-        'emoji-picker-corrupt-read',
-      );
+
       final store = EmojiPickerStore(persistence: persistence);
 
       expect(await store.readSkinTone(siteUrl: meta), EmojiSkinTone.neutral);
@@ -507,26 +503,18 @@ void main() {
         ),
         isEmpty,
       );
-      expect(
-        diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-        _isStorageFailure('emojiPicker.read'),
-      );
     });
 
     test(
       'reports a rejected write while retaining the in-memory mutation',
       () async {
         final persistence = _MemoryPersistence(acceptWrites: false);
-        final diagnostics = await _installDiagnostics('emoji-picker-write');
+
         final store = EmojiPickerStore(persistence: persistence);
 
         await store.writeSkinTone(siteUrl: meta, tone: EmojiSkinTone.t6);
 
         expect(store.skinToneFor(siteUrl: meta), EmojiSkinTone.t6);
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-          _isStorageFailure('emojiPicker.write'),
-        );
       },
     );
   });
@@ -646,26 +634,6 @@ List<dynamic> _topicHistory(String encoded) {
   final history = decoded['history'] as Map<String, dynamic>;
   return history[CoreEmojiUsageContexts.topic.id] as List<dynamic>;
 }
-
-Future<DiagnosticsController> _installDiagnostics(String sessionId) async {
-  final diagnostics = await DiagnosticsController.create(
-    persistence: MemoryDiagnosticsPersistence(),
-    sessionId: sessionId,
-  );
-  final binding = DiagnosticsSink.install(diagnostics);
-  addTearDown(() async {
-    binding.close();
-    await diagnostics.close();
-  });
-  return diagnostics;
-}
-
-Matcher _isStorageFailure(String operation) => isA<ErrorDiagnosticEvent>()
-    .having((event) => event.operation, 'operation', operation)
-    .having((event) => event.source, 'source', 'storage')
-    .having((event) => event.severity, 'severity', DiagnosticSeverity.warning)
-    .having((event) => event.handled, 'handled', isTrue)
-    .having((event) => event.degraded, 'degraded', isTrue);
 
 class _MemoryPersistence implements EmojiPickerPersistence {
   _MemoryPersistence({this.acceptWrites = true});

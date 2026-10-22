@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../diagnostics/diagnostics_controller.dart';
 import '../../models/found_user.dart';
 import '../../models/group.dart';
 import '../site_url.dart';
@@ -119,9 +118,9 @@ final class GroupMemberAdditionController extends ChangeNotifier {
       final found = await searchUsers(value.trim());
       if (_disposed || request != _sequence) return;
       _results = found;
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_disposed || request != _sequence) return;
-      _reportGroupFormError(error, stackTrace, 'groups.members.search');
+
       _results = const [];
       _error = appL10n.membersCouldNotBeSearchedTryAgain;
     }
@@ -154,9 +153,8 @@ final class GroupMemberAdditionController extends ChangeNotifier {
     GroupMembershipMutationResult? result;
     try {
       result = await addMembers(usernames, emails);
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_disposed) return false;
-      _reportGroupFormError(error, stackTrace, 'groups.members.add');
     }
     if (_disposed) return false;
     if (result == null) {
@@ -221,9 +219,8 @@ final class GroupInviteController extends ChangeNotifier {
         email: normalizedEmail.isEmpty ? null : normalizedEmail,
         customMessage: normalizedMessage.isEmpty ? null : normalizedMessage,
       );
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (_disposed) return GroupInviteSubmission.failed;
-      _reportGroupFormError(error, stackTrace, 'groups.invite');
     }
     if (_disposed) return GroupInviteSubmission.failed;
     if (invite == null) {
@@ -255,19 +252,4 @@ final class GroupInviteController extends ChangeNotifier {
     message.dispose();
     super.dispose();
   }
-}
-
-void _reportGroupFormError(
-  Object error,
-  StackTrace stackTrace,
-  String operation,
-) {
-  DiagnosticsSink.current.reportError(
-    error,
-    stackTrace,
-    operation: operation,
-    source: 'groups',
-    handled: true,
-    degraded: true,
-  );
 }

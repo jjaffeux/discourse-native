@@ -92,9 +92,9 @@ final class _ChatChannelPins {
         });
         if (revision == _liveRevision) return;
       }
-    } catch (error, stackTrace) {
+    } catch (error) {
       if (!ownsRequest()) return;
-      chat._report(error, stackTrace, 'chat.loadPinnedMessages');
+
       ref.value = ref.value.copyWith(
         loading: false,
         fetched: true,

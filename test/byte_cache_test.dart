@@ -7,7 +7,7 @@ import 'package:discourse_native/src/data/byte_cache.dart';
 import 'package:discourse_native/src/data/byte_cache_store.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics_controller.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -383,8 +383,7 @@ void main() {
         Uri.parse('https://site.test/held'),
       );
       final scheduler = ManualScheduler();
-      final diagnostics = _RecordingDiagnosticsSink();
-      addTearDown(DiagnosticsSink.install(diagnostics).close);
+
       final requested = <Uri>[];
       final cache = _TestByteCache(
         coordinator: coordinator,
@@ -414,7 +413,7 @@ void main() {
 
       expect(await load, isNull);
       expect(requested, isEmpty);
-      expect(diagnostics.errors, [isA<TimeoutException>()]);
+
       expect(scheduler.activeTimerCount, 0);
       (await coordinator.acquire(
         Uri.parse('https://site.test/next'),
@@ -699,8 +698,7 @@ void main() {
         maxQueuedPerOrigin: 1,
       );
       addTearDown(coordinator.close);
-      final diagnostics = _RecordingDiagnosticsSink();
-      addTearDown(DiagnosticsSink.install(diagnostics).close);
+
       final activeStarted = Completer<void>();
       final activeResponse = Completer<http.Response>();
       final requested = <String>[];
@@ -726,7 +724,7 @@ void main() {
 
       expect(await rejected, isNull);
       expect(cache.isCached('https://site.test/rejected'), isFalse);
-      expect(diagnostics.errors, isEmpty);
+
       expect(requested, ['active']);
 
       activeResponse.complete(http.Response.bytes([1], 200));
@@ -738,7 +736,6 @@ void main() {
         orderedEquals([8]),
       );
       expect(requested, ['active', 'queued', 'rejected']);
-      expect(diagnostics.errors, isEmpty);
     });
 
     test(
@@ -1034,8 +1031,6 @@ void main() {
     );
 
     test('reports background write errors and releases their budget', () async {
-      final diagnostics = _RecordingDiagnosticsSink();
-      addTearDown(DiagnosticsSink.install(diagnostics).close);
       final store = _GatedMutationByteCacheStore()
         ..holdWrite = true
         ..writeError = const FileSystemException('Disk full');
@@ -1057,12 +1052,7 @@ void main() {
       await store.release();
 
       expect(store.writes, hasLength(16));
-      expect(diagnostics.errors, hasLength(16));
-      expect(diagnostics.errors, everyElement(same(store.writeError)));
-      expect(
-        diagnostics.operations,
-        everyElement(startsWith('image.cacheWrite ')),
-      );
+
       expect(cache.cached('https://cdn.test/image-0'), [1]);
       expect(store.entries, isEmpty);
 
@@ -1617,40 +1607,6 @@ final class _SeededByteCacheStore implements ByteCacheStore {
   @override
   Future<void> remove(String url) async {
     entries.remove(url);
-  }
-}
-
-final class _RecordingDiagnosticsSink implements DiagnosticsSink {
-  final List<Object> errors = [];
-  final List<String?> operations = [];
-
-  @override
-  void recordLog({
-    required String name,
-    String source = 'application',
-    String? component,
-    String? message,
-    Map<String, Object?> attributes = const {},
-    DiagnosticSeverity severity = DiagnosticSeverity.info,
-    String? operation,
-    String? correlationId,
-    bool handled = true,
-    bool degraded = false,
-  }) {}
-
-  @override
-  void reportError(
-    Object error,
-    StackTrace stackTrace, {
-    String? operation,
-    String source = 'application',
-    DiagnosticSeverity severity = DiagnosticSeverity.error,
-    bool handled = true,
-    bool degraded = true,
-    String? correlationId,
-  }) {
-    errors.add(error);
-    operations.add(operation);
   }
 }
 

@@ -5,7 +5,7 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../data/site_preference_keys.dart';
-import '../diagnostics/diagnostics_controller.dart';
+
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
@@ -208,10 +208,6 @@ final class PluginRegistry
       'current-user feature owner',
       (plugin) => _ownerOf(plugin),
     );
-    _validateUniqueKeys<DiagnosticsPlugin>(
-      'diagnostics id',
-      (plugin) => _diagnosticsIdFor(plugin),
-    );
     _validateUniqueKeys<GroupTabPlugin>(
       'group tab owner',
       (plugin) => _ownerOf(plugin),
@@ -393,9 +389,6 @@ final class PluginRegistry
   List<SitePreferenceKey> _sitePreferenceKeysFor(
     SitePreferencesPlugin plugin,
   ) => _installed?.sitePreferenceKeys[plugin] ?? plugin.sitePreferenceKeys;
-
-  String _diagnosticsIdFor(DiagnosticsPlugin plugin) =>
-      _installed?.diagnosticsIds[plugin] ?? plugin.diagnosticsId;
 
   List<UserPreferenceCodec> _preferenceCodecsFor(
     UserPreferencesPlugin plugin,
@@ -675,16 +668,7 @@ final class PluginRegistry
     try {
       return definition.decode(siteUrl, notification) ??
           fallbackNotification(notification);
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'notifications.decode.${definition.id.id}',
-        source: definition.id.owner.value,
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
+    } catch (error) {
       return fallbackNotification(notification);
     }
   }
@@ -1443,16 +1427,7 @@ final class PluginRegistry
     try {
       final presentation = kind.present(request);
       return presentation.type == request.type ? presentation : null;
-    } catch (error, stackTrace) {
-      DiagnosticsSink.current.reportError(
-        error,
-        stackTrace,
-        operation: 'hashtag.kind.present',
-        source: readOwner(),
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-      );
+    } catch (error) {
       return null;
     }
   }
@@ -2275,15 +2250,6 @@ final class PluginRegistry
         .firstOrNull;
   }
 
-  List<DiagnosticsPlugin> get diagnosticsPlugins => List.unmodifiable([
-    for (final plugin in plugins.whereType<DiagnosticsPlugin>())
-      _OwnedDiagnosticsPlugin(
-        _owner(plugin),
-        plugin,
-        _installed?.diagnosticsIds[plugin],
-      ),
-  ]);
-
   DateTime? futureBookmarkReminder(
     String cooked, {
     required String? accountTimezone,
@@ -2311,43 +2277,6 @@ final class PluginRegistry
   bool staleTopic(int topicId, String channel, Object? data) => plugins
       .whereType<TopicLiveReloadPlugin>()
       .any((plugin) => plugin.staleTopic(topicId, channel, data));
-}
-
-final class _OwnedDiagnosticsPlugin implements DiagnosticsPlugin {
-  const _OwnedDiagnosticsPlugin(this.owner, this.delegate, this._diagnosticsId);
-
-  final PluginId owner;
-  final DiagnosticsPlugin delegate;
-
-  final String? _diagnosticsId;
-
-  @override
-  String get diagnosticsId => _diagnosticsId ?? delegate.diagnosticsId;
-
-  @override
-  String get diagnosticsLabel => delegate.diagnosticsLabel;
-
-  @override
-  Listenable get diagnosticsStatusListenable =>
-      delegate.diagnosticsStatusListenable;
-
-  @override
-  bool get isDiagnosticsRecording => delegate.isDiagnosticsRecording;
-
-  @override
-  String? get diagnosticsRecordingLabel => delegate.diagnosticsRecordingLabel;
-
-  @override
-  Widget buildDiagnostics(
-    BuildContext context,
-    PluginDiagnosticsReadExportHost diagnostics,
-  ) => PluginUiScope.own(
-    owner,
-    delegate.buildDiagnostics(
-      PluginUiScope.contextFor(context, owner),
-      diagnostics,
-    ),
-  );
 }
 
 bool _isRelativeForumPath(String value) {
@@ -2514,10 +2443,7 @@ final class _InstalledDeclarations {
         plugins,
         (plugin) => plugin.homepageId,
       ),
-      diagnosticsIds = _captureDeclarations<DiagnosticsPlugin, String>(
-        plugins,
-        (plugin) => plugin.diagnosticsId,
-      ),
+
       preferenceCodecs =
           _captureDeclarations<
             UserPreferencesPlugin,
@@ -2566,7 +2492,7 @@ final class _InstalledDeclarations {
   notificationCounters;
   final Map<SitePreferencesPlugin, List<SitePreferenceKey>> sitePreferenceKeys;
   final Map<HomepagePlugin, String> homepageIds;
-  final Map<DiagnosticsPlugin, String> diagnosticsIds;
+
   final Map<UserPreferencesPlugin, List<UserPreferenceCodec>> preferenceCodecs;
   final Map<GlobalSearchPlugin, List<GlobalSearchContribution>>
   searchContributions;

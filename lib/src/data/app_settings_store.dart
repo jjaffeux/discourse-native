@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_settings.dart';
 import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class AppSettingsPersistence {
   Future<bool?> readLimitContentSize();
@@ -304,62 +303,36 @@ final class AppSettingsStore {
       limitContentSize =
           await _persistence.readLimitContentSize() ??
           AppSettings.defaults.limitContentSize;
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.readLimitContentSize',
-      );
-    }
+    } catch (error) {}
     try {
       disableGifAnimations =
           await _persistence.readDisableGifAnimations() ?? false;
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.readDisableGifAnimations',
-      );
-    }
+    } catch (error) {}
     try {
       reduceMotion = await _persistence.readReduceMotion();
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'appSettings.readReduceMotion');
-    }
+    } catch (error) {}
     try {
       rawMarkdownComposers =
           await _persistence.readRawMarkdownComposers() ?? false;
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.readRawMarkdownComposers',
-      );
-    }
+    } catch (error) {}
     try {
       final stored = await _persistence.readTextScale();
       textScale = _appTextScaleByName(stored);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'appSettings.readTextScale');
-    }
+    } catch (error) {}
     try {
       final stored = await _persistence.readThemeMode();
       themeMode = AppThemeMode.values.firstWhere(
         (mode) => mode.name == stored,
         orElse: () => AppThemeMode.system,
       );
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'appSettings.readThemeMode');
-    }
+    } catch (error) {}
     try {
       final stored = await _persistence.readTopicListMode();
       topicListMode = TopicListDisplayMode.values.firstWhere(
         (mode) => mode.name == stored,
         orElse: () => TopicListDisplayMode.card,
       );
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'appSettings.readTopicListMode');
-    }
+    } catch (error) {}
     return AppSettings(
       limitContentSize: limitContentSize,
       disableGifAnimations: disableGifAnimations,
@@ -430,33 +403,19 @@ final class AppSettingsStore {
           !await _persistence.writeLimitContentSize(limitContentSize)) {
         throw StateError('Could not persist the content size limit.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.writeLimitContentSize',
-      );
-    }
+    } catch (error) {}
     try {
       if (disableGifAnimations != null &&
           !await _persistence.writeDisableGifAnimations(disableGifAnimations)) {
         throw StateError('Could not persist the GIF animation preference.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.writeDisableGifAnimations',
-      );
-    }
+    } catch (error) {}
     try {
       if (reduceMotion != null &&
           !await _persistence.writeReduceMotion(reduceMotion)) {
         throw StateError('Could not persist the reduced motion preference.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'appSettings.writeReduceMotion');
-    }
+    } catch (error) {}
     try {
       if (rawMarkdownComposers != null &&
           !await _persistence.writeRawMarkdownComposers(rawMarkdownComposers)) {
@@ -464,37 +423,25 @@ final class AppSettingsStore {
           'Could not persist the raw Markdown composer preference.',
         );
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'appSettings.writeRawMarkdownComposers',
-      );
-    }
+    } catch (error) {}
     try {
       if (textScale != null &&
           !await _persistence.writeTextScale(textScale.name)) {
         throw StateError('Could not persist the app text scale.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'appSettings.writeTextScale');
-    }
+    } catch (error) {}
     try {
       if (themeMode != null &&
           !await _persistence.writeThemeMode(themeMode.name)) {
         throw StateError('Could not persist the app theme mode.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'appSettings.writeThemeMode');
-    }
+    } catch (error) {}
     try {
       if (topicListMode != null &&
           !await _persistence.writeTopicListMode(topicListMode.name)) {
         throw StateError('Could not persist the topic list mode.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'appSettings.writeTopicListMode');
-    }
+    } catch (error) {}
   }
 }
 

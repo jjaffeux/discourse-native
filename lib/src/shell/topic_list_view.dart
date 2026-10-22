@@ -10,8 +10,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
-import '../diagnostics/diagnostics_scope.dart';
-import '../diagnostics/topic_scroll_capture.dart';
+
 import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
@@ -95,10 +94,6 @@ class _TopicListViewState extends State<TopicListView> {
   ShellController? _controller;
   ShellTabContext? _tab;
   StreamSubscription<int>? _topicListRevealSubscription;
-  TopicScrollCaptureController? _scrollCapture;
-  (TopicScrollCaptureController, int, _TopicListIdentity?)? _captureContext;
-
-  bool get _recording => _scrollCapture?.isRecording == true;
 
   @override
   void didUpdateWidget(TopicListView oldWidget) {
@@ -241,7 +236,7 @@ class _TopicListViewState extends State<TopicListView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _scrollCapture = DiagnosticsScope.maybeRead(context)?.topicScrollCapture;
+
     _prefetch.geometryChanged();
     _touch = context.isTouch;
     _bindTickerMode();
@@ -267,24 +262,6 @@ class _TopicListViewState extends State<TopicListView> {
     // the whole list whenever its retained tab is hidden or shown.
     _prefetch.setEnabled(!_touch && _tickerMode!.value.enabled);
     if (!_tickerMode!.value.enabled) _cursorOwner?.cancelSelectionRestore();
-  }
-
-  void _recordScrollEvent(String name, Map<String, Object?> data) {
-    final capture = _scrollCapture;
-    if (capture == null || !capture.isRecording) return;
-    final identity = (capture, capture.captureId, _feedIdentity);
-    if (_captureContext != identity) {
-      _captureContext = identity;
-      capture.recordTopicEvent('topicList.capture.context', {
-        'topicCount': widget.feed.rowCount,
-        'inbox': widget.inbox,
-        'mode': 'card',
-        if (_scroll?.hasClients == true)
-          'viewportExtent': _scroll!.position.viewportDimension,
-        'devicePixelRatio': View.of(context).devicePixelRatio,
-      });
-    }
-    capture.recordTopicEvent(name, data);
   }
 
   void _revealCursor() {
@@ -812,9 +789,7 @@ class _TopicListViewState extends State<TopicListView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _feedIdentity == feedIdentity) _publishViewport();
     });
-    if (_recording) {
-      _recordScrollEvent('topicList.view.built', {'topicCount': feed.rowCount});
-    }
+
     final readingTopicId = widget.inbox ? _tab!.readingTopicId : null;
     final hiddenCategoryId = _tab!.topicListContent?.categoryId;
     if (_readingTopicId != readingTopicId) {
@@ -851,7 +826,7 @@ class _TopicListViewState extends State<TopicListView> {
                 if (notification.depth != 0) return false;
                 _prefetch.scroll(notification);
                 _publishViewport();
-                final stopwatch = _recording ? (Stopwatch()..start()) : null;
+
                 // Opening a topic tears this list down, so the position has
                 // to be handed to the controller as it changes rather than
                 // on dispose.
@@ -877,19 +852,7 @@ class _TopicListViewState extends State<TopicListView> {
                     feed,
                   );
                 }
-                if (stopwatch != null) {
-                  stopwatch.stop();
-                  _recordScrollEvent('topicList.scroll.notification', {
-                    'type': notification.runtimeType.toString(),
-                    'pixels': notification.metrics.pixels,
-                    'maxScrollExtent': notification.metrics.maxScrollExtent,
-                    'viewportExtent': notification.metrics.viewportDimension,
-                    'durationUs': stopwatch.elapsedMicroseconds,
-                    if (_list?.isAttached == true)
-                      if (_list!.visibleRange case final range?)
-                        'visibleRange': [range.$1, range.$2],
-                  });
-                }
+
                 return false;
               },
               // SuperListView preserves measured heights for variably sized
@@ -964,11 +927,6 @@ class _TopicListViewState extends State<TopicListView> {
                             },
                           ),
                       itemBuilder: (context, index) {
-                        if (_recording) {
-                          _recordScrollEvent('topicList.row.built', {
-                            'index': index,
-                          });
-                        }
                         if (index >= feed.rowCount) {
                           if (feed.loadingMore) {
                             return const _LoadingMoreRow();
@@ -1628,14 +1586,7 @@ class _TopicRowBody extends StatelessWidget {
   final EdgeInsetsGeometry? outerPadding;
 
   @override
-  StatelessElement createElement() => _TopicRowBodyElement(this);
-
-  @override
-  Widget build(BuildContext context) => _TopicRowLayout(
-    topicId: topic.id,
-    capture: DiagnosticsScope.maybeRead(context)?.topicScrollCapture,
-    child: _buildBody(context),
-  );
+  Widget build(BuildContext context) => _buildBody(context);
 
   Widget _buildBody(BuildContext context) => _ConversationTopicCard(row: this);
 }
@@ -1692,75 +1643,3 @@ class _Message extends StatelessWidget {
 
 // Measure synchronous subtree construction, including descendants, rather than
 // just allocating the widget returned by _TopicRowBody.build.
-class _TopicRowBodyElement extends StatelessElement {
-  _TopicRowBodyElement(_TopicRowBody super.widget);
-
-  @override
-  void performRebuild() {
-    final capture = getInheritedWidgetOfExactType<DiagnosticsScope>()
-        ?.controller
-        .topicScrollCapture;
-    if (capture == null || !capture.isRecording) {
-      super.performRebuild();
-      return;
-    }
-    final timer = Stopwatch()..start();
-    try {
-      super.performRebuild();
-    } finally {
-      timer.stop();
-      capture.recordTopicEvent('topicList.row.build', {
-        'topicId': (widget as _TopicRowBody).topic.id,
-        'durationUs': timer.elapsedMicroseconds,
-      });
-    }
-  }
-}
-
-class _TopicRowLayout extends SingleChildRenderObjectWidget {
-  const _TopicRowLayout({
-    required this.topicId,
-    required this.capture,
-    required super.child,
-  });
-
-  final int topicId;
-  final TopicScrollCaptureController? capture;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderTopicRowLayout(topicId, capture);
-
-  @override
-  void updateRenderObject(BuildContext context, _RenderTopicRowLayout object) {
-    object
-      ..topicId = topicId
-      ..capture = capture;
-  }
-}
-
-class _RenderTopicRowLayout extends RenderProxyBox {
-  _RenderTopicRowLayout(this.topicId, this.capture);
-
-  int topicId;
-  TopicScrollCaptureController? capture;
-
-  @override
-  void performLayout() {
-    final recorder = capture;
-    if (recorder == null || !recorder.isRecording) {
-      super.performLayout();
-      return;
-    }
-    final timer = Stopwatch()..start();
-    try {
-      super.performLayout();
-    } finally {
-      timer.stop();
-      recorder.recordTopicEvent('topicList.row.layout', {
-        'topicId': topicId,
-        'durationUs': timer.elapsedMicroseconds,
-      });
-    }
-  }
-}

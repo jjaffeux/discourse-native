@@ -121,8 +121,7 @@ final class AiProofreadingPreferenceStore {
         userId: userId,
       );
       return _owns(siteUrl, owner) && enabled == true;
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'aiProofreading.readEnabled');
+    } catch (error) {
       return false;
     }
   }
@@ -134,13 +133,7 @@ final class AiProofreadingPreferenceStore {
           'Could not remove the forum-wide AI proofreading preference.',
         );
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(
-        error,
-        stackTrace,
-        'aiProofreading.removeSiteWideEnabled',
-      );
-    }
+    } catch (error) {}
   }
 
   Future<void> write({
@@ -173,8 +166,6 @@ final class AiProofreadingPreferenceStore {
       if (!saved) {
         throw StateError('Could not persist the AI proofreading preference.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'aiProofreading.writeEnabled');
-    }
+    } catch (error) {}
   }
 }

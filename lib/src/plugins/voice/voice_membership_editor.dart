@@ -64,7 +64,7 @@ final class VoiceMembershipEditor extends ChangeNotifier {
       username: username,
       role: role,
     ),
-    'voice.membership.add',
+
     failure: appL10n.couldnTAddTheMember,
     onAccepted: onAccepted,
   );
@@ -80,7 +80,7 @@ final class VoiceMembershipEditor extends ChangeNotifier {
       apiKey: credentials.apiKey!,
       role: role,
     ),
-    'voice.membership.update',
+
     failure: appL10n.couldnTChangeTheMemberSRole,
   );
 
@@ -91,38 +91,33 @@ final class VoiceMembershipEditor extends ChangeNotifier {
       membershipId: membershipId,
       apiKey: credentials.apiKey!,
     ),
-    'voice.membership.remove',
+
     failure: appL10n.couldnTRemoveTheMember,
   );
 
   Future<bool> _refresh() async {
     if (!isCurrent) return false;
-    final rows = await _controller._runPublicValueOperation(
-      () async {
-        final credentials = await _controller._keyRequestCredentials(
-          _siteUrl,
-          ifCurrent: () => isCurrent,
-        );
-        if (credentials == null) return null;
-        return credentials.run(
-          () => _controller.api.memberships(
-            siteUrl: _siteUrl,
-            roomId: _roomId,
-            apiKey: credentials.apiKey!,
-          ),
-        );
-      },
-      'voice.memberships',
-      fallback: null,
-    );
+    final rows = await _controller._runHandledValue(() async {
+      final credentials = await _controller._keyRequestCredentials(
+        _siteUrl,
+        ifCurrent: () => isCurrent,
+      );
+      if (credentials == null) return null;
+      return credentials.run(
+        () => _controller.api.memberships(
+          siteUrl: _siteUrl,
+          roomId: _roomId,
+          apiKey: credentials.apiKey!,
+        ),
+      );
+    }, fallback: null);
     if (!isCurrent || rows == null) return false;
     _memberships = List.unmodifiable(rows);
     return true;
   }
 
   Future<VoiceMembershipEditResult> _edit(
-    Future<void> Function(PluginRequestCredentials) write,
-    String operation, {
+    Future<void> Function(PluginRequestCredentials) write, {
     required String failure,
     VoidCallback? onAccepted,
   }) async {
@@ -142,8 +137,7 @@ final class VoiceMembershipEditor extends ChangeNotifier {
           throw const WriteException(WriteFailure.forbidden);
         }
         await credentials.run(() => write(credentials));
-      } catch (error, stackTrace) {
-        _controller._report(error, stackTrace, operation);
+      } catch (error) {
         if (!isCurrent) return VoiceMembershipEditStatus.retired;
         return VoiceMembershipEditRefused(
           error is WriteException ? error.message : failure,

@@ -25,8 +25,6 @@ final class DiscourseSearchApi {
     String? clientId,
   }) async {
     if (term.length > maximumSearchTermLength) {
-      // Do not attach the value: search text can contain private names and
-      // phrases, and this error may be forwarded to diagnostics.
       throw ArgumentError(
         'Search terms must be at most $maximumSearchTermLength characters.',
       );

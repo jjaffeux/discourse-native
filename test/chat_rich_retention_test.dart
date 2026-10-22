@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
@@ -50,13 +50,9 @@ void main() {
         },
       );
       addTearDown(controller.dispose);
-      final diagnostics = DiagnosticsController.start(
-        persistence: MemoryDiagnosticsPersistence(),
-      );
+
       try {
-        await tester.pumpWidget(
-          ChatScrollFixture(controller: controller, diagnostics: diagnostics),
-        );
+        await tester.pumpWidget(ChatScrollFixture(controller: controller));
         await _settleBodies(tester);
         final scroller = tester.widget<DMessageScrollerViewport>(
           find.byType(DMessageScrollerViewport),
@@ -270,7 +266,6 @@ void main() {
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
-        await diagnostics.close();
       }
     });
   }

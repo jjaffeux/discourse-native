@@ -12,7 +12,7 @@ import '../chat/chat_contract.dart';
 import 'voice_agents.dart';
 import 'voice_api.dart';
 import 'voice_callkit.dart';
-import 'voice_diagnostics.dart';
+
 import 'voice_idle.dart';
 import 'voice_media.dart';
 import 'voice_models.dart';
@@ -85,37 +85,6 @@ final class _VoiceIncomingAnswer extends _VoiceIncomingAdmission {
   final bool Function() isCurrent;
 }
 
-enum _VoiceLeaveReason {
-  user,
-  roomToggle,
-  roomSwitch,
-  roomDestroyed,
-  kicked,
-  rosterRemoval,
-  credentialsMissing,
-  sessionExpired,
-  idleDisconnect,
-  systemAction,
-  accountRemoval,
-  sessionClose,
-}
-
-final class _VoiceDiagnosticFailure implements Exception {
-  const _VoiceDiagnosticFailure({
-    required this.operation,
-    required this.errorType,
-  });
-
-  final String operation;
-  final String errorType;
-
-  @override
-  String toString() => appL10n.voiceOperationFailed(
-    (operation).toString(),
-    (errorType).toString(),
-  );
-}
-
 final class _VoiceCameraRestore {
   bool again = false;
 }
@@ -133,21 +102,6 @@ String _joinFailureMessage(Object error, VoiceRoom room) {
   }
   return appL10n.couldnTJoin((room.name).toString());
 }
-
-String _voiceSignalingDiagnosticType(Object? value) => switch (value) {
-  'offer' => 'offer',
-  'answer' => 'answer',
-  'candidate' => 'candidate',
-  null => 'batch',
-  _ => 'unknown',
-};
-
-String _voiceDirectoryDiagnosticType(Object? value) => switch (value) {
-  'created' => 'created',
-  'updated' => 'updated',
-  'destroyed' => 'destroyed',
-  _ => 'unknown',
-};
 
 /// Message bus positions only move forward: a cursor served or delivered
 /// behind the one already held is a replay, not news.
@@ -276,8 +230,7 @@ final class VoiceController extends ChangeNotifier {
     VoiceCapabilityResolver? capabilityEnabledFor,
     this.mediaFactory = const NativeVoiceMediaFactory(),
     VoiceSystemCall? systemCall,
-    PluginDiagnosticsReporter reporter = const PluginDiagnosticsReporter.noop(),
-    VoiceDiagnosticsRecorder? diagnostics,
+
     VoicePreferences? preferences,
     VoiceIdleThresholdsLookup? idleThresholdsFor,
     int Function(String siteUrl)? videoMaxPublishersFor,
@@ -302,13 +255,8 @@ final class VoiceController extends ChangeNotifier {
        _userIdFor = userIdFor,
        _onCallSiteChanged = onCallSiteChanged,
        _capabilityEnabledFor = capabilityEnabledFor ?? _unknownVoiceCapability,
-       _reporter = reporter,
-       diagnostics = diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
-       systemCall =
-           systemCall ??
-           NativeVoiceSystemCall(
-             diagnostics: diagnostics ?? const NoopVoiceDiagnosticsRecorder(),
-           ),
+
+       systemCall = systemCall ?? NativeVoiceSystemCall(),
        _preferences = preferences ?? const SharedPreferencesVoicePreferences() {
     _systemActions = this.systemCall.actions.listen(_onSystemAction);
     _devicePreferencesLoaded = _restoreDevicePreferences();
@@ -330,8 +278,7 @@ final class VoiceController extends ChangeNotifier {
   final VoidCallback _onCallSiteChanged;
   final VoiceMediaFactory mediaFactory;
   final VoiceSystemCall systemCall;
-  final PluginDiagnosticsReporter _reporter;
-  final VoiceDiagnosticsRecorder diagnostics;
+
   final VoicePreferences _preferences;
   final VoiceIdleThresholdsLookup _idleThresholdsFor;
   final int Function(String siteUrl) _videoMaxPublishersFor;
@@ -412,9 +359,7 @@ final class VoiceController extends ChangeNotifier {
     notifyListeners();
     try {
       await _preferences.writeAutoStatusEnabled(enabled);
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'voice.preferences.autoStatus');
-    }
+    } catch (error) {}
   }
 
   /// Whether this device has accepted the peer-to-peer IP exposure warning.
@@ -422,8 +367,7 @@ final class VoiceController extends ChangeNotifier {
   Future<bool> meshPrivacyAcknowledged() async {
     try {
       return await _preferences.readMeshPrivacyAcknowledged();
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'voice.preferences.meshPrivacy');
+    } catch (error) {
       return false;
     }
   }
@@ -431,9 +375,7 @@ final class VoiceController extends ChangeNotifier {
   Future<void> acknowledgeMeshPrivacy() async {
     try {
       await _preferences.writeMeshPrivacyAcknowledged(true);
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'voice.preferences.meshPrivacy');
-    }
+    } catch (error) {}
   }
 
   int? currentUserIdFor(String siteUrl) => _userIdFor(siteUrl);
@@ -474,19 +416,16 @@ final class VoiceController extends ChangeNotifier {
     if (credentials == null) {
       throw const WriteException(WriteFailure.forbidden);
     }
-    final room = await _reporter.runOperation(
-      'voice.call',
-      () => credentials.run(
-        () => api.callUser(
-          siteUrl: siteUrl,
-          apiKey: credentials.apiKey!,
-          username: username,
-          clientId: credentials.clientId,
-        ),
+    final room = await credentials.run(
+      () => api.callUser(
+        siteUrl: siteUrl,
+        apiKey: credentials.apiKey!,
+        username: username,
+        clientId: credentials.clientId,
       ),
     );
     if (!isCurrent()) return null;
-    _record('call.direct.started', data: {..._roomDiagnosticData(room)});
+
     _roomDirectory(siteUrl).rememberLinkedRoom(room);
     notifyListeners();
     return isCurrent() ? VoiceOutgoingCall._(siteUrl, room, isCurrent) : null;
@@ -531,18 +470,12 @@ final class VoiceController extends ChangeNotifier {
     required bool fromSystem,
   }) async {
     if (!answer.isCurrent()) return null;
-    _record(
-      'call.ring.answered',
-      data: {'roomId': answer.call.roomId, 'fromSystem': fromSystem},
-    );
+
     if (!answer.isCurrent()) return null;
     if (answer.presented && !fromSystem) {
       // The system is still ringing; its call becomes the active one so the
       // join below does not place a second call.
-      await _runHandled(
-        systemCall.answerIncomingCall,
-        'voice.systemCall.answerIncoming',
-      );
+      await _runHandled(systemCall.answerIncomingCall);
     }
     if (!answer.isCurrent()) return null;
     final room = await _resolveRoom(
@@ -567,16 +500,10 @@ final class VoiceController extends ChangeNotifier {
     final incoming = _ringingCall;
     if (incoming == null) return;
     final presented = incoming.presented;
-    _record(
-      'call.ring.declined',
-      data: {'roomId': incoming.call.roomId, 'fromSystem': fromSystem},
-    );
+
     _clearIncomingCall();
     if (presented && !fromSystem) {
-      _observe(
-        systemCall.declineIncomingCall,
-        'voice.systemCall.declineIncoming',
-      );
+      _observe(systemCall.declineIncomingCall);
     }
     notifyListeners();
   }
@@ -590,10 +517,7 @@ final class VoiceController extends ChangeNotifier {
     incoming.expiry?.cancel();
     _incomingAdmission = null;
     if (incoming.presented && tellSystem != null) {
-      _observe(
-        () => systemCall.endIncomingCall(tellSystem),
-        'voice.systemCall.endIncoming',
-      );
+      _observe(() => systemCall.endIncomingCall(tellSystem));
     }
   }
 
@@ -624,7 +548,7 @@ final class VoiceController extends ChangeNotifier {
         roomName: call.roomName,
         handle: caller.username,
       ),
-      'voice.systemCall.reportIncoming',
+
       fallback: false,
     );
     if (_disposed) return;
@@ -634,15 +558,11 @@ final class VoiceController extends ChangeNotifier {
         _observe(
           () =>
               systemCall.endIncomingCall(VoiceIncomingCallEndReason.unanswered),
-          'voice.systemCall.endIncoming',
         );
       }
       return;
     }
-    _record(
-      'call.ring.system_presentation',
-      data: {'roomId': call.roomId, 'presented': presented},
-    );
+
     incoming.presentation = presented
         ? _VoiceIncomingPresentation.system
         : _VoiceIncomingPresentation.local;
@@ -677,12 +597,8 @@ final class VoiceController extends ChangeNotifier {
             !_calls.hasPendingJoin);
     if (!isCurrent()) return;
     if (accepted == null) {
-      _record(
-        'call.ring.system_answer.unresolved',
-        severity: DiagnosticSeverity.warning,
-      );
       if (!isCurrent()) return;
-      await _runHandled(systemCall.failed, 'voice.systemCall.failed');
+      await _runHandled(systemCall.failed);
       return;
     }
     final siteUrl = accepted.siteUrl;
@@ -720,13 +636,7 @@ final class VoiceController extends ChangeNotifier {
     if (call == null) return;
     final now = _clock();
     final remaining = call.remainingAt(now);
-    _record(
-      'call.ring.received',
-      data: {
-        'roomId': call.roomId,
-        'remainingMilliseconds': remaining.inMilliseconds,
-      },
-    );
+
     if (remaining <= Duration.zero) return;
     final active = _call;
     if (active != null &&
@@ -742,7 +652,7 @@ final class VoiceController extends ChangeNotifier {
     _incomingAdmission = incoming;
     incoming.expiry = _timerFactory(remaining, () {
       if (!identical(_incomingAdmission, incoming)) return;
-      _record('call.ring.expired', data: {'roomId': call.roomId});
+
       _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
       if (!_disposed) notifyListeners();
     });
@@ -844,13 +754,7 @@ final class VoiceController extends ChangeNotifier {
   void _directoryRoomDestroyed(String siteUrl, int roomId) {
     _removeChatAssociation(siteUrl, roomId);
     if (_call?.siteUrl == siteUrl && _call?.room.id == roomId) {
-      _observe(
-        () => _leave(
-          notifyServer: false,
-          reason: _VoiceLeaveReason.roomDestroyed,
-        ),
-        'voice.roomDestroyed',
-      );
+      _observe(() => _leave(notifyServer: false));
     }
   }
 
@@ -873,9 +777,9 @@ final class VoiceController extends ChangeNotifier {
   }
 
   Future<VoiceRoom?> resolveRoom(String siteUrl, String slug) =>
-      _runPublicValueOperation<VoiceRoom?>(
+      _runHandledValue<VoiceRoom?>(
         () => _resolveRoom(siteUrl, slug),
-        'voice.room',
+
         fallback: null,
       );
 
@@ -886,10 +790,7 @@ final class VoiceController extends ChangeNotifier {
   }) => _roomDirectory(siteUrl).resolveRoom(slug, ifCurrent: ifCurrent);
 
   Future<void> ensureLoaded(String siteUrl, {bool force = false}) =>
-      _runPublicOperation(
-        () => _roomDirectory(siteUrl).ensureLoaded(force: force),
-        'voice.directory',
-      );
+      _runHandled(() => _roomDirectory(siteUrl).ensureLoaded(force: force));
 
   Object _siteSession(String siteUrl) =>
       _siteSessions.putIfAbsent(siteUrl, Object.new);
@@ -988,10 +889,7 @@ final class VoiceController extends ChangeNotifier {
     if (_disposed) return;
     if (data is! Map<String, dynamic>) return;
     if (data['type'] == 'signal') {
-      _observe(
-        () => _handleSignalEnvelope(siteUrl, roomId, data),
-        'voice.media.signal',
-      );
+      _observe(() => _handleSignalEnvelope(siteUrl, roomId, data));
       return;
     }
     final event = VoiceRoomEvent.fromJson(data);
@@ -999,40 +897,12 @@ final class VoiceController extends ChangeNotifier {
     if (event is VoiceKickedEvent) {
       final call = _call;
       if (call?.siteUrl == siteUrl && call?.room.id == roomId) {
-        _record(
-          'room.kicked',
-          component: 'room',
-          correlationId: _correlationFor(call),
-          severity: DiagnosticSeverity.warning,
-          data: {'roomId': roomId},
-        );
-        _observe(
-          () => _leave(notifyServer: false, reason: _VoiceLeaveReason.kicked),
-          'voice.kicked',
-        );
+        _observe(() => _leave(notifyServer: false));
       }
       return;
     }
     _roomDirectories[siteUrl]?.liveRoomChanged(roomId);
     if (event is VoiceRoleChangedEvent) {
-      _record(
-        'room.role_changed',
-        component: 'roster',
-        correlationId: _correlationForRoom(siteUrl, roomId),
-        data: {
-          'roomId': roomId,
-          'participantScope': event.userId == _userIdFor(siteUrl)
-              ? 'local'
-              : 'remote',
-          'role': event.role.name,
-        },
-      );
-      _recordRaw(
-        'room.role_changed.detail',
-        component: 'roster',
-        correlationId: _correlationForRoom(siteUrl, roomId),
-        data: {'roomId': roomId, 'userId': event.userId},
-      );
       final held = room(siteUrl, roomId);
       if (held != null &&
           held.participants.any(
@@ -1067,22 +937,9 @@ final class VoiceController extends ChangeNotifier {
       return;
     }
     if (event is VoiceParticipantsEvent) {
-      _recordRoster(
-        'room.roster_received',
-        siteUrl,
-        roomId,
-        event.participants,
-        correlationId: _correlationForRoom(siteUrl, roomId),
-      );
       _replaceParticipants(siteUrl, roomId, event.participants);
     }
     if (event is VoiceRecordingEvent) {
-      _record(
-        'room.recording_changed',
-        component: 'room',
-        correlationId: _correlationForRoom(siteUrl, roomId),
-        data: {'roomId': roomId, 'active': event.recording?.active ?? false},
-      );
       final wasRecording = room(siteUrl, roomId)?.recording?.active ?? false;
       _replaceRecording(siteUrl, roomId, event.recording);
       // Only people in the call are told; the moderator who pressed the
@@ -1166,34 +1023,7 @@ final class VoiceController extends ChangeNotifier {
       }
     }
     final call = _call;
-    final isActiveCall =
-        call != null && call.siteUrl == siteUrl && call.room.id == roomId;
-    final correlationId = isActiveCall ? _correlationFor(call) : null;
-    _record(
-      'signaling.received',
-      component: 'signaling',
-      correlationId: correlationId,
-      data: {
-        'roomId': roomId,
-        'senderPresent': true,
-        'eventCount': events.length,
-        if (events.firstOrNull case final first?)
-          'type': _voiceSignalingDiagnosticType(first['type']),
-      },
-    );
-    if (events.isNotEmpty) {
-      _recordRaw(
-        'signaling.received.raw',
-        component: 'signaling',
-        correlationId: correlationId,
-        data: {
-          'siteUrl': siteUrl,
-          'roomId': roomId,
-          'senderId': senderId,
-          'signals': events,
-        },
-      );
-    }
+
     if (call == null ||
         call.siteUrl != siteUrl ||
         call.room.id != roomId ||
@@ -1460,62 +1290,50 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> _rememberCamera(String siteUrl, int userId, bool enabled) {
     _cameraPreferences[(siteUrl, userId)] = Future.value(enabled);
-    return _persistPreference(
+    return _runHandled(
       () => _preferences.writeCameraEnabled(siteUrl, userId, enabled),
-      'voice.preferences.cameraEnabled',
     );
   }
 
   Future<bool> _readCameraPreference(String siteUrl, int userId) async {
     try {
       return await _preferences.readCameraEnabled(siteUrl, userId);
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'voice.preferences.cameraEnabled');
+    } catch (error) {
       return false;
     }
   }
 
   Future<List<rtc.MediaDeviceInfo>> mediaDevices() =>
-      _runPublicValueOperation<List<rtc.MediaDeviceInfo>>(
-        () async {
-          if (_disposed) return const <rtc.MediaDeviceInfo>[];
-          final media = _call?.media;
-          if (media == null) return const <rtc.MediaDeviceInfo>[];
-          final result = await media.devices();
-          return _disposed ? const <rtc.MediaDeviceInfo>[] : result;
-        },
-        'voice.media.devices',
-        fallback: const [],
-      );
+      _runHandledValue<List<rtc.MediaDeviceInfo>>(() async {
+        if (_disposed) return const <rtc.MediaDeviceInfo>[];
+        final media = _call?.media;
+        if (media == null) return const <rtc.MediaDeviceInfo>[];
+        final result = await media.devices();
+        return _disposed ? const <rtc.MediaDeviceInfo>[] : result;
+      }, fallback: const []);
 
-  Future<void> selectAudioInput(String deviceId) => _runPublicOperation(
-    () => _selectAudioInput(deviceId),
-    'voice.media.selectAudioInput',
-    correlationId: _activeDiagnosticCorrelationId,
-  );
+  Future<void> selectAudioInput(String deviceId) =>
+      _runHandled(() => _selectAudioInput(deviceId));
 
   Future<void> _selectAudioInput(String deviceId) async {
     await _selectAudioDevice(
       deviceId,
       choice: _devicePreferences.audioInput,
       preference: VoiceDevicePreference.audioInput,
-      kind: 'audio_input',
+
       selectDevice: (media) => media.selectAudioInput(deviceId),
     );
   }
 
-  Future<void> selectAudioOutput(String deviceId) => _runPublicOperation(
-    () => _selectAudioOutput(deviceId),
-    'voice.media.selectAudioOutput',
-    correlationId: _activeDiagnosticCorrelationId,
-  );
+  Future<void> selectAudioOutput(String deviceId) =>
+      _runHandled(() => _selectAudioOutput(deviceId));
 
   Future<void> _selectAudioOutput(String deviceId) async {
     await _selectAudioDevice(
       deviceId,
       choice: _devicePreferences.audioOutput,
       preference: VoiceDevicePreference.audioOutput,
-      kind: 'audio_output',
+
       selectDevice: (media) => media.selectAudioOutput(deviceId),
     );
   }
@@ -1524,7 +1342,7 @@ final class VoiceController extends ChangeNotifier {
     String deviceId, {
     required _VoicePreferenceChoice<String?> choice,
     required VoiceDevicePreference preference,
-    required String kind,
+
     required Future<void> Function(VoiceMediaSession) selectDevice,
   }) async {
     if (_disposed) return;
@@ -1537,62 +1355,43 @@ final class VoiceController extends ChangeNotifier {
         session != null &&
         session.isActive &&
         identical(session._call?.media, media);
-    final correlationId =
-        _activeDiagnosticCorrelationId ??
-        _reporter.newCorrelationId('voice-device');
-    await _traceDeviceSelection(
-      kind: kind,
-      origin: 'user',
-      deviceId: deviceId,
-      applied: media != null,
-      correlationId: correlationId,
-      action: () async {
-        await _persistPreference(
-          () => _preferences.writeDevice(preference, deviceId),
-          'voice.preferences.${preference.name}',
-        );
-        if (media == null || !isCurrent()) return;
-        await _devicePreferences.audioOperations.run(
-          owner: media,
-          key: preference,
-          operation: () async {
-            if (isCurrent()) await selectDevice(media);
-          },
-        );
-      },
-    );
+
+    await (() async {
+      await _runHandled(() => _preferences.writeDevice(preference, deviceId));
+      if (media == null || !isCurrent()) return;
+      await _devicePreferences.audioOperations.run(
+        owner: media,
+        key: preference,
+        operation: () async {
+          if (isCurrent()) await selectDevice(media);
+        },
+      );
+    })();
     if (_disposed) return;
     notifyListeners();
   }
 
-  Future<void> selectCamera(String deviceId) => _runPublicOperation(
-    () => _selectCamera(deviceId),
-    'voice.media.selectCamera',
-    correlationId: _activeDiagnosticCorrelationId,
-  );
+  Future<void> selectCamera(String deviceId) =>
+      _runHandled(() => _selectCamera(deviceId));
 
-  Future<void> switchCamera() => _runPublicOperation(
-    () async {
-      final call = _call;
-      if (_disposed ||
-          call == null ||
-          call.status != VoiceCallStatus.connected ||
-          !call.cameraEnabled ||
-          call.screenSharing ||
-          cameraStarting) {
-        return;
-      }
-      _userActed();
-      await _selectCamera(
-        null,
-        facing: call.media.cameraFacing == VoiceCameraFacing.front
-            ? VoiceCameraFacing.back
-            : VoiceCameraFacing.front,
-      );
-    },
-    'voice.media.switchCamera',
-    correlationId: _activeDiagnosticCorrelationId,
-  );
+  Future<void> switchCamera() => _runHandled(() async {
+    final call = _call;
+    if (_disposed ||
+        call == null ||
+        call.status != VoiceCallStatus.connected ||
+        !call.cameraEnabled ||
+        call.screenSharing ||
+        cameraStarting) {
+      return;
+    }
+    _userActed();
+    await _selectCamera(
+      null,
+      facing: call.media.cameraFacing == VoiceCameraFacing.front
+          ? VoiceCameraFacing.back
+          : VoiceCameraFacing.front,
+    );
+  });
 
   Future<void> _selectCamera(
     String? deviceId, {
@@ -1606,28 +1405,18 @@ final class VoiceController extends ChangeNotifier {
       return;
     }
     notifyListeners();
-    final correlationId = _reporter.newCorrelationId('voice-device');
-    await _traceDeviceSelection(
-      kind: 'camera',
-      origin: 'user',
-      deviceId: deviceId ?? facing!.name,
-      applied: false,
-      correlationId: correlationId,
-      action: () async {
-        if (deviceId != null) {
-          await _persistPreference(
-            () => _preferences.writeDevice(
-              VoiceDevicePreference.camera,
-              deviceId,
-            ),
-            'voice.preferences.camera',
-          );
-        }
-        if (!_disposed && _devicePreferences.camera.isCurrent(selection)) {
-          _calls.current?._restorePreferredCamera();
-        }
-      },
-    );
+
+    await (() async {
+      if (deviceId != null) {
+        await _runHandled(
+          () =>
+              _preferences.writeDevice(VoiceDevicePreference.camera, deviceId),
+        );
+      }
+      if (!_disposed && _devicePreferences.camera.isCurrent(selection)) {
+        _calls.current?._restorePreferredCamera();
+      }
+    })();
     if (!_disposed) notifyListeners();
   }
 
@@ -1636,10 +1425,7 @@ final class VoiceController extends ChangeNotifier {
     final choice = _devicePreferences.pushToTalk;
     final intent = choice.select(enabled);
     final session = _calls.current;
-    await _persistPreference(
-      () => _preferences.writePushToTalk(enabled),
-      'voice.preferences.pushToTalk',
-    );
+    await _runHandled(() => _preferences.writePushToTalk(enabled));
     if (_disposed) return;
     if (enabled && choice.isCurrent(intent) && session?.isActive == true) {
       session!._userActed();
@@ -1664,8 +1450,7 @@ final class VoiceController extends ChangeNotifier {
               1)
           .clamp(0, 1)
           .toDouble();
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'voice.preferences.readVolume');
+    } catch (error) {
       return 1;
     }
   }
@@ -1675,11 +1460,8 @@ final class VoiceController extends ChangeNotifier {
     int roomId,
     int userId,
     double volume,
-  ) => _runPublicOperation(
-    () => _setParticipantVolume(siteUrl, roomId, userId, volume),
-    'voice.media.participantVolume',
-    correlationId: _activeDiagnosticCorrelationId,
-  );
+  ) =>
+      _runHandled(() => _setParticipantVolume(siteUrl, roomId, userId, volume));
 
   Future<void> _setParticipantVolume(
     String siteUrl,
@@ -1698,69 +1480,26 @@ final class VoiceController extends ChangeNotifier {
     }
     await media?.setParticipantVolume(userId, normalized);
     if (_disposed) return;
-    await _persistPreference(
+    await _runHandled(
       () => _preferences.writeParticipantVolume(
         siteUrl,
         roomId,
         userId,
         normalized,
       ),
-      'voice.preferences.writeVolume',
     );
   }
 
   Future<void> _restoreDevicePreferences() async {
-    final correlationId = _reporter.newCorrelationId('voice-preferences');
-    _record(
-      'preferences.devices.restore_started',
-      component: 'preferences',
-      correlationId: correlationId,
-    );
     try {
       final preferences = await _preferences.readDevices();
       if (_disposed) return;
       _devicePreferences.restoreDevices(preferences);
-      _record(
-        'preferences.devices.restore_completed',
-        component: 'preferences',
-        correlationId: correlationId,
-        data: {
-          'audioInputPresent': preferences.audioInputDeviceId != null,
-          'audioOutputPresent': preferences.audioOutputDeviceId != null,
-          'cameraPresent': preferences.cameraDeviceId != null,
-          'pushToTalkEnabled': preferences.pushToTalkEnabled,
-        },
-      );
-      _recordRaw(
-        'preferences.devices.restore_detail',
-        component: 'preferences',
-        correlationId: correlationId,
-        data: {
-          'audioInputDeviceId': ?preferences.audioInputDeviceId,
-          'audioOutputDeviceId': ?preferences.audioOutputDeviceId,
-          'cameraDeviceId': ?preferences.cameraDeviceId,
-        },
-      );
+
       notifyListeners();
-    } catch (error, stackTrace) {
+    } catch (error) {
       // Tests and early startup may not have a preferences channel yet. Device
       // defaults remain usable and the next explicit selection persists.
-      _record(
-        'preferences.devices.restore_failed',
-        component: 'preferences',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        data: {'errorType': error.runtimeType.toString()},
-      );
-      _recordRaw(
-        'preferences.devices.restore_failure_detail',
-        component: 'preferences',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        message: error.toString(),
-        data: {'stackTrace': stackTrace.toString()},
-      );
-      _report(error, stackTrace, 'voice.preferences.restore');
     }
   }
 
@@ -1770,17 +1509,15 @@ final class VoiceController extends ChangeNotifier {
       if (_disposed || stored == null) return;
       _devicePreferences.autoStatus.restore(stored);
       notifyListeners();
-    } catch (error, stackTrace) {
+    } catch (error) {
       // Same contract as the device restore: the default stays usable and
       // the next explicit choice persists.
-      _report(error, stackTrace, 'voice.preferences.restore');
     }
   }
 
   Future<void> _selectSavedAudioDevice({
-    required String kind,
     required String deviceId,
-    required String correlationId,
+
     required VoiceMediaSession media,
     required VoiceDevicePreference preference,
     required _VoicePreferenceChoice<String?> choice,
@@ -1795,104 +1532,15 @@ final class VoiceController extends ChangeNotifier {
       operation: () async {
         if (!selectionIsCurrent()) return;
         try {
-          await _traceDeviceSelection(
-            kind: kind,
-            origin: 'saved_join',
-            deviceId: deviceId,
-            applied: true,
-            correlationId: correlationId,
-            action: () => selectDevice(deviceId),
-          );
+          await selectDevice(deviceId);
         } on Exception {
           if (!selectionIsCurrent()) return;
           if (deviceId == 'default') rethrow;
 
-          await _traceDeviceSelection(
-            kind: kind,
-            origin: 'saved_join_fallback',
-            deviceId: 'default',
-            applied: true,
-            correlationId: correlationId,
-            action: () => selectDevice('default'),
-          );
+          await selectDevice('default');
         }
       },
     );
-  }
-
-  Future<void> _traceDeviceSelection({
-    required String kind,
-    required String origin,
-    required String deviceId,
-    required bool applied,
-    required String correlationId,
-    required Future<void> Function() action,
-  }) async {
-    final safeData = <String, Object?>{
-      'kind': kind,
-      'origin': origin,
-      'applied': applied,
-    };
-    _record(
-      'media.device_selection.attempted',
-      component: 'media',
-      correlationId: correlationId,
-      data: safeData,
-    );
-    _recordRaw(
-      'media.device_selection.attempt_detail',
-      component: 'media',
-      correlationId: correlationId,
-      data: {...safeData, 'deviceId': deviceId},
-    );
-    try {
-      await action();
-      _record(
-        'media.device_selection.succeeded',
-        component: 'media',
-        correlationId: correlationId,
-        data: safeData,
-      );
-      _recordRaw(
-        'media.device_selection.success_detail',
-        component: 'media',
-        correlationId: correlationId,
-        data: {...safeData, 'deviceId': deviceId},
-      );
-    } catch (error, stackTrace) {
-      _record(
-        'media.device_selection.failed',
-        component: 'media',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        data: {...safeData, 'errorType': error.runtimeType.toString()},
-      );
-      _recordRaw(
-        'media.device_selection.failure_detail',
-        component: 'media',
-        correlationId: correlationId,
-        severity: DiagnosticSeverity.warning,
-        message: error.toString(),
-        data: {
-          ...safeData,
-          'deviceId': deviceId,
-          'errorType': error.runtimeType.toString(),
-          'stackTrace': stackTrace.toString(),
-        },
-      );
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-  }
-
-  Future<void> _persistPreference(
-    Future<void> Function() write,
-    String operation,
-  ) async {
-    try {
-      await write();
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, operation);
-    }
   }
 
   Future<void> setScreenSharing(bool enabled) {
@@ -1904,15 +1552,15 @@ final class VoiceController extends ChangeNotifier {
       _calls.current?._setScreenSharing(enabled) ?? Future<void>.value();
 
   Future<void> leave({bool notifyServer = true}) =>
-      _leave(notifyServer: notifyServer, reason: _VoiceLeaveReason.user);
+      _leave(notifyServer: notifyServer);
 
   Future<void> _leave({
     required bool notifyServer,
-    required _VoiceLeaveReason reason,
+
     bool clearImmediately = false,
   }) => _calls.leave(
     notifyServer: notifyServer,
-    reason: reason,
+
     clearImmediately: clearImmediately,
   );
 
@@ -1920,9 +1568,9 @@ final class VoiceController extends ChangeNotifier {
     required String siteUrl,
     required VoiceRoomDraft draft,
     int? roomId,
-  }) => _runPublicValueOperation<VoiceRoom?>(
+  }) => _runHandledValue<VoiceRoom?>(
     () => _roomDirectory(siteUrl).saveRoom(draft: draft, roomId: roomId),
-    'voice.saveRoom',
+
     fallback: null,
   );
 
@@ -1937,10 +1585,7 @@ final class VoiceController extends ChangeNotifier {
       ), () => _VoiceChatAssociation(this, siteUrl, roomId));
 
   Future<void> openChat(String siteUrl, int roomId, {bool force = false}) =>
-      _runPublicOperation(
-        () => _chatAssociation(siteUrl, roomId).open(force: force),
-        'voice.chat.load',
-      );
+      _runHandled(() => _chatAssociation(siteUrl, roomId).open(force: force));
 
   void closeChat(String siteUrl, int roomId) {
     final association = _chats[(siteUrl, roomId)];
@@ -1954,11 +1599,10 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> sendChatMessage(String siteUrl, int roomId, String message) {
     _userActed();
-    return _runPublicOperation(
+    return _runHandled(
       () => message.trim().isEmpty
           ? Future<void>.value()
           : _chatAssociation(siteUrl, roomId).send(message),
-      'voice.chat.send',
     );
   }
 
@@ -1977,11 +1621,7 @@ final class VoiceController extends ChangeNotifier {
 
   Future<void> requestToSpeak({int? userId, bool raised = true}) {
     _userActed();
-    return _runPublicOperation(
-      () => _requestToSpeak(userId: userId, raised: raised),
-      'voice.requestToSpeak',
-      correlationId: _activeDiagnosticCorrelationId,
-    );
+    return _runHandled(() => _requestToSpeak(userId: userId, raised: raised));
   }
 
   Future<void> _requestToSpeak({int? userId, bool raised = true}) async {
@@ -2012,11 +1652,7 @@ final class VoiceController extends ChangeNotifier {
   /// lowered by it.
   Future<void> setParticipantRole(int userId, VoiceRole role) {
     _userActed();
-    return _runPublicOperation(
-      () => _setParticipantRole(userId, role),
-      'voice.setParticipantRole',
-      correlationId: _activeDiagnosticCorrelationId,
-    );
+    return _runHandled(() => _setParticipantRole(userId, role));
   }
 
   Future<void> _setParticipantRole(int userId, VoiceRole role) async {
@@ -2045,11 +1681,7 @@ final class VoiceController extends ChangeNotifier {
     );
   }
 
-  Future<void> kick(int userId) => _runPublicOperation(
-    () => _kick(userId),
-    'voice.kick',
-    correlationId: _activeDiagnosticCorrelationId,
-  );
+  Future<void> kick(int userId) => _runHandled(() => _kick(userId));
 
   Future<void> _kick(int userId) async {
     final call = _call;
@@ -2072,11 +1704,10 @@ final class VoiceController extends ChangeNotifier {
   }
 
   Future<bool> flagParticipant(int userId, String message) =>
-      _runPublicValueOperation<bool>(
+      _runHandledValue<bool>(
         () => _flagParticipant(userId, message),
-        'voice.flag',
+
         fallback: false,
-        correlationId: _activeDiagnosticCorrelationId,
       );
 
   Future<bool> _flagParticipant(int userId, String message) async {
@@ -2116,11 +1747,8 @@ final class VoiceController extends ChangeNotifier {
     return true;
   }
 
-  Future<void> setRecording(bool active) => _runPublicOperation(
-    () => _setRecording(active),
-    'voice.recording',
-    correlationId: _activeDiagnosticCorrelationId,
-  );
+  Future<void> setRecording(bool active) =>
+      _runHandled(() => _setRecording(active));
 
   Future<void> _setRecording(bool active) async {
     final call = _call;
@@ -2281,29 +1909,16 @@ final class VoiceController extends ChangeNotifier {
     if (credentials == null) {
       throw const WriteException(WriteFailure.forbidden);
     }
-    final result = await _reporter.runOperation(
-      'voice.invite',
-      () => credentials.run(
-        () => api.invite(
-          siteUrl: siteUrl,
-          roomId: roomId,
-          apiKey: credentials.apiKey!,
-          usernames: usernames,
-          clientId: credentials.clientId,
-        ),
+    final result = await credentials.run(
+      () => api.invite(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey!,
+        usernames: usernames,
+        clientId: credentials.clientId,
       ),
-      correlationId: _correlationForRoom(siteUrl, roomId),
     );
-    _record(
-      'room.invites.sent',
-      component: 'room',
-      correlationId: _correlationForRoom(siteUrl, roomId),
-      data: {
-        'roomId': roomId,
-        'invited': result.invitedUsernames.length,
-        'skipped': result.skippedUsernames.length,
-      },
-    );
+
     return result;
   }
 
@@ -2312,22 +1927,18 @@ final class VoiceController extends ChangeNotifier {
   Future<List<VoiceInviteSuggestion>> inviteSuggestions(
     String siteUrl,
     int roomId,
-  ) => _runPublicValueOperation<List<VoiceInviteSuggestion>>(
-    () async {
-      final credentials = await _requestCredentials(siteUrl);
-      if (credentials == null) return const [];
-      return credentials.run(
-        () => api.inviteSuggestions(
-          siteUrl: siteUrl,
-          roomId: roomId,
-          apiKey: credentials.apiKey!,
-          clientId: credentials.clientId,
-        ),
-      );
-    },
-    'voice.inviteSuggestions',
-    fallback: const [],
-  );
+  ) => _runHandledValue<List<VoiceInviteSuggestion>>(() async {
+    final credentials = await _requestCredentials(siteUrl);
+    if (credentials == null) return const [];
+    return credentials.run(
+      () => api.inviteSuggestions(
+        siteUrl: siteUrl,
+        roomId: roomId,
+        apiKey: credentials.apiKey!,
+        clientId: credentials.clientId,
+      ),
+    );
+  }, fallback: const []);
 
   Future<VoiceMembershipOpenResult> openMembershipEditor(
     String siteUrl,
@@ -2357,36 +1968,18 @@ final class VoiceController extends ChangeNotifier {
       identical(a.localVideoTrack, b.localVideoTrack);
 
   void _onSystemAction(VoiceSystemCallAction action) {
-    _record(
-      'callkit.action',
-      component: 'callkit',
-      correlationId: _correlationFor(_call),
-      data: {'action': action.name},
-    );
     switch (action) {
       case VoiceSystemCallAction.mute:
         _userActed();
-        _observe(
-          () => _setMuted(true, syncSystem: false),
-          'voice.systemAction.mute',
-        );
+        _observe(() => _setMuted(true, syncSystem: false));
       case VoiceSystemCallAction.unmute:
         _calls.current?.acknowledgeUnmute();
         _userActed();
-        _observe(
-          () => _setMuted(false, syncSystem: false),
-          'voice.systemAction.unmute',
-        );
+        _observe(() => _setMuted(false, syncSystem: false));
       case VoiceSystemCallAction.end:
-        _observe(
-          () => _leave(
-            notifyServer: true,
-            reason: _VoiceLeaveReason.systemAction,
-          ),
-          'voice.systemAction.end',
-        );
+        _observe(() => _leave(notifyServer: true));
       case VoiceSystemCallAction.answer:
-        _observe(_answerFromSystem, 'voice.systemAction.answer');
+        _observe(_answerFromSystem);
       case VoiceSystemCallAction.decline:
         declineIncomingCall(fromSystem: true);
     }
@@ -2395,13 +1988,7 @@ final class VoiceController extends ChangeNotifier {
   void forget(String siteUrl) {
     _cameraPreferences.removeWhere((account, _) => account.$1 == siteUrl);
     if (_calls.current?.siteUrl == siteUrl) {
-      _observe(
-        () => _leave(
-          notifyServer: true,
-          reason: _VoiceLeaveReason.accountRemoval,
-        ),
-        'voice.accountRemoval',
-      );
+      _observe(() => _leave(notifyServer: true));
     }
     _siteSessions.remove(siteUrl);
     final directory = _roomDirectories.remove(siteUrl);
@@ -2432,212 +2019,23 @@ final class VoiceController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
-  String _nextCallCorrelationId() {
-    return _reporter.newCorrelationId('voice-call');
+  void _observe(Future<void> Function() action) {
+    unawaited(_runHandled(action));
   }
 
-  String? _correlationFor(VoiceCallSnapshot? call) =>
-      call == null ? null : _calls.forMedia(call.media)?.correlationId;
-
-  String? _correlationForSite(String siteUrl) {
-    final call = _call;
-    return call?.siteUrl == siteUrl ? _correlationFor(call) : null;
-  }
-
-  String? _correlationForRoom(String siteUrl, int roomId) {
-    final call = _call;
-    return call?.siteUrl == siteUrl && call?.room.id == roomId
-        ? _correlationFor(call)
-        : null;
-  }
-
-  String? get _activeDiagnosticCorrelationId {
-    final active = _correlationFor(_call);
-    if (active != null) return active;
-    return _calls.leavingCorrelationId;
-  }
-
-  void _record(
-    String event, {
-    String component = 'controller',
-    DiagnosticSeverity severity = DiagnosticSeverity.info,
-    String? correlationId,
-    Map<String, Object?> data = const {},
-  }) {
-    try {
-      diagnostics.record(
-        event,
-        component: component,
-        severity: severity,
-        correlationId: correlationId,
-        data: data,
-      );
-    } catch (_) {}
-  }
-
-  void _recordRaw(
-    String event, {
-    String component = 'controller',
-    DiagnosticSeverity severity = DiagnosticSeverity.debug,
-    String? correlationId,
-    String? message,
-    Map<String, Object?> data = const {},
-  }) {
-    try {
-      if (!diagnostics.captureEnabled) return;
-      diagnostics.recordRaw(
-        event,
-        component: component,
-        severity: severity,
-        correlationId: correlationId,
-        message: message,
-        data: data,
-      );
-    } catch (_) {}
-  }
-
-  Map<String, Object?> _roomDiagnosticData(VoiceRoom room) => {
-    'roomId': room.id,
-    'roomType': room.type.name,
-    'participantCount': room.participants.length,
-  };
-
-  Map<String, Object?> _rawRoomDiagnosticData(
-    String siteUrl,
-    VoiceRoom room, {
-    String? siteName,
-  }) => {
-    'siteUrl': siteUrl,
-    'siteName': ?siteName,
-    'roomId': room.id,
-    'roomName': room.name,
-    'roomSlug': room.slug,
-    'roomType': room.type.name,
-    'participantCount': room.participants.length,
-  };
-
-  void _recordRoster(
-    String event,
-    String siteUrl,
-    int roomId,
-    List<VoiceParticipant> participants, {
-    String? correlationId,
-  }) {
-    _recordRaw(
-      event,
-      component: 'roster',
-      correlationId: correlationId,
-      data: {
-        'siteUrl': siteUrl,
-        'roomId': roomId,
-        'participants': [
-          for (final participant in participants)
-            {
-              'id': participant.id,
-              'username': participant.username,
-              'name': participant.name,
-              'avatarTemplate': participant.avatarTemplate,
-              'role': participant.role.name,
-              'muted': participant.muted,
-              'deafened': participant.deafened,
-              'videoOn': participant.videoOn,
-              'screenSharing': participant.screenSharing,
-              'watchingVideo': participant.watchingVideo,
-              'idleState': participant.idleState.name,
-              'handRaisedAt': participant.handRaisedAt
-                  ?.toUtc()
-                  .toIso8601String(),
-            },
-        ],
-      },
-    );
-  }
-
-  void _report(
-    Object error,
-    StackTrace stackTrace,
-    String operation, {
-    String? correlationId,
-  }) {
-    final effectiveCorrelationId =
-        correlationId ??
-        _activeDiagnosticCorrelationId ??
-        _reporter.currentCorrelationId;
-    _record(
-      'runtime.error',
-      severity: DiagnosticSeverity.warning,
-      correlationId: effectiveCorrelationId,
-      data: {'operation': operation, 'errorType': error.runtimeType.toString()},
-    );
-    _recordRaw(
-      'runtime.error_detail',
-      severity: DiagnosticSeverity.warning,
-      correlationId: effectiveCorrelationId,
-      message: error.toString(),
-      data: {'operation': operation, 'stackTrace': stackTrace.toString()},
-    );
-    try {
-      _reporter.reportError(
-        _VoiceDiagnosticFailure(
-          operation: operation,
-          errorType: error.runtimeType.toString(),
-        ),
-        stackTrace,
-        operation: operation,
-        source: 'voice',
-        severity: DiagnosticSeverity.warning,
-        handled: true,
-        degraded: true,
-        correlationId: effectiveCorrelationId,
-      );
-    } catch (_) {}
-  }
-
-  void _observe(Future<void> Function() action, String operation) {
-    unawaited(_runHandled(action, operation));
-  }
-
-  Future<void> _runHandled(
-    Future<void> Function() action,
-    String operation, {
-    String? correlationId,
-  }) async {
+  Future<void> _runHandled(Future<void> Function() action) async {
     try {
       await action();
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, operation, correlationId: correlationId);
-    }
+    } catch (error) {}
   }
 
   Future<T> _runHandledValue<T>(
-    Future<T> Function() action,
-    String operation, {
+    Future<T> Function() action, {
     required T fallback,
   }) async {
     try {
       return await action();
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, operation);
-      return fallback;
-    }
-  }
-
-  Future<void> _runPublicOperation(
-    Future<void> Function() action,
-    String operation, {
-    String? correlationId,
-  }) => _runHandled(action, operation, correlationId: correlationId);
-
-  Future<T> _runPublicValueOperation<T>(
-    Future<T> Function() action,
-    String operation, {
-    required T fallback,
-    String? correlationId,
-  }) async {
-    try {
-      return await action();
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, operation, correlationId: correlationId);
+    } catch (error) {
       return fallback;
     }
   }
@@ -2665,10 +2063,7 @@ final class VoiceController extends ChangeNotifier {
     unawaited(_notices.close());
     final subscriptionCancellation = _cancelSubscriptions();
 
-    final systemActionsCancellation = _runHandled(
-      _systemActions.cancel,
-      'voice.systemActions.dispose',
-    );
+    final systemActionsCancellation = _runHandled(_systemActions.cancel);
     final operation = _finishClose(
       systemActionsCancellation,
       subscriptionCancellation,
@@ -2706,26 +2101,17 @@ final class VoiceController extends ChangeNotifier {
       } else {
         subscription.cancel();
       }
-    } catch (error, stackTrace) {
-      _report(error, stackTrace, 'voice.subscription.dispose');
-    }
+    } catch (error) {}
   }
 
   Future<void> _finishClose(
     Future<void> systemActionsCancellation,
     Future<void> subscriptionCancellation,
   ) async {
-    _record('session.close.started', component: 'lifecycle');
-
-    await _runHandled(_calls.close, 'voice.session.leave');
+    await _runHandled(_calls.close);
     await subscriptionCancellation;
     await systemActionsCancellation;
-    await _runHandled(systemCall.dispose, 'voice.systemCall.dispose');
-
-    _record('session.close.completed', component: 'lifecycle');
-    if (diagnostics case final VoiceDiagnosticsFlusher flusher) {
-      await _runHandled(flusher.flushDiagnostics, 'voice.diagnostics.flush');
-    }
+    await _runHandled(systemCall.dispose);
   }
 
   // [close] invokes ChangeNotifier's synchronous disposal before returning its

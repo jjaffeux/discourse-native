@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/forum_workspace.dart';
 import 'coalescing_snapshot_writer.dart';
 import 'preference_storage_scope.dart';
-import 'store_diagnostics.dart';
 
 abstract interface class ForumTabPersistence {
   Future<String?> read();
@@ -79,9 +78,9 @@ class ForumTabStore {
     try {
       raw = await _snapshots.read(_persistence.read);
       _unreadable = false;
-    } catch (error, stackTrace) {
+    } catch (error) {
       _unreadable = true;
-      reportStorageFailure(error, stackTrace, 'forumTabs.load');
+
       return const [];
     }
 
@@ -109,8 +108,7 @@ class ForumTabStore {
         }
       }
       return workspaces;
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'forumTabs.decode');
+    } catch (error) {
       return const [];
     }
   }
@@ -160,9 +158,7 @@ class ForumTabStore {
         encode(snapshot.workspaces, selectedSiteUrl: snapshot.selectedSiteUrl),
       );
       if (!saved) throw StateError('Could not persist forum tabs.');
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'forumTabs.save');
-    }
+    } catch (error) {}
   }
 }
 

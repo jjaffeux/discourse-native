@@ -121,9 +121,6 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     required this.topInset,
     required this.startsAtBeginning,
     required this.postFrame,
-    this.diagnosticsEnabled,
-    this.recordDiagnostic,
-    this.layoutDiagnostics,
   });
 
   final ScrollController? Function() scrollController;
@@ -131,9 +128,7 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
   final double Function() topInset;
   final bool Function() startsAtBeginning;
   final TopicViewportPostFrameScheduler postFrame;
-  final bool Function()? diagnosticsEnabled;
-  final TopicViewportDiagnosticRecorder? recordDiagnostic;
-  final TopicViewportLayoutDiagnostics? layoutDiagnostics;
+
   final Map<int, BuildContext> _postContexts = {};
   final Map<int, _RetainedTopicPostExtent> _retainedPostExtents = {};
   TopicPostWindow _window = TopicPostWindow(const [], hasHeader: false);
@@ -151,16 +146,7 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     final mapping = window;
     return (key) {
       final child = mapping.childIndexForKey(key);
-      if (child != null &&
-          key is ValueKey<int> &&
-          diagnosticsEnabled?.call() == true) {
-        recordDiagnostic?.call('sliver.childIndex.resolved', {
-          'postId': key.value,
-          'postIndex': mapping[key.value],
-          'childIndex': child,
-          'showHeader': mapping.hasHeader,
-        });
-      }
+
       return child;
     };
   }
@@ -241,34 +227,12 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     final list = _list;
     final scroll = _scroll;
     if (list == null || scroll == null) {
-      if (diagnosticsEnabled?.call() == true) {
-        recordDiagnostic?.call('scroll.jump.skipped', {
-          'reason': 'controllers-unavailable',
-          'itemIndex': index,
-          'viewportOffset': viewportOffset,
-        });
-      }
       return;
     }
     if (!list.isAttached || !scroll.hasClients) {
-      if (diagnosticsEnabled?.call() == true) {
-        recordDiagnostic?.call('scroll.jump.skipped', {
-          'reason': 'controllers-detached',
-          'itemIndex': index,
-          'viewportOffset': viewportOffset,
-          'sliverLayout': layoutDiagnostics?.call(),
-        });
-      }
       return;
     }
-    if (diagnosticsEnabled?.call() == true) {
-      recordDiagnostic?.call('scroll.jump.requested', {
-        'itemIndex': index,
-        'expandedChildIndex': window.childIndexForItem(index),
-        'viewportOffset': viewportOffset,
-        'before': layoutDiagnostics?.call(),
-      });
-    }
+
     // `separated` interleaves a separator after every logical item, and the
     // ListController addresses that expanded child list.
     if (index == 0 && viewportOffset == 0 && startsAtBeginning()) {
@@ -283,12 +247,6 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     }
     final targetInset = viewportOffset + viewportTopInset;
     if (targetInset == 0 || !scroll.hasClients) {
-      if (diagnosticsEnabled?.call() == true) {
-        recordDiagnostic?.call('scroll.jump.completed', {
-          'itemIndex': index,
-          'after': layoutDiagnostics?.call(),
-        });
-      }
       return;
     }
     final position = scroll.position;
@@ -297,43 +255,22 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
           .clamp(position.minScrollExtent, position.maxScrollExtent)
           .toDouble(),
     );
-    if (diagnosticsEnabled?.call() == true) {
-      recordDiagnostic?.call('scroll.jump.completed', {
-        'itemIndex': index,
-        'after': layoutDiagnostics?.call(),
-      });
-    }
   }
 
   void _invalidateExtents() {
     final list = _list;
     if (list == null || !list.isAttached) return;
     if (!list.isLocked) {
-      if (diagnosticsEnabled?.call() == true) {
-        recordDiagnostic?.call('sliver.extents.invalidated', {
-          'deferred': false,
-          'before': layoutDiagnostics?.call(),
-        });
-      }
       list.invalidateAllExtents();
       return;
     }
-    if (diagnosticsEnabled?.call() == true) {
-      recordDiagnostic?.call('sliver.extentInvalidation.deferred', {
-        'before': layoutDiagnostics?.call(),
-      });
-    }
+
     final generation = extentGeneration;
     postFrame(() {
       final current = _list;
       if (!identical(current, list) || extentGeneration != generation) return;
       if (current == null || !current.isAttached || current.isLocked) return;
-      if (diagnosticsEnabled?.call() == true) {
-        recordDiagnostic?.call('sliver.extents.invalidated', {
-          'deferred': true,
-          'before': layoutDiagnostics?.call(),
-        });
-      }
+
       current.invalidateAllExtents();
     });
   }
@@ -386,14 +323,7 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
       // post-frame jump, this correction preserves an active drag's activity.
       scroll.position.correctBy(list.totalExtent - previousTotalExtent);
     }
-    if (diagnosticsEnabled?.call() == true) {
-      recordDiagnostic?.call('sliver.extents.shifted', {
-        'retainedPostCount': previous.length,
-        'prependedPostCount': inserted,
-        'previousHasHeader': change.previousHasHeader,
-        'hasHeader': change.hasHeader,
-      });
-    }
+
     return true;
   }
 
@@ -502,24 +432,6 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
   }
 
   void applyWindowChange(TopicViewportWindowChange change) {
-    if (diagnosticsEnabled?.call() == true &&
-        change.previousPostIds.isNotEmpty &&
-        change.changed) {
-      recordDiagnostic?.call('topic.window.changed', {
-        'previousPostCount': change.previousPostIds.length,
-        'currentPostCount': change.currentPostIds.length,
-        'previousFirstPostId': change.previousPostIds.firstOrNull,
-        'previousLastPostId': change.previousPostIds.lastOrNull,
-        'currentFirstPostId': change.currentPostIds.firstOrNull,
-        'currentLastPostId': change.currentPostIds.lastOrNull,
-        'previousFirstIndex': change.currentPostIds.indexOf(
-          change.previousPostIds.first,
-        ),
-        'prepended': change.prepended,
-        'appendOnly': change.appendOnly,
-        'headerChanged': change.previousHasHeader != change.hasHeader,
-      });
-    }
     _window = window.represents(change.currentPostIds)
         ? window.withHeader(change.hasHeader)
         : TopicPostWindow(change.currentPostIds, hasHeader: change.hasHeader);
@@ -532,12 +444,6 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
       case TopicViewportExtentAction.replace:
         _extentGeneration++;
         _sliverKey = GlobalKey();
-        if (diagnosticsEnabled?.call() == true) {
-          recordDiagnostic?.call('sliver.extentManager.replaced', {
-            'extentGeneration': extentGeneration,
-            'reason': 'topic-window-replaced',
-          });
-        }
     }
   }
 }

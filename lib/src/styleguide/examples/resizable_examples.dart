@@ -53,7 +53,7 @@ final resizableExamples = ComponentExamples(
     StyleguideExample(
       title: 'Production pane adapter — local data',
       description:
-          'Actual ResizablePane used by sidebar, inbox and diagnostics; this fixture uses an in-memory width controller and never writes preferences.',
+          'Actual ResizablePane used by sidebar and inbox; this fixture uses an in-memory width controller and never writes preferences.',
       states: const [
         'App migration',
         'Persistence boundary',

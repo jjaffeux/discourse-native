@@ -10,7 +10,6 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:photo_view/photo_view.dart';
 
-import '../foundation/diagnostic_errors.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
@@ -345,11 +344,6 @@ class LightboxTile extends StatelessWidget {
               gifPlaybackControls: true,
               gifPlaybackControlsAtTop: true,
               errorBuilder: (context, error, stackTrace) {
-                reportImageError(
-                  error,
-                  stackTrace,
-                  operation: 'lightbox.thumbnail',
-                );
                 return UnavailableImage(color: theme.shell.placeholder);
               },
             ),
@@ -508,8 +502,7 @@ class _LightboxGalleryState extends State<LightboxGallery>
         id: 'image-download',
         type: DToastType.success,
       );
-    } catch (error, stackTrace) {
-      reportImageError(error, stackTrace, operation: 'lightbox.download');
+    } catch (error) {
       if (mounted) {
         DToast.show(
           context,
@@ -966,11 +959,6 @@ class _LightboxGalleryState extends State<LightboxGallery>
                     child: const DSkeleton(),
                   ),
                   errorBuilder: (context, error, stackTrace) {
-                    reportImageError(
-                      error,
-                      stackTrace,
-                      operation: 'lightbox.fullImage',
-                    );
                     return const Center(
                       child: UnavailableImage(color: Colors.white54),
                     );

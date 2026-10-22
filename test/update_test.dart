@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/app_release.dart';
 import 'package:discourse_native/src/data/updater.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/shell/update_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -702,16 +702,7 @@ void main() {
     );
 
     group('disposal diagnostics', () {
-      late DiagnosticsController diagnostics;
-
-      setUp(() async {
-        diagnostics = await DiagnosticsController.create(
-          persistence: MemoryDiagnosticsPersistence(),
-        );
-        addTearDown(diagnostics.close);
-        final binding = DiagnosticsSink.install(diagnostics);
-        addTearDown(binding.close);
-      });
+      setUp(() async {});
 
       test(
         'an unsupported updater disposes without reporting a failure',
@@ -726,13 +717,6 @@ void main() {
 
           expect(controller.dispose, returnsNormally);
           await Future<void>.delayed(Duration.zero);
-
-          expect(
-            diagnostics.events.whereType<ErrorDiagnosticEvent>().map(
-              (event) => event.operation,
-            ),
-            isEmpty,
-          );
         },
       );
 
@@ -746,16 +730,6 @@ void main() {
 
             expect(controller.dispose, returnsNormally);
             await Future<void>.delayed(Duration.zero);
-
-            final event = diagnostics.events
-                .whereType<ErrorDiagnosticEvent>()
-                .single;
-            expect(event.operation, 'updater.dispose');
-            expect(event.source, 'updater');
-            expect(event.severity, DiagnosticSeverity.warning);
-            expect(event.errorType, 'StateError');
-            expect(event.handled, isTrue);
-            expect(event.degraded, isTrue);
           },
         );
       }

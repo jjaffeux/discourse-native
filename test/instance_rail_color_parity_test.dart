@@ -1,5 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -12,13 +12,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/button_surface.dart';
 import 'support/theme_settings.dart' as settings;
-import 'support/topic_scroll_capture.dart';
 
 const _actionKeys = [
   'add-instance-rail-button',
   'styleguide-rail-button',
   'settings-rail-button',
-  'diagnostics-rail-button',
 ];
 
 void _expectIconColor(WidgetTester tester, Finder button, Color expected) {
@@ -41,10 +39,7 @@ void main() {
     'rail actions match mockup colors at rest, hover, and press',
     (tester) async {
       final shell = settings.controller();
-      final diagnostics = await DiagnosticsController.create(
-        persistence: MemoryDiagnosticsPersistence(),
-        topicScrollCapture: topicScrollCaptureWithoutVm(),
-      );
+
       try {
         await shell.load();
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -70,25 +65,26 @@ void main() {
             .5,
           )!;
           await tester.pumpWidget(
-            DiagnosticsScope(
-              controller: diagnostics,
-              child: ShellScope(
-                controller: shell,
-                child: MaterialApp(
-                  theme: theme.copyWith(
-                    platform: debugDefaultTargetPlatformOverride,
-                  ),
-                  home: const Scaffold(
-                    body: Align(
-                      alignment: Alignment.topLeft,
-                      child: SizedBox(width: 64, child: InstanceRail()),
-                    ),
+            ShellScope(
+              controller: shell,
+              child: MaterialApp(
+                theme: theme.copyWith(
+                  platform: debugDefaultTargetPlatformOverride,
+                ),
+                home: const Scaffold(
+                  body: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(width: 64, child: InstanceRail()),
                   ),
                 ),
               ),
             ),
           );
           await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('diagnostics-rail-button')),
+            findsNothing,
+          );
           for (final key in _actionKeys) {
             final expected = key == 'add-instance-rail-button'
                 ? theme.colorScheme.onSurface
@@ -118,7 +114,6 @@ void main() {
       } finally {
         await tester.pumpWidget(const SizedBox.shrink());
         shell.dispose();
-        await diagnostics.close();
       }
     },
     variant: const TargetPlatformVariant({

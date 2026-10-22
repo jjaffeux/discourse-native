@@ -2,7 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'preference_storage_scope.dart';
 import 'serial_operation_queue.dart';
-import 'store_diagnostics.dart';
+
 import 'updater.dart';
 
 abstract interface class UpdatePersistence {
@@ -61,8 +61,7 @@ class UpdateStore {
         operation: _persistence.readChannelName,
       );
       return UpdateChannel.byName(name);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'updates.readChannel');
+    } catch (error) {
       return null;
     }
   }
@@ -77,8 +76,7 @@ class UpdateStore {
       if (!saved) {
         throw StateError('Could not persist the update channel.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'updates.writeChannel');
+    } catch (error) {
       return;
     }
   }
@@ -93,8 +91,7 @@ class UpdateStore {
       return millis == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(millis);
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'updates.readLastChecked');
+    } catch (error) {
       return null;
     }
   }
@@ -110,8 +107,7 @@ class UpdateStore {
       if (!saved) {
         throw StateError('Could not persist the last update check.');
       }
-    } catch (error, stackTrace) {
-      reportStorageFailure(error, stackTrace, 'updates.writeLastChecked');
+    } catch (error) {
       return;
     }
   }

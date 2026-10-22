@@ -13,7 +13,7 @@ String requireStoredForumBase(Object? value) {
     parsed = Uri.parse(value);
   } on FormatException {
     // Uri.parse's exception retains its source. Do not put a damaged value
-    // (which may contain credentials) into diagnostics.
+    // (which may contain credentials) into the exception.
     throw FormatException(appL10n.invalidStoredForumBaseURL);
   }
 

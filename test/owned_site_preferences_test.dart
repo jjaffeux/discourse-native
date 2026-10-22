@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/bookmark_reminder_store.dart';
 import 'package:discourse_native/src/data/recent_search_store.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,24 +16,15 @@ const _data = OwnedSitePreferences(
   id: 'test.owned',
   scope: SitePreferenceScope.account,
   value: SitePreferenceValue.string,
-  operation: 'testOwned',
 );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  late DiagnosticsController diagnostics;
-  late DiagnosticsSinkBinding binding;
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    diagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      sessionId: 'owned-preferences',
-    );
-    binding = DiagnosticsSink.install(diagnostics);
   });
   tearDown(() async {
-    binding.close();
-    await diagnostics.close();
     SharedPreferences.setMockInitialValues({});
   });
 
@@ -44,7 +35,6 @@ void main() {
         id: 'test.owned',
         scope: SitePreferenceScope.site,
         value: SitePreferenceValue.string,
-        operation: 'testOwned',
       );
       final identities = [
         _identity,
@@ -245,10 +235,7 @@ void main() {
           (await backend.getAll())['flutter.${_data.keyFor(_identity)}'],
           'old',
         );
-        final event = diagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .single;
-        expect(event.operation, 'sitePreferences.forget');
+
         backend.reject = false;
         backend.failure = null;
         await forgetSitePreferences(
@@ -278,10 +265,7 @@ void main() {
         SharedPreferencesStorePlatform.instance = backend;
         const store = RecentSearchStore();
         expect(await store.read(_short, 'sam'), {'legacy'});
-        expect(
-          diagnostics.events.whereType<ErrorDiagnosticEvent>().single.operation,
-          'recentSearch.migrate',
-        );
+
         backend.reject = false;
         backend.failure = null;
         for (var repeat = 0; repeat < 2; repeat++) {
@@ -301,13 +285,6 @@ void main() {
               : null;
         SharedPreferencesStorePlatform.instance = backend;
         await const RecentSearchStore().write(_short, 'sam', {'term'});
-        final event = diagnostics.events
-            .whereType<ErrorDiagnosticEvent>()
-            .single;
-        expect(event.operation, 'recentSearch.write');
-        expect(event.source, 'storage');
-        expect(event.degraded, isTrue);
-        expect(event.handled, isTrue);
       },
     );
   }

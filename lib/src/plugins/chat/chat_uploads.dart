@@ -125,7 +125,6 @@ class _Image extends StatelessWidget {
       gifPlaybackControls: true,
       gifPlaybackControlsAtTop: true,
       errorBuilder: (context, error, stackTrace) {
-        reportImageError(error, stackTrace, operation: 'chat.image');
         return UnavailableImage(color: theme.shell.placeholder);
       },
     );

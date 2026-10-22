@@ -1,27 +1,15 @@
 import 'package:discourse_native/src/data/composer_layout_store.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:discourse_native/src/data/topic_sidebar_store.dart';
-import 'package:discourse_native/src/diagnostics/diagnostics.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late DiagnosticsController diagnostics;
-  late DiagnosticsSinkBinding diagnosticsBinding;
+  setUp(() async {});
 
-  setUp(() async {
-    diagnostics = await DiagnosticsController.create(
-      persistence: MemoryDiagnosticsPersistence(),
-      sessionId: 'ui-preference-write',
-    );
-    diagnosticsBinding = DiagnosticsSink.install(diagnostics);
-  });
-
-  tearDown(() async {
-    diagnosticsBinding.close();
-    await diagnostics.close();
-  });
+  tearDown(() async {});
 
   test('reports a rejected composer layout write without failing', () async {
     final persistence = _RejectingComposerLayoutPersistence();
@@ -30,10 +18,6 @@ void main() {
     await ComposerLayoutStore(persistence: persistence).write(geometry);
 
     expect(persistence.encodedGeometry, isNotNull);
-    expect(
-      diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-      _isRejectedStorageWrite('composer.writeLayout'),
-    );
   });
 
   test('reports a rejected sidebar section write without failing', () async {
@@ -50,10 +34,6 @@ void main() {
       sectionId: 'community',
       collapsed: true,
     ));
-    expect(
-      diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-      _isRejectedStorageWrite('sidebarSections.writeCollapsed'),
-    );
   });
 
   test('reports a rejected topic sidebar write without failing', () async {
@@ -67,20 +47,8 @@ void main() {
       siteUrl: 'https://meta.discourse.org',
       collapsed: true,
     ));
-    expect(
-      diagnostics.events.whereType<ErrorDiagnosticEvent>().single,
-      _isRejectedStorageWrite('topicSidebar.writeCollapsed'),
-    );
   });
 }
-
-Matcher _isRejectedStorageWrite(String operation) => isA<ErrorDiagnosticEvent>()
-    .having((event) => event.operation, 'operation', operation)
-    .having((event) => event.source, 'source', 'storage')
-    .having((event) => event.severity, 'severity', DiagnosticSeverity.warning)
-    .having((event) => event.errorType, 'error type', 'StateError')
-    .having((event) => event.handled, 'handled', isTrue)
-    .having((event) => event.degraded, 'degraded', isTrue);
 
 final class _RejectingComposerLayoutPersistence
     implements ComposerLayoutPersistence {

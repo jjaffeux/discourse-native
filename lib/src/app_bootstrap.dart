@@ -7,18 +7,10 @@ import 'data/byte_cache_store.dart';
 import 'data/linux_application_directories.dart';
 import 'data/linux_preferences_store.dart';
 import 'data/media_pipeline.dart';
-import 'diagnostics/diagnostics.dart';
 import 'foundation/timezone_environment.dart';
 import 'macos_launch_screen.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
-
-typedef AppBootstrapUnhandledErrorReporter =
-    void Function(
-      Object error,
-      StackTrace stackTrace, {
-      required String source,
-    });
 
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
@@ -29,16 +21,6 @@ abstract interface class AppBootstrapHost {
 
   Future<void> initializeTimezoneEnvironment();
 
-  void createDiagnostics();
-
-  Future<void> hydrateDiagnostics();
-
-  void installDiagnosticsSink();
-
-  void installRecordingHttpOverrides();
-
-  AppBootstrapUnhandledErrorReporter installGlobalErrorHandlers();
-
   void initializePlugins();
 
   Future<void> initializePersistentMediaCache();
@@ -46,15 +28,6 @@ abstract interface class AppBootstrapHost {
   Future<void> restrictApplicationDirectories();
 
   void scheduleAfterFirstFrame(Future<void> Function() work);
-
-  void reportError(
-    Object error,
-    StackTrace stackTrace, {
-    required String operation,
-    required String source,
-    required bool handled,
-    required bool degraded,
-  });
 
   void launchApplication();
 }
@@ -69,84 +42,26 @@ final class AppBootstrap {
   final AppBootstrapHost _host;
 
   void start() {
-    final parentZone = Zone.current;
-    AppBootstrapUnhandledErrorReporter? globalErrors;
-    var diagnosticsHydrationStarted = false;
-
-    void startDiagnosticsHydration() {
-      if (diagnosticsHydrationStarted) return;
-      diagnosticsHydrationStarted = true;
-      unawaited(
-        _runDeferredInitialization(
-          _host.hydrateDiagnostics,
-          operation: 'diagnostics.hydrate',
-          source: 'diagnostics',
-        ),
-      );
-    }
-
-    runZonedGuarded<void>(
-      () {
-        _host.ensureFlutterInitialized();
-        _host.installPreferencesStore();
-        _host.createDiagnostics();
-        try {
-          _host.installDiagnosticsSink();
-          _host.installRecordingHttpOverrides();
-          globalErrors = _host.installGlobalErrorHandlers();
-          _host.initializePlugins();
-          _host.launchApplication();
-          startDiagnosticsHydration();
-          _host.scheduleAfterFirstFrame(() async {
-            await Future.wait([
-              _runDeferredInitialization(
-                _host.initializeTimezoneEnvironment,
-                operation: 'timezone.initialize',
-                source: 'timezone',
-              ),
-              _runDeferredInitialization(
-                _host.initializePersistentMediaCache,
-                operation: 'image.initializePersistentCache',
-                source: 'image',
-              ),
-              _runDeferredInitialization(
-                _host.restrictApplicationDirectories,
-                operation: 'storage.restrictApplicationDirectories',
-                source: 'storage',
-              ),
-            ]);
-          });
-        } finally {
-          // A synchronous startup failure after recorder creation still gets
-          // a chance to persist the captured fatal event.
-          startDiagnosticsHydration();
-        }
-      },
-      (error, stackTrace) {
-        globalErrors?.call(error, stackTrace, source: 'zone');
-        // Recording must not turn a crash into successful continuation.
-        parentZone.handleUncaughtError(error, stackTrace);
-      },
-    );
+    _host.ensureFlutterInitialized();
+    _host.installPreferencesStore();
+    _host.initializePlugins();
+    _host.launchApplication();
+    _host.scheduleAfterFirstFrame(() async {
+      await Future.wait([
+        _runDeferredInitialization(_host.initializeTimezoneEnvironment),
+        _runDeferredInitialization(_host.initializePersistentMediaCache),
+        _runDeferredInitialization(_host.restrictApplicationDirectories),
+      ]);
+    });
   }
 
   Future<void> _runDeferredInitialization(
-    Future<void> Function() initialize, {
-    required String operation,
-    required String source,
-  }) async {
+    Future<void> Function() initialize,
+  ) async {
     try {
       await initialize();
-    } catch (error, stackTrace) {
+    } catch (_) {
       // Deferred startup work must never take down an already-visible UI.
-      _host.reportError(
-        error,
-        stackTrace,
-        operation: operation,
-        source: source,
-        handled: true,
-        degraded: true,
-      );
     }
   }
 }
@@ -155,7 +70,6 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   _ProductionAppBootstrapHost(this._manifest);
 
   final PluginManifest _manifest;
-  late final DiagnosticsController _diagnostics;
   late final InstalledPlugins _plugins;
 
   @override
@@ -171,31 +85,6 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   @override
   Future<void> initializeTimezoneEnvironment() =>
       TimezoneEnvironment.instance.initialize();
-
-  @override
-  void createDiagnostics() {
-    _diagnostics = DiagnosticsController.start();
-  }
-
-  @override
-  Future<void> hydrateDiagnostics() => _diagnostics.flush();
-
-  @override
-  void installDiagnosticsSink() {
-    DiagnosticsSink.install(_diagnostics);
-  }
-
-  @override
-  void installRecordingHttpOverrides() {
-    RecordingHttpOverrides.install(_diagnostics);
-  }
-
-  @override
-  AppBootstrapUnhandledErrorReporter installGlobalErrorHandlers() {
-    final binding = DiagnosticsGlobalErrorBinding.install(_diagnostics);
-    return (Object error, StackTrace stackTrace, {required String source}) =>
-        binding.reportUnhandledError(error, stackTrace, source: source);
-  }
 
   @override
   void initializePlugins() {
@@ -218,27 +107,8 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   }
 
   @override
-  void reportError(
-    Object error,
-    StackTrace stackTrace, {
-    required String operation,
-    required String source,
-    required bool handled,
-    required bool degraded,
-  }) {
-    _diagnostics.reportError(
-      error,
-      stackTrace,
-      operation: operation,
-      source: source,
-      handled: handled,
-      degraded: degraded,
-    );
-  }
-
-  @override
   void launchApplication() {
-    runApp(DiscourseApp(diagnostics: _diagnostics, plugins: _plugins));
+    runApp(DiscourseApp(plugins: _plugins));
     MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   }
 }
