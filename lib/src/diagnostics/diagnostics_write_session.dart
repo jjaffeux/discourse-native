@@ -11,14 +11,11 @@ final class _DiagnosticsWriteGeneration {
 
 final class _DiagnosticsWriteSession {
   _DiagnosticsWriteSession({
-    required Future<DiagnosticsPersistence> Function() persistenceFactory,
-    required DateTime Function() clock,
-    required void Function(DiagnosticsPersistenceState? stored) onHydrated,
-    required void Function(Object error, StackTrace stackTrace) onFailure,
-  }) : _persistenceFactory = persistenceFactory,
-       _clock = clock,
-       _onHydrated = onHydrated,
-       _onFailure = onFailure;
+    required this._persistenceFactory,
+    required this._clock,
+    required this._onHydrated,
+    required this._onFailure,
+  });
 
   final Future<DiagnosticsPersistence> Function() _persistenceFactory;
   final DateTime Function() _clock;
@@ -277,7 +274,9 @@ final class _LoadFailureFallbackPersistence implements DiagnosticsPersistence {
   Future<void> close() async {
     try {
       await _failed.close();
-    } on Object {}
+    } on Object {
+      return _memory.close();
+    }
     await _memory.close();
   }
 }

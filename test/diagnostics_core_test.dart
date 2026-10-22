@@ -1176,7 +1176,7 @@ void main() {
       final closing = controller.close();
       expect(controller.close(), same(closing));
       var closed = false;
-      closing.then((_) => closed = true);
+      unawaited(closing.then((_) => closed = true));
       await Future<void>.delayed(Duration.zero);
       expect(closed, isFalse);
 
