@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
@@ -87,13 +88,46 @@ class LocalDateInline extends StatefulWidget {
 class _LocalDateInlineState extends State<LocalDateInline> {
   Timer? _timer;
   DateTime? _scheduledFor;
+  ({
+    LocalDateFormatter formatter,
+    LocalDateSpec spec,
+    Locale locale,
+    String? accountTimezone,
+    int sourceMicrosecondsSinceEpoch,
+    String sourceTimezone,
+    String readerTimezone,
+    List<String> timezones,
+    String label,
+  })?
+  _semanticLabelCache;
 
   DateTime get _now => widget.now?.call() ?? DateTime.now();
 
   @override
+  void initState() {
+    super.initState();
+    widget.formatter.environment.addListener(_invalidateSemanticLabel);
+  }
+
+  @override
+  void didUpdateWidget(LocalDateInline oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.formatter, widget.formatter)) {
+      oldWidget.formatter.environment.removeListener(_invalidateSemanticLabel);
+      _invalidateSemanticLabel();
+      widget.formatter.environment.addListener(_invalidateSemanticLabel);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.formatter.environment.removeListener(_invalidateSemanticLabel);
     _cancelRefresh();
     super.dispose();
+  }
+
+  void _invalidateSemanticLabel() {
+    _semanticLabelCache = null;
   }
 
   void _cancelRefresh() {
@@ -180,16 +214,46 @@ class _LocalDateInlineState extends State<LocalDateInline> {
     Locale locale,
     String? accountTimezone,
     Iterable<String> defaults,
-  ) => widget.formatter
-      .previews(
-        widget.spec,
-        locale: locale,
-        accountTimezone: accountTimezone,
-        defaultTimezones: defaults,
-        now: _now,
-      )
-      .map((preview) => '${preview.label}: ${preview.formatted}')
-      .join(', ');
+  ) {
+    final timezones =
+        (widget.spec.timezones.isEmpty ? defaults : widget.spec.timezones)
+            .toList(growable: false);
+    final cached = _semanticLabelCache;
+    if (cached != null &&
+        identical(cached.formatter, widget.formatter) &&
+        cached.spec == widget.spec &&
+        cached.locale == locale &&
+        cached.accountTimezone == accountTimezone &&
+        cached.sourceMicrosecondsSinceEpoch ==
+            resolved.source.microsecondsSinceEpoch &&
+        cached.sourceTimezone == resolved.sourceTimezone &&
+        cached.readerTimezone == resolved.readerTimezone &&
+        listEquals(cached.timezones, timezones)) {
+      return cached.label;
+    }
+    final label = widget.formatter
+        .previews(
+          widget.spec,
+          locale: locale,
+          accountTimezone: accountTimezone,
+          defaultTimezones: defaults,
+          now: _now,
+        )
+        .map((preview) => '${preview.label}: ${preview.formatted}')
+        .join(', ');
+    _semanticLabelCache = (
+      formatter: widget.formatter,
+      spec: widget.spec,
+      locale: locale,
+      accountTimezone: accountTimezone,
+      sourceMicrosecondsSinceEpoch: resolved.source.microsecondsSinceEpoch,
+      sourceTimezone: resolved.sourceTimezone,
+      readerTimezone: resolved.readerTimezone,
+      timezones: timezones,
+      label: label,
+    );
+    return label;
+  }
 
   void _scheduleRefresh(LocalDateResolved resolved, DateTime now) {
     if (!TickerMode.valuesOf(context).enabled) {
