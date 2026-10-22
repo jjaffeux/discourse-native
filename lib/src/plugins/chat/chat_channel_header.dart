@@ -59,7 +59,6 @@ class ChatChannelHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unreadCount = channel?.tracking.unreadCount ?? 0;
     return ChatConversationHeader(
       key: const ValueKey('chat-channel-header'),
       title: channel?.title ?? context.l10n.chat,
@@ -68,9 +67,6 @@ class ChatChannelHeader extends StatelessWidget {
       kindLabel: channel?.isDirectMessage == true
           ? context.l10n.directMessage
           : context.l10n.channel,
-      messageCount: unreadCount,
-      fetchedOnce: channel != null,
-      compactMessageCountLabel: context.l10n.unreadChatplugin(unreadCount),
       compact: true,
       titleBuilder: (title) => ChatChannelMenu(
         siteUrl: siteUrl,

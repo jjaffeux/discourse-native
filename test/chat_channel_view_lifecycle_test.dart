@@ -2795,73 +2795,6 @@ void main() {
   });
 
   group('live updates and mounted presentation', () {
-    testWidgets(
-      'channel header follows tracking independently of its transcript',
-      (tester) async {
-        const reader = DiscourseUser(id: 7, username: 'reader');
-        final channel = _channel(
-          lastRead: 0,
-        ).withTrackingState(tracking: const ChatTracking(unreadCount: 37));
-        final controller = await _controller(
-          _ChatApi(
-            user: reader,
-            chatChannelsBySite: {
-              firstSite: ChatChannels(public: [channel]),
-            },
-            openPages: {
-              firstSite: [
-                _messagesPage(
-                  1,
-                  2,
-                  canLoadMorePast: true,
-                  canLoadMoreFuture: true,
-                ),
-              ],
-            },
-          ),
-          sites: const [firstSite],
-          user: reader,
-        );
-        addTearDown(controller.dispose);
-        await controller.chat.loadChannels(firstSite);
-        await controller.chat.openChannel(firstSite, 9);
-        await tester.pumpWidget(
-          _TestView(controller: controller, tickerEnabled: false),
-        );
-        await tester.pumpAndSettle();
-
-        expect(find.text('37 unread messages'), findsOneWidget);
-        expect(find.text('2+ messages'), findsNothing);
-        final stream = controller.chat.stream(firstSite, 9);
-        expect(stream.messageIds, containsAll([1, 2]));
-        expect(stream.messageIds.length, lessThan(37));
-        final tracker = FakeSiteTracker.built.singleWhere(
-          (tracker) => tracker.siteUrl == firstSite,
-        );
-        for (final unreadCount in [1, 0]) {
-          tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
-            'channel_id': 9,
-            'last_read_message_id': unreadCount == 0 ? 2 : 1,
-            'unread_count': unreadCount,
-            'mention_count': 0,
-            'watched_threads_unread_count': 0,
-          });
-          await tester.pump();
-          expect(
-            find.text(
-              unreadCount == 1 ? '1 unread message' : '0 unread messages',
-            ),
-            findsOneWidget,
-          );
-          expect(
-            identical(controller.chat.stream(firstSite, 9), stream),
-            isTrue,
-          );
-        }
-        expect(tester.takeException(), isNull);
-      },
-    );
-
     testWidgets('live thread creation keeps the channel header on one line', (
       tester,
     ) async {
@@ -2877,7 +2810,7 @@ void main() {
       controller.chatRecords.put(firstSite, _channel(lastRead: 2));
       await tester.pumpWidget(_TestView(controller: controller));
       await tester.pumpAndSettle();
-      expect(find.text('0 unread messages'), findsOneWidget);
+      expect(find.byKey(const ValueKey('chat-channel-header')), findsOneWidget);
       expect(find.text('1 thread', findRichText: true), findsNothing);
       final tracker = FakeSiteTracker.built.singleWhere(
         (tracker) => tracker.siteUrl == firstSite,
@@ -2891,7 +2824,6 @@ void main() {
       update(1);
       await tester.pump();
       expect(find.text('1 thread', findRichText: true), findsNothing);
-      expect(find.text('0 unread messages'), findsOneWidget);
       final revision = controller.chat.stream(firstSite, 9).revision;
       update(2);
       await tester.pump();
@@ -2929,11 +2861,9 @@ void main() {
           find.byKey(const ValueKey('content-header-separator')),
           findsNothing,
         );
-        final title = find.byKey(const ValueKey('content-header-title-action'));
-        final count = find.byKey(const ValueKey('chat-compact-message-count'));
         expect(
-          tester.getRect(title).center.dy,
-          closeTo(tester.getRect(count).center.dy, .01),
+          find.byKey(const ValueKey('content-header-title-action')),
+          findsOneWidget,
         );
         expect(tester.getSize(header).height, lessThan(100));
         expect(
@@ -3275,8 +3205,6 @@ void main() {
         'deleted_at': '2026-05-05T11:00:00.000Z',
       });
       await tester.pump();
-
-      expect(find.text('0 unread messages'), findsOneWidget);
 
       expect(
         find.textContaining('Message 2', findRichText: true),
