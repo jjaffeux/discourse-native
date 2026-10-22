@@ -235,6 +235,63 @@ void main() {
   );
 
   test(
+    'retiring an account drops queued categories without holding its replacement',
+    () async {
+      final api = _PreferenceApi(_user())..indirectlyMuted = [2];
+      final shell = await _loadShell(api);
+      final oldGate = Completer<void>();
+      api.writeGate = oldGate;
+      final oldParent = shell.updateCategoryNotificationLevel(
+        _site,
+        1,
+        CategoryNotificationLevel.muted,
+      );
+      await pumpEventQueue();
+      final oldChild = shell.updateCategoryNotificationLevel(
+        _site,
+        2,
+        CategoryNotificationLevel.watching,
+      );
+      shell.lifecycle.invalidate(_site);
+      shell.clearAccountSessionState(_site);
+      final replacement = _user(id: 8, muted: [4]);
+      shell.applyAccountSessionInstance(
+        shell.currentInstance!.copyWith(user: replacement),
+        AccountSessionPhase.connecting,
+      );
+      shell.store.put(_site, _parent);
+      api.sessionUser = replacement;
+      api.indirectlyMuted = [];
+      final newGate = Completer<void>();
+      api.writeGate = newGate;
+      final fresh = shell.updateCategoryNotificationLevel(
+        _site,
+        1,
+        CategoryNotificationLevel.tracking,
+      );
+      await pumpEventQueue();
+      expect(api.writes, hasLength(2));
+
+      oldGate.complete();
+      expect(await oldParent, isFalse);
+      expect(await oldChild, isFalse);
+      expect(api.writes, hasLength(2));
+      expect(shell.currentInstance!.user!.mutedCategoryIds, [4]);
+      expect(
+        shell.categoryFor(1)!.notificationLevel,
+        CategoryNotificationLevel.tracking,
+      );
+
+      newGate.complete();
+      expect(await fresh, isTrue);
+      await pumpEventQueue();
+      expect(shell.currentInstance!.user!.mutedCategoryIds, [4]);
+      expect(shell.currentInstance!.user!.trackedCategoryIds, [1]);
+      expect(shell.currentInstance!.user!.watchedCategoryIds, isEmpty);
+    },
+  );
+
+  test(
     'a category preference read keeps live status, counters and other account fields',
     () async {
       final original = DiscourseUser.fromJson({

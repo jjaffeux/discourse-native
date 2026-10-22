@@ -15,6 +15,8 @@ Bootstrap capture starts before its transport request. Category changes replace 
 
 A native notification choice has an opaque `TopicTrackingChoice`. The shell serializes its HTTP write, then settles that token. Older successful writes advance the latest choice's rollback baseline without settling its overlay. Topic-channel echoes update the baseline while preserving the pending selection. Rejection changes only notification level on the current row. The shell releases a choice when its write tail finishes.
 
+The shell groups notification transaction state into private typed entries. Each topic queue keeps its account lease, latest attempt and finishing tail together. A category account keeps one shared write tail because category responses include account-wide inherited mute lists. Its category queues retain each latest attempt, finishing tail and last confirmed level. Admission installs queue ownership before optimistic Store publication. Retirement removes these entries before retiring the shared reconcilers, so old completions cannot clear replacement-account state. HTTP, current-user preference merging and tracking refresh remain in the shell.
+
 ## Ordering contract
 
 1. Admit bus events once using the account's shared incoming-topic filter. Replay cannot renew hints, admit an earlier rejected event, or expire an accepted event.
