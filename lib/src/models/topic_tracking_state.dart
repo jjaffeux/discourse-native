@@ -119,6 +119,11 @@ final class TopicTrackingState {
   /// the pass over the tracked topics is made once per change, not per read.
   ({int newTopics, int newReplies})? _newActivityCounts;
 
+  static const _maxScopedCounts = 64;
+  static const _maxScopeTags = 8;
+  final Map<_TopicTrackingScope, ({int newTopics, int newReplies})>
+  _scopedCounts = {};
+
   ({int newTopics, int newReplies}) get newActivityCounts =>
       _newActivityCounts ??= _countNewActivity(topics);
 
@@ -128,14 +133,29 @@ final class TopicTrackingState {
     Set<int> tagIds = const {},
   }) {
     if (categoryId == null && tagIds.isEmpty) return newActivityCounts;
+    if (categoryId != null) _childrenFor(categories);
+    final scope = tagIds.length <= _maxScopeTags
+        ? _TopicTrackingScope(categoryId, tagIds)
+        : null;
+    if (scope != null) {
+      final held = _scopedCounts[scope];
+      if (held != null) return held;
+    }
     final candidates = categoryId != null
         ? _categoryTopics(categoryId, categories)
         : _tagTopics(tagIds.first);
-    return _countNewActivity(
+    final counts = _countNewActivity(
       tagIds.isEmpty
           ? candidates
           : candidates.where((topic) => topic.tagIds.containsAll(tagIds)),
     );
+    if (scope != null) {
+      if (_scopedCounts.length == _maxScopedCounts) {
+        _scopedCounts.remove(_scopedCounts.keys.first);
+      }
+      _scopedCounts[scope] = counts;
+    }
+    return counts;
   }
 
   ({int newTopics, int newReplies}) _countNewActivity(
@@ -159,7 +179,7 @@ final class TopicTrackingState {
     required bool unifiedNew,
     required bool showCount,
   }) => _badge(
-    _categoryTopics(categoryId, categories),
+    newActivityCountsFor(categoryId: categoryId, categories: categories),
     unifiedNew: unifiedNew,
     showCount: showCount,
   );
@@ -189,7 +209,11 @@ final class TopicTrackingState {
     required int tagId,
     required bool unifiedNew,
     required bool showCount,
-  }) => _badge(_tagTopics(tagId), unifiedNew: unifiedNew, showCount: showCount);
+  }) => _badge(
+    newActivityCountsFor(tagIds: {tagId}),
+    unifiedNew: unifiedNew,
+    showCount: showCount,
+  );
 
   Iterable<TrackedTopicState> _tagTopics(int tagId) =>
       (_topicsByTag ??= _indexBy((topic) => topic.tagIds))[tagId] ??
@@ -209,6 +233,7 @@ final class TopicTrackingState {
 
   Map<int, List<int>> _childrenFor(Iterable<TopicCategory> categories) {
     if (!identical(categories, _childrenSource)) {
+      _scopedCounts.clear();
       _childrenSource = categories;
       _childrenByParent = _childrenByParentOf(categories);
     }
@@ -216,20 +241,11 @@ final class TopicTrackingState {
   }
 
   SidebarBadge _badge(
-    Iterable<TrackedTopicState> candidates, {
+    ({int newTopics, int newReplies}) counts, {
     required bool unifiedNew,
     required bool showCount,
   }) {
-    var unread = 0;
-    var fresh = 0;
-    for (final topic in candidates) {
-      if (topic.isUnread) {
-        unread++;
-      } else if (topic.isNew) {
-        fresh++;
-      }
-    }
-
+    final (newTopics: fresh, newReplies: unread) = counts;
     // Core's legacy New mode prioritizes unread and only shows new when no
     // unread topic exists. Unified New combines both kinds in one badge.
     final count = unifiedNew ? unread + fresh : (unread > 0 ? unread : fresh);
@@ -247,6 +263,7 @@ final class TopicTrackingState {
     _topicsByCategory = null;
     _topicsByTag = null;
     _newActivityCounts = null;
+    _scopedCounts.clear();
   }
 
   bool _applyMessage(Object? value) {
@@ -344,6 +361,23 @@ final class TopicTrackingState {
     }
     return behind && !ahead;
   }
+}
+
+final class _TopicTrackingScope {
+  _TopicTrackingScope(this.categoryId, Set<int> tagIds)
+    : tagIds = Set.unmodifiable(tagIds);
+
+  final int? categoryId;
+  final Set<int> tagIds;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _TopicTrackingScope &&
+      other.categoryId == categoryId &&
+      _setEquals(other.tagIds, tagIds);
+
+  @override
+  int get hashCode => Object.hash(categoryId, Object.hashAllUnordered(tagIds));
 }
 
 Map<int, List<int>> _childrenByParentOf(Iterable<TopicCategory> categories) {

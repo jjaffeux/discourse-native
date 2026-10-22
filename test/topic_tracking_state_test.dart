@@ -332,6 +332,234 @@ void main() {
     expect(counts(), (newTopics: 0, newReplies: 0));
   });
 
+  test(
+    'tag selections use their values without retaining a mutable request',
+    () {
+      final tracking = state();
+      tracking.applyMessage(const {
+        'topic_id': 13,
+        'message_type': 'new_topic',
+        'payload': {
+          'category_id': 1,
+          'created_in_new_period': true,
+          'tags': [
+            {'id': 7},
+            {'id': 8},
+          ],
+        },
+      });
+      final tags = {7, 8};
+
+      expect(tracking.newActivityCountsFor(tagIds: tags), (
+        newTopics: 1,
+        newReplies: 0,
+      ));
+      expect(tracking.newActivityCountsFor(tagIds: {8, 7}), (
+        newTopics: 1,
+        newReplies: 0,
+      ));
+
+      tags.remove(8);
+      expect(tracking.newActivityCountsFor(tagIds: tags), (
+        newTopics: 2,
+        newReplies: 2,
+      ));
+      expect(tracking.newActivityCountsFor(tagIds: {7, 8}), (
+        newTopics: 1,
+        newReplies: 0,
+      ));
+      tags
+        ..clear()
+        ..add(99);
+      expect(tracking.newActivityCountsFor(tagIds: tags), (
+        newTopics: 0,
+        newReplies: 0,
+      ));
+      expect(tracking.newActivityCountsFor(tagIds: {7}), (
+        newTopics: 2,
+        newReplies: 2,
+      ));
+    },
+  );
+
+  test('mixed scope reads follow category replacements in both directions', () {
+    final tracking = state();
+    const detached = [
+      TopicCategory(id: 1, name: 'Parent', color: '111111'),
+      TopicCategory(id: 2, name: 'Child', color: '222222'),
+    ];
+
+    for (final taxonomy in [categories, detached, categories]) {
+      final replies = identical(taxonomy, detached) ? 0 : 1;
+      expect(tracking.newActivityCountsFor(tagIds: {7}), (
+        newTopics: 1,
+        newReplies: 2,
+      ));
+      expect(
+        tracking.newActivityCountsFor(
+          categoryId: 1,
+          categories: taxonomy,
+          tagIds: {7},
+        ),
+        (newTopics: 1, newReplies: replies),
+      );
+      expect(
+        tracking.categoryBadge(
+          categoryId: 1,
+          categories: taxonomy,
+          unifiedNew: true,
+          showCount: true,
+        ),
+        SidebarBadge.count(1 + replies),
+      );
+      expect(
+        tracking.newActivityCountsFor(categoryId: 2, categories: taxonomy),
+        (newTopics: 0, newReplies: 2),
+      );
+    }
+  });
+
+  test('badge preferences apply after the same scope was counted', () {
+    final tracking = state();
+    expect(
+      tracking.newActivityCountsFor(categoryId: 1, categories: categories),
+      (newTopics: 1, newReplies: 1),
+    );
+    expect(tracking.newActivityCountsFor(tagIds: {7}), (
+      newTopics: 1,
+      newReplies: 2,
+    ));
+
+    for (final unifiedNew in [false, true, false]) {
+      for (final showCount in [true, false, true]) {
+        expect(
+          tracking.categoryBadge(
+            categoryId: 1,
+            categories: categories,
+            unifiedNew: unifiedNew,
+            showCount: showCount,
+          ),
+          showCount
+              ? SidebarBadge.count(unifiedNew ? 2 : 1)
+              : const SidebarBadge.dot(),
+        );
+        expect(
+          tracking.tagBadge(
+            tagId: 7,
+            unifiedNew: unifiedNew,
+            showCount: showCount,
+          ),
+          showCount
+              ? SidebarBadge.count(unifiedNew ? 3 : 2)
+              : const SidebarBadge.dot(),
+        );
+      }
+    }
+  });
+
+  test('many distinct tag selections remain correct when revisited', () {
+    final tracking = TopicTrackingState([
+      for (var id = 100; id < 260; id++)
+        TrackedTopicState(
+          topicId: id,
+          highestPostNumber: 2,
+          lastReadPostNumber: id.isEven ? null : 1,
+          createdInNewPeriod: id.isEven,
+          notificationLevel: 2,
+          categoryId: 1,
+          tagIds: {7, id},
+        ),
+    ]);
+
+    for (final id in [
+      for (var id = 100; id < 260; id++) id,
+      100,
+      101,
+      179,
+      259,
+    ]) {
+      expect(
+        tracking.newActivityCountsFor(
+          categoryId: id.isEven ? 1 : null,
+          categories: categories,
+          tagIds: {id, 7},
+        ),
+        (newTopics: id.isEven ? 1 : 0, newReplies: id.isEven ? 0 : 1),
+        reason: 'tag $id',
+      );
+    }
+  });
+
+  test('long tag selections require every selected tag', () {
+    final tags = {for (var id = 1; id <= 160; id++) id};
+    final tracking = TopicTrackingState([
+      TrackedTopicState(
+        topicId: 1,
+        highestPostNumber: 1,
+        createdInNewPeriod: true,
+        categoryId: 1,
+        tagIds: tags,
+      ),
+      TrackedTopicState(
+        topicId: 2,
+        highestPostNumber: 2,
+        lastReadPostNumber: 1,
+        notificationLevel: 2,
+        categoryId: 1,
+        tagIds: {...tags}..remove(160),
+      ),
+    ]);
+
+    for (final selected in [tags, tags.toList().reversed.toSet()]) {
+      expect(
+        tracking.newActivityCountsFor(
+          categoryId: 1,
+          categories: categories,
+          tagIds: selected,
+        ),
+        (newTopics: 1, newReplies: 0),
+      );
+    }
+    expect(tracking.newActivityCountsFor(tagIds: {...tags}..remove(160)), (
+      newTopics: 1,
+      newReplies: 1,
+    ));
+  });
+
+  test('local read and unread changes refresh previously counted scopes', () {
+    final tracking = state();
+    void expectScopes(int replies) {
+      for (final tags in [
+        <int>{},
+        {7},
+      ]) {
+        expect(
+          tracking.newActivityCountsFor(
+            categoryId: 1,
+            categories: categories,
+            tagIds: tags,
+          ),
+          (newTopics: 1, newReplies: replies),
+        );
+      }
+      expect(
+        tracking.categoryBadge(
+          categoryId: 1,
+          categories: categories,
+          unifiedNew: true,
+          showCount: true,
+        ),
+        SidebarBadge.count(1 + replies),
+      );
+    }
+
+    expectScopes(1);
+    expect(tracking.markRead(10, 5), isTrue);
+    expectScopes(0);
+    tracking.markLastPostUnread(10, 4);
+    expectScopes(1);
+  });
+
   test('matches core tag counts and the count-versus-dot preference', () {
     final tracking = state();
 
