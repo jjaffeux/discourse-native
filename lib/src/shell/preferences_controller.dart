@@ -8,7 +8,6 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/serial_operation_queue.dart';
 import '../data/site_lifecycle.dart';
-
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
@@ -20,7 +19,6 @@ typedef PreferencesSaved =
       UserPreferences preferences,
     );
 typedef _PreferencesLane = ({String siteUrl, String accountIdentity});
-typedef _PreferenceSave = ({_PreferencesLane lane, PreferenceSection section});
 
 @immutable
 final class PreferencesState {
@@ -97,186 +95,24 @@ final class PreferencesController extends FrameSafeNotifier {
   static final ReadAfterWriteOperationQueue _operations =
       ReadAfterWriteOperationQueue();
 
-  final Map<String, PreferencesState> _states = {};
-  final Map<
-    ({String siteUrl, Object session, PreferenceSection section}),
-    Future<void>
-  >
-  _automaticSaves = {};
-
-  /// Save changes in order, including a choice reversed while its write is
-  /// pending. Each pass compares against the server-confirmed section.
-  Future<void> saveAutomatically(
-    DiscourseInstance instance,
-    PreferenceSection section,
-  ) {
-    if (isDisposed || !instance.isConnected) return Future<void>.value();
-    final identity = _accountIdentity(
-      instance.user!.id,
-      instance.user!.username,
-    );
-    final lease = lifecycle.capture(instance.url);
-    final key = (
-      siteUrl: instance.url,
-      session: lease.session,
-      section: section,
-    );
-    final pending = _automaticSaves[key];
-    if (pending != null) return pending;
-    final completion = Completer<void>();
-    _automaticSaves[key] = completion.future;
-    completion.complete(() async {
-      try {
-        while (!isDisposed &&
-            lease.isCurrent &&
-            stateFor(instance.url)?.accountIdentity == identity &&
-            stateFor(instance.url)?.draft != null &&
-            _canEditSection(stateFor(instance.url)!.draft!, section) &&
-            stateFor(instance.url)?.dirty(section) == true) {
-          final saved = await save(instance, section);
-          if (!saved &&
-              (isDisposed ||
-                  !lease.isCurrent ||
-                  stateFor(instance.url)?.error != null ||
-                  stateFor(instance.url)?.draft?.canEdit != true)) {
-            return;
-          }
-        }
-      } finally {
-        final _ = _automaticSaves.remove(key);
-      }
-    }());
-    return completion.future;
-  }
-
-  final Map<String, Object> _loadRequests = {};
-  final Map<String, Future<void>> _loadTasks = {};
-  final Map<_PreferencesLane, int> _revisions = {};
-  // Counts dispatched saves. A read issued before a save bypassed the write
-  // queue and cannot reflect it, so it must not replace that save's confirmed
-  // values.
-  final Map<_PreferencesLane, int> _writeGenerations = {};
-  final Map<_PreferenceSave, int> _sectionRevisions = {};
-  final Map<_PreferenceSave, Object> _latestSaves = {};
+  final Map<String, _PreferenceAccountSession> _accounts = {};
 
   PreferencesState? stateFor(String? siteUrl) =>
-      siteUrl == null ? null : _states[siteUrl];
+      siteUrl == null ? null : _accounts[siteUrl]?.state;
 
   Future<void> load(DiscourseInstance instance, {bool refresh = false}) {
     if (isDisposed || !instance.isConnected) return Future<void>.value();
     final user = instance.user!;
     final identity = _accountIdentity(user.id, user.username);
-    final held = _states[instance.url];
-    if (held != null && held.accountIdentity != identity) {
+    final held = _accounts[instance.url];
+    if (held != null && held.state.accountIdentity != identity) {
       forget(instance.url);
     }
-    final current = _states[instance.url];
-    if (!refresh && current?.loaded == true) return Future<void>.value();
-    final active = _loadTasks[instance.url];
-    if (active != null) return active;
-
-    final completion = Completer<void>();
-    final task = completion.future;
-    _loadTasks[instance.url] = task;
-    completion.complete(
-      _load(instance, identity).whenComplete(() {
-        if (identical(_loadTasks[instance.url], task)) {
-          final _ = _loadTasks.remove(instance.url);
-        }
-      }),
+    final account = _accounts.putIfAbsent(
+      instance.url,
+      () => _PreferenceAccountSession(this, instance, identity),
     );
-    return task;
-  }
-
-  Future<void> _load(DiscourseInstance instance, String identity) async {
-    final siteUrl = instance.url;
-    final lane = (siteUrl: siteUrl, accountIdentity: identity);
-    final request = Object();
-    final lease = lifecycle.capture(siteUrl);
-    final revision = _revisions[lane] ?? 0;
-    final writeGeneration = _writeGenerations[lane] ?? 0;
-    _loadRequests[siteUrl] = request;
-    _states[siteUrl] =
-        (_states[siteUrl] ??
-                PreferencesState(
-                  accountIdentity: identity,
-                  username: instance.user!.username,
-                  host: instance.host,
-                ))
-            .copyWith(loading: true, error: null, savedSection: null);
-    notifySafely();
-    if (!_isCurrentLoad(lease, lane, request)) return;
-
-    try {
-      final session = await _readCredentials(lease, siteUrl);
-      if (!_isCurrentLoad(lease, lane, request)) return;
-      if (session.apiKey == null) {
-        _commitLoad(lease, lane, request, () {
-          final state = _states[siteUrl]!;
-          _states[siteUrl] = state.copyWith(
-            loading: false,
-            error: appL10n.reconnectToToLoadPreferences(
-              (instance.host).toString(),
-            ),
-          );
-        });
-        return;
-      }
-
-      final preferences = await _operations.read(
-        owner: api,
-        key: (lane: lane, session: lease.session),
-        operation: () async {
-          if (!_isCurrentLoad(lease, lane, request)) return null;
-          return session.run(
-            () => api.loadUserPreferences(
-              siteUrl: siteUrl,
-              apiKey: session.apiKey!,
-              clientId: session.clientId,
-              username: instance.user!.username,
-            ),
-          );
-        },
-      );
-      if (preferences == null ||
-          !_isCurrentLoad(lease, lane, request) ||
-          (_revisions[lane] ?? 0) != revision ||
-          (_writeGenerations[lane] ?? 0) != writeGeneration) {
-        return;
-      }
-      _commitLoad(lease, lane, request, () {
-        final state = _states[siteUrl]!;
-        _states[siteUrl] = state.copyWith(
-          draft: preferences,
-          confirmed: preferences,
-          loading: false,
-          error: preferences.canEdit
-              ? null
-              : appL10n.thisAccountIsNotAllowedToEditThesePreferences,
-        );
-      });
-    } catch (error) {
-      if (!_isCurrentLoad(lease, lane, request)) return;
-
-      _commitLoad(lease, lane, request, () {
-        final state = _states[siteUrl]!;
-        _states[siteUrl] = state.copyWith(
-          loading: false,
-          error: appL10n.couldnTLoadPreferencesFrom((instance.host).toString()),
-        );
-      });
-    } finally {
-      if (!isDisposed &&
-          identical(_loadRequests[siteUrl], request) &&
-          _states[siteUrl]?.accountIdentity == identity) {
-        _loadRequests.remove(siteUrl);
-        final state = _states[siteUrl];
-        if (state != null && state.loading) {
-          _states[siteUrl] = state.copyWith(loading: false);
-          notifySafely();
-        }
-      }
-    }
+    return account.load(instance, refresh: refresh);
   }
 
   void edit(
@@ -285,183 +121,47 @@ final class PreferencesController extends FrameSafeNotifier {
     UserPreferences Function(UserPreferences current) change,
   ) {
     if (isDisposed) return;
-    final state = _states[siteUrl];
-    final draft = state?.draft;
-    if (state == null || draft == null || !_canEditSection(draft, section)) {
-      return;
-    }
-    final updated = change(draft);
-    if (updated == draft) return;
-    final lane = (siteUrl: siteUrl, accountIdentity: state.accountIdentity);
-    _revisions[lane] = (_revisions[lane] ?? 0) + 1;
-    final saveKey = (lane: lane, section: section);
-    _sectionRevisions[saveKey] = (_sectionRevisions[saveKey] ?? 0) + 1;
-    _states[siteUrl] = state.copyWith(
-      draft: updated,
-      error: null,
-      savedSection: null,
-    );
-    notifySafely();
+    _accounts[siteUrl]?.edit(section, change);
   }
 
-  Future<bool> save(
+  Future<bool> save(DiscourseInstance instance, PreferenceSection section) {
+    final account = _accountForSave(instance);
+    return account == null
+        ? Future.value(false)
+        : account.section(section).save(instance);
+  }
+
+  /// Save changes in order, including a choice reversed while its write is
+  /// pending. Each pass compares against the server-confirmed section.
+  Future<void> saveAutomatically(
     DiscourseInstance instance,
     PreferenceSection section,
-  ) async {
-    if (isDisposed || !instance.isConnected) return false;
-    final state = _states[instance.url];
-    final draft = state?.draft;
-    final confirmed = state?.confirmed;
-    if (state == null ||
-        state.accountIdentity !=
-            _accountIdentity(instance.user!.id, instance.user!.username) ||
-        draft == null ||
-        confirmed == null ||
-        !_canEditSection(draft, section) ||
-        !state.dirty(section)) {
-      return false;
-    }
+  ) {
+    final account = _accountForSave(instance);
+    return account == null
+        ? Future.value()
+        : account.section(section).saveAutomatically(instance);
+  }
 
-    final lane = (
-      siteUrl: instance.url,
-      accountIdentity: state.accountIdentity,
-    );
-    final saveKey = (lane: lane, section: section);
-    final request = Object();
-    final lease = lifecycle.capture(instance.url);
-    final sectionRevision = _sectionRevisions[saveKey] ?? 0;
-    final values = _changedPayload(draft, confirmed, section);
-    if (values.isEmpty) return false;
-
-    _latestSaves[saveKey] = request;
-    _writeGenerations[lane] = (_writeGenerations[lane] ?? 0) + 1;
-    _states[instance.url] = state.copyWith(
-      pendingWrites: state.pendingWrites + 1,
-      error: null,
-      savedSection: null,
-    );
-    notifySafely();
-    try {
-      final updated = await _operations.write(
-        owner: api,
-        key: (lane: lane, session: lease.session),
-        operation: () async {
-          if (!_isCurrentSave(lease, saveKey, request)) return null;
-          final session = await _readCredentials(lease, instance.url);
-          if (!_isCurrentSave(lease, saveKey, request)) return null;
-          if (session.apiKey == null) {
-            throw const WriteException(WriteFailure.forbidden);
-          }
-          return session.run(
-            () => api.updateUserPreferences(
-              siteUrl: instance.url,
-              apiKey: session.apiKey!,
-              clientId: session.clientId,
-              username: state.username,
-              fallback: draft,
-              values: values,
-            ),
-          );
-        },
-      );
-      if (updated == null || !_isCurrentSave(lease, saveKey, request)) {
-        return false;
-      }
-
-      final current = _states[instance.url]!;
-      final sectionUnchanged =
-          (_sectionRevisions[saveKey] ?? 0) == sectionRevision;
-      final mergedConfirmed = current.confirmed!.withSectionFrom(
-        section,
-        updated,
-      );
-      _states[instance.url] = current.copyWith(
-        confirmed: mergedConfirmed,
-        draft: sectionUnchanged
-            ? current.draft!.withSectionFrom(section, updated)
-            : current.draft,
-        savedSection:
-            sectionUnchanged && identical(_latestSaves[saveKey], request)
-            ? section
-            : null,
-        error: sectionUnchanged ? null : current.error,
-      );
-      if (sectionUnchanged) {
-        onSaved?.call(instance.url, section, mergedConfirmed);
-      }
-      return sectionUnchanged;
-    } catch (error) {
-      if (!_isCurrentSave(lease, saveKey, request)) return false;
-
-      if ((_sectionRevisions[saveKey] ?? 0) == sectionRevision &&
-          identical(_latestSaves[saveKey], request)) {
-        final current = _states[instance.url]!;
-        _states[instance.url] = current.copyWith(
-          error: _saveError(error, instance.host),
-          savedSection: null,
-        );
-      }
-      return false;
-    } finally {
-      final current = _states[instance.url];
-      if (!isDisposed &&
-          lease.isCurrent &&
-          current != null &&
-          current.accountIdentity == lane.accountIdentity) {
-        _states[instance.url] = current.copyWith(
-          pendingWrites: current.pendingWrites > 0
-              ? current.pendingWrites - 1
-              : 0,
-        );
-        if (identical(_latestSaves[saveKey], request)) {
-          _latestSaves.remove(saveKey);
-        }
-        notifySafely();
-      }
-    }
+  _PreferenceAccountSession? _accountForSave(DiscourseInstance instance) {
+    if (isDisposed || !instance.isConnected) return null;
+    final account = _accounts[instance.url];
+    return account?.state.accountIdentity ==
+            _accountIdentity(instance.user!.id, instance.user!.username)
+        ? account
+        : null;
   }
 
   void forget(String siteUrl) {
-    var changed = _states.remove(siteUrl) != null;
-    changed = _loadRequests.remove(siteUrl) != null || changed;
-    final _ = _loadTasks.remove(siteUrl);
-    _revisions.removeWhere((lane, _) => lane.siteUrl == siteUrl);
-    _writeGenerations.removeWhere((lane, _) => lane.siteUrl == siteUrl);
-    _sectionRevisions.removeWhere((save, _) => save.lane.siteUrl == siteUrl);
-    _latestSaves.removeWhere((save, _) => save.lane.siteUrl == siteUrl);
-    if (changed && !isDisposed) notifySafely();
+    final account = _accounts.remove(siteUrl);
+    if (account != null && !isDisposed) notifySafely();
   }
 
-  Future<AccountRequestCredentials> _readCredentials(
-    SiteLease lease,
-    String siteUrl,
-  ) => AccountRequestSession(siteUrl, lease).credentials(credentials);
+  bool _isCurrent(_PreferenceAccountSession account) =>
+      !isDisposed && identical(_accounts[account.siteUrl], account);
 
-  bool _isCurrentLoad(SiteLease lease, _PreferencesLane lane, Object request) =>
-      !isDisposed &&
-      lease.isCurrent &&
-      identical(_loadRequests[lane.siteUrl], request) &&
-      _states[lane.siteUrl]?.accountIdentity == lane.accountIdentity;
-
-  bool _isCurrentSave(SiteLease lease, _PreferenceSave save, Object request) =>
-      !isDisposed &&
-      lease.isCurrent &&
-      _states[save.lane.siteUrl]?.accountIdentity ==
-          save.lane.accountIdentity &&
-      identical(_latestSaves[save], request);
-
-  void _commitLoad(
-    SiteLease lease,
-    _PreferencesLane lane,
-    Object request,
-    VoidCallback mutation,
-  ) {
-    if (!_isCurrentLoad(lease, lane, request)) return;
-    lease.commit(() {
-      if (!_isCurrentLoad(lease, lane, request)) return;
-      mutation();
-      notifySafely();
-    });
+  void _notifySession(_PreferenceAccountSession account) {
+    if (_isCurrent(account)) notifySafely();
   }
 
   static String _accountIdentity(int? id, String username) =>
@@ -511,13 +211,323 @@ final class PreferencesController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    _states.clear();
-    _loadRequests.clear();
-    _loadTasks.clear();
-    _revisions.clear();
-    _writeGenerations.clear();
-    _sectionRevisions.clear();
-    _latestSaves.clear();
+    _accounts.clear();
     super.dispose();
   }
+}
+
+final class _PreferenceAccountSession {
+  _PreferenceAccountSession(
+    this.owner,
+    DiscourseInstance instance,
+    String identity,
+  ) : siteUrl = instance.url,
+      state = PreferencesState(
+        accountIdentity: identity,
+        username: instance.user!.username,
+        host: instance.host,
+      );
+
+  final PreferencesController owner;
+  final String siteUrl;
+  PreferencesState state;
+  int editRevision = 0;
+  int writeGeneration = 0;
+  _PreferenceRead? _read;
+  final Map<PreferenceSection, _PreferenceSectionTransaction> _sections = {};
+
+  bool get isCurrent => owner._isCurrent(this);
+  _PreferencesLane get lane =>
+      (siteUrl: siteUrl, accountIdentity: state.accountIdentity);
+
+  _PreferenceSectionTransaction section(PreferenceSection section) => _sections
+      .putIfAbsent(section, () => _PreferenceSectionTransaction(this, section));
+
+  void edit(
+    PreferenceSection section,
+    UserPreferences Function(UserPreferences current) change,
+  ) {
+    final draft = state.draft;
+    if (draft == null ||
+        !PreferencesController._canEditSection(draft, section)) {
+      return;
+    }
+    final updated = change(draft);
+    if (updated == draft) return;
+    editRevision++;
+    this.section(section).editRevision++;
+    state = state.copyWith(draft: updated, error: null, savedSection: null);
+    owner._notifySession(this);
+  }
+
+  Future<void> load(DiscourseInstance instance, {required bool refresh}) {
+    if (!refresh && state.loaded) return Future.value();
+    final active = _read;
+    if (active != null) return active.completion.future;
+    final read = _PreferenceRead(
+      owner.lifecycle.capture(siteUrl),
+      editRevision,
+      writeGeneration,
+    );
+    _read = read;
+    read.completion.complete(
+      _load(instance, read).whenComplete(() {
+        if (identical(_read, read)) _read = null;
+      }),
+    );
+    return read.completion.future;
+  }
+
+  bool _ownsRead(_PreferenceRead read) =>
+      isCurrent && read.lease.isCurrent && identical(_read, read);
+
+  void _commitRead(_PreferenceRead read, PreferencesState Function() change) {
+    if (!_ownsRead(read)) return;
+    read.lease.commit(() {
+      if (!_ownsRead(read)) return;
+      state = change();
+      owner._notifySession(this);
+    });
+  }
+
+  Future<void> _load(DiscourseInstance instance, _PreferenceRead read) async {
+    state = state.copyWith(loading: true, error: null, savedSection: null);
+    owner._notifySession(this);
+    if (!_ownsRead(read)) return;
+    try {
+      final credentials = await AccountRequestSession(
+        siteUrl,
+        read.lease,
+      ).credentials(owner.credentials);
+      if (!_ownsRead(read)) return;
+      if (credentials.apiKey == null) {
+        _commitRead(
+          read,
+          () => state.copyWith(
+            loading: false,
+            error: appL10n.reconnectToToLoadPreferences(
+              instance.host.toString(),
+            ),
+          ),
+        );
+        return;
+      }
+      final preferences = await PreferencesController._operations.read(
+        owner: owner.api,
+        key: (lane: lane, session: read.lease.session),
+        operation: () async {
+          if (!_ownsRead(read)) return null;
+          return credentials.run(
+            () => owner.api.loadUserPreferences(
+              siteUrl: siteUrl,
+              apiKey: credentials.apiKey!,
+              clientId: credentials.clientId,
+              username: instance.user!.username,
+            ),
+          );
+        },
+      );
+      if (preferences == null ||
+          !_ownsRead(read) ||
+          editRevision != read.editRevision ||
+          writeGeneration != read.writeGeneration) {
+        return;
+      }
+      _commitRead(
+        read,
+        () => state.copyWith(
+          draft: preferences,
+          confirmed: preferences,
+          loading: false,
+          error: preferences.canEdit
+              ? null
+              : appL10n.thisAccountIsNotAllowedToEditThesePreferences,
+        ),
+      );
+    } catch (error) {
+      if (!_ownsRead(read)) return;
+      _commitRead(
+        read,
+        () => state.copyWith(
+          loading: false,
+          error: appL10n.couldnTLoadPreferencesFrom(instance.host.toString()),
+        ),
+      );
+    } finally {
+      if (isCurrent && identical(_read, read) && state.loading) {
+        state = state.copyWith(loading: false);
+        owner._notifySession(this);
+      }
+    }
+  }
+}
+
+final class _PreferenceRead {
+  _PreferenceRead(this.lease, this.editRevision, this.writeGeneration);
+
+  final SiteLease lease;
+  final int editRevision;
+  final int writeGeneration;
+  final Completer<void> completion = Completer<void>();
+}
+
+final class _PreferenceSectionTransaction {
+  _PreferenceSectionTransaction(this.account, this.section);
+
+  final _PreferenceAccountSession account;
+  final PreferenceSection section;
+  int editRevision = 0;
+  _PreferenceWrite? _latestWrite;
+  _AutomaticPreferenceSave? _automaticSave;
+
+  bool _ownsWrite(_PreferenceWrite write) =>
+      account.isCurrent &&
+      write.lease.isCurrent &&
+      identical(_latestWrite, write);
+
+  Future<bool> save(DiscourseInstance instance) async {
+    final state = account.state;
+    final draft = state.draft;
+    final confirmed = state.confirmed;
+    if (!account.isCurrent ||
+        draft == null ||
+        confirmed == null ||
+        !PreferencesController._canEditSection(draft, section) ||
+        !state.dirty(section)) {
+      return false;
+    }
+    final values = PreferencesController._changedPayload(
+      draft,
+      confirmed,
+      section,
+    );
+    if (values.isEmpty) return false;
+    final owner = account.owner;
+    final write = _PreferenceWrite(
+      owner.lifecycle.capture(account.siteUrl),
+      editRevision,
+    );
+    _latestWrite = write;
+    account.writeGeneration++;
+    account.state = state.copyWith(
+      pendingWrites: state.pendingWrites + 1,
+      error: null,
+      savedSection: null,
+    );
+    owner._notifySession(account);
+    try {
+      final updated = await PreferencesController._operations.write(
+        owner: owner.api,
+        key: (lane: account.lane, session: write.lease.session),
+        operation: () async {
+          if (!_ownsWrite(write)) return null;
+          final credentials = await AccountRequestSession(
+            account.siteUrl,
+            write.lease,
+          ).credentials(owner.credentials);
+          if (!_ownsWrite(write)) return null;
+          if (credentials.apiKey == null) {
+            throw const WriteException(WriteFailure.forbidden);
+          }
+          return credentials.run(
+            () => owner.api.updateUserPreferences(
+              siteUrl: account.siteUrl,
+              apiKey: credentials.apiKey!,
+              clientId: credentials.clientId,
+              username: state.username,
+              fallback: draft,
+              values: values,
+            ),
+          );
+        },
+      );
+      if (updated == null || !_ownsWrite(write)) return false;
+      final current = account.state;
+      final sectionUnchanged = editRevision == write.editRevision;
+      final mergedConfirmed = current.confirmed!.withSectionFrom(
+        section,
+        updated,
+      );
+      account.state = current.copyWith(
+        confirmed: mergedConfirmed,
+        draft: sectionUnchanged
+            ? current.draft!.withSectionFrom(section, updated)
+            : current.draft,
+        savedSection: sectionUnchanged ? section : null,
+        error: sectionUnchanged ? null : current.error,
+      );
+      if (sectionUnchanged) {
+        owner.onSaved?.call(account.siteUrl, section, mergedConfirmed);
+      }
+      return sectionUnchanged;
+    } catch (error) {
+      if (!_ownsWrite(write)) return false;
+      if (editRevision == write.editRevision) {
+        account.state = account.state.copyWith(
+          error: PreferencesController._saveError(error, instance.host),
+          savedSection: null,
+        );
+      }
+      return false;
+    } finally {
+      if (account.isCurrent && write.lease.isCurrent) {
+        final current = account.state;
+        account.state = current.copyWith(
+          pendingWrites: current.pendingWrites > 0
+              ? current.pendingWrites - 1
+              : 0,
+        );
+        if (identical(_latestWrite, write)) _latestWrite = null;
+        owner._notifySession(account);
+      }
+    }
+  }
+
+  Future<void> saveAutomatically(DiscourseInstance instance) {
+    final lease = account.owner.lifecycle.capture(account.siteUrl);
+    final pending = _automaticSave;
+    if (pending != null && identical(pending.lease.session, lease.session)) {
+      return pending.completion.future;
+    }
+    final automatic = _AutomaticPreferenceSave(lease);
+    _automaticSave = automatic;
+    automatic.completion.complete(() async {
+      try {
+        while (account.isCurrent &&
+            lease.isCurrent &&
+            account.state.draft != null &&
+            PreferencesController._canEditSection(
+              account.state.draft!,
+              section,
+            ) &&
+            account.state.dirty(section)) {
+          final saved = await save(instance);
+          if (!saved &&
+              (!account.isCurrent ||
+                  !lease.isCurrent ||
+                  account.state.error != null ||
+                  account.state.draft?.canEdit != true)) {
+            return;
+          }
+        }
+      } finally {
+        if (identical(_automaticSave, automatic)) _automaticSave = null;
+      }
+    }());
+    return automatic.completion.future;
+  }
+}
+
+final class _PreferenceWrite {
+  _PreferenceWrite(this.lease, this.editRevision);
+
+  final SiteLease lease;
+  final int editRevision;
+}
+
+final class _AutomaticPreferenceSave {
+  _AutomaticPreferenceSave(this.lease);
+
+  final SiteLease lease;
+  final Completer<void> completion = Completer<void>();
 }

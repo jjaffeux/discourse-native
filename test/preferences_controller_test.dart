@@ -153,55 +153,58 @@ Future<void> _seed(PreferencesController controller) async {
 }
 
 void main() {
-  test('automatic saves join reentrantly and persist a reversed choice', () async {
-    final first = Completer<UserPreferences>();
-    late final _PreferencesApi api;
-    api = _PreferencesApi(
-      onUpdate: (call) => api.updates.length == 1
-          ? first.future
-          : Future.value(call.fallback),
-    );
-    final controller = _controller(api);
-    addTearDown(controller.dispose);
-    await _seed(controller);
-    controller.edit(
-      _siteUrl,
-      PreferenceSection.notifications,
-      (value) => value.copyWith(notifyOnLinkedPosts: false),
-    );
-    Future<void>? joined;
-    controller.addListener(() {
-      if (joined == null && controller.stateFor(_siteUrl)!.saving) {
-        joined = controller.saveAutomatically(
-          _accountA,
-          PreferenceSection.notifications,
-        );
-      }
-    });
-    final saving = controller.saveAutomatically(
-      _accountA,
-      PreferenceSection.notifications,
-    );
-    expect(joined, same(saving));
-    await pumpEventQueue();
-    controller.edit(
-      _siteUrl,
-      PreferenceSection.notifications,
-      (value) => value.copyWith(notifyOnLinkedPosts: true),
-    );
-    first.complete(_initial.copyWith(notifyOnLinkedPosts: false));
-    await saving;
+  test(
+    'automatic saves join reentrantly and persist a reversed choice',
+    () async {
+      final first = Completer<UserPreferences>();
+      late final _PreferencesApi api;
+      api = _PreferencesApi(
+        onUpdate: (call) => api.updates.length == 1
+            ? first.future
+            : Future.value(call.fallback),
+      );
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      await _seed(controller);
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notifications,
+        (value) => value.copyWith(notifyOnLinkedPosts: false),
+      );
+      Future<void>? joined;
+      controller.addListener(() {
+        if (joined == null && controller.stateFor(_siteUrl)!.saving) {
+          joined = controller.saveAutomatically(
+            _accountA,
+            PreferenceSection.notifications,
+          );
+        }
+      });
+      final saving = controller.saveAutomatically(
+        _accountA,
+        PreferenceSection.notifications,
+      );
+      expect(joined, same(saving));
+      await pumpEventQueue();
+      controller.edit(
+        _siteUrl,
+        PreferenceSection.notifications,
+        (value) => value.copyWith(notifyOnLinkedPosts: true),
+      );
+      first.complete(_initial.copyWith(notifyOnLinkedPosts: false));
+      await saving;
 
-    expect(api.updates.map((call) => call.values), [
-      {'notify_on_linked_posts': false},
-      {'notify_on_linked_posts': true},
-    ]);
-    final state = controller.stateFor(_siteUrl)!;
-    expect(state.draft!.notifyOnLinkedPosts, isTrue);
-    expect(state.confirmed!.notifyOnLinkedPosts, isTrue);
-    expect(state.pendingWrites, 0);
-    expect(state.dirty(PreferenceSection.notifications), isFalse);
-  });
+      expect(api.updates.map((call) => call.values), [
+        {'notify_on_linked_posts': false},
+        {'notify_on_linked_posts': true},
+      ]);
+      final state = controller.stateFor(_siteUrl)!;
+      expect(state.draft!.notifyOnLinkedPosts, isTrue);
+      expect(state.confirmed!.notifyOnLinkedPosts, isTrue);
+      expect(state.pendingWrites, 0);
+      expect(state.dirty(PreferenceSection.notifications), isFalse);
+    },
+  );
 
   test('editing another section does not suppress save settlement', () async {
     final response = Completer<UserPreferences>();
@@ -535,6 +538,51 @@ void main() {
       expect(api.loads, hasLength(1));
       expect(controller.stateFor(_siteUrl)?.draft, _initial);
     });
+  });
+
+  test('controllers sharing an API keep the same account write lane', () async {
+    final firstResponse = Completer<UserPreferences>();
+    late final _PreferencesApi api;
+    api = _PreferencesApi(
+      onUpdate: (call) => api.updates.length == 1
+          ? firstResponse.future
+          : Future.value(call.fallback),
+    );
+    final lifecycle = SiteLifecycle();
+    final first = _controller(api, lifecycle: lifecycle);
+    final second = _controller(api, lifecycle: lifecycle);
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    await _seed(first);
+    await _seed(second);
+    first.edit(
+      _siteUrl,
+      PreferenceSection.profile,
+      (value) => value.copyWith(timezone: 'Europe/Paris'),
+    );
+    second.edit(
+      _siteUrl,
+      PreferenceSection.profile,
+      (value) => value.copyWith(timezone: 'Asia/Tokyo'),
+    );
+    final savingFirst = first.save(_accountA, PreferenceSection.profile);
+    await pumpEventQueue();
+    final savingSecond = second.save(_accountA, PreferenceSection.profile);
+    await pumpEventQueue();
+    expect(api.updates, hasLength(1));
+
+    firstResponse.complete(_initial.copyWith(timezone: 'Europe/Paris'));
+    expect(await savingFirst, isTrue);
+    expect(await savingSecond, isTrue);
+    expect(api.maxActiveUpdates, 1);
+    expect(api.updates.map((call) => call.values), [
+      {'timezone': 'Europe/Paris'},
+      {'timezone': 'Asia/Tokyo'},
+    ]);
+    expect(first.stateFor(_siteUrl)!.confirmed!.timezone, 'Europe/Paris');
+    expect(second.stateFor(_siteUrl)!.confirmed!.timezone, 'Asia/Tokyo');
+    expect(first.stateFor(_siteUrl)!.pendingWrites, 0);
+    expect(second.stateFor(_siteUrl)!.pendingWrites, 0);
   });
 
   group('write and refresh ordering', () {
