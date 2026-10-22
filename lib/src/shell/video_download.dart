@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
+import '../data/site_asset_account.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/private_file_permissions.dart';
 import 'download_filename.dart';
@@ -87,17 +88,16 @@ final class NativeVideoDownloader implements VideoDownloader {
     }
     _requireCurrent(lease);
 
-    final headers = <String, String>{};
-    if (siteUrl != null && credentials != null && url.origin == site?.origin) {
-      final key = await credentials.apiKeyFor(siteUrl).timeout(requestTimeout);
-      _requireCurrent(lease);
-      if (key != null) {
-        headers['User-Api-Key'] = key;
-        final clientId = await credentials.clientId().timeout(requestTimeout);
-        _requireCurrent(lease);
-        if (clientId.isNotEmpty) headers['User-Api-Client-Id'] = clientId;
-      }
-    }
+    final account =
+        siteUrl != null && credentials != null && url.origin == site?.origin
+        ? await SiteAssetAccount.open(
+            siteUrl: siteUrl,
+            credentials: credentials,
+            requireCurrent: () => _requireCurrent(lease),
+            waitForCredential: <T>(Future<T> operation) =>
+                operation.timeout(requestTimeout),
+          )
+        : null;
 
     final directory = await (await _environment.temporaryDirectory())
         .createTemp('video-download-');
@@ -108,8 +108,7 @@ final class NativeVideoDownloader implements VideoDownloader {
       await _fetch(
         client,
         url: url,
-        forumOrigin: site?.origin,
-        headers: headers,
+        account: account,
         lease: lease,
         file: file,
       );
@@ -146,8 +145,7 @@ final class NativeVideoDownloader implements VideoDownloader {
   Future<void> _fetch(
     http.Client client, {
     required Uri url,
-    required String? forumOrigin,
-    required Map<String, String> headers,
+    required SiteAssetAccount? account,
     required SiteLease? lease,
     required File file,
   }) async {
@@ -161,7 +159,7 @@ final class NativeVideoDownloader implements VideoDownloader {
           current,
           abortTrigger: abort.future,
         );
-        if (current.origin == forumOrigin) request.headers.addAll(headers);
+        request.headers.addAll(account?.headersFor(current) ?? const {});
         final pending = client.send(request);
         late final http.StreamedResponse response;
         try {
