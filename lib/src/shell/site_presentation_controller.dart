@@ -4,7 +4,6 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/request_intent.dart';
 import '../data/site_lifecycle.dart';
-
 import '../foundation/frame_safe_notifier.dart';
 import '../models/discourse_emoji_aliases.dart';
 import '../models/site_appearance.dart';
@@ -92,23 +91,23 @@ final class SitePresentationController extends FrameSafeNotifier {
   final Set<String> _invalidatedPersistedAppearances = {};
   final Set<String> _invalidatedPersistedConfigs = {};
 
-  final _appearances = _RetryingSiteCache<SiteAppearance>();
+  late final _appearances = _PresentationResource<SiteAppearance>(this);
 
-  final _configs = _RetryingSiteCache<SiteConfig>();
-  final Map<String, RequestIntentOperation<void>> _configRequests = {};
-  final Map<String, RequestIntentOperation<void>> _appearanceRequests = {};
-  final Map<String, RequestIntentOperation<void>> _customEmojiRequests = {};
-  final _customEmojis = _RetryingSiteCache<Map<String, String>>();
-  final _emojiCatalogs = _RetryingSiteCache<SiteEmojiCatalog>();
-  final _emojiSearchAliases = _RetryingSiteCache<Map<String, List<String>>>();
-  final Map<String, RequestIntentOperation<SiteEmojiCatalog?>>
-  _emojiCatalogRequests = {};
-  final Map<String, RequestIntentOperation<Map<String, List<String>>?>>
-  _emojiAliasRequests = {};
-  final Set<String> _failedEmojiCatalogs = {};
-  final Set<String> _failedEmojiSearchAliases = {};
+  late final _configs = _PresentationResource<SiteConfig>(this);
+  late final _customEmojis = _PresentationResource<Map<String, String>>(this);
+  late final _emojiCatalogs = _PresentationResource<SiteEmojiCatalog>(
+    this,
+    suppressFailedReads: true,
+  );
+  late final _emojiSearchAliases =
+      _PresentationResource<Map<String, List<String>>>(
+        this,
+        suppressFailedReads: true,
+      );
   static final Object _unchangedPresentation = Object();
   final Map<String, Object> _presentationTokens = {};
+
+  bool get _isDisposed => isDisposed;
 
   Object presentationTokenFor(String siteUrl) =>
       _presentationTokens[siteUrl] ?? _unchangedPresentation;
@@ -132,64 +131,23 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<void> refreshAppearance(String siteUrl) =>
       _appearanceRequest(siteUrl, refresh: true);
 
-  Future<void> _appearanceRequest(String siteUrl, {required bool refresh}) {
-    final active = _appearanceRequests[siteUrl];
-    if (active != null) return active.join();
-    late final RequestIntentOperation<void> request;
-    request = RequestIntentOperation(
-      () => _ensureAppearance(siteUrl, refresh: refresh).whenComplete(() {
-        if (identical(_appearanceRequests[siteUrl], request)) {
-          _appearanceRequests.remove(siteUrl);
-        }
-      }),
-    );
-    _appearanceRequests[siteUrl] = request;
-    return request.future;
-  }
-
-  Future<void> _ensureAppearance(
-    String siteUrl, {
-    required bool refresh,
-  }) async {
-    if (isDisposed || (!refresh && _warmPersistedAppearance(siteUrl))) return;
-    if (!_appearances.start(siteUrl, maxAttempts, refresh: refresh)) return;
-    final lease = lifecycle.capture(siteUrl);
-
-    try {
-      final appearance = await _withCredentials(
+  Future<void> _appearanceRequest(String siteUrl, {required bool refresh}) =>
+      _appearances.request(
         siteUrl,
-        lease,
-        (apiKey, clientId) => loadAppearance(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-        ),
+        refresh: refresh,
+        isWarm: () => _warmPersistedAppearance(siteUrl),
+        load: (apiKey, clientId) async {
+          final appearance = await loadAppearance(
+            siteUrl: siteUrl,
+            apiKey: apiKey,
+            clientId: clientId,
+          );
+          return appearance?.isKnown == true ? appearance : null;
+        },
+        hasChanged: (appearance) => appearanceFor(siteUrl) != appearance,
+        persist: (appearance) => onAppearanceLoaded(siteUrl, appearance),
+        persistOnlyChanges: true,
       );
-      if (appearance == null || !appearance.isKnown || isDisposed) return;
-
-      var changed = false;
-      final accepted = lease.commit(() {
-        changed = appearanceFor(siteUrl) != appearance;
-        _appearances.complete(siteUrl, appearance);
-        if (changed) _notifyPresentationChanged(siteUrl);
-      });
-      // Publishing can synchronously dispose this owner through a listener.
-      // Persistence belongs to the live controller just as much as the fetch,
-      // so do not let that reentrant teardown enqueue a stale write.
-      if (!accepted || !lease.isCurrent || isDisposed) return;
-      if (!changed) return;
-
-      try {
-        await onAppearanceLoaded(siteUrl, appearance);
-      } catch (error) {
-        if (isDisposed || !lease.isCurrent) return;
-      }
-    } catch (error) {
-      if (isDisposed || !lease.isCurrent) return;
-    } finally {
-      if (!isDisposed) lease.commit(() => _appearances.finish(siteUrl));
-    }
-  }
 
   String emojiUrlFor(String siteUrl, String name) {
     final custom = _customEmojis[siteUrl]?[name];
@@ -237,101 +195,29 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<void> refreshConfig(String siteUrl) =>
       _configRequest(siteUrl, refresh: true);
 
-  Future<void> _configRequest(String siteUrl, {required bool refresh}) {
-    final active = _configRequests[siteUrl];
-    if (active != null) return active.join();
-
-    late final RequestIntentOperation<void> request;
-    request = RequestIntentOperation(
-      () => _ensureConfig(siteUrl, refresh: refresh).whenComplete(() {
-        if (identical(_configRequests[siteUrl], request)) {
-          final removed = _configRequests.remove(siteUrl);
-          assert(identical(removed, request));
-        }
-      }),
-    );
-    _configRequests[siteUrl] = request;
-    return request.future;
-  }
-
-  Future<void> _ensureConfig(String siteUrl, {required bool refresh}) async {
-    if (isDisposed || (!refresh && _warmPersistedConfig(siteUrl))) return;
-    if (!_configs.start(siteUrl, maxAttempts, refresh: refresh)) return;
-    final lease = lifecycle.capture(siteUrl);
-
-    try {
-      final config = await _withCredentials(
+  Future<void> _configRequest(String siteUrl, {required bool refresh}) =>
+      _configs.request(
         siteUrl,
-        lease,
-        (apiKey, clientId) =>
+        refresh: refresh,
+        isWarm: () => _warmPersistedConfig(siteUrl),
+        load: (apiKey, clientId) =>
             loadConfig(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId),
+        hasChanged: (config) => configFor(siteUrl) != config,
+        persist: (config) => onConfigLoaded(siteUrl, config),
       );
-      if (config == null || isDisposed) return;
 
-      final accepted = lease.commit(() {
-        final changed = configFor(siteUrl) != config;
-        _configs.complete(siteUrl, config);
-        if (changed) _notifyPresentationChanged(siteUrl);
-      });
-      // A notification listener can synchronously rotate the site's session.
-      if (!accepted || !lease.isCurrent || isDisposed) return;
-
-      try {
-        await onConfigLoaded(siteUrl, config);
-      } catch (error) {
-        if (isDisposed || !lease.isCurrent) return;
-      }
-    } catch (error) {
-      if (isDisposed || !lease.isCurrent) return;
-    } finally {
-      if (!isDisposed) lease.commit(() => _configs.finish(siteUrl));
-    }
-  }
-
-  Future<void> ensureCustomEmojis(String siteUrl) {
-    final active = _customEmojiRequests[siteUrl];
-    if (active != null) return active.join();
-    late final RequestIntentOperation<void> request;
-    request = RequestIntentOperation(
-      () => _ensureCustomEmojis(siteUrl).whenComplete(() {
-        if (identical(_customEmojiRequests[siteUrl], request)) {
-          _customEmojiRequests.remove(siteUrl);
-        }
-      }),
-    );
-    _customEmojiRequests[siteUrl] = request;
-    return request.future;
-  }
-
-  Future<void> _ensureCustomEmojis(String siteUrl) async {
-    if (isDisposed || !_customEmojis.start(siteUrl, maxAttempts)) return;
-    final lease = lifecycle.capture(siteUrl);
-
-    try {
-      final emojis = await _withCredentials(
-        siteUrl,
-        lease,
-        (apiKey, clientId) => loadCustomEmojis(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-        ),
-      );
-      if (emojis == null || isDisposed) return;
-
-      lease.commit(() {
-        final changed = !mapEquals(_customEmojis[siteUrl], emojis);
-        _customEmojis.complete(siteUrl, Map.unmodifiable(emojis));
-        if (changed && emojis.isNotEmpty) {
-          _notifyPresentationChanged(siteUrl);
-        }
-      });
-    } catch (error) {
-      if (isDisposed || !lease.isCurrent) return;
-    } finally {
-      if (!isDisposed) lease.commit(() => _customEmojis.finish(siteUrl));
-    }
-  }
+  Future<void> ensureCustomEmojis(String siteUrl) => _customEmojis.request(
+    siteUrl,
+    load: (apiKey, clientId) async => Map.unmodifiable(
+      await loadCustomEmojis(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      ),
+    ),
+    hasChanged: (emojis) =>
+        !mapEquals(_customEmojis[siteUrl], emojis) && emojis.isNotEmpty,
+  );
 
   Future<void> warmCustomEmojis(String siteUrl) {
     _customEmojis.forgiveAttempts(siteUrl);
@@ -358,66 +244,12 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<SiteEmojiCatalog?> _emojiCatalogRequest(
     String siteUrl, {
     required bool refresh,
-  }) {
-    if (isDisposed) return Future.value(null);
-    final cached = _emojiCatalogs[siteUrl];
-    if (!refresh && cached != null) return Future.value(cached);
-    final active = _emojiCatalogRequests[siteUrl];
-    if (active != null) return active.join();
-    if (!refresh && _failedEmojiCatalogs.contains(siteUrl)) {
-      return Future.value(null);
-    }
-    if (refresh) _failedEmojiCatalogs.remove(siteUrl);
-
-    late final RequestIntentOperation<SiteEmojiCatalog?> request;
-    request = RequestIntentOperation(
-      () => _loadEmojiCatalog(siteUrl, refresh: refresh).whenComplete(() {
-        if (identical(_emojiCatalogRequests[siteUrl], request)) {
-          final removed = _emojiCatalogRequests.remove(siteUrl);
-          assert(identical(removed, request));
-        }
-      }),
-    );
-    _emojiCatalogRequests[siteUrl] = request;
-    return request.future;
-  }
-
-  Future<SiteEmojiCatalog?> _loadEmojiCatalog(
-    String siteUrl, {
-    required bool refresh,
-  }) async {
-    if (isDisposed ||
-        !_emojiCatalogs.start(siteUrl, maxAttempts, refresh: refresh)) {
-      return _emojiCatalogs[siteUrl];
-    }
-    final lease = lifecycle.capture(siteUrl);
-
-    try {
-      final catalog = await _withCredentials(
-        siteUrl,
-        lease,
-        (apiKey, clientId) => loadEmojiCatalog(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-        ),
-      );
-      if (catalog == null || isDisposed) return null;
-
-      final accepted = lease.commit(() {
-        _failedEmojiCatalogs.remove(siteUrl);
-        _emojiCatalogs.complete(siteUrl, catalog);
-      });
-      return accepted && lease.isCurrent && !isDisposed ? catalog : null;
-    } catch (error) {
-      if (isDisposed || !lease.isCurrent) return null;
-      _failedEmojiCatalogs.add(siteUrl);
-
-      return null;
-    } finally {
-      if (!isDisposed) lease.commit(() => _emojiCatalogs.finish(siteUrl));
-    }
-  }
+  }) => _emojiCatalogs.request(
+    siteUrl,
+    refresh: refresh,
+    load: (apiKey, clientId) =>
+        loadEmojiCatalog(siteUrl: siteUrl, apiKey: apiKey, clientId: clientId),
+  );
 
   Future<Map<String, List<String>>?> ensureEmojiSearchAliases(String siteUrl) =>
       _emojiAliasesRequest(siteUrl, refresh: false);
@@ -429,67 +261,17 @@ final class SitePresentationController extends FrameSafeNotifier {
   Future<Map<String, List<String>>?> _emojiAliasesRequest(
     String siteUrl, {
     required bool refresh,
-  }) {
-    if (isDisposed) return Future.value(null);
-    final cached = _emojiSearchAliases[siteUrl];
-    if (!refresh && cached != null) return Future.value(cached);
-    final active = _emojiAliasRequests[siteUrl];
-    if (active != null) return active.join();
-    if (!refresh && _failedEmojiSearchAliases.contains(siteUrl)) {
-      return Future.value(null);
-    }
-    if (refresh) _failedEmojiSearchAliases.remove(siteUrl);
-
-    late final RequestIntentOperation<Map<String, List<String>>?> request;
-    request = RequestIntentOperation(
-      () => _loadEmojiSearchAliases(siteUrl, refresh: refresh).whenComplete(() {
-        if (identical(_emojiAliasRequests[siteUrl], request)) {
-          final removed = _emojiAliasRequests.remove(siteUrl);
-          assert(identical(removed, request));
-        }
-      }),
-    );
-    _emojiAliasRequests[siteUrl] = request;
-    return request.future;
-  }
-
-  Future<Map<String, List<String>>?> _loadEmojiSearchAliases(
-    String siteUrl, {
-    required bool refresh,
-  }) async {
-    if (isDisposed ||
-        !_emojiSearchAliases.start(siteUrl, maxAttempts, refresh: refresh)) {
-      return _emojiSearchAliases[siteUrl];
-    }
-    final lease = lifecycle.capture(siteUrl);
-
-    try {
-      final aliases = await _withCredentials(
-        siteUrl,
-        lease,
-        (apiKey, clientId) => loadEmojiSearchAliases(
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-        ),
-      );
-      if (aliases == null || isDisposed) return null;
-
-      final immutable = _immutableAliases(aliases);
-      final accepted = lease.commit(() {
-        _failedEmojiSearchAliases.remove(siteUrl);
-        _emojiSearchAliases.complete(siteUrl, immutable);
-      });
-      return accepted && lease.isCurrent && !isDisposed ? immutable : null;
-    } catch (error) {
-      if (isDisposed || !lease.isCurrent) return null;
-      _failedEmojiSearchAliases.add(siteUrl);
-
-      return null;
-    } finally {
-      if (!isDisposed) lease.commit(() => _emojiSearchAliases.finish(siteUrl));
-    }
-  }
+  }) => _emojiSearchAliases.request(
+    siteUrl,
+    refresh: refresh,
+    load: (apiKey, clientId) async => _immutableAliases(
+      await loadEmojiSearchAliases(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        clientId: clientId,
+      ),
+    ),
+  );
 
   List<SiteEmoji> searchEmojis(String siteUrl, String query, {int limit = 7}) {
     if (limit <= 0) return const [];
@@ -576,25 +358,15 @@ final class SitePresentationController extends FrameSafeNotifier {
     // just disconnected, so it must not regain warm-start status.
     _invalidatedPersistedAppearances.add(siteUrl);
     _invalidatedPersistedConfigs.add(siteUrl);
-    _appearanceRequests.remove(siteUrl)?.future.ignore();
-    _customEmojiRequests.remove(siteUrl)?.future.ignore();
-    final configRequest = _configRequests.remove(siteUrl);
-    configRequest?.future.ignore();
     final oldAppearance = appearanceFor(siteUrl);
     final oldConfig = configFor(siteUrl);
     final customChanged = _customEmojis[siteUrl]?.isNotEmpty ?? false;
-    final catalogRequest = _emojiCatalogRequests.remove(siteUrl);
-    catalogRequest?.future.ignore();
-    final aliasRequest = _emojiAliasRequests.remove(siteUrl);
-    aliasRequest?.future.ignore();
 
     _appearances.forget(siteUrl);
     _configs.forget(siteUrl);
     _customEmojis.forget(siteUrl);
     _emojiCatalogs.forget(siteUrl);
     _emojiSearchAliases.forget(siteUrl);
-    _failedEmojiCatalogs.remove(siteUrl);
-    _failedEmojiSearchAliases.remove(siteUrl);
     _presentationTokens.remove(siteUrl);
 
     if (oldAppearance != appearanceFor(siteUrl) ||
@@ -631,40 +403,95 @@ final class SitePresentationController extends FrameSafeNotifier {
   }
 }
 
-final class _RetryingSiteCache<T> {
-  final Map<String, T> _values = {};
-  final Map<String, int> _attempts = {};
-  final Set<String> _loading = {};
+final class _PresentationResource<T extends Object> {
+  _PresentationResource(this.owner, {this.suppressFailedReads = false});
 
-  T? operator [](String siteUrl) => _values[siteUrl];
+  final SitePresentationController owner;
+  final bool suppressFailedReads;
+  final Map<String, _ResourceEntry<T>> _entries = {};
 
-  bool start(String siteUrl, int maxAttempts, {bool refresh = false}) {
-    if (_loading.contains(siteUrl)) return false;
-    if (!refresh && _values.containsKey(siteUrl)) return false;
-    if (refresh) _attempts.remove(siteUrl);
-    final attempts = _attempts[siteUrl] ?? 0;
-    if (attempts >= maxAttempts) return false;
-    _attempts[siteUrl] = attempts + 1;
-    _loading.add(siteUrl);
-    return true;
+  T? operator [](String siteUrl) => _entries[siteUrl]?.value;
+
+  Future<T?> request(
+    String siteUrl, {
+    required Future<T?> Function(String? apiKey, String? clientId) load,
+    bool refresh = false,
+    bool Function()? isWarm,
+    bool Function(T value)? hasChanged,
+    Future<void> Function(T value)? persist,
+    bool persistOnlyChanges = false,
+  }) {
+    if (suppressFailedReads && owner._isDisposed) return Future.value(null);
+    final entry = _entries.putIfAbsent(siteUrl, _ResourceEntry<T>.new);
+    if (suppressFailedReads && !refresh && entry.value != null) {
+      return Future.value(entry.value);
+    }
+    final active = entry.request;
+    if (active != null) return active.join();
+    if (suppressFailedReads && !refresh && entry.failed) {
+      return Future.value(null);
+    }
+    if (refresh) entry.failed = false;
+
+    final request = RequestIntentOperation<T?>(() async {
+      if (owner._isDisposed || (!refresh && (isWarm?.call() ?? false))) {
+        return null;
+      }
+      if (entry.loading || (!refresh && entry.value != null)) {
+        return entry.value;
+      }
+      if (refresh) entry.attempts = 0;
+      if (entry.attempts >= owner.maxAttempts) return entry.value;
+      entry.attempts++;
+      entry.loading = true;
+      final lease = owner.lifecycle.capture(siteUrl);
+      try {
+        final value = await owner._withCredentials(siteUrl, lease, load);
+        if (value == null || owner._isDisposed) return null;
+        var changed = false;
+        final accepted = lease.commit(() {
+          changed = hasChanged?.call(value) ?? false;
+          entry.value = value;
+          entry.failed = false;
+          if (changed) owner._notifyPresentationChanged(siteUrl);
+        });
+        if (!accepted || !lease.isCurrent || owner._isDisposed) return null;
+        if (persist != null && (!persistOnlyChanges || changed)) {
+          try {
+            await persist(value);
+          } catch (_) {
+            if (owner._isDisposed || !lease.isCurrent) return null;
+          }
+        }
+        return value;
+      } catch (_) {
+        if (owner._isDisposed || !lease.isCurrent) return null;
+        entry.failed = true;
+        return null;
+      } finally {
+        if (!owner._isDisposed) lease.commit(() => entry.loading = false);
+      }
+    });
+    entry.request = request;
+    request.future.whenComplete(() => entry.request = null).ignore();
+    return request.future;
   }
 
   void forgiveAttempts(String siteUrl) {
-    if (_loading.contains(siteUrl) || _values.containsKey(siteUrl)) return;
-    _attempts.remove(siteUrl);
-  }
-
-  void complete(String siteUrl, T value) {
-    _values[siteUrl] = value;
-  }
-
-  void finish(String siteUrl) {
-    _loading.remove(siteUrl);
+    final entry = _entries[siteUrl];
+    if (entry == null || entry.loading || entry.value != null) return;
+    entry.attempts = 0;
   }
 
   void forget(String siteUrl) {
-    _values.remove(siteUrl);
-    _attempts.remove(siteUrl);
-    _loading.remove(siteUrl);
+    _entries.remove(siteUrl)?.request?.future.ignore();
   }
+}
+
+final class _ResourceEntry<T extends Object> {
+  T? value;
+  int attempts = 0;
+  bool loading = false;
+  bool failed = false;
+  RequestIntentOperation<T?>? request;
 }

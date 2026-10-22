@@ -66,6 +66,229 @@ void main() {
     );
   }
 
+  for (final kind in ['config', 'appearance', 'custom', 'catalog', 'aliases']) {
+    test('retired $kind settlement leaves its replacement joined', () async {
+      const site = 'https://meta.example';
+      final retired = Completer<void>();
+      final replacement = Completer<void>();
+      final started = Completer<void>();
+      var calls = 0;
+      final api = _PresentationApi()
+        ..appearance = siteAppearance()
+        ..config = const SiteConfig(emojiSet: 'google')
+        ..custom = {'party': '/party.png'}
+        ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')]
+        ..emojiAliases = const {
+          'wave': ['hello'],
+        }
+        ..beforeLoad = (_) async {
+          calls++;
+          if (calls == 1) {
+            started.complete();
+            await retired.future;
+            throw StateError('retired read failed');
+          }
+          await replacement.future;
+        };
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(api, lifecycle: lifecycle);
+      final old = _ensureResource(controller, kind, site);
+      await started.future;
+      lifecycle.invalidate(site);
+      controller.forget(site);
+      final current = _ensureResource(controller, kind, site);
+      await pumpEventQueue();
+      expect(calls, 2);
+      retired.complete();
+      await old;
+      final joined = _ensureResource(controller, kind, site);
+      await pumpEventQueue();
+      expect(calls, 2);
+      replacement.complete();
+      await Future.wait([current, joined]);
+      await _ensureResource(controller, kind, site);
+      expect(calls, 2);
+      switch (kind) {
+        case 'config':
+          expect(controller.configFor(site).emojiSet, 'google');
+        case 'appearance':
+          expect(controller.appearanceFor(site), siteAppearance());
+        case 'custom':
+          expect(controller.cachedCustomEmojiFor(site), {
+            'party': '/party.png',
+          });
+        case 'catalog':
+          expect(controller.knowsEmoji(site, 'wave'), isTrue);
+        case 'aliases':
+          expect(controller.emojiSearchAliasesFor(site), {
+            'wave': ['hello'],
+          });
+      }
+    });
+  }
+
+  for (final kind in ['catalog', 'aliases']) {
+    test('cached $kind reads do not join or promote a refresh', () async {
+      const site = 'https://meta.example';
+      final api = _PresentationApi();
+      final controller = _controller(api);
+      final held = await _ensureResource(controller, kind, site);
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      late RequestIntent refreshIntent;
+      api.beforeLoad = (_) async {
+        refreshIntent = RequestIntent.current;
+        started.complete();
+        await gate.future;
+      };
+      final refresh = RequestIntent.background().run(
+        () => kind == 'catalog'
+            ? controller.refreshEmojiCatalog(site)
+            : controller.refreshEmojiSearchAliases(site),
+      );
+      await started.future;
+      final cached = await _ensureResource(controller, kind, site);
+      expect(cached, same(held));
+      expect(refreshIntent.isInteractive, isFalse);
+      gate.complete();
+      await refresh;
+    });
+  }
+
+  test(
+    'equal appearance skips persistence while equal config persists',
+    () async {
+      const site = 'https://meta.example';
+      final appearance = siteAppearance();
+      const config = SiteConfig(emojiSet: 'google');
+      final api = _PresentationApi()
+        ..appearance = appearance
+        ..config = config;
+      var appearanceWrites = 0;
+      var configWrites = 0;
+      var notifications = 0;
+      final controller = _controller(
+        api,
+        persistedAppearances: {site: appearance},
+        persisted: const {site: config},
+        onAppearanceLoaded: (_, _) async => appearanceWrites++,
+        onConfigLoaded: (_, _) async => configWrites++,
+      )..addListener(() => notifications++);
+      await controller.refreshAppearance(site);
+      await controller.refreshConfig(site);
+      expect(appearanceWrites, 0);
+      expect(configWrites, 1);
+      expect(notifications, 0);
+    },
+  );
+
+  for (final kind in ['config', 'appearance', 'custom', 'catalog', 'aliases']) {
+    test('$kind retirement during credentials prevents dispatch', () async {
+      const site = 'https://meta.example';
+      final credentials = _Credentials()..apiKeyGate = Completer<String?>();
+      final api = _PresentationApi();
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(
+        api,
+        credentials: credentials,
+        lifecycle: lifecycle,
+      );
+      final pending = _ensureResource(controller, kind, site);
+      await pumpEventQueue();
+      expect(credentials.apiKeySites, [site]);
+      lifecycle.invalidate(site);
+      controller.forget(site);
+      credentials.apiKeyGate!.complete('retired-key');
+      await pending;
+      expect(credentials.clientIdCalls, 0);
+      expect([
+        api.appearanceCalls,
+        api.configCalls,
+        api.customCalls,
+        api.emojiCalls,
+        api.emojiAliasCalls,
+      ], everyElement(0));
+    });
+  }
+
+  test('null appearance consumes attempts without caching a value', () async {
+    const site = 'https://meta.example';
+    final api = _PresentationApi();
+    final controller = _controller(api);
+    for (var attempt = 0; attempt < 5; attempt++) {
+      await controller.ensureAppearance(site);
+    }
+    expect(api.appearanceCalls, 3);
+    expect(controller.appearanceFor(site), isNull);
+    api.appearance = siteAppearance();
+    await controller.refreshAppearance(site);
+    expect(api.appearanceCalls, 4);
+    expect(controller.appearanceFor(site), siteAppearance());
+  });
+
+  test('unknown appearance does not become a cache hit', () async {
+    const site = 'https://meta.example';
+    final api = _PresentationApi()..appearance = const SiteAppearance.unknown();
+    final controller = _controller(api);
+    for (var attempt = 0; attempt < 5; attempt++) {
+      await controller.ensureAppearance(site);
+    }
+    expect(api.appearanceCalls, 3);
+    expect(controller.appearanceFor(site), isNull);
+  });
+
+  test('emoji caches retain immutable snapshots of loader maps', () async {
+    const site = 'https://meta.example';
+    final custom = {'party': '/party.png'};
+    final names = ['hello'];
+    final aliases = {'wave': names};
+    final api = _PresentationApi()
+      ..custom = custom
+      ..emojiAliases = aliases;
+    final controller = _controller(api);
+    await controller.ensureCustomEmojis(site);
+    final cachedAliases = await controller.ensureEmojiSearchAliases(site);
+    custom['party'] = '/replacement.png';
+    names.add('changed');
+    aliases.clear();
+    expect(controller.cachedCustomEmojiFor(site), {'party': '/party.png'});
+    expect(cachedAliases, {
+      'wave': ['hello'],
+    });
+    expect(
+      () => controller.cachedCustomEmojiFor(site)['new'] = '/new.png',
+      throwsUnsupportedError,
+    );
+    expect(() => cachedAliases!['wave']!.add('new'), throwsUnsupportedError);
+  });
+
+  for (final kind in ['config', 'appearance', 'custom', 'catalog', 'aliases']) {
+    test('$kind invalidation requires forget before readmission', () async {
+      const site = 'https://meta.example';
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      var calls = 0;
+      final api = _PresentationApi()
+        ..beforeLoad = (_) async {
+          calls++;
+          if (!started.isCompleted) started.complete();
+          await gate.future;
+        };
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(api, lifecycle: lifecycle);
+      final pending = _ensureResource(controller, kind, site);
+      await started.future;
+      lifecycle.invalidate(site);
+      gate.complete();
+      await pending;
+      await _ensureResource(controller, kind, site);
+      expect(calls, 1);
+      controller.forget(site);
+      await _ensureResource(controller, kind, site);
+      expect(calls, 2);
+    });
+  }
+
   TestWidgetsFlutterBinding.ensureInitialized();
   const site = 'https://meta.example';
 
@@ -898,13 +1121,14 @@ final class _Credentials implements ApiCredentialReader {
   _Credentials({this.apiKey = 'key'});
 
   final String? apiKey;
+  Completer<String?>? apiKeyGate;
   final List<String> apiKeySites = [];
   int clientIdCalls = 0;
 
   @override
   Future<String?> apiKeyFor(String siteUrl) async {
     apiKeySites.add(siteUrl);
-    return apiKey;
+    return apiKeyGate?.future ?? apiKey;
   }
 
   @override
@@ -1010,4 +1234,24 @@ final class _PresentationApi {
     if (emojiAliasError case final error?) throw error;
     return emojiAliasGate?.future ?? emojiAliases;
   }
+}
+
+Future<Object?> _ensureResource(
+  SitePresentationController controller,
+  String kind,
+  String site,
+) async {
+  switch (kind) {
+    case 'config':
+      await controller.ensureConfig(site);
+    case 'appearance':
+      await controller.ensureAppearance(site);
+    case 'custom':
+      await controller.ensureCustomEmojis(site);
+    case 'catalog':
+      return controller.ensureEmojiCatalog(site);
+    case 'aliases':
+      return controller.ensureEmojiSearchAliases(site);
+  }
+  return null;
 }
