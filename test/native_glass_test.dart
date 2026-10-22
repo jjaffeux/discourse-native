@@ -27,6 +27,45 @@ Rect _rect(Object? value) {
   return Rect.fromLTWH(values[0], values[1], values[2], values[3]);
 }
 
+Widget _dock({required Widget more, Widget? action}) => MaterialApp(
+  theme: _glass,
+  home: Scaffold(
+    body: Align(
+      alignment: Alignment.bottomCenter,
+      child: SizedBox(
+        width: 390,
+        child: DMobileDock(
+          onOverflowChanged: (_) {},
+          destinations: [
+            for (final name in [
+              'Start',
+              'Topics',
+              'Chat',
+              'Inbox',
+              'Users',
+              'A very long destination',
+            ])
+              DMobileDockItem(
+                icon: const Icon(Icons.forum),
+                label: name,
+                selected: name == 'Topics',
+                onPressed: () {},
+              ),
+          ],
+          more: more,
+          collapsedDestination: DMobileDockItem(
+            collapsed: true,
+            icon: const Icon(Icons.forum),
+            label: 'Reveal',
+            onPressed: () {},
+          ),
+          action: action,
+        ),
+      ),
+    ),
+  ),
+);
+
 void main() {
   final scenes = <_Scene>[];
   final images = <int, int>{};
@@ -148,49 +187,23 @@ void main() {
     final icon = ValueNotifier(Icons.add);
     addTearDown(icon.dispose);
     await tester.pumpWidget(
-      MaterialApp(
-        theme: _glass,
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.bottomCenter,
-            child: SizedBox(
-              width: 390,
-              child: ValueListenableBuilder<IconData>(
-                valueListenable: icon,
-                builder: (context, value, _) => DMobileDock(
-                  onOverflowChanged: (_) {},
-                  destinations: [
-                    DMobileDockItem(
-                      icon: const Icon(Icons.forum),
-                      label: 'Topics',
-                      selected: true,
-                      onPressed: () {},
-                    ),
-                  ],
-                  more: DMobileDockItem(
-                    bare: true,
-                    icon: const Icon(Icons.more_vert),
-                    label: 'More',
-                    onPressed: () {},
-                  ),
-                  collapsedDestination: DMobileDockItem(
-                    collapsed: true,
-                    icon: const Icon(Icons.forum),
-                    label: 'Reveal',
-                    onPressed: () {},
-                  ),
-                  // A new action icon remounts the action, as the shell does
-                  // when the destination changes.
-                  action: KeyedSubtree(
-                    key: ValueKey(value),
-                    child: DMobileDockAction(
-                      icon: Icon(value),
-                      label: 'Act',
-                      onPressed: () {},
-                    ),
-                  ),
-                ),
-              ),
+      _dock(
+        more: DMobileDockItem(
+          bare: true,
+          icon: const Icon(Icons.more_vert),
+          label: 'More',
+          onPressed: () {},
+        ),
+        action: ValueListenableBuilder<IconData>(
+          valueListenable: icon,
+          // A new action icon remounts the action, as the shell does when the
+          // destination changes.
+          builder: (context, value, _) => KeyedSubtree(
+            key: ValueKey(value),
+            child: DMobileDockAction(
+              icon: Icon(value),
+              label: 'Act',
+              onPressed: () {},
             ),
           ),
         ),
@@ -222,6 +235,49 @@ void main() {
       expect(element['image'], isNot(0));
       expect(element['fallback'], isNull);
     }
+  });
+
+  testWidgets('the More menu stays open while its sheet covers the dock', (
+    tester,
+  ) async {
+    var picked = 0;
+    await tester.pumpWidget(
+      _dock(
+        more: DDropdownMenu(
+          sheetOnMobile: true,
+          mobileSheetVariant: DSheetVariant.adaptiveMenu,
+          content: DDropdownMenuContent(
+            children: [
+              DDropdownMenuItem(
+                onPressed: () => picked++,
+                child: const Text('Hidden destination'),
+              ),
+            ],
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, state) => DMobileDockItem(
+              key: const ValueKey('more'),
+              bare: true,
+              icon: const Icon(Icons.more_vert),
+              label: 'More',
+              hasPopup: true,
+              expanded: state.open,
+              onPressed: state.toggle,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect((await settle(tester))['visible'], isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('more')));
+    await tester.pumpAndSettle();
+    expect(scenes.last['visible'], isFalse);
+    await tester.tap(find.text('Hidden destination'));
+    await tester.pumpAndSettle();
+    expect(picked, 1);
+    expect(find.text('Hidden destination'), findsNothing);
+    expect((await settle(tester))['visible'], isTrue);
   });
 
   testWidgets('taps still reach the Flutter controls under system glass', (

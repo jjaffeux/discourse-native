@@ -69,6 +69,10 @@ class _DMobileDockState extends State<DMobileDock>
   double _velocity = 0;
   Duration? _lastElapsed;
   bool _spring = false;
+  // System glass hands the dock back to Flutter glass while a route or overlay
+  // covers it, which changes the widgets around its controls. Keyed, they keep
+  // their state through the swap, such as the More menu whose sheet covered it.
+  final _controls = GlobalKey(debugLabel: 'mobile-dock-controls');
   static const _springDescription = SpringDescription(
     mass: 1,
     stiffness: 195,
@@ -266,6 +270,7 @@ class _DMobileDockState extends State<DMobileDock>
                 ),
           child: dockSurface(
             AnimatedPadding(
+              key: _controls,
               padding: EdgeInsets.all(inset),
               duration: reduced || _spring
                   ? Duration.zero
