@@ -1137,6 +1137,129 @@ void main() {
   );
 
   test(
+    'clear orders a delayed append before replacement writes and close',
+    () async {
+      final now = DateTime.utc(2026, 8, 8, 9);
+      final persistence = _GatedHydrationPersistence();
+      final controller = DiagnosticsController.start(
+        persistence: persistence,
+        clock: () => now,
+        sessionId: 'clear-delayed-append',
+      );
+      addTearDown(() async {
+        persistence.releaseLoad();
+        persistence.releaseAppend();
+        await controller.close();
+      });
+
+      controller.recordHttp(
+        _httpRecord(now, HttpDiagnosticPhase.started, eventId: 'reused-id'),
+      );
+      controller.reportError(StateError('before clear'), StackTrace.empty);
+      final hydration = controller.hydrate();
+      persistence.releaseLoad();
+      await hydration;
+      await persistence.appendStarted.future;
+
+      final clearing = controller.clear();
+      controller.recordHttp(
+        _httpRecord(now, HttpDiagnosticPhase.started, eventId: 'reused-id'),
+      );
+      controller.recordHttp(
+        _httpRecord(
+          now,
+          HttpDiagnosticPhase.completed,
+          eventId: 'reused-id',
+          statusCode: 201,
+        ),
+      );
+      final closing = controller.close();
+      expect(controller.close(), same(closing));
+      var closed = false;
+      closing.then((_) => closed = true);
+      await Future<void>.delayed(Duration.zero);
+      expect(closed, isFalse);
+
+      persistence.releaseAppend();
+      await Future.wait([clearing, closing]);
+      await controller.close();
+
+      final stored = await persistence.snapshot(nowUtc: now);
+      expect(stored.events.whereType<ErrorDiagnosticEvent>(), isEmpty);
+      final request = stored.events.whereType<HttpDiagnosticEvent>().single;
+      expect(request.id, 'reused-id');
+      expect(request.state, DiagnosticHttpState.completed);
+      expect(request.statusCode, 201);
+      expect(
+        stored.events.whereType<DiagnosticSessionEvent>().map(
+          (event) => event.state,
+        ),
+        [DiagnosticSessionState.ended],
+      );
+    },
+  );
+
+  test(
+    'clear from a hydration listener cannot restore rebased pending writes',
+    () async {
+      final now = DateTime.utc(2026, 8, 8, 9);
+      final persistence = _GatedHydrationPersistence();
+      await persistence.seed([
+        DiagnosticSessionEvent(
+          id: 'retained-session',
+          sessionId: 'previous-session',
+          sequence: 20,
+          timestampUtc: now,
+          updatedAtUtc: now,
+          state: DiagnosticSessionState.started,
+        ),
+      ], nowUtc: now);
+      final controller = DiagnosticsController.start(
+        persistence: persistence,
+        clock: () => now,
+        sessionId: 'clear-hydration-listener',
+      );
+      addTearDown(() async {
+        persistence.releaseLoad();
+        persistence.releaseAppend();
+        await controller.close();
+      });
+      controller.recordHttp(
+        _httpRecord(now, HttpDiagnosticPhase.started, eventId: 'early-request'),
+      );
+
+      Future<void>? clearing;
+      var cleared = false;
+      controller.eventsListenable.addListener(() {
+        if (cleared ||
+            !controller.events.any((event) => event.id == 'retained-session')) {
+          return;
+        }
+        cleared = true;
+        clearing = controller.clear();
+        controller.reportError(StateError('replacement'), StackTrace.empty);
+      });
+
+      final hydration = controller.hydrate();
+      persistence.releaseLoad();
+      await hydration;
+      expect(cleared, isTrue);
+      await persistence.appendStarted.future;
+      persistence.releaseAppend();
+      await clearing;
+      await controller.flush();
+
+      final stored = await persistence.snapshot(nowUtc: now);
+      expect(stored.events.whereType<HttpDiagnosticEvent>(), isEmpty);
+      expect(stored.events.whereType<DiagnosticSessionEvent>(), isEmpty);
+      expect(
+        stored.events.whereType<ErrorDiagnosticEvent>().single.message,
+        'Bad state: replacement',
+      );
+    },
+  );
+
+  test(
     'concurrent close callers share failure and still release notifiers',
     () async {
       final persistence = _GatedClosePersistence();

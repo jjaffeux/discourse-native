@@ -16,6 +16,8 @@ import 'package:flutter/foundation.dart';
 
 export 'diagnostic_event.dart' show DiagnosticSeverity;
 
+part 'diagnostics_write_session.dart';
+
 enum DiagnosticsKindFilter { all, requests, errors }
 
 typedef DiagnosticsTimerFactory =
@@ -418,7 +420,7 @@ final class DiagnosticsController
         HttpDiagnosticsRecorder,
         IntermediateHttpDiagnosticsRecorder {
   DiagnosticsController._({
-    required this._persistenceFactory,
+    required Future<DiagnosticsPersistence> Function() persistenceFactory,
     required this._clock,
     required this._timerFactory,
     required this.sessionId,
@@ -430,13 +432,19 @@ final class DiagnosticsController
        _journal = journal,
        _panelStateNotifier = FrameSafeValueNotifier(DiagnosticsPanelState()),
        _panelOpenNotifier = FrameSafeValueNotifier(false),
-       _unseenErrorCountNotifier = FrameSafeValueNotifier(0);
+       _unseenErrorCountNotifier = FrameSafeValueNotifier(0) {
+    _writeSession = _DiagnosticsWriteSession(
+      persistenceFactory: persistenceFactory,
+      clock: _clock,
+      onHydrated: _acceptHydratedHistory,
+      onFailure: _recordPersistenceFailure,
+    );
+  }
 
   static const Duration ordinaryWriteDelay = Duration(milliseconds: 150);
   static const int reportFormatVersion = 1;
 
-  final Future<DiagnosticsPersistence> Function() _persistenceFactory;
-  DiagnosticsPersistence? _persistence;
+  late final _DiagnosticsWriteSession _writeSession;
   final DateTime Function() _clock;
   final DiagnosticsTimerFactory _timerFactory;
   final DiagnosticsJournal _journal;
@@ -451,32 +459,20 @@ final class DiagnosticsController
   /// Opt-in high-frequency trace kept separate from persisted diagnostics.
   final TopicScrollCaptureController topicScrollCapture;
 
-  final List<(DiagnosticEvent, int)> _pendingWrites = [];
-  final Map<String, int> _pendingWriteIndexes = {};
-
   Expando<Object> _reportedErrorEpochs = Expando<Object>(
     'diagnostics reported error epochs',
   );
   Object _errorDedupEpoch = Object();
   bool _errorEpochRotationScheduled = false;
-  final DiagnosticsJournalOperationQueue _persistenceOperations =
-      DiagnosticsJournalOperationQueue();
-  final Completer<void> _hydrationCompleted = Completer<void>();
-  final Set<int> _queuedWriteDrains = {};
-  Timer? _writeTimer;
   Timer? _expiryTimer;
   List<DiagnosticEvent>? _frozenEvents;
   int _sequence;
 
-  int _generation = 0;
-  bool _persistenceFailed = false;
+  int get _generation => _writeSession.generation;
   bool _closed = false;
   Future<void>? _closeTask;
   bool _closeSettled = false;
-  Future<void>? _hydrationTask;
-  bool _discardHydratedHistory = false;
   bool _markSeenRequestedDuringHydration = false;
-  bool _durablePersistenceUnavailable = false;
 
   final String sessionId;
 
@@ -530,60 +526,14 @@ final class DiagnosticsController
   }
 
   /// Loads and merges retained history exactly once.
-  Future<void> hydrate() => _hydrationTask ??= _performHydration();
+  Future<void> hydrate() => _writeSession.hydrate();
 
-  Future<void> _performHydration() async {
-    Object? persistenceError;
-    StackTrace? persistenceStack;
-    var durablePersistenceUnavailable = false;
-    DiagnosticsPersistence resolvedPersistence;
-    DiagnosticsPersistenceState stored;
-
-    try {
-      try {
-        resolvedPersistence = await _persistenceFactory();
-      } on Object catch (error, stackTrace) {
-        resolvedPersistence = MemoryDiagnosticsPersistence();
-        durablePersistenceUnavailable = true;
-        persistenceError = error;
-        persistenceStack = stackTrace;
-      }
-
-      try {
-        stored = await resolvedPersistence.load(nowUtc: _clock());
-      } on Object catch (error, stackTrace) {
-        // Keep the failed persistence as a clear-only recovery delegate. A
-        // confirmed Clear must still get a chance to delete an unreadable
-        // JSONL file instead of silently clearing only fallback memory.
-        resolvedPersistence = _LoadFailureFallbackPersistence(
-          resolvedPersistence,
-        );
-        stored = const DiagnosticsPersistenceState();
-        persistenceError = error;
-        persistenceStack = stackTrace;
-      }
-
-      _persistence = resolvedPersistence;
-      _durablePersistenceUnavailable = durablePersistenceUnavailable;
-      if (!_discardHydratedHistory) {
-        _mergeRetainedHistory(stored);
-      } else {
-        _publishEvents(_clock());
-        _updateUnseenCount();
-      }
-      if (persistenceError != null) {
-        _recordPersistenceFailure(
-          persistenceError,
-          persistenceStack ?? StackTrace.empty,
-        );
-      }
-      // File persistence already compacts while loading when retention
-      // requires it. An unconditional second compaction would rewrite the
-      // complete diagnostics history on every launch.
-    } finally {
-      if (!_hydrationCompleted.isCompleted) {
-        _hydrationCompleted.complete();
-      }
+  void _acceptHydratedHistory(DiagnosticsPersistenceState? stored) {
+    if (stored != null) {
+      _mergeRetainedHistory(stored);
+    } else {
+      _publishEvents(_clock());
+      _updateUnseenCount();
     }
   }
 
@@ -609,7 +559,7 @@ final class DiagnosticsController
       rebasedById[event.id] = rebased;
       _journal.put(rebased);
     }
-    _rebasePendingWrites(rebasedById);
+    _writeSession.rebasePending(rebasedById);
 
     if (frozenIds != null) {
       _frozenEvents = List.unmodifiable(
@@ -621,25 +571,6 @@ final class DiagnosticsController
       _markSeenNow();
     } else {
       _updateUnseenCount();
-    }
-  }
-
-  void _rebasePendingWrites(Map<String, DiagnosticEvent> rebasedById) {
-    for (var index = 0; index < _pendingWrites.length; index += 1) {
-      final (event, generation) = _pendingWrites[index];
-      _pendingWrites[index] = (rebasedById[event.id] ?? event, generation);
-    }
-    _pendingWrites.sort((left, right) {
-      final bySequence = left.$1.sequence.compareTo(right.$1.sequence);
-      return bySequence != 0 ? bySequence : left.$1.id.compareTo(right.$1.id);
-    });
-    _rebuildPendingWriteIndexes();
-  }
-
-  void _rebuildPendingWriteIndexes() {
-    _pendingWriteIndexes.clear();
-    for (var index = 0; index < _pendingWrites.length; index += 1) {
-      _pendingWriteIndexes[_pendingWrites[index].$1.id] = index;
     }
   }
 
@@ -750,7 +681,7 @@ final class DiagnosticsController
       _setPanelState(panelState.copyWith(selectedEventId: eventId));
 
   void markSeen() {
-    if (!_hydrationCompleted.isCompleted) {
+    if (!_writeSession.isHydrated) {
       _markSeenRequestedDuringHydration = true;
     }
     _markSeenNow();
@@ -764,10 +695,7 @@ final class DiagnosticsController
       return;
     }
     _unseenErrorCountNotifier.value = 0;
-    _queuePersistence(
-      () => _persistence!.writeLastSeenSequence(_journal.lastSeenSequence),
-      generation: _generation,
-    );
+    _writeSession.markSeen(() => _journal.lastSeenSequence);
   }
 
   @override
@@ -1002,48 +930,21 @@ final class DiagnosticsController
 
   Future<void> clear() async {
     if (_closed) return;
-    _generation += 1;
-    _discardHydratedHistory = true;
-    _markSeenRequestedDuringHydration = false;
-    _writeTimer?.cancel();
-    _writeTimer = null;
-    _expiryTimer?.cancel();
-    _expiryTimer = null;
-    _pendingWrites.clear();
-    _pendingWriteIndexes.clear();
-    _httpGenerations.clear();
-    // Clear starts a new diagnostics generation. If persistence fails again
-    // (especially while deleting an unreadable old file), surface a fresh
-    // memory-only warning rather than leaving the panel deceptively empty.
-    _persistenceFailed = false;
-    _resetErrorDeduplication();
-    _journal.clear(lastSeenSequence: _sequence);
-    _frozenEvents = panelState.frozen ? const [] : null;
-    _eventsNotifier.invalidate();
-    _unseenErrorCountNotifier.value = 0;
-    selectEvent(null);
-    final generation = _generation;
-    _queuePersistence(() => _persistence!.clear(), generation: generation);
-    await flush();
-    if (_durablePersistenceUnavailable && !_closed) {
-      _recordPersistenceFailure(
-        StateError('Application support storage remains unavailable.'),
-        StackTrace.empty,
-      );
-    }
+    await _writeSession.clear(() {
+      _markSeenRequestedDuringHydration = false;
+      _expiryTimer?.cancel();
+      _expiryTimer = null;
+      _httpGenerations.clear();
+      _resetErrorDeduplication();
+      _journal.clear(lastSeenSequence: _sequence);
+      _frozenEvents = panelState.frozen ? const [] : null;
+      _eventsNotifier.invalidate();
+      _unseenErrorCountNotifier.value = 0;
+      selectEvent(null);
+    });
   }
 
-  Future<void> flush() async {
-    final hydration = hydrate();
-    _flushPendingWrites();
-    await hydration;
-    while (true) {
-      final pending = _persistenceOperations.done;
-      await pending;
-      _flushPendingWrites();
-      if (identical(pending, _persistenceOperations.done)) return;
-    }
-  }
+  Future<void> flush() => _writeSession.flush();
 
   Future<void> close() {
     final active = _closeTask;
@@ -1107,8 +1008,7 @@ final class DiagnosticsController
       }
     }
 
-    await stage(flush);
-    await stage(() => _persistence!.close());
+    await stage(_writeSession.close);
     disposeNotifier(_eventsNotifier);
     disposeNotifier(_panelStateNotifier);
     disposeNotifier(_panelOpenNotifier);
@@ -1140,7 +1040,7 @@ final class DiagnosticsController
     }
     for (final interrupted in interruptedEvents) {
       _journal.put(interrupted);
-      _schedulePersist(interrupted);
+      _writeSession.record(interrupted);
     }
     if (publish) _publishEvents(now);
   }
@@ -1173,7 +1073,7 @@ final class DiagnosticsController
     } else {
       _updateUnseenCount();
     }
-    _schedulePersist(
+    _writeSession.record(
       event,
       generation: eventGeneration,
       immediately: persistImmediately,
@@ -1229,10 +1129,7 @@ final class DiagnosticsController
     _publishEvents(now);
     _updateUnseenCount();
     if (_journal.length != before) {
-      _queuePersistence(
-        () => _persistence!.compact(nowUtc: now),
-        generation: _generation,
-      );
+      _writeSession.compact(now);
     }
   }
 
@@ -1298,99 +1195,8 @@ final class DiagnosticsController
   String _newEventId(String prefix, DateTime now) =>
       '$sessionId-$prefix-${now.microsecondsSinceEpoch}-${_nextIdSuffix()}';
 
-  void _schedulePersist(
-    DiagnosticEvent event, {
-    int? generation,
-    bool immediately = false,
-  }) {
-    final eventGeneration = generation ?? _generation;
-    final pendingIndex = _pendingWriteIndexes[event.id];
-    if (pendingIndex != null &&
-        _pendingWrites[pendingIndex].$2 == eventGeneration) {
-      // Most requests complete inside one write window. Replacing their
-      // pending snapshot avoids serializing started + headers + completion.
-      _pendingWrites[pendingIndex] = (event, eventGeneration);
-    } else {
-      _pendingWriteIndexes[event.id] = _pendingWrites.length;
-      _pendingWrites.add((event, eventGeneration));
-    }
-    if (immediately) {
-      _flushPendingWrites();
-      return;
-    }
-    _writeTimer ??= Timer(ordinaryWriteDelay, _flushPendingWrites);
-  }
-
-  void _flushPendingWrites() {
-    _writeTimer?.cancel();
-    _writeTimer = null;
-    if (_pendingWrites.isEmpty) return;
-    final generations = {
-      for (final (_, generation) in _pendingWrites) generation,
-    };
-    for (final generation in generations) {
-      if (!_queuedWriteDrains.add(generation)) continue;
-      unawaited(
-        _persistenceOperations.run(() async {
-          try {
-            await _hydrationCompleted.future;
-            if (generation != _generation) return;
-            await _persistPendingWrites(generation);
-          } on Object catch (error, stackTrace) {
-            if (generation == _generation) {
-              _recordPersistenceFailure(error, stackTrace);
-            }
-          } finally {
-            _queuedWriteDrains.remove(generation);
-            if (_pendingWrites.isNotEmpty) _flushPendingWrites();
-          }
-        }),
-      );
-    }
-  }
-
-  Future<void> _persistPendingWrites(int generation) async {
-    while (generation == _generation) {
-      final events = <DiagnosticEvent>[];
-      final retained = <(DiagnosticEvent, int)>[];
-      for (final write in _pendingWrites) {
-        if (write.$2 == generation) {
-          events.add(write.$1);
-        } else {
-          retained.add(write);
-        }
-      }
-      if (events.isEmpty) return;
-      _pendingWrites
-        ..clear()
-        ..addAll(retained);
-      _rebuildPendingWriteIndexes();
-      await _persistence!.appendEvents(events, nowUtc: _clock());
-    }
-  }
-
-  void _queuePersistence(
-    Future<void> Function() operation, {
-    required int generation,
-  }) {
-    unawaited(
-      _persistenceOperations.run(() async {
-        try {
-          await _hydrationCompleted.future;
-          if (generation != _generation) return;
-          await operation();
-        } on Object catch (error, stackTrace) {
-          if (generation == _generation) {
-            _recordPersistenceFailure(error, stackTrace);
-          }
-        }
-      }),
-    );
-  }
-
   void _recordPersistenceFailure(Object error, StackTrace stackTrace) {
-    if (_persistenceFailed || _closed) return;
-    _persistenceFailed = true;
+    if (_closed) return;
     final now = _clock().toUtc();
     final warning = ErrorDiagnosticEvent(
       id: _newEventId('persistence', now),
@@ -1488,61 +1294,4 @@ String _newSessionId(DateTime now) =>
 String _safeIdentifier(String input) {
   final safe = input.toLowerCase().replaceAll(RegExp('[^a-z0-9]+'), '-');
   return safe.replaceAll(RegExp(r'^-+|-+$'), '').nullIfEmpty ?? 'operation';
-}
-
-/// Memory-only after a load failure, while retaining the failed backend solely
-/// so a later confirmed Clear can retry deleting its on-disk history.
-final class _LoadFailureFallbackPersistence implements DiagnosticsPersistence {
-  _LoadFailureFallbackPersistence(this._failed);
-
-  final DiagnosticsPersistence _failed;
-  final MemoryDiagnosticsPersistence _memory = MemoryDiagnosticsPersistence();
-  bool _recovered = false;
-
-  DiagnosticsPersistence get _active => _recovered ? _failed : _memory;
-
-  @override
-  Future<DiagnosticsPersistenceState> load({required DateTime nowUtc}) =>
-      _active.load(nowUtc: nowUtc);
-
-  @override
-  Future<void> appendEvents(
-    List<DiagnosticEvent> events, {
-    required DateTime nowUtc,
-  }) => _active.appendEvents(events, nowUtc: nowUtc);
-
-  @override
-  Future<void> writeLastSeenSequence(int sequence) =>
-      _active.writeLastSeenSequence(sequence);
-
-  @override
-  Future<void> compact({required DateTime nowUtc}) =>
-      _active.compact(nowUtc: nowUtc);
-
-  @override
-  Future<void> clear() async {
-    Object? failure;
-    StackTrace? failureStack;
-    try {
-      await _failed.clear();
-      _recovered = true;
-    } on Object catch (error, stackTrace) {
-      failure = error;
-      failureStack = stackTrace;
-    }
-    await _memory.clear();
-    if (failure != null) {
-      Error.throwWithStackTrace(failure, failureStack!);
-    }
-  }
-
-  @override
-  Future<void> close() async {
-    try {
-      await _failed.close();
-    } on Object {
-      // The original backend is already known to be unavailable.
-    }
-    await _memory.close();
-  }
 }
