@@ -53,7 +53,22 @@ final class VoiceIncomingCallAcceptance {
   bool get isCurrent => _isCurrent();
 }
 
-final class _VoiceIncomingAnswer {
+sealed class _VoiceIncomingAdmission {}
+
+enum _VoiceIncomingPresentation { pending, local, system }
+
+final class _VoiceIncomingRing extends _VoiceIncomingAdmission {
+  _VoiceIncomingRing(this.siteUrl, this.call);
+
+  final String siteUrl;
+  final VoiceIncomingCall call;
+  Timer? expiry;
+  _VoiceIncomingPresentation presentation = _VoiceIncomingPresentation.pending;
+
+  bool get presented => presentation == _VoiceIncomingPresentation.system;
+}
+
+final class _VoiceIncomingAnswer extends _VoiceIncomingAdmission {
   _VoiceIncomingAnswer({
     required this.siteUrl,
     required this.call,
@@ -343,10 +358,11 @@ final class VoiceController extends ChangeNotifier {
   late final _VoiceCallManager _calls = _VoiceCallManager(this);
   final Map<String, PluginLiveChannelSubscription> _ringSubscriptions = {};
   final Set<String> _handledRings = {};
-  ({String siteUrl, VoiceIncomingCall call})? _incomingCall;
-  _VoiceIncomingAnswer? _incomingAnswer;
-  Timer? _incomingCallExpiry;
-  bool _incomingCallSystemPresented = false;
+  _VoiceIncomingAdmission? _incomingAdmission;
+  _VoiceIncomingRing? get _ringingCall => switch (_incomingAdmission) {
+    _VoiceIncomingRing ring => ring,
+    _ => null,
+  };
   final Duration heartbeatInterval;
   final Duration signalBatchDelay;
   // Cancelled and awaited by the idempotent close lifecycle below.
@@ -448,14 +464,13 @@ final class VoiceController extends ChangeNotifier {
 
   /// The direct call ringing this user right now, if any. Cleared when it
   /// is answered, declined, or has run out.
-  VoiceIncomingCall? get incomingCall => _incomingCall?.call;
+  VoiceIncomingCall? get incomingCall => _ringingCall?.call;
 
-  String? get incomingCallSiteUrl => _incomingCall?.siteUrl;
+  String? get incomingCallSiteUrl => _ringingCall?.siteUrl;
 
   /// The system (CallKit) is ringing for [incomingCall], so the app's own
   /// banner would only duplicate it; the answer arrives as a system action.
-  bool get incomingCallHandledBySystem =>
-      _incomingCall != null && _incomingCallSystemPresented;
+  bool get incomingCallHandledBySystem => _ringingCall?.presented ?? false;
 
   /// Starts a direct call to [username] on [siteUrl]. The server answers
   /// with the ephemeral call room, which is held beside the directory so
@@ -503,7 +518,7 @@ final class VoiceController extends ChangeNotifier {
   }
 
   _VoiceIncomingAnswer? _takeIncomingCall() {
-    final incoming = _incomingCall;
+    final incoming = _ringingCall;
     if (_disposed || incoming == null) return null;
     final siteSession = _siteSession(incoming.siteUrl);
     final lease = _requests.capture(incoming.siteUrl);
@@ -513,15 +528,15 @@ final class VoiceController extends ChangeNotifier {
     answer = _VoiceIncomingAnswer(
       siteUrl: incoming.siteUrl,
       call: incoming.call,
-      presented: _incomingCallSystemPresented,
+      presented: incoming.presented,
       isCurrent: () =>
-          identical(_incomingAnswer, answer) &&
+          identical(_incomingAdmission, answer) &&
           identical(_calls.admissionIdentity, joinTail) &&
           _isCurrentSiteSession(incoming.siteUrl, siteSession) &&
           lease.isCurrent,
     );
-    _incomingAnswer = answer;
-    _clearIncomingCall();
+    incoming.expiry?.cancel();
+    _incomingAdmission = answer;
     return answer;
   }
 
@@ -563,9 +578,9 @@ final class VoiceController extends ChangeNotifier {
   }
 
   void declineIncomingCall({bool fromSystem = false}) {
-    final incoming = _incomingCall;
+    final incoming = _ringingCall;
     if (incoming == null) return;
-    final presented = _incomingCallSystemPresented;
+    final presented = incoming.presented;
     _record(
       'call.ring.declined',
       data: {'roomId': incoming.call.roomId, 'fromSystem': fromSystem},
@@ -584,15 +599,27 @@ final class VoiceController extends ChangeNotifier {
   /// with that reason when it was ringing too; the answer and decline paths
   /// settle the system call themselves.
   void _clearIncomingCall({VoiceIncomingCallEndReason? tellSystem}) {
-    _incomingCallExpiry?.cancel();
-    _incomingCallExpiry = null;
-    _incomingCall = null;
-    final presented = _incomingCallSystemPresented;
-    _incomingCallSystemPresented = false;
-    if (presented && tellSystem != null) {
+    final incoming = _ringingCall;
+    if (incoming == null) return;
+    incoming.expiry?.cancel();
+    _incomingAdmission = null;
+    if (incoming.presented && tellSystem != null) {
       _observe(
         () => systemCall.endIncomingCall(tellSystem),
         'voice.systemCall.endIncoming',
+      );
+    }
+  }
+
+  void _retireIncomingAnswer() {
+    if (_incomingAdmission is _VoiceIncomingAnswer) _incomingAdmission = null;
+  }
+
+  void _incomingRoomJoined(String siteUrl, int roomId) {
+    final incoming = _ringingCall;
+    if (incoming?.siteUrl == siteUrl && incoming?.call.roomId == roomId) {
+      _clearIncomingCall(
+        tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
       );
     }
   }
@@ -602,10 +629,8 @@ final class VoiceController extends ChangeNotifier {
   /// comes back as a system action. When the system declines to (no
   /// system call UI on this platform, a call already up, the ring already
   /// over), the app's own banner stays.
-  Future<void> _presentIncomingCall(
-    String siteUrl,
-    VoiceIncomingCall call,
-  ) async {
+  Future<void> _presentIncomingCall(_VoiceIncomingRing incoming) async {
+    final call = incoming.call;
     final caller = call.caller;
     final presented = await _runHandledValue(
       () => systemCall.reportIncomingCall(
@@ -617,10 +642,7 @@ final class VoiceController extends ChangeNotifier {
       fallback: false,
     );
     if (_disposed) return;
-    final current = _incomingCall;
-    if (current == null ||
-        current.siteUrl != siteUrl ||
-        current.call.key != call.key) {
+    if (!identical(_incomingAdmission, incoming)) {
       // The ring ended (or was replaced) while the system was being asked.
       if (presented) {
         _observe(
@@ -635,8 +657,10 @@ final class VoiceController extends ChangeNotifier {
       'call.ring.system_presentation',
       data: {'roomId': call.roomId, 'presented': presented},
     );
-    if (presented != _incomingCallSystemPresented) {
-      _incomingCallSystemPresented = presented;
+    incoming.presentation = presented
+        ? _VoiceIncomingPresentation.system
+        : _VoiceIncomingPresentation.local;
+    if (presented) {
       notifyListeners();
     }
   }
@@ -649,8 +673,8 @@ final class VoiceController extends ChangeNotifier {
     // CallKit can echo a local answer or deliver its action more than once.
     // Once taken, that answer alone owns resolution and failure handling.
     if (_disposed ||
-        (_incomingCall == null &&
-            (_incomingAnswer != null ||
+        (_ringingCall == null &&
+            (_incomingAdmission is _VoiceIncomingAnswer ||
                 _call != null ||
                 _calls.hasPendingJoin))) {
       return;
@@ -662,8 +686,7 @@ final class VoiceController extends ChangeNotifier {
     bool isCurrent() =>
         answer?.isCurrent() ??
         (!_disposed &&
-            _incomingCall == null &&
-            _incomingAnswer == null &&
+            _incomingAdmission == null &&
             _call == null &&
             !_calls.hasPendingJoin);
     if (!isCurrent()) return;
@@ -727,18 +750,18 @@ final class VoiceController extends ChangeNotifier {
     }
     if (!_handledRings.add(call.key)) return;
     if (_handledRings.length > 50) _handledRings.remove(_handledRings.first);
-    _incomingAnswer = null;
+    _retireIncomingAnswer();
     _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
-    _incomingCall = (siteUrl: siteUrl, call: call);
-    _incomingCallExpiry = _timerFactory(remaining, () {
-      _incomingCallExpiry = null;
-      if (_incomingCall?.call.key != call.key) return;
+    final incoming = _VoiceIncomingRing(siteUrl, call);
+    _incomingAdmission = incoming;
+    incoming.expiry = _timerFactory(remaining, () {
+      if (!identical(_incomingAdmission, incoming)) return;
       _record('call.ring.expired', data: {'roomId': call.roomId});
       _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
       if (!_disposed) notifyListeners();
     });
     notifyListeners();
-    unawaited(_presentIncomingCall(siteUrl, call));
+    unawaited(_presentIncomingCall(incoming));
   }
 
   void _notify(String message) {
@@ -946,7 +969,7 @@ final class VoiceController extends ChangeNotifier {
     for (final entry in _chats.entries) {
       if (entry.key.startsWith('$siteUrl#')) _unwatchChatUpdates(entry.value);
     }
-    if (_incomingCall?.siteUrl == siteUrl) {
+    if (_ringingCall?.siteUrl == siteUrl) {
       _clearIncomingCall(tellSystem: VoiceIncomingCallEndReason.unanswered);
     }
   }

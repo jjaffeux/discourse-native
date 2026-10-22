@@ -7680,6 +7680,25 @@ void main() {
         expect(controller.room(firstSite, 9), isNull);
       });
 
+      test('account retirement keeps duplicate system answers inert', () async {
+        await offerCall();
+        callTransport.heldPluginPaths.add('/voice/rooms/call-1a2b.json');
+        systemCall.send(VoiceSystemCallAction.answer);
+        await pumpEventQueue();
+        final pending = callTransport.pendingPluginGets.single;
+
+        await replaceAccount();
+        systemCall.send(VoiceSystemCallAction.answer);
+        await pumpEventQueue();
+        pending.response.complete(callRoom());
+        await pumpEventQueue();
+
+        expect(systemCall.failures, 0);
+        expect(answeredRooms, isEmpty);
+        expect(controller.call, isNull);
+        expect(controller.room(firstSite, 9), isNull);
+      });
+
       for (final invalidation in [
         'forget',
         'dispose',
@@ -7951,6 +7970,82 @@ void main() {
         expect(systemCall.incomingEnds, [
           VoiceIncomingCallEndReason.unanswered,
         ]);
+      });
+
+      test('expiry withdraws a presentation that completes late', () async {
+        final presentation = Completer<void>();
+        systemCall
+          ..presentsIncomingCalls = true
+          ..reportIncomingGate = presentation;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+
+        scheduler.advance(const Duration(seconds: 50));
+        expect(controller.incomingCall, isNull);
+        expect(scheduler.activeTimerCount, 0);
+        presentation.complete();
+        await pumpEventQueue();
+
+        expect(controller.incomingCallHandledBySystem, isFalse);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.unanswered,
+        ]);
+      });
+
+      test('late presentation leaves the replacement ring intact', () async {
+        final previousPresentation = Completer<void>();
+        systemCall
+          ..presentsIncomingCalls = true
+          ..reportIncomingGate = previousPresentation;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+
+        final nextPresentation = Completer<void>();
+        systemCall.reportIncomingGate = nextPresentation;
+        firstTracker.deliver('/voice/call-ring/1', ring(sentAt: 1786204815));
+        previousPresentation.complete();
+        await pumpEventQueue();
+
+        expect(
+          controller.incomingCall?.sentAt,
+          ringSentAt.add(const Duration(seconds: 15)),
+        );
+        expect(controller.incomingCallHandledBySystem, isFalse);
+        expect(scheduler.activeTimerCount, 1);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.unanswered,
+        ]);
+
+        nextPresentation.complete();
+        await pumpEventQueue();
+        expect(controller.incomingCallHandledBySystem, isTrue);
+        scheduler.advance(const Duration(seconds: 50));
+        expect(controller.incomingCall, isNotNull);
+        scheduler.advance(const Duration(seconds: 15));
+        expect(controller.incomingCall, isNull);
+        expect(systemCall.incomingEnds, [
+          VoiceIncomingCallEndReason.unanswered,
+          VoiceIncomingCallEndReason.unanswered,
+        ]);
+      });
+
+      test('close does not wait for a pending presentation', () async {
+        final presentation = Completer<void>();
+        systemCall
+          ..presentsIncomingCalls = true
+          ..reportIncomingGate = presentation;
+        await controller.ensureLoaded(firstSite);
+        firstTracker.deliver('/voice/call-ring/1', ring());
+
+        await controller.close();
+
+        expect(presentation.isCompleted, isFalse);
+        expect(controller.incomingCall, isNull);
+        expect(scheduler.activeTimerCount, 0);
+        expect(systemCall.disposeCount, 1);
+        presentation.complete();
+        await pumpEventQueue();
+        expect(systemCall.incomingEnds, isEmpty);
       });
 
       test('declining in the app declines the system call', () async {

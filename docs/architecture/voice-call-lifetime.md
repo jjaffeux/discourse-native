@@ -11,6 +11,17 @@ call controls, incoming rings, embedded Chat, and device preferences.
 joins under the captured account identity. Its admission identity also fences
 incoming-answer continuations.
 
+Incoming admission stays in `VoiceController` as one private sealed state.
+A ringing state owns its expiry timer and pending, local, or system presentation.
+Taking a ring replaces it with an answer capability and cancels expiry before
+room resolution. That capability retains the account, request lease, and join
+admission fences through navigation and privacy confirmation. The bounded ring
+deduplication history survives both states. Call owners report answer retirement
+or a joined room through transition methods rather than mutating admission.
+Late presentation checks the original ring identity. Controller close cancels
+the ring synchronously without waiting for the presentation response. A late
+completion is ignored after controller disposal.
+
 Each `_VoiceCallSession` exists before preference or credential acquisition.
 It owns its call snapshot, server participant identity, media, signal batcher,
 heartbeat and state requests, idle tracker, camera queue and revisions, and

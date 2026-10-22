@@ -403,12 +403,7 @@ final class _VoiceCallSession {
       }
       _mediaViewSeen = VoiceController._mediaView(media);
       media.addListener(_mediaChanged);
-      if (controller._incomingCall case final incoming?
-          when incoming.siteUrl == siteUrl && incoming.call.roomId == room.id) {
-        controller._clearIncomingCall(
-          tellSystem: VoiceIncomingCallEndReason.answeredElsewhere,
-        );
-      }
+      controller._incomingRoomJoined(siteUrl, room.id);
       final roomResponse = controller
           ._roomDirectory(siteUrl)
           .acceptWrite(response.room);
@@ -1603,7 +1598,7 @@ final class _VoiceCallSession {
     required _VoiceLeaveReason reason,
     bool clearImmediately = false,
   }) {
-    controller._incomingAnswer = null;
+    controller._retireIncomingAnswer();
     final active = _leaveOperation;
     final call = _call;
     if (active != null) {

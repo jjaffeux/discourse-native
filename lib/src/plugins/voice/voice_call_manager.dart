@@ -198,7 +198,7 @@ final class _VoiceCallManager {
     required _VoiceLeaveReason reason,
     bool clearImmediately = false,
   }) {
-    controller._incomingAnswer = null;
+    controller._retireIncomingAnswer();
     final session = current;
     return session?.close(
           notifyServer: notifyServer,
