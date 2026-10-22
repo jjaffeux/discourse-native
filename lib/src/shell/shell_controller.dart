@@ -7021,75 +7021,68 @@ class ShellController extends FrameSafeNotifier
     data.refreshWhenOpened(topicId);
   }
 
-  final Map<String, Object> _topicUnreadWrites = {};
-
   bool topicUnreadWriteInFlight(String siteUrl, int topicId) =>
-      _topicUnreadWrites.containsKey(_topicKey(siteUrl, topicId));
+      _topicReads.resetInFlight(siteUrl, topicId);
 
   Future<String?> markTopicUnread(String siteUrl, int topicId) async {
     if (isDisposed || instanceFor(siteUrl)?.isConnected != true) return null;
     final topic = store.read<TopicDetail>(siteUrl, topicId);
     if (topic == null) return null;
-    final key = _topicKey(siteUrl, topicId);
-    if (_topicUnreadWrites.containsKey(key)) return null;
-    final operation = Object();
-    _topicUnreadWrites[key] = operation;
     final lease = lifecycle.capture(siteUrl);
     final tab = activeTabId;
     final route = currentContent;
-    _notify();
-    try {
-      // Let already-sent timings settle before resetting them. New viewport
-      // observations are suppressed until this operation has left the topic.
-      await _topicReads.finishPending(siteUrl, topicId);
-      if (isDisposed || !lease.isCurrent) return null;
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (isDisposed || !lease.isCurrent) return null;
-      if (credential.failure case final failure?) return failure.message;
-      await credential.request!.run(
-        () => api.pluginTransport.pluginWriteJson(
-          siteUrl: siteUrl,
-          path: '/t/$topicId/timings.json?last=1',
-          method: 'DELETE',
-          apiKey: credential.apiKey!,
-          body: const {},
-        ),
-      );
-      if (isDisposed || !lease.isCurrent) return null;
-      _topicReads.forgetTopic(siteUrl, topicId);
-      _trackingFor(
-        siteUrl,
-      ).markLastPostUnread(topicId, math.max(0, topic.highestPostNumber - 1));
-      final row = store.read<Topic>(siteUrl, topicId);
-      if (row != null) {
-        store.put(
-          siteUrl,
-          row.copyWith(
-            lastReadPostNumber: math.max(0, topic.highestPostNumber - 1),
-            unreadPosts: 1,
+    String? failure;
+    await _topicReads.reset(
+      siteUrl,
+      topicId,
+      lease: lease,
+      onChanged: _notify,
+      write: () async {
+        final credential = await _credentialForWrite(siteUrl, lease: lease);
+        if (isDisposed || !lease.isCurrent) return;
+        if (credential.failure case final failure?) throw failure;
+        await credential.request!.run(
+          () => api.pluginTransport.pluginWriteJson(
+            siteUrl: siteUrl,
+            path: '/t/$topicId/timings.json?last=1',
+            method: 'DELETE',
+            apiKey: credential.apiKey!,
+            body: const {},
           ),
         );
-      }
-      if (currentInstance?.url == siteUrl &&
-          activeTabId == tab &&
-          identical(currentContent, route) &&
-          route?.topicId == topicId) {
-        handleBack(canReturnToSidebar: false);
-      }
-      await _topicData.forLease(siteUrl, lease)?.refresh(topicId, slug: '');
-      return null;
-    } on WriteException catch (error) {
-      return lease.isCurrent ? error.message : null;
-    } catch (error, stackTrace) {
-      if (!lease.isCurrent || isDisposed) return null;
-      _reportOperationalError(error, stackTrace, 'topic.markUnread');
-      return const WriteException(WriteFailure.unreachable).message;
-    } finally {
-      if (identical(_topicUnreadWrites[key], operation)) {
-        _topicUnreadWrites.remove(key);
-        if (!isDisposed) _notify();
-      }
-    }
+      },
+      accepted: () async {
+        _trackingFor(
+          siteUrl,
+        ).markLastPostUnread(topicId, math.max(0, topic.highestPostNumber - 1));
+        final row = store.read<Topic>(siteUrl, topicId);
+        if (row != null) {
+          store.put(
+            siteUrl,
+            row.copyWith(
+              lastReadPostNumber: math.max(0, topic.highestPostNumber - 1),
+              unreadPosts: 1,
+            ),
+          );
+        }
+        if (currentInstance?.url == siteUrl &&
+            activeTabId == tab &&
+            identical(currentContent, route) &&
+            route?.topicId == topicId) {
+          handleBack(canReturnToSidebar: false);
+        }
+        await _topicData.forLease(siteUrl, lease)?.refresh(topicId, slug: '');
+      },
+      onError: (error, stackTrace) {
+        if (error is WriteException) {
+          failure = lease.isCurrent ? error.message : null;
+        } else if (lease.isCurrent && !isDisposed) {
+          _reportOperationalError(error, stackTrace, 'topic.markUnread');
+          failure = const WriteException(WriteFailure.unreachable).message;
+        }
+      },
+    );
+    return failure;
   }
 
   Future<void> markTopicRead(
@@ -11651,7 +11644,6 @@ class ShellController extends FrameSafeNotifier
     _topicDeletionWrites.removeWhere((key) => key.startsWith('$siteUrl#'));
     _topicJumpRuns.removeWhere((key, _) => key.startsWith('$siteUrl#'));
     _topicReads.forget(siteUrl);
-    _topicUnreadWrites.removeWhere((key, _) => key.startsWith("$siteUrl#"));
 
     _taxonomy.forget(siteUrl);
     _topicTrackingBySite.remove(siteUrl)?.retire();

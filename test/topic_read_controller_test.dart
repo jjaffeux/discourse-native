@@ -725,6 +725,293 @@ void main() {
     );
   });
 
+  group('read reset ownership', () {
+    test('suppresses reads until the accepted reset finishes', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic());
+      final read = controller.mark(siteUrl, 1, 3, caughtUp: false);
+      await pumpEventQueue();
+      final writeResult = Completer<void>();
+      final acceptedResult = Completer<void>();
+      var writes = 0;
+      var accepted = false;
+      final changes = <bool>[];
+      final resetErrors = <Object>[];
+      final reset = controller.reset(
+        siteUrl,
+        1,
+        lease: lifecycle.capture(siteUrl),
+        write: () {
+          writes++;
+          return writeResult.future;
+        },
+        accepted: () {
+          accepted = true;
+          store.put(siteUrl, _topic());
+          return acceptedResult.future;
+        },
+        onError: (error, _) => resetErrors.add(error),
+        onChanged: () => changes.add(controller.resetInFlight(siteUrl, 1)),
+      );
+
+      expect(controller.resetInFlight(siteUrl, 1), isTrue);
+      await controller.mark(siteUrl, 1, 4, caughtUp: false);
+      expect(writes, 0);
+      expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 3);
+      api.requests.single.response.complete();
+      await read;
+      await pumpEventQueue();
+      expect(writes, 1);
+      await controller.mark(siteUrl, 1, 5, caughtUp: false);
+      expect(api.requests, hasLength(1));
+
+      writeResult.complete();
+      await pumpEventQueue();
+      expect(accepted, isTrue);
+      expect(controller.resetInFlight(siteUrl, 1), isTrue);
+      await controller.mark(siteUrl, 1, 6, caughtUp: false);
+      expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 0);
+      expect(api.requests, hasLength(1));
+
+      acceptedResult.complete();
+      await reset;
+      expect(controller.resetInFlight(siteUrl, 1), isFalse);
+      expect(changes, [true, false]);
+      expect(resetErrors, isEmpty);
+      expect(
+        await sent(() => controller.mark(siteUrl, 1, 3, caughtUp: false)),
+        [
+          [3],
+        ],
+      );
+    });
+
+    for (final timingFailed in [false, true]) {
+      test('a failed reset retains read credits and retry receipts with '
+          'timing failure $timingFailed', () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'key';
+        store.put(siteUrl, _topic());
+        final read = controller.mark(siteUrl, 1, 3, caughtUp: false);
+        await pumpEventQueue();
+        if (timingFailed) {
+          api.requests.single.response.completeError(StateError('offline'));
+        } else {
+          api.requests.single.response.complete();
+        }
+        await read;
+        final failure = StateError('reset failed');
+        final resetErrors = <Object>[];
+        var accepted = false;
+
+        await controller.reset(
+          siteUrl,
+          1,
+          lease: lifecycle.capture(siteUrl),
+          write: () async => throw failure,
+          accepted: () async {
+            accepted = true;
+          },
+          onError: (error, _) => resetErrors.add(error),
+          onChanged: () {},
+        );
+
+        expect(resetErrors, [same(failure)]);
+        expect(accepted, isFalse);
+        expect(controller.resetInFlight(siteUrl, 1), isFalse);
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), 3);
+        expect(
+          await sent(() => controller.mark(siteUrl, 1, 3, caughtUp: false)),
+          timingFailed
+              ? [
+                  [3],
+                ]
+              : isEmpty,
+        );
+        expect(
+          await sent(() => controller.mark(siteUrl, 1, 4, caughtUp: false)),
+          [
+            [4],
+          ],
+        );
+      });
+    }
+
+    test(
+      'accepted failure keeps partial effects and suppresses error observations',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'key';
+        store.put(siteUrl, _topic());
+        final failure = StateError('accepted effect failed');
+        final resetErrors = <Object>[];
+        await controller.reset(
+          siteUrl,
+          1,
+          lease: lifecycle.capture(siteUrl),
+          write: () async {},
+          accepted: () async {
+            store.put(siteUrl, _topic(lastRead: 2));
+            throw failure;
+          },
+          onError: (error, _) {
+            expect(controller.resetInFlight(siteUrl, 1), isTrue);
+            resetErrors.add(error);
+            unawaited(controller.mark(siteUrl, 1, 4, caughtUp: false));
+          },
+          onChanged: () {},
+        );
+        expect(resetErrors, [same(failure)]);
+        expect(controller.resetInFlight(siteUrl, 1), isFalse);
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), isNull);
+        expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 2);
+        expect(api.requests, isEmpty);
+        expect(
+          await sent(() => controller.mark(siteUrl, 1, 3, caughtUp: false)),
+          [
+            [3],
+          ],
+        );
+      },
+    );
+
+    test('a retired reset cannot accept or release its replacement', () async {
+      const siteUrl = 'https://one.example';
+      credentials.keys[siteUrl] = 'key';
+      store.put(siteUrl, _topic());
+      final oldWrite = Completer<void>();
+      var oldAccepted = false;
+      final resetErrors = <Object>[];
+      final oldReset = controller.reset(
+        siteUrl,
+        1,
+        lease: lifecycle.capture(siteUrl),
+        write: () => oldWrite.future,
+        accepted: () async {
+          oldAccepted = true;
+        },
+        onError: (error, _) => resetErrors.add(error),
+        onChanged: () {},
+      );
+      await pumpEventQueue();
+      lifecycle.invalidate(siteUrl);
+      controller.forget(siteUrl);
+      final replacementWrite = Completer<void>();
+      var replacementAccepted = false;
+      final replacementChanges = <bool>[];
+      final replacement = controller.reset(
+        siteUrl,
+        1,
+        lease: lifecycle.capture(siteUrl),
+        write: () => replacementWrite.future,
+        accepted: () async {
+          replacementAccepted = true;
+        },
+        onError: (error, _) => resetErrors.add(error),
+        onChanged: () =>
+            replacementChanges.add(controller.resetInFlight(siteUrl, 1)),
+      );
+      await pumpEventQueue();
+
+      oldWrite.complete();
+      await oldReset;
+      expect(oldAccepted, isFalse);
+      expect(replacementAccepted, isFalse);
+      expect(controller.resetInFlight(siteUrl, 1), isTrue);
+      expect(replacementChanges, [true]);
+      await controller.mark(siteUrl, 1, 3, caughtUp: false);
+      expect(api.requests, isEmpty);
+      expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 0);
+
+      replacementWrite.complete();
+      await replacement;
+      expect(replacementAccepted, isTrue);
+      expect(controller.resetInFlight(siteUrl, 1), isFalse);
+      expect(replacementChanges, [true, false]);
+      expect(resetErrors, isEmpty);
+    });
+
+    test('a disposed pending reset cannot accept its write', () async {
+      const siteUrl = 'https://one.example';
+      final writeResult = Completer<void>();
+      var accepted = false;
+      final changes = <bool>[];
+      final resetErrors = <Object>[];
+      final reset = controller.reset(
+        siteUrl,
+        1,
+        lease: lifecycle.capture(siteUrl),
+        write: () => writeResult.future,
+        accepted: () async {
+          accepted = true;
+        },
+        onError: (error, _) => resetErrors.add(error),
+        onChanged: () => changes.add(controller.resetInFlight(siteUrl, 1)),
+      );
+      await pumpEventQueue();
+      controller.dispose();
+      writeResult.complete();
+      await reset;
+
+      expect(accepted, isFalse);
+      expect(controller.resetInFlight(siteUrl, 1), isFalse);
+      expect(changes, [true]);
+      expect(resetErrors, isEmpty);
+    });
+
+    test(
+      'a reset started by a row listener drains the admitted timing first',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'key';
+        store.put(siteUrl, _topic());
+        var startedReset = false;
+        var writes = 0;
+        var accepted = false;
+        Future<void>? reset;
+        final resetErrors = <Object>[];
+        final ref = store.ref<Topic>(siteUrl, 1);
+        void resetFromRow() {
+          if (startedReset) return;
+          startedReset = true;
+          reset = controller.reset(
+            siteUrl,
+            1,
+            lease: lifecycle.capture(siteUrl),
+            write: () async {
+              writes++;
+            },
+            accepted: () async {
+              accepted = true;
+            },
+            onError: (error, _) => resetErrors.add(error),
+            onChanged: () {},
+          );
+        }
+
+        ref.addListener(resetFromRow);
+        addTearDown(() => ref.removeListener(resetFromRow));
+        final read = controller.mark(siteUrl, 1, 3, caughtUp: false);
+        await pumpEventQueue();
+
+        expect(startedReset, isTrue);
+        expect(api.requests.single.postNumbers, [3]);
+        expect(writes, 0);
+        expect(accepted, isFalse);
+        expect(controller.resetInFlight(siteUrl, 1), isTrue);
+        api.requests.single.response.complete();
+        await Future.wait([read, reset!]);
+
+        expect(writes, 1);
+        expect(accepted, isTrue);
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), isNull);
+        expect(controller.resetInFlight(siteUrl, 1), isFalse);
+        expect(resetErrors, isEmpty);
+      },
+    );
+  });
+
   group('site and account invalidation', () {
     for (final (invalidate, forget) in [
       (true, true),

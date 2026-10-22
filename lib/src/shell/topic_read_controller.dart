@@ -40,6 +40,7 @@ final class TopicReadController {
   final Map<_TopicReadKey, _TopicReadReceipt> _queued = {};
   final Map<_TopicReadKey, Future<void>> _tasks = {};
   final Map<_TopicReadKey, Object> _runs = {};
+  final Map<_TopicReadKey, Object> _resets = {};
 
   bool _disposed = false;
 
@@ -72,6 +73,7 @@ final class TopicReadController {
     if (_disposed || topicId <= 0 || postNumber <= 0) return Future.value();
 
     final key = (siteUrl, topicId);
+    if (_resets.containsKey(key)) return Future.value();
     final lease = lifecycle.capture(siteUrl);
     final held = store.read<Topic>(siteUrl, topicId);
     final local = _positions[key] ?? 0;
@@ -126,6 +128,10 @@ final class TopicReadController {
     );
 
     if (_disposed || !lease.isCurrent) return Future.value();
+    return _drainPending(key);
+  }
+
+  Future<void> _drainPending(_TopicReadKey key) {
     final running = _tasks[key];
     if (running != null) return running;
     if (!_queued.containsKey(key)) return Future.value();
@@ -138,11 +144,44 @@ final class TopicReadController {
     return completion.future;
   }
 
-  Future<void> finishPending(String siteUrl, int topicId) =>
-      _tasks[(siteUrl, topicId)] ?? Future.value();
+  bool resetInFlight(String siteUrl, int topicId) =>
+      _resets.containsKey((siteUrl, topicId));
 
-  void forgetTopic(String siteUrl, int topicId) {
+  Future<void> reset(
+    String siteUrl,
+    int topicId, {
+    required SiteLease lease,
+    required Future<void> Function() write,
+    required Future<void> Function() accepted,
+    required void Function(Object error, StackTrace stackTrace) onError,
+    required void Function() onChanged,
+  }) async {
     final key = (siteUrl, topicId);
+    if (_disposed || !lease.isCurrent || _resets.containsKey(key)) return;
+    final operation = Object();
+    _resets[key] = operation;
+    bool isCurrent() =>
+        !_disposed && lease.isCurrent && identical(_resets[key], operation);
+    try {
+      onChanged();
+      if (!isCurrent()) return;
+      await _drainPending(key);
+      if (!isCurrent()) return;
+      await write();
+      if (!isCurrent()) return;
+      _forgetTopic(key);
+      await accepted();
+    } catch (error, stackTrace) {
+      onError(error, stackTrace);
+    } finally {
+      if (identical(_resets[key], operation)) {
+        _resets.remove(key);
+        if (!_disposed) onChanged();
+      }
+    }
+  }
+
+  void _forgetTopic(_TopicReadKey key) {
     _positions.remove(key);
     _credits.remove(key);
     _retries.remove(key);
@@ -158,6 +197,7 @@ final class TopicReadController {
     _queued.removeWhere((key, _) => key.$1 == siteUrl);
     _tasks.removeWhere((key, _) => key.$1 == siteUrl);
     _runs.removeWhere((key, _) => key.$1 == siteUrl);
+    _resets.removeWhere((key, _) => key.$1 == siteUrl);
   }
 
   void dispose() {
@@ -169,6 +209,7 @@ final class TopicReadController {
     _queued.clear();
     _tasks.clear();
     _runs.clear();
+    _resets.clear();
   }
 
   Topic _projectRead(
