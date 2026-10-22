@@ -584,23 +584,28 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             ),
           ],
         );
-        final headingActions = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ...registry.contentHeaderActions(context, sourceRoute),
-            if (state.siteUrl != null &&
-                !messages &&
-                !controller.mobileNavigationEnabled)
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: listWidth / 2),
-                child: TopicListFilterMenu(
-                  key: ValueKey((state.siteUrl, sourceRoute.id)),
-                  siteUrl: state.siteUrl!,
-                  query: controller.topicListFilterEditorQuery(sourceRoute),
-                ),
+        final headingActionChildren = [
+          ...registry.contentHeaderActions(context, sourceRoute),
+          if (state.siteUrl != null &&
+              !messages &&
+              !controller.mobileNavigationEnabled)
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: listWidth / 2),
+              child: TopicListFilterMenu(
+                key: ValueKey((state.siteUrl, sourceRoute.id)),
+                siteUrl: state.siteUrl!,
+                query: controller.topicListFilterEditorQuery(sourceRoute),
               ),
-          ],
-        );
+            ),
+        ];
+        // An empty trailing slot would still be spaced from the controls
+        // before it, holding the last of them off the edge.
+        final headingActions = headingActionChildren.isEmpty
+            ? null
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: headingActionChildren,
+              );
 
         final listPane = ResizablePane(
           key: _listPaneKey,
@@ -1305,9 +1310,7 @@ class _TopicListHeadingTitle extends StatelessWidget {
       return ForumTabSelector<TopicListMode?>(
         select: (shell, tab) => tab.currentTopicListMode,
         builder: (context, mode, _) => title(
-          ShellScope.read(context).mobileNavigationEnabled
-              ? context.l10n.topics
-              : mode == null
+          mode == null
               ? pageTitle
               : context.l10n.topicsMaincontent(
                   (TopicFeedMenu.label(mode)).toString(),
