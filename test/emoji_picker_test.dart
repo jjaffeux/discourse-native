@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/plugins/chat/chat_emoji_usage.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/emoji_picker_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -520,6 +521,127 @@ void main() {
     expect(controller.searchPending, isFalse);
   });
 
+  testWidgets('clearing search restores grouped keyboard navigation', (
+    tester,
+  ) async {
+    final controller = _pickerController(({refresh = false}) async => _catalog);
+    addTearDown(controller.dispose);
+    await controller.load();
+    String? selected;
+    await tester.pumpWidget(
+      _pickerHarness(controller, onPicked: (code) => selected = code),
+    );
+
+    final search = find.byKey(const ValueKey('emoji-picker-search'));
+    await tester.enterText(search, 'wave');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selected, 'wave');
+
+    selected = null;
+    await tester.tap(find.byKey(const ValueKey('emoji-picker-clear-search')));
+    await tester.pumpAndSettle();
+    expect(controller.query, isEmpty);
+    expect(tester.widget<DInput>(search).focusNode!.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selected, 'smile');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selected, 'discourse');
+  });
+
+  testWidgets('resizing updates the nearest keyboard column', (tester) async {
+    final catalog = SiteEmojiCatalog(
+      groups: [
+        SiteEmojiGroup(
+          id: 'custom',
+          emojis: [
+            for (var index = 0; index < 8; index++)
+              SiteEmoji(
+                name: 'emoji_$index',
+                url: 'https://emoji.example/$index.png',
+              ),
+          ],
+        ),
+      ],
+    );
+    final controller = _pickerController(({refresh = false}) async => catalog);
+    addTearDown(controller.dispose);
+    await controller.load();
+    String? selected;
+    Widget picker(double width) => _pickerHarness(
+      controller,
+      width: width,
+      onPicked: (code) => selected = code,
+    );
+    await tester.pumpWidget(picker(226));
+    await tester.tap(find.byKey(const ValueKey('emoji-picker-search')));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selected, 'emoji_1');
+
+    await tester.pumpWidget(picker(182));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selected, 'emoji_4');
+  });
+
+  testWidgets('controller replacement and retry replace same-name artwork', (
+    tester,
+  ) async {
+    SiteEmojiCatalog catalog(String version) => SiteEmojiCatalog(
+      groups: [
+        SiteEmojiGroup(
+          id: 'custom',
+          emojis: [
+            SiteEmoji(
+              name: 'smile',
+              url: 'https://emoji.example/smile-$version.png',
+            ),
+          ],
+        ),
+      ],
+    );
+    final first = _pickerController(
+      ({refresh = false}) async => catalog('one'),
+    );
+    final second = _pickerController(
+      ({refresh = false}) async => catalog(refresh ? 'three' : 'two'),
+    );
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    await first.load();
+    await second.load();
+    String artwork() => tester
+        .widget<EmojiImage>(
+          find.descendant(
+            of: find.byKey(const ValueKey('emoji-picker-cell-custom-0-smile')),
+            matching: find.byType(EmojiImage),
+          ),
+        )
+        .url;
+
+    await tester.pumpWidget(_pickerHarness(first, onPicked: (_) {}));
+    expect(artwork(), 'https://emoji.example/smile-one.png');
+    await tester.pumpWidget(_pickerHarness(second, onPicked: (_) {}));
+    expect(artwork(), 'https://emoji.example/smile-two.png');
+
+    await second.retry();
+    await tester.pumpAndSettle();
+    expect(artwork(), 'https://emoji.example/smile-three.png');
+  });
+
   testWidgets('grouped keyboard navigation preserves the nearest column', (
     tester,
   ) async {
@@ -565,6 +687,39 @@ void main() {
     expect(selected, 'discourse');
   });
 }
+
+EmojiPickerController _pickerController(EmojiCatalogLoader loadCatalog) =>
+    EmojiPickerController(
+      siteUrl: _siteUrl,
+      context: CoreEmojiUsageContexts.topic,
+      store: EmojiPickerStore(persistence: _MemoryPersistence()),
+      loadCatalog: loadCatalog,
+      loadSearchAliases: ({refresh = false}) async => const {},
+      searchDebounce: Duration.zero,
+    );
+
+Widget _pickerHarness(
+  EmojiPickerController controller, {
+  required ValueChanged<String> onPicked,
+  double width = 405,
+}) => MaterialApp(
+  theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+  home: Scaffold(
+    body: Align(
+      alignment: Alignment.topLeft,
+      child: SizedBox(
+        width: width,
+        height: 360,
+        child: EmojiPicker(
+          controller: controller,
+          touch: false,
+          onPicked: onPicked,
+          onDismiss: () {},
+        ),
+      ),
+    ),
+  ),
+);
 
 final class _MemoryPersistence implements EmojiPickerPersistence {
   final Map<String, String> values = {};

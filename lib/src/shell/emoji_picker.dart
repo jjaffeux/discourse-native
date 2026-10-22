@@ -313,6 +313,15 @@ class _EmojiPickerState extends State<EmojiPicker> {
   final Map<String, double> _groupOffsets = {};
   List<String> _navigationKeys = const [];
   List<String> _visibleGroupIds = const [];
+  ({
+    SiteEmojiCatalog catalog,
+    EmojiSkinTone tone,
+    AppLocalizations l10n,
+    List<FavoriteSiteEmoji> favorites,
+    List<_PickerGroup> groups,
+  })?
+  _groupProjection;
+  List<_PickerGroup>? _navigationGroups;
   String? _activeGroup;
   int _columns = 1;
 
@@ -327,6 +336,8 @@ class _EmojiPickerState extends State<EmojiPicker> {
   void didUpdateWidget(EmojiPicker oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller == widget.controller) return;
+    _groupProjection = null;
+    _navigationGroups = null;
     _search.text = widget.controller.query;
   }
 
@@ -376,7 +387,9 @@ class _EmojiPickerState extends State<EmojiPicker> {
   }
 
   Widget _desktopContent() {
-    final groups = _groups();
+    final groups = widget.controller.hasQuery
+        ? const <_PickerGroup>[]
+        : _groups();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -398,7 +411,9 @@ class _EmojiPickerState extends State<EmojiPicker> {
   }
 
   Widget _touchContent() {
-    final groups = _groups();
+    final groups = widget.controller.hasQuery
+        ? const <_PickerGroup>[]
+        : _groups();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -419,6 +434,10 @@ class _EmojiPickerState extends State<EmojiPicker> {
 
   Widget _content(List<_PickerGroup> groups) {
     final controller = widget.controller;
+    if (controller.catalog == null) {
+      _groupProjection = null;
+      _navigationGroups = null;
+    }
     if (controller.error case final error?) {
       return _PickerMessage(
         icon: DIcons.triangleExclamation,
@@ -493,18 +512,26 @@ class _EmojiPickerState extends State<EmojiPicker> {
   Widget _groupedContent(List<_PickerGroup> groups) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        _columns = math.max(1, (constraints.maxWidth / _cellExtent).floor());
-        _groupOffsets.clear();
-        _cellOffsets.clear();
-        _navigationPositions.clear();
-        final keys = <String>[];
+        final columns = math.max(
+          1,
+          (constraints.maxWidth / _cellExtent).floor(),
+        );
+        final prepareNavigation =
+            !identical(_navigationGroups, groups) || columns != _columns;
+        _columns = columns;
+        if (prepareNavigation) {
+          _groupOffsets.clear();
+          _cellOffsets.clear();
+          _navigationPositions.clear();
+        }
+        final keys = prepareNavigation ? <String>[] : null;
         final slivers = <Widget>[];
         var offset = 0.0;
         var baseIndex = 0;
         var visualRow = 0;
 
         for (final group in groups) {
-          _groupOffsets[group.id] = offset;
+          if (prepareNavigation) _groupOffsets[group.id] = offset;
           slivers.add(
             SliverToBoxAdapter(
               child: SizedBox(
@@ -524,17 +551,19 @@ class _EmojiPickerState extends State<EmojiPicker> {
             ),
           );
           offset += _sectionHeaderExtent;
-          for (var index = 0; index < group.choices.length; index++) {
-            final globalIndex = baseIndex + index;
-            keys.add(_cellKey(group.id, index, group.choices[index].code));
-            _navigationPositions.add(
-              _GridPosition(
-                visualRow: visualRow + index ~/ _columns,
-                column: index % _columns,
-              ),
-            );
-            _cellOffsets[globalIndex] =
-                offset + (index ~/ _columns) * _cellExtent;
+          if (keys != null) {
+            for (var index = 0; index < group.choices.length; index++) {
+              final globalIndex = baseIndex + index;
+              keys.add(_cellKey(group.id, index, group.choices[index].code));
+              _navigationPositions.add(
+                _GridPosition(
+                  visualRow: visualRow + index ~/ _columns,
+                  column: index % _columns,
+                ),
+              );
+              _cellOffsets[globalIndex] =
+                  offset + (index ~/ _columns) * _cellExtent;
+            }
           }
           slivers.add(
             _emojiGrid(
@@ -548,8 +577,11 @@ class _EmojiPickerState extends State<EmojiPicker> {
           visualRow += (group.choices.length + _columns - 1) ~/ _columns;
           baseIndex += group.choices.length;
         }
-        _navigationKeys = List.unmodifiable(keys);
-        _visibleGroupIds = List.unmodifiable(groups.map((group) => group.id));
+        if (keys != null) {
+          _navigationKeys = List.unmodifiable(keys);
+          _visibleGroupIds = List.unmodifiable(groups.map((group) => group.id));
+          _navigationGroups = groups;
+        }
         if (!_visibleGroupIds.contains(_activeGroup)) {
           _activeGroup = groups.first.id;
         }
@@ -601,6 +633,7 @@ class _EmojiPickerState extends State<EmojiPicker> {
     required String sectionId,
     required double headerOffset,
   }) {
+    _navigationGroups = null;
     _columns = math.max(1, (contentWidth / _cellExtent).floor());
     _cellOffsets.clear();
     _navigationPositions.clear();
@@ -622,13 +655,34 @@ class _EmojiPickerState extends State<EmojiPicker> {
     final controller = widget.controller;
     final catalog = controller.catalog;
     if (catalog == null) return const [];
-    return [
-      if (controller.favorites.isNotEmpty)
+    final tone = controller.tone;
+    final l10n = appL10n;
+    final favorites = controller.favorites;
+    final projection = _groupProjection;
+    if (projection != null &&
+        identical(projection.catalog, catalog) &&
+        projection.tone == tone &&
+        identical(projection.l10n, l10n) &&
+        projection.favorites.length == favorites.length) {
+      var sameFavorites = true;
+      for (var index = 0; index < favorites.length; index++) {
+        final previous = projection.favorites[index];
+        final favorite = favorites[index];
+        if (!identical(previous.emoji, favorite.emoji) ||
+            previous.tone != favorite.tone) {
+          sameFavorites = false;
+          break;
+        }
+      }
+      if (sameFavorites) return projection.groups;
+    }
+    final groups = [
+      if (favorites.isNotEmpty)
         _PickerGroup(
           id: _frequentGroup,
-          label: appL10n.frequentlyUsed,
+          label: l10n.frequentlyUsed,
           choices: [
-            for (final favorite in controller.favorites)
+            for (final favorite in favorites)
               _EmojiChoice(emoji: favorite.emoji, tone: favorite.tone),
           ],
         ),
@@ -639,10 +693,18 @@ class _EmojiPickerState extends State<EmojiPicker> {
             label: _groupLabel(group.id),
             choices: [
               for (final emoji in group.emojis)
-                _EmojiChoice(emoji: emoji, tone: controller.tone),
+                _EmojiChoice(emoji: emoji, tone: tone),
             ],
           ),
     ];
+    _groupProjection = (
+      catalog: catalog,
+      tone: tone,
+      l10n: l10n,
+      favorites: favorites,
+      groups: groups,
+    );
+    return groups;
   }
 
   KeyEventResult _onSearchKey(FocusNode node, KeyEvent event) {
